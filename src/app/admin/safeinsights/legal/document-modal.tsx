@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useState } from '@/common'
+import { LegalDocumentContent } from '@/components/legal/document-content'
 import { LoadingMessage } from '@/components/loading'
 import { ErrorPanel } from '@/components/panel'
 import { LegalDocumentType } from '@/database/types'
@@ -88,13 +89,7 @@ export function PreviewDocument({ url }: { url: string }) {
     })
     if (isLoading) return <LoadingMessage message="Loading..." />
     if (isError || !data) return <ErrorPanel />
-    return (
-        <ScrollArea h={400}>
-            <Typography>
-                <Markdown>{data}</Markdown>
-            </Typography>
-        </ScrollArea>
-    )
+    return <LegalDocumentContent content={data} label="LABEL" />
 }
 
 export function ReviewAndPublishForm({
