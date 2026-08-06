@@ -281,34 +281,34 @@ function uploadResults(jobId: string): void {
     )
 }
 
-// Reviewer results-review (StudyDetailsReviewer) for a successful run: decrypt then
-// approve. Result files auto-select on decrypt, so the job-level Approve enables
-// without ticking a checkbox.
-async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<void> {
+// OTTER-668 + OTTER-676: the outputs-available screen, both phases. Like the errored screen,
+// a validated key swaps the form for the outputs table and Decision section on the same URL —
+// decryption is client-side, so the swap is a local phase flip, not a navigation.
+async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
+    await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
+
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled()
-    await decryptButton.click()
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
 
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-
-    const approveButton = page.getByRole('button', { name: /^Approve$/i }).last()
-    await expect(approveButton).toBeEnabled()
-    await approveButton.click()
-    await page.waitForURL('**/dashboard')
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
-// OTTER-667: the errored screen now uses the SecurityKeyForm (decrypt only).
-// The post-decryption approve flow is OTTER-675; until then, verify decrypt succeeds.
+// OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
+// the outputs table and Decision section without a navigation, because decryption is client-side, so
+// the swap is a local phase flip on the same URL.
 async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
@@ -318,7 +318,7 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
     await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByRole('textbox')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -326,24 +326,114 @@ async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promis
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
-    await expect(page.getByText('Security key accepted.')).toBeVisible()
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
-// OTTER-675: restore once the reviewer approve flow is built — the researcher's
-// errored view is gated on file approval (awaitingFilesDecisionOnError).
-// async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
-//     await visitAsRole(page, RESEARCHER_DASHBOARD)
-//
-//     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
-//     await expect(studyRow.getByText(/Errored/i)).toBeVisible()
-//
-//     await viewStudyDetails(page, studyTitle)
-//
-//     await expect(page.getByText(/The code errored/i)).toBeVisible()
-//     await expect(page.getByText(/Job ID/i)).toBeVisible()
-//
-//     await expect(page.getByText('Code Run Log')).toBeVisible()
-// }
+// OTTER-675: submitting the decision from the decrypted view. Shares the outputs so the
+// researcher-side assertions below have something to see.
+async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void> {
+    await expect(page.getByTestId('outputs-decision-section')).toBeVisible()
+
+    const editor = page.getByLabel('Decision feedback')
+    await expect(editor).toBeVisible()
+    await editor.click()
+    await editor.fill(feedback)
+
+    await page.getByTestId('outputs-decision-share-outputs').check()
+
+    const trigger = page.getByTestId('outputs-submit-decision')
+    await trigger.click()
+
+    // Scope to the dialog: the page's own trigger and the modal's confirm share the label
+    // "Submit decision", so an unscoped role query matches both once the modal is open.
+    const modal = page.getByRole('dialog', { name: 'Submit your decision?' })
+    await expect(modal).toBeVisible()
+    // The modal names what is about to be shared before anything is written.
+    await expect(modal.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
+
+    // Focus must come back to the trigger on every dismissal. The modal stays mounted while
+    // closed so Mantine's own returnFocus can do it; unmounting it would take useFocusReturn
+    // along with it. Checked here rather than in jsdom, where the Lexical editor this flow needs
+    // is not typeable. Escape first, then the X, then reopen for the real submit.
+    await page.keyboard.press('Escape')
+    await expect(modal).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Close' }).click()
+    await expect(modal).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Submit decision' }).click()
+
+    // The decision re-resolves the reviewer screen; leaving the errored view is the signal.
+    await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
+}
+
+// OTTER-675: blank submit must flag both fields and open no modal.
+async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
+    const editor = page.getByLabel('Decision feedback')
+    const trigger = page.getByTestId('outputs-submit-decision')
+
+    // The caret starts inside the empty editor, which is where this used to break: raising the
+    // "enter your feedback" message as the editor lost focus inserted a line above the navigation
+    // row, so the button moved out from under the pointer between mousedown and mouseup, the click
+    // was never delivered, and only the field the blur had flagged was ever reported.
+    await editor.click()
+    await trigger.click()
+
+    await expect(page.getByText(/Enter your feedback for .* before submitting\./)).toBeVisible()
+    await expect(page.getByText('Select an option before submitting')).toBeVisible()
+    const options = page.locator('input[name="outputs-decision"]')
+    await expect(options.first()).toHaveAttribute('aria-invalid', 'true')
+    await expect(options.last()).toHaveAttribute('aria-invalid', 'true')
+    await expect(editor).toBeFocused()
+    await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
+
+    // Tab must move focus on rather than typing a tab character, and must keep going until it
+    // reaches the radios (WCAG 2.1.2). Checked here rather than in jsdom, where Lexical's Tab
+    // handler returns early for want of a range selection and the assertion cannot fail.
+    const typed = 'Checking the keyboard path.'
+    await editor.fill(typed)
+    await page.keyboard.press('Tab')
+    await expect(editor).not.toBeFocused()
+    // textContent(), not toHaveText: the latter normalizes whitespace, so it would pass on the very
+    // tab character this asserts is absent.
+    await expect(async () => {
+        const text = await editor.textContent()
+        expect(text).toContain(typed)
+        expect(text).not.toContain('\t')
+    }).toPass()
+
+    // Tabs until the radio is reached rather than assuming a count: the editor's formatting
+    // toolbar sits between the two and its size is not this test's business.
+    const firstOption = page.getByTestId('outputs-decision-share-outputs')
+    const isFocused = () => firstOption.evaluate((el) => el === document.activeElement)
+    for (let i = 0; i < 12 && !(await isFocused()); i++) {
+        await page.keyboard.press('Tab')
+    }
+    await expect(firstOption).toBeFocused()
+}
+
+// The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
+// so this runs only after reviewerSharesOutputs (OTTER-675).
+async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+    await visitAsRole(page, RESEARCHER_DASHBOARD)
+
+    const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible()
+
+    await viewStudyDetails(page, studyTitle)
+
+    await expect(page.getByText(/The code errored/i)).toBeVisible()
+    await expect(page.getByText(/Job ID/i)).toBeVisible()
+
+    await expect(page.getByText('Code Run Log')).toBeVisible()
+}
 
 // ============================================================================
 // Tests
@@ -438,15 +528,20 @@ test('Reviewer approves submitted code', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer results decrypt+approve surface. Seeds a JOB-READY job, uploads
-// an encrypted result via the debug script (no runner), then drives the UI.
+// Owns the outputs-available surface end to end (OTTER-668 + OTTER-676): decrypt, the
+// validation gate, and sharing the outputs through the confirmation modal. Seeds a
+// JOB-READY job, uploads an encrypted result via the debug script (no runner), then
+// drives the UI, then ends on the researcher's side: sharing records FILES-APPROVED, which is
+// what surfaces the approved-results message on their study view.
 test('Successful results review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('results')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadResults(jobId!)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await reviewerApprovesResults(page, studyTitle)
+        await reviewerDecryptsAvailableOutputs(page, studyTitle)
+        await reviewerSeesValidationOnBlankSubmit(page)
+        await reviewerSharesOutputs(page, 'Reviewed the outputs — no sensitive or restricted data present.')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -456,8 +551,8 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
-// OTTER-667: reviewer decrypts error logs on the new errored-outputs screen.
-// OTTER-675: uncomment the researcher step once the approve flow is built.
+// Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
+// validation gate, the confirmation modal, and the researcher's view of the shared logs.
 test('Error log review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('error-log')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
@@ -465,11 +560,13 @@ test('Error log review', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'reviewer', async (page) => {
         await reviewerDecryptsErrorLogs(page, studyTitle)
+        await reviewerSeesValidationOnBlankSubmit(page)
+        await reviewerSharesOutputs(page, 'The run failed on a timeout; the logs contain no PII.')
     })
 
-    // await withRole(browser, 'researcher', async (page) => {
-    //     await verifyFailedStatusDisplay(page, studyTitle)
-    // })
+    await withRole(browser, 'researcher', async (page) => {
+        await verifyFailedStatusDisplay(page, studyTitle)
+    })
 })
 
 // Owns the reviewer reject-proposal surface + the researcher rejected-proposal view.

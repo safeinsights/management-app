@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
     db,
     fireEvent,
@@ -73,7 +73,6 @@ async function seedArtifact(
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
 const NO_FILES_ERROR = 'No encrypted outputs available to decrypt.'
-const SUCCESS_MESSAGE = 'Security key accepted.'
 
 const enterKey = (value: string) => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value } })
@@ -86,12 +85,14 @@ const clickView = () => {
 describe('SecurityKeyForm', () => {
     let org: Org
     let job: LatestJobForStudy
+    let onDecrypted: Mock
 
     beforeEach(async () => {
         const resp = await mockSessionWithTestData()
         org = resp.org
         const { study } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
         job = await latestJobForStudy(study.id)
+        onDecrypted = vi.fn()
 
         const artifact = await seedArtifact(job.id, {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
@@ -101,7 +102,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('renders the key-entry section with a required indicator and body copy', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -115,8 +116,19 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
     })
 
+    // The two roles are served different key sets, and a reviewer holds no re-wrapped per-file
+    // keys. Asking as a researcher returns [] for them, which strands the outputs step on the
+    // locked phase, so the role has to reach the action rather than being assumed by the hook.
+    it.each(['reviewer', 'researcher'] as const)('requests the %s key set when acting as one', async (type) => {
+        renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
+
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type })
+    })
+
     it('shows the empty-field error and focuses the input when submitted blank', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -127,9 +139,9 @@ describe('SecurityKeyForm', () => {
     })
 
     it('shows the invalid-key error and re-enables both input and button for correction', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         enterKey('not-a-real-key')
         clickView()
@@ -137,12 +149,13 @@ describe('SecurityKeyForm', () => {
         expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
         expect(screen.getByRole('textbox')).toBeEnabled()
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
+        expect(onDecrypted).not.toHaveBeenCalled()
     })
 
     it('disables the button and input on submit to prevent double submission', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         enterKey('not-a-real-key')
         clickView()
@@ -152,10 +165,9 @@ describe('SecurityKeyForm', () => {
     })
 
     it('replaces the empty-field error with the invalid-key error on retry', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
-        await waitFor(() => expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument())
+        await screen.findByRole('button', { name: 'View' })
 
         clickView()
         expect(await screen.findByText(EMPTY_ERROR)).toBeInTheDocument()
@@ -167,10 +179,13 @@ describe('SecurityKeyForm', () => {
         expect(screen.queryByText(EMPTY_ERROR)).toBeNull()
     })
 
+    // A key is only proven by ciphertext it actually opened, so neither of the next two cases may
+    // hand the caller a decrypted set (OTTER-675): with nothing to decrypt, the parse step accepts
+    // any syntactically valid PEM.
     it('shows a no-files error when the fetch returns an empty list', async () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
 
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -178,13 +193,13 @@ describe('SecurityKeyForm', () => {
         clickView()
 
         expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
-        expect(screen.queryByText(SUCCESS_MESSAGE)).toBeNull()
+        expect(onDecrypted).not.toHaveBeenCalled()
     })
 
     it('shows a no-files error when the fetch rejects', async () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
 
-        renderWithProviders(<SecurityKeyForm job={job} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -192,24 +207,21 @@ describe('SecurityKeyForm', () => {
         clickView()
 
         expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
-        expect(screen.queryByText(SUCCESS_MESSAGE)).toBeNull()
+        expect(onDecrypted).not.toHaveBeenCalled()
     })
 
-    it('shows a success message when the key decrypts the outputs', async () => {
-        const artifact = await seedArtifact(job.id, {
-            fileType: 'ENCRYPTED-CODE-RUN-LOG',
-            files: [{ name: 'run.log', content: 'job started\nsomething went wrong' }],
-        })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
-
-        renderWithProviders(<SecurityKeyForm job={job} />)
+    it('hands the decrypted files to the caller when the key is valid', async () => {
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         enterKey(await readTestSupportFile('private_key.pem'))
         clickView()
 
-        expect(await screen.findByText(SUCCESS_MESSAGE)).toBeInTheDocument()
+        await waitFor(() => expect(onDecrypted).toHaveBeenCalled())
+        const files = onDecrypted.mock.calls[0][0]
+        expect(files).toHaveLength(1)
+        expect(files[0].path).toBe('run.log')
         expect(screen.queryByText(INVALID_ERROR)).toBeNull()
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
     })

@@ -31,7 +31,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema.createIndex('study_job_study_indx').on('study_job').column('study_id').execute()
+    await db.schema.createIndex('study_job_study_indx').on('study_job').column('study_id').execute()
 
     await db.schema
         .createTable('job_status_change')
@@ -43,8 +43,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema.createIndex('job_status_change_jb_indx').on('job_status_change').column('study_job_id').execute()
-    db.schema.createIndex('job_status_change_st_indx').on('job_status_change').column('status').execute()
+    await db.schema.createIndex('job_status_change_jb_indx').on('job_status_change').column('study_job_id').execute()
+    await db.schema.createIndex('job_status_change_st_indx').on('job_status_change').column('status').execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

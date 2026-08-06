@@ -66,8 +66,13 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         {...nativeFieldProps(error, { required: true })}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        <Box id={fieldErrorId('resubmissionNote')}>
-                            <InputError error={error} />
+                        {/* The indicator sits beside the error node, not inside it: the textarea's
+                            aria-describedby points at that id, and a live region in its subtree
+                            would fold "All changes saved" into the field's description. */}
+                        <Box>
+                            <Box id={fieldErrorId('resubmissionNote')}>
+                                <InputError error={error} />
+                            </Box>
                             <SaveStatusIndicator status={saveStatus} isVisible={!error} />
                         </Box>
                         <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />

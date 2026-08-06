@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
     codeReviewFeedbackDocName,
+    outputsReviewFeedbackDocName,
     parseDocumentName,
     proposalFieldsDocName,
     proposalResubmissionNoteDocNameForVersion,
@@ -77,6 +78,27 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(name)).toEqual({ kind: 'code-review-feedback', jobId: JOB_ID })
     })
 
+    it('round-trips outputs-review-feedback docs', () => {
+        const JOB_ID = '01949c1a-1aaa-7000-9000-0000000000ff'
+        const name = outputsReviewFeedbackDocName(JOB_ID)
+        expect(name).toBe(`outputs-review-feedback-${JOB_ID}`)
+        expect(parseDocumentName(name)).toEqual({ kind: 'outputs-review-feedback', jobId: JOB_ID })
+    })
+
+    // Both job-keyed feedback prefixes end in "review-feedback-", so a prefix check in the wrong
+    // order would mis-parse one as the other.
+    it('keeps the two job-keyed feedback prefixes distinct', () => {
+        const JOB_ID = '01949c1a-1aaa-7000-9000-0000000000ff'
+        expect(parseDocumentName(outputsReviewFeedbackDocName(JOB_ID))).toEqual({
+            kind: 'outputs-review-feedback',
+            jobId: JOB_ID,
+        })
+        expect(parseDocumentName(codeReviewFeedbackDocName(JOB_ID))).toEqual({
+            kind: 'code-review-feedback',
+            jobId: JOB_ID,
+        })
+    })
+
     it('rejects malformed names', () => {
         expect(parseDocumentName('')).toBeNull()
         expect(parseDocumentName('proposal-not-a-uuid-fields')).toBeNull()
@@ -85,5 +107,6 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(`unknown-${STUDY_ID}`)).toBeNull()
         expect(parseDocumentName(`review-feedback-not-a-uuid`)).toBeNull()
         expect(parseDocumentName(`code-review-feedback-not-a-uuid`)).toBeNull()
+        expect(parseDocumentName(`outputs-review-feedback-not-a-uuid`)).toBeNull()
     })
 })

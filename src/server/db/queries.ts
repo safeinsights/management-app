@@ -4,7 +4,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType } from '@/database/types'
+import { FileType, StudyJobFileAction } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -312,6 +312,10 @@ export const getUserById = async (userId: string) => {
     return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
+// executeTakeFirst, NOT ...OrThrow, on purpose: an unknown slug must leave `orgId` ABSENT from the
+// CASL subject so the mongo `$in` conditions fail CLOSED (deny). Throwing here would instead
+// distinguish "no such org" from "not yours" for the caller, and switching to OrThrow would make
+// every rule built on this middleware depend on an exception for its safety.
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
@@ -498,6 +502,38 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow(throwNotFound(`study ${studyId}`))
     return getOrgPublicKeys(submittedByOrgId)
+}
+
+// OTTER-675: the most recent view/download per output file, for the outputs table's
+// "Last activity" column. One row per file at most, because the column reports the latest
+// action rather than a history, so the DISTINCT ON collapses each file's rows to its newest.
+export type JobFileActivity = {
+    studyJobFileId: string
+    filePath: string
+    action: StudyJobFileAction
+    createdAt: Date
+    actorName: string
+}
+
+export async function latestActivityPerJobFile(jobId: string): Promise<JobFileActivity[]> {
+    return await Action.db
+        .selectFrom('studyJobFileActivity')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
+        .innerJoin('user', 'user.id', 'studyJobFileActivity.userId')
+        .where('studyJobFile.studyJobId', '=', jobId)
+        .select([
+            'studyJobFileActivity.studyJobFileId',
+            'studyJobFileActivity.filePath',
+            'studyJobFileActivity.action',
+            'studyJobFileActivity.createdAt',
+            'user.fullName as actorName',
+        ])
+        .distinctOn(['studyJobFileActivity.studyJobFileId', 'studyJobFileActivity.filePath'])
+        .orderBy('studyJobFileActivity.studyJobFileId')
+        .orderBy('studyJobFileActivity.filePath')
+        .orderBy('studyJobFileActivity.createdAt', 'desc')
+        .orderBy('studyJobFileActivity.id', 'desc')
+        .execute()
 }
 
 // IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.

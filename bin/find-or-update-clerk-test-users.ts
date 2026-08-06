@@ -10,6 +10,7 @@ import { db } from '@/database'
 import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { TEST_USERS, setupClerkTestUser, type TestUserRole } from './lib/clerk-test-users'
+import { testingDataAllowed } from './lib/testing-data-gate'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -82,6 +83,11 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
 }
 
 async function findOrUpdateClerkTestUsers() {
+    // This script inserts the committed test public key and grants isAdmin on real org slugs, so
+    // it takes the same opt-in gate as the seeds. Exit non-zero: an operator running it directly
+    // should see an unmistakable "nothing happened" rather than a quiet success.
+    if (!testingDataAllowed('find-or-update-clerk-test-users')) process.exit(1)
+
     const secretKey = process.env.CLERK_SECRET_KEY
     if (!secretKey) {
         console.error('❌ CLERK_SECRET_KEY is not set')

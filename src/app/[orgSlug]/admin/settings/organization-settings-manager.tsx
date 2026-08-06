@@ -4,10 +4,10 @@ import { Paper } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { OrganizationSettingsEdit } from './organization-settings-edit'
 import { OrganizationSettingsDisplay } from './organization-settings-display'
-import { type Org } from '@/schema/org'
+import { type PublicOrg } from '@/schema/org'
 
 interface OrganizationSettingsManagerProps {
-    org: Org
+    org: PublicOrg
 }
 
 export function OrganizationSettingsManager({ org }: OrganizationSettingsManagerProps) {

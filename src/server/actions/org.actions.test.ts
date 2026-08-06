@@ -12,7 +12,9 @@ import {
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
+    fetchAdminOrgsWithStatsAction,
     getOrgFromSlugAction,
+    updateOrgAction,
     getUsersForOrgAction,
     fetchUsersOrgsAction,
     insertOrgAction,
@@ -21,6 +23,7 @@ import {
     getLanguagesForOrgAction,
 } from './org.actions'
 import logger from '@/lib/logger'
+import { isActionError } from '@/lib/errors'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -85,12 +88,96 @@ describe('Org Actions', () => {
     describe('getOrgFromSlug', () => {
         it('returns org when found', async () => {
             const result = actionResult(await getOrgFromSlugAction({ orgSlug: newOrg.slug }))
-            expect(result).toMatchObject(newOrg)
+            expect(result).toMatchObject({ slug: newOrg.slug, name: newOrg.name, type: newOrg.type })
         })
 
-        it('throws when org not found', async () => {
+        // Sits on the unconditioned `view Org`, so every authenticated user reaches it. It must
+        // therefore never carry the enclave's publicKey or the org's contact email (MA-6).
+        it('omits settings and email from the org it returns', async () => {
+            const result = actionResult(await getOrgFromSlugAction({ orgSlug: newOrg.slug }))
+            expect(result).not.toHaveProperty('settings')
+            expect(result).not.toHaveProperty('email')
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+            expect(JSON.stringify(result)).not.toContain(newOrg.email)
+        })
+
+        // The row is now read in the handler, so an unknown slug errors there rather than
+        // returning the whole row through the middleware. Either way the response must carry
+        // none of the org's secrets (MA-6).
+        it('leaks neither publicKey nor email when the org is not found', async () => {
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             const result = await getOrgFromSlugAction({ orgSlug: 'non-existent' })
-            expect(result).toEqual({ error: expect.stringContaining('no result') })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+            expect(JSON.stringify(result)).not.toContain(newOrg.email)
+        })
+
+        // Same for a plain org admin. `view Org` is unconditioned by design (the dataset picker),
+        // so this errors in the handler rather than at the ability check — the point of the test
+        // is the response body, not which layer refused.
+        it('leaks nothing for a non-SI-admin when the org is not found', async () => {
+            await mockSessionWithTestData({ isAdmin: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await getOrgFromSlugAction({ orgSlug: 'non-existent' })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+            expect(JSON.stringify(result)).not.toContain(newOrg.email)
+        })
+    })
+
+    describe('fetchAdminOrgsWithStatsAction', () => {
+        // Returns every org's email and settings; its SI-admin-console callers have no layout
+        // gate, so this action's own check is the only thing standing in the way (MA-6).
+        it('denies an org admin who is not an SI admin', async () => {
+            await mockSessionWithTestData({ isAdmin: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await fetchAdminOrgsWithStatsAction()
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+        })
+
+        it('allows an SI admin', async () => {
+            await mockSessionWithTestData({ isSiAdmin: true })
+            const result = actionResult(await fetchAdminOrgsWithStatsAction())
+            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
+        })
+    })
+
+    describe('updateOrgAction', () => {
+        // updateOrgSchema is built from the CREATE schemas, so it accepts type, slug and
+        // settings.publicKey — the RS256 key verifying that enclave's M2M API tokens. An org admin
+        // must not reach this path at all (MA-5).
+        it('denies an org admin changing type, slug, or settings.publicKey', async () => {
+            const target = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
+
+            await mockSessionWithTestData({ orgSlug: newOrg.slug, isAdmin: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await updateOrgAction({
+                id: target.id,
+                slug: 'attacker-controlled-slug',
+                name: target.name,
+                email: 'attacker@example.com',
+                type: 'enclave',
+                settings: { publicKey: 'attacker-supplied-public-key' },
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+            const unchanged = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('id', '=', target.id)
+                .executeTakeFirstOrThrow()
+            expect(unchanged.slug).toBe(newOrg.slug)
+            expect(unchanged.type).toBe('enclave')
+            expect(unchanged.settings).toEqual(target.settings)
         })
     })
 
@@ -290,6 +377,22 @@ describe('Org Actions', () => {
         it('rejects an empty orgSlug with a validation error', async () => {
             const result = await getLanguagesForOrgAction({ orgSlug: '' })
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+        })
+
+        // Deliberately cross-org: a lab researcher starting a proposal browses enclaves they do
+        // not belong to and downloads their starter code. OTTER-724 narrowed the neighbouring
+        // config reads, so pin that this catalog pair stayed open.
+        it('stays readable cross-org for a lab researcher', async () => {
+            const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+            await insertTestCodeEnv({ orgId: enclaveOrg.id, language: 'R', isTesting: false })
+
+            await mockSessionWithTestData({ orgType: 'lab', isAdmin: false })
+
+            const orgs = actionResult(await getStudyCapableEnclaveOrgsAction())
+            expect(orgs).toEqual(expect.arrayContaining([expect.objectContaining({ slug: enclaveOrg.slug })]))
+
+            const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: enclaveOrg.slug }))
+            expect(langs.languages).toEqual(expect.arrayContaining([expect.objectContaining({ value: 'R' })]))
         })
     })
 })

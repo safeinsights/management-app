@@ -77,7 +77,7 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
     )
 }
 
-type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
+export type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
 
 export function PreviewDocument({ url, label }: { url: string; label: string }) {
     const { data, isLoading, isError, error } = useQuery({

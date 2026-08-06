@@ -79,7 +79,10 @@ export const getPendingUsersAction = new Action('getPendingUsersAction')
             .executeTakeFirstOrThrow()
         return { orgId: org.orgId }
     })
-    .requireAbilityTo('view', 'Org')
+    // `pendingUser.id` IS the live invite token, so this returns claimable invites plus invitee
+    // emails. Gated on the same verb as its siblings above/below rather than a read verb, since
+    // reading the outstanding invites is part of administering them (OTTER-724 / MA-6).
+    .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { orgSlug }, db }) => {
         return await db
             .selectFrom('pendingUser')

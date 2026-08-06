@@ -85,14 +85,26 @@ export const coderWorkspaceBuildLogsPath = (buildId: BuildId, after?: number | n
 export const coderWorkspaceAgentLogsPath = (agentId: AgentId, after?: number | null) =>
     withAfter(`/api/v2/workspaceagents/${agentId}/logs`, after)
 
-const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard', 'researcher', 'user-key', 'admin']
+// '404' is Routes.notFound: without it the proxy's org-membership guard reads `/404` as an org
+// slug and redirects the not-found page to the dashboard for everyone but SI admins.
+const NON_ORG_PREFIXES = [
+    'about',
+    'account',
+    'dl',
+    'editor-demo',
+    'dashboard',
+    'researcher',
+    'user-key',
+    'admin',
+    '404',
+]
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)
     if (NON_ORG_PREFIXES.includes(parts[0])) {
         return null
     }
 
-    return parts[0]
+    return parts[0] || null
 }
 
 export function basename(path: string) {

@@ -67,9 +67,19 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'OrgStudies', { orgType: 'lab', orgId: { $in: usersResearcherOrgIds } })
 
     permit('view', 'OrgMembers', { orgId: { $in: usersOrgIds } })
-    // in the future we may narrow this, but right now
-    // researchers need to be able to view enclave orgs to create studies
+
+    // Deliberately unconditioned, and it must stay that way: a lab researcher composing a study
+    // proposal has to read enclave orgs they do not belong to in order to pick a dataset (97c118b1).
+    // The narrowing therefore lives in the ACTIONS, not here — an action gated on `view Org` may
+    // only return catalog-level data (identity + advertised datasets) that we are content to show
+    // any authenticated user. Anything carrying an org's configuration or secrets belongs on
+    // `view OrgConfig` below (OTTER-724 / MA-6).
     permit('view', 'Org')
+
+    // Org configuration reads: code-env settings (plaintext env vars, commonly credentials),
+    // scan results, and starter code contents. Scoped to admins of that org; SI admins pick it up
+    // via ('manage','all').
+    permit('view', 'OrgConfig', { orgId: { $in: usersAdminOrgIds } })
 
     // Enclave (Data Organization) reviewers may only view SUBMITTED studies/jobs. Unsubmitted drafts
     // (proposal content + uploaded code) stay private to the submitting Research Lab, which retains
@@ -80,17 +90,19 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
-    // users who belong to any research orgs can create studies for ANY org.
-    // create is unconditioned: a new draft has no submittedByOrgId yet — the
-    // submitting lab is chosen in the handler from the user's own orgs. update,
-    // delete, and job mutations are scoped to studies the user's lab submitted,
-    // so a lab member can't mutate another lab's study by guessing its id.
+    // users who belong to any research orgs can create studies for ANY enclave org, but only ON
+    // BEHALF OF one of their own labs: onSaveDraftStudyAction's middleware resolves the requested
+    // submitting-lab slug into submittedByOrgId, so create is scoped here exactly like update and
+    // delete (OTTER-719). A lab member can neither reach another lab's study by guessing its id nor
+    // create one attributed to a lab they don't belong to.
     if (usersResearcherOrgIds.length) {
-        permit('create', 'Study')
+        permit('create', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
-        permit('load', 'IDE')
+        // OTTER-719: previously unconditioned, which granted every lab member read/write/delete
+        // on every study's workspace files. A `$in` fails closed when the field is missing.
+        permit('load', 'IDE', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     }
 
     // can view studies and jobs for all orgs that the user's org has submitted
@@ -111,6 +123,13 @@ export function defineAbilityFor(session: UserSession) {
     permit('invite', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
+
+    // Role changes use their own verb rather than reusing `update User`. The self-profile rule
+    // above (line ~51) grants every user `update User` on their own id, so gating role changes
+    // on `update` let any member promote themselves to admin (OTTER-720). There is deliberately
+    // no id-keyed `manageRole` rule; changing your own role is refused in the action handler.
+    permit('manageRole', 'User', { orgId: { $in: usersAdminOrgIds } })
+    permit('revoke', 'PendingUser', { orgId: { $in: usersAdminOrgIds } })
 
     permit('view', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'AgentContext', { orgId: { $in: usersAdminOrgIds } })

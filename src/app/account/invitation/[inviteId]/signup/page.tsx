@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { fetchPublicLegalDocumentsAction } from '@/server/actions/legal-document.actions'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
+import { InvalidInvitePanel } from '../invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 
@@ -79,10 +80,12 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     })
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
-        mutationFn: ({ termsAccepted: _termsAccepted, ...form }: FormValues) =>
+        // confirmPassword and termsAccepted are client-side concerns; the action's schema has
+        // neither, so only the fields it actually uses are sent.
+        mutationFn: ({ firstName, lastName, password }: FormValues) =>
             onCreateAccountAction({
                 inviteId,
-                form,
+                form: { firstName, lastName, password },
                 acknowledgedVersionIds: legalDocuments.map((document) => document.versionId),
             }),
         onError: handleMutationErrorsWithForm(form),
@@ -255,10 +258,18 @@ const SignupAccountPanel: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const { isLoaded: isLoadedAuth, isSignedIn } = useAuth()
 
-    const { data, isLoading: isLoadingData } = useQuery({
+    const {
+        data,
+        isLoading: isLoadingData,
+        isError,
+    } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
+
+    // A claimed or deleted invite no longer resolves; without this the page would show the
+    // loading spinner forever (data stays undefined after the query errors).
+    if (isError) return <InvalidInvitePanel />
 
     if (!isLoadedAuth || isLoadingData || !data) return <LoadingMessage message="Loading" />
 

@@ -5,7 +5,7 @@ import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
-import { countWordsFromLexical, lexicalJson } from '@/lib/lexical'
+import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
@@ -497,25 +497,6 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
     .handler(async ({ params: { studyId }, session, db }) => {
         await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
-
-function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: number } {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(raw)
-    } catch {
-        parsed = null
-    }
-
-    // Loose check: non-Lexical JSON that passes will yield 0 words and fail min-word validation below.
-    const looksLikeLexicalRoot =
-        parsed != null &&
-        typeof parsed === 'object' &&
-        'root' in (parsed as Record<string, unknown>) &&
-        typeof (parsed as { root: unknown }).root === 'object'
-
-    const json = looksLikeLexicalRoot ? raw : lexicalJson(raw)
-    return { json, wordCount: countWordsFromLexical(json) }
-}
 
 async function claimInitialProposalReviewStudy({
     db,
