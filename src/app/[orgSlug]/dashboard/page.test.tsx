@@ -1,7 +1,7 @@
 import { Org } from '@/schema/org'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
-import { renderWithProviders, testEmail } from '@/tests/unit.helpers'
+import { renderWithProviders } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 import { faker } from '@faker-js/faker'
@@ -24,7 +24,7 @@ const mockOrg: Org = {
     id: faker.string.uuid(),
     slug: 'test-org',
     name: faker.company.name(),
-    email: testEmail(),
+    email: faker.internet.email({ provider: 'test.com' }),
     type: 'enclave',
     settings: { publicKey: 'fake-key' },
     description: null,
