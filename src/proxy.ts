@@ -15,7 +15,8 @@ const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 // `/[orgSlug]/admin/(.*)` looks right but treats the brackets as literal characters, so it
 // matched nothing and failed silently — Clerk's bundled path-to-regexp fork does not throw
 // where the standalone v8 does. The colon form is the one that actually captures a segment.
-const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin/(.*)'])
+// `admin(.*)` rather than `admin/(.*)` so a bare `/:orgSlug/admin` is also gated.
+const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
 const ANON_ROUTES: Array<string> = [

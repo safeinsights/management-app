@@ -13,15 +13,16 @@ const req = (path: string) => new NextRequest(`https://app.test${path}`)
 describe('org admin route matcher', () => {
     it('matches org admin paths using the colon syntax the proxy ships', async () => {
         const createRouteMatcher = await realCreateRouteMatcher()
-        const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin/(.*)'])
+        const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin(.*)'])
 
+        expect(isOrgAdminRoute(req('/acme/admin'))).toBe(true)
         expect(isOrgAdminRoute(req('/acme/admin/team'))).toBe(true)
         expect(isOrgAdminRoute(req('/acme/admin/settings'))).toBe(true)
     })
 
     it('does not match non-admin or non-org paths', async () => {
         const createRouteMatcher = await realCreateRouteMatcher()
-        const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin/(.*)'])
+        const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin(.*)'])
 
         expect(isOrgAdminRoute(req('/acme'))).toBe(false)
         expect(isOrgAdminRoute(req('/acme/dashboard'))).toBe(false)
