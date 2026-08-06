@@ -62,9 +62,19 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'OrgStudies', { orgType: 'lab', orgId: { $in: usersResearcherOrgIds } })
 
     permit('view', 'OrgMembers', { orgId: { $in: usersOrgIds } })
-    // in the future we may narrow this, but right now
-    // researchers need to be able to view enclave orgs to create studies
+
+    // Deliberately unconditioned, and it must stay that way: a lab researcher composing a study
+    // proposal has to read enclave orgs they do not belong to in order to pick a dataset (97c118b1).
+    // The narrowing therefore lives in the ACTIONS, not here — an action gated on `view Org` may
+    // only return catalog-level data (identity + advertised datasets) that we are content to show
+    // any authenticated user. Anything carrying an org's configuration or secrets belongs on
+    // `view OrgConfig` below (OTTER-724 / MA-6).
     permit('view', 'Org')
+
+    // Org configuration reads: code-env settings (plaintext env vars, commonly credentials),
+    // scan results, and starter code contents. Scoped to admins of that org; SI admins pick it up
+    // via ('manage','all').
+    permit('view', 'OrgConfig', { orgId: { $in: usersAdminOrgIds } })
 
     // Enclave (Data Organization) reviewers may only view SUBMITTED studies/jobs. Unsubmitted drafts
     // (proposal content + uploaded code) stay private to the submitting Research Lab, which retains
