@@ -16,7 +16,9 @@ import {
     readTestSupportFile,
     render,
     renderWithProviders,
+    requireRawState,
     screen,
+    type ScreenInputs,
     waitFor,
 } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
@@ -25,10 +27,8 @@ import type { FileType, StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
-import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
-import type { ScreenComponentProps } from './types'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
     const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
@@ -74,12 +74,6 @@ async function seedArtifact(jobId: string, files: { name: string; content: strin
     }
 }
 
-const requireRawState = async (studyId: string) => {
-    const raw = await rawStudyStateForStudy(studyId)
-    if (!raw) throw new Error(`no raw study state for study ${studyId}`)
-    return raw
-}
-
 const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
     const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
@@ -89,8 +83,6 @@ const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
     return { org, study, job, raw }
 }
-
-type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
     renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug }))
@@ -198,6 +190,17 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
 
     it('shows a not-found alert when the job has not completed a run', async () => {
         const { org, study, raw } = await setupAvailable('JOB-RUNNING')
+        await renderScreen({ study, raw }, org.slug)
+        expect(screen.getByText('Outputs not found')).toBeInTheDocument()
+    })
+
+    // Pins the behavioral edge of the resultsDisplayStatus guard: a decided run (RUN-COMPLETE plus
+    // a later FILES-APPROVED) routes to reviewer-study-results, so this screen must refuse it. The
+    // old timestamp guard would have rendered the panel because a RUN-COMPLETE row still exists.
+    it('shows a not-found alert when the run already has a files decision', async () => {
+        const { org, study, job } = await setupAvailable()
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()
     })

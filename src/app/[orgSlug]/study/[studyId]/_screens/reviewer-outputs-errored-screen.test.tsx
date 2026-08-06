@@ -10,16 +10,16 @@ import {
     mockSessionWithTestData,
     readTestSupportFile,
     renderWithProviders,
+    requireRawState,
     screen,
+    type ScreenInputs,
     waitFor,
 } from '@/tests/unit.helpers'
 import type { FileType, StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
-import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
-import type { ScreenComponentProps } from './types'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
     const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
@@ -62,12 +62,6 @@ async function seedArtifact(jobId: string, files: { name: string; content: strin
     }
 }
 
-const requireRawState = async (studyId: string) => {
-    const raw = await rawStudyStateForStudy(studyId)
-    if (!raw) throw new Error(`no raw study state for study ${studyId}`)
-    return raw
-}
-
 const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
     const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
@@ -77,8 +71,6 @@ const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
     return { org, study, job, raw }
 }
-
-type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
     renderWithProviders(await ReviewerOutputsErroredScreen({ study, raw, orgSlug }))
@@ -164,6 +156,19 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
     it('reports a missing error status rather than rendering the screen', async () => {
         const { org, study, raw } = await setupErrored('JOB-RUNNING')
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByText('No error found')).toBeInTheDocument()
+    })
+
+    // Pins the behavioral edge of the awaitingFilesDecisionOnError guard: a decided errored run
+    // (JOB-ERRORED plus FILES-APPROVED) routes to reviewer-study-results, so this screen must
+    // refuse it. The old timestamp guard would have rendered the panel because a JOB-ERRORED row
+    // still exists.
+    it('shows a not-found alert when the errored run already has a files decision', async () => {
+        const { org, study, job } = await setupErrored()
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByText('No error found')).toBeInTheDocument()
