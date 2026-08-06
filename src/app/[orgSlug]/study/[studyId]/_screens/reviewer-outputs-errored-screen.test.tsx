@@ -10,7 +10,9 @@ import {
     mockSessionWithTestData,
     readTestSupportFile,
     renderWithProviders,
+    requireRawState,
     screen,
+    type ScreenInputs,
     waitFor,
 } from '@/tests/unit.helpers'
 import type { FileType, StudyJobStatus } from '@/database/types'
@@ -18,7 +20,6 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
-import type { ScreenComponentProps } from './types'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
     const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
@@ -66,12 +67,13 @@ const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(dbStudy.id)
+    const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-    return { org, study, job }
+    return { org, study, job, raw }
 }
 
-const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsErroredScreen({ study, orgSlug }))
+const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
+    renderWithProviders(await ReviewerOutputsErroredScreen({ study, raw, orgSlug }))
 
 const unlock = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
@@ -84,8 +86,8 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('renders the shared page and section headers', async () => {
-        const { org, study } = await setupErrored()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
@@ -93,8 +95,8 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('asks for the security key rather than showing the review view', async () => {
-        const { org, study } = await setupErrored()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent('Code errored')
@@ -103,8 +105,8 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     // The two-part gate: JOB-ERRORED alone must not surface the outputs. Only a validated key
     // does, which is why this screen is a client phase flip and not a route.
     it('hides the outputs table, decision section and submit until a key validates', async () => {
-        const { org, study } = await setupErrored()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
@@ -112,11 +114,11 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('keeps the outputs hidden when the key is wrong', async () => {
-        const { org, study, job } = await setupErrored()
+        const { org, study, job, raw } = await setupErrored()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
             await seedArtifact(job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG'),
         ])
-        await renderScreen(study, org.slug)
+        await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
@@ -131,8 +133,8 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     // The default mock serves no artifacts, which is a legitimate state (no registered reviewer
     // key, or a failed fetch). A well-formed key must not unlock the review view against nothing.
     it('does not unlock the review view when there are no artifacts to decrypt', async () => {
-        const { org, study } = await setupErrored()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         await unlock()
@@ -143,8 +145,8 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('links Previous step to the read-only code page for this study', async () => {
-        const { org, study } = await setupErrored()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
             'href',
@@ -153,8 +155,21 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('reports a missing error status rather than rendering the screen', async () => {
-        const { org, study } = await setupErrored('JOB-RUNNING')
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupErrored('JOB-RUNNING')
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByText('No error found')).toBeInTheDocument()
+    })
+
+    // Pins the behavioral edge of the awaitingFilesDecisionOnError guard: a decided errored run
+    // (JOB-ERRORED plus FILES-APPROVED) routes to reviewer-study-results, so this screen must
+    // refuse it. The old timestamp guard would have rendered the panel because a JOB-ERRORED row
+    // still exists.
+    it('shows a not-found alert when the errored run already has a files decision', async () => {
+        const { org, study, job } = await setupErrored()
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByText('No error found')).toBeInTheDocument()
     })
@@ -166,11 +181,11 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     })
 
     const setupDecrypted = async (files: { name: string; content: string }[]) => {
-        const { org, study, job } = await setupErrored()
+        const { org, study, job, raw } = await setupErrored()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
             await seedArtifact(job.id, files, 'ENCRYPTED-CODE-RUN-LOG'),
         ])
-        await renderScreen(study, org.slug)
+        await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())

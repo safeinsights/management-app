@@ -37,6 +37,20 @@ export function currentExecutionStage(
     return { status: latest.status, startedAt: latest.createdAt }
 }
 
+// The most recent time `status` was recorded on the job, or null if it never was. Selected by
+// timestamp, not array position: statusChanges ordering differs by query, and rows written in one
+// transaction tie on createdAt (see latestSubmittedJobHasLiveCodeDecision), so callers must not
+// inherit a hidden ordering contract. Ties are irrelevant to its one job: dating a status for display.
+export function latestStatusAt(
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
+    status: StudyJobStatus,
+): Date | string | null {
+    const matches = statusChanges.filter((c) => c.status === status)
+    if (matches.length === 0) return null
+    const latest = matches.reduce((a, b) => (new Date(b.createdAt) > new Date(a.createdAt) ? b : a))
+    return latest.createdAt
+}
+
 // Code submitted and awaiting a review decision.
 export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
