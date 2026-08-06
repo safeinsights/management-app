@@ -4,7 +4,6 @@ import { JwtPayload } from 'jsonwebtoken'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/database'
-import { getOrgInfoForUserId } from './db/queries'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { updateClerkUserMetadata } from './clerk'
 
@@ -37,30 +36,7 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
         await updateClerkUserMetadata(previousUserId)
     })
 
-    const orgs = await getOrgInfoForUserId(userId)
-    const metadata: UserInfo = {
-        format: 'v3',
-        user: { id: userId },
-        teams: null,
-        orgs: orgs.reduce(
-            (acc, org) => {
-                acc[org.slug] = {
-                    ...org,
-                    isAdmin: org.isAdmin || false,
-                }
-                return acc
-            },
-            {} as UserInfo['orgs'],
-        ),
-    }
-
-    logger.info('Updating user metadata for clerkId:', clerkUserId, 'with metadata:', metadata)
-
-    await client.users.updateUserMetadata(clerkUserId, {
-        publicMetadata: metadata as unknown as UserPublicMetadata,
-    })
-
-    return metadata
+    return await updateClerkUserMetadata(userId)
 }
 
 export async function marshalSession(

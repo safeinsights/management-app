@@ -254,4 +254,20 @@ describe('OutputsDecisionSection radio buttons', () => {
 
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
     })
+
+    it('marks the options invalid while the unselected error is showing (OTTER-675)', () => {
+        renderSection({ decisionError: 'Select an option before submitting' })
+
+        for (const option of screen.getAllByRole('radio')) {
+            expect(option).toHaveAttribute('aria-invalid', 'true')
+        }
+    })
+
+    it('leaves the options valid when no error is showing', () => {
+        renderSection()
+
+        for (const option of screen.getAllByRole('radio')) {
+            expect(option).not.toHaveAttribute('aria-invalid')
+        }
+    })
 })

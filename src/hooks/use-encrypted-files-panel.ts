@@ -43,11 +43,15 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         enabled: isJobApproved,
     })
 
+    // The role is part of the key: the action returns a different key set per role, so a dual-role
+    // user switching between the review and researcher views must not be served the other's cache.
+    const fetchAs = isReviewer ? 'reviewer' : 'researcher'
+
     const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
-        queryKey: ['encrypted-files', job.id],
+        queryKey: ['encrypted-files', job.id, fetchAs],
         queryFn: async () => {
             try {
-                return await fetchEncryptedJobFilesAction({ jobId: job.id })
+                return await fetchEncryptedJobFilesAction({ jobId: job.id, type: fetchAs })
             } catch (error) {
                 Sentry.captureException(error)
                 form.setFieldError('privateKey', 'Failed to fetch encrypted files, please try again later.')

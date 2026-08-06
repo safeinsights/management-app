@@ -10,7 +10,16 @@ export const REVIEWER_SCREEN_RULES = [
     //     enters their security key to decrypt error logs before making a files decision.
     ['reviewer-outputs-errored', { when: (s) => awaitingFilesDecisionOnError(s) }],
 
-    // 1b. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
+    // 1b. Run completed, no files decision yet ("results pending review") → outputs-available view
+    //     (OTTER-668). The reviewer enters their security key to decrypt the outputs before making
+    //     a files decision. Sits below 1a so an errored run keeps the errored view even when a
+    //     RUN-COMPLETE also landed.
+    [
+        'reviewer-outputs-available',
+        { when: (s) => s.hasResults && !s.resultsApproved && !s.resultsRejected && !s.resultsErrored },
+    ],
+
+    // 1c. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
     //     (CODE-APPROVED is always present once results land), mirroring legacy
     //     `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
     ['reviewer-study-results', { when: (s) => s.hasResults }],
