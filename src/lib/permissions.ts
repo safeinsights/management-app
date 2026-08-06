@@ -75,17 +75,19 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
-    // users who belong to any research orgs can create studies for ANY org.
-    // create is unconditioned: a new draft has no submittedByOrgId yet — the
-    // submitting lab is chosen in the handler from the user's own orgs. update,
-    // delete, and job mutations are scoped to studies the user's lab submitted,
-    // so a lab member can't mutate another lab's study by guessing its id.
+    // users who belong to any research orgs can create studies for ANY enclave org, but only ON
+    // BEHALF OF one of their own labs: onSaveDraftStudyAction's middleware resolves the requested
+    // submitting-lab slug into submittedByOrgId, so create is scoped here exactly like update and
+    // delete (OTTER-719). A lab member can neither reach another lab's study by guessing its id nor
+    // create one attributed to a lab they don't belong to.
     if (usersResearcherOrgIds.length) {
-        permit('create', 'Study')
+        permit('create', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('update', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('delete', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
         permit('create', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
-        permit('load', 'IDE')
+        // OTTER-719: previously unconditioned, which granted every lab member read/write/delete
+        // on every study's workspace files. A `$in` fails closed when the field is missing.
+        permit('load', 'IDE', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     }
 
     // can view studies and jobs for all orgs that the user's org has submitted

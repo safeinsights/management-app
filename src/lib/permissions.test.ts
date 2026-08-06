@@ -93,17 +93,21 @@ test('researcher role', () => {
         ability.can('approve', toRecord('Study', { orgId: ownLabId })),
     ).toBe(false)
 
-    expect(ability.can('create', 'Study')).toBe(true)
-
-    // update/delete are scoped to studies the researcher's own lab submitted
+    // create/update/delete are scoped to studies the researcher's own lab submitted
+    expect(ability.can('create', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
     expect(ability.can('update', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
     expect(ability.can('delete', toRecord('Study', { submittedByOrgId: ownLabId }))).toBe(true)
     expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: ownLabId }))).toBe(true)
 
     // ...but not studies submitted by a different lab
+    expect(ability.can('create', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('update', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('delete', toRecord('Study', { submittedByOrgId: otherLabId }))).toBe(false)
     expect(ability.can('create', toRecord('StudyJob', { submittedByOrgId: otherLabId }))).toBe(false)
+
+    // Fail-closed: creating with no submitting lab in the subject is denied, so a caller cannot
+    // slip past the scope by omitting the field (OTTER-719).
+    expect(ability.can('create', toRecord('Study', {}))).toBe(false)
 
     // Researchers cannot invite users to their org (not admins)
     expect(ability.can('invite', toRecord('User', { orgId: ownLabId }))).toBe(false)
@@ -111,6 +115,38 @@ test('researcher role', () => {
     // lab members also hold a key now, to decrypt approved results
     expect(ability.can('view', 'UserKey')).toBe(true)
     expect(ability.can('update', 'UserKey')).toBe(true)
+})
+
+test('load IDE is scoped to the submitting lab (OTTER-719)', () => {
+    const { ability, session } = createAbilty({}, 'lab')
+    const ownLabId = session.orgs.test.id
+    const otherLabId = faker.string.uuid()
+
+    // A lab member reaches the IDE for a study their own lab submitted...
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: ownLabId }))).toBe(true)
+
+    // ...but not another lab's study. This was the defect: the grant was unconditioned, so supplying
+    // any studyId gave read/write/delete on that study's workspace files.
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId }))).toBe(false)
+
+    // The study's own researcher keeps access regardless of which lab submitted it.
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId, researcherId: session.user.id }))).toBe(
+        true,
+    )
+    expect(
+        ability.can('load', toRecord('IDE', { submittedByOrgId: otherLabId, researcherId: faker.string.uuid() })),
+    ).toBe(false)
+
+    // Fail-closed: a subject missing submittedByOrgId is denied rather than silently granted
+    expect(ability.can('load', toRecord('IDE', {}))).toBe(false)
+})
+
+test('enclave-only members cannot load the IDE (OTTER-719)', () => {
+    // The scoped grant lives behind `if (usersResearcherOrgIds.length)`, so a user with no lab
+    // membership never receives it.
+    const { ability } = createAbilty({}, 'enclave')
+
+    expect(ability.can('load', toRecord('IDE', { submittedByOrgId: faker.string.uuid() }))).toBe(false)
 })
 
 test('admin role', () => {
