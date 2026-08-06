@@ -1,10 +1,9 @@
 import { act, createTestQueryWrapper, describe, expect, faker, it, renderHook } from '@/tests/unit.helpers'
+import { lexicalJson } from '@/lib/lexical'
 import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS, OUTPUTS_DECISION_ERRORS } from '@/lib/outputs-review'
 import { useOutputsDecision } from './use-outputs-decision'
 
 const LAB = 'Rice Lab'
-
-const lexicalText = (text: string) => JSON.stringify({ root: { type: 'text', text } })
 
 const renderDecision = () =>
     renderHook(
@@ -34,7 +33,7 @@ describe('useOutputsDecision', () => {
     it('leaves an untouched empty form unflagged until a submit attempt', () => {
         const { result } = renderDecision()
 
-        act(() => result.current.onFeedbackChange(lexicalText('')))
+        act(() => result.current.onFeedbackChange(lexicalJson('')))
 
         expect(result.current.feedbackError).toBeUndefined()
         expect(result.current.decisionError).toBeUndefined()
@@ -55,7 +54,7 @@ describe('useOutputsDecision', () => {
 
         act(() =>
             result.current.onFeedbackChange(
-                lexicalText(
+                lexicalJson(
                     Array.from({ length: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1 }, (_, i) => `word${i}`).join(' '),
                 ),
             ),
@@ -76,7 +75,7 @@ describe('useOutputsDecision', () => {
         expect(result.current.decisionError).toBeUndefined()
         expect(result.current.feedbackError).toBe(OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB))
 
-        act(() => result.current.onFeedbackChange(lexicalText('Outputs look clean, no PII observed.')))
+        act(() => result.current.onFeedbackChange(lexicalJson('Outputs look clean, no PII observed.')))
 
         expect(result.current.feedbackError).toBeUndefined()
     })
@@ -85,7 +84,7 @@ describe('useOutputsDecision', () => {
         const { result } = renderDecision()
 
         act(() => result.current.attemptSubmit())
-        act(() => result.current.onFeedbackChange(lexicalText('Outputs look clean, no PII observed.')))
+        act(() => result.current.onFeedbackChange(lexicalJson('Outputs look clean, no PII observed.')))
         act(() => result.current.onSelect('share-feedback-only'))
         act(() => result.current.attemptSubmit())
 

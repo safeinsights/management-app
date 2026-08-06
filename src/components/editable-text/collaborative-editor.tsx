@@ -412,10 +412,7 @@ export function CollaborativeEditor({
                     />
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     <ListPlugin />
-                    {/* No TabIndentationPlugin: it cancels the Tab keydown, so focus never leaves
-                        the editor and Tab types a literal tab instead. Nothing is lost, because that
-                        plugin only indented inside a list, which the toolbar's Indent / Outdent
-                        buttons still do (they enable exactly there). */}
+                    {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                     <EscapeFocusPlugin />
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />
