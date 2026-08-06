@@ -25,6 +25,7 @@ import type { FileType, StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import type { ScreenComponentProps } from './types'
@@ -73,26 +74,35 @@ async function seedArtifact(jobId: string, files: { name: string; content: strin
     }
 }
 
+const requireRawState = async (studyId: string) => {
+    const raw = await rawStudyStateForStudy(studyId)
+    if (!raw) throw new Error(`no raw study state for study ${studyId}`)
+    return raw
+}
+
 const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
     const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(dbStudy.id)
+    const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-    return { org, study, job }
+    return { org, study, job, raw }
 }
 
-const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsAvailableScreen({ study, orgSlug }))
+type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
+
+const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
+    renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug }))
 
 // Like renderWithProviders, but with single-user editing on so the feedback editor (and the
 // word counter in its footer) renders synchronously instead of holding a collaborative skeleton.
-const renderScreenSingleUser = async (study: ScreenComponentProps['study'], orgSlug: string) =>
+const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
     render(
         <QueryClientProvider client={createTestQueryClient()}>
             <MantineProvider theme={theme}>
                 <YjsWebsocketProvider singleUserEditing>
-                    <ModalsProvider>{await ReviewerOutputsAvailableScreen({ study, orgSlug })}</ModalsProvider>
+                    <ModalsProvider>{await ReviewerOutputsAvailableScreen({ study, raw, orgSlug })}</ModalsProvider>
                 </YjsWebsocketProvider>
             </MantineProvider>
         </QueryClientProvider>,
@@ -114,8 +124,8 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     })
 
     it('renders the shared page and section headers', async () => {
-        const { org, study } = await setupAvailable()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
@@ -123,8 +133,8 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     })
 
     it('shows the outputs-available banner with the run-complete date, addressed to the lab', async () => {
-        const { org, study } = await setupAvailable()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
 
         // The RUN-COMPLETE status row was just inserted, so the surfaced date is today.
         const alert = screen.getByTestId('status-alert')
@@ -137,8 +147,8 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     // The two-part gate: RUN-COMPLETE alone must not surface the outputs. Only a validated key
     // does, which is why this screen is a client phase flip and not a route.
     it('asks for the security key and hides the review view until a key validates', async () => {
-        const { org, study } = await setupAvailable()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
@@ -150,11 +160,11 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     // owned by security-key-form.test.tsx — the same form instance this screen embeds. Screen-level
     // gating is proven here by the wrong-key path below, which anchors on a visible error.
     it('keeps the outputs hidden when the key is wrong', async () => {
-        const { org, study, job } = await setupAvailable()
+        const { org, study, job, raw } = await setupAvailable()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
             await seedArtifact(job.id, [{ name: 'results.csv', content: 'a,b\n1,2' }]),
         ])
-        await renderScreen(study, org.slug)
+        await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
@@ -165,8 +175,8 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     })
 
     it('links Previous step to the read-only code page for this study', async () => {
-        const { org, study } = await setupAvailable()
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
             'href',
@@ -180,14 +190,15 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     // here — they pin the guards, not a reviewer-visible state.
     it('shows a not-found alert when the study has no submitted job', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave', createJob: false })
+        const raw = await requireRawState(study.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-        await renderScreen(study, org.slug)
+        await renderScreen({ study, raw }, org.slug)
         expect(screen.getByText('No submission found')).toBeInTheDocument()
     })
 
     it('shows a not-found alert when the job has not completed a run', async () => {
-        const { org, study } = await setupAvailable('JOB-RUNNING')
-        await renderScreen(study, org.slug)
+        const { org, study, raw } = await setupAvailable('JOB-RUNNING')
+        await renderScreen({ study, raw }, org.slug)
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()
     })
 })
@@ -201,9 +212,9 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         files: { name: string; content: string }[],
         doRender: typeof renderScreen = renderScreen,
     ) => {
-        const { org, study, job } = await setupAvailable()
+        const { org, study, job, raw } = await setupAvailable()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([await seedArtifact(job.id, files)])
-        await doRender(study, org.slug)
+        await doRender({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
