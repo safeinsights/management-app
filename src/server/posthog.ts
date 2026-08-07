@@ -1,5 +1,6 @@
 import { getConfigValue } from './config'
 import { PostHog } from 'posthog-node'
+import { POSTHOG_HOST } from '@/lib/constants'
 
 let client: PostHog | null = null
 
@@ -12,7 +13,7 @@ async function getPostHogClient(): Promise<PostHog | null> {
     // flushAt and flushInterval are set per https://posthog.com/docs/libraries/node#short-lived-processes-like-serverless-environments ,
     // but they shouldn't matter if we consistently use captureImmediate
     client = new PostHog(postHogProjectToken, {
-        host: 'https://us.i.posthog.com',
+        host: POSTHOG_HOST,
         flushAt: 1,
         flushInterval: 0,
     })

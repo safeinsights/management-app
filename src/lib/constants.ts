@@ -29,3 +29,5 @@ export const APP_SHELL = {
 
 // 8 seconds
 export const NOTIFICATION_DISPLAY_MS = 8000
+
+export const POSTHOG_HOST = 'https://us.i.posthog.com'
