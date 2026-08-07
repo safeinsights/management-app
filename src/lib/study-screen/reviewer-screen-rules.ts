@@ -4,7 +4,8 @@ import { awaitingFilesDecisionOnError } from './state'
 // Reviewer ("Data Partners" / DO) Tier-2 rules. Order = display precedence. First match wins.
 // Every `when` reads only StudyState, so the table is order-independent by construction.
 // Transcribes the legacy review/page.tsx cascade with the ?from= cases removed (those are routing,
-// not screen-selection). See docs/plans/2026-06-23-reviewer-screen-state-machine-design.md §4.
+// not screen-selection). The live contract is the reviewer table in docs/study-screens-logic.md —
+// extend from there.
 export const REVIEWER_SCREEN_RULES = [
     // 1a. Job errored, no files decision yet → errored outputs view (OTTER-667). The reviewer
     //     enters their security key to decrypt error logs before making a files decision.
