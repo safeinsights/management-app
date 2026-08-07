@@ -2,15 +2,12 @@ import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { isSubmittedStudy } from '@/schema/study'
-import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 import { Routes } from '@/lib/routes'
-import { currentExecutionStage } from '@/lib/study-job-status'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { guardExecutionStage } from './execution-stage-guard'
 import type { ScreenComponentProps } from './types'
 
 const ProcessingBanner = ({ approvedAt }: { approvedAt: Date | string }) => (
@@ -29,25 +26,10 @@ export async function OutputsPendingScreen({
     dashboardHref,
     returnTo,
 }: Pick<ScreenComponentProps, 'study' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
-    if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="Study was not found" message="No such study exists" />
-    }
+    const result = await guardExecutionStage(study, { noJobMessage: 'This study has no submitted code yet.' })
+    if (!('job' in result)) return result
 
-    const job = await latestSubmittedJobForStudy(study.id)
-    if (!job) {
-        return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
-    }
-
-    const stage = currentExecutionStage(job.statusChanges)
-    if (!stage) {
-        return (
-            <AlertNotFound
-                title="Outputs not yet available"
-                message="Code has been approved but execution has not started yet. Please check back shortly."
-            />
-        )
-    }
-
+    const { job, stage } = result
     const approvedAt = job.statusChanges.find((c) => c.status === 'CODE-APPROVED')?.createdAt ?? stage.startedAt
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
 
@@ -58,7 +40,7 @@ export async function OutputsPendingScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title}
+                    studyTitle={study.title!}
                     banner={<ProcessingBanner approvedAt={approvedAt} />}
                 />
                 <Group justify="space-between">
