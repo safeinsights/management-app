@@ -1,22 +1,19 @@
 import { coderUsersPath } from '@/lib/paths'
-import { getStudyAndOrgDisplayInfo } from '../db/queries'
 import { coderFetch } from './client'
 import { getCoderOrganizationId } from './organizations'
-import { CoderUser, CoderUserQueryResponse } from './types'
+import { CoderSessionUser, CoderUser, CoderUserQueryResponse } from './types'
 import { generateCoderUsername } from '@/server/coder/utils'
 
-async function createCoderUser(studyId: string): Promise<CoderUser> {
-    const studyInfo = await getStudyAndOrgDisplayInfo(studyId)
-
-    if (!studyInfo.researcherEmail) {
-        throw new Error('Researcher email is missing!')
+async function createCoderUser(sessionUser: CoderSessionUser): Promise<CoderUser> {
+    if (!sessionUser.email) {
+        throw new Error('Session user email is missing!')
     }
 
-    const generatedUsername = generateCoderUsername(studyInfo.researcherEmail)
+    const generatedUsername = generateCoderUsername(sessionUser.email)
     const body = {
-        email: studyInfo.researcherEmail,
+        email: sessionUser.email,
         login_type: 'oidc',
-        name: studyInfo.researcherFullName,
+        name: sessionUser.fullName,
         username: generatedUsername,
         user_status: 'active',
         organization_ids: [await getCoderOrganizationId()],
@@ -29,33 +26,30 @@ async function createCoderUser(studyId: string): Promise<CoderUser> {
     })
 }
 
-export async function getCoderUser(studyId: string): Promise<CoderUser | null> {
-    const studyInfo = await getStudyAndOrgDisplayInfo(studyId)
-
-    if (!studyInfo.researcherEmail) {
-        throw new Error('Error retrieving researcher info!')
+export async function getCoderUser(sessionUser: CoderSessionUser): Promise<CoderUser | null> {
+    if (!sessionUser.email) {
+        throw new Error('Session user email is missing!')
     }
 
-    const encodedEmail = encodeURIComponent(studyInfo.researcherEmail)
+    const encodedEmail = encodeURIComponent(sessionUser.email)
 
     const data = await coderFetch<CoderUserQueryResponse>(`${coderUsersPath()}?q=${encodedEmail}`, {
         errorMessage: 'Failed to query users',
     })
 
     if (data.users?.length) {
-        // User exists, return the user data
         return data.users[0]
     }
 
     return null
 }
 
-export async function getOrCreateCoderUser(studyId: string): Promise<CoderUser> {
-    const user = await getCoderUser(studyId)
+export async function getOrCreateCoderUser(sessionUser: CoderSessionUser): Promise<CoderUser> {
+    const user = await getCoderUser(sessionUser)
 
     if (user) {
         return user
     }
 
-    return await createCoderUser(studyId)
+    return await createCoderUser(sessionUser)
 }

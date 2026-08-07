@@ -18,7 +18,8 @@ import type {
     WorkspaceStatus,
     CoderAgent,
     CoderLog,
-    CoderUsername,
+    CoderSessionUser,
+    CoderUser,
     CoderWorkspace,
     CoderWorkspaceBuild,
     CoderWorkspaceEvent,
@@ -37,14 +38,14 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
 
-async function generateWorkspaceUrl(studyId: string): Promise<string> {
+async function generateWorkspaceUrl(studyId: string, sessionUser: CoderSessionUser): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
-    const workspaceName = generateWorkspaceName(studyId)
-    const user = await getCoderUser(studyId)
+    const user = await getCoderUser(sessionUser)
     if (!user) {
-        logger.error(`[coder-launch study=${studyId}] Coder user not found for workspace ${workspaceName}`)
+        logger.error(`[coder-launch study=${studyId}] Coder user not found`)
         throw new Error('Coder user not found')
     }
+    const workspaceName = generateWorkspaceName(studyId, user)
     return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
 }
 
@@ -72,9 +73,9 @@ function describeReadiness(
 }
 
 // Once the workspace reports ready, copy starter code/context in and produce the IDE url.
-async function finalizeWorkspaceLaunch(studyId: string): Promise<string> {
+async function finalizeWorkspaceLaunch(studyId: string, sessionUser: CoderSessionUser): Promise<string> {
     await initializeWorkspaceCodeFiles(studyId)
-    return generateWorkspaceUrl(studyId)
+    return generateWorkspaceUrl(studyId, sessionUser)
 }
 
 // Fetch logs from an already-built path; returns the new lines (empty on any failure so a
@@ -103,13 +104,14 @@ function logLinesOf(logs: CoderLog[]): string[] {
 // so the client can show real progress. Resolves the IDE url once the workspace is ready.
 export async function getCoderWorkspaceLaunchStatus(
     studyId: string,
+    sessionUser: CoderSessionUser,
     cursors?: WorkspaceLaunchStatus['cursors'],
 ): Promise<WorkspaceLaunchStatus> {
     const logCtx = `[coder-status study=${studyId}]`
 
-    const user = await getCoderUser(studyId)
+    const user = await getCoderUser(sessionUser)
     if (!user) throw new Error('Coder user not found')
-    const workspaceName = generateWorkspaceName(studyId)
+    const workspaceName = generateWorkspaceName(studyId, user)
 
     const workspace = await coderFetch<CoderWorkspaceEvent>(coderWorkspaceDataPath(user.username, workspaceName), {
         errorMessage: 'Failed to get workspace status',
@@ -164,7 +166,7 @@ export async function getCoderWorkspaceLaunchStatus(
     const reason = failed ? (build?.job?.error ?? readiness.reason) : readiness.reason
     logger.info(`${logCtx} buildStatus=${buildStatus}: ${reason}`)
 
-    const url = readiness.ready ? await finalizeWorkspaceLaunch(studyId) : null
+    const url = readiness.ready ? await finalizeWorkspaceLaunch(studyId, sessionUser) : null
 
     return {
         buildStatus,
@@ -237,9 +239,9 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
     return environment
 }
 
-async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
-    const user = await getOrCreateCoderUser(studyId)
-    const workspaceName = generateWorkspaceName(studyId)
+async function getOrCreateCoderWorkspace(studyId: string, sessionUser: CoderSessionUser): Promise<CoderWorkspace> {
+    const user = await getOrCreateCoderUser(sessionUser)
+    const workspaceName = generateWorkspaceName(studyId, user)
 
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
 
@@ -258,7 +260,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
             return await createCoderWorkspace({
                 studyId,
-                username: user.username,
+                user,
                 containerImage: codeEnv.url,
                 environment: await buildWorkspaceEnvironment(codeEnv),
             })
@@ -269,14 +271,14 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 
 interface CreateCoderWorkspaceOptions {
     studyId: string
-    username: CoderUsername
+    user: CoderUser
     containerImage: string
     environment?: Array<{ name: string; value: string }>
 }
 
 async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
-    const { studyId, username, environment = [] } = options
-    const workspaceName = generateWorkspaceName(studyId)
+    const { studyId, user, environment = [] } = options
+    const workspaceName = generateWorkspaceName(studyId, user)
 
     const richParameterValues: Array<{ name: string; value: string }> = [
         {
@@ -300,7 +302,7 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         rich_parameter_values: richParameterValues,
     }
 
-    return coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {
+    return coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), user.username), {
         method: 'POST',
         body: data,
         errorMessage: 'Failed to create workspace',
@@ -309,9 +311,10 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
 
 export async function createUserAndWorkspace(
     studyId: string,
+    sessionUser: CoderSessionUser,
 ): Promise<{ success: boolean; workspace: CoderWorkspace }> {
     try {
-        const workspace = await getOrCreateCoderWorkspace(studyId)
+        const workspace = await getOrCreateCoderWorkspace(studyId, sessionUser)
         return {
             success: true,
             workspace: workspace,
