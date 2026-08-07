@@ -5,13 +5,14 @@ import posthog from 'posthog-js'
 import { useSession } from '@/hooks/session'
 
 export default function PostHogUserProvider() {
-    const { isLoaded, session } = useSession()
+    const { session } = useSession()
+    const userId = session?.user.id
 
     useEffect(() => {
-        if (isLoaded && session) {
-            posthog.identify(session.user.id)
+        if (userId) {
+            posthog.identify(userId)
         }
-    }, [isLoaded, session])
+    }, [userId])
 
     return null
 }
