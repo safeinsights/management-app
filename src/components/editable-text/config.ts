@@ -1,5 +1,6 @@
 import { ListNode, ListItemNode } from '@lexical/list'
 import { LinkNode } from '@lexical/link'
+import type { LinkAttributes } from '@lexical/link'
 import type { Klass, LexicalNode } from 'lexical'
 
 export function isValidUrl(url: string): boolean {
@@ -11,7 +12,15 @@ export function isValidUrl(url: string): boolean {
     }
 }
 
+// Module-level so the object identity is stable: LinkPlugin lists `attributes`
+// in its effect deps, so an inline literal would re-register TOGGLE_LINK_COMMAND
+// on every render.
+export const linkAttributes: LinkAttributes = { target: '_blank', rel: 'noopener noreferrer' }
+
 export const lexicalTheme = {
+    // Lexical paragraphs would otherwise inherit the UA default margin-block: 1em,
+    // which reads as a blank line between paragraphs.
+    paragraph: 'editable-text-paragraph',
     text: {
         bold: 'editable-text-bold',
         italic: 'editable-text-italic',

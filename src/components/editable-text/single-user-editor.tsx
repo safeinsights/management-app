@@ -14,7 +14,7 @@ import type { EditorState } from 'lexical'
 
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
-import { lexicalTheme, lexicalNodes, isValidUrl } from './config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { widgetBlurHandler } from '@/components/form-field'
@@ -147,7 +147,7 @@ export function SingleUserEditor({
                 <ListPlugin />
                 {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                 <EscapeFocusPlugin />
-                <LinkPlugin validateUrl={isValidUrl} />
+                <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}
                 {children}
                 <Toolbar />

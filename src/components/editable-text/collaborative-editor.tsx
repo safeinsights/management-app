@@ -21,7 +21,7 @@ import { useConnectionPhase } from '@/lib/realtime/yjs-websocket-context'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
-import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { widgetBlurHandler } from '@/components/form-field'
@@ -414,7 +414,7 @@ export function CollaborativeEditor({
                     <ListPlugin />
                     {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                     <EscapeFocusPlugin />
-                    <LinkPlugin validateUrl={isValidUrl} />
+                    <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                     <Toolbar />
                 </Paper>
                 <Stack gap={4} mt={4}>
