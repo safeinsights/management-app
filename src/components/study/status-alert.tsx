@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
 import { InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
+export const STATUS_ALERT_SEPARATOR = '\u2022'
+
 export const STATUS_ALERT_VARIANT = {
     informative: 'informative',
     action: 'action',
