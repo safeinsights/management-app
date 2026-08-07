@@ -93,11 +93,17 @@ describe('OutputsPendingScreen', () => {
     })
 
     it('falls back to stage startedAt when CODE-APPROVED is missing', async () => {
-        const { org, study } = await setupExecuting('JOB-READY')
+        const { org, study, job } = await setupExecuting('JOB-READY')
+        const statusChange = await db
+            .selectFrom('jobStatusChange')
+            .select('createdAt')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'JOB-READY')
+            .executeTakeFirstOrThrow()
         await renderScreen(study, org.slug)
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(/\w{3} \d{2}, \d{4}/)
-        expect(alert).not.toHaveTextContent('undefined')
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            dayjs(statusChange.createdAt).format('MMM DD, YYYY'),
+        )
     })
 
     it('shows a not-found alert when the study has no submitted job', async () => {
