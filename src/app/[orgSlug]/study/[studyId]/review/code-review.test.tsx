@@ -84,7 +84,7 @@ describe('CodeReview', () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
             expect(screen.getByText('STEP 3')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: 'Review study code', level: 4 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
         })
 
         it('renders the study title in the section header', async () => {
@@ -212,8 +212,8 @@ describe('CodeReview', () => {
         it('reflects the resubmission version in the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
 
-            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 4 })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Review study code', level: 4 })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 2 })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review study code', level: 2 })).not.toBeInTheDocument()
         })
 
         it('renders a Feedback and notes section showing both prior and current entries', async () => {

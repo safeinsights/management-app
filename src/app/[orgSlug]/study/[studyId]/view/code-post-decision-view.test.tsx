@@ -144,7 +144,7 @@ describe('CodePostDecisionView', () => {
 
             expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
 

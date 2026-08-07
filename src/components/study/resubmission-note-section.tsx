@@ -41,7 +41,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={4} c="charcoal.9">
+                    <Title order={3} size="h4" c="charcoal.9">
                         Resubmission Note
                         <RequiredIndicator isVisible />
                     </Title>
