@@ -3,10 +3,11 @@ import { PostHog } from 'posthog-node'
 
 let client: PostHog | null = null
 
-export async function getPostHogClient(): Promise<PostHog> {
+async function getPostHogClient(): Promise<PostHog | null> {
     if (client) return client
 
-    const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
+    const postHogProjectToken = await getConfigValue('POSTHOG_PROJECT_TOKEN', false)
+    if (!postHogProjectToken) return null
 
     // flushAt and flushInterval are set per https://posthog.com/docs/libraries/node#short-lived-processes-like-serverless-environments ,
     // but they shouldn't matter if we consistently use captureImmediate
@@ -17,4 +18,17 @@ export async function getPostHogClient(): Promise<PostHog> {
     })
 
     return client
+}
+
+type PostHogEvent = {
+    distinctId: string
+    event: string
+    properties?: Record<string, unknown>
+}
+
+export async function capturePostHogEvent(event: PostHogEvent): Promise<void> {
+    const posthog = await getPostHogClient()
+    if (!posthog) return
+
+    await posthog.captureImmediate(event)
 }

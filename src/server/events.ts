@@ -2,7 +2,7 @@ import { db, type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
 import logger from '@/lib/logger'
-import { getPostHogClient } from '@/server/posthog'
+import { capturePostHogEvent } from '@/server/posthog'
 import { UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
@@ -103,8 +103,7 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
 
-    const posthog = await getPostHogClient()
-    await posthog.captureImmediate({
+    await capturePostHogEvent({
         distinctId: userId,
         event: 'study_created',
         properties: { study_id: studyId },
