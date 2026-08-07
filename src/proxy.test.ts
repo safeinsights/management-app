@@ -2,8 +2,47 @@ import { beforeEach, describe, expect, it, type Mock, vi } from '@/tests/unit.he
 import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { NextRequest } from 'next/server'
+import { CSP_HEADER, CSP_NONCE_HEADER, REPORTING_ENDPOINTS_HEADER } from '@/lib/csp'
+import { continueWithNonce } from './proxy'
 
 type ProxyHandler = (auth: Mock, req: NextRequest) => Promise<Response>
+
+const nonceFrom = (policy: string) => policy.match(/'nonce-([^']+)'/)?.[1]
+
+// NextResponse.next({ request: { headers } }) exposes the forwarded request headers as
+// x-middleware-request-* on the response, which is exactly what Next's server consumes.
+const forwardedHeader = (res: Response, name: string) => res.headers.get(`x-middleware-request-${name}`)
+
+describe('continueWithNonce', () => {
+    // Next only stamps its inline scripts with a nonce it can parse back out of the
+    // content-security-policy REQUEST header (parseRequestHeaders in app-render). A test over the
+    // policy string alone cannot fail when that wiring breaks; this one can.
+    it('forwards a CSP request header whose script-src nonce matches the response header', () => {
+        vi.stubEnv('NODE_ENV', 'production')
+
+        const res = continueWithNonce(new NextRequest('https://example.test/dashboard'))
+
+        const responsePolicy = res.headers.get(CSP_HEADER) ?? ''
+        const forwardedPolicy = forwardedHeader(res, 'content-security-policy') ?? ''
+        const nonce = nonceFrom(responsePolicy)
+
+        expect(nonce).toBeTruthy()
+        expect(forwardedPolicy).toContain(`script-src 'nonce-${nonce}'`)
+        expect(forwardedHeader(res, CSP_NONCE_HEADER)).toBe(nonce)
+    })
+
+    it('points violation reports at Sentry when a DSN is configured', () => {
+        vi.stubEnv('NODE_ENV', 'production')
+        vi.stubEnv('NEXT_PUBLIC_SENTRY_DSN', 'https://abc123@o11.ingest.us.sentry.io/22')
+
+        const res = continueWithNonce(new NextRequest('https://example.test/dashboard'))
+
+        expect(res.headers.get(REPORTING_ENDPOINTS_HEADER)).toBe(
+            'csp-report="https://o11.ingest.us.sentry.io/api/22/security/?sentry_key=abc123"',
+        )
+        expect(res.headers.get(CSP_HEADER)).toContain('report-to csp-report')
+    })
+})
 
 describe('proxy redirect_url sanitization', () => {
     beforeEach(() => {

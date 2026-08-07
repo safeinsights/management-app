@@ -355,10 +355,12 @@ const fetchOrgCodeEnvsSchema = z.object({
     orgSlug: z.string(),
 })
 
+// `selectAll('orgCodeEnv')` includes settings.environment — plaintext env-var name/value pairs,
+// commonly credentials — plus scan results, so this is admin-console data, not public catalog data.
 export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
     .params(fetchOrgCodeEnvsSchema)
     .middleware(orgIdFromSlug)
-    .requireAbilityTo('view', 'Org')
+    .requireAbilityTo('view', 'OrgConfig')
     .handler(async ({ orgId, db }) => {
         return await db
             .selectFrom('orgCodeEnv')
@@ -549,10 +551,12 @@ const fetchStarterCodeSchema = z.object({
     fileName: z.string(),
 })
 
+// Returns S3 file contents. Note this is the admin console's editor view; the researcher-facing
+// starter-code download is getStarterCodeUrlAction, which stays cross-org on `view Orgs`.
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     .params(fetchStarterCodeSchema)
     .middleware(codeEnvFromOrgAndId)
-    .requireAbilityTo('view', 'Org')
+    .requireAbilityTo('view', 'OrgConfig')
     .handler(async ({ codeEnv, params: { fileName } }) => {
         if (!codeEnv.starterCodeFileNames.includes(fileName)) {
             throw new Error(`Starter code file "${fileName}" not found`)

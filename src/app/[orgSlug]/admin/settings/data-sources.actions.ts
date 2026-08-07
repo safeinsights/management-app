@@ -19,6 +19,10 @@ const fetchOrgDataSourcesSchema = z.object({
     orgSlug: z.string(),
 })
 
+// Stays on the unconditioned `view Org` on purpose: the study-proposal dataset picker needs a lab
+// researcher to list an enclave org's datasets (97c118b1). The selected columns are therefore
+// catalog-level only — keep it that way, and route any new field carrying configuration or secrets
+// through `view OrgConfig` instead (OTTER-724 / MA-6).
 export const fetchOrgDataSourcesAction = new Action('fetchOrgDataSourcesAction')
     .params(fetchOrgDataSourcesSchema)
     .middleware(orgIdFromSlug)

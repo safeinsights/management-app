@@ -183,10 +183,8 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 wordCount={decision.wordCount}
                 feedbackError={decision.feedbackError}
                 onFeedbackChange={decision.onFeedbackChange}
-                onFeedbackBlur={decision.onFeedbackBlur}
                 selected={decision.selected}
                 onSelect={decision.onSelect}
-                onDecisionBlur={decision.onDecisionBlur}
                 decisionError={decision.decisionError}
             />
             <Group justify="space-between">

@@ -376,11 +376,47 @@ async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void
 
 // OTTER-675: blank submit must flag both fields and open no modal.
 async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
-    await page.getByTestId('outputs-submit-decision').click()
+    const editor = page.getByLabel('Decision feedback')
+    const trigger = page.getByTestId('outputs-submit-decision')
+
+    // The caret starts inside the empty editor, which is where this used to break: raising the
+    // "enter your feedback" message as the editor lost focus inserted a line above the navigation
+    // row, so the button moved out from under the pointer between mousedown and mouseup, the click
+    // was never delivered, and only the field the blur had flagged was ever reported.
+    await editor.click()
+    await trigger.click()
 
     await expect(page.getByText(/Enter your feedback for .* before submitting\./)).toBeVisible()
     await expect(page.getByText('Select an option before submitting')).toBeVisible()
+    const options = page.locator('input[name="outputs-decision"]')
+    await expect(options.first()).toHaveAttribute('aria-invalid', 'true')
+    await expect(options.last()).toHaveAttribute('aria-invalid', 'true')
+    await expect(editor).toBeFocused()
     await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
+
+    // Tab must move focus on rather than typing a tab character, and must keep going until it
+    // reaches the radios (WCAG 2.1.2). Checked here rather than in jsdom, where Lexical's Tab
+    // handler returns early for want of a range selection and the assertion cannot fail.
+    const typed = 'Checking the keyboard path.'
+    await editor.fill(typed)
+    await page.keyboard.press('Tab')
+    await expect(editor).not.toBeFocused()
+    // textContent(), not toHaveText: the latter normalizes whitespace, so it would pass on the very
+    // tab character this asserts is absent.
+    await expect(async () => {
+        const text = await editor.textContent()
+        expect(text).toContain(typed)
+        expect(text).not.toContain('\t')
+    }).toPass()
+
+    // Tabs until the radio is reached rather than assuming a count: the editor's formatting
+    // toolbar sits between the two and its size is not this test's business.
+    const firstOption = page.getByTestId('outputs-decision-share-outputs')
+    const isFocused = () => firstOption.evaluate((el) => el === document.activeElement)
+    for (let i = 0; i < 12 && !(await isFocused()); i++) {
+        await page.keyboard.press('Tab')
+    }
+    await expect(firstOption).toBeFocused()
 }
 
 // The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),

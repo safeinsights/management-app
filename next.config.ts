@@ -26,10 +26,10 @@ const securityHeaders = [
     { key: 'X-Frame-Options', value: 'DENY' },
     // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
     // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
-    // must be listed explicitly (SIINFOSEC-769, ZAP-10055). We intentionally do not
-    // set script-src/default-src here: Clerk and Sentry inject scripts/connect to
-    // their own origins at runtime, and a restrictive policy would break auth and
-    // error reporting without a nonce-based setup.
+    // must be listed explicitly (SIINFOSEC-769, ZAP-10055). Only request-independent
+    // directives belong here. script-src is nonce-based and therefore per-request, so
+    // it is emitted from src/proxy.ts — under the report-only header name while that
+    // policy's rollout is measured (see src/lib/csp.ts for why the names differ).
     {
         key: 'Content-Security-Policy',
         value: ["frame-ancestors 'none'", "form-action 'self'", "base-uri 'self'"].join('; '),
