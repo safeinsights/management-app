@@ -4,6 +4,7 @@ import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } fro
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
@@ -25,6 +26,7 @@ import { useParams } from 'next/navigation'
 import os from 'os'
 import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 
 import { ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
@@ -161,6 +163,17 @@ const emailWorkerToken = faker.string.alphanumeric({ length: 6, casing: 'lower' 
 export const testEmail = (provider = 'test.com') => {
     const [localPart] = faker.internet.email({ provider }).split('@')
     return `${localPart}-${emailWorkerToken}${++emailSequence}@${provider}`
+}
+
+// Screen components take the raw study state their rules routed on (see render-screen.tsx).
+// Screen tests fetch it here and pass the same { study, raw } pick the screens declare, so
+// each screen test file isn't re-declaring the fetch-or-throw and the Pick.
+export type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
+
+export const requireRawState = async (studyId: string) => {
+    const raw = await rawStudyStateForStudy(studyId)
+    if (!raw) throw new Error(`no raw study state for study ${studyId}`)
+    return raw
 }
 
 export const insertTestStudyData = async ({
