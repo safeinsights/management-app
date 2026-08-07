@@ -21,7 +21,7 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={4} size="xl" style={{ flex: 1, minWidth: 0 }}>
+                        <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
                             Study Proposal
                         </Title>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
@@ -33,7 +33,7 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
+                        <Title order={2} size="xl">
                             Study Code
                         </Title>
                     </Group>
@@ -45,7 +45,7 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
+                        <Title order={2} size="xl">
                             Study Status
                         </Title>
                     </Group>

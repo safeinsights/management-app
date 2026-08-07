@@ -143,6 +143,28 @@ export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
 
+// Generates a throwaway address for a user row. faker.internet.email() draws its local part from
+// the shared name pools plus a small numeric suffix, an effective space of roughly 1.9M addresses,
+// narrow enough that a full run repeats one and user_email_lower_unique rejects the second insert,
+// surfacing as a duplicate-key error in whichever unrelated test lost the race.
+//
+// The counter makes addresses unique within a worker outright. Across workers and across runs the
+// token carries it: a repeat would need the same token, the same local part and the same sequence
+// number, which is not impossible but is far below the rate of any other flake in the suite. The
+// token rather than a worker id keeps this independent of how vitest pools tests (faker is
+// unseeded, so each worker draws its own).
+//
+// faker's casing is preserved, so callers still get the mixed-case addresses they got before.
+// Tests that need two records to share an address must pass it explicitly rather than hoping for
+// a collision.
+let emailSequence = 0
+const emailWorkerToken = faker.string.alphanumeric({ length: 6, casing: 'lower' })
+
+export const testEmail = (provider = 'test.com') => {
+    const [localPart] = faker.internet.email({ provider }).split('@')
+    return `${localPart}-${emailWorkerToken}${++emailSequence}@${provider}`
+}
+
 // Screen components take the raw study state their rules routed on (see render-screen.tsx).
 // Screen tests fetch it here and pass the same { study, raw } pick the screens declare, so
 // each screen test file isn't re-declaring the fetch-or-throw and the Pick.
@@ -278,7 +300,7 @@ export const insertTestUser = async ({
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
-            email: email ?? faker.internet.email({ provider: 'test.com' }),
+            email: email ?? testEmail(),
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -596,7 +618,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         teams: null,
         orgs,
     }
-    const mockEmail = values.email || faker.internet.email({ provider: 'test.com' })
+    const mockEmail = values.email || testEmail()
     const userProperties = {
         id: values.clerkUserId,
         banned: false,

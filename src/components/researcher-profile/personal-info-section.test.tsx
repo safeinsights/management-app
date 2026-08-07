@@ -13,6 +13,13 @@ import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
 
 describe('PersonalInfoSection', () => {
+    // usePersonalInfoSection deliberately closes edit mode without calling the action when the
+    // form is pristine (see 'should close edit mode without API call when no changes are made').
+    // The seeded user gets a faker-random name, so typing a hardcoded literal stops exercising
+    // the save at all on the runs where faker happens to emit that same name. Deriving the edit
+    // from the seeded value keeps the form dirty whatever faker produced.
+    const editOf = (seededName: string) => `${seededName}Edited`
+
     it('should display user data in view mode', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
@@ -68,11 +75,13 @@ describe('PersonalInfoSection', () => {
 
         const firstNameInput = screen.getByPlaceholderText('Enter your first name')
         const lastNameInput = screen.getByPlaceholderText('Enter your last name')
+        const newFirstName = editOf(user.firstName)
+        const newLastName = editOf(user.lastName!)
 
         await userEvents.clear(firstNameInput)
         await userEvents.clear(lastNameInput)
-        await userEvents.type(firstNameInput, 'Jane')
-        await userEvents.type(lastNameInput, 'Smith')
+        await userEvents.type(firstNameInput, newFirstName)
+        await userEvents.type(lastNameInput, newLastName)
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await userEvents.click(saveButton)
@@ -89,8 +98,8 @@ describe('PersonalInfoSection', () => {
             .where('id', '=', user.id)
             .executeTakeFirstOrThrow()
 
-        expect(updated.firstName).toBe('Jane')
-        expect(updated.lastName).toBe('Smith')
+        expect(updated.firstName).toBe(newFirstName)
+        expect(updated.lastName).toBe(newLastName)
     })
 
     it('should show error notification on save failure', async () => {
@@ -113,7 +122,7 @@ describe('PersonalInfoSection', () => {
 
         const firstNameInput = screen.getByPlaceholderText('Enter your first name')
         await userEvents.clear(firstNameInput)
-        await userEvents.type(firstNameInput, 'Jane')
+        await userEvents.type(firstNameInput, editOf(user.firstName))
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await userEvents.click(saveButton)
