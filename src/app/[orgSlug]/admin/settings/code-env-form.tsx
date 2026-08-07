@@ -115,6 +115,7 @@ function StarterCodeSection({
                 p="md"
                 onBlur={() => setTouched(true)}
                 aria-invalid={isMissing || !!error || undefined}
+                data-testid="starter-code-dropzone"
             >
                 <Group gap="xs" justify="center">
                     <Dropzone.Accept>

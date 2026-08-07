@@ -59,4 +59,42 @@ describe('SignInForm', () => {
         await waitFor(() => expect(screen.getByText(clerkErrorOverrides.form_password_incorrect)).toBeInTheDocument())
         expect(memoryRouter.asPath).toBe('/account/signin')
     })
+
+    // A blank email fails both `min(1)` and `email()`. The resolver keeps the last issue by
+    // default, so an untouched field read "Invalid email" (OTTER-647).
+    it('says the email is required when it is left blank, not that it is invalid', async () => {
+        mockSignInCreate(vi.fn())
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+
+        await userEvent.click(screen.getByLabelText('Email'))
+        await userEvent.tab()
+
+        expect(await screen.findByText('Email is required')).toBeInTheDocument()
+        expect(screen.queryByText('Invalid email')).not.toBeInTheDocument()
+    })
+
+    it('still says the email is invalid when it is malformed', async () => {
+        mockSignInCreate(vi.fn())
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+
+        await userEvent.type(screen.getByLabelText('Email'), 'not-an-email')
+        await userEvent.tab()
+
+        expect(await screen.findByText('Invalid email')).toBeInTheDocument()
+    })
+
+    // Mantine renders PasswordInput's inner <input> with ARIA wiring disabled, so its `error`
+    // alone leaves the control unmarked for assistive tech (OTTER-647).
+    it('marks the password input invalid when it is left blank', async () => {
+        mockSignInCreate(vi.fn())
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+
+        const password = screen.getByLabelText('Password')
+        expect(password).not.toHaveAttribute('aria-invalid')
+
+        await userEvent.click(password)
+        await userEvent.tab()
+
+        await waitFor(() => expect(password).toHaveAttribute('aria-invalid', 'true'))
+    })
 })

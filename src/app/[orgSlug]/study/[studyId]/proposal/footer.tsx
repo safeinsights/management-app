@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group, Stack } from '@mantine/core'
+import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modals/app-modal'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
@@ -12,8 +12,6 @@ import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposa
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { ReviewerPreview } from './reviewer-preview'
-import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
-import { missingProposalFields } from './missing-fields'
 
 interface ProposalFooterProps {
     researcherName: string
@@ -77,18 +75,15 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
-                    <Stack gap={4} align="flex-end">
-                        <Button
-                            size="md"
-                            variant="primary"
-                            disabled={!canSubmit || isBusy}
-                            loading={isSubmitting}
-                            onClick={openConfirm}
-                        >
-                            Submit initial request
-                        </Button>
-                        <IncompleteFieldsHint missing={missingProposalFields(form.values)} />
-                    </Stack>
+                    <Button
+                        size="md"
+                        variant="primary"
+                        disabled={!canSubmit || isBusy}
+                        loading={isSubmitting}
+                        onClick={openConfirm}
+                    >
+                        Submit initial request
+                    </Button>
                 </Group>
             </Group>
 

@@ -879,12 +879,10 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         await newStudyButton.click()
         await page.waitForURL(/\/study\/request$/)
 
-        // Step 1: nothing is flagged before the researcher interacts, and Proceed names
-        // what is still outstanding rather than being inertly disabled.
+        // Step 1: nothing is flagged before the researcher interacts.
         await expect(page.getByText('Data Partner is required')).toBeHidden()
         const proceed = page.getByRole('button', { name: /Proceed to Step 2/i })
         await expect(proceed).toBeDisabled()
-        await expect(page.getByTestId('incomplete-fields-hint')).toContainText(/Data Partner/i)
 
         await selectOrgAndLanguage(page)
         await expect(proceed).toBeEnabled()

@@ -5,7 +5,7 @@ import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
     type CodeReviewCriteriaDraft,
@@ -39,6 +39,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
     const radioOptions = OPTIONS.map((option) => <Radio key={option.value} value={option.value} label={option.label} />)
+    const widgetBlur = useWidgetBlur(onBlur)
 
     // Radio.Group strands a hand-passed `aria-label` on its outer wrapper, which carries no role.
     // The element with role="radiogroup" takes its name from `labelProps.id`, so pointing that at
@@ -56,7 +57,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
             <Radio.Group
                 value={value ?? ''}
                 onChange={handleChange}
-                onBlur={widgetBlurHandler(onBlur)}
+                {...widgetBlur}
                 name={`criteria-${descriptor.key}`}
                 error={error}
                 labelProps={{ id: labelId }}
