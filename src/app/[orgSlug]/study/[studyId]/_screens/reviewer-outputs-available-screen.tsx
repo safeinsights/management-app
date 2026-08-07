@@ -5,25 +5,21 @@ import { ReviewBeforeSharingBanner } from '@/components/study/review-before-shar
 import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
+import { latestStatusAt } from '@/lib/study-job-status'
+import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
-// statusChanges arrive newest-first (see latestJobForStudyQuery ordering), so `find` picks the
-// most recent RUN-COMPLETE — the moment the outputs became available for review.
-function availableTimestamp(
-    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>,
-): Date | string | null {
-    return statusChanges.find((c) => c.status === 'RUN-COMPLETE')?.createdAt ?? null
+const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string | null; labName: string }) => {
+    // The date is display-only, so a payload job missing RUN-COMPLETE degrades to an undated
+    // banner rather than blocking a review the state machine already routed here.
+    const availableOn = availableAt ? ` • ${dayjs(availableAt).format('MMM DD, YYYY')}` : ''
+    return (
+        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Outputs are available for review${availableOn}`}>
+            Enter your security key to decrypt the outputs, review them, and then share with {labName}.
+        </StatusAlert>
+    )
 }
-
-const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string; labName: string }) => (
-    <StatusAlert
-        variant={STATUS_ALERT_VARIANT.action}
-        title={`Outputs are available for review • ${dayjs(availableAt).format('MMM DD, YYYY')}`}
-    >
-        Enter your security key to decrypt the outputs, review them, and then share with {labName}.
-    </StatusAlert>
-)
 
 // OTTER-676: same two-phase panel as the errored screen (OTTER-675) — the security key gate,
 // then the decrypted outputs table, feedback and sharing decision. Only the locked banner copy
@@ -31,18 +27,19 @@ const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string;
 // which the server derives independently from the job's own status history).
 export async function ReviewerOutputsAvailableScreen({
     study,
+    raw,
     orgSlug,
-}: Pick<ScreenComponentProps, 'study' | 'orgSlug'>) {
-    // Both not-found branches below are defensive: reviewer-screen-rules (rule 1b) routes here
-    // only when a RUN-COMPLETE landed with no files decision, so a routed render always has a
-    // submitted job with a completed run. They guard direct renders, not a reachable state.
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug'>) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const availableAt = availableTimestamp(job.statusChanges)
-    if (!availableAt) {
+    // Guards the same fact rule 1b routes on (reviewer-screen-rules), so routing and rendering
+    // cannot disagree about whether outputs are available (#922 review). The query above supplies
+    // only the panel's job payload.
+    const state = projectStudyState(raw)
+    if (state.resultsDisplayStatus !== 'RUN-COMPLETE') {
         return (
             <AlertNotFound
                 title="Outputs not found"
@@ -52,6 +49,7 @@ export async function ReviewerOutputsAvailableScreen({
     }
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const availableAt = latestStatusAt(job.statusChanges, 'RUN-COMPLETE')
 
     return (
         <OutputsReviewPanel

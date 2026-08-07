@@ -11,7 +11,6 @@ import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
@@ -413,7 +412,7 @@ export function CollaborativeEditor({
                     />
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     <ListPlugin />
-                    <TabIndentationPlugin />
+                    {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                     <EscapeFocusPlugin />
                     <LinkPlugin validateUrl={isValidUrl} />
                     <Toolbar />

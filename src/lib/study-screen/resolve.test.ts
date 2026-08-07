@@ -187,9 +187,13 @@ describe('resolveScreen (reviewer)', () => {
         ).toBe('reviewer-study-results')
     })
     it('undecided results → reviewer-outputs-available (decrypt-before-review, OTTER-668)', () => {
-        expect(resolveScreen('reviewer', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe(
-            'reviewer-outputs-available',
-        )
+        expect(
+            resolveScreen(
+                'reviewer',
+                state({ hasResults: true, resultsDisplayStatus: 'RUN-COMPLETE', codeDecision: 'CODE-APPROVED' }),
+                ctx,
+            ).screen,
+        ).toBe('reviewer-outputs-available')
     })
     it('pending review → reviewer-proposal-review', () => {
         expect(resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false }), ctx).screen).toBe(

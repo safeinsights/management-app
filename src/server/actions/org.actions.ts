@@ -1,16 +1,22 @@
 'use server'
 
 import { ActionSuccessType } from '@/lib/types'
-import { orgSchema, updateOrgSchema } from '@/schema/org'
+import { orgSchema, updateOrgSchema, type PublicOrg } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
 
+// Mass-assignment path: updateOrgSchema is a discriminated union of the CREATE schemas, so it
+// carries `type`, `slug`, `email` and `settings`. `settings.publicKey` is the RS256 key that
+// verifies an enclave's M2M API bearer tokens — an org admin who could overwrite it would forge
+// API JWTs as that enclave, and flipping `type` lab->enclave grants reviewer abilities. So this is
+// gated on ('manage','all') rather than the org-admin-scoped ('update','Org'). Its only caller is
+// the SI-admin console (EditOrgForm), which already required SI staff. Org admins edit their own
+// org through updateOrgSettingsAction below, which whitelists name + description (OTTER-724 / MA-5).
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
-    .middleware(async ({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
-    .requireAbilityTo('update', 'Org')
+    .requireAbilityTo('manage', 'all')
     .handler(async ({ params: { id, ...update }, db }) => {
         return await db.updateTable('org').set(update).where('id', '=', id).returningAll().executeTakeFirstOrThrow()
     })
@@ -21,13 +27,6 @@ export const insertOrgAction = new Action('insertOrgAction')
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
         return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
-    })
-
-export const getOrgFromIdAction = new Action('getOrgFromIdAction')
-    .params(z.object({ orgId: z.string() }))
-    .requireAbilityTo('view', 'Org')
-    .handler(async ({ db, params: { orgId } }) => {
-        return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
 export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
@@ -41,8 +40,11 @@ export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
             .execute()
     })
 
+// Returns EVERY org's email and settings (including enclave publicKeys). Its only callers live in
+// the SI-admin console, whose layout applies no admin gate, so this check is the sole gate
+// (OTTER-724 / MA-6).
 export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
-    .requireAbilityTo('view', 'Orgs')
+    .requireAbilityTo('manage', 'all')
     .handler(async ({ db }) => {
         return await db
             .selectFrom('org')
@@ -71,6 +73,8 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
+// Cross-org by design: a lab researcher picks the enclave to submit to, so this must list enclaves
+// the caller does not belong to. Selects catalog columns only — keep it that way (OTTER-724 / MA-6).
 export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
@@ -99,6 +103,8 @@ type LanguageOption = {
     commandLines: Record<string, string>
 }
 
+// Cross-org by design, like getStudyCapableEnclaveOrgsAction: after choosing an enclave, the
+// researcher needs its languages and starter-code downloads to begin a proposal (OTTER-724 / MA-6).
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string().min(1) }))
@@ -149,6 +155,9 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
         }
     })
 
+// Cross-org starter-code download is the intended researcher flow, so this stays on `view Orgs`.
+// The admin console's editor view of the same files is fetchStarterCodeAction, which is scoped to
+// that org's admins via `view OrgConfig` (OTTER-724 / MA-6).
 export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string(), language: z.string() }))
@@ -183,18 +192,29 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         return { starterCodeUrls }
     })
 
+// Sits on the unconditioned `view Org`, so the row read happens in the HANDLER and is narrowed to
+// PublicOrg. It previously selected the whole row in MIDDLEWARE, which both handed `settings`
+// (an enclave's publicKey) and `email` to any authenticated caller and echoed them back inside the
+// permission_denied message to a caller who was refused (OTTER-724 / MA-6).
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
-    .middleware(async ({ db, params: { orgSlug } }) => {
-        const org = await db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
-        return { org, orgId: org.id }
-    })
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ org }) => org)
+    .handler(
+        async ({ db, orgId }): Promise<PublicOrg> =>
+            await db
+                .selectFrom('org')
+                .select(['id', 'slug', 'name', 'type', 'description'])
+                .where('id', '=', orgId)
+                .executeTakeFirstOrThrow(),
+    )
 
 export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 
-export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
+// The org-admin-scoped update path. The field list here is the whitelist: it is the reason
+// ('update','Org') can safely be granted to every org admin, so keep `type`, `slug`, `email` and
+// `settings` out of it — those belong to updateOrgAction's SI-admin path (OTTER-724 / MA-5).
+export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),

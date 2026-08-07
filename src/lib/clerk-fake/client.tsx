@@ -31,7 +31,7 @@ function doSignOut() {
     notifyAuthChanged()
 }
 
-export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string }) {
+export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string; nonce?: string }) {
     useEffect(() => {
         // After hydration, re-sync the store from the cookie so consumers that rendered
         // signed-out during SSR flip to the real role.

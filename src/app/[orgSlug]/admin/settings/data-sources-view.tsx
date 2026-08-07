@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { isHttpUrl } from '@/schema/url'
 
 // Presentational pieces for the "Data Sources" settings card. They own the card chrome
 // and the visible row (name / code-env names / description / linked URLs) but NOT data
@@ -25,7 +26,35 @@ export type DataSourceRowViewProps = {
     actions: ReactNode
 }
 
+// Defense in depth for rows persisted before the schema restricted schemes (OTTER-724): a
+// stored `javascript:` URL still executes when React renders it into an href, so refuse to
+// link anything that is not http(s) and show the raw text instead.
+function DataSourceUrlLink({ url, description }: { url: string; description: string | null }) {
+    const linkable = isHttpUrl(url)
+
+    return (
+        <Group gap="sm" wrap="nowrap">
+            <Text>
+                {linkable ? (
+                    <Anchor size="sm" href={url} target="_blank" rel="noopener noreferrer">
+                        {url}
+                    </Anchor>
+                ) : (
+                    <Text component="span" size="sm">
+                        {url}
+                    </Text>
+                )}
+            </Text>
+            <Text c="dimmed" size="sm">
+                {description}
+            </Text>
+        </Group>
+    )
+}
+
 export function DataSourceRowView({ name, codeEnvNames, description, urls, actions }: DataSourceRowViewProps) {
+    const linkedUrls = urls.filter((u): u is DataSourceUrlView & { url: string } => Boolean(u.url))
+
     return (
         <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
             <Group justify="space-between" p="sm" wrap="nowrap">
@@ -41,21 +70,9 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
                             {description}
                         </Text>
                     )}
-                    {urls.map(
-                        (u) =>
-                            u.url && (
-                                <Group key={u.id} gap="sm" wrap="nowrap">
-                                    <Text>
-                                        <Anchor size="sm" href={u.url} target="_blank" rel="noopener noreferrer">
-                                            {u.url}
-                                        </Anchor>
-                                    </Text>
-                                    <Text c="dimmed" size="sm">
-                                        {u.description}
-                                    </Text>
-                                </Group>
-                            ),
-                    )}
+                    {linkedUrls.map((u) => (
+                        <DataSourceUrlLink key={u.id} url={u.url} description={u.description} />
+                    ))}
                 </Box>
                 <Group gap={4} wrap="nowrap">
                     {actions}
