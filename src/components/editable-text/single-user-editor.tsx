@@ -35,6 +35,8 @@ export type SingleUserEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** See EditorProps.footerLeft. */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
@@ -91,6 +93,7 @@ export function SingleUserEditor({
     placeholder,
     ariaLabel,
     onChange,
+    footerLeft,
     footerRight,
     inputId,
     error,
@@ -152,10 +155,11 @@ export function SingleUserEditor({
                 {children}
                 <Toolbar />
             </Paper>
-            {footerRight && (
+            {(footerLeft || footerRight) && (
                 <Stack gap={4} mt={4}>
                     <Group align="center" wrap="nowrap">
-                        <Box ml="auto">{footerRight}</Box>
+                        {footerLeft}
+                        {footerRight && <Box ml="auto">{footerRight}</Box>}
                     </Group>
                 </Stack>
             )}
