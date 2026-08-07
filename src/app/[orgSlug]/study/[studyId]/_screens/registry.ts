@@ -13,6 +13,7 @@ import { ReviewerCodeReviewScreen } from './reviewer-code-review-screen'
 import { ReviewerCodeFeedbackScreen } from './reviewer-code-feedback-screen'
 import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
+import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import { ReviewerStudyResultsScreen } from './reviewer-study-results-screen'
 
 // Screens may be async server components (they load their own data). Returned node is awaited
@@ -36,5 +37,6 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'reviewer-code-feedback': ReviewerCodeFeedbackScreen,
     'reviewer-outputs-pending': ReviewerOutputsPendingScreen,
     'reviewer-outputs-errored': ReviewerOutputsErroredScreen,
+    'reviewer-outputs-available': ReviewerOutputsAvailableScreen,
     'reviewer-study-results': ReviewerStudyResultsScreen,
 }

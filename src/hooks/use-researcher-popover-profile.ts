@@ -6,7 +6,9 @@ import { getResearcherProfileByUserIdAction } from '@/server/actions/researcher-
 
 export function useResearcherPopoverProfile(userId: string, studyId: string) {
     const query = useQuery({
-        queryKey: ['researcher-profile', userId],
+        // studyId is part of the key because the action authorizes per study: sharing one entry
+        // across studies would serve a result the current study never granted.
+        queryKey: ['researcher-profile', userId, studyId],
         queryFn: () => getResearcherProfileByUserIdAction({ userId, studyId }),
     })
 

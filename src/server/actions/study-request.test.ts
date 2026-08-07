@@ -97,6 +97,33 @@ describe('Request Study Actions', () => {
         expect(study?.status).toEqual('DRAFT')
     })
 
+    // OTTER-719: submittingOrgSlug is a client param and `create Study` is unconditioned by design
+    // (a new draft has no submittedByOrgId yet), so the handler is the only place this can be checked.
+    // Without it a caller could stamp another lab's id onto a study, handing that lab IDE access to it.
+    it('onSaveDraftStudyAction rejects a submitting lab the caller does not belong to', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'foreign-submit' })
+        const victimLab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        const callersLab = await insertTestOrg({ slug: 'foreign-submit-callers-lab', type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: callersLab.slug, orgType: 'lab' })
+
+        const result = await onSaveDraftStudyAction({
+            orgSlug: enclave.slug,
+            studyInfo: { title: 'Smuggled', piName: 'PI', language: 'R' as const },
+            submittingOrgSlug: victimLab.slug,
+        })
+
+        expect(result).toMatchObject({
+            error: expect.objectContaining({ permission_denied: expect.any(String) }),
+        })
+
+        const smuggled = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('submittedByOrgId', '=', victimLab.id)
+            .executeTakeFirst()
+        expect(smuggled).toBeUndefined()
+    })
+
     it('onSubmitDraftStudyAction creates job and finalizeStudySubmissionAction converts to PENDING-REVIEW', async () => {
         // create the enclave that owns the data
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-submit' })

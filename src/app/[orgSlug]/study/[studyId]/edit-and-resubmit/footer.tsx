@@ -51,6 +51,15 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
         resubmit()
     }
 
+    const handleOpenReviewer = async () => {
+        // Flush the form first: the preview's PI popover fetches the profile server-side, and
+        // the server only serves ids the persisted study row names — an unsaved piUserId would
+        // be denied and render as "Profile not available".
+        const saved = await saveDraft()
+        if (!saved) return
+        openReviewer()
+    }
+
     return (
         <>
             <Group mt="xs" justify="space-between" align="flex-start" w="100%">
@@ -66,7 +75,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     Back
                 </Button>
                 <Group align="flex-start">
-                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
+                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
                     <Button

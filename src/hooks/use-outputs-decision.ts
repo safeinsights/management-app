@@ -40,10 +40,16 @@ export function useOutputsDecision({
 
     const [feedback, setFeedback] = useState('')
     const [selected, setSelected] = useState<OutputsDecision | null>(null)
-    // Errors surface only after the user has left a field or pressed Submit; a pristine form
-    // must not open with everything flagged red.
-    const [showFeedbackError, setShowFeedbackError] = useState(false)
-    const [showDecisionError, setShowDecisionError] = useState(false)
+    // One flag for both fields, raised only by a submit attempt. A pristine form must not open
+    // with everything flagged red, and "still empty" is deliberately NOT raised on blur:
+    //
+    // rendering a message on blur inserts a line above the navigation row, and the blur that
+    // inserts it is the one caused by mousedown on "Submit decision" itself. The button moves
+    // ~21px between mousedown and mouseup, mouseup lands off it, and the browser fires click on
+    // an ancestor instead, so this hook never runs and the reviewer has to click twice. Flagging
+    // on submit alone is also what the AC asks for, and matches W3C ARIA guidance that a
+    // required field should not be marked invalid before the user has tried to submit.
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
     // The decision the confirmation modal is confirming; null means closed. One nullable value
     // rather than an open flag beside the selection, so "open with nothing chosen" cannot be
     // represented and needs no guard.
@@ -54,15 +60,16 @@ export function useOutputsDecision({
     const isOverLimit = wordCount > maxWords
 
     // Over-limit is reported the moment it happens (the counter is already live, so a silent
-    // field would contradict it); emptiness waits for blur or a submit attempt.
+    // field would contradict it), and it appears while the user types, well before any click.
+    // Emptiness waits for a submit attempt.
     const resolveFeedbackError = () => {
         if (isOverLimit) return OUTPUTS_DECISION_ERRORS.feedbackTooLong(maxWords)
-        if (showFeedbackError && isEmpty) return OUTPUTS_DECISION_ERRORS.feedbackEmpty(labName)
+        if (hasAttemptedSubmit && isEmpty) return OUTPUTS_DECISION_ERRORS.feedbackEmpty(labName)
         return undefined
     }
 
     const feedbackError = resolveFeedbackError()
-    const decisionError = showDecisionError && selected === null ? OUTPUTS_DECISION_ERRORS.decisionMissing : undefined
+    const decisionError = hasAttemptedSubmit && selected === null ? OUTPUTS_DECISION_ERRORS.decisionMissing : undefined
 
     const { mutate: submit, isPending } = useMutation({
         mutationFn: async (decision: OutputsDecision) => {
@@ -97,8 +104,7 @@ export function useOutputsDecision({
     // full set on one click, even though focus can only land on one of them. focusFirstInvalid
     // returns the field it moved to, so its own scan doubles as the "is anything invalid" test.
     const attemptSubmit = useCallback(() => {
-        setShowFeedbackError(true)
-        setShowDecisionError(true)
+        setHasAttemptedSubmit(true)
 
         const invalid: Record<string, boolean> = {
             [FEEDBACK_INPUT_ID]: isEmpty || isOverLimit,
@@ -110,10 +116,9 @@ export function useOutputsDecision({
         setConfirming(selected)
     }, [isEmpty, isOverLimit, selected])
 
-    const onSelect = useCallback((next: OutputsDecision) => {
-        setSelected(next)
-        setShowDecisionError(false)
-    }, [])
+    // No error to clear: `decisionError` is derived from `selected`, so choosing an option drops
+    // the message on its own.
+    const onSelect = useCallback((next: OutputsDecision) => setSelected(next), [])
 
     // No null guard needed: the modal only exists while `confirming` holds a decision.
     const confirmSubmit = useCallback(() => {
@@ -123,12 +128,10 @@ export function useOutputsDecision({
     return {
         feedback,
         onFeedbackChange: setFeedback,
-        onFeedbackBlur: () => setShowFeedbackError(true),
         feedbackError,
         wordCount,
         selected,
         onSelect,
-        onDecisionBlur: () => setShowDecisionError(true),
         decisionError,
         confirming,
         closeModal: () => setConfirming(null),

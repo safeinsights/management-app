@@ -7,13 +7,15 @@ import { Select } from '@mantine/core'
 import { reportMutationError } from '@/components/errors'
 import { permissionLabelForUser, PERMISSION_LABELS } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
+import { useSession } from '@/hooks/session'
 import { UsersTableView, type TeamSort } from './users-table-view'
 
 type User = OrgUserReturn
 
-const PermissionSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () => void }> = ({
+const PermissionSelector: React.FC<{ orgSlug: string; user: User; isSelf: boolean; onSuccess: () => void }> = ({
     orgSlug,
     user,
+    isSelf,
     onSuccess,
 }) => {
     const { mutate, isPending, variables } = useMutation({
@@ -27,18 +29,24 @@ const PermissionSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () 
         onError: reportMutationError('Failed to update user permission'),
     })
 
+    // Changing your own role is refused server-side (OTTER-720); disable rather than let the
+    // user submit a request that can only fail.
+    const label = isPending ? variables.label : permissionLabelForUser(user)
+
     return (
         <Select
-            disabled={isPending}
+            disabled={isPending || isSelf}
             onChange={(label) => label && mutate({ user, label })}
             placeholder="Pick value"
-            value={isPending ? variables.label : permissionLabelForUser(user)}
+            value={label}
             data={PERMISSION_LABELS}
+            title={isSelf ? 'You cannot change your own role' : undefined}
         />
     )
 }
 
 export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
+    const { session } = useSession()
     const [sort, setSortStatus] = useState<TeamSort>({
         columnAccessor: 'fullName',
         direction: 'asc',
@@ -60,7 +68,14 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             sort={sort}
             onSortChange={setSortStatus}
             fetching={isLoading}
-            renderPermission={(user) => <PermissionSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />}
+            renderPermission={(user) => (
+                <PermissionSelector
+                    user={user}
+                    isSelf={user.id === session?.user.id}
+                    onSuccess={refetch}
+                    orgSlug={orgSlug}
+                />
+            )}
         />
     )
 }

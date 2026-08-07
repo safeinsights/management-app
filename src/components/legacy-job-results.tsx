@@ -6,52 +6,35 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { DownloadBlobLink } from '@/components/download-blob-link'
-import { ImagePreviewModal } from '@/components/modals/image-preview-modal'
+import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { isApprovedLogType, isPlaintextLogType, logLabel } from '@/lib/file-type-helpers'
-import { imageMimeType } from '@/lib/file-content-helpers'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
 
-// Pre-PR #764 results: stored as plaintext APPROVED-RESULT / approved-log rows that were never
-// encrypted for the researcher, so there is no key to ask for. This is the original JobResults view,
-// retained for studies that finished before researcher result encryption shipped. JobResults routes
-// only legacy jobs here; encrypted jobs go through EncryptedFilesPanel.
+// Results are job output and therefore attacker-controlled, so they must never be written as
+// markup. FileOrImagePreviewModal renders them through the same escaped viewers the encrypted
+// path uses, and handles the image/text split itself (OTTER-721).
 const ViewResultsLink: FC<{ content: ArrayBuffer; path: string }> = ({ content, path }) => {
-    const [showImageModal, setShowImageModal] = useState(false)
-    const mime = imageMimeType(path)
-
-    const handleClick = () => {
-        if (mime) {
-            setShowImageModal(true)
-            return
-        }
-        const decoded = new TextDecoder('utf-8').decode(content)
-        const tab = window.open('about:blank', '_blank')
-        if (!tab) {
-            reportError('failed to open results window')
-            return
-        }
-        tab.document.write(decoded)
-        tab.document.close()
-    }
+    const [previewing, setPreviewing] = useState(false)
 
     return (
         <>
-            <Anchor role="button" onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
+            <Anchor role="button" onClick={() => setPreviewing(true)} style={{ display: 'flex', alignItems: 'center' }}>
                 View <ArrowSquareOutIcon size={16} style={{ marginLeft: 4 }} />
             </Anchor>
-            <ImagePreviewModal
-                isVisible={showImageModal}
-                name={path}
-                contents={content}
-                mime={mime}
-                onClose={() => setShowImageModal(false)}
+            <FileOrImagePreviewModal
+                file={previewing ? { name: path, contents: content } : null}
+                onClose={() => setPreviewing(false)}
             />
         </>
     )
 }
 
+// Pre-PR #764 results: stored as plaintext APPROVED-RESULT / approved-log rows that were never
+// encrypted for the researcher, so there is no key to ask for. This is the original JobResults view,
+// retained for studies that finished before researcher result encryption shipped. JobResults routes
+// only legacy jobs here; encrypted jobs go through EncryptedFilesPanel.
 export const LegacyJobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const {
         data: approvedFiles,
@@ -109,7 +92,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
                     borderLeft: `1px solid ${theme.colors.charcoal[4]}`,
                 }}
             ></span>
-            <DownloadBlobLink target="_blank" filename={file.path} fileContent={file.contents} />
+            <DownloadBlobLink filename={file.path} fileContent={file.contents} />
         </Group>
     )
 }

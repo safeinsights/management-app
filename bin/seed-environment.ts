@@ -12,6 +12,7 @@ import { db } from '@/database'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import type { UserInfo } from '@/lib/types'
+import { testingDataAllowed } from './lib/testing-data-gate'
 
 type TestUserRole = 'researcher' | 'reviewer' | 'admin'
 
@@ -485,6 +486,12 @@ async function setupOrganizations() {
 }
 
 async function seedEnvironment() {
+    // Same opt-in and production backstop as the Kysely seed. This script only ever runs from
+    // bin/migrate-dev-db, never from the migrator Lambda, so it is not part of the production
+    // exposure path — but it writes the same shared test public key and touches the same real
+    // org slugs, so it shares the gate rather than being left as a second footgun.
+    if (!testingDataAllowed('seed-environment')) return
+
     console.log('🌱 Seeding test environment...\n')
 
     // In faked-Clerk mode (e2e) there is no Clerk server to provision against. The DB

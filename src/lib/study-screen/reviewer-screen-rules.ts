@@ -10,9 +10,18 @@ export const REVIEWER_SCREEN_RULES = [
     //     enters their security key to decrypt error logs before making a files decision.
     ['reviewer-outputs-errored', { when: (s) => awaitingFilesDecisionOnError(s) }],
 
-    // 1b. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
-    //     (CODE-APPROVED is always present once results land), mirroring legacy
-    //     `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
+    // 1b. Run completed, no files decision yet ("results pending review") → outputs-available view
+    //     (OTTER-668). The reviewer enters their security key to decrypt the outputs before making
+    //     a files decision. Keyed on resultsDisplayStatus so the result-status priority stays owned
+    //     by the state machine (approved/rejected/errored all out-rank RUN-COMPLETE there) instead
+    //     of being re-derived here, and so routing reads the same fact the screen's own guard
+    //     checks (#922 review).
+    ['reviewer-outputs-available', { when: (s) => s.resultsDisplayStatus === 'RUN-COMPLETE' }],
+
+    // 1c. Results exist and a files decision was recorded → results-only Study Details (OTTER-538).
+    //     1a/1b claim the undecided results states above, so only decided results reach this rule.
+    //     Out-ranks the code decision (CODE-APPROVED is always present once results land), mirroring
+    //     legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
     ['reviewer-study-results', { when: (s) => s.hasResults }],
 
     // 2. Code approved and executing in the enclave, no results yet → the "Secondary

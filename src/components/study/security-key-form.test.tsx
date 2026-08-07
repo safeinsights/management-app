@@ -102,7 +102,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('renders the key-entry section with a required indicator and body copy', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -116,8 +116,19 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
     })
 
+    // The two roles are served different key sets, and a reviewer holds no re-wrapped per-file
+    // keys. Asking as a researcher returns [] for them, which strands the outputs step on the
+    // locked phase, so the role has to reach the action rather than being assumed by the hook.
+    it.each(['reviewer', 'researcher'] as const)('requests the %s key set when acting as one', async (type) => {
+        renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
+
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type })
+    })
+
     it('shows the empty-field error and focuses the input when submitted blank', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -128,7 +139,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('shows the invalid-key error and re-enables both input and button for correction', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -142,7 +153,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('disables the button and input on submit to prevent double submission', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -154,7 +165,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('replaces the empty-field error with the invalid-key error on retry', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -174,7 +185,7 @@ describe('SecurityKeyForm', () => {
     it('shows a no-files error when the fetch returns an empty list', async () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
 
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -188,7 +199,7 @@ describe('SecurityKeyForm', () => {
     it('shows a no-files error when the fetch rejects', async () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
 
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -200,7 +211,7 @@ describe('SecurityKeyForm', () => {
     })
 
     it('hands the decrypted files to the caller when the key is valid', async () => {
-        renderWithProviders(<SecurityKeyForm job={job} onDecrypted={onDecrypted} />)
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 

@@ -98,7 +98,10 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     if (!isVisible) return null
     return (
         <>
-            <SecurityKeyForm job={job} onDecrypted={onDecrypted} />
+            {/* The reviewer decrypts via the zip's embedded manifest, which is encrypted to the
+                enclave keys; they hold no re-wrapped per-file keys, so the researcher key set
+                would come back empty. */}
+            <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
             <Group>
                 <PreviousStepLink previousHref={previousHref} />
             </Group>
@@ -180,10 +183,8 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 wordCount={decision.wordCount}
                 feedbackError={decision.feedbackError}
                 onFeedbackChange={decision.onFeedbackChange}
-                onFeedbackBlur={decision.onFeedbackBlur}
                 selected={decision.selected}
                 onSelect={decision.onSelect}
-                onDecisionBlur={decision.onDecisionBlur}
                 decisionError={decision.decisionError}
             />
             <Group justify="space-between">
