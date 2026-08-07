@@ -36,4 +36,25 @@ describe('TermsCheckbox', () => {
             screen.getByText(/Once implemented, SafeInsights Privacy Notice will detail the ways/),
         ).toBeInTheDocument()
     })
+
+    describe('once documents have been published', () => {
+        const documents = [
+            { type: 'tos' as const, versionId: 'tos-v1', content: '# Terms\n\nThe real terms.' },
+            { type: 'pn' as const, versionId: 'pn-v1', content: '# Privacy\n\nThe real notice.' },
+        ]
+
+        it('renders the documents instead of the placeholder copy', () => {
+            renderWithProviders(<TermsCheckbox checked={false} onChange={vi.fn()} documents={documents} />)
+
+            expect(screen.getByText('The real terms.')).toBeInTheDocument()
+            expect(screen.getByText('The real notice.')).toBeInTheDocument()
+            expect(screen.queryByText(/Once implemented/)).not.toBeInTheDocument()
+        })
+
+        it('names both documents in the agreement label', () => {
+            renderWithProviders(<TermsCheckbox checked={false} onChange={vi.fn()} documents={documents} />)
+
+            expect(screen.getByLabelText('I agree to the Terms of Service and Privacy Notice')).toBeInTheDocument()
+        })
+    })
 })

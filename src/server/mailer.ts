@@ -66,6 +66,11 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
+// TODO: sendSlaPreparationEmail goes here. Audience: SI admin (SI_EMAIL), Trigger: proposal submitted,
+// called from onStudyCreated. Vars need the study id and its proposal URL, because the SLA itself is
+// drawn up by hand in Zoho Sign and the admin has nothing else to look the study up by. Mailgun
+// template not yet created.
+
 // Audience: reviewer, Trigger: Status == Code Needs Review
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)

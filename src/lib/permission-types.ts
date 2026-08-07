@@ -72,6 +72,9 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
+    // orgId/studyId carry the document's scope, so a future rule can scope an org admin to their own
+    // org's agreements. Today only SI admins reach these, via ('manage','all').
+    | Ability<'LegalDocument', 'view' | 'create' | 'publish' | 'acknowledge', { orgId?: UUID; studyId?: UUID }>
     // Both fields optional: `load IDE` is granted by two OR-combined rules — the study's own
     // researcher (researcherId) and any member of the submitting lab (submittedByOrgId, OTTER-719).
     // Every field used in a condition must appear on the arm for the CASL subject union to accept it.

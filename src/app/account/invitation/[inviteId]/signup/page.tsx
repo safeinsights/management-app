@@ -7,9 +7,10 @@ import { handleMutationErrorsWithForm, InputError, reportError } from '@/compone
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
-import { TermsCheckbox } from '@/components/terms-checkbox'
+import { TermsCheckbox } from '@/components/legal/terms-checkbox'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
+import { fetchPublicLegalDocumentsAction } from '@/server/actions/legal-document.actions'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { InvalidInvitePanel } from '../invalid-invite-panel'
 import { Routes } from '@/lib/routes'
@@ -71,11 +72,22 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const [passwordTouched, setPasswordTouched] = useState(false)
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
+    // Public: the form has to show these before an account exists. Empty until the first Terms of
+    // Service and Privacy Notice are published, which TermsCheckbox renders as placeholder copy.
+    const { data: legalDocuments = [] } = useQuery({
+        queryKey: ['publicLegalDocuments'],
+        queryFn: () => fetchPublicLegalDocumentsAction(),
+    })
+
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         // confirmPassword and termsAccepted are client-side concerns; the action's schema has
         // neither, so only the fields it actually uses are sent.
         mutationFn: ({ firstName, lastName, password }: FormValues) =>
-            onCreateAccountAction({ inviteId, form: { firstName, lastName, password } }),
+            onCreateAccountAction({
+                inviteId,
+                form: { firstName, lastName, password },
+                acknowledgedVersionIds: legalDocuments.map((document) => document.versionId),
+            }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
             if (!signIn || !setActive) {
@@ -212,6 +224,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     )}
 
                     <TermsCheckbox
+                        documents={legalDocuments}
                         checked={form.values.termsAccepted}
                         onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
                         onBlur={() => form.validateField('termsAccepted')}

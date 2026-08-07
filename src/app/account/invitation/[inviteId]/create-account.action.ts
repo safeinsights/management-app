@@ -1,5 +1,7 @@
 'use server'
 
+import type { DBExecutor } from '@/database'
+import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
@@ -7,6 +9,38 @@ import { onUserAcceptInvite } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
+
+/**
+ * Record the new user's agreement to the documents the signup form showed them.
+ *
+ * Runs inside the account-creation transaction: an account that exists without the evidence of what
+ * its owner agreed to is the failure worth preventing, and the insert is pure DB, so the only way it
+ * fails is a version id that should not have been submitted.
+ *
+ * The submitted ids are re-checked here rather than trusted — only published versions of the two
+ * globally-scoped public documents are accepted, so a crafted request cannot manufacture an
+ * acknowledgement of an org- or study-scoped agreement, or of an unpublished draft.
+ */
+async function recordSignupAcknowledgements(db: DBExecutor, userId: string, versionIds: string[]) {
+    if (!versionIds.length) return
+
+    const eligible = await db
+        .selectFrom('legalDocumentVersion')
+        .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+        .select('legalDocumentVersion.id')
+        .where('legalDocumentVersion.id', 'in', versionIds)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        .execute()
+
+    if (!eligible.length) return
+
+    await db
+        .insertInto('legalDocumentAcknowledgement')
+        .values(eligible.map((version) => ({ legalDocumentVersionId: version.id, userId })))
+        .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
+        .execute()
+}
 
 // Invites are bearer credentials by design: holding the invite id is what authorizes acting on
 // it, so `claim PendingUser` is unconditioned in permissions.ts. The `claimedByUserId` guard is
@@ -190,10 +224,14 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 lastName: z.string(),
                 password: z.string(),
             }),
+            // The versions the form actually displayed, not "whatever is latest now". If a new
+            // version is published between page load and submit we record what they were shown, and
+            // the app-wide gate collects the newer one on first login.
+            acknowledgedVersionIds: z.array(z.string()).optional(),
         }),
     )
 
-    .handler(async function ({ params: { inviteId, form }, db }) {
+    .handler(async function ({ params: { inviteId, form, acknowledgedVersionIds = [] }, db }) {
         // Unauthenticated by necessity — this is what creates the account the invite is for — so
         // the invite id is the only credential. A claimed invite is spent and must not create a
         // second account or re-grant membership.
@@ -305,6 +343,8 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 .where('claimedByUserId', 'is', null)
                 .returning('id')
                 .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
+
+            await recordSignupAcknowledgements(trx, user.id, acknowledgedVersionIds)
 
             return user
         })

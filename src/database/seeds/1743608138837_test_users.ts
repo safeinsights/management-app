@@ -45,6 +45,12 @@ const TEST_USERS: TestUser[] = [
     { key: 'researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000002', email: 'si-research-tester-dbfyq3@mailinator.com' }, // prettier-ignore
     { key: 'reviewer', role: 'reviewer', id: '00000000-0000-4000-8000-000000000003', email: 'si-member-tester-dbfyq3@mailinator.com' }, // prettier-ignore
 
+    // Owned by the legal-acknowledgement e2e spec and used by nothing else. Terms of Service and
+    // Privacy Notice are globally scoped, so a user who owes one is blocked everywhere — this user
+    // exists to be left un-acknowledged without blocking any other spec's role. Its ToS/PN state is
+    // seeded per-run by tests/e2e.seed.ts, never here: this seed also runs in deployed environments.
+    { key: 'legal', role: 'researcher', id: '00000000-0000-4000-8000-000000000004', email: 'si-legal-tester-dbfyq3@mailinator.com' }, // prettier-ignore
+
     // Persistent QA login accounts. These already exist in Clerk; this seed only wires up their
     // SI DB access (user row + memberships + key). The clerkId here is a placeholder — user-sync
     // reconciles the real Clerk id by email on first login (matched via lower(email) below).
