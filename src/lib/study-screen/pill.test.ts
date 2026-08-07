@@ -1,30 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolvePillStatus, resolveRowHighlight } from './pill'
+import { studyState } from './state.fixture'
 
-const state = (overrides: Partial<StudyState>): StudyState => ({
-    status: 'APPROVED',
-    isDraft: false,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: true,
-    hasSubmittedCode: true,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    submissionRound: 1,
-    hasSavedEdits: false,
-    hasSavedCodeEdits: false,
-    displayStatus: 'CODE-SUBMITTED',
-    latestJobStatuses: [],
-    ...overrides,
-})
+// A submitted-code study awaiting its code decision: the state most pill cases start from.
+const state = (overrides: Partial<StudyState>): StudyState =>
+    studyState({
+        status: 'APPROVED',
+        isDraft: false,
+        hasAnyJob: true,
+        hasSubmittedCode: true,
+        submissionRound: 1,
+        displayStatus: 'CODE-SUBMITTED',
+        ...overrides,
+    })
 
 describe('resolvePillStatus', () => {
     it('researcher does NOT see Errored until a reviewer files a decision (falls back to Approved)', () => {

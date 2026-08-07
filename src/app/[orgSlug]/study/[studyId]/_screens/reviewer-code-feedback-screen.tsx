@@ -1,7 +1,7 @@
 import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
-import { projectStudyState } from '@/lib/study-screen'
+import { hasNextStepFromCode, projectStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
@@ -19,6 +19,20 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
     // unset, matching the live DO design that hides Previous.
     const previousHref = descriptor.readOnlyCodeStep
         ? Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
+        : undefined
+
+    // OTTER-687: forward to the DP outputs screen, which lives at bare /review. Suppressed while
+    // /review still resolves to this screen (code approved, enclave not started yet), where the
+    // button would only point back at the page it sits on.
+    //
+    // On the walk-back route the two resolvers deliberately disagree, and the forward link is the
+    // point of that: resolveReviewerCodeScreen restricts its candidates to the code screens so a
+    // results study lands here instead of looping to results, while hasNextStepFromCode asks the full
+    // table and still answers "results". So a reviewer who walked back from results gets Previous and
+    // Next step, with Next returning them to the screen they came from.
+    const state = projectStudyState(raw)
+    const nextStepHref = hasNextStepFromCode('reviewer', state, descriptor.screen)
+        ? Routes.studyReview({ orgSlug, studyId: study.id })
         : undefined
 
     const job = await latestSubmittedJobForStudy(study.id)
@@ -41,6 +55,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
                 review={review}
                 scan={scan}
                 previousHref={previousHref}
+                nextStepHref={nextStepHref}
             />
         )
     }
@@ -48,7 +63,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
     // reviewer-screen-rules' `codeDecision !== null`), not a hand-rolled status walk. This tracks
     // count-based liveness and decision priority, and looking the timestamp up by the resolved
     // decision keeps us on the current decision rather than the first one recorded on the job.
-    const { codeDecision } = projectStudyState(raw)
+    const { codeDecision } = state
     const decisionTimestamp = codeDecision
         ? job?.statusChanges.find((s) => s.status === codeDecision)?.createdAt
         : undefined
@@ -67,6 +82,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
             scan={scan}
             fallback={fallback}
             previousHref={previousHref}
+            nextStepHref={nextStepHref}
         />
     )
 }

@@ -56,7 +56,7 @@ const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
 const seedResultsStudy = () => seedCodeStudy(['FILES-APPROVED'])
 
 describe('StudyViewCode (/view/code)', () => {
-    it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
+    it('shows the approved-code page with a "Next step" forward for a results study', async () => {
         const { org, study } = await seedResultsStudy()
 
         const page = await StudyViewCode({
@@ -66,10 +66,10 @@ describe('StudyViewCode (/view/code)', () => {
 
         expect(page?.type).toBe(CodePostDecisionView)
         // Forward goes to plain /view, which resolves to the results screen for a results study.
-        expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view`)
+        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('cta-proceed-to-results')).toHaveTextContent('Proceed to step 5')
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
         expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
     })
 
@@ -82,7 +82,7 @@ describe('StudyViewCode (/view/code)', () => {
         })
 
         expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
-        expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
     })
 
     // OTTER-640: submitted code stays accessible behind the collapsed control while execution or an
