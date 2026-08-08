@@ -17,6 +17,8 @@ import {
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import { useDisclosure } from '@mantine/hooks'
+import { ReadOnlyField } from './read-only-field'
 
 export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentType; onDraftSaved: () => void }) {
     const [file, setFile] = useState<File | null>(null)
@@ -104,6 +106,7 @@ export function ReviewAndPublishForm({
     draft: Draft
     onPublish: () => void
 }) {
+    const [confirmPublishOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const handleBack = () => {
         // todo: go back to the first page without deleting the draft
     }
@@ -116,18 +119,44 @@ export function ReviewAndPublishForm({
         onPublish()
     }
 
-    return (
-        <Stack>
-            <Title order={4} pb="sm">
-                Review the {legalDocumentTypeLabels[doctype]}
-            </Title>
-            <PreviewDocument url={draft.downloadUrl} label={legalDocumentTypeLabels[doctype]} />
-            <Flex pt="md">
-                <Button variant="outline" mr="sm" onClick={handleBack}>
-                    Back
-                </Button>
-                <Button onClick={handlePublish}>Publish</Button>
-            </Flex>
-        </Stack>
-    )
+    // trim path to get file name
+    const fileName = draft.filePath.split('/').at(-1)
+
+    if (!confirmPublishOpen) {
+        return (
+            <Stack>
+                <Title order={4} pb="sm">
+                    Review your saved draft:
+                </Title>
+                <PreviewDocument url={draft.downloadUrl} label={legalDocumentTypeLabels[doctype]} />
+                <Group pt="md">
+                    <Button variant="outline" onClick={handleBack}>
+                        Back
+                    </Button>
+                    <Button onClick={openConfirm}>Publish</Button>
+                </Group>
+            </Stack>
+        )
+    } else {
+        return (
+            <Stack>
+                <Title order={4} pb="sm">
+                    Publish this file?
+                </Title>
+                <ReadOnlyField label="File" value={fileName} />
+                <Text>
+                    Publishing will trigger an acknowledgment popup for every user, blocking them from logging in until
+                    they acknowledge. This cannot be undone.
+                </Text>
+                <Group pt="md">
+                    <Button variant="outline" onClick={closeConfirm}>
+                        Back
+                    </Button>
+                    <Button onClick={handlePublish}>Confirm</Button>
+                </Group>
+            </Stack>
+        )
+    }
 }
+
+// todo: tests
