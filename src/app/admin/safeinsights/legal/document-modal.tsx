@@ -14,9 +14,9 @@ import {
     fetchLegalDocumentVersionsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { Paper, Title, Button, Flex, Group, Text, Stack } from '@mantine/core'
+import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon } from '@phosphor-icons/react/dist/ssr'
+import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 
 // Access modal from "Upload New {label}" button
 // Page 1: upload draft. Displays if there isn't a current draft
@@ -47,6 +47,10 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
         onDraftSaved()
     }
 
+    const onRemove = () => {
+        setFile(null)
+    }
+
     return (
         <Stack>
             <Title order={4} pb="sm">
@@ -66,7 +70,16 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
                         </Text>
                     </Group>
                 </Dropzone>
-                {file && <Text pt="sm">Uploaded: {file.name}</Text>}
+                <Group pt="sm" justify="space-between" align="center">
+                    {file && (
+                        <>
+                            <Text>Uploaded: {file.name}</Text>
+                            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+                                <TrashIcon size={16} />
+                            </ActionIcon>
+                        </>
+                    )}
+                </Group>
             </Paper>
             <Flex align="right" justify="right">
                 <Button onClick={saveDraft} ml="xs" rightSection={<ArrowCircleRightIcon size={16} />}>
