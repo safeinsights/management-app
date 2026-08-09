@@ -1,8 +1,8 @@
 import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
+import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
-import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
@@ -13,9 +13,9 @@ import type { ScreenComponentProps } from './types'
 const ErroredBanner = ({ erroredAt }: { erroredAt: Date | string | null }) => {
     // The date is display-only, so a payload job missing JOB-ERRORED degrades to an undated
     // banner rather than blocking the triage the state machine already routed here.
-    const erroredOn = erroredAt ? ` • ${dayjs(erroredAt).format('MMM DD, YYYY')}` : ''
+    const erroredOn = erroredAt ? `${STATUS_ALERT_SEPARATOR} ${dayjs(erroredAt).format('MMM DD, YYYY')}` : ''
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Code errored${erroredOn}`}>
+        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Code errored ${erroredOn}`}>
             Enter your security key below to access the outputs and see what went wrong.
         </StatusAlert>
     )
