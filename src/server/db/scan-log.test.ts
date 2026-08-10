@@ -71,6 +71,22 @@ describe('parseTrivyStatus', () => {
         expect(parseTrivyStatus('something else entirely')).toBe('INDETERMINATE')
     })
 
+    // The status line decides the verdict. Detail lines carry scanned file paths and upstream CVE
+    // titles, so text appearing there must never be able to promote a result to a finding.
+    it('ignores the legacy findings header when a status line is present', () => {
+        const log = [
+            'Trivy Filesystem Scan: nothing scanned',
+            'Target: Trivy Filesystem Scan Results',
+            '',
+            SONAR_OK,
+        ].join('\n')
+        expect(parseTrivyStatus(log)).toBe('INDETERMINATE')
+    })
+
+    it('does not treat the legacy header appearing mid-line as a findings header', () => {
+        expect(parseTrivyStatus('Target: docs/Trivy Filesystem Scan Results.txt')).toBe('INDETERMINATE')
+    })
+
     it('also recognizes the image-scan label', () => {
         expect(parseTrivyStatus('Trivy Image Scan: no vulnerabilities found')).toBe('PASSED')
     })

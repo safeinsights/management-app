@@ -69,6 +69,15 @@ const SONARQUBE_LABELS: ScanStatusLabels = {
     INDETERMINATE: 'Needs review',
 }
 
+// A passed row carries no icon at all. The other two are visually distinct on purpose: red reads as
+// a reported problem, and an indeterminate result is not one. Amber reuses the "action needed"
+// pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
+// rather than introducing a new treatment. Provisional along with the labels above.
+const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
+    FAILED: 'var(--mantine-color-red-9)',
+    INDETERMINATE: 'var(--mantine-color-yellow-10)',
+}
+
 type ScanRowProps = {
     label: string
     status: ScanToolStatus | null
@@ -76,9 +85,9 @@ type ScanRowProps = {
     testId: string
 }
 
-function ScanWarningIcon({ isVisible }: { isVisible: boolean }) {
-    if (!isVisible) return null
-    return <WarningCircle size={20} color="var(--mantine-color-red-9)" data-icon="warning" aria-hidden="true" />
+function ScanWarningIcon({ color }: { color?: string }) {
+    if (!color) return null
+    return <WarningCircle size={20} color={color} data-icon="warning" aria-hidden="true" />
 }
 
 // A tool's result: plain text when it passed, a warning icon plus the relevant phrasing when it did
@@ -93,10 +102,9 @@ function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; label
             </Text>
         )
     }
-    const passed = status === 'PASSED'
     return (
         <Group gap={4} wrap="nowrap" align="center">
-            <ScanWarningIcon isVisible={!passed} />
+            <ScanWarningIcon color={SCAN_ICON_COLORS[status]} />
             <Text size="sm" fw={600}>
                 {labels[status]}
             </Text>

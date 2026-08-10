@@ -590,17 +590,26 @@ const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
     ['vulnerabilities found', 'FAILED'],
 ])
 
+const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i
+const TRIVY_LEGACY_FINDINGS_HEADER = /^trivy (?:filesystem|image) scan results$/i
+
+// Both patterns are anchored to a whole trimmed line, and the legacy header is only consulted when
+// there is no status line at all. Matching anywhere in the log would let the scan's own detail lines
+// decide the verdict: a scanned file path or a CVE title containing "Trivy Filesystem Scan Results"
+// would turn an indeterminate result into a reported finding.
 export function parseTrivyStatus(log: string): ScanToolStatus {
-    const phrase = log
-        .match(/trivy (?:filesystem|image) scan:[ \t]*(.*)/i)?.[1]
-        ?.trim()
-        .toLowerCase()
-    const verdict = phrase && TRIVY_VERDICTS.get(phrase)
-    if (verdict) return verdict
-    // Logs written before the scanner emitted a status phrase headed their findings with
-    // "<label> Results" and listed vulnerabilities beneath it. Keep reading those as findings so
-    // already-stored logs do not lose their verdict.
-    if (/trivy (?:filesystem|image) scan results/i.test(log)) return 'FAILED'
+    const lines = log.split('\n').map((line) => line.trim())
+
+    const statusLine = lines.find((line) => TRIVY_STATUS_LINE.test(line))
+    if (statusLine) {
+        const phrase = statusLine.replace(TRIVY_STATUS_LINE, '').trim().toLowerCase()
+        return TRIVY_VERDICTS.get(phrase) ?? 'INDETERMINATE'
+    }
+
+    // Logs written before the scanner emitted a status phrase headed their findings with the label
+    // followed by "Results" on a line of its own. Keep reading those as findings so already-stored
+    // logs do not lose their verdict.
+    if (lines.some((line) => TRIVY_LEGACY_FINDINGS_HEADER.test(line))) return 'FAILED'
     return 'INDETERMINATE'
 }
 
