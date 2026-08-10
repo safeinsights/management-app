@@ -583,17 +583,20 @@ export type JobScanResult = {
 // lines. Only the two explicit verdicts are honored; "nothing scanned", "scan did not complete", the
 // pre-OTTER-649 "no results", and anything unrecognized are all indeterminate. Treating unrecognized
 // text as FAILED is what surfaced a scan that never ran as a vulnerability finding on QA.
-const TRIVY_VERDICTS: Record<string, ScanToolStatus> = {
-    'no vulnerabilities found': 'PASSED',
-    'vulnerabilities found': 'FAILED',
-}
+// A Map, not an object literal: the phrase comes from a file, and an object lookup would resolve
+// inherited keys like "constructor" to a truthy non-status value.
+const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
+    ['no vulnerabilities found', 'PASSED'],
+    ['vulnerabilities found', 'FAILED'],
+])
 
 export function parseTrivyStatus(log: string): ScanToolStatus {
     const phrase = log
         .match(/trivy (?:filesystem|image) scan:[ \t]*(.*)/i)?.[1]
         ?.trim()
         .toLowerCase()
-    if (phrase && TRIVY_VERDICTS[phrase]) return TRIVY_VERDICTS[phrase]
+    const verdict = phrase && TRIVY_VERDICTS.get(phrase)
+    if (verdict) return verdict
     // Logs written before the scanner emitted a status phrase headed their findings with
     // "<label> Results" and listed vulnerabilities beneath it. Keep reading those as findings so
     // already-stored logs do not lose their verdict.
