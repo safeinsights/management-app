@@ -1,3 +1,4 @@
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { notifications } from '@mantine/notifications'
 import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMantineTheme } from '@mantine/core'
@@ -12,7 +13,7 @@ export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: Fi
 
     if (duplicateFound) {
         notifications.show({
-            color: 'red',
+            ...ERROR_NOTIFICATION_OPTIONS,
             title: 'Duplicate filename',
             message: `The file name "${mainFile.name}" has already been uploaded. Please choose a different file name or remove the existing one before continuing.`,
         })

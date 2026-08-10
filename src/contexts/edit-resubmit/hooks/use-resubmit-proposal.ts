@@ -5,6 +5,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { resubmitProposalAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type ResubmitNoteValue } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -53,9 +54,9 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
         },
         onError: (error) => {
             notifications.show({
+                ...ERROR_NOTIFICATION_OPTIONS,
                 title: 'Failed to resubmit proposal',
                 message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-                color: 'red',
             })
         },
     })

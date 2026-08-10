@@ -6,6 +6,7 @@ import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
 
@@ -32,9 +33,9 @@ function useDeleteDraft(study: StudyRow) {
         },
         onError: (error) => {
             notifications.show({
+                ...ERROR_NOTIFICATION_OPTIONS,
                 title: 'Failed to delete proposal draft',
                 message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-                color: 'red',
             })
         },
     })

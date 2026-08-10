@@ -2,6 +2,7 @@
 
 import { InputError } from '@/components/errors'
 import { Link } from '@/components/links'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
@@ -130,7 +131,7 @@ export function AddSMSMFA() {
         if (!otpForm.isValid) return
 
         if (!phoneObj) {
-            notifications.show({ message: 'No phone number found', color: 'red' })
+            notifications.show({ ...ERROR_NOTIFICATION_OPTIONS, message: 'No phone number found' })
             return
         }
 

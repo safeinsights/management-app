@@ -2,6 +2,7 @@
 
 import { useForm, useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { errorToString } from '@/lib/errors'
 import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
@@ -31,10 +32,9 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
         },
         onError: (error) => {
             notifications.show({
-                color: 'red',
+                ...ERROR_NOTIFICATION_OPTIONS,
                 title: 'Context save failed',
                 message: errorToString(error),
-                autoClose: false,
             })
         },
     })
