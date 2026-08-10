@@ -3,6 +3,7 @@ import { render, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { useForm, zodResolver } from '@/common'
 import {
@@ -87,6 +88,20 @@ describe('CollaborativeResubmissionNoteSection', () => {
         renderSingleUserSection({ initialError: 'A resubmission note is required.' })
         expect(screen.getByText('A resubmission note is required.')).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    it('renders the error in the same footer row as the word counter (OTTER-674)', () => {
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        const errorBox = document.getElementById(fieldErrorId('resubmissionNote'))
+        expect(errorBox).toHaveTextContent('A resubmission note is required.')
+        expect(errorBox?.parentElement).toContainElement(screen.getByText('0/300'))
+    })
+
+    it('renders the single-user autosave indicator in the same footer row as the word counter', () => {
+        renderSingleUserSection()
+        const region = screen.getByTestId('autosave-live-region')
+        expect(region).toContainElement(screen.getByTestId('autosave-status'))
+        expect(region.parentElement).toContainElement(screen.getByText('0/300'))
     })
 
     it('keeps the live region mounted through a validation error, so a later save is announced (OTTER-675)', () => {

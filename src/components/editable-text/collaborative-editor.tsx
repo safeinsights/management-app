@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { Alert, Badge, Box, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -21,6 +21,7 @@ import { useConnectionPhase } from '@/lib/realtime/yjs-websocket-context'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
+import { EditorFooter } from './editor-footer'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
@@ -180,6 +181,8 @@ export type CollaborativeEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** See EditorProps.footerLeft. */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
@@ -249,6 +252,7 @@ export function CollaborativeEditor({
     placeholder,
     ariaLabel,
     onChange,
+    footerLeft,
     footerRight,
     inputId,
     error,
@@ -418,10 +422,9 @@ export function CollaborativeEditor({
                     <Toolbar />
                 </Paper>
                 <Stack gap={4} mt={4}>
-                    <Group align="center" wrap="nowrap">
+                    <EditorFooter left={footerLeft} right={footerRight}>
                         <SaveStatus provider={activeProvider} isVisible={!error} />
-                        {footerRight && <Box ml="auto">{footerRight}</Box>}
-                    </Group>
+                    </EditorFooter>
                     <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />
                 </Stack>
             </LexicalCollaboration>
