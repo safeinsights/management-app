@@ -16,13 +16,9 @@ import {
 } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-<<<<<<< HEAD
-import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon } from '@phosphor-icons/react/dist/ssr'
-=======
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { useDisclosure } from '@mantine/hooks'
 import { ReadOnlyField } from './read-only-field'
->>>>>>> 44d726558c713212883ed36d6b6e7b681dbde92c
 
 export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentType; onDraftSaved: () => void }) {
     const [file, setFile] = useState<File | null>(null)
@@ -34,10 +30,7 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
     }
     const saveDraft = async () => {
         if (!file) return
-<<<<<<< HEAD
-=======
         // Call save draft action
->>>>>>> 44d726558c713212883ed36d6b6e7b681dbde92c
         // No format: the action derives it from the type, so a document cannot be stored in a
         // format its viewer cannot render.
         const result = await createLegalDocumentDraftAction({ type: doctype, fileName: file.name })
