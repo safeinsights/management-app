@@ -1,6 +1,6 @@
 'use client'
 
-import { InfoIcon as SVGIcon } from '@phosphor-icons/react/dist/ssr'
+import { InfoIcon as SVGIcon, CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, ActionIconProps, useMantineTheme } from '@mantine/core'
 import { forwardRef } from 'react'
 
@@ -20,3 +20,16 @@ export const InfoIcon = forwardRef<HTMLButtonElement, InfoIconProps>(({ size, ..
     )
 })
 InfoIcon.displayName = 'InfoIcon'
+
+export function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
+    return (
+        <CaretRightIcon
+            size={12}
+            weight="bold"
+            style={{
+                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
+                transition: 'transform 200ms ease',
+            }}
+        />
+    )
+}

@@ -13,6 +13,7 @@ import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { ToggleChevron } from '@/components/icons'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -71,7 +72,10 @@ function VersionHistory({ history, doctype }: { history: PublishedVersion[]; doc
     return (
         <>
             <Anchor component="button" onClick={toggle} aria-expanded={opened}>
-                <Flex>{opened ? 'Hide version history' : 'View version history'}</Flex>
+                <Group gap="xs">
+                    <ToggleChevron isExpanded={opened} />
+                    {opened ? 'Hide version history' : 'View version history'}
+                </Group>
             </Anchor>
             <Collapse in={opened}>
                 <Stack>

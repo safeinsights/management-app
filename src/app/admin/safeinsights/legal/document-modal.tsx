@@ -14,9 +14,15 @@ import {
     fetchLegalDocumentVersionsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { Paper, Title, Button, Flex, Group, Text, Stack } from '@mantine/core'
+import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
+<<<<<<< HEAD
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon } from '@phosphor-icons/react/dist/ssr'
+=======
+import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import { useDisclosure } from '@mantine/hooks'
+import { ReadOnlyField } from './read-only-field'
+>>>>>>> 44d726558c713212883ed36d6b6e7b681dbde92c
 
 export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentType; onDraftSaved: () => void }) {
     const [file, setFile] = useState<File | null>(null)
@@ -28,6 +34,10 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
     }
     const saveDraft = async () => {
         if (!file) return
+<<<<<<< HEAD
+=======
+        // Call save draft action
+>>>>>>> 44d726558c713212883ed36d6b6e7b681dbde92c
         // No format: the action derives it from the type, so a document cannot be stored in a
         // format its viewer cannot render.
         const result = await createLegalDocumentDraftAction({ type: doctype, fileName: file.name })
@@ -37,6 +47,10 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
         await uploadFiles([[file, result.upload]])
 
         onDraftSaved()
+    }
+
+    const onRemove = () => {
+        setFile(null)
     }
 
     return (
@@ -58,7 +72,16 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
                         </Text>
                     </Group>
                 </Dropzone>
-                {file && <Text pt="sm">Uploaded: {file.name}</Text>}
+                <Group pt="sm" justify="space-between" align="center">
+                    {file && (
+                        <>
+                            <Text>Uploaded: {file.name}</Text>
+                            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+                                <TrashIcon size={16} />
+                            </ActionIcon>
+                        </>
+                    )}
+                </Group>
             </Paper>
             <Flex align="right" justify="right">
                 <Button onClick={saveDraft} ml="xs" rightSection={<ArrowCircleRightIcon size={16} />}>
@@ -90,6 +113,7 @@ export function ReviewAndPublishForm({
     draft: Draft
     onPublish: () => void
 }) {
+    const [confirmPublishOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const handleBack = () => {
         // todo: go back to the first page without deleting the draft
     }
@@ -102,18 +126,44 @@ export function ReviewAndPublishForm({
         onPublish()
     }
 
-    return (
-        <Stack>
-            <Title order={4} pb="sm">
-                Review the {legalDocumentTypeLabels[doctype]}
-            </Title>
-            <PreviewDocument url={draft.downloadUrl} label={legalDocumentTypeLabels[doctype]} />
-            <Flex pt="md">
-                <Button variant="outline" mr="sm" onClick={handleBack}>
-                    Back
-                </Button>
-                <Button onClick={handlePublish}>Publish</Button>
-            </Flex>
-        </Stack>
-    )
+    // trim path to get file name
+    const fileName = draft.filePath.split('/').at(-1)
+
+    if (!confirmPublishOpen) {
+        return (
+            <Stack>
+                <Title order={4} pb="sm">
+                    Review your saved draft:
+                </Title>
+                <PreviewDocument url={draft.downloadUrl} label={legalDocumentTypeLabels[doctype]} />
+                <Group pt="md">
+                    <Button variant="outline" onClick={handleBack}>
+                        Back
+                    </Button>
+                    <Button onClick={openConfirm}>Publish</Button>
+                </Group>
+            </Stack>
+        )
+    } else {
+        return (
+            <Stack>
+                <Title order={4} pb="sm">
+                    Publish this file?
+                </Title>
+                <ReadOnlyField label="File" value={fileName} />
+                <Text>
+                    Publishing will trigger an acknowledgment popup for every user, blocking them from logging in until
+                    they acknowledge. This cannot be undone.
+                </Text>
+                <Group pt="md">
+                    <Button variant="outline" onClick={closeConfirm}>
+                        Back
+                    </Button>
+                    <Button onClick={handlePublish}>Confirm</Button>
+                </Group>
+            </Stack>
+        )
+    }
 }
+
+// todo: tests
