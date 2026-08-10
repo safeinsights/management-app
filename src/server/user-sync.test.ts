@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { db, insertTestOrg, insertTestUser, faker } from '@/tests/unit.helpers'
+import { db, insertTestOrg, insertTestUser, faker, testEmail } from '@/tests/unit.helpers'
 
 const mockProdEnv = vi.hoisted(() => ({ value: false }))
 
@@ -22,7 +22,7 @@ describe('syncUserToDatabase', () => {
             clerkId: faker.string.alpha(10),
             firstName: 'Test',
             lastName: 'User',
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: testEmail(),
         }
 
         const result = await db.transaction().execute(async (trx) => {
@@ -45,7 +45,7 @@ describe('syncUserToDatabase', () => {
             clerkId: faker.string.alpha(10),
             firstName: 'Test',
             lastName: 'User',
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: testEmail(),
             metadataUserId: faker.string.uuid(),
         }
 
@@ -196,7 +196,7 @@ describe('syncUserToDatabaseWithConflictResolution', () => {
             clerkId: faker.string.alpha(10),
             firstName: 'New',
             lastName: 'User',
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: testEmail(),
         }
 
         await syncUserToDatabaseWithConflictResolution(attrs, onConflictResolved)

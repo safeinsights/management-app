@@ -4,6 +4,7 @@ allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
     '@swc/core': false
+    core-js: false
     esbuild: true
     fsevents: true
     msw: false
@@ -22,9 +23,10 @@ overrides:
     postcss: ^8.5.23
     vite: ^8.0.16
     ws: ^8.21.0
-    # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
-    # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.
-    'js-yaml@>=4.0.0 <4.3.0': '>=4.3.0 <5'
+    # js-yaml <4.3.1: CVE-2026-59869, then CVE-2026-59870 (GHSA-5p4m-2wfm-xmqj) against 4.3.0 —
+    # quadratic CPU consumption resolving !!omap. Range also covers the older <=4.1.1 advisory this
+    # entry previously pinned. Bounded to <5 to avoid a surprise major bump.
+    'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1 <5'
     'nodemailer@<=8.0.8': '>=8.0.9'
     'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
@@ -50,5 +52,8 @@ overrides:
     # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4: host confusion via a backslash authority
     # introducer, so a crafted URI parses to an unintended host.
     'fast-uri@>=3.0.0 <3.1.5': '>=3.1.5 <4'
+    # nanoid <3.3.17: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
+    # size. Transitive via postcss (itself pinned above), reached from both next and vite.
+    'nanoid@>=3.0.0 <3.3.17': '>=3.3.17 <4'
     # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
     'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'

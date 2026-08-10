@@ -6,6 +6,10 @@
 **Builds on:** `2026-06-22-study-screen-state-machine-design.md` (researcher flow, already merged on
 this branch), `docs/study-screens-logic.md`.
 
+> **Historical record — do not extend from this document.** It captures the design as approved on
+> 2026-06-23 and is deliberately not kept in step with the code (see `docs/plans/README.md`).
+> **The live contract is `docs/study-screens-logic.md`**; read and extend the rules from there.
+
 > Source of truth for the screen-by-status behaviour: the product **Front-End Logic Log**
 > (Research Lab + Data Partners tables). Reviewer = "Data Partners" (DO) role.
 

@@ -35,6 +35,7 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, type, onDecrypt
                 />
                 <SecurityKeyInput
                     ref={inputRef}
+                    autoFocus
                     placeholder="Enter your security key"
                     value={value}
                     onChange={(event) => setValue(event.currentTarget.value)}

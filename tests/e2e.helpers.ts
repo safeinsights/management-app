@@ -178,6 +178,20 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
     await page.keyboard.type(text)
 }
 
+// Types `text` into a rich-text field and hyperlinks all of it through the editor
+// toolbar. The toolbar is scoped to the field's own editor because a page renders
+// one Lexical instance (and one toolbar) per rich-text field.
+export async function insertLexicalLink(page: Page, ariaLabel: string, text: string, url: string) {
+    const editor = page.locator(`.collaborative-editor-container:has([aria-label="${ariaLabel}"])`)
+    await editor.locator(`[aria-label="${ariaLabel}"]`).click()
+    await page.keyboard.type(text)
+    await page.keyboard.press('ControlOrMeta+a')
+
+    await editor.getByLabel('Link').click()
+    await editor.getByPlaceholder('https://').fill(url)
+    await editor.getByLabel('Apply link').click()
+}
+
 // Opens a context that restores `role`'s saved session from storageState (no
 // sign-in) and returns the context + page. The storageState file must exist (written
 // by globalSetup). Caller closes the context. This is the fast

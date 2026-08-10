@@ -1,27 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { DashboardState } from './state.types'
 import { resolveDashboardAction } from './resolve'
+import { studyState } from './state.fixture'
 
-const dstate = (overrides: Partial<DashboardState>): DashboardState => ({
-    status: 'DRAFT',
-    isDraft: true,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: false,
-    hasSubmittedCode: false,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    displayStatus: 'DRAFT',
-    latestJobStatuses: [],
-    ...overrides,
-})
+// DashboardState is StudyState minus the three facts the dashboard query doesn't fetch, so the
+// shared fixture satisfies it; the extra fields are simply unread here.
+const dstate = (overrides: Partial<DashboardState>): DashboardState => studyState(overrides)
 
 const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -61,6 +61,16 @@ const SingleUserSaveStatus: FC<{
     return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} isVisible={!hasError} />
 }
 
+// Carries the id `aria-describedby` points at; null when clean so the save indicator keeps the row's left edge.
+const NoteFieldError: FC<{ error?: string }> = ({ error }) => {
+    if (!error) return null
+    return (
+        <Box id={fieldErrorId('resubmissionNote')}>
+            <InputError error={error} />
+        </Box>
+    )
+}
+
 export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionNoteSectionProps> = ({
     studyId,
     noteVersion,
@@ -78,11 +88,19 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
 
+    // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
+    const footerLeft = (
+        <>
+            <NoteFieldError error={error} />
+            <SingleUserSaveStatus isVisible={singleUserEditing} hasError={!!error} autosaveStatus={autosaveStatus} />
+        </>
+    )
+
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={4} c="charcoal.9">
+                    <Title order={3} size="h4" c="charcoal.9">
                         Resubmission Note
                         <RequiredIndicator isVisible />
                     </Title>
@@ -107,19 +125,10 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                             hasError: !!error,
                             hasDescription: false,
                         })}
+                        footerLeft={footerLeft}
                         footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
-                    <Group justify="space-between" align="center" mt={4}>
-                        <Box id={fieldErrorId('resubmissionNote')}>
-                            <InputError error={error} />
-                        </Box>
-                        <SingleUserSaveStatus
-                            isVisible={singleUserEditing}
-                            hasError={!!error}
-                            autosaveStatus={autosaveStatus}
-                        />
-                    </Group>
                 </Box>
             </Stack>
         </Paper>
