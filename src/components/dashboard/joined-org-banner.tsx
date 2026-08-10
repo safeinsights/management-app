@@ -1,6 +1,7 @@
 'use client'
 
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
+import { actionResult } from '@/lib/utils'
 import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { Alert, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react'
@@ -18,13 +19,13 @@ export function JoinedOrgBanner() {
         if (!joined) return
 
         const revealOnceKeyed = async () => {
-            const hasKey = await userKeyExistsAction()
-            if (hasKey !== true) return
+            const hasKey = actionResult(await userKeyExistsAction())
+            if (!hasKey) return
 
             sessionStorage.removeItem(JOINED_ORG_STORAGE_KEY)
             setOrgName(joined)
         }
-        // Anything short of a definite key — not yet keyed, or a check that failed — leaves the flag
+        // Anything short of a definite key — not yet keyed, or a check that threw — leaves the flag
         // in place for the dashboard the user actually lands on.
         revealOnceKeyed().catch(() => {})
     }, [])
