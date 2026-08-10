@@ -3,12 +3,10 @@ import type { StudyState } from './state.types'
 import { resolveScreen } from './resolve'
 import { studyState } from './state.fixture'
 
-const ctx = { orgSlug: 'org', studyId: '01900000-0000-7000-8000-000000000001' }
-
 const st = (overrides: Partial<StudyState>): StudyState =>
     studyState({ status: 'PENDING-REVIEW', isDraft: false, displayStatus: 'PENDING-REVIEW', ...overrides })
 
-const screen = (s: StudyState) => resolveScreen('reviewer', s, ctx).screen
+const screen = (s: StudyState) => resolveScreen('reviewer', s).screen
 
 describe('resolveScreen(reviewer)', () => {
     it('PENDING-REVIEW → reviewer-proposal-review', () => {

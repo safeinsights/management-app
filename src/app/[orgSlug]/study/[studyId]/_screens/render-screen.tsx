@@ -36,14 +36,8 @@ async function renderScreen(descriptor: ScreenDescriptor, args: RenderArgs): Pro
 // Shared dispatch for both /view (researcher) and /review (reviewer): project → resolve → look up
 // → render. Screens are awaited (not rendered as JSX children) so async server components resolve
 // in the test harness, matching the pattern the /view page used inline before this helper existed.
-export async function renderStudyScreen(
-    args: RenderArgs & { role: StudyRole; studyId: string },
-): Promise<React.JSX.Element> {
-    const descriptor = resolveScreen(args.role, projectStudyState(args.raw), {
-        orgSlug: args.orgSlug,
-        studyId: args.studyId,
-        returnTo: args.returnTo,
-    })
+export async function renderStudyScreen(args: RenderArgs & { role: StudyRole }): Promise<React.JSX.Element> {
+    const descriptor = resolveScreen(args.role, projectStudyState(args.raw))
     return renderScreen(descriptor, args)
 }
 
