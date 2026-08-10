@@ -4,6 +4,7 @@ import { reportError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -69,55 +70,55 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 try {
                     const result = actionResult(await onUserSignInAction())
                     await auth.getToken({ skipCache: true })
-                    if (result?.redirectToKeyGeneration) {
-                        router.push(Routes.accountKeys)
-                    } else {
-                        let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
-                        const inviteId = searchParams.get('invite_id')
-                        if (inviteId) {
-                            let org: { slug: string; name: string } | undefined
+
+                    const rawRedirect = searchParams.get('redirect_url')
+                    let redirectUrl = rawRedirect ? safeRedirectUrl(rawRedirect, Routes.dashboard) : null
+                    const inviteId = searchParams.get('invite_id')
+                    if (inviteId) {
+                        let org: { slug: string; name: string } | undefined
+                        try {
+                            // Read the org before joining: accepting marks the invite claimed,
+                            // and the lookup only resolves unclaimed invites.
+                            org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                        } catch (error) {
+                            // A claimed or deleted invite, so retrying can never succeed —
+                            // distinct from a join failure, which is worth retrying. The
+                            // join-team page renders a persistent "no longer valid" panel
+                            // for this state, so land there rather than on a dashboard
+                            // where only the transient toast explains what happened.
+                            reportError(error, 'This invitation is no longer valid')
+                            redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
+                        }
+                        if (org) {
                             try {
-                                // Read the org before joining: accepting marks the invite claimed,
-                                // and the lookup only resolves unclaimed invites.
-                                org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                // actionResult, despite the discarded value: it is what turns an
+                                // action failure into a throw, so the catch below can run.
+                                actionResult(await onJoinTeamAccountAction({ inviteId }))
+
+                                redirectUrl = Routes.orgDashboard({ orgSlug: org.slug }) as Route
+
+                                notifications.show({
+                                    color: 'green',
+                                    message: `You've successfully joined ${org.name}.`,
+                                })
+                                await auth.getToken({ skipCache: true })
                             } catch (error) {
-                                // A claimed or deleted invite, so retrying can never succeed —
-                                // distinct from a join failure, which is worth retrying. The
-                                // join-team page renders a persistent "no longer valid" panel
-                                // for this state, so land there rather than on a dashboard
-                                // where only the transient toast explains what happened.
-                                reportError(error, 'This invitation is no longer valid')
+                                // The invite is still live (a failed accept rolls the claim
+                                // back), so return to the join-team page where Accept can be
+                                // retried instead of silently landing elsewhere.
+                                reportError(error, 'Failed to accept your invitation. Please try again.')
                                 redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
                             }
-                            if (org) {
-                                try {
-                                    const joinResult = actionResult(await onJoinTeamAccountAction({ inviteId }))
-
-                                    const orgDashboard = Routes.orgDashboard({ orgSlug: org.slug })
-                                    if (joinResult?.needsUserKey) {
-                                        // First-time key generation: return to the inviting org's dashboard after.
-                                        redirectUrl =
-                                            `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
-                                    } else {
-                                        redirectUrl = orgDashboard as Route
-                                    }
-
-                                    notifications.show({
-                                        color: 'green',
-                                        message: `You've successfully joined ${org.name}.`,
-                                    })
-                                    await auth.getToken({ skipCache: true })
-                                } catch (error) {
-                                    // The invite is still live (a failed accept rolls the claim
-                                    // back), so return to the join-team page where Accept can be
-                                    // retried instead of silently landing elsewhere.
-                                    reportError(error, 'Failed to accept your invitation. Please try again.')
-                                    redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
-                                }
-                            }
                         }
-                        router.push(redirectUrl)
                     }
+
+                    // Key generation last, so a keyless user still accepts their invite on the way
+                    // through and resumes where they were headed afterwards (OTTER-655).
+                    router.push(
+                        result?.redirectToKeyGeneration
+                            ? keyGenerationUrl(redirectUrl)
+                            : (redirectUrl ?? Routes.dashboard),
+                    )
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk

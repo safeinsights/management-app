@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, readTestSupportFile } from '@/tests/unit.helpers'
-import { getUserPublicKeyAction, setUserPublicKeyAction, updateUserPublicKeyAction } from './user-keys.actions'
+import { mockSessionWithTestData, actionResult, faker, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
+import {
+    getFirstKeyRedirectAction,
+    getUserPublicKeyAction,
+    setUserPublicKeyAction,
+    updateUserPublicKeyAction,
+} from './user-keys.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
@@ -102,5 +107,53 @@ describe('User Keys Actions', () => {
         expect(isActionError(result)).toBe(true)
         const stored = actionResult(await getUserPublicKeyAction())
         expect(stored?.fingerprint).toEqual('old-fingerprint')
+    })
+
+    it('stores the generation date, and a rotation advances it without losing the original', async () => {
+        const { user } = await mockSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        const { publicKey } = await validTestKey()
+        const readTimestamps = () =>
+            db
+                .selectFrom('userPublicKey')
+                .select(['createdAt', 'updatedAt'])
+                .where('userId', '=', user.id)
+                .executeTakeFirstOrThrow()
+
+        await setUserPublicKeyAction({ publicKey })
+        const created = await readTimestamps()
+
+        await updateUserPublicKeyAction({ publicKey })
+        const rotated = await readTimestamps()
+
+        // OTTER-654 reads these: createdAt stays the first-ever generation, updatedAt tracks the
+        // key currently in the user's hands.
+        expect(rotated.createdAt).toEqual(created.createdAt)
+        expect(rotated.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime())
+    })
+})
+
+describe('getFirstKeyRedirectAction', () => {
+    it('returns the org dashboard when the account belongs to exactly one org', async () => {
+        const { org } = await mockSessionWithTestData()
+
+        expect(actionResult(await getFirstKeyRedirectAction())).toEqual(`/${org.slug}/dashboard`)
+    })
+
+    // Two orgs means no unambiguous landing, and nothing in orgUser records which one invited the
+    // signup, so the action declines rather than guessing.
+    it('falls back to My dashboard when the account belongs to more than one org', async () => {
+        const { user } = await mockSessionWithTestData()
+        const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
+
+        expect(actionResult(await getFirstKeyRedirectAction())).toEqual('/dashboard')
+    })
+
+    it('falls back to My dashboard when the account belongs to no org', async () => {
+        const { user } = await mockSessionWithTestData()
+        await db.deleteFrom('orgUser').where('userId', '=', user.id).execute()
+
+        expect(actionResult(await getFirstKeyRedirectAction())).toEqual('/dashboard')
     })
 })

@@ -30,6 +30,27 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
         return Boolean(key)
     })
 
+// Landing for the key page when no destination was carried in — the RequireUserKey guard pushes a
+// bare url, so the page has to answer this itself. NOT a claim about which org invited the account:
+// a single-org account simply has one dashboard it could land on, so the answer cannot be wrong even
+// though it proves nothing about provenance. Anything ambiguous (no orgs, or several) returns "My
+// dashboard" rather than guessing.
+export const getFirstKeyRedirectAction = new Action('getFirstKeyRedirectAction')
+    .requireAbilityTo('view', 'UserKey')
+    .handler(async ({ session, db }) => {
+        const orgs = await db
+            .selectFrom('orgUser')
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .select('org.slug')
+            .where('orgUser.userId', '=', session.user.id)
+            .limit(2)
+            .execute()
+
+        if (orgs.length !== 1) return Routes.dashboard
+
+        return Routes.orgDashboard({ orgSlug: orgs[0].slug })
+    })
+
 // No `fingerprint` field: it's derived server-side from `publicKey` (deterministic SHA-256 over the
 // SPKI bytes). A client-supplied fingerprint that didn't match would make every sender wrap to a
 // key the owner can't unwrap — silent, permanent decrypt failure with no recourse until renewal.

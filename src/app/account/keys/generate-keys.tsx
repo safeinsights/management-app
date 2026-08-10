@@ -7,6 +7,7 @@ import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/acti
 import { Button, Code, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { useClipboard, useDisclosure } from '@mantine/hooks'
 import { CheckIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
@@ -19,11 +20,26 @@ interface Keys {
     fingerprint: string
 }
 
-type GenerateKeysProps = {
-    isRegenerating?: boolean
+// AC: a reset returns to "My dashboard"; the first key ever generated returns to the landing the
+// page resolved for this account. An explicit redirect_url (invite flows, deep links) overrides it.
+// Keyed off account state rather than off the presence of that parameter: the RequireUserKey guard
+// is the entry point most first keys arrive through, and it passes none (OTTER-655).
+export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
+    if (isRegenerating) return Routes.dashboard
+
+    return safeRedirectUrl(redirectParam, firstKeyRedirect)
 }
 
-export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) => {
+type GenerateKeysProps = {
+    isRegenerating?: boolean
+    /** Where a first key lands when no redirect_url is supplied; ignored for a reset. */
+    firstKeyRedirect?: Route
+}
+
+export const GenerateKeys: FC<GenerateKeysProps> = ({
+    isRegenerating = false,
+    firstKeyRedirect = Routes.dashboard,
+}) => {
     const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
@@ -47,6 +63,9 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
     if (!keys) return null
 
     const onCopy = () => {
+        // useClipboard clears `error` only on reset, never on a later success, so without this a
+        // retry after a blocked copy shows the green check and the red failure at once.
+        clipboard.reset()
         clipboard.copy(keys.privateKey)
         setHasAttemptedCopy(true)
     }
@@ -99,6 +118,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                 isOpen={confirmationOpened}
                 keys={keys}
                 isRegenerating={isRegenerating}
+                firstKeyRedirect={firstKeyRedirect}
             />
         </Paper>
     )
@@ -139,12 +159,13 @@ const CopyFailedIndicator: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; isRegenerating: boolean }> = ({
-    onClose,
-    isOpen,
-    keys,
-    isRegenerating,
-}) => {
+const ConfirmationModal: FC<{
+    onClose: () => void
+    isOpen: boolean
+    keys: Keys
+    isRegenerating: boolean
+    firstKeyRedirect: Route
+}> = ({ onClose, isOpen, keys, isRegenerating, firstKeyRedirect }) => {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -157,8 +178,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
         },
         onError: reportMutationError('Failed to save security key'),
         onSuccess() {
-            // First-time onboarding carries an org-dashboard redirect_url; a reset carries none.
-            router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
+            router.push(postKeyRedirect(isRegenerating, searchParams.get('redirect_url'), firstKeyRedirect))
         },
     })
 

@@ -1,6 +1,7 @@
 import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import type { Route } from 'next'
 import router from 'next-router-mock'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -29,11 +30,17 @@ const mockClipboard = (succeed: boolean) => {
     return writeText
 }
 
-const renderPage = (props: { isRegenerating?: boolean } = {}) => {
+const renderPage = (props: { isRegenerating?: boolean; firstKeyRedirect?: Route } = {}) => {
     mockClerkSession({ userId: 'user-id', clerkUserId: 'clerk-user-id', orgSlug: 'dev' })
     vi.mocked(generateKeyPair).mockResolvedValue(mockKeys as never)
     renderWithProviders(<GenerateKeys {...props} />)
     return screen.findByText('Security key', { selector: 'h3' })
+}
+
+const storeKey = async () => {
+    fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, I have stored my key' }))
 }
 
 describe('Security key generation', () => {
@@ -80,20 +87,29 @@ describe('Security key generation', () => {
         await waitFor(() => expect(screen.queryByText('Have you stored your security key?')).toBeNull())
     })
 
-    it('first-time generation saves the key and redirects to the inviting org dashboard', async () => {
-        router.setCurrentUrl('/account/keys?redirect_url=%2Facme%2Fdashboard')
+    // OTTER-655: the guard entry point passes no redirect_url, which is how a first key used to
+    // land on "My dashboard" instead of the org that invited the account.
+    it('first-time generation saves the key and uses the resolved landing when no redirect_url is present', async () => {
         mockClipboard(true)
-        await renderPage({ isRegenerating: false })
+        await renderPage({ isRegenerating: false, firstKeyRedirect: '/openstax-lab/dashboard' as Route })
 
-        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
-        fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
-        fireEvent.click(await screen.findByRole('button', { name: 'Yes, I have stored my key' }))
+        await storeKey()
 
         await waitFor(() => {
             expect(setUserPublicKeyAction).toHaveBeenCalledWith(
                 expect.objectContaining({ publicKey: mockKeys.exportedPublicKey }),
             )
         })
+        await waitFor(() => expect(router.asPath).toBe('/openstax-lab/dashboard'))
+    })
+
+    it('an explicit redirect_url overrides the resolved landing', async () => {
+        router.setCurrentUrl('/account/keys?redirect_url=%2Facme%2Fdashboard')
+        mockClipboard(true)
+        await renderPage({ isRegenerating: false, firstKeyRedirect: '/openstax-lab/dashboard' as Route })
+
+        await storeKey()
+
         await waitFor(() => expect(router.asPath).toBe('/acme/dashboard'))
     })
 
@@ -101,9 +117,7 @@ describe('Security key generation', () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: true })
 
-        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
-        fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
-        fireEvent.click(await screen.findByRole('button', { name: 'Yes, I have stored my key' }))
+        await storeKey()
 
         await waitFor(() => {
             expect(updateUserPublicKeyAction).toHaveBeenCalledWith(
@@ -111,5 +125,43 @@ describe('Security key generation', () => {
             )
         })
         await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+    })
+
+    it('a reset ignores a stray redirect_url', async () => {
+        router.setCurrentUrl('/account/keys?redirect_url=%2Facme%2Fdashboard')
+        mockClipboard(true)
+        await renderPage({ isRegenerating: true, firstKeyRedirect: '/openstax-lab/dashboard' as Route })
+
+        await storeKey()
+
+        await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+    })
+
+    it('clears the failure message once a retried copy succeeds', async () => {
+        const writeText = mockClipboard(false)
+        await renderPage()
+
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+        await waitFor(() => expect(screen.getByText(/Copy did not work/)).toBeDefined())
+
+        writeText.mockResolvedValueOnce(undefined as never)
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+
+        await waitFor(() => expect(screen.getByText('Copied!')).toBeDefined())
+        expect(screen.queryByText(/Copy did not work/)).toBeNull()
+    })
+
+    it('clears the success indicator once a later copy fails', async () => {
+        const writeText = mockClipboard(true)
+        await renderPage()
+
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+        await waitFor(() => expect(screen.getByText('Copied!')).toBeDefined())
+
+        writeText.mockRejectedValueOnce(new Error('blocked') as never)
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+
+        await waitFor(() => expect(screen.getByText(/Copy did not work/)).toBeDefined())
+        expect(screen.queryByText('Copied!')).toBeNull()
     })
 })
