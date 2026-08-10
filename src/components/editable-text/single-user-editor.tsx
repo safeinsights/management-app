@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { Paper, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -16,6 +16,7 @@ import type { EditorState } from 'lexical'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { lexicalTheme, lexicalNodes, isValidUrl } from './config'
+import { EditorFooter } from './editor-footer'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { widgetBlurHandler } from '@/components/form-field'
@@ -158,10 +159,7 @@ export function SingleUserEditor({
             </Paper>
             {(footerLeft || footerRight) && (
                 <Stack gap={4} mt={4}>
-                    <Group align="center" wrap="nowrap">
-                        {footerLeft}
-                        {footerRight && <Box ml="auto">{footerRight}</Box>}
-                    </Group>
+                    <EditorFooter left={footerLeft} right={footerRight} />
                 </Stack>
             )}
         </LexicalComposer>
