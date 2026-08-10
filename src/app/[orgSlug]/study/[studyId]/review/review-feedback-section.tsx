@@ -34,6 +34,17 @@ function feedbackHeading(reviewVersion: number) {
     return reviewVersion <= 1 ? 'Initial request review' : `Round ${reviewVersion} review`
 }
 
+// Carries the id `aria-describedby` points at; null when clean so the save indicator keeps the
+// row's left edge (same shape as NoteFieldError in collaborative-resubmission-note-section).
+function FeedbackFieldError({ error }: { error?: string | null }) {
+    if (!error) return null
+    return (
+        <Box id={fieldErrorId('review-feedback')}>
+            <InputError error={error} />
+        </Box>
+    )
+}
+
 function FeedbackEditor({
     feedback,
     studyId,
@@ -62,6 +73,9 @@ function FeedbackEditor({
                 hasDescription: false,
             })}
             placeholder={PLACEHOLDER_TEXT}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the word counter (OTTER-674).
+            footerLeft={<FeedbackFieldError error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -93,9 +107,6 @@ export function ReviewFeedbackSection({
                         research team.
                     </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
-                    <Box id={fieldErrorId('review-feedback')}>
-                        <InputError error={feedback.error} />
-                    </Box>
                 </Stack>
             </Stack>
         </Paper>

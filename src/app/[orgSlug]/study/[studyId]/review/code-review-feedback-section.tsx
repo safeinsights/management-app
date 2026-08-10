@@ -53,6 +53,17 @@ function FeedbackIntro({ labName }: { labName: string }) {
     )
 }
 
+// Carries the id `aria-describedby` points at; null when clean so the save indicator keeps the
+// row's left edge (same shape as NoteFieldError in collaborative-resubmission-note-section).
+function FeedbackFieldError({ error }: { error?: string | null }) {
+    if (!error) return null
+    return (
+        <Box id={fieldErrorId('code-review-feedback')}>
+            <InputError error={error} />
+        </Box>
+    )
+}
+
 function FeedbackEditor({
     feedback,
     studyId,
@@ -81,6 +92,9 @@ function FeedbackEditor({
                 hasDescription: false,
             })}
             placeholder={FEEDBACK_PLACEHOLDER}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the word counter (OTTER-674).
+            footerLeft={<FeedbackFieldError error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -194,9 +208,6 @@ export function CodeReviewFeedbackSection({
                 <Divider />
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
-                <Box id={fieldErrorId('code-review-feedback')}>
-                    <InputError error={feedback.error} />
-                </Box>
                 <Divider />
                 <DecisionRadioGroup
                     value={decisionValue}
