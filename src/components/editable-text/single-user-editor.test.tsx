@@ -73,4 +73,18 @@ describe('SingleUserEditor', () => {
 
         expect(await screen.findByText('0 / 100 words')).toBeDefined()
     })
+
+    it('renders footerLeft in the same footer row as footerRight (OTTER-674)', async () => {
+        renderWithProviders(
+            <SingleUserEditor
+                id="doc-4"
+                ariaLabel="Feedback"
+                footerLeft={<span>This field is required.</span>}
+                footerRight={<span>0 / 100 words</span>}
+            />,
+        )
+
+        const left = await screen.findByText('This field is required.')
+        expect(left.parentElement).toContainElement(screen.getByText('0 / 100 words'))
+    })
 })

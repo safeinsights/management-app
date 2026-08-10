@@ -1,5 +1,6 @@
 'use client'
 
+import posthog from 'posthog-js'
 import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
@@ -43,9 +44,14 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
-        onSuccess(data) {
+        onSuccess(data, invite) {
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+            posthog.capture('team_member_invited', {
+                org_slug: orgSlug,
+                permission: invite.permission,
+                already_invited: data?.alreadyInvited ?? false,
+            })
             if (data?.alreadyInvited) {
                 notifications.show({
                     color: 'green',

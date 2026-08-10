@@ -125,7 +125,9 @@ const ExpandedCodePanel: FC<ExpandedCodePanelProps> = ({
             <Paper p="xxl">
                 <Stack gap="md">
                     <Group justify="space-between" align="center">
-                        <Title order={5}>Submitted code</Title>
+                        <Title order={3} size="h5">
+                            Submitted code
+                        </Title>
                         <LinkWithIcon
                             href={proposalHref}
                             target="_blank"
@@ -200,7 +202,7 @@ export function CodePostSubmissionView({
                     <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                         STEP 4
                     </Text>
-                    <Title fz={20} order={4} c="charcoal.9" pb={4}>
+                    <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
                     <Group justify="space-between" align="center">

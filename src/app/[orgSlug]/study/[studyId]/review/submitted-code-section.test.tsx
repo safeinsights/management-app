@@ -465,12 +465,14 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(row.querySelector('[data-icon="warning"]')).toBeNull()
     })
 
-    it('shows Trivy "Vulnerabilities found" with a warning icon when it failed', async () => {
+    it('shows Trivy "Vulnerabilities found" with a red warning icon when it failed', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('FAILED', 'PASSED'))
         const row = screen.getByTestId('security-scan-trivy')
         expect(row).toHaveTextContent('Vulnerabilities found')
-        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+        const icon = row.querySelector('[data-icon="warning"]')
+        expect(icon).not.toBeNull()
+        expect(icon?.outerHTML).toContain('red')
     })
 
     it('shows SonarQube "Passed" with no warning icon when it passed', async () => {
@@ -487,6 +489,34 @@ describe('SubmittedCodeSection — Security scan log', () => {
         const row = screen.getByTestId('security-scan-sonarqube')
         expect(row).toHaveTextContent('Needs review')
         expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+    })
+
+    // The third outcome: the scan reported, but not a verdict. It must not read as either a clean
+    // bill of health or a vulnerability finding (OTTER-649).
+    it('shows Trivy "Needs review" with a warning icon, and no finding, when the result is indeterminate', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
+        const row = screen.getByTestId('security-scan-trivy')
+        expect(row).toHaveTextContent('Needs review')
+        expect(row).not.toHaveTextContent('Vulnerabilities found')
+        expect(row).not.toHaveTextContent('No vulnerabilities found')
+        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+    })
+
+    it('still offers the log download when a tool result is indeterminate', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
+        expect(screen.getByTestId('security-scan-log-download')).toHaveTextContent('Download')
+    })
+
+    // An indeterminate result must not look like a reported problem, so it deliberately does not get
+    // the red icon a real finding gets.
+    it('does not give the indeterminate row the red icon used for a finding', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
+        const icon = screen.getByTestId('security-scan-trivy').querySelector('[data-icon="warning"]')
+        expect(icon).not.toBeNull()
+        expect(icon?.outerHTML).not.toContain('red')
     })
 
     it('shows a download link to the plaintext scan log when a log file is present', async () => {

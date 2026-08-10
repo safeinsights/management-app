@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { Paper, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -14,7 +14,8 @@ import type { EditorState } from 'lexical'
 
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
-import { lexicalTheme, lexicalNodes, isValidUrl } from './config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
+import { EditorFooter } from './editor-footer'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { widgetBlurHandler } from '@/components/form-field'
@@ -35,6 +36,8 @@ export type SingleUserEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** See EditorProps.footerLeft. */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
     /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
@@ -91,6 +94,7 @@ export function SingleUserEditor({
     placeholder,
     ariaLabel,
     onChange,
+    footerLeft,
     footerRight,
     inputId,
     error,
@@ -147,16 +151,14 @@ export function SingleUserEditor({
                 <ListPlugin />
                 {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                 <EscapeFocusPlugin />
-                <LinkPlugin validateUrl={isValidUrl} />
+                <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}
                 {children}
                 <Toolbar />
             </Paper>
-            {footerRight && (
+            {(footerLeft || footerRight) && (
                 <Stack gap={4} mt={4}>
-                    <Group align="center" wrap="nowrap">
-                        <Box ml="auto">{footerRight}</Box>
-                    </Group>
+                    <EditorFooter left={footerLeft} right={footerRight} />
                 </Stack>
             )}
         </LexicalComposer>

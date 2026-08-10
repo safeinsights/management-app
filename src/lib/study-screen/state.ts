@@ -141,7 +141,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
 
 // OTTER-598 follow-up: the job errored but no FILES-* decision has been recorded yet.
 // Both screen-rule tables depend on this predicate: the reviewer table routes to the
-// errored-outputs triage screen, the researcher table holds on the code-approved page
+// errored-outputs triage screen, the researcher table holds on the outputs-pending page
 // (hiding the error until the reviewer records a decision). Also used by the pill
 // (resolvePillStatus's hideErrored). Single source of truth so the two roles can't drift.
 export const awaitingFilesDecisionOnError = (

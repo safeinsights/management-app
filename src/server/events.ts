@@ -2,6 +2,7 @@ import { db, type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
 import logger from '@/lib/logger'
+import { capturePostHogEvent } from '@/server/posthog'
 import { UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
@@ -102,6 +103,12 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
     // TODO: notify SI admin so they can draw up this study's SLA — see sendSlaPreparationEmail in mailer.ts
+
+    await capturePostHogEvent({
+        distinctId: userId,
+        event: 'study_created',
+        properties: { study_id: studyId },
+    })
 })
 
 export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {

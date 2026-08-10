@@ -1,34 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolveScreen } from './resolve'
+import { studyState } from './state.fixture'
 
-const ctx = { orgSlug: 'org', studyId: '01900000-0000-7000-8000-000000000001' }
+const st = (overrides: Partial<StudyState>): StudyState =>
+    studyState({ status: 'PENDING-REVIEW', isDraft: false, displayStatus: 'PENDING-REVIEW', ...overrides })
 
-const st = (overrides: Partial<StudyState>): StudyState => ({
-    status: 'PENDING-REVIEW',
-    isDraft: false,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: false,
-    hasSubmittedCode: false,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    submissionRound: 0,
-    hasSavedEdits: false,
-    hasSavedCodeEdits: false,
-    displayStatus: 'PENDING-REVIEW',
-    latestJobStatuses: [],
-    ...overrides,
-})
-
-const screen = (s: StudyState) => resolveScreen('reviewer', s, ctx).screen
+const screen = (s: StudyState) => resolveScreen('reviewer', s).screen
 
 describe('resolveScreen(reviewer)', () => {
     it('PENDING-REVIEW → reviewer-proposal-review', () => {
