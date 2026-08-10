@@ -18,11 +18,6 @@ import { Paper, Title, Button, Flex, Group, Text, Stack } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon } from '@phosphor-icons/react/dist/ssr'
 
-// Access modal from "Upload New {label}" button
-// Page 1: upload draft. Displays if there isn't a current draft
-// Page 2: Shows after finishing Page 1 ("Save Draft" button), or if there is a current draft
-// and contains review + publish logic
-
 export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentType; onDraftSaved: () => void }) {
     const [file, setFile] = useState<File | null>(null)
 
@@ -33,15 +28,12 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
     }
     const saveDraft = async () => {
         if (!file) return
-        // Call Chris's save draft action
         // No format: the action derives it from the type, so a document cannot be stored in a
         // format its viewer cannot render.
         const result = await createLegalDocumentDraftAction({ type: doctype, fileName: file.name })
         if (isActionError(result)) {
             throw new Error('Failed to create draft: ' + result)
         }
-        // result { document, version, upload }
-        // Upload file to S3
         await uploadFiles([[file, result.upload]])
 
         onDraftSaved()

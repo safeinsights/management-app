@@ -18,8 +18,7 @@ import { seedStudyFor } from '../tests/e2e.seed'
 // Enough to see the cascade narrow at each step without burying the table.
 const DEFAULT_PER_PAIR = 2
 
-// One in this many is left PENDING-REVIEW, so the SLA picker demonstrably excludes
-// studies that have not been approved yet.
+// One in this many is left PENDING-REVIEW, so the SLA picker demonstrably excludes them.
 const PENDING_EVERY = 3
 
 const TOPICS = [
