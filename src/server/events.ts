@@ -1,6 +1,8 @@
-import { db } from '@/database'
+import { db, type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
+import type { AuditFieldChange } from '@/lib/audit-diff'
 import logger from '@/lib/logger'
+import { capturePostHogEvent } from '@/server/posthog'
 import { UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
@@ -41,16 +43,71 @@ type AuditEntry = {
     metadata?: Json
 }
 
-export const audit = async (entry: AuditEntry): Promise<void> => {
+// Defaults to the module-level connection so existing callers are unaffected; pass an
+// executor to enlist the audit row in the caller's transaction (see auditCodeEnv below).
+export const audit = async (entry: AuditEntry, executor: DBExecutor = db): Promise<void> => {
     logger.info(`${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
-    await db.insertInto('audit').values(entry).execute()
+    await executor.insertInto('audit').values(entry).execute()
 }
+
+type CodeEnvAuditArgs = {
+    db: DBExecutor
+    codeEnvId: string
+    userId: string
+    changes: AuditFieldChange[]
+    starterCodeReplaced?: boolean
+    name?: string
+}
+
+/**
+ * Unlike every other handler in this file these are NOT wrapped in deferred(): a
+ * deferred callback runs after the response, by which point the action's transaction
+ * has already committed *or rolled back*, and after() does not unschedule on error. A
+ * mutation that failed partway (an AWS call after the update, say) would still emit an
+ * audit row claiming the change succeeded. Writing inline on the caller's executor
+ * makes the audit row commit and roll back atomically with the change it describes.
+ */
+const auditCodeEnv = async (
+    eventType: Extract<AuditEventType, 'CREATED' | 'UPDATED' | 'DELETED'>,
+    { db: executor, codeEnvId, userId, changes, starterCodeReplaced, name }: CodeEnvAuditArgs,
+): Promise<void> => {
+    await audit(
+        {
+            userId,
+            eventType,
+            recordType: 'CODE_ENV',
+            recordId: codeEnvId,
+            metadata: {
+                changes,
+                ...(starterCodeReplaced ? { starterCodeReplaced: true } : {}),
+                ...(name ? { name } : {}),
+            },
+        },
+        executor,
+    )
+}
+
+export const onCodeEnvCreated = (args: CodeEnvAuditArgs) => auditCodeEnv('CREATED', args)
+
+export const onCodeEnvUpdated = async (args: CodeEnvAuditArgs) => {
+    // A save that changed nothing and replaced nothing is not history worth keeping.
+    if (args.changes.length === 0 && !args.starterCodeReplaced) return
+    await auditCodeEnv('UPDATED', args)
+}
+
+export const onCodeEnvDeleted = (args: CodeEnvAuditArgs) => auditCodeEnv('DELETED', args)
 
 type StudyEvent = { studyId: string; userId: string }
 
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
+
+    await capturePostHogEvent({
+        distinctId: userId,
+        event: 'study_created',
+        properties: { study_id: studyId },
+    })
 })
 
 export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {

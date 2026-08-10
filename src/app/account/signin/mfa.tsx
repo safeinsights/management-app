@@ -1,5 +1,6 @@
 'use client'
-import { useMutation } from '@/common'
+import { useForm, useMutation } from '@/common'
+import { reportError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
@@ -7,7 +8,7 @@ import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
-import { isNotEmpty, useForm } from '@mantine/form'
+import { isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -74,35 +75,45 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
+                            let org: { slug: string; name: string } | undefined
                             try {
-                                const joinResult = actionResult(
-                                    await onJoinTeamAccountAction({
-                                        inviteId,
-                                        loggedInEmail: signInAttempt?.identifier || undefined,
-                                    }),
-                                )
+                                // Read the org before joining: accepting marks the invite claimed,
+                                // and the lookup only resolves unclaimed invites.
+                                org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                            } catch (error) {
+                                // A claimed or deleted invite, so retrying can never succeed —
+                                // distinct from a join failure, which is worth retrying. The
+                                // join-team page renders a persistent "no longer valid" panel
+                                // for this state, so land there rather than on a dashboard
+                                // where only the transient toast explains what happened.
+                                reportError(error, 'This invitation is no longer valid')
+                                redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
+                            }
+                            if (org) {
+                                try {
+                                    const joinResult = actionResult(await onJoinTeamAccountAction({ inviteId }))
 
-                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                const orgDashboard = Routes.orgDashboard({ orgSlug: slug })
-                                if (joinResult?.needsUserKey) {
-                                    // First-time key generation: return to the inviting org's dashboard after.
-                                    redirectUrl =
-                                        `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
-                                } else {
-                                    redirectUrl = orgDashboard as Route
+                                    const orgDashboard = Routes.orgDashboard({ orgSlug: org.slug })
+                                    if (joinResult?.needsUserKey) {
+                                        // First-time key generation: return to the inviting org's dashboard after.
+                                        redirectUrl =
+                                            `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
+                                    } else {
+                                        redirectUrl = orgDashboard as Route
+                                    }
+
+                                    notifications.show({
+                                        color: 'green',
+                                        message: `You've successfully joined ${org.name}.`,
+                                    })
+                                    await auth.getToken({ skipCache: true })
+                                } catch (error) {
+                                    // The invite is still live (a failed accept rolls the claim
+                                    // back), so return to the join-team page where Accept can be
+                                    // retried instead of silently landing elsewhere.
+                                    reportError(error, 'Failed to accept your invitation. Please try again.')
+                                    redirectUrl = Routes.accountInvitationJoinTeam({ inviteId }) as Route
                                 }
-
-                                const email = signInAttempt?.identifier || 'your account'
-                                notifications.show({
-                                    color: 'green',
-                                    message: `You've successfully linked your SafeInsights accounts under ${email}.`,
-                                })
-                                await auth.getToken({ skipCache: true })
-                            } catch {
-                                notifications.show({
-                                    color: 'red',
-                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
-                                })
                             }
                         }
                         router.push(redirectUrl)
@@ -111,7 +122,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
+                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object

@@ -313,6 +313,33 @@ describe('PostFeedbackView', () => {
             await user.click(screen.getByTestId('post-feedback-previous'))
             expect(memoryRouter.asPath).toBe(previousHref)
         })
+
+        // OTTER-687: the outputs screen is not a route of its own, so the forward link is bare
+        // /review and the screen table decides what renders there.
+        it('renders "Next step" in place of the dashboard CTA when nextStepHref is provided', () => {
+            const nextStepHref = Routes.studyReview({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderWithProviders(
+                <PostFeedbackView
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[buildEntry()]}
+                    nextStepHref={nextStepHref}
+                />,
+            )
+
+            const next = screen.getByTestId('cta-next-step')
+            expect(next).toHaveTextContent('Next step')
+            expect(next).toHaveAttribute('href', nextStepHref)
+            expect(screen.queryByTestId('go-to-dashboard')).not.toBeInTheDocument()
+        })
+
+        // The proposal usages pass no forward link: that flow ends on this page.
+        it('keeps "Go to dashboard" when no nextStepHref is provided', () => {
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
+
+            expect(screen.getByTestId('go-to-dashboard')).toBeInTheDocument()
+            expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
+        })
     })
 
     describe('kind="CODE"', () => {

@@ -26,7 +26,6 @@ const eslintConfig = [
             '!.ladle/**',
             '.ladle/dist/**',
             'CHANGELOG.md',
-            'src/styles/generated/',
             'test-results/**',
             'tests/coverage/**',
             'services/**',
@@ -149,6 +148,14 @@ const eslintConfig = [
                 {
                     name: '@tanstack/react-query',
                     message: 'Please import tanstack from @/common instead.',
+                },
+                {
+                    // It cancels the Tab keydown, which traps keyboard focus in the editor and
+                    // types a literal tab (WCAG 2.1.2). Lexical's own docs discourage it. Twice
+                    // now it has been copied into a new editor along with the rest of the plugin
+                    // list, so the ban is the guard. Indent / Outdent live on the toolbar.
+                    name: '@lexical/react/LexicalTabIndentationPlugin',
+                    message: 'Tab must move focus out of the editor. Use the toolbar Indent / Outdent buttons instead.',
                 },
             ],
             'no-console': ['error', { allow: ['warn', 'error'] }],

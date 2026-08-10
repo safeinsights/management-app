@@ -1,21 +1,17 @@
 'use client'
 
-import {
-    PASSWORD_REQUIREMENTS,
-    Requirements,
-    usePasswordRequirements,
-} from '@/app/account/reset-password/password-requirements'
-import { useMutation, useQuery, z, zodResolver } from '@/common'
+import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
+import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { TermsCheckbox } from '@/components/terms-checkbox'
-import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
+import { InvalidInvitePanel } from '../invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 
@@ -31,6 +27,10 @@ const formSchema = z
             return schema
         })(),
         confirmPassword: z.string(),
+        // In the form so leaving it unchecked raises a visible error rather than only
+        // disabling the button (OTTER-647). Stripped before the action, whose schema
+        // has no such field.
+        termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
     })
     .superRefine(({ confirmPassword, password }, ctx) => {
         if (confirmPassword !== password) {
@@ -54,7 +54,6 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { setActive, signIn } = useSignIn()
     const theme = useMantineTheme()
     const router = useRouter()
-    const [termsAccepted, setTermsAccepted] = useState(false)
 
     const form = useForm({
         validate: zodResolver(formSchema),
@@ -65,13 +64,18 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
             lastName: '',
             password: '',
             confirmPassword: '',
+            termsAccepted: false as true,
         },
     })
 
-    const { requirements, shouldShowRequirements } = usePasswordRequirements(form.values.password)
+    const [passwordTouched, setPasswordTouched] = useState(false)
+    const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
-        mutationFn: (form: FormValues) => onCreateAccountAction({ inviteId, form }),
+        // confirmPassword and termsAccepted are client-side concerns; the action's schema has
+        // neither, so only the fields it actually uses are sent.
+        mutationFn: ({ firstName, lastName, password }: FormValues) =>
+            onCreateAccountAction({ inviteId, form: { firstName, lastName, password } }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
             if (!signIn || !setActive) {
@@ -171,10 +175,21 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         key={form.key('password')}
                         placeholder="********"
                         {...form.getInputProps('password')}
-                        error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
+                        onBlur={(event) => {
+                            form.getInputProps('password').onBlur?.(event)
+                            setPasswordTouched(true)
+                        }}
+                        // Error is suppressed in favor of the requirements list below, which
+                        // now also appears when the field is left empty.
+                        error={undefined}
+                        aria-invalid={!!form.errors.password || undefined}
+                        // Rendered as the input's description so Mantine owns the
+                        // aria-describedby wiring; a hand-passed value is overwritten.
+                        description={requirementsDescription}
+                        // Description below the input, not Mantine's default position above it:
+                        // this is live validation feedback, and it sat under the field before.
+                        inputWrapperOrder={['label', 'input', 'description', 'error']}
                     />
-
-                    {shouldShowRequirements && <Requirements requirements={requirements} />}
 
                     <PasswordInput
                         radius="sm"
@@ -196,21 +211,22 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         </Alert>
                     )}
 
-                    <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} />
+                    <TermsCheckbox
+                        checked={form.values.termsAccepted}
+                        onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
+                        onBlur={() => form.validateField('termsAccepted')}
+                        error={form.errors.termsAccepted}
+                    />
 
                     <Flex mt="sm">
                         <Button
                             type="submit"
                             loading={isCreating}
-                            disabled={!form.isValid() || !termsAccepted}
+                            disabled={!form.isValid()}
                             w="100%"
                             size="lg"
-                            bg={!form.isValid() || !termsAccepted ? 'grey.1' : undefined}
-                            styles={
-                                !form.isValid() || !termsAccepted
-                                    ? { label: { color: theme.colors.grey[7] } }
-                                    : undefined
-                            }
+                            bg={!form.isValid() ? 'grey.1' : undefined}
+                            styles={!form.isValid() ? { label: { color: theme.colors.grey[7] } } : undefined}
                         >
                             Create Account
                         </Button>
@@ -229,10 +245,18 @@ const SignupAccountPanel: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const { isLoaded: isLoadedAuth, isSignedIn } = useAuth()
 
-    const { data, isLoading: isLoadingData } = useQuery({
+    const {
+        data,
+        isLoading: isLoadingData,
+        isError,
+    } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
+
+    // A claimed or deleted invite no longer resolves; without this the page would show the
+    // loading spinner forever (data stays undefined after the query errors).
+    if (isError) return <InvalidInvitePanel />
 
     if (!isLoadedAuth || isLoadingData || !data) return <LoadingMessage message="Loading" />
 

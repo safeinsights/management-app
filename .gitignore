@@ -26,11 +26,12 @@ yarn-error.log*
 .pnpm-store/
 tests/coverage/
 playwright-report/
-src/styles/generated
 ./tests/fixtures/temp/large-file
 monocart-report/
 # auto-created and updated by nextjs
 next-env.d.ts
+# css-in-js codegen output
+src/styles/generated/
 # clerk configuration (can include secrets)
 /.clerk/
 

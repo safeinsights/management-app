@@ -1,13 +1,15 @@
 'use client'
 
+import { ButtonLink } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 import { type Submitted } from '@/schema/study'
-import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
@@ -42,6 +44,12 @@ type PostFeedbackViewProps = {
      * only "Go to dashboard" (matching the live DO design, which hides Previous).
      */
     previousHref?: Route
+    /**
+     * Forward link to the next step of the flow; set only when /review resolves past this screen
+     * (OTTER-687). When set, the primary action reads "Next step" instead of "Go to dashboard".
+     * Never set by the proposal usages, whose flow ends here.
+     */
+    nextStepHref?: Route
 }
 
 type DecisionCopy = {
@@ -138,9 +146,10 @@ function DecisionBanner({ decision, kind }: { decision: ReviewDecision; kind: Po
     )
 }
 
-function GoToDashboardButton() {
+function GoToDashboardButton({ isVisible }: { isVisible: boolean }) {
     const router = useRouter()
     const handleClick = () => router.push(Routes.dashboard)
+    if (!isVisible) return null
     return (
         <Button onClick={handleClick} data-testid="go-to-dashboard">
             Go to dashboard
@@ -148,8 +157,18 @@ function GoToDashboardButton() {
     )
 }
 
-function PreviousButton({ href }: { href: Route }) {
+function NextStepButton({ href }: { href?: Route }) {
+    if (!href) return null
+    return (
+        <ButtonLink href={href} data-testid="cta-next-step">
+            Next step
+        </ButtonLink>
+    )
+}
+
+function PreviousButton({ href }: { href?: Route }) {
     const router = useRouter()
+    if (!href) return null
     return (
         <Button
             variant="subtle"
@@ -224,6 +243,7 @@ export function PostFeedbackView({
     scan = null,
     fallback,
     previousHref,
+    nextStepHref,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -239,14 +259,15 @@ export function PostFeedbackView({
     const crumbs = buildCrumbs({ orgSlug, studyId: study.id, kind, crumbLast: kindCopy.crumbLast })
     const banner = <DecisionBanner decision={decision} kind={kind} />
     const isCode = kind === 'CODE'
+    // The row splits only when there is a left button: the forward link and the dashboard button are
+    // mutually exclusive and both sit on the right, so a lone one right-aligns either way.
+    const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
 
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="xl" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <PageBreadcrumbs crumbs={crumbs} />
-                <Title order={1} fz={40} fw={700}>
-                    Study proposal
-                </Title>
+                <StudyPageHeader>Study proposal</StudyPageHeader>
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}
@@ -270,9 +291,10 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify={previousHref ? 'space-between' : 'flex-end'}>
-                    {previousHref && <PreviousButton href={previousHref} />}
-                    <GoToDashboardButton />
+                <Group justify={buttonRowJustify}>
+                    <PreviousButton href={previousHref} />
+                    <NextStepButton href={nextStepHref} />
+                    <GoToDashboardButton isVisible={!nextStepHref} />
                 </Group>
             </Stack>
         </Box>

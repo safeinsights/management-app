@@ -4,6 +4,7 @@ allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
     '@swc/core': false
+    core-js: false
     esbuild: true
     fsevents: true
     msw: false
@@ -14,23 +15,26 @@ overrides:
     '@types/react': 19.2.14
     esbuild: ^0.28.1
     form-data: ^4.0.6
-    # hono <4.12.25: GHSA-88fw-hqm2-52qc (CVE-2026-54290, HIGH) — CORS middleware reflects any
-    # Origin with credentials when origin defaults to wildcard. Dev-only transitive (@pandacss/dev
-    # → @pandacss/mcp → @modelcontextprotocol/sdk → @hono/node-server), but Trivy scans dev deps.
-    hono: ^4.12.25
     minimatch: ^10.2.1
     picomatch: ^4.0.4
-    postcss: ^8.5.10
+    # postcss <8.5.23: GHSA-r28c-9q8g-f849 (path traversal via sourceMappingURL auto-loading), then
+    # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
+    # attacker-controlled sourceMappingURL still reads arbitrary .map files when `from` is unset.
+    postcss: ^8.5.23
     vite: ^8.0.16
     ws: ^8.21.0
-    'hono@<4.12.25': '>=4.12.25'
-    # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
-    # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.
-    'js-yaml@>=4.0.0 <4.3.0': '>=4.3.0 <5'
+    # js-yaml <4.3.1: CVE-2026-59869, then CVE-2026-59870 (GHSA-5p4m-2wfm-xmqj) against 4.3.0 —
+    # quadratic CPU consumption resolving !!omap. Range also covers the older <=4.1.1 advisory this
+    # entry previously pinned. Bounded to <5 to avoid a surprise major bump.
+    'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1 <5'
     'nodemailer@<=8.0.8': '>=8.0.9'
     'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
     '@babel/core@<=7.29.0': '>=7.29.1'
+    # Keep @vitest/coverage-istanbul on Babel 7: @babel/core@8 declares node '^22.18.0 || >=24.11.0',
+    # narrower than this repo's engines.node '>=22'. Pin the coverage path back to the compatible 7.x
+    # the lockfile previously resolved so Node 22.0–22.17 stay supported.
+    '@vitest/coverage-istanbul>@babel/core': 7.29.7
     # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
     # attacker-controlled string blocks the event loop (DoS). Dev-only transitive (concurrently),
     # but Trivy scans dev deps.
@@ -40,9 +44,16 @@ overrides:
     # the bump stays a patch/minor, never a breaking major.
     # axios <1.18.0: GHSA-gcfj-64vw-6mp9 — Node adapter can reuse an inherited proxy after config clone.
     'axios@>=1.0.0 <1.18.0': '>=1.18.0 <2'
-    # brace-expansion <5.0.7: CVE-2026-13149 — DoS via exponential-time expansion.
-    'brace-expansion@>=5.0.0 <5.0.7': '>=5.0.7 <6'
-    # fast-uri <3.1.4: CVE-2026-13676 + CVE-2026-16221 — policy bypass via bad Unicode hostname canon.
-    'fast-uri@>=3.0.0 <3.1.4': '>=3.1.4 <4'
+    # brace-expansion <5.0.9: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, now CVE-2026-69152
+    # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation).
+    # Range widened again to carry past the version the earlier pin landed on.
+    'brace-expansion@>=5.0.0 <5.0.9': '>=5.0.9 <6'
+    # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
+    # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4: host confusion via a backslash authority
+    # introducer, so a crafted URI parses to an unintended host.
+    'fast-uri@>=3.0.0 <3.1.5': '>=3.1.5 <4'
+    # nanoid <3.3.17: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
+    # size. Transitive via postcss (itself pinned above), reached from both next and vite.
+    'nanoid@>=3.0.0 <3.3.17': '>=3.3.17 <4'
     # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
     'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'

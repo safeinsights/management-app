@@ -4,6 +4,7 @@ import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } fro
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
@@ -25,6 +26,7 @@ import { useParams } from 'next/navigation'
 import os from 'os'
 import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 
 import { ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
@@ -53,6 +55,18 @@ export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =
         .select(['eventType', 'recordType', 'recordId', 'userId'])
         .where('recordId', '=', recordId)
         .where('recordType', '=', recordType)
+        .execute()
+
+// Separate from getAuditEntries because that one is used with toContainEqual, whose
+// exact-object matching would break on an extra metadata key.
+export const getAuditEntriesWithMetadata = (recordId: string, recordType: AuditRecordType) =>
+    db
+        .selectFrom('audit')
+        .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata', 'createdAt'])
+        .where('recordId', '=', recordId)
+        .where('recordType', '=', recordType)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
         .execute()
 
 export const readTestSupportFile = (file: string) => {
@@ -128,6 +142,39 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
 export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
+
+// Generates a throwaway address for a user row. faker.internet.email() draws its local part from
+// the shared name pools plus a small numeric suffix, an effective space of roughly 1.9M addresses,
+// narrow enough that a full run repeats one and user_email_lower_unique rejects the second insert,
+// surfacing as a duplicate-key error in whichever unrelated test lost the race.
+//
+// The counter makes addresses unique within a worker outright. Across workers and across runs the
+// token carries it: a repeat would need the same token, the same local part and the same sequence
+// number, which is not impossible but is far below the rate of any other flake in the suite. The
+// token rather than a worker id keeps this independent of how vitest pools tests (faker is
+// unseeded, so each worker draws its own).
+//
+// faker's casing is preserved, so callers still get the mixed-case addresses they got before.
+// Tests that need two records to share an address must pass it explicitly rather than hoping for
+// a collision.
+let emailSequence = 0
+const emailWorkerToken = faker.string.alphanumeric({ length: 6, casing: 'lower' })
+
+export const testEmail = (provider = 'test.com') => {
+    const [localPart] = faker.internet.email({ provider }).split('@')
+    return `${localPart}-${emailWorkerToken}${++emailSequence}@${provider}`
+}
+
+// Screen components take the raw study state their rules routed on (see render-screen.tsx).
+// Screen tests fetch it here and pass the same { study, raw } pick the screens declare, so
+// each screen test file isn't re-declaring the fetch-or-throw and the Pick.
+export type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
+
+export const requireRawState = async (studyId: string) => {
+    const raw = await rawStudyStateForStudy(studyId)
+    if (!raw) throw new Error(`no raw study state for study ${studyId}`)
+    return raw
+}
 
 export const insertTestStudyData = async ({
     org,
@@ -205,14 +252,47 @@ export const insertTestStudyData = async ({
     }
 }
 
+/**
+ * An org, study and job in the shape the storage and ingest layers take (`MinimalJobInfo`), which is
+ * what every test of those paths needs and what none of the fixtures above return. `studyJobId` is the
+ * first of the three jobs `insertTestStudyData` creates.
+ *
+ * `jobInfo` is nested rather than spread alongside `org` because `storeS3File` tags the uploaded
+ * object with every property of the info it is handed (`objectToAWSTags` runs each value through
+ * `strToAscii`), so anything but the three string fields throws. Callers wanting a path can hand
+ * `jobInfo` straight to `pathForStudyJob`.
+ */
+export const insertTestJobInfo = async ({ org }: { org?: MinimalTestOrg } = {}) => {
+    const testOrg = org ?? (await insertTestOrg())
+    const { studyId, jobIds } = await insertTestStudyData({ org: testOrg })
+
+    return { jobInfo: { orgSlug: testOrg.slug, studyId, studyJobId: jobIds[0] }, org: testOrg }
+}
+
+/**
+ * A throwaway upload payload. The bytes are deliberately arbitrary: the ingest routes and
+ * `storeJobFile` never read them, so a test only needs a `File` to arrive with the right name.
+ */
+export const testUploadFile = (name: string, type = 'application/zip') =>
+    new File([new TextEncoder().encode('boom')], name, { type })
+
+/**
+ * A unique qa-prefixed address. The /api/qa routes only act on accounts whose email
+ * local part starts with "qa" (see assertQaEmail), since they run on production.
+ */
+export const qaEmail = () => `qa-${faker.string.alpha(10).toLowerCase()}@test.com`
+
 export const insertTestUser = async ({
     org,
     isAdmin = false,
     useRealKeys = false,
+    email,
 }: {
     org: MinimalTestOrg
     isAdmin?: boolean
     useRealKeys?: boolean
+    /** Override the generated address, e.g. to build a qa-prefixed account for the QA routes. */
+    email?: string
 }) => {
     const user = await db
         .insertInto('user')
@@ -220,7 +300,7 @@ export const insertTestUser = async ({
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
-            email: faker.internet.email({ provider: 'test.com' }),
+            email: email ?? testEmail(),
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -538,7 +618,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         teams: null,
         orgs,
     }
-    const mockEmail = values.email || faker.internet.email({ provider: 'test.com' })
+    const mockEmail = values.email || testEmail()
     const userProperties = {
         id: values.clerkUserId,
         banned: false,

@@ -155,6 +155,29 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         expect(study.title).toBe('Test draft')
     })
 
+    // The preview's PI popover asks the server for the profile, and the server only serves ids
+    // the persisted study row names — opening the modal on unsaved form state would show
+    // "Profile not available" for a freshly selected PI (OTTER-724).
+    it('flushes the draft to the study row before opening the reviewer preview', async () => {
+        const user = userEvent.setup()
+        const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-preview-save' })
+
+        renderFooterForStudy(studyId, researcher.id)
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Saved before preview')
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument(), { timeout: 5000 })
+
+        const study = await db
+            .selectFrom('study')
+            .select(['title', 'piUserId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.title).toBe('Saved before preview')
+        expect(study.piUserId).toBe(researcher.id)
+    })
+
     it('skips the flush and navigates when the form is pristine', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-clean' })

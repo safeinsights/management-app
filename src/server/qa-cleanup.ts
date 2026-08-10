@@ -1,7 +1,14 @@
 /**
  * QA cleanup helpers: fully delete users and studies, including their backing
- * Clerk account and S3 files. Exposed via /api/qa/* routes that are gated to
- * non-production environments so QA can clean up after themselves.
+ * Clerk account and S3 files. Exposed via /api/qa/* routes so QA can clean up
+ * after themselves.
+ *
+ * These routes run in every environment, production included, so the only thing
+ * standing between them and real customer data is `assertQaEmail`: every user
+ * they touch must have a "qa-" prefixed email address. Deletion here is permanent
+ * and covers the DB rows, the S3 objects, and the Clerk account, so treat that
+ * check as load-bearing — do not add a path that reaches these helpers without
+ * it. Every invocation is written to the audit table.
  *
  * Deletion order is FK-safe: relations without ON DELETE CASCADE are removed
  * manually before their parent row. All row deletes for a cleanup run in a
@@ -10,21 +17,38 @@
  * its failures propagate so the caller never sees success for an incomplete
  * cleanup.
  */
-import { type Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import { type DB } from '@/database/types'
+import { type SessionUser } from '@/lib/types'
 import { clerkClient, verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { marshalSession } from '@/server/session'
 import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
-import { PROD_ENV } from '@/server/config'
 import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
 
-export type QaAuthResult = { ok: true } | { ok: false; status: number; message: string }
+export type QaAuthResult = { ok: true; user: SessionUser } | { ok: false; status: number; message: string }
+
+export class QaForbiddenError extends Error {}
 
 /**
- * Gate QA cleanup to non-prod + an authenticated SI admin.
+ * The QA routes operate on production, where a stray id would otherwise reach a real
+ * account. Restrict them to addresses whose local part starts with "qa-" (qa-bob@,
+ * QA-Test@) — the convention QA fixtures follow — so a real user can never be the target.
+ *
+ * The trailing dash is load-bearing: a bare "qa" prefix also matches real given names
+ * such as qasim@ and qadir@, which would classify an ordinary account as QA.
+ */
+export function assertQaEmail(email: string | null, context: string) {
+    const localPart = (email ?? '').split('@')[0]
+    if (!/^qa-/i.test(localPart)) {
+        throw new QaForbiddenError(`${context} is not a QA account; expected an email starting with "qa-"`)
+    }
+}
+
+/**
+ * Gate QA routes to an authenticated SI admin.
  *
  * These live under /api/*, which clerkMiddleware() is configured to skip (see the
  * matcher in proxy.ts), so the middleware-coupled `auth()` helper has no context to
@@ -33,10 +57,6 @@ export type QaAuthResult = { ok: true } | { ok: false; status: number; message: 
  * primitive that does not require the middleware to have run.
  */
 export async function requireQaAdmin(): Promise<QaAuthResult> {
-    if (PROD_ENV) {
-        return { ok: false, status: 403, message: 'QA cleanup is not available in production' }
-    }
-
     const authHeader = (await headers()).get('Authorization') || ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : ''
     if (!token) {
@@ -59,14 +79,41 @@ export async function requireQaAdmin(): Promise<QaAuthResult> {
         return { ok: false, status: 403, message: 'SI admin access required' }
     }
 
-    return { ok: true }
+    return { ok: true, user: session.user }
 }
 
 export class QaCleanupNotFoundError extends Error {}
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Resolve the `{idOrEmail}` path segment QA uses to name a user. QA works from email
+ * addresses, not internal ids, so accept either: anything containing an "@" is matched
+ * case-insensitively against `user.email`, otherwise it is treated as a user id.
+ */
+export async function findQaUser(db: Kysely<DB>, idOrEmail: string) {
+    const identifier = decodeURIComponent(idOrEmail)
+    const query = db.selectFrom('user').select(['id', 'clerkId', 'email'])
+
+    let user
+    if (identifier.includes('@')) {
+        user = await query.where(sql`lower(email)`, '=', identifier.toLowerCase()).executeTakeFirst()
+    } else if (UUID_RE.test(identifier)) {
+        user = await query.where('id', '=', identifier).executeTakeFirst()
+    }
+    // A non-uuid, non-email segment never matches: comparing it to the uuid column would
+    // make Postgres raise instead of returning the 404 the caller expects.
+
+    if (!user) throw new QaCleanupNotFoundError(`user ${identifier} not found`)
+    // Checked against the stored address rather than the caller's input, so passing a
+    // real user's id cannot bypass it.
+    assertQaEmail(user.email, `user ${identifier}`)
+    return user
+}
+
 // Mutation Actions already run their handlers inside a transaction (see action.ts)
 // and Kysely does not support nesting, so reuse the caller's transaction when given one.
-async function withTransaction(db: Kysely<DB>, fn: (trx: Kysely<DB>) => Promise<void>) {
+export async function withTransaction(db: Kysely<DB>, fn: (trx: Kysely<DB>) => Promise<void>) {
     if (db.isTransaction) {
         await fn(db)
         return
@@ -97,51 +144,69 @@ export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, stu
 }
 
 /**
- * Look up a study (throwing QaCleanupNotFoundError if absent), resolve its org
- * slug for the S3 path, and delete it.
+ * Look up a study (throwing QaCleanupNotFoundError if absent) and apply the QA guard.
+ *
+ * A study has no email of its own, so the guard is applied to its researcher: only
+ * studies owned by a qa- prefixed account are eligible. Split from the delete itself so
+ * callers can reject an ineligible target before auditing an attempt against it.
  */
-export async function deleteStudyById(db: Kysely<DB>, studyId: string) {
+export async function findQaStudy(db: Kysely<DB>, studyId: string) {
+    if (!UUID_RE.test(studyId)) throw new QaCleanupNotFoundError(`study ${studyId} not found`)
+
     const study = await db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['study.id as studyId', 'org.slug as orgSlug'])
+        .innerJoin('user as researcher', 'researcher.id', 'study.researcherId')
+        .select(['study.id as studyId', 'org.slug as orgSlug', 'researcher.email as researcherEmail'])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 
     if (!study) throw new QaCleanupNotFoundError(`study ${studyId} not found`)
+    assertQaEmail(study.researcherEmail, `study ${studyId} researcher`)
 
+    return study
+}
+
+/**
+ * Delete a QA-owned study and its S3 folder. The real user-facing delete goes through
+ * deleteStudyCompletely and is unaffected by the QA guard.
+ */
+export async function deleteStudyById(db: Kysely<DB>, studyId: string) {
+    const study = await findQaStudy(db, studyId)
     await deleteStudyCompletely(db, study.orgSlug, study.studyId)
 }
 
 /**
- * Fully delete a user: any studies they own (researcher/pi/reviewer FKs do not
- * cascade), their dependent rows, the user row, and the backing Clerk account.
+ * Fully delete a user: the studies they own, their dependent rows, the user row, and the
+ * backing Clerk account. Accepts a user id or an email address.
+ *
+ * Ownership is researcher_id only. Studies where the account is merely PI or reviewer are
+ * detached, not deleted — those can belong to a real researcher.
  */
-export async function deleteUserById(db: Kysely<DB>, userId: string) {
-    const user = await db.selectFrom('user').select(['id', 'clerkId']).where('id', '=', userId).executeTakeFirst()
+export async function deleteUserById(db: Kysely<DB>, idOrEmail: string) {
+    const user = await findQaUser(db, idOrEmail)
+    const userId = user.id
 
-    if (!user) throw new QaCleanupNotFoundError(`user ${userId} not found`)
-
-    // study.researcher_id / pi_user_id / reviewer_id reference user.id with no
-    // cascade, so any study the user is attached to must be removed first. Org
-    // slugs are captured up front for the post-commit S3 cleanup.
+    // study.researcher_id / pi_user_id / reviewer_id reference user.id with no cascade,
+    // so every reference has to be cleared before the user row goes. Only the studies the
+    // QA account *owns* (researcher_id, the non-nullable column) are deleted. A study
+    // merely reviewed or PI'd by a QA account can belong to a real researcher — deleting
+    // it would destroy that researcher's work — so those nullable references are detached
+    // instead. Org slugs are captured up front for the post-commit S3 cleanup.
     const studies = await db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
         .select(['study.id as studyId', 'org.slug as orgSlug'])
-        .where((eb) =>
-            eb.or([
-                eb('study.researcherId', '=', userId),
-                eb('study.piUserId', '=', userId),
-                eb('study.reviewerId', '=', userId),
-            ]),
-        )
+        .where('study.researcherId', '=', userId)
         .execute()
 
     await withTransaction(db, async (trx) => {
         for (const study of studies) {
             await deleteStudyRows(trx, study.studyId)
         }
+        // Studies owned by someone else outlive the QA account that was assigned to them.
+        await trx.updateTable('study').set({ piUserId: null }).where('piUserId', '=', userId).execute()
+        await trx.updateTable('study').set({ reviewerId: null }).where('reviewerId', '=', userId).execute()
         // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
@@ -156,6 +221,9 @@ export async function deleteUserById(db: Kysely<DB>, userId: string) {
         await deleteFolderContents(pathForStudy({ orgSlug: study.orgSlug, studyId: study.studyId }))
     }
     await deleteClerkUser(user.clerkId)
+
+    // Returned so the caller can audit what was removed; the row itself is gone by now.
+    return user
 }
 
 // Clerk's backend client rejects with a ClerkAPIResponseError; a 404/resource_not_found

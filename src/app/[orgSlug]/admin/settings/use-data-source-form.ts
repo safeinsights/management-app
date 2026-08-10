@@ -33,10 +33,27 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         validate: zodResolver(dataSourceFormSchema),
     })
 
+    // Validate the draft pair before committing it. Appending unconditionally created a row
+    // that could only fail later, against the stricter row schema, on a field the user was no
+    // longer looking at (OTTER-647).
     const addUrl = () => {
+        const urlValid = !form.validateField('newUrl').hasError
+        const descriptionValid = !form.validateField('newUrlDescription').hasError
+        if (!urlValid || !descriptionValid) return
+
+        const url = form.values.newUrl.trim()
+        const description = form.values.newUrlDescription.trim()
+        // Both empty: say so rather than no-op. The pair schema only flags a *half*-filled
+        // draft, so without this the button silently did nothing (OTTER-647).
+        if (!url && !description) {
+            form.setFieldError('newUrl', 'Enter a URL to add')
+            form.setFieldError('newUrlDescription', 'URL description is required')
+            return
+        }
+
         form.setValues({
             ...form.values,
-            urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],
+            urls: [...form.values.urls, { url, description }],
             newUrl: '',
             newUrlDescription: '',
         })
@@ -54,11 +71,12 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
         form.setFieldValue('urls', updated)
     }
 
+    // `removeListItem`, not a filtered `setFieldValue`: these rows read their errors from indexed
+    // paths (`urls.0.url`), and replacing the parent array leaves those keys untouched. Deleting an
+    // invalid first row therefore moved its error onto the valid row that slid into index 0.
+    // `removeListItem` shifts the nested error indices to match (OTTER-647).
     const removeUrl = (index: number) => {
-        form.setFieldValue(
-            'urls',
-            form.values.urls.filter((_, i) => i !== index),
-        )
+        form.removeListItem('urls', index)
     }
 
     const { mutate: save, isPending } = useMutation({
@@ -76,10 +94,15 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
     })
 
     const onSubmit = form.onSubmit(({ newUrl, newUrlDescription, ...values }) => {
-        if (newUrl !== '' || newUrlDescription !== '') {
+        // Trim before deciding whether a draft pair exists. Comparing the raw strings against
+        // '' treated a whitespace-only draft as present, appending it as a URL row that the
+        // form schema had already judged absent, so it failed server-side instead (OTTER-647).
+        const draftUrl = newUrl.trim()
+        const draftDescription = newUrlDescription.trim()
+        if (draftUrl !== '' || draftDescription !== '') {
             values = {
                 ...values,
-                urls: [...form.values.urls, { url: form.values.newUrl, description: form.values.newUrlDescription }],
+                urls: [...form.values.urls, { url: draftUrl, description: draftDescription }],
             }
         }
         save(values)

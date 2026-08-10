@@ -1,56 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolveScreen, resolveResearcherCodeScreen, resolveReviewerCodeScreen } from './resolve'
+import { studyState } from './state.fixture'
 
-const state = (overrides: Partial<StudyState>): StudyState => ({
-    status: 'DRAFT',
-    isDraft: true,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: false,
-    hasSubmittedCode: false,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    submissionRound: 0,
-    hasSavedEdits: false,
-    hasSavedCodeEdits: false,
-    displayStatus: 'DRAFT',
-    latestJobStatuses: [],
-    ...overrides,
-})
-
-const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
+const state = (overrides: Partial<StudyState>): StudyState => studyState(overrides)
 
 describe('resolveScreen (researcher)', () => {
     it('results present → study-results (highest precedence)', () => {
-        expect(
-            resolveScreen('researcher', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen,
-        ).toBe('study-results')
+        expect(resolveScreen('researcher', state({ hasResults: true, codeDecision: 'CODE-APPROVED' })).screen).toBe(
+            'study-results',
+        )
     })
-    it('errored job, no reviewer files decision → code-approved, NOT study-results (OTTER-598, 43898)', () => {
+    it('errored job, no reviewer files decision → outputs-pending, NOT study-results (OTTER-598, 43898)', () => {
         // hasResults is true (JOB-ERRORED ∈ STUDY_RESULTS_JOB_STATUSES) but the error is still hidden
-        // from the researcher, so routing must hold on the code-approved page (matching the pill).
+        // from the researcher, so routing must NOT jump to the results screen.
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
-                ctx,
             ).screen,
-        ).toBe('code-approved')
+        ).toBe('outputs-pending')
     })
     it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
-                ctx,
             ).screen,
         ).toBe('study-results')
     })
@@ -70,55 +45,48 @@ describe('resolveScreen (researcher)', () => {
                     hasSubmittedCode: true,
                     isExecuting: false,
                 }),
-                ctx,
             ).screen,
         ).toBe('code-under-review')
     })
     it('approved decision → code-approved', () => {
-        expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe('code-approved')
+        expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' })).screen).toBe('code-approved')
     })
-    it('executing window → code-approved', () => {
-        expect(resolveScreen('researcher', state({ isExecuting: true }), ctx).screen).toBe('code-approved')
+    it('executing window → outputs-pending', () => {
+        expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED', isExecuting: true })).screen).toBe(
+            'outputs-pending',
+        )
     })
     it('changes requested → code-feedback', () => {
-        const d = resolveScreen('researcher', state({ codeDecision: 'CODE-CHANGES-REQUESTED' }), ctx)
+        const d = resolveScreen('researcher', state({ codeDecision: 'CODE-CHANGES-REQUESTED' }))
         expect(d.screen).toBe('code-feedback')
     })
     it('awaiting decision → code-under-review', () => {
-        expect(
-            resolveScreen('researcher', state({ codeAwaitingDecision: true, hasSubmittedCode: true }), ctx).screen,
-        ).toBe('code-under-review')
+        expect(resolveScreen('researcher', state({ codeAwaitingDecision: true, hasSubmittedCode: true })).screen).toBe(
+            'code-under-review',
+        )
     })
     it('approved proposal, no code → read-only proposal-feedback', () => {
         expect(
-            resolveScreen(
-                'researcher',
-                state({ status: 'APPROVED', isDraft: false, researcherAgreementsAcked: false }),
-                ctx,
-            ).screen,
+            resolveScreen('researcher', state({ status: 'APPROVED', isDraft: false, researcherAgreementsAcked: false }))
+                .screen,
         ).toBe('proposal-feedback')
     })
     it('approved proposal, no code, agreements acked → still proposal-feedback (no code-upload phantom screen)', () => {
         expect(
-            resolveScreen(
-                'researcher',
-                state({ status: 'APPROVED', isDraft: false, researcherAgreementsAcked: true }),
-                ctx,
-            ).screen,
+            resolveScreen('researcher', state({ status: 'APPROVED', isDraft: false, researcherAgreementsAcked: true }))
+                .screen,
         ).toBe('proposal-feedback')
     })
     it('pending review (no job) → study-overview (generic layout)', () => {
-        expect(resolveScreen('researcher', state({ status: 'PENDING-REVIEW', isDraft: false }), ctx).screen).toBe(
+        expect(resolveScreen('researcher', state({ status: 'PENDING-REVIEW', isDraft: false })).screen).toBe(
             'study-overview',
         )
     })
     it('draft → study-overview (generic layout; editing lives on /edit)', () => {
-        expect(resolveScreen('researcher', state({ status: 'DRAFT', isDraft: true }), ctx).screen).toBe(
-            'study-overview',
-        )
+        expect(resolveScreen('researcher', state({ status: 'DRAFT', isDraft: true })).screen).toBe('study-overview')
     })
     it('CHANGE-REQUESTED → proposal-feedback', () => {
-        expect(resolveScreen('researcher', state({ status: 'CHANGE-REQUESTED', isDraft: false }), ctx).screen).toBe(
+        expect(resolveScreen('researcher', state({ status: 'CHANGE-REQUESTED', isDraft: false })).screen).toBe(
             'proposal-feedback',
         )
     })
@@ -177,13 +145,22 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
 })
 
 describe('resolveScreen (reviewer)', () => {
-    it('results present → reviewer-study-results (highest precedence)', () => {
-        expect(resolveScreen('reviewer', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe(
-            'reviewer-study-results',
-        )
+    it('decided results → reviewer-study-results (highest precedence)', () => {
+        expect(
+            resolveScreen('reviewer', state({ hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }))
+                .screen,
+        ).toBe('reviewer-study-results')
+    })
+    it('undecided results → reviewer-outputs-available (decrypt-before-review, OTTER-668)', () => {
+        expect(
+            resolveScreen(
+                'reviewer',
+                state({ hasResults: true, resultsDisplayStatus: 'RUN-COMPLETE', codeDecision: 'CODE-APPROVED' }),
+            ).screen,
+        ).toBe('reviewer-outputs-available')
     })
     it('pending review → reviewer-proposal-review', () => {
-        expect(resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false }), ctx).screen).toBe(
+        expect(resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false })).screen).toBe(
             'reviewer-proposal-review',
         )
     })

@@ -18,7 +18,7 @@ export type AuditEventType =
     | 'RESET_PASSWORD'
     | 'UPDATED'
 
-export type AuditRecordType = 'STUDY' | 'USER'
+export type AuditRecordType = 'CODE_ENV' | 'STUDY' | 'USER'
 
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
@@ -42,6 +42,8 @@ export type OrgType = 'enclave' | 'lab'
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
+
+export type StudyJobFileAction = 'DOWNLOADED' | 'VIEWED'
 
 export type StudyJobFileType =
     | 'APPROVED-CODE-RUN-LOG'
@@ -79,7 +81,7 @@ export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEED
 
 export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
 
-export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL'
+export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL' | 'RESULTS'
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
@@ -265,6 +267,15 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyJobFileActivity {
+    action: StudyJobFileAction
+    createdAt: Generated<Timestamp>
+    filePath: string
+    id: Generated<string>
+    studyJobFileId: string
+    userId: string
+}
+
 export interface StudyJobFileRecipientKey {
     createdAt: Generated<Timestamp>
     crypt: string
@@ -352,6 +363,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyJobFileActivity: StudyJobFileActivity
     studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview

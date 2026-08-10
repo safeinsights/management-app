@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { StudyJobStatus } from '@/database/types'
-import { latestCodeChangeIsSubmission, latestSubmittedJobHasLiveCodeDecision } from './study-job-status'
+import {
+    currentExecutionStage,
+    latestCodeChangeIsSubmission,
+    latestStatusAt,
+    latestSubmittedJobHasLiveCodeDecision,
+} from './study-job-status'
 
 const changes = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
 
@@ -90,5 +95,111 @@ describe('latestSubmittedJobHasLiveCodeDecision', () => {
         expect(latestSubmittedJobHasLiveCodeDecision(changes('CODE-SUBMITTED', 'CODE-SCANNED', 'CODE-APPROVED'))).toBe(
             true,
         )
+    })
+})
+
+describe('currentExecutionStage', () => {
+    it('returns null when no execution stage has been recorded', () => {
+        expect(currentExecutionStage([])).toBeNull()
+        expect(currentExecutionStage([{ status: 'CODE-APPROVED', createdAt: new Date() }])).toBeNull()
+    })
+
+    it('returns the single execution stage and the time it started', () => {
+        const startedAt = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'CODE-APPROVED', createdAt: new Date('2026-07-20T09:00:00Z') },
+                { status: 'JOB-PACKAGING', createdAt: startedAt },
+            ]),
+        ).toEqual({ status: 'JOB-PACKAGING', startedAt })
+    })
+
+    it('returns the most recently started stage when several are present', () => {
+        const running = new Date('2026-07-20T12:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-PROVISIONING', createdAt: new Date('2026-07-20T10:00:00Z') },
+                { status: 'JOB-PACKAGING', createdAt: new Date('2026-07-20T10:30:00Z') },
+                { status: 'JOB-READY', createdAt: new Date('2026-07-20T11:00:00Z') },
+                { status: 'JOB-RUNNING', createdAt: running },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
+    })
+
+    it('picks the furthest pipeline stage when timestamps tie (out-of-order writes)', () => {
+        const sameMs = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-PROVISIONING', createdAt: sameMs },
+                { status: 'JOB-RUNNING', createdAt: sameMs },
+                { status: 'JOB-READY', createdAt: sameMs },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: sameMs })
+    })
+
+    it('accepts ISO string timestamps', () => {
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-PACKAGING', createdAt: '2026-07-20T10:00:00Z' },
+                { status: 'JOB-RUNNING', createdAt: '2026-07-20T11:00:00Z' },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: '2026-07-20T11:00:00Z' })
+    })
+})
+
+describe('latestStatusAt', () => {
+    it('returns null when the status never occurred', () => {
+        expect(latestStatusAt([], 'RUN-COMPLETE')).toBeNull()
+        expect(latestStatusAt([{ status: 'JOB-RUNNING', createdAt: new Date() }], 'RUN-COMPLETE')).toBeNull()
+    })
+
+    it('returns the timestamp of the requested status', () => {
+        const completedAt = new Date('2026-07-20T12:00:00Z')
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'JOB-RUNNING', createdAt: new Date('2026-07-20T10:00:00Z') },
+                    { status: 'RUN-COMPLETE', createdAt: completedAt },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe(completedAt)
+    })
+
+    // Selection is by timestamp, not array position, so a caller's query ordering (newest-first,
+    // oldest-first, or tied-and-arbitrary) cannot change which occurrence dates the display.
+    it('picks the most recent occurrence regardless of array order', () => {
+        const rerunAt = new Date('2026-07-21T09:00:00Z')
+        const firstRunAt = new Date('2026-07-20T12:00:00Z')
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'RUN-COMPLETE', createdAt: rerunAt },
+                    { status: 'RUN-COMPLETE', createdAt: firstRunAt },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe(rerunAt)
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'RUN-COMPLETE', createdAt: firstRunAt },
+                    { status: 'RUN-COMPLETE', createdAt: rerunAt },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe(rerunAt)
+    })
+
+    it('accepts ISO string timestamps', () => {
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'RUN-COMPLETE', createdAt: '2026-07-20T12:00:00Z' },
+                    { status: 'RUN-COMPLETE', createdAt: '2026-07-21T09:00:00Z' },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe('2026-07-21T09:00:00Z')
     })
 })

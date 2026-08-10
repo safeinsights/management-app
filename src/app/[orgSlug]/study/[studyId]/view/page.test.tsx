@@ -145,7 +145,7 @@ describe('StudyViewPage', () => {
         const toggle = screen.getByTestId('study-code-toggle')
         expect(toggle).toHaveTextContent('View submitted study code')
         expect(toggle).toHaveAttribute('aria-expanded', 'false')
-        expect(screen.queryByTestId('cta-proceed-to-results')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
 
         await userEvent.setup().click(toggle)
 
@@ -321,7 +321,7 @@ describe('StudyViewPage', () => {
 
     describe('execution window and late-scan race (OTTER-598, OTTER-640)', () => {
         it.each(['JOB-PROVISIONING', 'JOB-PACKAGING', 'JOB-READY', 'JOB-RUNNING'] as const)(
-            'renders CodePostDecisionView with effective CODE-APPROVED while %s',
+            'renders outputs-pending screen while %s (OTTER-686)',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
                 const { study } = await insertTestStudyJobData({
@@ -339,18 +339,18 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(CodePostDecisionView)
-                expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
                 renderWithProviders(page!)
-                expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
-                await expectSubmittedCodeCanExpand()
+                expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+                expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
+                expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+                expect(screen.getByTestId('status-alert')).toBeInTheDocument()
             },
         )
 
-        it('holds on CodePostDecisionView when the run errors before any reviewer files decision (OTTER-598, 43898)', async () => {
+        it('holds on outputs-pending when the run errors before any reviewer files decision (OTTER-598, 43898)', async () => {
             // Code approved, ran, then JOB-ERRORED — but the reviewer has not recorded FILES-APPROVED
-            // /FILES-REJECTED. The pill still reads "Code approved", so the page must NOT jump to the
-            // results/Study Details screen; it stays on the post-code-approval page.
+            // /FILES-REJECTED. The error is hidden from the researcher; outputs-pending still shows
+            // the last execution stage without disclosing the failure.
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -368,12 +368,9 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.resultsHref).toBeUndefined()
             renderWithProviders(page!)
-            expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
-            await expectSubmittedCodeCanExpand()
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+            expect(screen.getByTestId('status-alert')).not.toHaveTextContent(/error/i)
         })
 
         it('keeps submitted code accessible when a packaging error is hidden from the researcher', async () => {
@@ -398,13 +395,13 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.resultsHref).toBeUndefined()
+            expect(page?.props.nextStepHref).toBeUndefined()
             renderWithProviders(page!)
             expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()
         })
 
-        it('resolves a late CODE-SCANNED after JOB-READY to CodePostDecisionView (CODE-APPROVED), not under-review', async () => {
+        it('resolves a late CODE-SCANNED after JOB-READY to outputs-pending, not under-review', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -422,10 +419,9 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             renderWithProviders(page!)
-            await expectSubmittedCodeCanExpand()
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+            expect(screen.getByTestId('status-alert')).toBeInTheDocument()
         })
     })
 
