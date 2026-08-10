@@ -23,9 +23,10 @@ overrides:
     postcss: ^8.5.23
     vite: ^8.0.16
     ws: ^8.21.0
-    # js-yaml <4.3.0: CVE-2026-59869 (HIGH) — DoS via crafted YAML. Range also covers the older
-    # <=4.1.1 advisory this entry previously pinned. Bounded to <5 to avoid a surprise major bump.
-    'js-yaml@>=4.0.0 <4.3.0': '>=4.3.0 <5'
+    # js-yaml <4.3.1: CVE-2026-59869, then CVE-2026-59870 (GHSA-5p4m-2wfm-xmqj) against 4.3.0 —
+    # quadratic CPU consumption resolving !!omap. Range also covers the older <=4.1.1 advisory this
+    # entry previously pinned. Bounded to <5 to avoid a surprise major bump.
+    'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1 <5'
     'nodemailer@<=8.0.8': '>=8.0.9'
     'nodemailer@<9.0.1': '>=9.0.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'

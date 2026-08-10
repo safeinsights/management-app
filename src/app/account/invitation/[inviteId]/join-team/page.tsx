@@ -7,12 +7,13 @@ import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 import { actionResult } from '@/lib/utils'
-import { useAuth, useUser } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
+import { InvalidInvitePanel } from '../invalid-invite-panel'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -29,20 +30,19 @@ type ConfirmationModalProps = {
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
-    const { user } = useUser()
     const auth = useAuth()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [isSkipping, setIsSkipping] = useState(false)
 
-    const { data: org, isLoading } = useQuery({
+    const {
+        data: org,
+        isLoading,
+        isError,
+    } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
-
-    // Check if logged-in user's email matches the invite email (handles both primary and merged emails)
-    const userEmails = user?.emailAddresses?.map((ea) => ea.emailAddress.toLowerCase()) || []
-    const emailMismatch = user && org && !userEmails.includes(org.email.toLowerCase())
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: async () => actionResult(await onJoinTeamAccountAction({ inviteId })),
@@ -78,32 +78,16 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onError: reportMutationError('Unable to decline invitation'),
     })
 
-    if (isLoading || !org || !user) {
+    // A claimed or deleted invite no longer resolves; without this the page would show the
+    // loading spinner forever (org stays undefined after the query errors).
+    if (isError) {
+        return <InvalidInvitePanel />
+    }
+
+    if (isLoading || !org) {
         return (
             <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
                 <LoadingMessage message="Loading account invitation" />
-            </Paper>
-        )
-    }
-
-    if (emailMismatch) {
-        return (
-            <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-                <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
-                    <Title order={3} ta="center" mb="md" c="red.8">
-                        Email Mismatch
-                    </Title>
-                    <Text size="md">
-                        The email address you are logged in with does not match the email address in the invitation.
-                    </Text>
-                    <Text size="md">
-                        Please sign in with the correct account or contact the person who sent the invitation for a new
-                        invite.
-                    </Text>
-                    <Button variant="filled" size="lg" onClick={() => router.push(Routes.accountSignin)} mt="md">
-                        Sign in
-                    </Button>
-                </Flex>
             </Paper>
         )
     }

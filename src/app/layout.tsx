@@ -30,12 +30,17 @@ export async function generateMetadata(): Promise<Metadata> {
     }
 }
 
+// `connection()` in the ROOT layout opts the entire app out of static generation — every route,
+// previously-static ones like /about included, now renders per-request, not just Next's not-found
+// entry. That app-wide cost is deliberate: it is what lets every document carry the CSP nonce on
+// its inline hydration scripts. A `dynamic` export on not-found.tsx does not achieve this: Next
+// prerenders that entry regardless (OTTER-721).
 export default async function RootLayout({
     children,
 }: Readonly<{
     children: ReactNode
 }>) {
-    await connection() // force server rendering so we can access config vars
+    await connection()
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (

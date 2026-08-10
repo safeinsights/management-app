@@ -34,16 +34,16 @@ describe('resolveScreen (researcher)', () => {
             resolveScreen('researcher', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen,
         ).toBe('study-results')
     })
-    it('errored job, no reviewer files decision → code-approved, NOT study-results (OTTER-598, 43898)', () => {
+    it('errored job, no reviewer files decision → outputs-pending, NOT study-results (OTTER-598, 43898)', () => {
         // hasResults is true (JOB-ERRORED ∈ STUDY_RESULTS_JOB_STATUSES) but the error is still hidden
-        // from the researcher, so routing must hold on the code-approved page (matching the pill).
+        // from the researcher, so routing must NOT jump to the results screen.
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
                 ctx,
             ).screen,
-        ).toBe('code-approved')
+        ).toBe('outputs-pending')
     })
     it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
         expect(
@@ -77,8 +77,10 @@ describe('resolveScreen (researcher)', () => {
     it('approved decision → code-approved', () => {
         expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe('code-approved')
     })
-    it('executing window → code-approved', () => {
-        expect(resolveScreen('researcher', state({ isExecuting: true }), ctx).screen).toBe('code-approved')
+    it('executing window → outputs-pending', () => {
+        expect(
+            resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED', isExecuting: true }), ctx).screen,
+        ).toBe('outputs-pending')
     })
     it('changes requested → code-feedback', () => {
         const d = resolveScreen('researcher', state({ codeDecision: 'CODE-CHANGES-REQUESTED' }), ctx)
@@ -187,9 +189,13 @@ describe('resolveScreen (reviewer)', () => {
         ).toBe('reviewer-study-results')
     })
     it('undecided results → reviewer-outputs-available (decrypt-before-review, OTTER-668)', () => {
-        expect(resolveScreen('reviewer', state({ hasResults: true, codeDecision: 'CODE-APPROVED' }), ctx).screen).toBe(
-            'reviewer-outputs-available',
-        )
+        expect(
+            resolveScreen(
+                'reviewer',
+                state({ hasResults: true, resultsDisplayStatus: 'RUN-COMPLETE', codeDecision: 'CODE-APPROVED' }),
+                ctx,
+            ).screen,
+        ).toBe('reviewer-outputs-available')
     })
     it('pending review → reviewer-proposal-review', () => {
         expect(resolveScreen('reviewer', state({ status: 'PENDING-REVIEW', isDraft: false }), ctx).screen).toBe(

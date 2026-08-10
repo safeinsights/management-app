@@ -30,6 +30,8 @@ export default async function ResearcherProfilePage(props: {
     // membership — an SI admin can open this without belonging to either org. The URL slug tells
     // us which side we're on: the submitting org's slug means the researcher (lab) context, the
     // reviewing org's slug means the reviewer (enclave) context. This drives the Previous href.
+    // The ?userId param is untrusted; getResearcherProfileByUserIdAction rejects any id the study
+    // does not name, so a hand-edited URL yields the not-found panel below rather than someone's PII.
     const orgType = orgSlug === study.submittedByOrgSlug ? 'lab' : 'enclave'
 
     const profileData = await getResearcherProfileByUserIdAction({

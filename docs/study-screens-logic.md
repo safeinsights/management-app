@@ -131,32 +131,37 @@ raw jobs.
 
 | #   | When                                                                             | Screen              |
 | --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `hasResults`                                                                     | `study-results`     |
-| 2   | `codeDecision === 'CODE-APPROVED'` or `isExecuting`                              | `code-approved`     |
-| 3   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 4   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 5   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 6   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 7   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 8   | `isDraft`                                                                        | `study-overview`    |
-| 9   | fallback                                                                         | `study-overview`    |
+| 1   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
+| 2   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
+| 3   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
+| 4   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
+| 5   | `codeAwaitingDecision`                                                           | `code-under-review` |
+| 6   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
+| 7   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
+| 8   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
+| 9   | `isDraft`                                                                        | `study-overview`    |
+| 10  | fallback                                                                         | `study-overview`    |
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
 
 | #   | When                                                                     | Screen                       |
 | --- | ------------------------------------------------------------------------ | ---------------------------- |
-| 1   | `hasResults`                                                             | `reviewer-study-results`     |
-| 2   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
-| 3   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
-| 4   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
-| 5   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
-| 6   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
-| 7   | fallback                                                                 | `study-overview`             |
+| 1   | `awaitingFilesDecisionOnError`                                           | `reviewer-outputs-errored`   |
+| 2   | `resultsDisplayStatus === 'RUN-COMPLETE'`                                | `reviewer-outputs-available` |
+| 3   | `hasResults`                                                             | `reviewer-study-results`     |
+| 4   | `isExecuting`                                                            | `reviewer-outputs-pending`   |
+| 5   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
+| 6   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
+| 7   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
+| 8   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
+| 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
+| 10  | fallback                                                                 | `study-overview`             |
 
-Precedence notes: results out-rank a present code decision (#1 > #2 — `CODE-APPROVED` is always
-present once results land, mirroring legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`);
-the agreements gate sits **above** active review (#3 > #4 — a reviewer must ack before the review
+Precedence notes: errored/available/results form a priority chain (#1–#3) — an errored run is
+claimed before a completed run, which in turn is claimed before decided results; `isExecuting` (#4)
+out-ranks a present code decision (#5 — `CODE-APPROVED` is always present once execution starts);
+the agreements gate sits **above** active review (#6 > #7 — a reviewer must ack before the review
 page renders); and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own
 the screen once code exists.
 
@@ -188,7 +193,9 @@ The `reviewer-*` components are **thin adapters** over the existing reviewer vie
 (`ProposalReviewView`, `PostFeedbackView`, `CodeReview`, `StudyDetailsReviewer`, `AgreementsPage`) —
 each fetches its own feedback/job data, exactly as the researcher screens do. Two `ScreenId`s share
 a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScreen` (researcher), and
-`reviewer-code-feedback` branches internally on the decision for the reviewer.
+`reviewer-code-feedback` branches internally on the decision for the reviewer. `outputs-pending` →
+`OutputsPendingScreen` (researcher) and `reviewer-outputs-pending` → `ReviewerOutputsPendingScreen`
+share a `guardExecutionStage` helper for their common precondition checks.
 
 ---
 
