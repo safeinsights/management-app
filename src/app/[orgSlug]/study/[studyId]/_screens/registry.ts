@@ -11,6 +11,7 @@ import { ReviewerProposalFeedbackScreen } from './reviewer-proposal-feedback-scr
 import { ReviewerAgreementsScreen } from './reviewer-agreements-screen'
 import { ReviewerCodeReviewScreen } from './reviewer-code-review-screen'
 import { ReviewerCodeFeedbackScreen } from './reviewer-code-feedback-screen'
+import { OutputsPendingScreen } from './outputs-pending-screen'
 import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
@@ -29,6 +30,7 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'code-under-review': CodeUnderReviewScreen,
     'proposal-feedback': ProposalFeedbackScreen,
     'study-results': StudyResultsScreen,
+    'outputs-pending': OutputsPendingScreen,
     'study-overview': StudyOverviewScreen,
     'reviewer-proposal-review': ReviewerProposalReviewScreen,
     'reviewer-proposal-feedback': ReviewerProposalFeedbackScreen,

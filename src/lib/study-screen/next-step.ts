@@ -13,9 +13,9 @@ import { resolveScreen } from './resolve'
  *
  * Asking the table instead of restating its predicates is what keeps this from drifting: as the
  * outputs epic registers screens, the states that gain a forward step gain it here without this file
- * changing. A study whose results have landed already forwards; one still running in the enclave
- * starts forwarding for the researcher the moment OTTER-686's screen is registered, on the strength
- * of that registration alone.
+ * changing. Both of the epic's outputs screens landed that way, with no edit here: a study whose
+ * results are in forwards on the strength of the results rule, and one still running in the enclave
+ * began forwarding for the researcher when OTTER-686 registered `outputs-pending`.
  *
  * The same delegation subsumes the OTTER-614 guard this replaces. While an error is still hidden
  * from the researcher the table holds them on a screen that does not disclose it, so whichever

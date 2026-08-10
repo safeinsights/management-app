@@ -20,10 +20,8 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
         wordCount: 0,
         feedbackError: undefined,
         onFeedbackChange: vi.fn(),
-        onFeedbackBlur: vi.fn(),
         selected: null,
         onSelect: vi.fn(),
-        onDecisionBlur: vi.fn(),
         decisionError: undefined,
         ...overrides,
     }
@@ -138,23 +136,12 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(items[1]).toHaveTextContent('If they do not, share the outputs along with your feedback.')
     })
 
-    // Guards against an accidental keyboard trap: an unresolved error must not pin the caret in
-    // the editor. Tabs until the radio is reached rather than assuming a fixed count, because the
-    // editor's formatting toolbar sits between the two and its size is not this test's business.
-    it('does not trap focus while an error is active', async () => {
-        renderSection({ feedbackError: 'Enter your feedback for Rice Lab before submitting.' })
-
-        const editor = await screen.findByLabelText('Decision feedback')
-        editor.focus()
-        expect(editor).toHaveFocus()
-
-        const firstRadio = screen.getByTestId('outputs-decision-share-outputs')
-        for (let i = 0; i < 12 && !firstRadio.matches(':focus'); i++) {
-            await userEvent.tab()
-        }
-
-        expect(firstRadio).toHaveFocus()
-    })
+    // The "focus is not trapped in the editor" AC row is covered in tests/study-flow.spec.ts, not
+    // here. jsdom cannot fail that assertion: Lexical's Tab handler returns early unless
+    // $getSelection() is a RangeSelection, and calling focus() on the contenteditable never
+    // establishes one, so the keydown is never cancelled and userEvent.tab() always moves focus.
+    // A version of this test lived here and passed for the whole time the real browser was
+    // trapping (OTTER-675).
 })
 
 describe('OutputsDecisionSection radio buttons', () => {

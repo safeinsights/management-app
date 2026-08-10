@@ -30,14 +30,25 @@ describe('hasNextStepFromCode', () => {
             expect(hasNextStepFromCode('researcher', state({ hasResults: true }), 'code-approved')).toBe(true)
         })
 
+        it('is true while the enclave runs the job and /view resolves to outputs-pending (OTTER-686)', () => {
+            const executing = state({ isExecuting: true })
+            expect(hasNextStepFromCode('researcher', executing, 'code-approved')).toBe(true)
+        })
+
         // A packaging failure errors the job with no execution substatus ever recorded, so
         // isExecuting stays false and the table holds the researcher on the code screen while the
-        // reviewer triages: there is nothing to step forward to. The errored-while-executing shape
-        // keeps isExecuting true (state.ts), so it forwards to whichever screen the table gives that
-        // state, which is by construction one that does not disclose the error.
+        // reviewer triages: there is nothing to step forward to.
         it('is false for a job that errored before execution started', () => {
             const errored = state({ hasResults: true, resultsErrored: true, isExecuting: false })
             expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(false)
+        })
+
+        // The errored-while-executing shape keeps isExecuting true (state.ts), so the table forwards
+        // to outputs-pending, which reports the last execution stage and discloses nothing about the
+        // failure the reviewer has yet to triage (OTTER-598, 43898).
+        it('forwards to a screen that hides an error still awaiting a files decision', () => {
+            const errored = state({ hasResults: true, resultsErrored: true, isExecuting: true })
+            expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(true)
         })
 
         it('is false for a decided-against study, which ends on the code screen', () => {

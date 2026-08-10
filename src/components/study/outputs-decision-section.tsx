@@ -6,7 +6,7 @@ import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { WordCounter } from '@/components/word-counter'
-import { fieldDescribedBy, fieldDescriptionId, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
+import { fieldDescribedBy, fieldDescriptionId, fieldErrorId } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { OutputsDecision } from '@/lib/outputs-review'
@@ -60,14 +60,13 @@ const RADIO_STYLES = { label: { fontWeight: 600, fontSize: 16 }, description: { 
 type DecisionRadioGroupProps = {
     value: OutputsDecision | null
     onChange: (next: OutputsDecision) => void
-    onBlur: () => void
     error: string | undefined
     labName: string
 }
 
 const descriptionId = (value: OutputsDecision) => `outputs-decision-${value}-description`
 
-const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBlur, error, labName }) => {
+const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, error, labName }) => {
     // Mantine's Radio renders a native <input type="radio">; Radio.Group gives them a shared
     // `name`, so mutual exclusivity and arrow-key navigation are the browser's, not simulated.
     //
@@ -104,8 +103,9 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
         // document.getElementById would find nothing and the submit-time focus jump would silently
         // do nothing (see focusFirstInvalid).
         <Box id={DECISION_GROUP_ID}>
-            {/* Blur is a bubbled focusout, so moving between the two radios would validate a
-                still-empty group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+            {/* No blur validation: the message renders above the options, so raising it as focus
+                leaves the group would push the navigation row down mid-click and cost the reviewer
+                the click that caused it (see useOutputsDecision).
                 The group's name is required by AT but is not drawn in the design, so the label is
                 visually hidden rather than dropped.
                 inputWrapperOrder moves the message above the options, where the design puts it;
@@ -113,7 +113,6 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, onBl
             <Radio.Group
                 value={value ?? ''}
                 onChange={(next) => onChange(next as OutputsDecision)}
-                onBlur={widgetBlurHandler(onBlur)}
                 name="outputs-decision"
                 label={<VisuallyHidden>Sharing decision</VisuallyHidden>}
                 error={errorNode}
@@ -151,10 +150,8 @@ export type OutputsDecisionSectionProps = {
     wordCount: number
     feedbackError: string | undefined
     onFeedbackChange: (json: string) => void
-    onFeedbackBlur: () => void
     selected: OutputsDecision | null
     onSelect: (next: OutputsDecision) => void
-    onDecisionBlur: () => void
     decisionError: string | undefined
 }
 
@@ -166,10 +163,8 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     wordCount,
     feedbackError,
     onFeedbackChange,
-    onFeedbackBlur,
     selected,
     onSelect,
-    onDecisionBlur,
     decisionError,
 }) => {
     const websocketProvider = useYjsWebsocket()
@@ -192,7 +187,6 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     websocketProvider={websocketProvider}
                     contentStyle={contentStyle}
                     onChange={onFeedbackChange}
-                    onBlur={onFeedbackBlur}
                     error={feedbackError}
                     ariaLabel="Decision feedback"
                     ariaRequired
@@ -204,13 +198,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     footerRight={<FeedbackCounter wordCount={wordCount} maxWords={maxWords} />}
                 />
                 <FeedbackError error={feedbackError} />
-                <DecisionRadioGroup
-                    value={selected}
-                    onChange={onSelect}
-                    onBlur={onDecisionBlur}
-                    error={decisionError}
-                    labName={labName}
-                />
+                <DecisionRadioGroup value={selected} onChange={onSelect} error={decisionError} labName={labName} />
             </Stack>
         </Paper>
     )

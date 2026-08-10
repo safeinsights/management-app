@@ -105,7 +105,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                 STEP 1B
             </Text>
-            <Title fz={20} id="programming-language-title" order={4} c="charcoal.9">
+            <Title fz={20} id="programming-language-title" order={2} c="charcoal.9">
                 Programming language
                 <RequiredIndicator fz={20} fw={700} />
             </Title>

@@ -4,7 +4,8 @@ import { awaitingFilesDecisionOnError } from './state'
 // Reviewer ("Data Partners" / DO) Tier-2 rules. Order = display precedence. First match wins.
 // Every `when` reads only StudyState, so the table is order-independent by construction.
 // Transcribes the legacy review/page.tsx cascade with the ?from= cases removed (those are routing,
-// not screen-selection). See docs/plans/2026-06-23-reviewer-screen-state-machine-design.md §4.
+// not screen-selection). The live contract is the reviewer table in docs/study-screens-logic.md —
+// extend from there.
 export const REVIEWER_SCREEN_RULES = [
     // 1a. Job errored, no files decision yet → errored outputs view (OTTER-667). The reviewer
     //     enters their security key to decrypt error logs before making a files decision.
@@ -12,16 +13,16 @@ export const REVIEWER_SCREEN_RULES = [
 
     // 1b. Run completed, no files decision yet ("results pending review") → outputs-available view
     //     (OTTER-668). The reviewer enters their security key to decrypt the outputs before making
-    //     a files decision. Sits below 1a so an errored run keeps the errored view even when a
-    //     RUN-COMPLETE also landed.
-    [
-        'reviewer-outputs-available',
-        { when: (s) => s.hasResults && !s.resultsApproved && !s.resultsRejected && !s.resultsErrored },
-    ],
+    //     a files decision. Keyed on resultsDisplayStatus so the result-status priority stays owned
+    //     by the state machine (approved/rejected/errored all out-rank RUN-COMPLETE there) instead
+    //     of being re-derived here, and so routing reads the same fact the screen's own guard
+    //     checks (#922 review).
+    ['reviewer-outputs-available', { when: (s) => s.resultsDisplayStatus === 'RUN-COMPLETE' }],
 
-    // 1c. Results exist → results-only Study Details (OTTER-538). Out-ranks the code decision
-    //     (CODE-APPROVED is always present once results land), mirroring legacy
-    //     `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
+    // 1c. Results exist and a files decision was recorded → results-only Study Details (OTTER-538).
+    //     1a/1b claim the undecided results states above, so only decided results reach this rule.
+    //     Out-ranks the code decision (CODE-APPROVED is always present once results land), mirroring
+    //     legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
     ['reviewer-study-results', { when: (s) => s.hasResults }],
 
     // 2. Code approved and executing in the enclave, no results yet → the "Secondary

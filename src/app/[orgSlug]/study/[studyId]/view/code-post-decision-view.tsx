@@ -208,7 +208,9 @@ const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({ expanded, jobId, code
             <Paper p="xxl">
                 <Stack gap="md">
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={5}>Submitted code</Title>
+                        <Title order={3} size="h5">
+                            Submitted code
+                        </Title>
                         <LinkWithIcon
                             href={proposalHref}
                             target="_blank"
