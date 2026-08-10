@@ -1,6 +1,6 @@
 'use server'
 
-import { getUserPublicKey } from '@/server/db/queries'
+import { getOrgInfoForUserId, getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Routes } from '@/lib/routes'
@@ -37,14 +37,10 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
 // dashboard" rather than guessing.
 export const getFirstKeyRedirectAction = new Action('getFirstKeyRedirectAction')
     .requireAbilityTo('view', 'UserKey')
-    .handler(async ({ session, db }) => {
-        const orgs = await db
-            .selectFrom('orgUser')
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .select('org.slug')
-            .where('orgUser.userId', '=', session.user.id)
-            .limit(2)
-            .execute()
+    .handler(async ({ session }) => {
+        // Read from the database, not from session.orgs: that map comes from Clerk metadata, which
+        // is stale exactly when this runs, right after a signup or an invite accept.
+        const orgs = await getOrgInfoForUserId(session.user.id)
 
         if (orgs.length !== 1) return Routes.dashboard
 
