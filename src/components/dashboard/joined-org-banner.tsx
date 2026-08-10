@@ -1,28 +1,32 @@
 'use client'
 
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
+import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { Alert, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-
-// Defer the reveal so a keyless user's transient dashboard mount (before RequireUserKey redirects to
-// key setup) unmounts first and cancels the timer, leaving the flag intact for the real landing.
-export const REVEAL_DELAY_MS = 500
 
 export function JoinedOrgBanner() {
     const theme = useMantineTheme()
     const [orgName, setOrgName] = useState<string | null>(null)
 
+    // A keyless user mounts the dashboard transiently before RequireUserKey redirects them to key setup,
+    // so wait on that same key check before spending the one-shot flag — otherwise the banner is consumed
+    // on a screen the user is being moved off of. A fixed delay raced that redirect and lost (OTTER-639).
     useEffect(() => {
         const joined = sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)
         if (!joined) return
 
-        const timer = setTimeout(() => {
+        const revealOnceKeyed = async () => {
+            const hasKey = await userKeyExistsAction()
+            if (hasKey !== true) return
+
             sessionStorage.removeItem(JOINED_ORG_STORAGE_KEY)
             setOrgName(joined)
-        }, REVEAL_DELAY_MS)
-
-        return () => clearTimeout(timer)
+        }
+        // Anything short of a definite key — not yet keyed, or a check that failed — leaves the flag
+        // in place for the dashboard the user actually lands on.
+        revealOnceKeyed().catch(() => {})
     }, [])
 
     if (!orgName) return null
