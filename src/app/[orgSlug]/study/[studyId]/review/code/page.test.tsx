@@ -66,6 +66,57 @@ describe('StudyReviewCodePage', () => {
         expect(screen.getByTestId('post-feedback-previous')).toBeInTheDocument()
     })
 
+    // OTTER-687: the DP outputs screen has no route of its own, so forward is bare /review and the
+    // reviewer rule table decides what renders there.
+    it('forwards to /review for a results study, whose /review resolves past the code step', async () => {
+        const { org, study } = await seedResultsStudy('openstax')
+
+        const page = await callPage(org.slug, study.id)
+
+        expect(page?.props.nextStepHref).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('go-to-dashboard')).not.toBeInTheDocument()
+    })
+
+    it('forwards to /review once the enclave is running the job', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addJobStatus(study.id, 'CODE-APPROVED')
+        await addJobStatus(study.id, 'JOB-RUNNING')
+
+        const page = await callPage(org.slug, study.id)
+
+        expect(page?.props.nextStepHref).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
+    })
+
+    // Approved but not yet packaged: /review still resolves to this very screen, so a forward link
+    // would only point at the page it sits on.
+    it('offers no step forward while /review still resolves to the code step', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addJobStatus(study.id, 'CODE-APPROVED')
+
+        const page = await callPage(org.slug, study.id)
+
+        expect(page?.props.nextStepHref).toBeUndefined()
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('go-to-dashboard')).toBeInTheDocument()
+        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
+    })
+
     it('renders code-feedback with the Previous link for a decided-code study without results yet', async () => {
         // The route is reachable mid-flow (e.g. a reviewer navigating directly), not only after results.
         // A code decision with no results still resolves to reviewer-code-feedback and shows Previous.
