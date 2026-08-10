@@ -52,5 +52,8 @@ overrides:
     # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4: host confusion via a backslash authority
     # introducer, so a crafted URI parses to an unintended host.
     'fast-uri@>=3.0.0 <3.1.5': '>=3.1.5 <4'
+    # nanoid <3.3.17: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
+    # size. Transitive via postcss (itself pinned above), reached from both next and vite.
+    'nanoid@>=3.0.0 <3.3.17': '>=3.3.17 <4'
     # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
     'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'
