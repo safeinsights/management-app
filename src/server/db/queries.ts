@@ -563,7 +563,12 @@ export type StudyReviewWithMeta = {
 // Trivy and SonarQube report independently. Per OTTER-649 we cannot say with
 // confidence that a scan "failed"; we only assert PASSED when the log carries an
 // explicit clean signal and otherwise surface the result for human review.
-export type ScanToolStatus = 'PASSED' | 'FAILED'
+//
+// INDETERMINATE is the third outcome the original two-state model could not express: the scan
+// reported, but not a verdict. Trivy has no analyzer for R, so a successful scan of an R submission
+// examines nothing, and a scan that never ran produces no report at all. Neither clears the code and
+// neither is a finding, so both go to a human instead of being forced into PASSED or FAILED.
+export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE'
 
 export type JobScanResult = {
     // null when the scan hasn't reported yet (no readable plaintext log).
@@ -573,14 +578,45 @@ export type JobScanResult = {
     logFile: { id: string; name: string; path: string } | null
 }
 
-// Trivy passes only on the explicit clean line the scanner emits; anything else
-// (findings, "no results", or an unrecognized log) is flagged for review.
+// The scanner leads its Trivy section with a single status phrase (iac codebuild/scripts/common.ts,
+// trivyPlaintextLog), so we read that rather than inferring a verdict from the shape of the detail
+// lines. Only the two explicit verdicts are honored; "nothing scanned", "scan did not complete", the
+// pre-OTTER-649 "no results", and anything unrecognized are all indeterminate. Treating unrecognized
+// text as FAILED is what surfaced a scan that never ran as a vulnerability finding on QA.
+// A Map, not an object literal: the phrase comes from a file, and an object lookup would resolve
+// inherited keys like "constructor" to a truthy non-status value.
+const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
+    ['no vulnerabilities found', 'PASSED'],
+    ['vulnerabilities found', 'FAILED'],
+])
+
+const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i
+const TRIVY_LEGACY_FINDINGS_HEADER = /^trivy (?:filesystem|image) scan results$/i
+
+// Both patterns are anchored to a whole trimmed line, and the legacy header is only consulted when
+// there is no status line at all. Matching anywhere in the log would let the scan's own detail lines
+// decide the verdict: a scanned file path or a CVE title containing "Trivy Filesystem Scan Results"
+// would turn an indeterminate result into a reported finding.
 export function parseTrivyStatus(log: string): ScanToolStatus {
-    return /trivy (?:filesystem|image) scan:\s*no vulnerabilities found/i.test(log) ? 'PASSED' : 'FAILED'
+    const lines = log.split('\n').map((line) => line.trim())
+
+    const statusLine = lines.find((line) => TRIVY_STATUS_LINE.test(line))
+    if (statusLine) {
+        const phrase = statusLine.replace(TRIVY_STATUS_LINE, '').trim().toLowerCase()
+        return TRIVY_VERDICTS.get(phrase) ?? 'INDETERMINATE'
+    }
+
+    // Logs written before the scanner emitted a status phrase headed their findings with the label
+    // followed by "Results" on a line of its own. Keep reading those as findings so already-stored
+    // logs do not lose their verdict.
+    if (lines.some((line) => TRIVY_LEGACY_FINDINGS_HEADER.test(line))) return 'FAILED'
+    return 'INDETERMINATE'
 }
 
-// SonarQube passes only when its quality gate reports OK. Any other gate status,
-// or a missing SonarQube section (skipped/unavailable), needs human review.
+// SonarQube passes only when its quality gate reports OK. Every other case (a failing gate, a gate
+// we could not resolve for this analysis, a timed-out or absent analysis) means the same thing to a
+// reviewer and to this card: it needs human review. The card is explicit that we can confirm a
+// SonarQube pass but never a SonarQube failure, so there is deliberately no third state here.
 export function parseSonarqubeStatus(log: string): ScanToolStatus {
     const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
     return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'
