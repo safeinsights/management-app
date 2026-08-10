@@ -50,11 +50,29 @@ function DatasetPills({ names }: { names: string[] }) {
     )
 }
 
+type ScanStatusLabels = Record<ScanToolStatus, string>
+
+// "Needs review" is the card's own phrasing for the case where we cannot state an outcome with
+// confidence. Trivy reaches it two ways: it examined nothing (no analyzer for R, no lockfile to
+// read), or it produced no report at all. Neither is a finding and neither is a clean bill of
+// health. Pending UX sign-off on whether those two should read differently to a Data Partner.
+const TRIVY_LABELS: ScanStatusLabels = {
+    PASSED: 'No vulnerabilities found',
+    FAILED: 'Vulnerabilities found',
+    INDETERMINATE: 'Needs review',
+}
+
+// SonarQube has no third label: a failing gate and an unresolvable one both need the same human look.
+const SONARQUBE_LABELS: ScanStatusLabels = {
+    PASSED: 'Passed',
+    FAILED: 'Needs review',
+    INDETERMINATE: 'Needs review',
+}
+
 type ScanRowProps = {
     label: string
     status: ScanToolStatus | null
-    passedLabel: string
-    failedLabel: string
+    labels: ScanStatusLabels
     testId: string
 }
 
@@ -63,19 +81,11 @@ function ScanWarningIcon({ isVisible }: { isVisible: boolean }) {
     return <WarningCircle size={20} color="var(--mantine-color-red-9)" data-icon="warning" aria-hidden="true" />
 }
 
-// A tool's result: plain text when it passed, a warning icon plus the failure
-// phrasing when it failed, and a neutral pending note while the scan has not
-// reported (status null). Deliberately no "pass" icon, and never a fabricated
-// pass/fail when the status is unknown; we only flag what needs a human (OTTER-649).
-function ScanRowValue({
-    status,
-    passedLabel,
-    failedLabel,
-}: {
-    status: ScanToolStatus | null
-    passedLabel: string
-    failedLabel: string
-}) {
+// A tool's result: plain text when it passed, a warning icon plus the relevant phrasing when it did
+// not, and a neutral pending note while the scan has not reported (status null). Deliberately no
+// "pass" icon, and never a fabricated pass/fail when the status is unknown; we only flag what needs
+// a human (OTTER-649).
+function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; labels: ScanStatusLabels }) {
     if (status === null) {
         return (
             <Text size="sm" c="dimmed">
@@ -88,17 +98,17 @@ function ScanRowValue({
         <Group gap={4} wrap="nowrap" align="center">
             <ScanWarningIcon isVisible={!passed} />
             <Text size="sm" fw={600}>
-                {passed ? passedLabel : failedLabel}
+                {labels[status]}
             </Text>
         </Group>
     )
 }
 
-function ScanRow({ label, status, passedLabel, failedLabel, testId }: ScanRowProps) {
+function ScanRow({ label, status, labels, testId }: ScanRowProps) {
     return (
         <Group gap="xs" wrap="nowrap" align="center" data-testid={testId}>
             <Text size="sm">{label}</Text>
-            <ScanRowValue status={status} passedLabel={passedLabel} failedLabel={failedLabel} />
+            <ScanRowValue status={status} labels={labels} />
         </Group>
     )
 }
@@ -130,15 +140,13 @@ function ScanLogBody({ scan }: { scan: JobScanResult }) {
             <ScanRow
                 label="Trivy Filesystem Scan:"
                 status={scan.trivy}
-                passedLabel="No vulnerabilities found"
-                failedLabel="Vulnerabilities found"
+                labels={TRIVY_LABELS}
                 testId="security-scan-trivy"
             />
             <ScanRow
                 label="SonarQube Quality Gate:"
                 status={scan.sonarqube}
-                passedLabel="Passed"
-                failedLabel="Needs review"
+                labels={SONARQUBE_LABELS}
                 testId="security-scan-sonarqube"
             />
         </Stack>

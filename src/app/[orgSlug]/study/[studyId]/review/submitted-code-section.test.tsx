@@ -489,6 +489,24 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
     })
 
+    // The third outcome: the scan reported, but not a verdict. It must not read as either a clean
+    // bill of health or a vulnerability finding (OTTER-649).
+    it('shows Trivy "Needs review" with a warning icon, and no finding, when the result is indeterminate', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
+        const row = screen.getByTestId('security-scan-trivy')
+        expect(row).toHaveTextContent('Needs review')
+        expect(row).not.toHaveTextContent('Vulnerabilities found')
+        expect(row).not.toHaveTextContent('No vulnerabilities found')
+        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+    })
+
+    it('still offers the log download when a tool result is indeterminate', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
+        expect(screen.getByTestId('security-scan-log-download')).toHaveTextContent('Download')
+    })
+
     it('shows a download link to the plaintext scan log when a log file is present', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))

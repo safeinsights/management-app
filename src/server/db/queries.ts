@@ -563,7 +563,12 @@ export type StudyReviewWithMeta = {
 // Trivy and SonarQube report independently. Per OTTER-649 we cannot say with
 // confidence that a scan "failed"; we only assert PASSED when the log carries an
 // explicit clean signal and otherwise surface the result for human review.
-export type ScanToolStatus = 'PASSED' | 'FAILED'
+//
+// INDETERMINATE is the third outcome the original two-state model could not express: the scan
+// reported, but not a verdict. Trivy has no analyzer for R, so a successful scan of an R submission
+// examines nothing, and a scan that never ran produces no report at all. Neither clears the code and
+// neither is a finding, so both go to a human instead of being forced into PASSED or FAILED.
+export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE'
 
 export type JobScanResult = {
     // null when the scan hasn't reported yet (no readable plaintext log).
@@ -573,14 +578,33 @@ export type JobScanResult = {
     logFile: { id: string; name: string; path: string } | null
 }
 
-// Trivy passes only on the explicit clean line the scanner emits; anything else
-// (findings, "no results", or an unrecognized log) is flagged for review.
-export function parseTrivyStatus(log: string): ScanToolStatus {
-    return /trivy (?:filesystem|image) scan:\s*no vulnerabilities found/i.test(log) ? 'PASSED' : 'FAILED'
+// The scanner leads its Trivy section with a single status phrase (iac codebuild/scripts/common.ts,
+// trivyPlaintextLog), so we read that rather than inferring a verdict from the shape of the detail
+// lines. Only the two explicit verdicts are honored; "nothing scanned", "scan did not complete", the
+// pre-OTTER-649 "no results", and anything unrecognized are all indeterminate. Treating unrecognized
+// text as FAILED is what surfaced a scan that never ran as a vulnerability finding on QA.
+const TRIVY_VERDICTS: Record<string, ScanToolStatus> = {
+    'no vulnerabilities found': 'PASSED',
+    'vulnerabilities found': 'FAILED',
 }
 
-// SonarQube passes only when its quality gate reports OK. Any other gate status,
-// or a missing SonarQube section (skipped/unavailable), needs human review.
+export function parseTrivyStatus(log: string): ScanToolStatus {
+    const phrase = log
+        .match(/trivy (?:filesystem|image) scan:[ \t]*(.*)/i)?.[1]
+        ?.trim()
+        .toLowerCase()
+    if (phrase && TRIVY_VERDICTS[phrase]) return TRIVY_VERDICTS[phrase]
+    // Logs written before the scanner emitted a status phrase headed their findings with
+    // "<label> Results" and listed vulnerabilities beneath it. Keep reading those as findings so
+    // already-stored logs do not lose their verdict.
+    if (/trivy (?:filesystem|image) scan results/i.test(log)) return 'FAILED'
+    return 'INDETERMINATE'
+}
+
+// SonarQube passes only when its quality gate reports OK. Every other case (a failing gate, a gate
+// we could not resolve for this analysis, a timed-out or absent analysis) means the same thing to a
+// reviewer and to this card: it needs human review. The card is explicit that we can confirm a
+// SonarQube pass but never a SonarQube failure, so there is deliberately no third state here.
 export function parseSonarqubeStatus(log: string): ScanToolStatus {
     const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
     return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'
