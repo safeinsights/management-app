@@ -4,7 +4,7 @@ import { FormSectionHeader } from './form-section-header'
 describe('FormSectionHeader', () => {
     it('renders a semantic heading with the title', () => {
         renderWithProviders(<FormSectionHeader title="Security key" description="Some description" />)
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /security key/i, level: 3 })).toBeInTheDocument()
     })
 
     it('renders the description and a divider', () => {

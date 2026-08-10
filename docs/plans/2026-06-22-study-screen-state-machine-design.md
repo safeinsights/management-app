@@ -4,6 +4,10 @@
 **Project:** SafeInsights management-app
 **Status:** Design approved. Implementation plan: `2026-06-22-study-screen-state-machine-plan.md`
 
+> **Historical record — do not extend from this document.** It captures the design as approved on
+> 2026-06-22 and is deliberately not kept in step with the code (see `docs/plans/README.md`).
+> **The live contract is `docs/study-screens-logic.md`**; read and extend the rules from there.
+
 > Note on the code snippets below: rule-table entries use `/* … */` and
 > `/* back/forward per spec */` as illustrative placeholders for button copy. The
 > exact `title` strings and href/intent targets are transcribed verbatim from the

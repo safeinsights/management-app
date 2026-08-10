@@ -312,6 +312,10 @@ export const getUserById = async (userId: string) => {
     return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
+// executeTakeFirst, NOT ...OrThrow, on purpose: an unknown slug must leave `orgId` ABSENT from the
+// CASL subject so the mongo `$in` conditions fail CLOSED (deny). Throwing here would instead
+// distinguish "no such org" from "not yours" for the caller, and switching to OrThrow would make
+// every rule built on this middleware depend on an exception for its safety.
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 

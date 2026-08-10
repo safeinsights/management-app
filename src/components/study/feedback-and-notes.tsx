@@ -165,7 +165,7 @@ export function FeedbackAndNotesSection({
     return (
         <Paper p="xxl" data-testid="feedback-and-notes-section">
             <Stack gap="md">
-                <Title order={4} fz={20} c="charcoal.9" pb={4}>
+                <Title order={3} fz={20} c="charcoal.9" pb={4}>
                     Feedback and notes
                 </Title>
                 <Divider />

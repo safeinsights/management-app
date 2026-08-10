@@ -34,7 +34,7 @@ export const StudyResults: FC<{
         return (
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4} size="xl">
+                    <Title order={3} size="xl">
                         Study Status
                     </Title>
                     <Divider c="dimmed" />
@@ -58,7 +58,7 @@ export const StudyResults: FC<{
         <Paper bg="white" p="xxl">
             <Stack>
                 <Group justify="space-between" align="center">
-                    <Title order={4} size="xl">
+                    <Title order={3} size="xl">
                         Study Status
                     </Title>
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />

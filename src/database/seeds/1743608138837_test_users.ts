@@ -5,18 +5,18 @@ import { createHash } from 'node:crypto'
 // Copy of tests/support/public_key.pem, embedded because the migrator Lambda runs this seed
 // without a repo checkout to read the file from. A unit test asserts it stays in sync.
 export const TEST_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAhwpt565psROI0lzRT1i6
-AzuENGyqK9MPnEJ4SZ+nZZeXYYm/PzxV/sovltwyOxgD4A/fAvi5hftcscuWpsYR
-yox0wx0wKECZ+4DHy8X4iLGdRh9KCM8pddgKHKXnb8/cLEKmzCR/gXSeMG8TkLIo
-LV3IjtkoPRj8GZIJxVqqQ/UVtiqcOj4FXbqBiQdydLER8jPhzQLdmXHoHkerxCRy
-8HfzjU1M289bGoqW6IAQ1+AIYCemdsrfWqQZEGOrOTJcaWIcdDnwCatr+TC6blCg
-WhhfiNGWRLf2Vhuu6uYRhIilo16wGb6woCCm+VsgL6xa5HLvcF5l6cdyerUmKzrB
-LMXXpPaO0sTsAR9/QTL8bjXK2DByKqeVQ53cK+FcKCrC+al3pl7Jj8VuFxcCjs3x
-7DKreBR8w6BunILrD/dVEYLslKHNTOVtHvFBjJDdX956OKyo7ZQchnbfWQrZyeor
-5c9ERtxPqp9Aq++k9aE5pqQ0u4BjgwsLhL9lzsEcBDBF4D3DEJapTKO0LsZLmn36
-Ssf4Huw9x9pCzj5jl8VFRfwY42BH/TYwTd6QtDO7cfelOLG/roX6vLP8+lZB8OUF
-Viiiv7pMXLecfrwuZZrfg+08UsF8H1vY9P4bw3dmzhHxwF3inIvYpHDAp7tnSFGp
-8lwX7mjUqudVA93y6z1U6hsCAwEAAQ==
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAnkxeGkXRU55i44S5KNoo
+1XHRm97qKdKXKt2xK6+SZQgjpUZFOcObWP0jrQxunj63gxOsb+isaYm2C/rl4zAq
+smh4BwG3VxgO2jQfwLWHaIMeJUSvaM1fOGLkaSyGWVPA0r4PwAkBZH+QrtW8Az/W
+BupPZ9++TdpFy7eitH9dzdViZdZluVDaYcZ6OguF+Ed3IiFudBN1J4yDTAqzXHkr
+Ad0lSG5d/k8ONBpHLs6gmaLuPHa/XQIQPxZ/Y6nFS1Dq+KJW8y6bCPPeJfdFVaxF
+s7auem3FCKGvzuJeFKa3n+lMAnf3YeazF6nS3hcaTrxrLvsm282LdTFaRXrU60Ur
+xXDT0GlBWiCnJwqIXZsWk6ta7zPl70pRNM/zymgJlJsA5w5laapFqGVljClkGrzt
+k3HLd54Z5M4CJG+10sVC6mmXJHaqmGU4cdqTC235vmjOZGz8xzitXi3caAnQNKhw
+R+A2jpGE+oUAethwMhlo2+6PjXOcKk4ALLbgKZnBLMo8USr168+o3Qvb7MsI+E4f
+p8qFdnFg4jKe8JyAafRMUOENG9+LxskQsXVi8jDGIhKf6Ix+ubjr+J4E6CBJcTDG
+9RIOYiaKBhLQ4Z3EFynKBYjMA48N9LLREiBb25BX8XKRGoFT5ezP2gQgCzrlAQh6
+UdB9nPRag5tVlOVm412S8aUCAwEAAQ==
 -----END PUBLIC KEY-----`
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
@@ -69,7 +69,50 @@ const ORG_MEMBERSHIPS_BY_ROLE: Record<TestUserRole, { slug: string; isAdmin: boo
 }
 
 export async function seed(db: Kysely<DB>): Promise<void> {
-    if (process.env.NO_TESTING_DATA) return
+    // ========================= READ BEFORE EDITING =========================
+    // This seed writes credentials that are public by design: the private half of the key below
+    // is committed at tests/support/private_key.pem so tests can decrypt. It also writes fixed
+    // UUIDs and admin memberships on real org slugs. None of it belongs in a deployed database.
+    //
+    // It ran against production. The previous guard was an opt-OUT on NO_TESTING_DATA, a
+    // variable the infrastructure computed from an unresolved CloudFormation token and so never
+    // actually set. Two independent opt-IN checks now apply, and both must pass.
+    //
+    // The real slugs below (safe-insights, openstax, openstax-lab) are deliberate and must stay:
+    // safe-insights is the live SI-admin slug (CLERK_ADMIN_ORG_SLUG in src/lib/types.ts, used by
+    // src/lib/session.ts) and the openstax slugs drive feature gating (src/lib/constants.ts).
+    // The e2e specs hard-code them as URL paths. Safety comes from this gate, not from the names.
+    //
+    // Keep both checks as inline process.env reads with no new imports: CJS dependencies crash
+    // the esbuild ESM bundle the migrator Lambda runs seeds from (verified for si-encryption ->
+    // debug -> require('tty'); see the note near TEST_PUBLIC_KEY_PEM). The tsx entry points
+    // share this gate via bin/lib/testing-data-gate.ts, which is not imported here because it
+    // pulls in @/server/config and its CJS @aws-sdk dependency — importing config broke the
+    // bundle when tried, cause not fully diagnosed. Keep the accepted literal in sync with it.
+    //
+    // Prod bootstrap: with this gate, nothing ever creates the safe-insights org row in a fresh
+    // production database — the row SI-admin authorization reads (CLERK_ADMIN_ORG_SLUG in
+    // src/lib/types.ts, via src/lib/session.ts). That is deliberate: no migration or seed may
+    // write it there. Recovery flow for an empty prod DB: valid Clerk accounts are auto-created
+    // on first login, so create the admin user in Clerk and have them log in.
+    // =======================================================================
+
+    // Opt in explicitly, on the literal 'TRUE' — the value iac's app-stack.ts sets for the
+    // non-production migrator Lambdas and bin/migrate-dev-db sets for local dev and CI. An
+    // explicit comparison keeps ALLOW_TESTING_DATA=false or =0 from enabling the seed.
+    if (process.env.ALLOW_TESTING_DATA !== 'TRUE') {
+        console.warn('Skipping test data seed: ALLOW_TESTING_DATA=TRUE is not set.')
+        return
+    }
+
+    // Independent production backstop, in case something ever sets the opt-in there. NODE_ENV is
+    // deliberately not consulted: it is 'production' in every Next production build, including
+    // non-production deployed environments.
+    const envName = (process.env.ENVIRONMENT_ID || '').toLowerCase()
+    if (envName === 'production' || envName === 'prod') {
+        console.warn('Refusing to seed test data into a production environment.')
+        return
+    }
 
     // Upsert orgs and capture the actual persisted id for each slug.
     // Existing deployments may already have rows for these slugs with
@@ -79,7 +122,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     const orgIdBySlug = new Map<string, string>()
 
     for (const org of ORGS) {
-        const isEnclave = org.type === 'enclave'
         const name =
             org.slug === 'single-lang-r-enclave'
                 ? 'Single-Lang R Enclave'
@@ -103,7 +145,12 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                   ? 'Enclave where the reviewer is an admin'
                   : null
 
-        const settings = isEnclave ? { publicKey: 'BAD KEY, UPDATE ME' } : {}
+        // Enclaves previously got `publicKey: 'BAD KEY, UPDATE ME'` here. Nothing reads that
+        // placeholder, and writing it on a fresh insert would leave a real enclave unable to
+        // receive encrypted results, so enclaves now start with empty settings like labs and
+        // get a real key through the normal admin flow. Existing rows were never affected:
+        // the onConflict below updates only slug and name.
+        const settings = {}
 
         const persisted = await db
             .insertInto('org')

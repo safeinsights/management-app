@@ -163,11 +163,18 @@ const onSaveDraftStudyActionArgsSchema = z.object({
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
     .params(onSaveDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    // OTTER-719: `submittingOrgSlug` is a client param and `getOrgIdFromSlug` resolves any slug, so a
+    // caller could otherwise stamp another lab's id onto a new study and gain IDE access to it under
+    // the submittedByOrgId-scoped `load IDE` rule. Resolving the slug to `submittedByOrgId` here puts
+    // it in the ability subject, so `create Study` enforces lab membership through the same CASL rule
+    // as update/delete rather than a hand-rolled check in the handler that authz review would miss.
+    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await getOrgIdFromSlug({ orgSlug })),
+        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    }))
     .requireAbilityTo('create', 'Study')
-    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+    .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
         const userId = session.user.id
-        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
@@ -184,7 +191,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 agreementDocPath: studyInfo.agreementDocPath || null,
                 orgId,
                 researcherId: userId,
-                submittedByOrgId: submittingLab.orgId,
+                submittedByOrgId,
                 containerLocation,
                 status: 'DRAFT',
             })

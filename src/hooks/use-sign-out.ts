@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
+import posthog from 'posthog-js'
 
 export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
@@ -10,6 +11,7 @@ export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const queryClient = useQueryClient()
 
     return async () => {
+        posthog.reset()
         // App-initiated logout deliberately carries no redirect_url: the next sign-in
         // lands on the dashboard, not the page the user was on when the session ended
         // (OTTER-671). Deep links are unaffected — the proxy still captures the

@@ -9,13 +9,12 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import type { EditorState } from 'lexical'
 
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
-import { lexicalTheme, lexicalNodes, isValidUrl } from './config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
 import { EditorFooter } from './editor-footer'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
@@ -150,9 +149,9 @@ export function SingleUserEditor({
                 />
                 <HistoryPlugin />
                 <ListPlugin />
-                <TabIndentationPlugin />
+                {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                 <EscapeFocusPlugin />
-                <LinkPlugin validateUrl={isValidUrl} />
+                <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}
                 {children}
                 <Toolbar />

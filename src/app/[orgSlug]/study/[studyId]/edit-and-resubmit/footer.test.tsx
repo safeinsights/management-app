@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
@@ -94,15 +95,18 @@ const fullyValidExceptTitle: ProposalFormValues = {
 const VALID_NOTE = wordsString(60)
 
 // Test-only probe that primes the note form with a valid value so we can
-// isolate the title-gate behavior under test.
+// isolate the title-gate behavior under test. Runs in an effect — updating
+// form state during render triggers React's cross-component setState warning.
 const FormProbes = ({ titleOverride }: { titleOverride?: string }) => {
     const { form, noteForm } = useEditResubmit()
-    if (noteForm.values.resubmissionNote !== VALID_NOTE) {
-        noteForm.setFieldValue('resubmissionNote', VALID_NOTE)
-    }
-    if (titleOverride !== undefined && form.values.title !== titleOverride) {
-        form.setFieldValue('title', titleOverride)
-    }
+    useEffect(() => {
+        if (noteForm.values.resubmissionNote !== VALID_NOTE) {
+            noteForm.setFieldValue('resubmissionNote', VALID_NOTE)
+        }
+        if (titleOverride !== undefined && form.values.title !== titleOverride) {
+            form.setFieldValue('title', titleOverride)
+        }
+    })
     return null
 }
 
@@ -258,6 +262,29 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         expect(after.title).toBe('Original title')
         // The rest of the flush still landed.
         expect(after.piName).toBe('PI Name')
+    })
+
+    // The preview's PI popover asks the server for the profile, and the server only serves ids
+    // the persisted study row names — opening the modal on unsaved form state would show
+    // "Profile not available" for a changed PI (OTTER-724).
+    it('flushes the draft to the study row before opening the reviewer preview', async () => {
+        const user = userEvent.setup()
+        const { researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
+
+        renderFooterForStudy(study.id, 'Original title', researcher.id)
+        await retypeTitle(user, 'Saved before preview')
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument(), { timeout: 5000 })
+
+        const after = await db
+            .selectFrom('study')
+            .select(['title', 'piUserId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(after.title).toBe('Saved before preview')
+        expect(after.piUserId).toBe(researcher.id)
     })
 
     it('reports the error and stays on the page when the flush fails', async () => {

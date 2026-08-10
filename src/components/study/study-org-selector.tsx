@@ -31,7 +31,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                 STEP 1A
             </Text>
-            <Title fz={20} order={4} c="charcoal.9">
+            <Title fz={20} order={2} c="charcoal.9">
                 Data Partner
             </Title>
             <Divider my="md" />

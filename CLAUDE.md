@@ -11,6 +11,7 @@
 - E2E flakiness: ZERO tolerance. Playwright runs with `retries: 0` and full parallelism (`fullyParallel: true`, no fixed worker cap) on every environment including CI. A test that only passes on retry is a bug — fix the root cause (await the right signal, use web-first `expect` assertions/`toPass`, isolate per-test data with `studyFeatures.uniqueTitle`), never add a retry, an inline timeout, or a bare `waitForTimeout` to mask it. Do not raise `retries` above 0 or pin `workers` to 1 to make a suite "pass". A change is not done until the full e2e suite passes repeatedly at `retries: 0` under parallelism.
 - Migrations - UUID primary keys: Always default `uuid` id columns to `v7uuid()` (defined in `1727370622500_uuid_fn.ts`), never `gen_random_uuid()`. v7 UUIDs are time-ordered, which gives better index locality and natural insertion order.
 - Migrations - timestamp columns: Always use `'timestamptz'` (timestamp with time zone), never `'timestamp'`. Pattern: `.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql\`now()\`))`.
+- Screen rules doc: When modifying `src/lib/study-screen/*-screen-rules.ts`, also update the matching tables in `docs/study-screens-logic.md`.
 
 @CONVENTIONS.md
 

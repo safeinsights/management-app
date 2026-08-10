@@ -4,6 +4,7 @@ import {
     visitAsRole,
     readTestSupportFile,
     fillLexicalField,
+    insertLexicalLink,
     goto,
     withRole,
     type Page,
@@ -30,6 +31,11 @@ import { execSync } from 'child_process'
 
 const RESEARCHER_DASHBOARD = '/openstax-lab/dashboard'
 const REVIEWER_DASHBOARD = '/openstax/dashboard'
+
+// OTTER-463: rich-text links must carry target="_blank" through submission so
+// neither researcher nor reviewer gets navigated off SafeInsights by a click.
+const PROPOSAL_LINK_TEXT = 'Prior study writeup'
+const PROPOSAL_LINK_URL = 'https://example.com/prior-study'
 
 // ============================================================================
 // Researcher: study creation (Step 1 + Step 2) — driven live by ONE test
@@ -66,7 +72,7 @@ async function navigateToProposeStudy(page: Page) {
     await expect(page.getByText('STEP 2')).toBeVisible()
 }
 
-async function fillAndSubmitProposal(page: Page, studyTitle: string) {
+async function fillAndSubmitProposal(page: Page, studyTitle: string, opts: { linkNotes?: boolean } = {}) {
     await page.getByLabel('Study Title').fill(studyTitle)
 
     await page.getByPlaceholder('Select dataset(s) of interest').click()
@@ -75,6 +81,13 @@ async function fillAndSubmitProposal(page: Page, studyTitle: string) {
     await fillLexicalField(page, 'Research question(s)', 'What is the impact of highlighting on student outcomes?')
     await fillLexicalField(page, 'Project summary', 'We analyze archival data to study highlighting behavior.')
     await fillLexicalField(page, 'Impact', 'This research will improve understanding of study habits.')
+
+    if (opts.linkNotes) {
+        await insertLexicalLink(page, 'Additional notes or requests', PROPOSAL_LINK_TEXT, PROPOSAL_LINK_URL)
+        // Confirm before submitting: an unmarked link here would navigate the
+        // researcher out of the app on click.
+        await expect(page.locator(`a[href="${PROPOSAL_LINK_URL}"]`)).toHaveAttribute('target', '_blank')
+    }
 
     const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
     await piSelect.click()
@@ -376,11 +389,47 @@ async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void
 
 // OTTER-675: blank submit must flag both fields and open no modal.
 async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
-    await page.getByTestId('outputs-submit-decision').click()
+    const editor = page.getByLabel('Decision feedback')
+    const trigger = page.getByTestId('outputs-submit-decision')
+
+    // The caret starts inside the empty editor, which is where this used to break: raising the
+    // "enter your feedback" message as the editor lost focus inserted a line above the navigation
+    // row, so the button moved out from under the pointer between mousedown and mouseup, the click
+    // was never delivered, and only the field the blur had flagged was ever reported.
+    await editor.click()
+    await trigger.click()
 
     await expect(page.getByText(/Enter your feedback for .* before submitting\./)).toBeVisible()
     await expect(page.getByText('Select an option before submitting')).toBeVisible()
+    const options = page.locator('input[name="outputs-decision"]')
+    await expect(options.first()).toHaveAttribute('aria-invalid', 'true')
+    await expect(options.last()).toHaveAttribute('aria-invalid', 'true')
+    await expect(editor).toBeFocused()
     await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
+
+    // Tab must move focus on rather than typing a tab character, and must keep going until it
+    // reaches the radios (WCAG 2.1.2). Checked here rather than in jsdom, where Lexical's Tab
+    // handler returns early for want of a range selection and the assertion cannot fail.
+    const typed = 'Checking the keyboard path.'
+    await editor.fill(typed)
+    await page.keyboard.press('Tab')
+    await expect(editor).not.toBeFocused()
+    // textContent(), not toHaveText: the latter normalizes whitespace, so it would pass on the very
+    // tab character this asserts is absent.
+    await expect(async () => {
+        const text = await editor.textContent()
+        expect(text).toContain(typed)
+        expect(text).not.toContain('\t')
+    }).toPass()
+
+    // Tabs until the radio is reached rather than assuming a count: the editor's formatting
+    // toolbar sits between the two and its size is not this test's business.
+    const firstOption = page.getByTestId('outputs-decision-share-outputs')
+    const isFocused = () => firstOption.evaluate((el) => el === document.activeElement)
+    for (let i = 0; i < 12 && !(await isFocused()); i++) {
+        await page.keyboard.press('Tab')
+    }
+    await expect(firstOption).toBeFocused()
 }
 
 // The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
@@ -414,7 +463,24 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToProposeStudy(page)
-        await fillAndSubmitProposal(page, studyTitle)
+        await fillAndSubmitProposal(page, studyTitle, { linkNotes: true })
+
+        // The read-only render of a submitted proposal is a separate Lexical mount, so
+        // assert the link survives there too and not just in the editor.
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
+        await clickViewLink(page, studyRow)
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+
+        // This view mounts the proposal collapsed (initialExpanded={false}), so the body is
+        // display:none until the toggle is clicked.
+        await page.getByTestId('proposal-toggle-header').click()
+        const proposalBody = page.getByTestId('proposal-body')
+        await expect(proposalBody).toBeVisible()
+
+        const submittedLink = proposalBody.getByRole('link', { name: PROPOSAL_LINK_TEXT })
+        await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
+        await expect(submittedLink).toHaveAttribute('target', '_blank')
     })
 })
 
