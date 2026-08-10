@@ -5,6 +5,7 @@ import { Anchor, Box, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { Dropzone, type FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 
 const ACCEPTED_EXTENSIONS = new Set(
@@ -110,7 +111,7 @@ export function FileDropOverlay({
 
         if (rejected.length > 0) {
             notifications.show({
-                color: 'red',
+                ...ERROR_NOTIFICATION_OPTIONS,
                 title: 'Unsupported file type',
                 message: `${rejected.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
             })

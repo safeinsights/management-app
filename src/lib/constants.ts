@@ -29,3 +29,11 @@ export const APP_SHELL = {
 
 // 8 seconds
 export const NOTIFICATION_DISPLAY_MS = 8000
+
+// Error toasts persist until dismissed so users can read the message and copy the
+// Sentry reference id before it disappears.
+export const ERROR_NOTIFICATION_OPTIONS = {
+    color: 'red',
+    autoClose: false,
+    withCloseButton: true,
+} as const

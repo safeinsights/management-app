@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useForm, zodResolver } from '@/common'
 import { notifications } from '@mantine/notifications'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { updatePositionsAction } from '@/server/actions/researcher-profile.actions'
 import { positionsSchema, type PositionsValues, type PositionValues } from '@/schema/researcher-profile'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
@@ -60,7 +61,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
             notifications.show({ title: 'Saved', message: 'Current institutional information updated', color: 'green' })
         },
         onError: (error) => {
-            notifications.show({ title: 'Save failed', message: String(error), color: 'red' })
+            notifications.show({ ...ERROR_NOTIFICATION_OPTIONS, title: 'Save failed', message: String(error) })
         },
     })
 

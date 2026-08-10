@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { reportMutationError } from '@/components/errors'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
@@ -225,7 +226,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const submitDirectly = useCallback(() => {
         if (!canSubmit) {
             notifications.show({
-                color: 'red',
+                ...ERROR_NOTIFICATION_OPTIONS,
                 title: 'Cannot proceed',
                 message: 'Please add files and select a main file first.',
             })

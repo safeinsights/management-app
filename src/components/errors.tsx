@@ -1,5 +1,6 @@
 'use client'
 
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { errorToString, extractActionFailure } from '@/lib/errors'
 import { Alert, AlertProps, Group, Text, useMantineTheme } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -11,7 +12,7 @@ import { difference } from 'remeda'
 export const reportError = (error: unknown, title = 'An error occurred') => {
     const eventId = captureException(error)
     notifications.show({
-        color: 'red',
+        ...ERROR_NOTIFICATION_OPTIONS,
         title,
         message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
     })

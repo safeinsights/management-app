@@ -1,5 +1,6 @@
 import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { isEncryptedArtifact, logLabel } from '@/lib/file-type-helpers'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
@@ -128,7 +129,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         (values) => decrypt(values.privateKey),
         (errors) => {
             if (errors.privateKey) {
-                notifications.show({ message: 'Invalid private key', color: 'red' })
+                notifications.show({ ...ERROR_NOTIFICATION_OPTIONS, message: 'Invalid private key' })
             }
         },
     )

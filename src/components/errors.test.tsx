@@ -108,11 +108,13 @@ describe('reportError', () => {
     it('calls notifications.show with the default title and error message', () => {
         const errorMsg = 'Test error'
         reportError(errorMsg)
-        expect(notificationsShowSpy).toHaveBeenCalledWith({
-            color: 'red',
-            title: 'An error occurred',
-            message: expect.stringMatching(new RegExp(`${errorMsg}\\nReference: [a-f0-9]{32}`)),
-        })
+        expect(notificationsShowSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                color: 'red',
+                title: 'An error occurred',
+                message: expect.stringMatching(new RegExp(`${errorMsg}\\nReference: [a-f0-9]{32}`)),
+            }),
+        )
     })
 
     it('calls notifications.show with a custom title if provided', () => {
@@ -120,11 +122,20 @@ describe('reportError', () => {
         const customTitle = 'Custom Title'
         reportError(errorInstance, customTitle)
         const errorString = errorInstance.toString()
-        expect(notificationsShowSpy).toHaveBeenCalledWith({
-            color: 'red',
-            title: customTitle,
-            message: expect.stringMatching(new RegExp(`${errorString}\\nReference: [a-f0-9]{32}`)),
-        })
+        expect(notificationsShowSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                color: 'red',
+                title: customTitle,
+                message: expect.stringMatching(new RegExp(`${errorString}\\nReference: [a-f0-9]{32}`)),
+            }),
+        )
+    })
+
+    it('shows error toasts that persist until manually dismissed', () => {
+        reportError('Test error')
+        expect(notificationsShowSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ autoClose: false, withCloseButton: true }),
+        )
     })
 })
 

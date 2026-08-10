@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { errorToString } from '@/lib/errors'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
@@ -61,7 +62,7 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
         },
         onError: (error) => {
             notifications.show({
-                color: 'red',
+                ...ERROR_NOTIFICATION_OPTIONS,
                 title: 'Failed to save draft',
                 message: `${errorToString(error)}\nPlease contact support.`,
             })

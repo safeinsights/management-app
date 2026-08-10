@@ -23,10 +23,12 @@ describe('handleDuplicateUpload', () => {
         const mainFile = createFile('main.R')
         const duplicates = [createFile('main.R'), createFile('other.R')]
         expect(handleDuplicateUpload(mainFile, duplicates)).toBe(true)
-        expect(notificationsSpy).toHaveBeenCalledWith({
-            color: 'red',
-            title: 'Duplicate filename',
-            message: expect.stringContaining('main.R'),
-        })
+        expect(notificationsSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                color: 'red',
+                title: 'Duplicate filename',
+                message: expect.stringContaining('main.R'),
+            }),
+        )
     })
 })

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useForm, zodResolver } from '@/common'
 import { notifications } from '@mantine/notifications'
+import { ERROR_NOTIFICATION_OPTIONS } from '@/lib/constants'
 import { updateResearchDetailsAction } from '@/server/actions/researcher-profile.actions'
 import { researchDetailsSchema, type ResearchDetailsValues } from '@/schema/researcher-profile'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
@@ -63,7 +64,7 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
             notifications.show({ title: 'Saved', message: 'Research details updated', color: 'green' })
         },
         onError: (error) => {
-            notifications.show({ title: 'Save failed', message: String(error), color: 'red' })
+            notifications.show({ ...ERROR_NOTIFICATION_OPTIONS, title: 'Save failed', message: String(error) })
         },
     })
 
