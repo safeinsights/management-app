@@ -5,11 +5,11 @@ import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { Button, Code, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
-import { useClipboard, useDisclosure } from '@mantine/hooks'
+import { useDisclosure } from '@mantine/hooks'
 import { CheckIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
@@ -36,6 +36,44 @@ type GenerateKeysProps = {
     firstKeyRedirect?: Route
 }
 
+const COPIED_VISIBLE_MS = 2000
+
+type CopyOutcome = 'none' | 'copied' | 'failed'
+
+// The AC allows exactly one indicator at a time, which rules out Mantine's useClipboard: it folds
+// every attempt into one pair of flags, so a slow rejection (a permission prompt left open) can
+// land after a later success and light the green check and the red failure together. Attempts are
+// numbered here and a result that is no longer the latest is dropped, because a copy the user has
+// already superseded says nothing about what is on their clipboard now (OTTER-655).
+function useCopyOutcome() {
+    const [outcome, setOutcome] = useState<CopyOutcome>('none')
+    const latestAttempt = useRef(0)
+    const hideCopied = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+    useEffect(() => () => clearTimeout(hideCopied.current), [])
+
+    const copy = async (value: string) => {
+        const attempt = ++latestAttempt.current
+        clearTimeout(hideCopied.current)
+        setOutcome('none')
+
+        try {
+            if (!navigator.clipboard) throw new Error('clipboard is not available in this browser')
+            await navigator.clipboard.writeText(value)
+            if (attempt !== latestAttempt.current) return
+            setOutcome('copied')
+            hideCopied.current = setTimeout(() => setOutcome('none'), COPIED_VISIBLE_MS)
+        } catch {
+            if (attempt !== latestAttempt.current) return
+            // The message tells the user to select the key manually, so the reason does not matter
+            // and there is nothing actionable to report.
+            setOutcome('failed')
+        }
+    }
+
+    return { outcome, copy }
+}
+
 export const GenerateKeys: FC<GenerateKeysProps> = ({
     isRegenerating = false,
     firstKeyRedirect = Routes.dashboard,
@@ -45,7 +83,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // Reveal Next after any copy attempt so a blocked clipboard doesn't trap the user.
     const [hasAttemptedCopy, setHasAttemptedCopy] = useState(false)
-    const clipboard = useClipboard({ timeout: 2000 })
+    const { outcome: copyOutcome, copy } = useCopyOutcome()
 
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
@@ -63,10 +101,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     if (!keys) return null
 
     const onCopy = () => {
-        // useClipboard clears `error` only on reset, never on a later success, so without this a
-        // retry after a blocked copy shows the green check and the red failure at once.
-        clipboard.reset()
-        clipboard.copy(keys.privateKey)
+        void copy(keys.privateKey)
         setHasAttemptedCopy(true)
     }
 
@@ -108,8 +143,8 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                         <Button onClick={onCopy}>Copy key</Button>
                         <NextButton isVisible={hasAttemptedCopy} onClick={openConfirm} />
                     </Group>
-                    <CopySucceededIndicator isVisible={clipboard.copied} />
-                    <CopyFailedIndicator isVisible={clipboard.error != null} />
+                    <CopySucceededIndicator isVisible={copyOutcome === 'copied'} />
+                    <CopyFailedIndicator isVisible={copyOutcome === 'failed'} />
                 </Stack>
             </Stack>
 

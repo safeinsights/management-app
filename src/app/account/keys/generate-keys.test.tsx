@@ -1,6 +1,6 @@
 import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import type { Route } from 'next'
 import router from 'next-router-mock'
 import { generateKeyPair } from 'si-encryption/util/keypair'
@@ -149,6 +149,27 @@ describe('Security key generation', () => {
 
         await waitFor(() => expect(screen.getByText('Copied!')).toBeDefined())
         expect(screen.queryByText(/Copy did not work/)).toBeNull()
+    })
+
+    // The AC allows one indicator at a time, and a denied clipboard prompt can sit open for as long
+    // as the user ignores it, so its rejection can arrive after they have clicked again and
+    // succeeded. That stale result must not resurrect the failure message.
+    it('ignores a copy result the user has already superseded', async () => {
+        const writeText = mockClipboard(true)
+        let rejectAbandonedAttempt = (_: Error) => {}
+        writeText.mockImplementationOnce(
+            () => new Promise((_, reject) => (rejectAbandonedAttempt = reject)) as Promise<void>,
+        )
+        await renderPage()
+
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+        await waitFor(() => expect(screen.getByText('Copied!')).toBeDefined())
+
+        await act(async () => rejectAbandonedAttempt(new Error('prompt dismissed')))
+
+        expect(screen.queryByText(/Copy did not work/)).toBeNull()
+        expect(screen.getByText('Copied!')).toBeDefined()
     })
 
     it('clears the success indicator once a later copy fails', async () => {
