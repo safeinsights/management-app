@@ -12,7 +12,7 @@ import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import { ReadOnlyField } from './read-only-field'
+import { ReadOnlyField } from '../read-only-field'
 
 export function PreviewDocument({ url, label }: { url: string; label: string }) {
     const { data, isLoading, isError, error } = useQuery({
@@ -160,5 +160,3 @@ export function ConfirmPublishForm({
         </Stack>
     )
 }
-
-// todo: tests

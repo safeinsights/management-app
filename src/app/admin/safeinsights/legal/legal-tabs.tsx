@@ -3,7 +3,7 @@
 import type { FC } from '@/common'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Tabs } from '@mantine/core'
-import { TosPnUpload } from './tos-pn-upload'
+import { TosPnUpload } from './tos-pn/tos-pn'
 import { ParticipationAgreements } from './participation/participation-agreements'
 import { StudyLevelAgreements } from './sla/study-level-agreements'
 

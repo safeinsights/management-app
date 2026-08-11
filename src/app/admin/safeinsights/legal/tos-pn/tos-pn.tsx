@@ -6,7 +6,7 @@ import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
-import { ConfirmPublishForm, DraftForm, PreviewDocument, ReviewPrePublishForm } from './document-modal'
+import { ConfirmPublishForm, DraftForm, PreviewDocument, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
 import {
     fetchLegalDocumentVersionsAction,
