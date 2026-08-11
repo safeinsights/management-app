@@ -34,15 +34,17 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`v7uuid()`))
         .addColumn('legal_document_id', 'uuid', (col) => col.notNull().references('legal_document.id'))
         .addColumn('version_number', 'integer')
+        // The key is the version's uuid, so the admin's original filename has nowhere else to live
+        // and is kept here for display.
         .addColumn('file_path', 'text', (col) => col.notNull())
+        .addColumn('file_name', 'text', (col) => col.notNull())
         .addColumn('format', 'text', (col) => col.notNull())
         // Null published_at means draft. Published rows are immutable so an acknowledgement always
         // points at the exact bytes the user agreed to; corrections ship as a new version.
         .addColumn('published_at', 'timestamptz')
         .addColumn('published_by', 'uuid', (col) => col.references('user.id'))
         // Admin-entered day of an out-of-app signature. `date` not timestamptz so it can't render a
-        // day early west of the stored zone — but node-postgres reads it back as a Date at local
-        // midnight, so register an OID 1082 parser before rendering it.
+        // day early west of the stored zone; dialect.ts parses OID 1082 as the raw string.
         .addColumn('signed_at', 'date')
         .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .addUniqueConstraint('legal_document_version_number_unique', ['legal_document_id', 'version_number'])
@@ -61,9 +63,11 @@ export async function up(db: Kysely<any>): Promise<void> {
         WHERE published_at IS NULL
     `.execute(db)
 
+    // Ordered by version_number, not published_at: every current-version read is a distinctOn
+    // keyed on the document ordering by version_number DESC.
     await sql`
         CREATE INDEX legal_document_version_current
-        ON legal_document_version (legal_document_id, published_at DESC)
+        ON legal_document_version (legal_document_id, version_number DESC)
     `.execute(db)
 
     // These rows are the compliance evidence. Who is *required* to acknowledge is derived from

@@ -20,7 +20,7 @@ import {
     BooksIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { useRouter } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Protect } from '../auth'
 import { NavbarProfileMenuView } from './navbar-profile-menu-view'
 import styles from './navbar-items.module.css'
@@ -69,8 +69,14 @@ export function NavbarProfileMenu() {
         }
     }, [opened, toggle, menuRef])
 
-    const isAdminPage = pathname.startsWith('/admin/')
+    const isAdminPage = pathname.startsWith(Routes.adminSafeinsights)
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
+
+    // Opens on arrival at an admin page, not just on first mount: the menu persists across client
+    // navigation, so a mount-time initial value would leave the submenu shut while it reads active.
+    useEffect(() => {
+        if (isAdminPage) setIsAdminMenuOpen(true)
+    }, [isAdminPage])
 
     const menuItems = (
         <>

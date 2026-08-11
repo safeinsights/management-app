@@ -177,8 +177,8 @@ const VersionNote: FC<{ sla: Sla | undefined }> = ({ sla }) => {
 
     return (
         <Text size="sm" c="dimmed">
-            This study is on version {sla.versionNumber ?? 1}. Publishing makes the new file the current agreement;
-            earlier versions stay in the record.
+            This study is on version {sla.versionNumber}. Publishing makes the new file the current agreement; earlier
+            versions stay in the record.
         </Text>
     )
 }
@@ -189,31 +189,18 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
     return <StudyFields details={details} />
 }
 
-// A new version supersedes the one people already acknowledged, so everyone on the study is asked
-// again — and a researcher mid-submission is gated until they do.
-const ReplacesAcknowledgementsNote: FC<{ isVisible: boolean }> = ({ isVisible }) => {
-    if (!isVisible) return null
-
-    return (
-        <Text c="red.8">
-            Acknowledgements of the current version do not carry over. Everyone on this study will be asked to
-            acknowledge again, and researchers cannot submit code until they do.
-        </Text>
-    )
-}
-
-// Publishing cannot be undone and it obligates people, so the confirmation repeats everything about
-// to be written and names who will be asked to acknowledge it.
+// Publishing cannot be undone, so the confirmation repeats everything about to be written. It does
+// not promise anyone will be asked to acknowledge: an sla is filed here, not enforced — only tos/pn
+// are in enforcedLegalDocumentTypes.
 const ConfirmPublishModal: FC<{
     opened: boolean
     details: StudyDetails | undefined
-    isNewVersion: boolean
     signedAt: string
     file: File | null
     isPending: boolean
     onCancel: () => void
     onConfirm: () => void
-}> = ({ opened, details, isNewVersion, signedAt, file, isPending, onCancel, onConfirm }) => {
+}> = ({ opened, details, signedAt, file, isPending, onCancel, onConfirm }) => {
     if (!details) return null
 
     return (
@@ -223,11 +210,9 @@ const ConfirmPublishModal: FC<{
                 <ReadOnlyField label="Signed on" value={signedAt} />
                 <ReadOnlyField label="File" value={file?.name ?? ''} />
                 <Text>
-                    Publishing sends this to everyone at {details.researchLabName} and {details.dataPartnerName} who
-                    works on this study, and requires each of them to acknowledge it before continuing. This cannot be
-                    undone.
+                    This becomes the current Study Level Agreement on record for this study. Earlier versions stay in
+                    the record. This cannot be undone.
                 </Text>
-                <ReplacesAcknowledgementsNote isVisible={isNewVersion} />
                 <Group justify="flex-end">
                     <Button variant="subtle" onClick={onCancel}>
                         Cancel
@@ -276,7 +261,6 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
             <ConfirmPublishModal
                 opened={confirming}
                 details={details}
-                isNewVersion={Boolean(sla)}
                 signedAt={signedAt}
                 file={file}
                 isPending={isPending}
