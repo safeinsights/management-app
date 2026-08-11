@@ -18,9 +18,10 @@ export function JoinedOrgBanner() {
         const joined = sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)
         if (!joined) return
 
+        let cancelled = false
         const revealOnceKeyed = async () => {
             const hasKey = actionResult(await userKeyExistsAction())
-            if (!hasKey) return
+            if (!hasKey || cancelled) return
 
             sessionStorage.removeItem(JOINED_ORG_STORAGE_KEY)
             setOrgName(joined)
@@ -28,6 +29,9 @@ export function JoinedOrgBanner() {
         // Anything short of a definite key — not yet keyed, or a check that threw — leaves the flag
         // in place for the dashboard the user actually lands on.
         revealOnceKeyed().catch(() => {})
+        return () => {
+            cancelled = true
+        }
     }, [])
 
     if (!orgName) return null
