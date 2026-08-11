@@ -1,11 +1,10 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { fieldDescribedBy, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
+import { fieldDescribedBy, FieldErrorBox, widgetBlurHandler } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -53,17 +52,6 @@ function FeedbackIntro({ labName }: { labName: string }) {
     )
 }
 
-// Carries the id `aria-describedby` points at; null when clean so the save indicator keeps the
-// row's left edge (same shape as NoteFieldError in collaborative-resubmission-note-section).
-function FeedbackFieldError({ error }: { error?: string | null }) {
-    if (!error) return null
-    return (
-        <Box id={fieldErrorId('code-review-feedback')}>
-            <InputError error={error} />
-        </Box>
-    )
-}
-
 function FeedbackEditor({
     feedback,
     studyId,
@@ -94,7 +82,7 @@ function FeedbackEditor({
             placeholder={FEEDBACK_PLACEHOLDER}
             // The error takes exactly the slot the save indicator vacates, so it sits directly
             // under the input instead of a row below the word counter (OTTER-674).
-            footerLeft={<FeedbackFieldError error={feedback.error} />}
+            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
