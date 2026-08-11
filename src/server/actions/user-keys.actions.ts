@@ -30,7 +30,7 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
         return Boolean(key)
     })
 
-// Landing for the key page when no destination was carried in — the RequireUserKey guard pushes a
+// Landing for the key page when no destination was carried in: the RequireUserKey guard pushes a
 // bare url, so the page has to answer this itself. NOT a claim about which org invited the account:
 // a single-org account simply has one dashboard it could land on, so the answer cannot be wrong even
 // though it proves nothing about provenance. Anything ambiguous (no orgs, or several) returns "My

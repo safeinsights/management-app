@@ -127,9 +127,11 @@ describe('User Keys Actions', () => {
         const rotated = await readTimestamps()
 
         // OTTER-654 reads these: createdAt stays the first-ever generation, updatedAt tracks the
-        // key currently in the user's hands.
+        // key currently in the user's hands. Inequality rather than ordering, because the insert
+        // takes its timestamp from the database default and the rotation writes one from the app,
+        // so a clock difference between the two must not decide whether this passes.
         expect(rotated.createdAt).toEqual(created.createdAt)
-        expect(rotated.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime())
+        expect(rotated.updatedAt).not.toEqual(created.updatedAt)
     })
 })
 

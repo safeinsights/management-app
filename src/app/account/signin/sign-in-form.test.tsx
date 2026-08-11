@@ -1,12 +1,30 @@
-import { renderWithProviders, screen, fireEvent, waitFor, userEvent, type Mock } from '@/tests/unit.helpers'
+import {
+    db,
+    renderWithProviders,
+    screen,
+    fireEvent,
+    mockSessionWithTestData,
+    waitFor,
+    userEvent,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { describe, it, expect, vi } from 'vitest'
-import { useSignIn } from '@clerk/nextjs'
+import { useAuth, useSignIn } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { clerkErrorOverrides } from '@/lib/errors'
 import { SignInForm } from './sign-in-form'
 
 const mockSignInCreate = (create: Mock) =>
     (useSignIn as Mock).mockReturnValue({ isLoaded: true, signIn: { create }, setActive: vi.fn() })
+
+// The no-MFA counterpart of the MFA flow: sign-in completes in one step, so the key detour is
+// applied here instead (OTTER-655).
+const keylessUserSigningIn = async () => {
+    const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+    await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+    ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
+    mockSignInCreate(vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }))
+}
 
 const submitCredentials = async () => {
     await userEvent.type(screen.getByLabelText('Email'), 'ada@example.com')
@@ -44,6 +62,32 @@ describe('SignInForm', () => {
         await submitCredentials()
 
         await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+    })
+
+    it('carries an explicit redirect_url through key generation for a keyless user', async () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax-lab%2Fdashboard')
+        await keylessUserSigningIn()
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent('/openstax-lab/dashboard')}`,
+            ),
+        )
+    })
+
+    // Emitting the fallback as a parameter would pin the key page to "My dashboard" and defeat the
+    // landing it resolves for a first key.
+    it('sends a keyless user with no destination to a bare key page', async () => {
+        memoryRouter.setCurrentUrl('/account/signin')
+        await keylessUserSigningIn()
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe('/account/keys'))
     })
 
     it('shows a field error for incorrect credentials', async () => {
