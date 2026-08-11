@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
 import { insertTestStudyJobData, insertTestStudyOnly, setTestStudyStatus } from '@/tests/unit.helpers'
-import { proposalFieldsDocName, proposalTextFieldDocName } from '@/lib/collaboration-documents'
+import {
+    proposalFieldsDocName,
+    proposalResubmissionNoteDocNameForVersion,
+    proposalTextFieldDocName,
+} from '@/lib/collaboration-documents'
 import { rawStudyStateForStudy } from './study-state-query'
 
 describe('rawStudyStateForStudy', () => {
@@ -72,6 +76,16 @@ describe('rawStudyStateForStudy', () => {
         it('ignores documents that are not Step 2 proposal documents', async () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, `review-feedback-${study.id}-v1`)
+
+            const raw = await rawStudyStateForStudy(study.id)
+            expect(raw!.hasStep2CollabDoc).toBe(false)
+        })
+
+        // The resubmission note shares the `proposal-<studyId>-` prefix but is written on the
+        // change-requested resubmit screen, not on Step 2, so a prefix match would misreport it.
+        it('ignores a resubmission-note document despite its proposal prefix', async () => {
+            const study = await insertDraft()
+            await insertYjsDoc(study.id, proposalResubmissionNoteDocNameForVersion(study.id, 1))
 
             const raw = await rawStudyStateForStudy(study.id)
             expect(raw!.hasStep2CollabDoc).toBe(false)
