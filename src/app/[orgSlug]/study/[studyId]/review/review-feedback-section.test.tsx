@@ -1,6 +1,7 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
+import { fieldErrorId } from '@/components/form-field'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { ReviewFeedbackSection } from './review-feedback-section'
@@ -22,6 +23,9 @@ function FeedbackTestWrapper() {
                 onClick={() => feedback.onChange(lexicalJson('one two three four five'))}
             >
                 simulate input
+            </button>
+            <button type="button" data-testid="simulate-blur" onClick={() => feedback.onBlur()}>
+                simulate blur
             </button>
             <ReviewFeedbackSection
                 feedback={feedback}
@@ -56,5 +60,21 @@ describe('ReviewFeedbackSection', () => {
         await waitFor(() => {
             expect(screen.getByText('5/500')).toBeInTheDocument()
         })
+    })
+
+    it('renders the empty-field error in the same footer row as the word counter (OTTER-674)', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        expect(document.getElementById(fieldErrorId('review-feedback'))).toBeNull()
+
+        await user.click(screen.getByTestId('simulate-blur'))
+
+        const errorBox = await waitFor(() => {
+            const box = document.getElementById(fieldErrorId('review-feedback'))
+            expect(box).toHaveTextContent('Feedback is required.')
+            return box
+        })
+        expect(errorBox?.parentElement).toContainElement(screen.getByText('0/500'))
     })
 })

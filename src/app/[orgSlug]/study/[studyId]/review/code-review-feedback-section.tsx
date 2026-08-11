@@ -1,11 +1,10 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { fieldDescribedBy, fieldErrorId, useWidgetBlur } from '@/components/form-field'
+import { fieldDescribedBy, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -81,6 +80,9 @@ function FeedbackEditor({
                 hasDescription: false,
             })}
             placeholder={FEEDBACK_PLACEHOLDER}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the word counter (OTTER-674).
+            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -199,9 +201,6 @@ export function CodeReviewFeedbackSection({
                 <Divider />
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
-                <Box id={fieldErrorId('code-review-feedback')}>
-                    <InputError error={feedback.error} />
-                </Box>
                 <Divider />
                 <DecisionRadioGroup
                     value={decisionValue}

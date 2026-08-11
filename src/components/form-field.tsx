@@ -1,6 +1,8 @@
 import { type FC, type FocusEvent, type ReactNode, useRef } from 'react'
 import { Box, Group, Input } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
+import { InputError } from '@/components/errors'
+import { errorToString } from '@/lib/errors'
 
 /**
  * Chrome (label / description / error) for controls that Mantine's own inputs cannot
@@ -46,6 +48,21 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
     [hasError ? fieldErrorId(inputId) : null, hasDescription ? fieldDescriptionId(inputId) : null]
         .filter(Boolean)
         .join(' ') || undefined
+
+/**
+ * The field's error message, in the box {@link fieldErrorId} names and `aria-describedby`
+ * points at. Null when clean, so whatever shares the slot (an editor footer's save indicator)
+ * keeps the row's left edge. `error` is `unknown` because call sites hold anything from a
+ * form-validation string to a thrown server error; `errorToString` normalizes it.
+ */
+export const FieldErrorBox: FC<{ fieldId: string; error?: unknown }> = ({ fieldId, error }) => {
+    if (!error) return null
+    return (
+        <Box id={fieldErrorId(fieldId)}>
+            <InputError error={errorToString(error)} />
+        </Box>
+    )
+}
 
 /**
  * Props for a standard Mantine input rendered inside {@link FormField}.
