@@ -1,21 +1,29 @@
 'use client'
 
-import { useQuery, useQueryClient } from '@/common'
+import { useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor, Collapse } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
-import { DraftForm, PreviewDocument, ReviewAndPublishForm, type Draft } from './document-modal'
+import { ConfirmPublishForm, DraftForm, PreviewDocument, ReviewPrePublishForm } from './document-modal'
 import { useDisclosure } from '@mantine/hooks'
-import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
+import {
+    fetchLegalDocumentVersionsAction,
+    publishLegalDocumentVersionAction,
+} from '@/server/actions/legal-document.actions'
 import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { ToggleChevron } from '@/components/icons'
+import { isActionError } from '@/lib/errors'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
+
+type ModalPage = 'upload' | 'review' | 'confirm'
+
+export type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
 
 function UploadModalContents({
     doctype,
@@ -26,18 +34,47 @@ function UploadModalContents({
     draft: Draft | null
     onClose: () => void
 }) {
+    const [page, setPage] = useState<ModalPage>(draft ? 'review' : 'upload')
     const queryClient = useQueryClient()
-    const handleDraftSaved = () => {
-        queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+
+    // Awaited: the draft this component renders comes from the parent's query, so advancing before
+    // the refetch settles would leave the review page asking a null draft for its URL.
+    const handleDraftSaved = async () => {
+        await queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+        setPage('review')
     }
-    const handlePublished = () => {
-        queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+
+    const handlePublish = async (versionId: string) => {
+        const result = await publishLegalDocumentVersionAction({ versionId })
+        if (isActionError(result)) {
+            throw new Error(result.error.toString())
+        }
+        await queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
         onClose()
     }
-    return draft ? (
-        <ReviewAndPublishForm doctype={doctype} draft={draft} onPublish={handlePublished} />
-    ) : (
-        <DraftForm doctype={doctype} onDraftSaved={handleDraftSaved} />
+
+    // No draft means nothing to review or publish, whatever the page state says.
+    if (page === 'upload' || !draft) {
+        return <DraftForm doctype={doctype} draftName={draft?.fileName ?? null} onDraftSaved={handleDraftSaved} />
+    }
+
+    if (page === 'review') {
+        return (
+            <ReviewPrePublishForm
+                doctype={doctype}
+                draftUrl={draft.downloadUrl}
+                onBack={() => setPage('upload')}
+                onConfirm={() => setPage('confirm')}
+            />
+        )
+    }
+
+    return (
+        <ConfirmPublishForm
+            draftName={draft.fileName}
+            onBack={() => setPage('review')}
+            onPublish={() => handlePublish(draft.id)}
+        />
     )
 }
 

@@ -7,20 +7,39 @@ import { ErrorAlert } from '@/components/errors'
 import { LegalDocumentType } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
-import { ActionSuccessType } from '@/lib/types'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
-import {
-    createLegalDocumentDraftAction,
-    fetchLegalDocumentVersionsAction,
-    publishLegalDocumentVersionAction,
-} from '@/server/actions/legal-document.actions'
+import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import { useDisclosure } from '@mantine/hooks'
 import { ReadOnlyField } from './read-only-field'
 
-export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentType; onDraftSaved: () => void }) {
+export function PreviewDocument({ url, label }: { url: string; label: string }) {
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['contents', url],
+        queryFn: async () => {
+            const res = await fetch(url)
+            if (!res.ok) throw new Error(`Failed to load document ${res.status}`)
+            return res.text()
+        },
+    })
+
+    if (isLoading) return <LoadingMessage message="Loading..." />
+    if (isError || !data) return <ErrorAlert error={error ?? 'The document could not be loaded'} color="red" />
+    return <LegalDocumentContent content={data} label={label} />
+}
+
+// The four modal pages:
+
+export function DraftForm({
+    doctype,
+    draftName,
+    onDraftSaved,
+}: {
+    doctype: LegalDocumentType
+    draftName: string | null
+    onDraftSaved: () => void
+}) {
     const [file, setFile] = useState<File | null>(null)
 
     const handleDrop = (files: File[]) => {
@@ -65,19 +84,20 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
                         </Text>
                     </Group>
                 </Dropzone>
-                <Group pt="sm" justify="space-between" align="center">
+                <Stack pt="sm">
+                    {draftName && <ReadOnlyField label="Current saved draft:" value={draftName}></ReadOnlyField>}
                     {file && (
-                        <>
-                            <Text>Uploaded: {file.name}</Text>
+                        <Group justify="space-between" align="center">
+                            <ReadOnlyField label="Uploaded:" value={file.name} />
                             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                                 <TrashIcon size={16} />
                             </ActionIcon>
-                        </>
+                        </Group>
                     )}
-                </Group>
+                </Stack>
             </Paper>
             <Flex align="right" justify="right">
-                <Button onClick={saveDraft} ml="xs" rightSection={<ArrowCircleRightIcon size={16} />}>
+                <Button onClick={saveDraft} disabled={!file} ml="xs" rightSection={<ArrowCircleRightIcon size={16} />}>
                     Save Draft
                 </Button>
             </Flex>
@@ -85,75 +105,60 @@ export function DraftForm({ doctype, onDraftSaved }: { doctype: LegalDocumentTyp
     )
 }
 
-export type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
-
-export function PreviewDocument({ url, label }: { url: string; label: string }) {
-    const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['contents', url],
-        queryFn: async () => (await fetch(url)).text(),
-    })
-    if (isLoading) return <LoadingMessage message="Loading..." />
-    if (isError || !data) return <ErrorAlert error={error ?? 'The document could not be loaded'} />
-    return <LegalDocumentContent content={data} label={label} />
-}
-
-export function ReviewAndPublishForm({
+export function ReviewPrePublishForm({
     doctype,
-    draft,
-    onPublish,
+    draftUrl,
+    onBack,
+    onConfirm,
 }: {
     doctype: LegalDocumentType
-    draft: Draft
-    onPublish: () => void
+    draftUrl: string
+    onBack: () => void
+    onConfirm: () => void
 }) {
-    const [confirmPublishOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
-    const handleBack = () => {
-        // todo: go back to the first page without deleting the draft
-    }
+    return (
+        <Stack>
+            <Title order={4} pb="sm">
+                Review your saved draft:
+            </Title>
+            <PreviewDocument url={draftUrl} label={legalDocumentTypeLabels[doctype]} />
+            <Group pt="md">
+                <Button variant="outline" onClick={onBack}>
+                    Back
+                </Button>
+                <Button onClick={onConfirm}>Publish</Button>
+            </Group>
+        </Stack>
+    )
+}
 
-    const handlePublish = async () => {
-        const result = await publishLegalDocumentVersionAction({ versionId: draft.id })
-        if (isActionError(result)) {
-            throw new Error(result.error.toString())
-        }
-        onPublish()
-    }
-
-    if (!confirmPublishOpen) {
-        return (
-            <Stack>
-                <Title order={4} pb="sm">
-                    Review your saved draft:
-                </Title>
-                <PreviewDocument url={draft.downloadUrl} label={legalDocumentTypeLabels[doctype]} />
-                <Group pt="md">
-                    <Button variant="outline" onClick={handleBack}>
-                        Back
-                    </Button>
-                    <Button onClick={openConfirm}>Publish</Button>
-                </Group>
-            </Stack>
-        )
-    } else {
-        return (
-            <Stack>
-                <Title order={4} pb="sm">
-                    Publish this file?
-                </Title>
-                <ReadOnlyField label="File" value={draft.fileName} />
-                <Text>
-                    Publishing will trigger an acknowledgment popup for every user, blocking them from logging in until
-                    they acknowledge. This cannot be undone.
-                </Text>
-                <Group pt="md">
-                    <Button variant="outline" onClick={closeConfirm}>
-                        Back
-                    </Button>
-                    <Button onClick={handlePublish}>Confirm</Button>
-                </Group>
-            </Stack>
-        )
-    }
+export function ConfirmPublishForm({
+    draftName,
+    onPublish,
+    onBack,
+}: {
+    draftName: string
+    onPublish: () => void
+    onBack: () => void
+}) {
+    return (
+        <Stack>
+            <Title order={4} pb="sm">
+                Publish this file?
+            </Title>
+            <ReadOnlyField label="File" value={draftName} />
+            <Text>
+                Publishing will trigger an acknowledgment popup for every user, blocking them from logging in. This
+                cannot be undone.
+            </Text>
+            <Group pt="md">
+                <Button variant="outline" onClick={onBack}>
+                    Back
+                </Button>
+                <Button onClick={onPublish}>Confirm</Button>
+            </Group>
+        </Stack>
+    )
 }
 
 // todo: tests
