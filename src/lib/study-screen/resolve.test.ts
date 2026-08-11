@@ -29,6 +29,34 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('study-results')
     })
+    it('OTTER-695: feedback-only decision on a clean run → outputs-feedback (out-ranks study-results)', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
+            ).screen,
+        ).toBe('outputs-feedback')
+    })
+    it('OTTER-695: share-outputs decision (resultsApproved) still → study-results', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }),
+            ).screen,
+        ).toBe('study-results')
+    })
+    it('OTTER-695: clean run with no files decision yet (RUN-COMPLETE) still → study-results, not outputs-feedback', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({
+                    hasResults: true,
+                    resultsDisplayStatus: 'RUN-COMPLETE',
+                    codeDecision: 'CODE-APPROVED',
+                }),
+            ).screen,
+        ).toBe('study-results')
+    })
     it('errored job with a stale code decision (resubmission) → code-under-review, NOT study-results (OTTER-598)', () => {
         // Edge case raised in PR #837: resultsErrored excludes from study-results, the prior
         // CODE-APPROVED was dropped by dropStale (so codeDecision is null and codeAwaitingDecision
@@ -106,6 +134,18 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             resultsApproved: true,
         })
         expect(resolveResearcherCodeScreen(resultsStudy)).toEqual({ screen: 'code-approved' })
+    })
+
+    it('OTTER-695: feedback-only results study → approved-code screen (Previous step target)', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            hasResults: true,
+            resultsRejected: true,
+        })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
     })
 
     it('picks the code screen by state: changes-requested → code-feedback', () => {

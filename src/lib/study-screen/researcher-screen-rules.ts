@@ -6,6 +6,11 @@ import { awaitingFilesDecisionOnError } from './state'
 // The live contract is the researcher table in docs/study-screens-logic.md — extend from there.
 
 export const RESEARCHER_SCREEN_RULES = [
+    // Share-feedback-only decision on a clean run (FILES-REJECTED without JOB-ERRORED): the
+    // researcher reads the feedback and resubmits (OTTER-695). Out-ranks study-results, which would
+    // otherwise claim any FILES-* decision; an errored run's FILES-REJECTED stays below.
+    ['outputs-feedback', { when: (s) => s.resultsRejected && !s.resultsErrored }],
+
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
     // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher sits on
     // outputs-pending below (the job's JOB-* statuses keep isExecuting true), or on code-under-review

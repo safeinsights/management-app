@@ -131,16 +131,21 @@ raw jobs.
 
 | #   | When                                                                             | Screen              |
 | --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
-| 2   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
-| 3   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
-| 4   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 5   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 6   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 7   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 8   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 9   | `isDraft`                                                                        | `study-overview`    |
-| 10  | fallback                                                                         | `study-overview`    |
+| 1   | `resultsRejected && !resultsErrored`                                             | `outputs-feedback`  |
+| 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
+| 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
+| 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
+| 5   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
+| 6   | `codeAwaitingDecision`                                                           | `code-under-review` |
+| 7   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
+| 8   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
+| 9   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
+| 10  | `isDraft`                                                                        | `study-overview`    |
+| 11  | fallback                                                                         | `study-overview`    |
+
+Researcher precedence note (OTTER-695): rule #1 claims a clean run decided with **Share feedback
+only** before `study-results` can; an errored run's `FILES-REJECTED` and `resultsApproved` both
+still fall through to `study-results` (#2).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
