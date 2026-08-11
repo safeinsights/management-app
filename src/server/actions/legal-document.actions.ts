@@ -1,5 +1,6 @@
 'use server'
 
+import { sql } from 'kysely'
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
 import type { LegalDocumentType } from '@/database/types'
@@ -23,6 +24,10 @@ import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'tos' && type !== 'pn'
+
+// signed_at is a `date` column. Reading it through the driver yields a Date at UTC midnight, which
+// renders as the previous day west of UTC — so cast to text and keep it a 'YYYY-MM-DD' string.
+const signedAtAsText = sql<string | null>`legal_document_version.signed_at::text`
 
 type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
@@ -197,7 +202,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
                 'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.createdAt',
-                'legalDocumentVersion.signedAt',
+                signedAtAsText.as('signedAt'),
                 'user.fullName as publishedByName',
             ])
             .where('legalDocumentId', '=', legalDocument.id)
@@ -437,7 +442,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
                 'legalDocumentVersion.publishedAt',
-                'legalDocumentVersion.signedAt',
+                signedAtAsText.as('signedAt'),
                 'org.id as orgId',
                 'org.name as orgName',
             ])
@@ -489,7 +494,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
                 'legalDocumentVersion.publishedAt',
-                'legalDocumentVersion.signedAt',
+                signedAtAsText.as('signedAt'),
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'researchLab.name as researchLabName',
