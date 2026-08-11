@@ -2,6 +2,7 @@
 import { useForm, useMutation } from '@/common'
 import { reportError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
+import { markOrgJoined } from '@/lib/joined-org'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
@@ -10,7 +11,6 @@ import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { isNotEmpty } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
@@ -97,10 +97,9 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
 
                                 redirectUrl = Routes.orgDashboard({ orgSlug: org.slug }) as Route
 
-                                notifications.show({
-                                    color: 'green',
-                                    message: `You've successfully joined ${org.name}.`,
-                                })
+                                // Same one-shot flag the join-team page sets, so this path lands on
+                                // the dashboard banner.
+                                markOrgJoined(org.name)
                                 await auth.getToken({ skipCache: true })
                             } catch (error) {
                                 // The invite is still live (a failed accept rolls the claim
