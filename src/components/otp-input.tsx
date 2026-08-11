@@ -1,6 +1,8 @@
+'use client'
+
 import { PinInput } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { revalidateOnBlur, widgetBlurHandler } from '@/components/form-field'
+import { revalidateOnBlur, useWidgetBlur } from '@/components/form-field'
 
 const CODE_LENGTH = 6
 
@@ -23,9 +25,10 @@ const CODE_LENGTH = 6
  */
 const OtpInput = ({ form, errorId }: { form: UseFormReturnType<{ code: string }>; errorId?: string }) => {
     const hasError = Boolean(form.errors.code)
+    const widgetBlur = useWidgetBlur(revalidateOnBlur(form, 'code'))
 
     return (
-        <div onBlur={widgetBlurHandler(revalidateOnBlur(form, 'code'))}>
+        <div {...widgetBlur}>
             <PinInput
                 autoFocus
                 length={CODE_LENGTH}

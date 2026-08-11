@@ -54,7 +54,16 @@ export const SignInForm: FC<{
             email: '',
             password: '',
         },
-        validate: zodResolver(signInSchema),
+        // errorPriority: the resolver assigns issues in order, so the LAST one wins by default.
+        // An empty email fails both `min(1)` and `email()`, and reported "Invalid email" when the
+        // field was simply blank. First-issue priority keeps each message on its own case
+        // (blank / malformed / too long) (OTTER-647).
+        //
+        // Scoped here rather than baked into the `@/common` re-export deliberately: any schema
+        // stacking `min(1)` before a format check has the same latent problem, but flipping the
+        // default would rewrite the messages of every other form in the app, none of which this
+        // card covers. Worth its own card, with the messages re-read form by form.
+        validate: zodResolver(signInSchema, { errorPriority: 'first' }),
     })
 
     if (!signIn || mfa) return null
