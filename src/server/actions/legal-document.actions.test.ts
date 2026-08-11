@@ -1,7 +1,7 @@
 import { sql } from 'kysely'
 import { describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
-import { createSignedUploadUrl, signedUrlForFile } from '@/server/aws'
+import { createSignedUploadUrlForKey, signedUrlForFile } from '@/server/aws'
 import {
     actionResult,
     faker,
@@ -28,7 +28,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
         // with mockReset, which restores the implementation given here but wipes a value set after.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrl: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
 
@@ -65,9 +65,10 @@ describe('createLegalDocumentDraftAction', () => {
         expect(legalDocument.studyId).toBeNull()
         expect(version.publishedAt).toBeNull()
         expect(version.versionNumber).toBeNull()
-        expect(version.filePath).toBe(`legal/tos/${legalDocument.id}/${version.id}/terms.md`)
-        // Must be the directory the stored file_path sits in, or uploads land where no row points.
-        expect(vi.mocked(createSignedUploadUrl)).toHaveBeenCalledWith(`legal/tos/${legalDocument.id}/${version.id}`)
+        expect(version.filePath).toBe(`legal/tos/${legalDocument.id}/${version.id}`)
+        expect(version.fileName).toBe('terms.md')
+        // Must be the exact key the stored file_path names, or the upload lands where no row points.
+        expect(vi.mocked(createSignedUploadUrlForKey)).toHaveBeenCalledWith(version.filePath)
     })
 
     it('reuses the existing document rather than creating a second one for the same scope', async () => {

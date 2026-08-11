@@ -16,6 +16,8 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
 
 // The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
 // are global — one document each, no org or study scope — so the audience is simply everybody.
+// Adding sla here also means retiring study.researcherAgreementsAckedAt / reviewerAgreementsAckedAt;
+// two agreement gates on the same study would disagree.
 export const enforcedLegalDocumentTypes = ['tos', 'pn'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]

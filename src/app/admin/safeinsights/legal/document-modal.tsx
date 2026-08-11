@@ -119,9 +119,6 @@ export function ReviewAndPublishForm({
         onPublish()
     }
 
-    // trim path to get file name; the whole path stands in if it has no separator
-    const fileName = draft.filePath.split('/').at(-1) ?? draft.filePath
-
     if (!confirmPublishOpen) {
         return (
             <Stack>
@@ -143,7 +140,7 @@ export function ReviewAndPublishForm({
                 <Title order={4} pb="sm">
                     Publish this file?
                 </Title>
-                <ReadOnlyField label="File" value={fileName} />
+                <ReadOnlyField label="File" value={draft.fileName} />
                 <Text>
                     Publishing will trigger an acknowledgment popup for every user, blocking them from logging in until
                     they acknowledge. This cannot be undone.

@@ -18,9 +18,8 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
-import { pathForLegalDocumentVersionFile } from '@/lib/paths'
+import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
-import { IS_CI } from './common.helpers'
 
 // openstax is the canonical e2e org pair: the researcher submits from the lab
 // (openstax-lab) and the reviewer reviews in the enclave (openstax). Matches the
@@ -396,9 +395,9 @@ const PENDING_ACK_ROLE: SeedRole = 'legal'
 // real people behind a stub.
 const DISPOSABLE_DB_HOSTS = ['localhost', '127.0.0.1', 'postgres', 'db', 'db-unit-test']
 
+// Runs on CI too: the CI service hostnames are already listed above, so exempting CI would only
+// remove the check where no human is looking at the target.
 const assertDisposableDatabase = () => {
-    if (IS_CI) return
-
     // Unset is refused rather than tolerated: databaseURL() falls back to the DB_SECRET_ARN secret,
     // which is how a deployed environment resolves its database.
     const databaseUrl = process.env.DATABASE_URL
@@ -461,10 +460,7 @@ async function ensurePublishedVersions(type: 'tos' | 'pn', contents: string[], p
 
     for (let index = existing.length; index < contents.length; index++) {
         const versionId = uuidv7()
-        const filePath = pathForLegalDocumentVersionFile(
-            { type, legalDocumentId, versionId },
-            `${type}-v${index + 1}.md`,
-        )
+        const filePath = pathForLegalDocumentVersion({ type, legalDocumentId, versionId })
         await uploadLegalContent(filePath, contents[index])
 
         const version = await db
@@ -473,6 +469,7 @@ async function ensurePublishedVersions(type: 'tos' | 'pn', contents: string[], p
                 id: versionId,
                 legalDocumentId,
                 filePath,
+                fileName: `${type}-v${index + 1}.md`,
                 format: 'markdown',
                 versionNumber: index + 1,
                 publishedAt: new Date(),
@@ -487,11 +484,15 @@ async function ensurePublishedVersions(type: 'tos' | 'pn', contents: string[], p
     return versionIds
 }
 
-async function acknowledgeVersions(userId: string, versionIds: string[]) {
-    if (!versionIds.length) return
+async function acknowledgeVersions(userIds: string[], versionIds: string[]) {
+    if (!userIds.length || !versionIds.length) return
     await db
         .insertInto('legalDocumentAcknowledgement')
-        .values(versionIds.map((legalDocumentVersionId) => ({ legalDocumentVersionId, userId })))
+        .values(
+            userIds.flatMap((userId) =>
+                versionIds.map((legalDocumentVersionId) => ({ legalDocumentVersionId, userId })),
+            ),
+        )
         .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
         .execute()
 }
@@ -520,14 +521,16 @@ export async function seedLegalDocuments() {
 
     const currentVersionIds = [tosVersionIds.at(-1), pnVersionIds.at(-1)].filter((id) => id !== undefined)
 
-    // Derived from the role table rather than listed: a role added later would otherwise be seeded
-    // owing a Terms of Service, and its specs would fail against a modal nobody went looking for.
-    const upToDateRoles = (Object.keys(FIXED_USER_IDS) as SeedRole[]).filter((role) => role !== PENDING_ACK_ROLE)
-    for (const role of upToDateRoles) {
-        await acknowledgeVersions(await resolveUserId(role), currentVersionIds)
-    }
+    // Every other user in the database, not just the fixture roles. This also runs against a local
+    // dev database holding QA logins and the developer's own row, and anyone left un-acked meets a
+    // modal quoting a test stub with no clue which test run put it there.
+    const others = await db.selectFrom('user').select('id').where('id', '!=', legalUserId).execute()
+    await acknowledgeVersions(
+        others.map((user) => user.id),
+        currentVersionIds,
+    )
 
-    await acknowledgeVersions(legalUserId, [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
+    await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
 }
 
 export { ENCLAVE_SLUG, LAB_SLUG }

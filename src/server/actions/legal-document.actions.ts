@@ -1,10 +1,9 @@
 'use server'
 
-import { sql } from 'kysely'
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
 import type { LegalDocumentType } from '@/database/types'
-import { pathForLegalDocumentVersion, pathForLegalDocumentVersionFile } from '@/lib/paths'
+import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     acknowledgeLegalDocumentSchema,
@@ -18,14 +17,9 @@ import {
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
-import { createSignedUploadUrl, signedUrlForFile } from '../aws'
+import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
-
-// A signature day has no instant, so the column is a `date`. node-postgres would otherwise read it
-// back as a Date at server-local midnight, which renders a day early or late once the server and
-// the browser disagree about their zone.
-const signedAtAsText = sql<string | null>`legal_document_version.signed_at::text`
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'tos' && type !== 'pn'
@@ -110,16 +104,18 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
             .where('publishedAt', 'is', null)
             .execute()
 
-        // Generated up front so the S3 prefix and stored file_path agree without a second round-trip.
+        // Generated up front so the stored file_path is the key the upload is signed for, without a
+        // second round-trip.
         const versionId = uuidv7()
-        const pathParts = { type, legalDocumentId: legalDocument.id, versionId }
+        const filePath = pathForLegalDocumentVersion({ type, legalDocumentId: legalDocument.id, versionId })
 
         const version = await db
             .insertInto('legalDocumentVersion')
             .values({
                 id: versionId,
                 legalDocumentId: legalDocument.id,
-                filePath: pathForLegalDocumentVersionFile(pathParts, fileName),
+                filePath,
+                fileName,
                 format: legalDocumentFormats[type],
             })
             .returningAll()
@@ -128,8 +124,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
         return {
             legalDocument,
             version,
-            // Takes a prefix and appends the client's filename, hence file_path built from the same one.
-            upload: await createSignedUploadUrl(pathForLegalDocumentVersion(pathParts)),
+            upload: await createSignedUploadUrlForKey(filePath),
         }
     })
 
@@ -198,11 +193,12 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
                 'legalDocumentVersion.id',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
                 'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.createdAt',
+                'legalDocumentVersion.signedAt',
                 'user.fullName as publishedByName',
-                signedAtAsText.as('signedAt'),
             ])
             .where('legalDocumentId', '=', legalDocument.id)
             .orderBy('legalDocumentVersion.versionNumber', 'desc')
@@ -441,7 +437,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
                 'legalDocumentVersion.publishedAt',
-                signedAtAsText.as('signedAt'),
+                'legalDocumentVersion.signedAt',
                 'org.id as orgId',
                 'org.name as orgName',
             ])
@@ -493,7 +489,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
                 'legalDocumentVersion.publishedAt',
-                signedAtAsText.as('signedAt'),
+                'legalDocumentVersion.signedAt',
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'researchLab.name as researchLabName',

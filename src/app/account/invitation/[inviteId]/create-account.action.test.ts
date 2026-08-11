@@ -162,7 +162,8 @@ describe('Create Account Actions', () => {
                 .insertInto('legalDocumentVersion')
                 .values({
                     legalDocumentId,
-                    filePath: 'legal/tos/terms.md',
+                    filePath: 'legal/tos/terms',
+                    fileName: 'terms.md',
                     format: 'markdown',
                     versionNumber: Number(maxVersion ?? 0) + 1,
                     publishedAt: new Date(),
@@ -201,7 +202,7 @@ describe('Create Account Actions', () => {
                 .execute()
             const draft = await db
                 .insertInto('legalDocumentVersion')
-                .values({ legalDocumentId, filePath: 'legal/tos/draft.md', format: 'markdown' })
+                .values({ legalDocumentId, filePath: 'legal/tos/draft', fileName: 'draft.md', format: 'markdown' })
                 .returning('id')
                 .executeTakeFirstOrThrow()
             const invite = await createInvite()

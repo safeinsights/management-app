@@ -142,13 +142,14 @@ export interface LegalDocumentAcknowledgement {
 
 export interface LegalDocumentVersion {
     createdAt: Generated<Timestamp>
+    fileName: string
     filePath: string
     format: string
     id: Generated<string>
     legalDocumentId: string
     publishedAt: Timestamp | null
     publishedBy: string | null
-    signedAt: Timestamp | null
+    signedAt: string | null
     versionNumber: number | null
 }
 

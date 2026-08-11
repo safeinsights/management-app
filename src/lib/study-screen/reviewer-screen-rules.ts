@@ -35,6 +35,7 @@ export const REVIEWER_SCREEN_RULES = [
 
     // 4. Code submitted, awaiting a decision, agreements NOT acked → the gate screen. Above
     //    code-review: the reviewer must ack before the active review page renders.
+    //    Superseded by legal_document sla acknowledgements once the ack frontend ships; drop then.
     ['reviewer-agreements', { when: (s) => s.codeAwaitingDecision && !s.reviewerAgreementsAcked }],
 
     // 5. Code submitted, awaiting a decision, agreements acked → active code review.
