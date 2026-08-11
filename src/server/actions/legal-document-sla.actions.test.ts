@@ -84,6 +84,19 @@ describe('fetchStudiesAwaitingSlaAction', () => {
         expect(after.some((candidate) => candidate.studyId === study.id)).toBe(false)
     })
 
+    // The document row is written before the file is uploaded, so an abandoned upload must not take
+    // the study out of the picker — nothing is published, so it is absent from the table too, and
+    // the study would be unreachable from either screen.
+    it('keeps offering a study whose only SLA is an unfinished draft', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { study } = await insertStudyWithDistinctOrgs()
+        actionResult(await createLegalDocumentDraftAction({ type: 'sla', studyId: study.id, fileName: 'sla.pdf' }))
+
+        const candidates = actionResult(await fetchStudiesAwaitingSlaAction())
+
+        expect(candidates.some((candidate) => candidate.studyId === study.id)).toBe(true)
+    })
+
     it('ignores studies that have not been approved, since there is nothing signed yet', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs({ status: 'PENDING-REVIEW' })

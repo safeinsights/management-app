@@ -22,6 +22,12 @@ type Props = {
     error: string | null
 }
 
+const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
+    if (!error) return null
+
+    return <Alert color="red">{error}</Alert>
+}
+
 const DocumentSections: FC<{ documents: PendingLegalDocument[] }> = ({ documents }) => (
     <>
         {documents.map((document) => (
@@ -75,9 +81,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
                     label={legalAcknowledgementCheckboxLabel(documents)}
                 />
 
-                <Alert color="red" hidden={!error}>
-                    {error}
-                </Alert>
+                <AcknowledgementError error={error} />
 
                 <Group justify="flex-end">
                     <Button variant="subtle" onClick={onSignOut} disabled={isSubmitting}>

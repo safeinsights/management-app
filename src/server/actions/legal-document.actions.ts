@@ -32,18 +32,44 @@ const requiresSignedAt = (type: LegalDocumentType) => type !== 'tos' && type !==
 
 type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
-// Gives the ability check something to match on, so a later rule can scope these to one org or
-// study without touching the actions.
+const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
+    (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
+
+/**
+ * Resolves who a version binds, for the ability check to match on.
+ *
+ * tos/pn bind everyone (isGlobal). A ropa/dopa binds its org; an sla binds both of its study's orgs
+ * — the Data Partner holding the data (study.orgId) and the Research Lab that submitted it
+ * (study.submittedByOrgId) — which is the same audience the upload confirmation names. An unknown
+ * versionId yields no audience at all, so every condition fails closed.
+ */
 const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { versionId: string }; db: DBExecutor }) => {
     const scope = await db
         .selectFrom('legalDocumentVersion')
         .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
-        .select(['legalDocument.orgId as orgId', 'legalDocument.studyId as studyId'])
+        .leftJoin('study', 'study.id', 'legalDocument.studyId')
+        .select([
+            'legalDocument.type as type',
+            'legalDocument.orgId as orgId',
+            'legalDocument.studyId as studyId',
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+        ])
         .where('legalDocumentVersion.id', '=', versionId)
         .executeTakeFirst()
 
-    return { orgId: scope?.orgId ?? undefined, studyId: scope?.studyId ?? undefined }
+    return {
+        orgId: scope?.orgId ?? undefined,
+        studyId: scope?.studyId ?? undefined,
+        isGlobal: scope ? isEnforcedType(scope.type) : false,
+        audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
+            (orgId): orgId is string => orgId != null,
+        ),
+    }
 }
+
+// Reads none but the globally-scoped documents, which is what the global acknowledge rule grants.
+const globalDocumentScope = async () => ({ isGlobal: true, audienceOrgIds: [] })
 
 // Admin-wide listings have no document to scope against. Needed because the all-optional ability
 // conditions are a TS weak type: params sharing none of those properties won't compile.
@@ -230,9 +256,6 @@ type EnforcedVersion = {
     filePath: string
 }
 
-const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
-    (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
-
 // The current version of each globally-scoped document. Drafts are excluded: nobody can be obliged
 // by something that was never published.
 const latestEnforcedVersions = async (db: DBExecutor): Promise<EnforcedVersion[]> => {
@@ -268,7 +291,7 @@ const contentOf = async (filePath: string) => await (await fetchFileContents(fil
  * what the SI-admin audit reports, so the two views cannot disagree.
  */
 export const fetchPendingLegalAcknowledgementsAction = new Action('fetchPendingLegalAcknowledgementsAction')
-    .middleware(noDocumentScope)
+    .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, session }) => {
         const latest = await latestEnforcedVersions(db)
@@ -498,9 +521,6 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .selectFrom('study')
             .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
             .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
-            .leftJoin('legalDocument', (join) =>
-                join.onRef('legalDocument.studyId', '=', 'study.id').on('legalDocument.type', '=', 'sla'),
-            )
             .select([
                 'study.id as studyId',
                 'study.title as studyTitle',
@@ -511,7 +531,26 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             ])
             .where('study.status', '=', 'APPROVED')
             .where('study.deletedAt', 'is', null)
-            .where('legalDocument.id', 'is', null)
+            // Keyed on a PUBLISHED version, not on the document row: the row is written before the
+            // file is uploaded, so an abandoned upload would otherwise hide the study here while it
+            // is still absent from the agreements table, leaving it unreachable from either screen.
+            .where((eb) =>
+                eb.not(
+                    eb.exists(
+                        eb
+                            .selectFrom('legalDocument')
+                            .innerJoin(
+                                'legalDocumentVersion',
+                                'legalDocumentVersion.legalDocumentId',
+                                'legalDocument.id',
+                            )
+                            .select('legalDocument.id')
+                            .whereRef('legalDocument.studyId', '=', 'study.id')
+                            .where('legalDocument.type', '=', 'sla')
+                            .where('legalDocumentVersion.publishedAt', 'is not', null),
+                    ),
+                ),
+            )
             .orderBy('dataPartner.name')
             .orderBy('researchLab.name')
             .orderBy('study.title')

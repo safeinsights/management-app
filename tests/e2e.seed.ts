@@ -15,11 +15,12 @@
 // authorises the same role the tests sign in as.
 
 import { PutObjectCommand } from '@aws-sdk/client-s3'
-import { randomUUID } from 'node:crypto'
+import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { pathForLegalDocumentVersionFile } from '@/lib/paths'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
+import { IS_CI } from './common.helpers'
 
 // openstax is the canonical e2e org pair: the researcher submits from the lab
 // (openstax-lab) and the reviewer reviews in the enclave (openstax). Matches the
@@ -386,6 +387,32 @@ export async function seedCodeRejected(title: string): Promise<SeedResult> {
 // It lives here rather than in src/database/seeds because those seeds also execute in deployed
 // environments via the migrator Lambda, and a stub Terms of Service must never be published there.
 
+// The one role deliberately left owing something. Every other seeded role is brought up to date.
+const PENDING_ACK_ROLE: SeedRole = 'legal'
+
+// Hosts whose database is disposable: a docker-compose service, a CI service container, or a local
+// one. Publishing a Terms of Service obliges every user of whatever database it lands in, and these
+// documents read "Seeded for end-to-end tests", so anywhere shared has to refuse rather than gate
+// real people behind a stub.
+const DISPOSABLE_DB_HOSTS = ['localhost', '127.0.0.1', 'postgres', 'db', 'db-unit-test']
+
+const assertDisposableDatabase = () => {
+    if (IS_CI) return
+
+    // Unset is refused rather than tolerated: databaseURL() falls back to the DB_SECRET_ARN secret,
+    // which is how a deployed environment resolves its database.
+    const databaseUrl = process.env.DATABASE_URL
+    if (!databaseUrl) throw new Error('DATABASE_URL is not set, so there is no telling which database this would reach')
+
+    const { hostname } = new URL(databaseUrl)
+    if (!DISPOSABLE_DB_HOSTS.includes(hostname)) {
+        throw new Error(
+            `refusing to publish seeded legal documents to '${hostname}': Terms of Service and Privacy Notice are ` +
+                'global, so every user of that environment would be blocked until they acknowledged a test stub',
+        )
+    }
+}
+
 // Two Terms of Service versions so the `legal` role can sit acknowledged at v1 and owing v2, which
 // is the "has been updated" path the card is about.
 const TOS_CONTENT = [
@@ -433,7 +460,7 @@ async function ensurePublishedVersions(type: 'tos' | 'pn', contents: string[], p
     const versionIds = existing.map((version) => version.id)
 
     for (let index = existing.length; index < contents.length; index++) {
-        const versionId = randomUUID()
+        const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersionFile(
             { type, legalDocumentId, versionId },
             `${type}-v${index + 1}.md`,
@@ -472,26 +499,31 @@ async function acknowledgeVersions(userId: string, versionIds: string[]) {
 /**
  * Put every e2e role into a known acknowledgement state.
  *
- * admin / researcher / reviewer are acknowledged up to date so the gate never fires for the specs
- * that use them. `legal` is acknowledged at Terms of Service v1 and at the current Privacy Notice,
- * leaving exactly one thing outstanding — ToS v2 — so the modal takes the "has been updated" path
- * rather than the neutral wording it uses when a new and an updated document arrive together.
+ * Every role but `legal` is acknowledged up to date, so the gate never fires for the specs that use
+ * them. `legal` is acknowledged at Terms of Service v1 and at the current Privacy Notice, leaving
+ * exactly one thing outstanding — ToS v2 — so the modal takes the "has been updated" path rather
+ * than the neutral wording it uses when a new and an updated document arrive together.
  *
  * Its rows are cleared first: the spec acknowledges v2, so a re-run against the same database would
  * otherwise find nothing outstanding and no modal.
  */
 export async function seedLegalDocuments() {
+    assertDisposableDatabase()
+
     const adminId = await resolveUserId('admin')
 
     const tosVersionIds = await ensurePublishedVersions('tos', TOS_CONTENT, adminId)
     const pnVersionIds = await ensurePublishedVersions('pn', PN_CONTENT, adminId)
 
-    const legalUserId = await resolveUserId('legal')
+    const legalUserId = await resolveUserId(PENDING_ACK_ROLE)
     await db.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', legalUserId).execute()
 
     const currentVersionIds = [tosVersionIds.at(-1), pnVersionIds.at(-1)].filter((id) => id !== undefined)
 
-    for (const role of ['admin', 'researcher', 'reviewer'] as const) {
+    // Derived from the role table rather than listed: a role added later would otherwise be seeded
+    // owing a Terms of Service, and its specs would fail against a modal nobody went looking for.
+    const upToDateRoles = (Object.keys(FIXED_USER_IDS) as SeedRole[]).filter((role) => role !== PENDING_ACK_ROLE)
+    for (const role of upToDateRoles) {
         await acknowledgeVersions(await resolveUserId(role), currentVersionIds)
     }
 

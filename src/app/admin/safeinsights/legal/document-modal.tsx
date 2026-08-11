@@ -119,8 +119,8 @@ export function ReviewAndPublishForm({
         onPublish()
     }
 
-    // trim path to get file name
-    const fileName = draft.filePath.split('/').at(-1)
+    // trim path to get file name; the whole path stands in if it has no separator
+    const fileName = draft.filePath.split('/').at(-1) ?? draft.filePath
 
     if (!confirmPublishOpen) {
         return (

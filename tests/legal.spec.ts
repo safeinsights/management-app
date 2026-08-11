@@ -33,7 +33,8 @@ test.describe('SafeInsights Legal', () => {
         await page.getByLabel('Signed on').fill(SIGNED_ON)
         await page.locator('input[type="file"]').setInputFiles(pdfFixture())
 
-        await page.getByRole('button', { name: 'Publish' }).click()
+        // Exact: 'Publish' would also substring-match the confirmation's 'Yes, publish'.
+        await page.getByRole('button', { name: 'Publish', exact: true }).click()
 
         // The card asks for a second, separate confirmation before anything is written.
         const confirmation = page.getByRole('dialog').filter({ hasText: 'Publish this file?' })

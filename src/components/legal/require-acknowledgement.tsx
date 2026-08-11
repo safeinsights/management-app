@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
+import { actionResult } from '@/lib/utils'
 import {
     acknowledgeLegalDocumentAction,
     fetchPendingLegalAcknowledgementsAction,
@@ -32,12 +33,18 @@ function usePendingLegalAcknowledgements() {
         error,
     } = useMutation({
         // One row per document, so the evidence stays per-document however many checkboxes were
-        // shown. A partial failure is safe: the written acks are idempotent and the modal simply
-        // re-renders with whatever is still outstanding.
-        mutationFn: async (pending: PendingLegalDocument[]) =>
+        // shown. actionResult is what makes a failure visible at all: actions resolve with
+        // { error } rather than rejecting, so without it a refused acknowledgement would run
+        // onSuccess and silently reopen the modal saying nothing. A partial failure is safe to
+        // retry — the acks are idempotent and the modal re-renders with whatever is outstanding.
+        mutationFn: async (pending: PendingLegalDocument[]) => {
             await Promise.all(
-                pending.map((document) => acknowledgeLegalDocumentAction({ versionId: document.versionId })),
-            ).then(() => ({ acknowledged: true })),
+                pending.map(async (document) =>
+                    actionResult(await acknowledgeLegalDocumentAction({ versionId: document.versionId })),
+                ),
+            )
+            return { acknowledged: true }
+        },
         onSuccess: async () => {
             setIsChecked(false)
             await queryClient.invalidateQueries({ queryKey: PENDING_LEGAL_ACKNOWLEDGEMENTS_QUERY_KEY })

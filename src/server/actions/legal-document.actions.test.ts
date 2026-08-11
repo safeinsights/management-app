@@ -281,6 +281,48 @@ describe('acknowledgeLegalDocumentAction', () => {
         expect(acks[0]!.ackedAt).toEqual(first.ackedAt)
     })
 
+    // An acknowledgement is the compliance evidence, so a version id alone must not be enough to
+    // record consent to an agreement that binds somebody else's organization.
+    it('lets a member of the signing org acknowledge its participation agreement', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const slug = faker.string.alpha(10)
+        const org = await insertTestOrg({ slug, type: 'enclave' })
+        const { version } = actionResult(
+            await createLegalDocumentDraftAction({ type: 'dopa', orgId: org.id, fileName: 'dopa.pdf' }),
+        )
+        const published = await publish(version.id, '2026-07-27')
+
+        // Same slug, so the helper reuses the org above and the user is a member of it.
+        const { user } = await mockSessionWithTestData({ orgSlug: slug, orgType: 'enclave' })
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
+
+        const acks = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .selectAll('legalDocumentAcknowledgement')
+            .where('legalDocumentVersionId', '=', published.id)
+            .execute()
+
+        expect(acks).toHaveLength(1)
+        expect(acks[0]!.userId).toBe(user.id)
+    })
+
+    it('refuses a user outside the org an agreement binds', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('dopa')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData()
+        const result = await acknowledgeLegalDocumentAction({ versionId: published.id })
+
+        expect(result).toHaveProperty('error')
+        const acks = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .selectAll('legalDocumentAcknowledgement')
+            .where('legalDocumentVersionId', '=', published.id)
+            .execute()
+        expect(acks).toHaveLength(0)
+    })
+
     it('refuses to acknowledge a draft, which no one has been shown', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const draft = await createDraft()

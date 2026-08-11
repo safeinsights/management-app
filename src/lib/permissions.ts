@@ -53,10 +53,14 @@ export function defineAbilityFor(session: UserSession) {
     permit('reset', 'MFA')
     permit('view', 'Orgs')
 
-    // Unconditioned: an acknowledgement is the user asserting something about themselves, and the
-    // action keys the row to session.user.id and refuses unpublished versions. Deliberately does NOT
-    // widen 'view', which would hand every user the SI-admin acknowledgement audit listings.
-    permit('acknowledge', 'LegalDocument')
+    // Who may acknowledge a document is who the document binds. tos/pn are global, so everyone; a
+    // ropa/dopa binds its org's members and an sla binds both of its study's orgs, which the actions'
+    // middleware resolves into audienceOrgIds. Two OR-combined rules rather than one unconditioned
+    // rule, so a crafted versionId cannot record consent to another org's agreement. Both conditions
+    // fail closed when their field is absent. Deliberately does NOT widen 'view', which would hand
+    // every user the SI-admin acknowledgement audit listings.
+    permit('acknowledge', 'LegalDocument', { isGlobal: true })
+    permit('acknowledge', 'LegalDocument', { audienceOrgIds: { $in: usersOrgIds } })
 
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')

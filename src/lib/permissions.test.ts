@@ -219,6 +219,31 @@ test('SI admin (manage/all) grants every action across subjects', () => {
     expect(ability.can('revoke', toRecord('PendingUser', { orgId: someOrg }))).toBe(true)
 })
 
+test('acknowledging a legal document is bounded by the audience it binds', () => {
+    const { ability, session } = createAbilty({}, 'enclave')
+    const orgId = session.orgs.test.id
+    const otherOrgId = faker.string.uuid()
+
+    // tos/pn are global, so everyone owes them and everyone may record it.
+    expect(ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: true, audienceOrgIds: [] }))).toBe(true)
+
+    // A ropa/dopa binds one org: its own members, nobody else's.
+    expect(ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [orgId] }))).toBe(
+        true,
+    )
+    expect(
+        ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [otherOrgId] })),
+    ).toBe(false)
+
+    // An sla names both of its study's orgs; belonging to either side is enough.
+    expect(
+        ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [otherOrgId, orgId] })),
+    ).toBe(true)
+
+    // An unknown version resolves to no audience at all, and both conditions fail closed.
+    expect(ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [] }))).toBe(false)
+})
+
 test('non-SI-admin is still bounded (manage/all does not leak to regular users)', () => {
     // Guards the wildcard: a plain enclave reviewer must NOT gain blanket permission.
     const { ability } = createAbilty({}, 'enclave', { isSiAdmin: false })

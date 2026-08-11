@@ -17,10 +17,11 @@ import {
     fetchParticipationSignatoriesAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { Button, Group, Select, Stack, Text, TextInput } from '@mantine/core'
+import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { PdfDropzone } from '../pdf-dropzone'
 import { ReadOnlyField } from '../read-only-field'
+import { SignedOnInput } from '../signed-on-input'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
@@ -195,15 +196,7 @@ export const UploadParticipationAgreementForm: FC<{
             <SignatorySelect isVisible={!signatory} orgLabel={orgLabel} choice={choice} />
             <ChosenSignatory orgLabel={orgLabel} signatory={signatory} />
             <VersionNote versionNumber={chosen?.versionNumber} />
-            {/* Native date input keeps this a plain YYYY-MM-DD string; a Date would land a day
-                early west of the server. */}
-            <TextInput
-                type="date"
-                label="Signed on"
-                description="The date the signatories signed the agreement"
-                value={signedAt}
-                onChange={(event) => setSignedAt(event.currentTarget.value)}
-            />
+            <SignedOnInput value={signedAt} onChange={setSignedAt} />
             <PdfDropzone label={`Signed ${legalDocumentTypeLabels[type]}`} file={file} onChange={setFile} />
             <Group justify="flex-end">
                 {/* Publishing is what makes the agreement enforceable, so there is no separate

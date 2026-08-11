@@ -126,21 +126,45 @@ describe('Create Account Actions', () => {
                 .returningAll()
                 .executeTakeFirstOrThrow()
 
-        const publishTos = async () => {
-            const document = await db
+        // Terms of Service are globally scoped, so at most one row can ever exist and a database the
+        // e2e seed has touched already holds it. Find-or-create rather than insert, the same way
+        // createLegalDocumentDraftAction does — a plain insert returns nothing on conflict and throws.
+        const findOrCreateTosDocument = async () => {
+            const inserted = await db
                 .insertInto('legalDocument')
                 .values({ type: 'tos', orgId: null, studyId: null })
                 .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
                 .returning('id')
+                .executeTakeFirst()
+            if (inserted) return inserted.id
+
+            const existing = await db
+                .selectFrom('legalDocument')
+                .select('id')
+                .where('type', '=', 'tos')
+                .where('orgId', 'is', null)
+                .where('studyId', 'is', null)
+                .executeTakeFirstOrThrow()
+            return existing.id
+        }
+
+        const publishTos = async () => {
+            const legalDocumentId = await findOrCreateTosDocument()
+            // Numbered past whatever the document already carries, or the version-number unique
+            // constraint fires on a seeded database.
+            const { maxVersion } = await db
+                .selectFrom('legalDocumentVersion')
+                .select((eb) => eb.fn.max('versionNumber').as('maxVersion'))
+                .where('legalDocumentId', '=', legalDocumentId)
                 .executeTakeFirstOrThrow()
 
             return await db
                 .insertInto('legalDocumentVersion')
                 .values({
-                    legalDocumentId: document.id,
+                    legalDocumentId,
                     filePath: 'legal/tos/terms.md',
                     format: 'markdown',
-                    versionNumber: 1,
+                    versionNumber: Number(maxVersion ?? 0) + 1,
                     publishedAt: new Date(),
                     publishedBy: invitingUser.user.id,
                 })
@@ -168,15 +192,16 @@ describe('Create Account Actions', () => {
         // A draft was never shown to anyone, so agreeing to one would be evidence of nothing. The
         // account is still created — the app-wide gate collects a real acknowledgement later.
         it('ignores a version that was never published', async () => {
-            const document = await db
-                .insertInto('legalDocument')
-                .values({ type: 'tos', orgId: null, studyId: null })
-                .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
-                .returning('id')
-                .executeTakeFirstOrThrow()
+            const legalDocumentId = await findOrCreateTosDocument()
+            // Only one draft may be outstanding per document; clear any the seed left behind.
+            await db
+                .deleteFrom('legalDocumentVersion')
+                .where('legalDocumentId', '=', legalDocumentId)
+                .where('publishedAt', 'is', null)
+                .execute()
             const draft = await db
                 .insertInto('legalDocumentVersion')
-                .values({ legalDocumentId: document.id, filePath: 'legal/tos/draft.md', format: 'markdown' })
+                .values({ legalDocumentId, filePath: 'legal/tos/draft.md', format: 'markdown' })
                 .returning('id')
                 .executeTakeFirstOrThrow()
             const invite = await createInvite()
