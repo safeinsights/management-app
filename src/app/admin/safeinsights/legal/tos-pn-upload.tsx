@@ -1,21 +1,32 @@
 'use client'
 
-import { useQuery, useQueryClient } from '@/common'
+import { useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor, Collapse } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
-import { DraftForm, PreviewDocument, ReviewAndPublishForm, type Draft } from './document-modal'
+import { ConfirmPublishForm, DraftForm, PreviewDocument, ReviewPrePublishForm } from './document-modal'
 import { useDisclosure } from '@mantine/hooks'
-import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
+import {
+    fetchLegalDocumentVersionsAction,
+    publishLegalDocumentVersionAction,
+} from '@/server/actions/legal-document.actions'
 import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { ToggleChevron } from '@/components/icons'
+import { isActionError } from '@/lib/errors'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
+
+type ModalPage = 'upload' | 'review' | 'confirm'
+
+export type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
+const getDraftName = (draft: Draft) => {
+    return draft.filePath.split('/').at(-1) ?? draft.filePath
+}
 
 function UploadModalContents({
     doctype,
@@ -26,19 +37,35 @@ function UploadModalContents({
     draft: Draft | null
     onClose: () => void
 }) {
+    const [page, setPage] = useState<ModalPage>(draft ? 'review' : 'upload')
     const queryClient = useQueryClient()
+    const draftName = draft ? getDraftName(draft) : null
     const handleDraftSaved = () => {
         queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+        setPage('review')
     }
-    const handlePublished = () => {
+    const handlePublish = async () => {
+        const result = await publishLegalDocumentVersionAction({ versionId: draft.id })
+        if (isActionError(result)) {
+            throw new Error(result.error.toString())
+        }
         queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
         onClose()
     }
-    return draft ? (
-        <ReviewAndPublishForm doctype={doctype} draft={draft} onPublish={handlePublished} />
-    ) : (
-        <DraftForm doctype={doctype} onDraftSaved={handleDraftSaved} />
-    )
+    if (page === 'upload') {
+        return <DraftForm doctype={doctype} draftName={draftName} onDraftSaved={handleDraftSaved} />
+    } else if (page === 'review') {
+        return (
+            <ReviewPrePublishForm
+                doctype={doctype}
+                draftUrl={draft.downloadUrl}
+                onBack={() => setPage('upload')}
+                onConfirm={() => setPage('confirm')}
+            />
+        )
+    } else {
+        return <ConfirmPublishForm draftName={draftName} onBack={() => setPage('review')} onPublish={handlePublish} />
+    }
 }
 
 function ShowVersion({ version, doctype }: { version: PublishedVersion; doctype: LegalDocumentType }) {
