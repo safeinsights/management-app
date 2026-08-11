@@ -121,11 +121,24 @@ export interface WidgetBlurProps<T extends HTMLElement> {
  *   the handler, which is what fixes the toolbar case (OTTER-647): Lexical re-renders the surface
  *   holding the caret, dropping focus to `<body>` with a null `relatedTarget` even though the
  *   user is still writing. Reading that off the focus event is guesswork; reading it off the
- *   press is not.
+ *   press is not. The converse is that the press alone decides, so any outside press counts once
+ *   the widget has been visited, including ones that never move focus: a touch-scroll of the
+ *   page, or a drag-select starting on neutral space. That can surface the error on an empty
+ *   required editor mid-read, and in `research-interests-input` it commits the pending pill.
+ *   Accepted deliberately, because the alternative is to re-couple the press to a focus check,
+ *   which is where the null `relatedTarget` ambiguity came from.
  * - **Keyboard.** `onBlur` handles Tab, which produces no press at all. A non-null
  *   `relatedTarget` outside the widget is unambiguous, so that is the only case it acts on.
  *   A null `relatedTarget` is left to the pointer signal, which also means switching tab or
  *   window no longer needs a `document.hasFocus()` probe: no press, no validation.
+ *
+ *   Escape is the one keyboard exit deliberately *not* covered. `EscapeFocusPlugin` blurs the
+ *   editor root without moving focus anywhere, so it arrives as a null `relatedTarget` with no
+ *   press behind it and is deferred to the next signal. Acting on it here would mean either
+ *   validating every null `relatedTarget` (the OTTER-647 bug) or probing `document.activeElement`
+ *   a tick later, and a bare Escape handler would be worse still: the widgets that do not blur on
+ *   Escape (radio groups, `PinInput`, pills) would flash a required error with the caret still
+ *   inside them. The error still surfaces on the next outside press, or on submit.
  *
  * `onFocus` gates both. Without it an outside press would validate every widget on the page,
  * including ones the user has not reached yet, and the required error would appear on the first
