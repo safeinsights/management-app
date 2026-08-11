@@ -21,6 +21,7 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     jobs: [],
     ...overrides,
 })
@@ -213,5 +214,12 @@ describe('projectStudyState', () => {
         expect(projectStudyState(raw({ status: 'DRAFT', researchQuestions: { q: 1 } })).hasStep2Progress).toBe(true)
         // empty datasets array is not progress
         expect(projectStudyState(raw({ status: 'DRAFT', datasets: [] })).hasStep2Progress).toBe(false)
+    })
+
+    // OTTER-572 follow-up: in collaborative mode Step 2 autosaves into Yjs and leaves every column
+    // empty until an explicit flush, so the document alone has to count as progress.
+    it('hasStep2Progress: true from the collaborative document with every Step 2 column empty', () => {
+        const s = projectStudyState(raw({ status: 'DRAFT', hasStep2CollabDoc: true }))
+        expect(s.hasStep2Progress).toBe(true)
     })
 })

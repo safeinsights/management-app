@@ -1,0 +1,26 @@
+import { sql } from 'kysely'
+import { PROPOSAL_FIELDS_SUFFIX, PROPOSAL_PREFIX, PROPOSAL_TEXT_SLUGS } from '@/lib/collaboration-documents'
+
+// Step 2 of the proposal wizard persists into Yjs, not into the study columns: every edit goes to the
+// `proposal-<studyId>-fields` document or to one per lexical field, and the columns are written only by
+// Previous / View as reviewer / Submit. A draft edited on Step 2 and left by any other exit (nav link,
+// closed tab, back button) therefore has empty Step 2 columns, which used to send the researcher back to
+// the Step 1 picker on reopen (OTTER-572).
+//
+// Every document name Step 2 can write for a study. The fields document alone would very nearly do, since
+// it is created the first time Step 2 mounts (use-yjs-form-map seeds title/datasets/piName/piUserId into a
+// document that does not exist yet), but listing the lexical documents too keeps the signal correct if that
+// seeding ever changes.
+const STEP2_DOC_SUFFIXES = [PROPOSAL_FIELDS_SUFFIX, ...PROPOSAL_TEXT_SLUGS.map((slug) => `-${slug}`)]
+
+const docNameForStudyRow = (suffix: string) => sql`${PROPOSAL_PREFIX} || "study"."id"::text || ${suffix}`
+
+// Exact name equality, never `name like 'proposal-' || id || '-%'`: a pattern built per outer row is not a
+// planner-time constant, so it could not drive a prefix range scan (and a non-C collation would need
+// text_pattern_ops anyway), whereas equality against the outer row resolves through yjs_document's
+// name primary key.
+export const hasStep2CollabDocSql = sql<boolean>`exists (
+    select 1
+      from "yjs_document"
+     where "yjs_document"."name" = any(array[${sql.join(STEP2_DOC_SUFFIXES.map(docNameForStudyRow))}])
+)`

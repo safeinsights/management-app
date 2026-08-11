@@ -27,7 +27,11 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
     Object.entries(FIELD_TO_SLUG).map(([key, slug]) => [slug, key as ProposalTextFieldKey]),
 )
 
-export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}-fields`
+// Exported so SQL that builds the name from a study id column (see hasStep2CollabDocSql) reuses
+// this convention instead of re-spelling it.
+export const PROPOSAL_FIELDS_SUFFIX = '-fields'
+
+export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}${PROPOSAL_FIELDS_SUFFIX}`
 
 // Y.Map name for the collab fields inside the proposal-fields doc. Shared so
 // the client hook and editor service agree on the key.

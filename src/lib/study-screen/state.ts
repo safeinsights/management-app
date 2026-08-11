@@ -118,7 +118,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     return {
         status: raw.status,
         isDraft: raw.status === 'DRAFT',
-        hasStep2Progress: draftHasStep2Progress(raw),
+        hasStep2Progress: draftHasStep2Progress(raw) || raw.hasStep2CollabDoc,
         researcherAgreementsAcked: !!raw.researcherAgreementsAckedAt,
         reviewerAgreementsAcked: !!raw.reviewerAgreementsAckedAt,
         hasAnyJob: raw.jobs.length > 0,

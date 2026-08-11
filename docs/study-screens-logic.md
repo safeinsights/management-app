@@ -116,6 +116,11 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
   stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
+- `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
+  layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
+  document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
+  collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
+  reviewer / Submit, so the columns alone under-report progress (OTTER-572).
 
 ---
 
@@ -207,12 +212,17 @@ share a `guardExecutionStage` helper for their common precondition checks.
 
 | #   | When                                                                                       | Link             | Label                     |
 | --- | ------------------------------------------------------------------------------------------ | ---------------- | ------------------------- |
-| 1   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
-| 2   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
-| 3   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
-| 4   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
-| 5   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
-| 6   | fallback                                                                                   | `studyView`      | `View`                    |
+| 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal`  | `Edit` (+ `delete-draft`) |
+| 2   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
+| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
+| 4   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
+| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
+| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
+| 7   | fallback                                                                                   | `studyView`      | `View`                    |
+
+Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
+draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays
+redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ---
 

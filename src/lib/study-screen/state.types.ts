@@ -14,6 +14,10 @@ export type RawJob = {
 // Step 2 of the proposal wizard is the first time any of these columns is written (Step 1 saves only
 // data partner + language + title + piName + doc paths). Any one being non-empty means the draft reached
 // Step 2 — see draftHasStep2Progress / projectStudyState's hasStep2Progress.
+//
+// These columns are the whole story only in single-user mode. In collaborative mode Step 2 autosaves into
+// Yjs and flushes the columns just on Previous / View as reviewer / Submit, so hasStep2CollabDoc below
+// carries the rest of the signal.
 export type DraftStep2Fields = {
     piUserId: string | null
     datasets: string[] | null
@@ -31,6 +35,9 @@ export type RawStudyState = {
     reviewerAgreementsAckedAt: Date | null
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
+    // The study's Step 2 collaborative document exists, i.e. the draft reached Step 2 even if no flush
+    // ever wrote the DraftStep2Fields columns (OTTER-572). See hasStep2CollabDocSql.
+    hasStep2CollabDoc: boolean
     jobs: ReadonlyArray<RawJob>
 } & DraftStep2Fields
 
@@ -39,8 +46,9 @@ export type RawStudyState = {
 export type StudyState = {
     status: StudyStatus
     isDraft: boolean
-    // A DRAFT that has reached Step 2 of the proposal wizard. Routes a "resume draft" entry to the
-    // step the researcher last left off (OTTER-572) instead of always landing on the Step 1 picker.
+    // A DRAFT that has reached Step 2 of the proposal wizard, from either persistence layer: the flushed
+    // columns (DraftStep2Fields) or the collaborative document (hasStep2CollabDoc). Routes a "resume draft"
+    // entry to the step the researcher last left off (OTTER-572) instead of always landing on Step 1.
     hasStep2Progress: boolean
     researcherAgreementsAcked: boolean
     reviewerAgreementsAcked: boolean

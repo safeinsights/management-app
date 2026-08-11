@@ -22,6 +22,7 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
+import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 import { purgeCodeReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
@@ -115,6 +116,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
+        .select(hasStep2CollabDocSql.as('hasStep2CollabDoc'))
         .orderBy('study.lastUpdatedAt', 'desc')
 }
 
