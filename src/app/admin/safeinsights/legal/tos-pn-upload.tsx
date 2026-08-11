@@ -39,22 +39,33 @@ function UploadModalContents({
 }) {
     const [page, setPage] = useState<ModalPage>(draft ? 'review' : 'upload')
     const queryClient = useQueryClient()
-    const draftName = draft ? getDraftName(draft) : null
-    const handleDraftSaved = () => {
-        queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+    const handleDraftSaved = async () => {
+        await queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
         setPage('review')
     }
     const handlePublish = async () => {
+        if (!draft) return
         const result = await publishLegalDocumentVersionAction({ versionId: draft.id })
         if (isActionError(result)) {
             throw new Error(result.error.toString())
         }
-        queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+        await queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
         onClose()
     }
+
     if (page === 'upload') {
-        return <DraftForm doctype={doctype} draftName={draftName} onDraftSaved={handleDraftSaved} />
-    } else if (page === 'review') {
+        return (
+            <DraftForm
+                doctype={doctype}
+                draftName={draft ? getDraftName(draft) : null}
+                onDraftSaved={handleDraftSaved}
+            />
+        )
+    }
+
+    // Review and Confirm pages require a draft to exist
+    if (!draft) return <LoadingMessage message="Loading draft ..." />
+    if (page === 'review') {
         return (
             <ReviewPrePublishForm
                 doctype={doctype}
@@ -64,7 +75,13 @@ function UploadModalContents({
             />
         )
     } else {
-        return <ConfirmPublishForm draftName={draftName} onBack={() => setPage('review')} onPublish={handlePublish} />
+        return (
+            <ConfirmPublishForm
+                draftName={getDraftName(draft)}
+                onBack={() => setPage('review')}
+                onPublish={handlePublish}
+            />
+        )
     }
 }
 
