@@ -142,6 +142,7 @@ export interface LegalDocumentAcknowledgement {
 
 export interface LegalDocumentVersion {
     createdAt: Generated<Timestamp>
+    fileName: string
     filePath: string
     format: string
     id: Generated<string>

@@ -24,9 +24,6 @@ type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentV
 type ModalPage = 'upload' | 'review' | 'confirm'
 
 export type Draft = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['draft']>
-const getDraftName = (draft: Draft) => {
-    return draft.filePath.split('/').at(-1) ?? draft.filePath
-}
 
 function UploadModalContents({
     doctype,
@@ -54,13 +51,7 @@ function UploadModalContents({
     }
 
     if (page === 'upload') {
-        return (
-            <DraftForm
-                doctype={doctype}
-                draftName={draft ? getDraftName(draft) : null}
-                onDraftSaved={handleDraftSaved}
-            />
-        )
+        return <DraftForm doctype={doctype} draftName={draft ? draft.fileName : null} onDraftSaved={handleDraftSaved} />
     }
 
     // Review and Confirm pages require a draft to exist
@@ -76,11 +67,7 @@ function UploadModalContents({
         )
     } else {
         return (
-            <ConfirmPublishForm
-                draftName={getDraftName(draft)}
-                onBack={() => setPage('review')}
-                onPublish={handlePublish}
-            />
+            <ConfirmPublishForm draftName={draft.fileName} onBack={() => setPage('review')} onPublish={handlePublish} />
         )
     }
 }
