@@ -9,6 +9,7 @@ import {
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
+import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import router from 'next-router-mock'
 import { describe, expect, it, vi } from 'vitest'
@@ -79,6 +80,10 @@ describe('RequestMFA', () => {
                 `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
             ),
         )
+
+        // The banner is deferred until the user is keyed (OTTER-639), so the flag has to survive
+        // the key detour this branch routes them through.
+        expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBe(invitingOrg.name)
     })
 
     // The invite branch reports failure by throwing out of actionResult; if that wrapper is ever
