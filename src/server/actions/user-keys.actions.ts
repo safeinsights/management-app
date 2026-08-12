@@ -1,6 +1,6 @@
 'use server'
 
-import { getUserPublicKey } from '@/server/db/queries'
+import { getOrgInfoForUserId, getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Routes } from '@/lib/routes'
@@ -28,6 +28,33 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
     .handler(async ({ session }) => {
         const key = await getUserPublicKey(session.user.id)
         return Boolean(key)
+    })
+
+// Both answers the key page needs, resolved against one session: whether the account already holds
+// a key, and where a first key should land when no destination was carried in (the RequireUserKey
+// guard pushes a bare url, so the page has to answer that itself).
+//
+// The landing is NOT a claim about which org invited the account: a single-org account simply has
+// one dashboard it could land on, so the answer cannot be wrong even though it proves nothing about
+// provenance. Anything ambiguous (no orgs, or several) returns "My dashboard" rather than guessing.
+export const getKeyPageStateAction = new Action('getKeyPageStateAction')
+    .requireAbilityTo('view', 'UserKey')
+    .handler(async ({ session }) => {
+        const hasKey = Boolean(await getUserPublicKey(session.user.id))
+
+        // A reset always returns to "My dashboard", so the org lookup below cannot change the answer.
+        if (hasKey) return { hasKey, firstKeyRedirect: Routes.dashboard }
+
+        // Read from the database, not from session.orgs: that map comes from Clerk metadata, which
+        // is stale exactly when this runs, right after a signup or an invite accept.
+        const orgs = await getOrgInfoForUserId(session.user.id)
+
+        // org.type is deliberately not part of this: the card's audience is "DP & RL" and asks for
+        // both to be sent through key generation, so an enclave member resolves the same way a lab
+        // member does.
+        if (orgs.length !== 1) return { hasKey, firstKeyRedirect: Routes.dashboard }
+
+        return { hasKey, firstKeyRedirect: Routes.orgDashboard({ orgSlug: orgs[0].slug }) }
     })
 
 // No `fingerprint` field: it's derived server-side from `publicKey` (deterministic SHA-256 over the

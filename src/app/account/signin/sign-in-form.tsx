@@ -4,6 +4,7 @@ import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -90,7 +91,9 @@ export const SignInForm: FC<{
                 const result = actionResult(await onUserSignInAction())
                 await getToken({ skipCache: true })
                 if (result?.redirectToKeyGeneration) {
-                    router.push(Routes.accountKeys as Route)
+                    // The validated value, not the raw one: an invalid redirect_url validates to
+                    // the dashboard, which keyGenerationUrl treats as no destination (OTTER-655).
+                    router.push(keyGenerationUrl(validatedRedirect))
                 } else {
                     router.push(validatedRedirect)
                 }
