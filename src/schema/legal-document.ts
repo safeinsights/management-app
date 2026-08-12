@@ -134,6 +134,12 @@ export const fetchLegalDocumentAcknowledgementsSchema = z.object({
         .optional(),
 })
 
+// The columns the audit table can sort by. Org and version are absent on purpose: a user can belong
+// to several orgs, and a missing version is an absence rather than a value to order against.
+export type LegalDocumentAcknowledgementSort = NonNullable<
+    z.infer<typeof fetchLegalDocumentAcknowledgementsSchema>['sort']
+>
+
 // Query keys for the legal-document actions. Not beside the actions themselves — that is a server
 // actions module, so every export there has to be an async function. Centralized because the
 // version-history read was cached under two different roots, one per tab, so an upload invalidated
@@ -145,6 +151,10 @@ export const legalDocumentQueryKeys = {
     // Prefix of the above, so invalidating after a publish reaches every scope of that type without
     // the writer having to know which readers are mounted.
     versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
+    // Sort is part of the key because the action orders the rows: the audience is assembled in
+    // memory, so a re-sort is a new read rather than a client-side shuffle.
+    acknowledgements: (type: LegalDocumentTypeValue, sort: LegalDocumentAcknowledgementSort) =>
+        ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyLevelAgreements: () => ['studyLevelAgreements'] as const,

@@ -6,6 +6,7 @@ import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { AcknowledgementsTable } from './acknowledgements-table'
 import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
 import {
@@ -137,7 +138,7 @@ export function TosPnUpload({ doctype }: { doctype: 'TOS' | 'PN' }) {
                 <AppModal title={label} isOpen={createModalOpened} onClose={closeCreateModal}>
                     <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeCreateModal} />
                 </AppModal>
-                <Text>TBD User Acknowledgment Status</Text>
+                <AcknowledgementsTable type={doctype} />
             </Stack>
         </Paper>
     )
