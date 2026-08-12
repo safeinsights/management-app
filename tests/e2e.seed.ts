@@ -424,7 +424,7 @@ async function uploadLegalContent(key: string, content: string) {
     await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
 }
 
-async function findOrCreateLegalDocument(type: 'tos' | 'pn') {
+async function findOrCreateLegalDocument(type: 'TOS' | 'PN') {
     const inserted = await db
         .insertInto('legalDocument')
         .values({ type, orgId: null, studyId: null })
@@ -445,7 +445,7 @@ async function findOrCreateLegalDocument(type: 'tos' | 'pn') {
 
 // Published version ids for a document, oldest first. Tops up to `contents.length` so a re-run
 // against a database that already holds the seeded versions adds nothing.
-async function ensurePublishedVersions(type: 'tos' | 'pn', contents: string[], publishedBy: string) {
+async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], publishedBy: string) {
     const legalDocumentId = await findOrCreateLegalDocument(type)
 
     const existing = await db
@@ -513,8 +513,8 @@ export async function seedLegalDocuments() {
 
     const adminId = await resolveUserId('admin')
 
-    const tosVersionIds = await ensurePublishedVersions('tos', TOS_CONTENT, adminId)
-    const pnVersionIds = await ensurePublishedVersions('pn', PN_CONTENT, adminId)
+    const tosVersionIds = await ensurePublishedVersions('TOS', TOS_CONTENT, adminId)
+    const pnVersionIds = await ensurePublishedVersions('PN', PN_CONTENT, adminId)
 
     const legalUserId = await resolveUserId(PENDING_ACK_ROLE)
     await db.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', legalUserId).execute()

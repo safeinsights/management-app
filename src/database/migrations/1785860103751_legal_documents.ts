@@ -2,7 +2,7 @@ import { type Kysely, sql } from 'kysely'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function up(db: Kysely<any>): Promise<void> {
-    await db.schema.createType('legal_document_type').asEnum(['tos', 'pn', 'ropa', 'dopa', 'sla']).execute()
+    await db.schema.createType('legal_document_type').asEnum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA']).execute()
 
     await db.schema
         .createTable('legal_document')
@@ -15,14 +15,14 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .addCheckConstraint(
             'legal_document_scope_matches_type',
-            sql`(type IN ('tos','pn') AND org_id IS NULL AND study_id IS NULL)
-             OR (type IN ('ropa','dopa') AND org_id IS NOT NULL AND study_id IS NULL)
-             OR (type = 'sla' AND study_id IS NOT NULL AND org_id IS NULL)`,
+            sql`(type IN ('TOS','PN') AND org_id IS NULL AND study_id IS NULL)
+             OR (type IN ('ROPA','DOPA') AND org_id IS NOT NULL AND study_id IS NULL)
+             OR (type = 'SLA' AND study_id IS NOT NULL AND org_id IS NULL)`,
         )
         .execute()
 
     // NULLS NOT DISTINCT (PG 15+) is required: by default Postgres treats NULLs as distinct, so a
-    // plain UNIQUE would allow duplicate ('tos', NULL, NULL) rows.
+    // plain UNIQUE would allow duplicate ('TOS', NULL, NULL) rows.
     await sql`
         ALTER TABLE legal_document
         ADD CONSTRAINT legal_document_scope_unique

@@ -118,7 +118,7 @@ function VersionHistory({ history, doctype }: { history: PublishedVersion[]; doc
     )
 }
 
-export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
+export function TosPnUpload({ doctype }: { doctype: 'TOS' | 'PN' }) {
     const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
 
     const { data, isLoading, isError, error } = useQuery({

@@ -58,7 +58,7 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
     const seeded = await seedApprovedStudy(title)
 
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'sla', studyId: seeded.study.id, fileName: 'sla.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'SLA', studyId: seeded.study.id, fileName: 'sla.pdf' }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 
@@ -148,6 +148,33 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
 
+    // Confirming used to close the confirmation before the upload started, leaving an idle-looking
+    // form whose Publish button was still live — a second click published a second version of the
+    // same agreement, irreversibly.
+    it('keeps the confirmation up and the form locked while publishing', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const title = `SLA study ${faker.string.alpha(6)}`
+        await seedSignedSla({ signedAt: '2026-07-27', title })
+
+        renderWithProviders(<StudyLevelAgreements />)
+
+        await openNewVersionFor(title)
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
+        chooseFile('signed-sla.pdf')
+        fireEvent.click(await screen.findByRole('button', { name: 'Publish' }))
+
+        const confirmation = await waitFor(() => {
+            const dialog = screen.getAllByRole('dialog').find((el) => within(el).queryByText('Publish this file?'))
+            if (!dialog) throw new Error('confirmation modal did not open')
+            return dialog
+        })
+
+        fireEvent.click(within(confirmation).getByRole('button', { name: 'Yes, publish' }))
+
+        expect(within(confirmation).getByText('Publish this file?')).toBeDefined()
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled())
+    })
+
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         // Seeded rather than relying on whatever else the suite left approved: with no candidates
@@ -184,6 +211,8 @@ describe('StudyLevelAgreements', () => {
             return dialog
         })
 
-        expect(within(history).getByText('2026-07-27')).toBeDefined()
+        // findByText, not getByText: the table header renders before the versions arrive, so the
+        // dialog is on screen while it is still fetching.
+        expect(await within(history).findByText('2026-07-27')).toBeDefined()
     })
 })

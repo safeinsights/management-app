@@ -22,7 +22,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 const insertSignatory = (type: ParticipationAgreementType) =>
-    insertTestOrg({ slug: faker.string.alpha(10), type: type === 'dopa' ? 'enclave' : 'lab' })
+    insertTestOrg({ slug: faker.string.alpha(10), type: type === 'DOPA' ? 'enclave' : 'lab' })
 
 const uploadAndPublish = async (
     type: ParticipationAgreementType,
@@ -42,10 +42,10 @@ const rowFor = async (type: ParticipationAgreementType, orgId: string) => {
 describe('fetchParticipationAgreementsAction', () => {
     it('reports the signed date and a link once an agreement is published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('dopa')
-        await uploadAndPublish('dopa', org.id, '2026-07-27')
+        const org = await insertSignatory('DOPA')
+        await uploadAndPublish('DOPA', org.id, '2026-07-27')
 
-        const row = await rowFor('dopa', org.id)
+        const row = await rowFor('DOPA', org.id)
 
         expect(row?.orgName).toBe(org.name)
         expect(row?.versionNumber).toBe(1)
@@ -58,18 +58,18 @@ describe('fetchParticipationAgreementsAction', () => {
     // upload modal instead.
     it('leaves an org that has not signed out of the table', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('dopa')
+        const org = await insertSignatory('DOPA')
 
-        expect(await rowFor('dopa', org.id)).toBeUndefined()
+        expect(await rowFor('DOPA', org.id)).toBeUndefined()
     })
 
     it('shows only the newest published version for an org', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('ropa')
-        await uploadAndPublish('ropa', org.id, '2026-07-01', 'ropa-v1.pdf')
-        await uploadAndPublish('ropa', org.id, '2026-07-27', 'ropa-v2.pdf')
+        const org = await insertSignatory('ROPA')
+        await uploadAndPublish('ROPA', org.id, '2026-07-01', 'ropa-v1.pdf')
+        await uploadAndPublish('ROPA', org.id, '2026-07-27', 'ropa-v2.pdf')
 
-        const rows = actionResult(await fetchParticipationAgreementsAction({ type: 'ropa' }))
+        const rows = actionResult(await fetchParticipationAgreementsAction({ type: 'ROPA' }))
         const forOrg = rows.filter((row) => row.orgId === org.id)
 
         expect(forOrg).toHaveLength(1)
@@ -79,19 +79,19 @@ describe('fetchParticipationAgreementsAction', () => {
 
     it('leaves an org whose only version is a draft out of the table', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('dopa')
-        actionResult(await createLegalDocumentDraftAction({ type: 'dopa', orgId: org.id, fileName: 'dopa.pdf' }))
+        const org = await insertSignatory('DOPA')
+        actionResult(await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }))
 
         // The document row exists, but nothing has been published against it yet.
-        expect(await rowFor('dopa', org.id)).toBeUndefined()
+        expect(await rowFor('DOPA', org.id)).toBeUndefined()
     })
 
     it("does not let an org's agreement show up under the other type", async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('dopa')
-        await uploadAndPublish('dopa', org.id, '2026-07-27')
+        const org = await insertSignatory('DOPA')
+        await uploadAndPublish('DOPA', org.id, '2026-07-27')
 
-        const rows = actionResult(await fetchParticipationAgreementsAction({ type: 'ropa' }))
+        const rows = actionResult(await fetchParticipationAgreementsAction({ type: 'ROPA' }))
 
         expect(rows.some((row) => row.orgId === org.id)).toBe(false)
     })
@@ -99,18 +99,18 @@ describe('fetchParticipationAgreementsAction', () => {
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        expect(await fetchParticipationAgreementsAction({ type: 'dopa' })).toHaveProperty('error')
+        expect(await fetchParticipationAgreementsAction({ type: 'DOPA' })).toHaveProperty('error')
     })
 })
 
 describe('fetchParticipationSignatoriesAction', () => {
     it('offers Data Partners to a dopa and Research Labs to a ropa, never the other way round', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const dataPartner = await insertSignatory('dopa')
-        const researchLab = await insertSignatory('ropa')
+        const dataPartner = await insertSignatory('DOPA')
+        const researchLab = await insertSignatory('ROPA')
 
-        const forDopa = actionResult(await fetchParticipationSignatoriesAction({ type: 'dopa' }))
-        const forRopa = actionResult(await fetchParticipationSignatoriesAction({ type: 'ropa' }))
+        const forDopa = actionResult(await fetchParticipationSignatoriesAction({ type: 'DOPA' }))
+        const forRopa = actionResult(await fetchParticipationSignatoriesAction({ type: 'ROPA' }))
 
         expect(forDopa.some((org) => org.orgId === dataPartner.id)).toBe(true)
         expect(forDopa.some((org) => org.orgId === researchLab.id)).toBe(false)
@@ -122,10 +122,10 @@ describe('fetchParticipationSignatoriesAction', () => {
     // list the way it does for a study's SLA.
     it('keeps offering an org that has already signed', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const org = await insertSignatory('dopa')
-        await uploadAndPublish('dopa', org.id, '2026-07-27')
+        const org = await insertSignatory('DOPA')
+        await uploadAndPublish('DOPA', org.id, '2026-07-27')
 
-        const signatories = actionResult(await fetchParticipationSignatoriesAction({ type: 'dopa' }))
+        const signatories = actionResult(await fetchParticipationSignatoriesAction({ type: 'DOPA' }))
 
         expect(signatories.some((signatory) => signatory.orgId === org.id)).toBe(true)
     })
@@ -135,7 +135,7 @@ describe('fetchParticipationSignatoriesAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const safeInsights = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
 
-        const signatories = actionResult(await fetchParticipationSignatoriesAction({ type: 'dopa' }))
+        const signatories = actionResult(await fetchParticipationSignatoriesAction({ type: 'DOPA' }))
 
         expect(signatories.some((signatory) => signatory.orgId === safeInsights.id)).toBe(false)
     })
@@ -143,6 +143,6 @@ describe('fetchParticipationSignatoriesAction', () => {
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        expect(await fetchParticipationSignatoriesAction({ type: 'dopa' })).toHaveProperty('error')
+        expect(await fetchParticipationSignatoriesAction({ type: 'DOPA' })).toHaveProperty('error')
     })
 })

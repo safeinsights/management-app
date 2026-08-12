@@ -1,11 +1,7 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient, useState, type FC } from '@/common'
-import { reportError } from '@/components/errors'
-import { AppModal } from '@/components/modals/app-modal'
-import { uploadFiles } from '@/hooks/upload'
+import { useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { actionResult } from '@/lib/utils'
 import {
     legalDocumentQueryKeys,
     legalDocumentTypeLabels,
@@ -13,14 +9,13 @@ import {
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
 import {
-    createLegalDocumentDraftAction,
     fetchParticipationAgreementsAction,
     fetchParticipationSignatoriesAction,
-    publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { PdfDropzone } from '../pdf-dropzone'
+import { ConfirmPublishModal, usePublishAgreement } from '../publish-agreement'
 import { ReadOnlyField } from '../read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
@@ -66,34 +61,10 @@ const useSignatoryChoice = ({ type, fixed }: { type: ParticipationAgreementType;
     }
 }
 
-const useUploadParticipationAgreement = ({
-    type,
-    onComplete,
-}: {
-    type: ParticipationAgreementType
-    onComplete: () => void
-}) => {
-    const queryClient = useQueryClient()
-
-    return useMutation({
-        mutationFn: async ({ orgId, signedAt, file }: { orgId: string; signedAt: string; file: File }) => {
-            // Publish last, so a failed upload leaves a replaceable draft rather than a live
-            // agreement with no file behind it.
-            const { version, upload } = actionResult(
-                await createLegalDocumentDraftAction({ type, orgId, fileName: file.name }),
-            )
-            await uploadFiles([[file, upload]])
-            return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
-        },
-        // Wrapped because react-query's second arg is the variables, which reportError reads as a title.
-        onError: (error: unknown) => reportError(error),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.participationAgreements(type) })
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(type) })
-            onComplete()
-        },
-    })
-}
+const invalidateKeysFor = (type: ParticipationAgreementType) => [
+    legalDocumentQueryKeys.participationAgreements(type),
+    legalDocumentQueryKeys.versionsForType(type),
+]
 
 // Only shown when the org is not already fixed by the row that opened the form.
 const SignatorySelect: FC<{
@@ -133,42 +104,10 @@ const VersionNote: FC<{ versionNumber: number | null | undefined }> = ({ version
     )
 }
 
-// Publishing cannot be undone and it obligates people, so the confirmation repeats everything about
-// to be written and names who will be asked to acknowledge it.
-const ConfirmPublishModal: FC<{
-    opened: boolean
-    orgLabel: string
-    signatory: Signatory | undefined
-    signedAt: string
-    file: File | null
-    isPending: boolean
-    onCancel: () => void
-    onConfirm: () => void
-}> = ({ opened, orgLabel, signatory, signedAt, file, isPending, onCancel, onConfirm }) => {
-    if (!signatory) return null
-
-    return (
-        <AppModal isOpen={opened} onClose={onCancel} title="Publish this file?" zIndex={400}>
-            <Stack>
-                <ReadOnlyField label={orgLabel} value={signatory.orgName} />
-                <ReadOnlyField label="Signed on" value={signedAt} />
-                <ReadOnlyField label="File" value={file?.name ?? ''} />
-                <Text>
-                    Publishing sends this to all members of {signatory.orgName} and requires each of them to acknowledge
-                    it before continuing. This cannot be undone.
-                </Text>
-                <Group justify="flex-end">
-                    <Button variant="subtle" onClick={onCancel}>
-                        Cancel
-                    </Button>
-                    <Button onClick={onConfirm} loading={isPending}>
-                        Yes, publish
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
-    )
-}
+// Says nothing about acknowledgement: a ropa/dopa is filed here, not enforced — only tos/pn are in
+// enforcedLegalDocumentTypes, and org-scoped enforcement is SHRMP-302.
+const publishConsequence = (documentLabel: string, orgName: string) =>
+    `This becomes the current ${documentLabel} on record for ${orgName}. Earlier versions stay in the record. This cannot be undone.`
 
 // Given a `signatory`, this adds a version to that org: only a new date and file are collected.
 // Without one, the org is picked from the dropdown.
@@ -181,15 +120,19 @@ export const UploadParticipationAgreementForm: FC<{
     const [signedAt, setSignedAt] = useState('')
     const [file, setFile] = useState<File | null>(null)
     const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
-    const { mutate: upload, isPending } = useUploadParticipationAgreement({ type, onComplete: onCompleteAction })
+    const {
+        mutate: publishAgreement,
+        isPending,
+        isSuccess,
+    } = usePublishAgreement({ invalidateKeys: invalidateKeysFor(type), onComplete: onCompleteAction })
 
+    const documentLabel = legalDocumentTypeLabels[type]
     const orgLabel = participationAgreementOrgLabels[type]
     const chosen = choice.signatory
 
     const publish = () => {
-        stopConfirming()
         if (!chosen || !file) return
-        upload({ orgId: chosen.orgId, signedAt, file })
+        publishAgreement({ scope: { type, orgId: chosen.orgId }, signedAt, file })
     }
 
     return (
@@ -198,23 +141,22 @@ export const UploadParticipationAgreementForm: FC<{
             <ChosenSignatory orgLabel={orgLabel} signatory={signatory} />
             <VersionNote versionNumber={chosen?.versionNumber} />
             <SignedOnInput value={signedAt} onChange={setSignedAt} />
-            <PdfDropzone label={`Signed ${legalDocumentTypeLabels[type]}`} file={file} onChange={setFile} />
+            <PdfDropzone label={`Signed ${documentLabel}`} file={file} onChange={setFile} />
             <Group justify="flex-end">
-                {/* Publishing is what makes the agreement enforceable, so there is no separate
-                    enforcement step to confirm here. */}
-                <Button onClick={askForConfirmation} disabled={!chosen || !signedAt || !file}>
+                <Button onClick={askForConfirmation} disabled={!chosen || !signedAt || !file || isPending || isSuccess}>
                     Publish
                 </Button>
             </Group>
             <ConfirmPublishModal
-                opened={confirming}
-                orgLabel={orgLabel}
-                signatory={chosen}
+                isOpen={confirming && Boolean(chosen)}
                 signedAt={signedAt}
                 file={file}
                 isPending={isPending}
+                isSettled={isSuccess}
                 onCancel={stopConfirming}
                 onConfirm={publish}
+                subject={<ChosenSignatory orgLabel={orgLabel} signatory={chosen} />}
+                consequence={publishConsequence(documentLabel, chosen?.orgName ?? '')}
             />
         </Stack>
     )

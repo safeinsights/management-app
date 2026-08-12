@@ -13,10 +13,10 @@ const document = (type: PendingLegalDocument['type'], isUpdate: boolean): Pendin
     content: '# doc',
 })
 
-const tosNew = document('tos', false)
-const tosUpdated = document('tos', true)
-const pnNew = document('pn', false)
-const pnUpdated = document('pn', true)
+const tosNew = document('TOS', false)
+const tosUpdated = document('TOS', true)
+const pnNew = document('PN', false)
+const pnUpdated = document('PN', true)
 
 describe('legalAcknowledgementBody', () => {
     it('announces a single new document in the singular', () => {

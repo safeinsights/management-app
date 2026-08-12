@@ -132,7 +132,7 @@ describe('Create Account Actions', () => {
         const findOrCreateTosDocument = async () => {
             const inserted = await db
                 .insertInto('legalDocument')
-                .values({ type: 'tos', orgId: null, studyId: null })
+                .values({ type: 'TOS', orgId: null, studyId: null })
                 .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
                 .returning('id')
                 .executeTakeFirst()
@@ -141,7 +141,7 @@ describe('Create Account Actions', () => {
             const existing = await db
                 .selectFrom('legalDocument')
                 .select('id')
-                .where('type', '=', 'tos')
+                .where('type', '=', 'TOS')
                 .where('orgId', 'is', null)
                 .where('studyId', 'is', null)
                 .executeTakeFirstOrThrow()
@@ -162,7 +162,7 @@ describe('Create Account Actions', () => {
                 .insertInto('legalDocumentVersion')
                 .values({
                     legalDocumentId,
-                    filePath: 'legal/tos/terms',
+                    filePath: 'legal/TOS/terms',
                     fileName: 'terms.md',
                     format: 'markdown',
                     versionNumber: Number(maxVersion ?? 0) + 1,
@@ -202,7 +202,7 @@ describe('Create Account Actions', () => {
                 .execute()
             const draft = await db
                 .insertInto('legalDocumentVersion')
-                .values({ legalDocumentId, filePath: 'legal/tos/draft', fileName: 'draft.md', format: 'markdown' })
+                .values({ legalDocumentId, filePath: 'legal/TOS/draft', fileName: 'draft.md', format: 'markdown' })
                 .returning('id')
                 .executeTakeFirstOrThrow()
             const invite = await createInvite()

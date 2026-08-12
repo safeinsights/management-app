@@ -11,7 +11,7 @@ import {
     enforcedLegalDocumentTypes,
     type EnforcedLegalDocumentType,
     fetchLegalDocumentAcknowledgementsSchema,
-    fetchParticipationAgreementsSchema,
+    participationAgreementTypeParams,
     legalDocumentFormats,
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
@@ -22,7 +22,7 @@ import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
-const requiresSignedAt = (type: LegalDocumentType) => type !== 'tos' && type !== 'pn'
+const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
 
 type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
@@ -426,7 +426,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 // One row per agreement we hold — an org's latest published version. Orgs that have not signed are
 // absent: they are reached through the picker below, not by listing every org here.
 export const fetchParticipationAgreementsAction = new Action('fetchParticipationAgreementsAction')
-    .params(fetchParticipationAgreementsSchema)
+    .params(participationAgreementTypeParams)
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db, params: { type } }) => {
@@ -462,7 +462,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
 // Drives the org picker in the upload modal. An org that has already signed stays selectable — a
 // renewal is a new version of the same document, not a second one.
 export const fetchParticipationSignatoriesAction = new Action('fetchParticipationSignatoriesAction')
-    .params(fetchParticipationAgreementsSchema)
+    .params(participationAgreementTypeParams)
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(({ db, params: { type } }) =>
@@ -498,13 +498,24 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'researchLab.name as researchLabName',
                 'dataPartner.name as dataPartnerName',
             ])
-            .where('legalDocument.type', '=', 'sla')
+            .where('legalDocument.type', '=', 'SLA')
             .where('legalDocumentVersion.publishedAt', 'is not', null)
             // Newest published agreement per study; the latest is all this table shows.
             .distinctOn('legalDocument.id')
             .orderBy('legalDocument.id')
             .orderBy('legalDocumentVersion.versionNumber', 'desc')
             .execute()
+
+        // distinctOn dictates the ORDER BY above, so the display order is applied after the fact. It
+        // matches the picker's Data Partner > Research Lab > study ordering, so the table groups the
+        // way the admin navigated to create the row.
+        rows.sort(
+            (a, b) =>
+                a.dataPartnerName.localeCompare(b.dataPartnerName) ||
+                a.researchLabName.localeCompare(b.researchLabName) ||
+                // An untitled study sorts by the id it is displayed under.
+                (a.studyTitle ?? a.studyId).localeCompare(b.studyTitle ?? b.studyId),
+        )
 
         return await Promise.all(
             rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
@@ -545,7 +556,7 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
                             )
                             .select('legalDocument.id')
                             .whereRef('legalDocument.studyId', '=', 'study.id')
-                            .where('legalDocument.type', '=', 'sla')
+                            .where('legalDocument.type', '=', 'SLA')
                             .where('legalDocumentVersion.publishedAt', 'is not', null),
                     ),
                 ),

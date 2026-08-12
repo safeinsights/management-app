@@ -1,23 +1,15 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient, type FC } from '@/common'
-import { reportError } from '@/components/errors'
-import { AppModal } from '@/components/modals/app-modal'
-import { uploadFiles } from '@/hooks/upload'
+import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { actionResult } from '@/lib/utils'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import {
-    createLegalDocumentDraftAction,
-    fetchStudiesAwaitingSlaAction,
-    fetchStudyLevelAgreementsAction,
-    publishLegalDocumentVersionAction,
-} from '@/server/actions/legal-document.actions'
+import { fetchStudiesAwaitingSlaAction, fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import * as R from 'remeda'
 import { useMemo, useState } from 'react'
 import { PdfDropzone } from '../pdf-dropzone'
+import { ConfirmPublishModal, usePublishAgreement } from '../publish-agreement'
 import { ReadOnlyField } from '../read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
@@ -90,30 +82,11 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
     }
 }
 
-const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
-    const queryClient = useQueryClient()
-
-    return useMutation({
-        mutationFn: async ({ studyId, signedAt, file }: { studyId: string; signedAt: string; file: File }) => {
-            // Publish last, so a failed upload leaves a replaceable draft rather than a live
-            // agreement with no file. A study that already has an SLA gets a new version of it
-            // rather than a second document.
-            const { version, upload } = actionResult(
-                await createLegalDocumentDraftAction({ type: 'sla', studyId, fileName: file.name }),
-            )
-            await uploadFiles([[file, upload]])
-            return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
-        },
-        // Wrapped because react-query's second arg is the variables, which reportError reads as a title.
-        onError: (error: unknown) => reportError(error),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.studyLevelAgreements() })
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.studiesAwaitingSla() })
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType('sla') })
-            onComplete()
-        },
-    })
-}
+const SLA_INVALIDATE_KEYS = [
+    legalDocumentQueryKeys.studyLevelAgreements(),
+    legalDocumentQueryKeys.studiesAwaitingSla(),
+    legalDocumentQueryKeys.versionsForType('SLA'),
+]
 
 const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
     <>
@@ -190,42 +163,10 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
     return <StudyFields details={details} />
 }
 
-// Publishing cannot be undone, so the confirmation repeats everything about to be written. It does
-// not promise anyone will be asked to acknowledge: an sla is filed here, not enforced — only tos/pn
-// are in enforcedLegalDocumentTypes.
-const ConfirmPublishModal: FC<{
-    opened: boolean
-    details: StudyDetails | undefined
-    signedAt: string
-    file: File | null
-    isPending: boolean
-    onCancel: () => void
-    onConfirm: () => void
-}> = ({ opened, details, signedAt, file, isPending, onCancel, onConfirm }) => {
-    if (!details) return null
-
-    return (
-        <AppModal isOpen={opened} onClose={onCancel} title="Publish this file?" zIndex={400}>
-            <Stack>
-                <StudyFields details={details} />
-                <ReadOnlyField label="Signed on" value={signedAt} />
-                <ReadOnlyField label="File" value={file?.name ?? ''} />
-                <Text>
-                    This becomes the current Study Level Agreement on record for this study. Earlier versions stay in
-                    the record. This cannot be undone.
-                </Text>
-                <Group justify="flex-end">
-                    <Button variant="subtle" onClick={onCancel}>
-                        Cancel
-                    </Button>
-                    <Button onClick={onConfirm} loading={isPending}>
-                        Yes, publish
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
-    )
-}
+// Says nothing about acknowledgement: an sla is filed here, not enforced — only tos/pn are in
+// enforcedLegalDocumentTypes.
+const PUBLISH_CONSEQUENCE =
+    'This becomes the current Study Level Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
 
 // Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
 // and only a new date and file are collected. Without one, the study is picked from the cascade.
@@ -234,14 +175,17 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
     const [signedAt, setSignedAt] = useState('')
     const [file, setFile] = useState<File | null>(null)
     const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
-    const { mutate: uploadSla, isPending } = useUploadSla({ onComplete: onCompleteAction })
+    const {
+        mutate: publishSla,
+        isPending,
+        isSuccess,
+    } = usePublishAgreement({ invalidateKeys: SLA_INVALIDATE_KEYS, onComplete: onCompleteAction })
 
     const details = sla ?? candidates.selected
 
     const publish = () => {
-        stopConfirming()
         if (!details || !file) return
-        uploadSla({ studyId: details.studyId, signedAt, file })
+        publishSla({ scope: { type: 'SLA', studyId: details.studyId }, signedAt, file })
     }
 
     // Nothing to publish against, so the form is replaced rather than shown unfillable.
@@ -255,18 +199,23 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
             <SignedOnInput value={signedAt} onChange={setSignedAt} />
             <PdfDropzone label="Signed Study Level Agreement" file={file} onChange={setFile} />
             <Group justify="flex-end">
-                <Button onClick={askForConfirmation} disabled={!details || !signedAt || !file}>
+                <Button
+                    onClick={askForConfirmation}
+                    disabled={!details || !signedAt || !file || isPending || isSuccess}
+                >
                     Publish
                 </Button>
             </Group>
             <ConfirmPublishModal
-                opened={confirming}
-                details={details}
+                isOpen={confirming && Boolean(details)}
                 signedAt={signedAt}
                 file={file}
                 isPending={isPending}
+                isSettled={isSuccess}
                 onCancel={stopConfirming}
                 onConfirm={publish}
+                subject={<ChosenStudyFields details={details} />}
+                consequence={PUBLISH_CONSEQUENCE}
             />
         </Stack>
     )

@@ -23,8 +23,12 @@ vi.mock('@/server/aws', async (importOriginal) => {
 
 // The shared helpers put both of a study's orgs on one org, which would hide a swapped join.
 // study.orgId is the enclave (Data Partner), study.submittedByOrgId is the lab (Research Lab).
-const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus, title = 'A study' } = {}) => {
-    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+const insertStudyWithDistinctOrgs = async ({
+    status = 'APPROVED' as StudyStatus,
+    title = 'A study',
+    dataPartnerName,
+}: { status?: StudyStatus; title?: string; dataPartnerName?: string } = {}) => {
+    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave', name: dataPartnerName })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const { user: researcher } = await insertTestUser({
         org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
@@ -51,7 +55,7 @@ const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus,
 }
 
 const uploadAndPublishSla = async (studyId: string, signedAt: string, fileName = 'sla.pdf') => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'sla', studyId, fileName }))
+    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId, fileName }))
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
@@ -90,7 +94,7 @@ describe('fetchStudiesAwaitingSlaAction', () => {
     it('keeps offering a study whose only SLA is an unfinished draft', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(await createLegalDocumentDraftAction({ type: 'sla', studyId: study.id, fileName: 'sla.pdf' }))
+        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'sla.pdf' }))
 
         const candidates = actionResult(await fetchStudiesAwaitingSlaAction())
 
@@ -135,7 +139,7 @@ describe('fetchStudyLevelAgreementsAction', () => {
     it('leaves out an SLA that has only been drafted, not published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(await createLegalDocumentDraftAction({ type: 'sla', studyId: study.id, fileName: 'sla.pdf' }))
+        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'sla.pdf' }))
 
         const rows = actionResult(await fetchStudyLevelAgreementsAction())
 
@@ -153,6 +157,26 @@ describe('fetchStudyLevelAgreementsAction', () => {
 
         expect(forStudy).toHaveLength(1)
         expect(forStudy[0]!.versionNumber).toBe(2)
+    })
+
+    // distinctOn forces the SQL ORDER BY, so the display order is applied afterwards. It mirrors the
+    // upload cascade, and without it the table comes back in legal_document id order.
+    it('orders by data partner name rather than by internal id', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const token = faker.string.alpha(10)
+
+        // Inserted out of order, so passing cannot be an accident of insertion order.
+        for (const name of ['Zebra', 'Apple', 'Mango']) {
+            const { study } = await insertStudyWithDistinctOrgs({ dataPartnerName: `${token} ${name}` })
+            await uploadAndPublishSla(study.id, '2026-07-27')
+        }
+
+        const rows = actionResult(await fetchStudyLevelAgreementsAction())
+        const ours = rows
+            .map((row) => row.dataPartnerName)
+            .filter((dataPartnerName) => dataPartnerName.startsWith(token))
+
+        expect(ours).toEqual([`${token} Apple`, `${token} Mango`, `${token} Zebra`])
     })
 
     it('denies a user who is not an SI admin', async () => {

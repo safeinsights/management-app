@@ -9,27 +9,27 @@ import { StudyLevelAgreements } from './sla/study-level-agreements'
 
 // keepMounted={false} so a tab's queries only run once its panel is opened.
 export const LegalTabs: FC = () => (
-    <Tabs defaultValue="tos" keepMounted={false}>
+    <Tabs defaultValue="TOS" keepMounted={false}>
         <Tabs.List>
-            <Tabs.Tab value="tos">{legalDocumentTypeLabels.tos}</Tabs.Tab>
-            <Tabs.Tab value="pn">{legalDocumentTypeLabels.pn}</Tabs.Tab>
-            <Tabs.Tab value="dopa">DOPA</Tabs.Tab>
-            <Tabs.Tab value="ropa">ROPA</Tabs.Tab>
-            <Tabs.Tab value="sla">Study Level Agreements</Tabs.Tab>
+            <Tabs.Tab value="TOS">{legalDocumentTypeLabels.TOS}</Tabs.Tab>
+            <Tabs.Tab value="PN">{legalDocumentTypeLabels.PN}</Tabs.Tab>
+            <Tabs.Tab value="DOPA">DOPA</Tabs.Tab>
+            <Tabs.Tab value="ROPA">ROPA</Tabs.Tab>
+            <Tabs.Tab value="SLA">Study Level Agreements</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="tos" pt="md">
-            <TosPnUpload doctype="tos" />
+        <Tabs.Panel value="TOS" pt="md">
+            <TosPnUpload doctype="TOS" />
         </Tabs.Panel>
-        <Tabs.Panel value="pn" pt="md">
-            <TosPnUpload doctype="pn" />
+        <Tabs.Panel value="PN" pt="md">
+            <TosPnUpload doctype="PN" />
         </Tabs.Panel>
-        <Tabs.Panel value="dopa" pt="md">
-            <ParticipationAgreements type="dopa" />
+        <Tabs.Panel value="DOPA" pt="md">
+            <ParticipationAgreements type="DOPA" />
         </Tabs.Panel>
-        <Tabs.Panel value="ropa" pt="md">
-            <ParticipationAgreements type="ropa" />
+        <Tabs.Panel value="ROPA" pt="md">
+            <ParticipationAgreements type="ROPA" />
         </Tabs.Panel>
-        <Tabs.Panel value="sla" pt="md">
+        <Tabs.Panel value="SLA" pt="md">
             <StudyLevelAgreements />
         </Tabs.Panel>
     </Tabs>

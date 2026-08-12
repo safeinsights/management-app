@@ -37,7 +37,7 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
 
-export type LegalDocumentType = 'dopa' | 'pn' | 'ropa' | 'sla' | 'tos'
+export type LegalDocumentType = 'DOPA' | 'PN' | 'ROPA' | 'SLA' | 'TOS'
 
 export type OrgType = 'enclave' | 'lab'
 

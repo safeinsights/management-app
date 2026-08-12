@@ -28,7 +28,7 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 }))
 
 const publishTos = async () => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'tos', fileName: 'terms.md' }))
+    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' }))
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 

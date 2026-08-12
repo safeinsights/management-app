@@ -39,8 +39,8 @@ describe('TermsCheckbox', () => {
 
     describe('once documents have been published', () => {
         const documents = [
-            { type: 'tos' as const, versionId: 'tos-v1', content: '# Terms\n\nThe real terms.' },
-            { type: 'pn' as const, versionId: 'pn-v1', content: '# Privacy\n\nThe real notice.' },
+            { type: 'TOS' as const, versionId: 'tos-v1', content: '# Terms\n\nThe real terms.' },
+            { type: 'PN' as const, versionId: 'pn-v1', content: '# Privacy\n\nThe real notice.' },
         ]
 
         it('renders the documents instead of the placeholder copy', () => {

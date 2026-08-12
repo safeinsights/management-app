@@ -1,24 +1,24 @@
 import { z } from 'zod'
 
-export const legalDocumentTypeSchema = z.enum(['tos', 'pn', 'ropa', 'dopa', 'sla'])
+export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
 
 export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 
 export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
-    tos: 'Terms of Service',
-    pn: 'Privacy Notice',
-    sla: 'Study Level Agreement',
+    TOS: 'Terms of Service',
+    PN: 'Privacy Notice',
+    SLA: 'Study Level Agreement',
     // "Organization" is the wording on the executed documents themselves, so an admin matching a
     // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
-    dopa: 'Data Organization Participation Agreement',
-    ropa: 'Research Organization Participation Agreement',
+    DOPA: 'Data Organization Participation Agreement',
+    ROPA: 'Research Organization Participation Agreement',
 }
 
 // The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
 // are global — one document each, no org or study scope — so the audience is simply everybody.
 // Adding sla here also means retiring study.researcherAgreementsAckedAt / reviewerAgreementsAckedAt;
 // two agreement gates on the same study would disagree.
-export const enforcedLegalDocumentTypes = ['tos', 'pn'] as const
+export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
@@ -29,24 +29,28 @@ export type LegalDocumentFormat = z.infer<typeof legalDocumentFormatSchema>
 // Fixed per type rather than chosen per upload, so a document can never be stored in a format its
 // viewer cannot render.
 export const legalDocumentFormats: Record<LegalDocumentTypeValue, LegalDocumentFormat> = {
-    tos: 'markdown',
-    pn: 'markdown',
-    sla: 'pdf',
-    dopa: 'pdf',
-    ropa: 'pdf',
+    TOS: 'markdown',
+    PN: 'markdown',
+    SLA: 'pdf',
+    DOPA: 'pdf',
+    ROPA: 'pdf',
 }
 
 // Only the two org-scoped types, and which kind of org each one is signed with.
-export const participationAgreementOrgTypes = { dopa: 'enclave', ropa: 'lab' } as const
+export const participationAgreementOrgTypes = { DOPA: 'enclave', ROPA: 'lab' } as const
 
 export type ParticipationAgreementType = keyof typeof participationAgreementOrgTypes
 
-export const participationAgreementTypeSchema = z.enum(['dopa', 'ropa'])
+// Derived from the map above rather than restating its keys, so a third participation-agreement type
+// is one edit.
+export const participationAgreementTypeSchema = z.enum(
+    Object.keys(participationAgreementOrgTypes) as [ParticipationAgreementType, ...ParticipationAgreementType[]],
+)
 
 // The app's own noun for the org each agreement is signed with, which is not the agreement's name.
 export const participationAgreementOrgLabels: Record<ParticipationAgreementType, string> = {
-    dopa: 'Data Partner',
-    ropa: 'Research Lab',
+    DOPA: 'Data Partner',
+    ROPA: 'Research Lab',
 }
 
 // Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
@@ -57,8 +61,8 @@ const scopeSchema = z.object({
 })
 
 const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx: z.RefinementCtx) => {
-    const requiresOrg = type === 'ropa' || type === 'dopa'
-    const requiresStudy = type === 'sla'
+    const requiresOrg = type === 'ROPA' || type === 'DOPA'
+    const requiresStudy = type === 'SLA'
 
     if (requiresOrg && !orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
@@ -83,12 +87,28 @@ export const createLegalDocumentDraftSchema = scopeSchema
     })
     .superRefine(refineScope)
 
+// The shape check alone lets '2026-02-30' through to the `date` column, where it fails as a database
+// error rather than a field error. Round-tripping rejects any day the calendar does not have.
+const isRealCalendarDay = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00Z`)
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+// A day of slack, deliberately: this runs on a UTC clock while the admin's date input is local, so
+// someone in a zone ahead of UTC records a genuine same-day signature on what is still tomorrow here.
+// Wide enough for that, narrow enough to still catch a year typed as 2206. Comparing the strings
+// works because YYYY-MM-DD sorts chronologically.
+const latestSignableDay = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
 export const publishLegalDocumentVersionSchema = z.object({
     versionId: z.string(),
     // Kept a plain string so it never hits a timezone conversion on the way to a `date` column.
     signedAt: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, 'Signed date must be YYYY-MM-DD')
+        .refine(isRealCalendarDay, 'Signed date is not a real calendar date')
+        // Publishing cannot be undone, so a mistyped year has to be caught before it is on record.
+        .refine((value) => value <= latestSignableDay(), 'Signed date cannot be in the future')
         .optional(),
 })
 
@@ -96,7 +116,9 @@ export const acknowledgeLegalDocumentSchema = z.object({
     versionId: z.string(),
 })
 
-export const fetchParticipationAgreementsSchema = z.object({
+// Params for both participation reads — the agreements table and the signatory picker — so it is
+// named for what it carries rather than for one of its callers.
+export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
 })
 

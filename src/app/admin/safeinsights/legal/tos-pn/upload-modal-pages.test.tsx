@@ -49,7 +49,7 @@ describe('ConfirmPublishForm', () => {
 
 describe('DraftForm', () => {
     it('keeps Save Draft disabled until a file is chosen', async () => {
-        renderWithProviders(<DraftForm doctype="tos" draftName={null} onDraftSaved={vi.fn()} />)
+        renderWithProviders(<DraftForm doctype="TOS" draftName={null} onDraftSaved={vi.fn()} />)
 
         expect(screen.getByRole('button', { name: /save draft/i })).toBeDisabled()
 
@@ -62,7 +62,7 @@ describe('DraftForm', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const onDraftSaved = vi.fn()
 
-        renderWithProviders(<DraftForm doctype="tos" draftName={null} onDraftSaved={onDraftSaved} />)
+        renderWithProviders(<DraftForm doctype="TOS" draftName={null} onDraftSaved={onDraftSaved} />)
 
         chooseFile('terms.md')
         const saveButton = await screen.findByRole('button', { name: /save draft/i })
@@ -72,7 +72,7 @@ describe('DraftForm', () => {
         await waitFor(() => expect(onDraftSaved).toHaveBeenCalled())
 
         // The upload is recorded as the pending (unpublished) version in the database.
-        const { draft } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'tos' }))
+        const { draft } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'TOS' }))
         expect(draft?.fileName).toBe('terms.md')
     })
 })
