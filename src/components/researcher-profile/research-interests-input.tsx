@@ -4,7 +4,7 @@ import React from 'react'
 import { Pill, PillsInput, Text, VisuallyHidden } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
 import type { ResearchDetailsValues } from '@/schema/researcher-profile'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
 
 interface ResearchInterestsInputProps {
     form: UseFormReturnType<ResearchDetailsValues>
@@ -39,14 +39,17 @@ export function ResearchInterestsInput({
         }
     }
 
-    // Commit the draft only when focus leaves the whole widget, so moving to a control inside it
-    // (a pill's remove button) does not add an accidental pill. Attached to the PillsInput root
-    // rather than the inner field so the guard's own containment check spans the pills too.
+    // Commit the draft only when the user leaves the whole widget, so moving to a control inside
+    // it (a pill's remove button) does not add an accidental pill.
     //
     // Uses the shared guard rather than a local `!relatedTarget` check: that check also swallowed
     // the commonest case, clicking a non-focusable part of the page, which meant leaving the
     // field empty never reached `onAdd` and so never raised the required error (OTTER-647).
-    const handleBlur = widgetBlurHandler(onAdd)
+    //
+    // Wrapped in a plain div because `PillsInput` forwards its ref to the inner field. Scoping the
+    // guard to that would put the pills and their remove buttons outside the widget, so removing a
+    // pill would commit the draft — the accidental-pill bug the guard exists to prevent.
+    const widgetBlur = useWidgetBlur(onAdd)
 
     const interestPills = interests.map((item, idx) => (
         <Pill key={form.key(`researchInterests.${idx}`)} withRemoveButton onRemove={() => onRemove(idx)}>
@@ -60,21 +63,19 @@ export function ResearchInterestsInput({
 
     return (
         <>
-            <PillsInput
-                id="researchInterests"
-                error={form.errors.researchInterests as unknown as string}
-                onBlur={handleBlur}
-            >
-                <Pill.Group>
-                    {interestPills}
-                    <PillsInput.Field
-                        placeholder={isAtLimit ? '' : 'Type a research interest and press enter'}
-                        value={draftValue}
-                        onChange={handleChange}
-                        onKeyDown={handleKeyDown}
-                    />
-                </Pill.Group>
-            </PillsInput>
+            <div {...widgetBlur}>
+                <PillsInput id="researchInterests" error={form.errors.researchInterests as unknown as string}>
+                    <Pill.Group>
+                        {interestPills}
+                        <PillsInput.Field
+                            placeholder={isAtLimit ? '' : 'Type a research interest and press enter'}
+                            value={draftValue}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                        />
+                    </Pill.Group>
+                </PillsInput>
+            </div>
             <VisuallyHidden role="status">{announcement}</VisuallyHidden>
             <InterestsHelperText isVisible={!isAtLimit} />
         </>

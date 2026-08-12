@@ -6,6 +6,7 @@ import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
 import { useAuth } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -60,7 +61,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
             if (result?.needsUserKey) {
                 // First-time key generation: land them on the inviting org's dashboard afterwards.
-                router.push(`${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route)
+                router.push(keyGenerationUrl(orgDashboard))
             } else {
                 router.push(orgDashboard)
             }
