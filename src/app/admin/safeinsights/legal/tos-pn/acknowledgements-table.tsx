@@ -17,6 +17,8 @@ type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledge
 
 const DEFAULT_SORT: LegalDocumentAcknowledgementSort = { columnAccessor: 'fullName', direction: 'asc' }
 
+export const ACKNOWLEDGEMENTS_PAGE_SIZE = 25
+
 // mantine-datatable reports the accessor as a bare string, so a change from a column the action
 // cannot order by leaves the current sort alone rather than reaching the server as a bad param.
 const isSortable = (accessor: string): accessor is LegalDocumentAcknowledgementSort['columnAccessor'] =>
@@ -49,6 +51,7 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
 // part of the read.
 const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
     const [sort, setSort] = useState<LegalDocumentAcknowledgementSort>(DEFAULT_SORT)
+    const [page, setPage] = useState(1)
     const { data, isLoading } = useQuery({
         queryKey: legalDocumentQueryKeys.acknowledgements(type, sort),
         queryFn: () => fetchLegalDocumentAcknowledgementsAction({ type, sort }),
@@ -56,17 +59,33 @@ const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
 
     const onSortStatusChange = ({ columnAccessor, direction }: DataTableSortStatus<AcknowledgementRow>) => {
         const accessor = String(columnAccessor)
-        if (isSortable(accessor)) setSort({ columnAccessor: accessor, direction })
+        if (!isSortable(accessor)) return
+        setSort({ columnAccessor: accessor, direction })
+        // A re-sort reorders the whole audience, so the page the reader was on no longer means anything.
+        setPage(1)
     }
 
-    return { users: data?.users ?? [], isLoading, sort, onSortStatusChange }
+    // Paged in the browser: the action returns the audience in one read, so this bounds what is
+    // rendered rather than what is fetched.
+    const users = data?.users ?? []
+    const start = (page - 1) * ACKNOWLEDGEMENTS_PAGE_SIZE
+
+    return {
+        records: users.slice(start, start + ACKNOWLEDGEMENTS_PAGE_SIZE),
+        totalRecords: users.length,
+        isLoading,
+        sort,
+        onSortStatusChange,
+        page,
+        setPage,
+    }
 }
 
 // Every user in the app, with the version of this document they last agreed to. The audience is
 // derived rather than stored, so someone who has never agreed is a row with no version, not a
 // missing row.
 export const AcknowledgementsTable: FC<{ type: EnforcedLegalDocumentType }> = ({ type }) => {
-    const { users, isLoading, sort, onSortStatusChange } = useAcknowledgements(type)
+    const { records, totalRecords, isLoading, sort, onSortStatusChange, page, setPage } = useAcknowledgements(type)
 
     return (
         <Stack>
@@ -78,10 +97,14 @@ export const AcknowledgementsTable: FC<{ type: EnforcedLegalDocumentType }> = ({
                 fetching={isLoading}
                 idAccessor="userId"
                 noRecordsText="No users to show"
-                records={users}
+                records={records}
                 columns={ACKNOWLEDGEMENT_COLUMNS}
                 sortStatus={sort}
                 onSortStatusChange={onSortStatusChange}
+                totalRecords={totalRecords}
+                recordsPerPage={ACKNOWLEDGEMENTS_PAGE_SIZE}
+                page={page}
+                onPageChange={setPage}
             />
         </Stack>
     )

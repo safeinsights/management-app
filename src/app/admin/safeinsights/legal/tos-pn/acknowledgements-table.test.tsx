@@ -8,7 +8,7 @@ import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { AcknowledgementsTable } from './acknowledgements-table'
+import { ACKNOWLEDGEMENTS_PAGE_SIZE, AcknowledgementsTable } from './acknowledgements-table'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -81,5 +81,26 @@ describe('AcknowledgementsTable', () => {
         fireEvent.click(document.querySelector('th[data-accessor="fullName"]') as HTMLElement)
 
         await waitFor(() => expect(rowIndexOf(last)).toBeLessThan(rowIndexOf(first)))
+    })
+
+    it('shows one page of users at a time', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await db
+            .insertInto('user')
+            .values(
+                Array.from({ length: ACKNOWLEDGEMENTS_PAGE_SIZE + 1 }, () => ({
+                    clerkId: faker.string.alpha(10),
+                    firstName: faker.person.firstName(),
+                    lastName: faker.person.lastName(),
+                    email: `${faker.string.alpha(10)}@test.com`,
+                })),
+            )
+            .execute()
+
+        renderWithProviders(<AcknowledgementsTable type="TOS" />)
+
+        // One header row on top of the page's records.
+        await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(ACKNOWLEDGEMENTS_PAGE_SIZE + 1))
+        expect(screen.getByRole('button', { name: '2' })).toBeDefined()
     })
 })
