@@ -32,7 +32,9 @@ describe('ConfirmPublishForm', () => {
         const onPublish = vi.fn()
         const onBack = vi.fn()
 
-        renderWithProviders(<ConfirmPublishForm draftName="terms.md" onPublish={onPublish} onBack={onBack} />)
+        renderWithProviders(
+            <ConfirmPublishForm draftName="terms.md" onPublish={onPublish} onBack={onBack} isPublishing={false} />,
+        )
 
         expect(screen.getByText('terms.md')).toBeDefined()
         expect(screen.getByText(/cannot be undone/i)).toBeDefined()

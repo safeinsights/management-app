@@ -1,9 +1,9 @@
 'use client'
 
-import { useQuery, useState } from '@/common'
+import { useMutation, useQuery, useState } from '@/common'
 import { LegalDocumentContent } from '@/components/legal/document-content'
 import { LoadingMessage } from '@/components/loading'
-import { ErrorAlert } from '@/components/errors'
+import { ErrorAlert, reportError } from '@/components/errors'
 import { LegalDocumentType } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
@@ -47,19 +47,21 @@ export function DraftForm({
         const draftFile = files[0]
         setFile(draftFile)
     }
-    const saveDraft = async () => {
-        if (!file) return
-        // Call save draft action
-        // No format: the action derives it from the type, so a document cannot be stored in a
-        // format its viewer cannot render.
-        const result = await createLegalDocumentDraftAction({ type: doctype, fileName: file.name })
-        if (isActionError(result)) {
-            throw new Error('Failed to create draft: ' + result)
-        }
-        await uploadFiles([[file, result.upload]])
-
-        onDraftSaved()
-    }
+    // Create the draft row, then upload the bytes. Keeping both inside the mutation means a failure
+    // of either — an action error or a rejected S3 upload — lands in onError instead of an unhandled
+    // rejection, and isPending drives the button's loading/disabled state.
+    // No format: the action derives it from the type, so a document cannot be stored in a format its
+    // viewer cannot render.
+    const saveDraft = useMutation({
+        mutationFn: async (draftFile: File) => {
+            const result = await createLegalDocumentDraftAction({ type: doctype, fileName: draftFile.name })
+            if (isActionError(result)) return result // wrapped useMutation throws this for onError to catch
+            await uploadFiles([[draftFile, result.upload]])
+            return result
+        },
+        onSuccess: () => onDraftSaved(),
+        onError: (error: unknown) => reportError(error, 'Could not save draft'),
+    })
 
     const onRemove = () => {
         setFile(null)
@@ -97,7 +99,13 @@ export function DraftForm({
                 </Stack>
             </Paper>
             <Flex align="right" justify="right">
-                <Button onClick={saveDraft} disabled={!file} ml="xs" rightSection={<ArrowCircleRightIcon size={16} />}>
+                <Button
+                    onClick={() => file && saveDraft.mutate(file)}
+                    disabled={!file || saveDraft.isPending}
+                    loading={saveDraft.isPending}
+                    ml="xs"
+                    rightSection={<ArrowCircleRightIcon size={16} />}
+                >
                     Save Draft
                 </Button>
             </Flex>
@@ -136,10 +144,12 @@ export function ConfirmPublishForm({
     draftName,
     onPublish,
     onBack,
+    isPublishing,
 }: {
     draftName: string
     onPublish: () => void
     onBack: () => void
+    isPublishing: boolean
 }) {
     return (
         <Stack>
@@ -152,10 +162,12 @@ export function ConfirmPublishForm({
                 cannot be undone.
             </Text>
             <Group pt="md">
-                <Button variant="outline" onClick={onBack}>
+                <Button variant="outline" onClick={onBack} disabled={isPublishing}>
                     Back
                 </Button>
-                <Button onClick={onPublish}>Confirm</Button>
+                <Button onClick={onPublish} loading={isPublishing}>
+                    Confirm
+                </Button>
             </Group>
         </Stack>
     )

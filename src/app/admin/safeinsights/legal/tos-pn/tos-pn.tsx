@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useQueryClient, useState } from '@/common'
+import { useMutation, useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor, Collapse } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
@@ -13,11 +13,10 @@ import {
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
 import { LoadingMessage } from '@/components/loading'
-import { ErrorAlert } from '@/components/errors'
+import { ErrorAlert, reportError } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { ToggleChevron } from '@/components/icons'
-import { isActionError } from '@/lib/errors'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -40,15 +39,14 @@ function UploadModalContents({
         await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
         setPage('review')
     }
-    const handlePublish = async () => {
-        if (!draft) return
-        const result = await publishLegalDocumentVersionAction({ versionId: draft.id })
-        if (isActionError(result)) {
-            throw new Error(result.error.toString())
-        }
-        await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
-        onClose()
-    }
+    const publishDraft = useMutation({
+        mutationFn: (versionId: string) => publishLegalDocumentVersionAction({ versionId }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
+            onClose()
+        },
+        onError: (error: unknown) => reportError(error, 'Could not publish'),
+    })
 
     if (page === 'upload') {
         return <DraftForm doctype={doctype} draftName={draft ? draft.fileName : null} onDraftSaved={handleDraftSaved} />
@@ -67,7 +65,12 @@ function UploadModalContents({
         )
     } else {
         return (
-            <ConfirmPublishForm draftName={draft.fileName} onBack={() => setPage('review')} onPublish={handlePublish} />
+            <ConfirmPublishForm
+                draftName={draft.fileName}
+                onBack={() => setPage('review')}
+                onPublish={() => publishDraft.mutate(draft.id)}
+                isPublishing={publishDraft.isPending}
+            />
         )
     }
 }
