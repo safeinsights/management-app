@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { notifications } from '@mantine/notifications'
 import { actionResult, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { ConfirmPublishForm, DraftForm, PreviewDocument } from './upload-modal-pages'
@@ -74,6 +75,22 @@ describe('DraftForm', () => {
         // The upload is recorded as the pending (unpublished) version in the database.
         const { draft } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'TOS' }))
         expect(draft?.fileName).toBe('terms.md')
+    })
+
+    it('rejects a non-markdown file: warns the user and does not select it', async () => {
+        const notify = vi.spyOn(notifications, 'show').mockReturnValue('test-id')
+
+        renderWithProviders(<DraftForm doctype="tos" draftName={null} onDraftSaved={vi.fn()} />)
+
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement
+        fireEvent.change(input, { target: { files: [new File(['nope'], 'terms.txt', { type: 'text/plain' })] } })
+
+        // The dropzone's `accept` rejects the non-.md file; onReject fires the notification.
+        await waitFor(() => expect(notify).toHaveBeenCalled())
+
+        // The rejected file never becomes the selected draft, so Save stays disabled.
+        expect(screen.queryByText('terms.txt')).toBeNull()
+        expect(screen.getByRole('button', { name: /save draft/i })).toBeDisabled()
     })
 })
 

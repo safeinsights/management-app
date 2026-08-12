@@ -11,6 +11,7 @@ import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
+import { notifications } from '@mantine/notifications'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { ReadOnlyField } from '../read-only-field'
 
@@ -43,9 +44,17 @@ export function DraftForm({
     const [file, setFile] = useState<File | null>(null)
 
     const handleDrop = (files: File[]) => {
-        // Expects that there is one file and its type is .md
         const draftFile = files[0]
-        setFile(draftFile)
+        if (draftFile) setFile(draftFile)
+    }
+
+    // The dropzone's accept restricts to Markdown; fires when a non-.md or multiple files are dropped.
+    const handleReject = () => {
+        notifications.show({
+            color: 'red',
+            title: 'Unsupported file',
+            message: 'Please upload a single Markdown (.md) file.',
+        })
     }
     // Create the draft row, then upload the bytes. Keeping both inside the mutation means a failure
     // of either — an action error or a rejected S3 upload — lands in onError instead of an unhandled
@@ -73,7 +82,13 @@ export function DraftForm({
                 Upload your draft document here:
             </Title>
             <Paper shadow="xs" p="md">
-                <Dropzone onDrop={handleDrop} p="md">
+                <Dropzone
+                    onDrop={handleDrop}
+                    onReject={handleReject}
+                    accept={{ 'text/markdown': ['.md', '.markdown'] }}
+                    maxFiles={1}
+                    p="md"
+                >
                     <Group gap="xs" justify="center">
                         <Dropzone.Accept>
                             <UploadIcon size={24} />
