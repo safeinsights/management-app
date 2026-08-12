@@ -24,12 +24,15 @@ type Method = 'sms' | 'totp'
 
 // The session token is what carries fresh org metadata to the next page, but a stale token is a
 // far smaller problem than losing the invite or the key detour that follows it, so a refresh
-// failure is logged rather than thrown.
-async function refreshSessionToken(getToken: GetToken) {
+// failure is logged rather than thrown. The caller is named in the log because the two differ in
+// what the user is left holding: after sign-in nothing has been committed yet, while after an
+// invite accept the membership row already exists, so a stale token there means a joined user
+// whose session cannot see the org.
+async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invite-accepted') {
     try {
         await getToken({ skipCache: true })
     } catch (error) {
-        console.error('session token refresh failed:', error)
+        console.error(`session token refresh failed after ${caller}:`, error)
     }
 }
 
@@ -39,7 +42,7 @@ async function refreshSessionToken(getToken: GetToken) {
 async function completeServerSignIn(getToken: GetToken) {
     try {
         const result = actionResult(await onUserSignInAction())
-        await refreshSessionToken(getToken)
+        await refreshSessionToken(getToken, 'sign-in')
         return result
     } catch (error) {
         console.error('onUserSignInAction failed:', error)
@@ -84,7 +87,7 @@ async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToke
     markOrgJoined(org.name)
     // Deliberately after the landing is settled: nothing that runs once the membership exists may
     // turn a successful join into a retry prompt.
-    await refreshSessionToken(getToken)
+    await refreshSessionToken(getToken, 'invite-accepted')
 
     return Routes.orgDashboard({ orgSlug: org.slug }) as Route
 }
@@ -140,6 +143,10 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     const rawRedirect = searchParams.get('redirect_url')
                     let redirectUrl = rawRedirect ? safeRedirectUrl(rawRedirect, Routes.dashboard) : null
                     const inviteId = searchParams.get('invite_id')
+                    // An invite outranks redirect_url when both are present. Joining is the thing
+                    // that just changed, and its landing is the only one that reflects it: the
+                    // dashboard confirms the membership and carries the joined-org banner, while a
+                    // deep link captured before the join may still be unreachable to this account.
                     if (inviteId) {
                         redirectUrl = await acceptInviteAndResolveLanding(inviteId, auth.getToken)
                     }

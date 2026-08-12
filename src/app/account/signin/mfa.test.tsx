@@ -103,6 +103,21 @@ describe('RequestMFA', () => {
         )
     })
 
+    // Both parameters arrive together whenever an invite link is opened after the proxy captured a
+    // deep link. Pinning the order here so a later refactor cannot flip it silently.
+    it('prefers the invite landing over an explicit redirect_url when both are present', async () => {
+        const { invitingOrg, invite } = await keylessInvitedUser()
+        router.setCurrentUrl(`/account/signin?invite_id=${invite.id}&redirect_url=%2Fopenstax-lab%2Fdashboard`)
+
+        await submitTotpCode(mockSecondFactor())
+
+        await waitFor(() =>
+            expect(router.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
+            ),
+        )
+    })
+
     it('carries an explicit redirect_url through key generation', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()

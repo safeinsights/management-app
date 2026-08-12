@@ -24,6 +24,11 @@ interface Keys {
 // page resolved for this account. An explicit redirect_url (invite flows, deep links) overrides it.
 // Keyed off account state rather than off the presence of that parameter: the RequireUserKey guard
 // is the entry point most first keys arrive through, and it passes none (OTTER-655).
+//
+// firstKeyRedirect is the fallback argument on purpose, so a redirect_url that fails validation
+// falls back to the resolved landing rather than to Routes.dashboard. Passing Routes.dashboard here
+// instead would look equivalent and would quietly demote a first key to "My dashboard" whenever the
+// parameter is malformed, which is the bug this function exists to fix.
 export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
     if (isRegenerating) return Routes.dashboard
 
@@ -38,40 +43,51 @@ type GenerateKeysProps = {
 
 const COPIED_VISIBLE_MS = 2000
 
-type CopyOutcome = 'none' | 'copied' | 'failed'
+type CopyIndication = { hue: 'green' | 'red'; Icon: typeof CheckIcon; fw?: number; text: string }
+
+const COPY_SUCCEEDED: CopyIndication = { hue: 'green', Icon: CheckIcon, fw: 500, text: 'Copied!' }
+
+const COPY_FAILED: CopyIndication = {
+    hue: 'red',
+    Icon: XIcon,
+    text: 'Copy did not work. Select the key above and copy it manually.',
+}
 
 // The AC allows exactly one indicator at a time, which rules out Mantine's useClipboard: it folds
 // every attempt into one pair of flags, so a slow rejection (a permission prompt left open) can
-// land after a later success and light the green check and the red failure together. Attempts are
-// numbered here and a result that is no longer the latest is dropped, because a copy the user has
+// land after a later success and light the green check and the red failure together. Each attempt
+// aborts the one before it and an aborted attempt writes no state, because a copy the user has
 // already superseded says nothing about what is on their clipboard now (OTTER-655).
-function useCopyOutcome() {
-    const [outcome, setOutcome] = useState<CopyOutcome>('none')
-    const latestAttempt = useRef(0)
+function useCopyIndication() {
+    const [indication, setIndication] = useState<CopyIndication | null>(null)
+    const pending = useRef<AbortController>(undefined)
     const hideCopied = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     useEffect(() => () => clearTimeout(hideCopied.current), [])
 
     const copy = async (value: string) => {
-        const attempt = ++latestAttempt.current
+        pending.current?.abort()
+        const attempt = (pending.current = new AbortController())
         clearTimeout(hideCopied.current)
-        setOutcome('none')
+        setIndication(null)
 
         try {
             if (!navigator.clipboard) throw new Error('clipboard is not available in this browser')
             await navigator.clipboard.writeText(value)
-            if (attempt !== latestAttempt.current) return
-            setOutcome('copied')
-            hideCopied.current = setTimeout(() => setOutcome('none'), COPIED_VISIBLE_MS)
+            if (attempt.signal.aborted) return
+            setIndication(COPY_SUCCEEDED)
+            hideCopied.current = setTimeout(() => {
+                if (!attempt.signal.aborted) setIndication(null)
+            }, COPIED_VISIBLE_MS)
         } catch {
-            if (attempt !== latestAttempt.current) return
+            if (attempt.signal.aborted) return
             // The message tells the user to select the key manually, so the reason does not matter
             // and there is nothing actionable to report.
-            setOutcome('failed')
+            setIndication(COPY_FAILED)
         }
     }
 
-    return { outcome, copy }
+    return { indication, copy }
 }
 
 export const GenerateKeys: FC<GenerateKeysProps> = ({
@@ -83,7 +99,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // Reveal Next after any copy attempt so a blocked clipboard doesn't trap the user.
     const [hasAttemptedCopy, setHasAttemptedCopy] = useState(false)
-    const { outcome: copyOutcome, copy } = useCopyOutcome()
+    const { indication: copyIndication, copy } = useCopyIndication()
 
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
@@ -143,8 +159,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                         <Button onClick={onCopy}>Copy key</Button>
                         <NextButton isVisible={hasAttemptedCopy} onClick={openConfirm} />
                     </Group>
-                    <CopySucceededIndicator isVisible={copyOutcome === 'copied'} />
-                    <CopyFailedIndicator isVisible={copyOutcome === 'failed'} />
+                    <CopyIndicator indication={copyIndication} />
                 </Stack>
             </Stack>
 
@@ -168,27 +183,16 @@ const NextButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible
     )
 }
 
-const CopySucceededIndicator: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+const CopyIndicator: FC<{ indication: CopyIndication | null }> = ({ indication }) => {
     const theme = useMantineTheme()
-    if (!isVisible) return null
-    return (
-        <Group gap="xs">
-            <CheckIcon size={16} color={theme.colors.green[9]} />
-            <Text c="green.9" fz={14} fw={500}>
-                Copied!
-            </Text>
-        </Group>
-    )
-}
+    if (!indication) return null
 
-const CopyFailedIndicator: FC<{ isVisible: boolean }> = ({ isVisible }) => {
-    const theme = useMantineTheme()
-    if (!isVisible) return null
+    const { hue, Icon, fw, text } = indication
     return (
         <Group gap="xs">
-            <XIcon size={16} color={theme.colors.red[9]} />
-            <Text c="red.9" fz={14}>
-                Copy did not work. Select the key above and copy it manually.
+            <Icon size={16} color={theme.colors[hue][9]} />
+            <Text c={`${hue}.9`} fz={14} fw={fw}>
+                {text}
             </Text>
         </Group>
     )

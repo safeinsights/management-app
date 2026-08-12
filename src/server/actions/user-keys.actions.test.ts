@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mockSessionWithTestData, actionResult, faker, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
 import {
-    getFirstKeyRedirectAction,
+    getKeyPageStateAction,
     getUserPublicKeyAction,
     setUserPublicKeyAction,
     updateUserPublicKeyAction,
@@ -135,27 +135,56 @@ describe('User Keys Actions', () => {
     })
 })
 
-describe('getFirstKeyRedirectAction', () => {
-    it('returns the org dashboard when the account belongs to exactly one org', async () => {
-        const { org } = await mockSessionWithTestData()
+describe('getKeyPageStateAction', () => {
+    // The landing only applies to a first key, so every case below starts from a keyless account.
+    const keylessSession = async (options: Parameters<typeof mockSessionWithTestData>[0] = {}) => {
+        const session = await mockSessionWithTestData(options)
+        await db.deleteFrom('userPublicKey').where('userId', '=', session.user.id).execute()
+        return session
+    }
 
-        expect(actionResult(await getFirstKeyRedirectAction())).toEqual(`/${org.slug}/dashboard`)
+    it('returns the org dashboard when the account belongs to exactly one org', async () => {
+        const { org } = await keylessSession()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${org.slug}/dashboard`,
+        })
+    })
+
+    // The card's audience is "DP & RL", so an enclave member resolves the same way a lab member
+    // does and org.type stays out of the condition.
+    it('returns the org dashboard for a lab account the same way it does for an enclave account', async () => {
+        const { org } = await keylessSession({ orgType: 'lab' })
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${org.slug}/dashboard`,
+        })
     })
 
     // Two orgs means no unambiguous landing, and nothing in orgUser records which one invited the
     // signup, so the action declines rather than guessing.
     it('falls back to My dashboard when the account belongs to more than one org', async () => {
-        const { user } = await mockSessionWithTestData()
+        const { user } = await keylessSession()
         const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
         await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
 
-        expect(actionResult(await getFirstKeyRedirectAction())).toEqual('/dashboard')
+        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
     })
 
     it('falls back to My dashboard when the account belongs to no org', async () => {
-        const { user } = await mockSessionWithTestData()
+        const { user } = await keylessSession()
         await db.deleteFrom('orgUser').where('userId', '=', user.id).execute()
 
-        expect(actionResult(await getFirstKeyRedirectAction())).toEqual('/dashboard')
+        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+    })
+
+    // A key already on file makes this a reset, which lands on "My dashboard" regardless of how
+    // many orgs the account belongs to.
+    it('reports an existing key and skips the org resolution', async () => {
+        await mockSessionWithTestData()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: true, firstKeyRedirect: '/dashboard' })
     })
 })
