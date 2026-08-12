@@ -195,8 +195,8 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     })
 
     // Pins the behavioral edge of the resultsDisplayStatus guard: a decided run (RUN-COMPLETE plus
-    // a later FILES-APPROVED) routes to reviewer-study-results, so this screen must refuse it. The
-    // old timestamp guard would have rendered the panel because a RUN-COMPLETE row still exists.
+    // a later FILES-APPROVED) routes to reviewer-outputs-decided, so this screen must refuse it.
+    // The old timestamp guard would have rendered the panel because a RUN-COMPLETE row still exists.
     it('shows a not-found alert when the run already has a files decision', async () => {
         const { org, study, job } = await setupAvailable()
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()

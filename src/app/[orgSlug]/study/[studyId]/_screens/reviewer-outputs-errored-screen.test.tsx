@@ -162,7 +162,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     // Pins the behavioral edge of the awaitingFilesDecisionOnError guard: a decided errored run
-    // (JOB-ERRORED plus FILES-APPROVED) routes to reviewer-study-results, so this screen must
+    // (JOB-ERRORED plus FILES-APPROVED) routes to reviewer-outputs-decided, so this screen must
     // refuse it. The old timestamp guard would have rendered the panel because a JOB-ERRORED row
     // still exists.
     it('shows a not-found alert when the errored run already has a files decision', async () => {
