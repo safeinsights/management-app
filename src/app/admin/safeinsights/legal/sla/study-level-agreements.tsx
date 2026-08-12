@@ -2,6 +2,7 @@
 
 import { useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
+import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Anchor, Button, Flex, Stack, Table, Text, Title } from '@mantine/core'
@@ -56,7 +57,7 @@ export const StudyLevelAgreements: FC = () => {
     const [newVersionFor, setNewVersionFor] = useState<Sla | null>(null)
     const [historyFor, setHistoryFor] = useState<Sla | null>(null)
     const { data: agreements = [], isLoading } = useQuery({
-        queryKey: ['studyLevelAgreements'],
+        queryKey: legalDocumentQueryKeys.studyLevelAgreements(),
         queryFn: fetchStudyLevelAgreementsAction,
     })
 

@@ -5,7 +5,7 @@ import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor, Collapse } from
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { ConfirmPublishForm, DraftForm, PreviewDocument, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
 import {
@@ -37,7 +37,7 @@ function UploadModalContents({
     const [page, setPage] = useState<ModalPage>(draft ? 'review' : 'upload')
     const queryClient = useQueryClient()
     const handleDraftSaved = async () => {
-        await queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+        await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
         setPage('review')
     }
     const handlePublish = async () => {
@@ -46,7 +46,7 @@ function UploadModalContents({
         if (isActionError(result)) {
             throw new Error(result.error.toString())
         }
-        await queryClient.invalidateQueries({ queryKey: ['legalVersions', doctype] })
+        await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
         onClose()
     }
 
@@ -123,7 +123,7 @@ export function TosPnUpload({ doctype }: { doctype: 'tos' | 'pn' }) {
     const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['legalVersions', doctype],
+        queryKey: legalDocumentQueryKeys.versions({ type: doctype }),
         queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
     })
 

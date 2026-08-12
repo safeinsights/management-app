@@ -7,6 +7,7 @@ import { uploadFiles } from '@/hooks/upload'
 import type { ActionSuccessType } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
 import {
+    legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     participationAgreementOrgLabels,
     type ParticipationAgreementType,
@@ -35,12 +36,12 @@ type Signatory = { orgId: string; orgName: string; versionNumber: number | null 
 const useSignatoryChoice = ({ type, fixed }: { type: ParticipationAgreementType; fixed?: Signatory }) => {
     const [orgId, setOrgId] = useState<string | null>(null)
     const { data: signatories = [], isLoading } = useQuery({
-        queryKey: ['participationSignatories', type],
+        queryKey: legalDocumentQueryKeys.participationSignatories(type),
         queryFn: () => fetchParticipationSignatoriesAction({ type }),
         enabled: !fixed,
     })
     const { data: agreements = [] } = useQuery({
-        queryKey: ['participationAgreements', type],
+        queryKey: legalDocumentQueryKeys.participationAgreements(type),
         queryFn: () => fetchParticipationAgreementsAction({ type }),
         enabled: !fixed,
     })
@@ -87,8 +88,8 @@ const useUploadParticipationAgreement = ({
         // Wrapped because react-query's second arg is the variables, which reportError reads as a title.
         onError: (error: unknown) => reportError(error),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['participationAgreements', type] })
-            await queryClient.invalidateQueries({ queryKey: ['legalDocumentVersions', type] })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.participationAgreements(type) })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(type) })
             onComplete()
         },
     })

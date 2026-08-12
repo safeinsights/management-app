@@ -3,7 +3,7 @@
 import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
-import type { LegalDocumentTypeValue } from '@/schema/legal-document'
+import { legalDocumentQueryKeys, type LegalDocumentTypeValue } from '@/schema/legal-document'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { Anchor, Stack, Table, Text } from '@mantine/core'
 
@@ -66,7 +66,7 @@ const LoadingState: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 // study's read the same.
 const useVersionHistory = ({ scope, isOpen }: { scope: Scope; isOpen: boolean }) =>
     useQuery({
-        queryKey: ['legalDocumentVersions', scope.type, scope.orgId, scope.studyId],
+        queryKey: legalDocumentQueryKeys.versions(scope),
         queryFn: () => fetchLegalDocumentVersionsAction(scope),
         enabled: isOpen,
     })

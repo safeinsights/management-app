@@ -6,6 +6,7 @@ import { AppModal } from '@/components/modals/app-modal'
 import { uploadFiles } from '@/hooks/upload'
 import type { ActionSuccessType } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
+import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     createLegalDocumentDraftAction,
     fetchStudiesAwaitingSlaAction,
@@ -37,7 +38,7 @@ const toOptions = (pairs: [string, string][]) =>
 // Fetched once and narrowed in memory as the Data Partner > Research Lab > study cascade is used.
 const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
     const { data: candidates = [], isLoading } = useQuery({
-        queryKey: ['studiesAwaitingSla'],
+        queryKey: legalDocumentQueryKeys.studiesAwaitingSla(),
         queryFn: fetchStudiesAwaitingSlaAction,
         enabled,
     })
@@ -106,9 +107,9 @@ const useUploadSla = ({ onComplete }: { onComplete: () => void }) => {
         // Wrapped because react-query's second arg is the variables, which reportError reads as a title.
         onError: (error: unknown) => reportError(error),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['studyLevelAgreements'] })
-            await queryClient.invalidateQueries({ queryKey: ['studiesAwaitingSla'] })
-            await queryClient.invalidateQueries({ queryKey: ['legalDocumentVersions', 'sla'] })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.studyLevelAgreements() })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.studiesAwaitingSla() })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType('sla') })
             onComplete()
         },
     })

@@ -111,3 +111,20 @@ export const fetchLegalDocumentAcknowledgementsSchema = z.object({
         })
         .optional(),
 })
+
+// Query keys for the legal-document actions. Not beside the actions themselves — that is a server
+// actions module, so every export there has to be an async function. Centralized because the
+// version-history read was cached under two different roots, one per tab, so an upload invalidated
+// one consumer and silently missed the other.
+export const legalDocumentQueryKeys = {
+    // The exact scope a reader asked for. tos/pn leave the scope columns undefined.
+    versions: (scope: { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }) =>
+        ['legalDocumentVersions', scope.type, scope.orgId, scope.studyId] as const,
+    // Prefix of the above, so invalidating after a publish reaches every scope of that type without
+    // the writer having to know which readers are mounted.
+    versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
+    participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
+    participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
+    studyLevelAgreements: () => ['studyLevelAgreements'] as const,
+    studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+}

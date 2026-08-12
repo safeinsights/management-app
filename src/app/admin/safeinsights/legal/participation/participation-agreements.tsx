@@ -4,6 +4,7 @@ import { useQuery, useState, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
 import {
+    legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     participationAgreementOrgLabels,
     type ParticipationAgreementType,
@@ -58,7 +59,7 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
     const [newVersionFor, setNewVersionFor] = useState<Agreement | null>(null)
     const [historyFor, setHistoryFor] = useState<Agreement | null>(null)
     const { data: agreements = [], isLoading } = useQuery({
-        queryKey: ['participationAgreements', type],
+        queryKey: legalDocumentQueryKeys.participationAgreements(type),
         queryFn: () => fetchParticipationAgreementsAction({ type }),
     })
 
