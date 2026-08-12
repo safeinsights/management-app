@@ -3,11 +3,18 @@
 import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, type LegalDocumentTypeValue } from '@/schema/legal-document'
+import {
+    legalDocumentFormats,
+    legalDocumentQueryKeys,
+    legalDocumentTypeLabels,
+    type LegalDocumentTypeValue,
+} from '@/schema/legal-document'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { Anchor, Stack } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import dayjs from 'dayjs'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
+import { PreviewDocument } from './preview-document'
 
 type Scope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
 
@@ -15,15 +22,40 @@ type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAc
 
 // signedAt is a bare YYYY-MM-DD string by design and stays that way; publishedAt is an instant, so it
 // gets the app's date format.
-const formatPublishedOn = (publishedAt: Version['publishedAt']) =>
+export const formatPublishedOn = (publishedAt: Version['publishedAt']) =>
     publishedAt ? dayjs(publishedAt).format('MMM DD, YYYY') : '—'
 
-const VERSION_COLUMNS: DataTableColumn<Version>[] = [
-    { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (version) => version.signedAt ?? '—' },
-    { accessor: 'publishedAt', title: 'Published on', render: (version) => formatPublishedOn(version.publishedAt) },
-    { accessor: 'publishedByName', title: 'Published by', render: (version) => version.publishedByName ?? '—' },
-    {
+// A version carries a signature date only where there is a counterparty to sign it, which is exactly
+// the scoped types: the DB check constraint leaves both scope columns null for tos/pn.
+const hasSignatory = (scope: Scope) => Boolean(scope.orgId || scope.studyId)
+
+// Rendered in place rather than linked, because a signed URL to a .md gives the reader raw source or
+// a download. Per row so each version opens its own copy.
+const PreviewLink: FC<{ url: string; label: string }> = ({ url, label }) => {
+    const [isOpen, { open, close }] = useDisclosure(false)
+
+    return (
+        <>
+            <Anchor component="button" type="button" onClick={open}>
+                View
+            </Anchor>
+            <AppModal isOpen={isOpen} onClose={close} title={label} zIndex={400}>
+                <PreviewDocument url={url} label={label} />
+            </AppModal>
+        </>
+    )
+}
+
+const documentColumnFor = (type: LegalDocumentTypeValue): DataTableColumn<Version> => {
+    if (legalDocumentFormats[type] === 'markdown') {
+        return {
+            accessor: 'downloadUrl',
+            title: 'Document',
+            render: (version) => <PreviewLink url={version.downloadUrl} label={legalDocumentTypeLabels[type]} />,
+        }
+    }
+
+    return {
         accessor: 'downloadUrl',
         title: 'Document',
         render: (version) => (
@@ -31,7 +63,21 @@ const VERSION_COLUMNS: DataTableColumn<Version>[] = [
                 View
             </Anchor>
         ),
-    },
+    }
+}
+
+const SIGNED_ON_COLUMN: DataTableColumn<Version> = {
+    accessor: 'signedAt',
+    title: 'Signed on',
+    render: (version) => version.signedAt ?? '—',
+}
+
+const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [
+    { accessor: 'versionNumber', title: 'Version' },
+    ...(hasSignatory(scope) ? [SIGNED_ON_COLUMN] : []),
+    { accessor: 'publishedAt', title: 'Published on', render: (version) => formatPublishedOn(version.publishedAt) },
+    { accessor: 'publishedByName', title: 'Published by', render: (version) => version.publishedByName ?? '—' },
+    documentColumnFor(scope.type),
 ]
 
 // Fetched on open rather than with the table behind it, so a page of agreements does not pull every
@@ -63,7 +109,7 @@ export const VersionHistoryModal: FC<{
                     idAccessor="id"
                     noRecordsText="No versions have been published yet."
                     records={published}
-                    columns={VERSION_COLUMNS}
+                    columns={columnsFor(scope)}
                 />
             </Stack>
         </AppModal>

@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import { actionResult, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
-import { ConfirmPublishForm, DraftForm, PreviewDocument } from './upload-modal-pages'
+import { ConfirmPublishForm, DraftForm } from './upload-modal-pages'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -34,7 +34,13 @@ describe('ConfirmPublishForm', () => {
         const onBack = vi.fn()
 
         renderWithProviders(
-            <ConfirmPublishForm draftName="terms.md" onPublish={onPublish} onBack={onBack} isPublishing={false} />,
+            <ConfirmPublishForm
+                draftName="terms.md"
+                onPublish={onPublish}
+                onBack={onBack}
+                isPublishing={false}
+                isSettled={false}
+            />,
         )
 
         expect(screen.getByText('terms.md')).toBeDefined()
@@ -80,7 +86,7 @@ describe('DraftForm', () => {
     it('rejects a non-markdown file: warns the user and does not select it', async () => {
         const notify = vi.spyOn(notifications, 'show').mockReturnValue('test-id')
 
-        renderWithProviders(<DraftForm doctype="tos" draftName={null} onDraftSaved={vi.fn()} />)
+        renderWithProviders(<DraftForm doctype="TOS" draftName={null} onDraftSaved={vi.fn()} />)
 
         const input = document.querySelector('input[type="file"]') as HTMLInputElement
         fireEvent.change(input, { target: { files: [new File(['nope'], 'terms.txt', { type: 'text/plain' })] } })
@@ -91,19 +97,5 @@ describe('DraftForm', () => {
         // The rejected file never becomes the selected draft, so Save stays disabled.
         expect(screen.queryByText('terms.txt')).toBeNull()
         expect(screen.getByRole('button', { name: /save draft/i })).toBeDisabled()
-    })
-})
-
-describe('PreviewDocument', () => {
-    it('surfaces an error when the document cannot be loaded', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(async () => ({ ok: false, status: 404, text: async () => '' }) as unknown as Response),
-        )
-
-        renderWithProviders(<PreviewDocument url="https://example.com/doc.md" label="Terms of Service" />)
-
-        // ErrorAlert always renders its default title.
-        expect(await screen.findByText('An error occurred')).toBeDefined()
     })
 })

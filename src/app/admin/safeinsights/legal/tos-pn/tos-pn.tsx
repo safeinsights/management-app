@@ -1,22 +1,22 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient, useState } from '@/common'
-import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor, Collapse } from '@mantine/core'
+import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
-import { ConfirmPublishForm, DraftForm, PreviewDocument, ReviewPrePublishForm } from './upload-modal-pages'
+import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
 import {
     fetchLegalDocumentVersionsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
 import { LoadingMessage } from '@/components/loading'
-import { ErrorAlert, reportError } from '@/components/errors'
+import { ErrorAlert, reportMutationError } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
-import { ToggleChevron } from '@/components/icons'
+import { PreviewDocument } from '../preview-document'
+import { formatPublishedOn, VersionHistoryModal } from '../version-history-modal'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -45,7 +45,7 @@ function UploadModalContents({
             await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
             onClose()
         },
-        onError: (error: unknown) => reportError(error, 'Could not publish'),
+        onError: reportMutationError('Could not publish'),
     })
 
     // Review + Confirm require a draft. If there is no draft, but page state is different, still show the upload page.
@@ -68,57 +68,37 @@ function UploadModalContents({
                 onBack={() => setPage('review')}
                 onPublish={() => publishDraft.mutate(draft.id)}
                 isPublishing={publishDraft.isPending}
+                isSettled={publishDraft.isSuccess}
             />
         )
     }
 }
 
-function ShowVersion({ version, doctype }: { version: PublishedVersion; doctype: LegalDocumentType }) {
+// What is live right now, without a click. Prior versions live in the shared VersionHistoryModal,
+// the same one the participation and study-level tables open.
+function CurrentVersion({ version, doctype }: { version: PublishedVersion | null; doctype: LegalDocumentType }) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
+    if (!version) return <Text>No published version yet</Text>
+
     const label = legalDocumentTypeLabels[doctype]
-    const publishedOn = dayjs(version.publishedAt).format('MM/DD/YYYY')
-    const versionNumber = version.versionNumber.toString().padStart(6, '0')
 
     return (
         <Group>
-            <Anchor component="button" onClick={openViewModal}>
-                {doctype.toUpperCase()}
-                {versionNumber}
+            <Anchor component="button" type="button" onClick={openViewModal}>
+                Version {version.versionNumber}
             </Anchor>
             <AppModal title="Review version" isOpen={viewModalOpened} onClose={closeViewModal}>
                 <PreviewDocument url={version.downloadUrl} label={label} />
             </AppModal>
-            <Text>Published on {publishedOn}</Text>
+            <Text>Published on {formatPublishedOn(version.publishedAt)}</Text>
         </Group>
-    )
-}
-
-function VersionHistory({ history, doctype }: { history: PublishedVersion[]; doctype: LegalDocumentType }) {
-    const [opened, { toggle }] = useDisclosure(false)
-    if (history.length === 0) return <Text>No past versions exist</Text>
-
-    return (
-        <>
-            <Anchor component="button" onClick={toggle} aria-expanded={opened}>
-                <Group gap="xs">
-                    <ToggleChevron isExpanded={opened} />
-                    {opened ? 'Hide version history' : 'View version history'}
-                </Group>
-            </Anchor>
-            <Collapse in={opened}>
-                <Stack>
-                    {history.map((version) => {
-                        return <ShowVersion key={version.versionNumber} version={version} doctype={doctype} />
-                    })}
-                </Stack>
-            </Collapse>
-        </>
     )
 }
 
 export function TosPnUpload({ doctype }: { doctype: 'TOS' | 'PN' }) {
     const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
+    const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false)
 
     const { data, isLoading, isError, error } = useQuery({
         queryKey: legalDocumentQueryKeys.versions({ type: doctype }),
@@ -142,9 +122,18 @@ export function TosPnUpload({ doctype }: { doctype: 'TOS' | 'PN' }) {
                         <Text ml="xs">Upload</Text>
                     </Button>
                 </Flex>
-                {data.current && <ShowVersion version={data.current} doctype={doctype} />}
-                {!data.current && <Text>No published version yet</Text>}
-                <VersionHistory history={data.history} doctype={doctype} />
+                <CurrentVersion version={data.current} doctype={doctype} />
+                <Group>
+                    <Anchor component="button" type="button" onClick={openHistory}>
+                        Version History
+                    </Anchor>
+                </Group>
+                <VersionHistoryModal
+                    isOpen={historyOpened}
+                    onClose={closeHistory}
+                    title={`${label} — version history`}
+                    scope={{ type: doctype }}
+                />
                 <AppModal title={label} isOpen={createModalOpened} onClose={closeCreateModal}>
                     <UploadModalContents doctype={doctype} draft={data.draft} onClose={closeCreateModal} />
                 </AppModal>

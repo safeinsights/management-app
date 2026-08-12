@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { actionResult, db, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -41,13 +41,16 @@ const seedDraftTos = (fileName: string) =>
     createLegalDocumentDraftAction({ type: 'TOS', fileName }).then((r) => actionResult(r).version)
 
 describe('TosPnUpload', () => {
-    it('shows no published version and no history before anything is uploaded', async () => {
+    it('shows no published version and an empty history before anything is uploaded', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
         renderWithProviders(<TosPnUpload doctype="TOS" />)
 
         expect(await screen.findByText('No published version yet')).toBeDefined()
-        expect(screen.getByText('No past versions exist')).toBeDefined()
+
+        fireEvent.click(screen.getByRole('button', { name: 'Version History' }))
+
+        expect(await screen.findByText('No versions have been published yet.')).toBeDefined()
     })
 
     it('shows the published version as the current linked copy', async () => {
@@ -56,25 +59,40 @@ describe('TosPnUpload', () => {
 
         renderWithProviders(<TosPnUpload doctype="TOS" />)
 
-        // Version numbers are zero-padded and prefixed with the doctype.
-        expect(await screen.findByRole('button', { name: 'TOS000001' })).toBeDefined()
+        expect(await screen.findByRole('button', { name: 'Version 1' })).toBeDefined()
         expect(screen.getByText(/Published on/)).toBeDefined()
     })
 
-    it('reveals prior versions when the version history is expanded', async () => {
+    it('lists prior versions in the history modal', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await seedPublishedTos('terms-v1.md')
         await seedPublishedTos('terms-v2.md')
 
         renderWithProviders(<TosPnUpload doctype="TOS" />)
 
-        // The newest version is the current one shown up top; the prior one lives in the history.
-        await screen.findByRole('button', { name: 'TOS000002' })
+        // The newest version is the current one shown up top; both live in the history.
+        await screen.findByRole('button', { name: 'Version 2' })
 
-        fireEvent.click(screen.getByRole('button', { name: /view version history/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Version History' }))
 
-        expect(await screen.findByRole('button', { name: /hide version history/i })).toBeDefined()
-        expect(await screen.findByRole('button', { name: 'TOS000001' })).toBeDefined()
+        const history = await screen.findByRole('dialog', { name: /version history/i })
+        expect(within(history).getAllByRole('button', { name: 'View' })).toHaveLength(2)
+    })
+
+    // tos/pn are markdown: a link to the signed URL would hand the admin raw source, so the history
+    // modal renders the document itself.
+    it('renders a version from the history rather than linking to the raw file', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await seedPublishedTos('terms.md')
+
+        renderWithProviders(<TosPnUpload doctype="TOS" />)
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Version History' }))
+
+        const history = await screen.findByRole('dialog', { name: /version history/i })
+        fireEvent.click(within(history).getByRole('button', { name: 'View' }))
+
+        expect(await screen.findByRole('heading', { name: 'Terms of Service' })).toBeDefined()
     })
 
     it('opens the modal to the upload page when no draft exists', async () => {
@@ -106,7 +124,7 @@ describe('TosPnUpload', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
         // Publishing closes the modal and the draft becomes the current version.
-        expect(await screen.findByRole('button', { name: 'TOS000001' })).toBeDefined()
+        expect(await screen.findByRole('button', { name: 'Version 1' })).toBeDefined()
 
         // And it is recorded as published — version 1, no draft left behind.
         const { current, draft } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'TOS' }))

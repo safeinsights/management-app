@@ -1,9 +1,7 @@
 'use client'
 
-import { useMutation, useQuery, useState } from '@/common'
-import { LegalDocumentContent } from '@/components/legal/document-content'
-import { LoadingMessage } from '@/components/loading'
-import { ErrorAlert, reportError } from '@/components/errors'
+import { useMutation, useState } from '@/common'
+import { reportError } from '@/components/errors'
 import { LegalDocumentType } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
@@ -13,22 +11,8 @@ import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@man
 import { Dropzone } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import { PreviewDocument } from '../preview-document'
 import { ReadOnlyField } from '../read-only-field'
-
-export function PreviewDocument({ url, label }: { url: string; label: string }) {
-    const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['contents', url],
-        queryFn: async () => {
-            const res = await fetch(url)
-            if (!res.ok) throw new Error(`Failed to load document ${res.status}`)
-            return res.text()
-        },
-    })
-
-    if (isLoading) return <LoadingMessage message="Loading..." />
-    if (isError || !data) return <ErrorAlert error={error ?? 'The document could not be loaded'} color="red" />
-    return <LegalDocumentContent content={data} label={label} />
-}
 
 // The four modal pages:
 
@@ -155,16 +139,20 @@ export function ReviewPrePublishForm({
     )
 }
 
+// Stays mounted until the parent closes it, so `isSettled` keeps Confirm disabled once the publish
+// has gone through: a second click on an already-published draft would otherwise publish twice.
 export function ConfirmPublishForm({
     draftName,
     onPublish,
     onBack,
     isPublishing,
+    isSettled,
 }: {
     draftName: string
     onPublish: () => void
     onBack: () => void
     isPublishing: boolean
+    isSettled: boolean
 }) {
     return (
         <Stack>
@@ -180,7 +168,7 @@ export function ConfirmPublishForm({
                 <Button variant="outline" onClick={onBack} disabled={isPublishing}>
                     Back
                 </Button>
-                <Button onClick={onPublish} loading={isPublishing}>
+                <Button onClick={onPublish} loading={isPublishing} disabled={isSettled}>
                     Confirm
                 </Button>
             </Group>
