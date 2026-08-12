@@ -142,10 +142,10 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText(dataPartner.name)).toBeDefined()
         expect(within(confirmation).getByText('2026-08-03')).toBeDefined()
         expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
-        // A version 2 resets everyone's acknowledgement, which the admin has to be told before sending.
-        expect(
-            within(confirmation).getByText(/Acknowledgements of the current version do not carry over/),
-        ).toBeDefined()
+        // Says what publishing does — files the agreement — and nothing about acknowledgement, which
+        // an sla does not trigger: only tos/pn are in enforcedLegalDocumentTypes.
+        expect(within(confirmation).getByText(/becomes the current Study Level Agreement on record/)).toBeDefined()
+        expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
 
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {

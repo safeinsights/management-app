@@ -149,7 +149,7 @@ export interface LegalDocumentVersion {
     legalDocumentId: string
     publishedAt: Timestamp | null
     publishedBy: string | null
-    signedAt: Timestamp | null
+    signedAt: string | null
     versionNumber: number | null
 }
 
