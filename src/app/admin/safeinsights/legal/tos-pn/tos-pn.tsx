@@ -77,7 +77,6 @@ function ShowVersion({ version, doctype }: { version: PublishedVersion; doctype:
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
     const label = legalDocumentTypeLabels[doctype]
-    // publishedAt is nullable on the row type; `version` only ever holds published rows.
     const publishedOn = dayjs(version.publishedAt).format('MM/DD/YYYY')
     const versionNumber = version.versionNumber.toString().padStart(6, '0')
 
