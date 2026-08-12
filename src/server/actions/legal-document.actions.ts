@@ -207,7 +207,10 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
         const withUrls = await Promise.all(
             rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
         )
-        const published = withUrls.filter((row) => row.publishedAt !== null)
+        // Include type guarding with filter
+        const published = withUrls.filter(
+            (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
+        )
 
         return {
             legalDocumentId: legalDocument.id,

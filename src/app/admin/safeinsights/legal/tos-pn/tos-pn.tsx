@@ -48,12 +48,10 @@ function UploadModalContents({
         onError: (error: unknown) => reportError(error, 'Could not publish'),
     })
 
-    if (page === 'upload') {
-        return <DraftForm doctype={doctype} draftName={draft ? draft.fileName : null} onDraftSaved={handleDraftSaved} />
+    // Review + Confirm require a draft. If there is no draft, but page state is different, still show the upload page.
+    if (page === 'upload' || !draft) {
+        return <DraftForm doctype={doctype} draftName={draft?.fileName ?? null} onDraftSaved={handleDraftSaved} />
     }
-
-    // Review and Confirm pages require a draft to exist
-    if (!draft) return <LoadingMessage message="Loading draft ..." />
     if (page === 'review') {
         return (
             <ReviewPrePublishForm
@@ -80,10 +78,8 @@ function ShowVersion({ version, doctype }: { version: PublishedVersion; doctype:
 
     const label = legalDocumentTypeLabels[doctype]
     // publishedAt is nullable on the row type; `version` only ever holds published rows.
-    const publishedOn = version.publishedAt ? dayjs(version.publishedAt).format('MM/DD/YYYY') : 'unknown date'
-    const versionNumber = version.versionNumber
-        ? version.versionNumber.toString().padStart(6, '0')
-        : 'unknown version number'
+    const publishedOn = dayjs(version.publishedAt).format('MM/DD/YYYY')
+    const versionNumber = version.versionNumber.toString().padStart(6, '0')
 
     return (
         <Group>
