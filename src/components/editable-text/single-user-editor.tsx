@@ -18,7 +18,7 @@ import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config
 import { EditorFooter } from './editor-footer'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
 
 /**
  * Non-collaborative editor used when NEXT_PUBLIC_SINGLE_USER_EDITING is set.
@@ -103,6 +103,8 @@ export function SingleUserEditor({
     onBlur,
     children,
 }: SingleUserEditorProps) {
+    const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
+
     return (
         <LexicalComposer initialConfig={createInitialConfig(id, initialValue)}>
             <Paper
@@ -113,7 +115,7 @@ export function SingleUserEditor({
                     position: 'relative',
                     borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
                 }}
-                onBlur={onBlur ? widgetBlurHandler(onBlur) : undefined}
+                {...widgetBlur}
             >
                 <RichTextPlugin
                     contentEditable={

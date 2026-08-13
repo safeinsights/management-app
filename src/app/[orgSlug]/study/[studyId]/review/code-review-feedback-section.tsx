@@ -1,11 +1,10 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { fieldDescribedBy, fieldErrorId, widgetBlurHandler } from '@/components/form-field'
+import { fieldDescribedBy, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -81,6 +80,9 @@ function FeedbackEditor({
                 hasDescription: false,
             })}
             placeholder={FEEDBACK_PLACEHOLDER}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the word counter (OTTER-674).
+            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -140,7 +142,11 @@ function DecisionRadioGroup({
 }) {
     const options = buildDecisionOptions(labName)
     const handleChange = (next: string) => onChange(next as Decision)
+    const widgetBlur = useWidgetBlur(onBlur)
 
+    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
+    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
+    // applies Mantine's error styling without adding a second message (OTTER-647).
     const radioOptions = options.map((option) => (
         <Radio
             key={option.value}
@@ -148,19 +154,20 @@ function DecisionRadioGroup({
             label={option.title}
             description={option.description}
             styles={RADIO_STYLES}
+            error={!!error}
             data-testid={option.testId}
         />
     ))
 
     return (
         // Blur is a bubbled focusout, so moving between radios would validate a still-empty
-        // group; widgetBlurHandler waits for focus to leave it (OTTER-647).
+        // group; useWidgetBlur waits for the user to leave it (OTTER-647).
         // A real `label`, not `aria-label`: see the note in review-decision-section. It names the
         // role="radiogroup" element and makes `withAsterisk` render a visible required marker.
         <Radio.Group
             value={value ?? ''}
             onChange={handleChange}
-            onBlur={widgetBlurHandler(onBlur)}
+            {...widgetBlur}
             name="code-review-decision"
             label="Code review decision"
             labelProps={{ fw: 600 }}
@@ -194,9 +201,6 @@ export function CodeReviewFeedbackSection({
                 <Divider />
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
-                <Box id={fieldErrorId('code-review-feedback')}>
-                    <InputError error={feedback.error} />
-                </Box>
                 <Divider />
                 <DecisionRadioGroup
                     value={decisionValue}

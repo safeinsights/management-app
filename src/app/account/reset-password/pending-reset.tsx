@@ -227,6 +227,9 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                                 <InputError error={verificationForm.errors.confirmPassword} />
                             )
                         }
+                        // PasswordInput's inner <input> is rendered with withAria disabled, so
+                        // `error` alone never marks it invalid to assistive tech (OTTER-647).
+                        aria-invalid={!!verificationForm.errors.confirmPassword || undefined}
                     />
                     <ClerkErrorAlert
                         onClose={() => verificationForm.clearFieldError('form')}

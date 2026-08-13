@@ -210,6 +210,9 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         placeholder="********"
                         {...form.getInputProps('confirmPassword')}
                         error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
+                        // PasswordInput's inner <input> is rendered with withAria disabled, so
+                        // `error` alone never marks it invalid to assistive tech (OTTER-647).
+                        aria-invalid={!!form.errors.confirmPassword || undefined}
                     />
 
                     {form.errors.form && (

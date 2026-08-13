@@ -1,10 +1,9 @@
 'use client'
 
-import { Box, Divider, Group, Paper, Stack, Text } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { fieldDescribedBy, fieldErrorId } from '@/components/form-field'
+import { fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
@@ -62,6 +61,9 @@ function FeedbackEditor({
                 hasDescription: false,
             })}
             placeholder={PLACEHOLDER_TEXT}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the word counter (OTTER-674).
+            footerLeft={<FieldErrorBox fieldId="review-feedback" error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -93,9 +95,6 @@ export function ReviewFeedbackSection({
                         research team.
                     </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
-                    <Box id={fieldErrorId('review-feedback')}>
-                        <InputError error={feedback.error} />
-                    </Box>
                 </Stack>
             </Stack>
         </Paper>
