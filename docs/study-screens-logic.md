@@ -131,7 +131,7 @@ raw jobs.
 
 | #   | When                                                                             | Screen              |
 | --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `resultsRejected && !resultsErrored`                                             | `outputs-feedback`  |
+| 1   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`  |
 | 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
 | 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
 | 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |

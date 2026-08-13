@@ -11,10 +11,11 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
-import { projectStudyState } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
+import { isSubmittedStudy } from '@/schema/study'
 import type { OutputsFeedbackEntry } from '@/server/actions/study.actions'
 import { getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
-import { loadOutputsFeedback } from '../view/load-outputs-feedback'
+import { loadReviewFeedback } from '../view/load-review-feedback'
 import type { ScreenComponentProps } from './types'
 
 const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => {
@@ -50,15 +51,9 @@ export async function OutputsFeedbackScreen({
     orgSlug,
     returnTo,
 }: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'>) {
-    const job = await latestSubmittedJobForStudy(study.id)
-    if (!job) {
-        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
-    }
-
-    // Guards the same facts the researcher rule routes on, so routing and rendering cannot
-    // disagree; the query above supplies only the banner's date payload.
-    const state = projectStudyState(raw)
-    if (!state.resultsRejected || state.resultsErrored) {
+    // The routing predicate first (raw is in hand, so the check is free and render cannot disagree
+    // with the rule table), then the narrowing lookups that cost I/O.
+    if (!isFeedbackOnlyOutcome(projectStudyState(raw))) {
         return (
             <AlertNotFound
                 title="Feedback not found"
@@ -66,8 +61,16 @@ export async function OutputsFeedbackScreen({
             />
         )
     }
+    if (!isSubmittedStudy(study)) {
+        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
+    }
 
-    const { entries, feedbackLoadError } = await loadOutputsFeedback(study.id)
+    const job = await latestSubmittedJobForStudy(study.id)
+    if (!job) {
+        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
+    }
+
+    const { entries, feedbackLoadError } = await loadReviewFeedback(study.id, 'RESULTS')
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
     const decidedAt = latestStatusAt(job.statusChanges, 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
@@ -80,7 +83,7 @@ export async function OutputsFeedbackScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title!}
+                    studyTitle={study.title}
                     banner={<FeedbackOnlyBanner decidedAt={decidedAt} dataPartner={dataPartner} />}
                 />
                 <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />

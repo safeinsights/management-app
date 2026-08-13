@@ -971,33 +971,31 @@ async function loadReviewFeedbackThread(
     })
 }
 
+// The authorization lookup exists once for both feedback actions, so a future change to who may
+// view feedback cannot update one and miss the other. A full action factory would be tighter
+// still, but validate-actions requires each export to be a literal `new Action('<export name>')`
+// chain, so the two short chains below stay spelled out.
+const feedbackStudyAuthz = async (db: DBExecutor, studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId', 'submittedByOrgId', 'status'])
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound('study'))
+    return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+}
+
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(async ({ params: { studyId }, db }) => feedbackStudyAuthz(db, studyId))
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'CODE'))
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
-// OTTER-695: outputs counterpart of getCodeReviewFeedbackAction ('RESULTS' rows are written by
-// submitOutputsDecisionAction).
+// OTTER-695: outputs counterpart ('RESULTS' rows are written by submitOutputsDecisionAction).
 export const getOutputsFeedbackAction = new Action('getOutputsFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(async ({ params: { studyId }, db }) => feedbackStudyAuthz(db, studyId))
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'RESULTS'))
 

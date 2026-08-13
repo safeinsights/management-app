@@ -147,3 +147,9 @@ export function projectStudyState(raw: RawStudyState): StudyState {
 export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
+
+// OTTER-695: the reviewer withheld the outputs and shared feedback only, on a run that did not
+// error. Shared by the researcher rule table and the outputs-feedback screen's render guard so the
+// two cannot drift (same pattern as awaitingFilesDecisionOnError above).
+export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected' | 'resultsErrored'>): boolean =>
+    s.resultsRejected && !s.resultsErrored

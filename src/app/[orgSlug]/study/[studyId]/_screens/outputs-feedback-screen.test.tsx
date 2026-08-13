@@ -221,11 +221,30 @@ describe('OutputsFeedbackScreen', () => {
         )
     })
 
-    it('shows a not-found alert when the study has no submitted job', async () => {
+    it('short-circuits on the routing guard for a study with no job (no decision to show)', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'test-lab', orgType: 'lab', createJob: false })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
         const raw = await requireRawState(study.id)
         await renderScreen(study, raw, org.slug)
+        expect(screen.getByText('Feedback not found')).toBeInTheDocument()
+    })
+
+    it('shows the no-submission alert for a titleless draft even when its job carries the decision statuses', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+        const { study: dbStudy, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'DRAFT',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const raw = await requireRawState(dbStudy.id)
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderScreen(study, raw, org.slug)
+
         expect(screen.getByText('No submission found')).toBeInTheDocument()
     })
 

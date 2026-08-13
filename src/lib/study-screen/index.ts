@@ -1,6 +1,6 @@
 export * from './state.types'
 export * from './screens'
-export { projectStudyState, awaitingFilesDecisionOnError } from './state'
+export { projectStudyState, awaitingFilesDecisionOnError, isFeedbackOnlyOutcome } from './state'
 export {
     resolveScreen,
     resolveResearcherCodeScreen,
