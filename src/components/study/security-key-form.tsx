@@ -10,15 +10,26 @@ import { useSecurityKeyForm } from '@/components/study/use-security-key-form'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
+const DEFAULT_TITLE = 'Security key'
+const DEFAULT_DESCRIPTION = 'This key is required to access the outputs. It was issued to you during sign-up.'
+
 interface SecurityKeyFormProps {
     job: LatestJobForStudy
     /** Which role's key set to decrypt against; see useSecurityKeyForm. */
     type: 'researcher' | 'reviewer'
     /** Fires once the key decrypts the job's artifacts; the caller swaps in the review view. */
     onDecrypted: (files: JobFileInfo[]) => void
+    title?: string
+    description?: string
 }
 
-export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, type, onDecrypted }) => {
+export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
+    job,
+    type,
+    onDecrypted,
+    title = DEFAULT_TITLE,
+    description = DEFAULT_DESCRIPTION,
+}) => {
     const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
         job,
         type,
@@ -26,13 +37,9 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, type, onDecrypt
     })
 
     return (
-        <Paper p="xxl">
+        <Paper p="xxl" data-testid="security-key-form">
             <Stack gap={24}>
-                <FormSectionHeader
-                    title="Security key"
-                    description="This key is required to access the outputs. It was issued to you during sign-up."
-                    required
-                />
+                <FormSectionHeader title={title} description={description} required />
                 <SecurityKeyInput
                     ref={inputRef}
                     autoFocus

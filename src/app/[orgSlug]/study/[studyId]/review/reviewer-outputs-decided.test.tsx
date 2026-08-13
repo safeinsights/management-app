@@ -162,4 +162,14 @@ describe('ReviewerOutputsDecided', () => {
 
         expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
     })
+
+    it('renders the View outputs again security-key section', async () => {
+        const { org, study } = await setupDecided()
+        await renderView(study, org.slug)
+
+        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+        expect(
+            screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
+        ).toBeInTheDocument()
+    })
 })
