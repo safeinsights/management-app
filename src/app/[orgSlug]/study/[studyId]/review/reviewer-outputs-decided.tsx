@@ -1,5 +1,6 @@
 import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import type { FC } from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -9,12 +10,22 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
-import type { SelectedStudy } from '@/server/actions/study.actions'
+import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {
     orgSlug: string
     study: SelectedStudy
+}
+
+const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: OutputsDecisionFeedbackEntry[] }> = ({
+    feedbackLoadError,
+    entries,
+}) => {
+    if (feedbackLoadError) {
+        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
+    }
+    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputsDecidedProps) {
@@ -38,7 +49,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
     const resultsErrored = statuses.has('JOB-ERRORED')
     const resultsApproved = statuses.has('FILES-APPROVED')
 
-    const { entries: feedbackEntries } = await loadOutputsFeedback(study.id)
+    const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
 
     return (
         <Box bg="grey.10">
@@ -57,7 +68,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
                         />
                     }
                 />
-                <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
+                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={feedbackEntries} />
                 <DecryptAndViewOutputs job={job} />
                 <Group justify="space-between">
                     <ButtonLink
