@@ -3,7 +3,7 @@
 import type { FC } from '@/common'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Tabs } from '@mantine/core'
-import { TosPnUpload } from './tos-pn/tos-pn'
+import { TosPnPanel } from './tos-pn/tos-pn'
 import { ParticipationAgreements } from './participation/participation-agreements'
 import { StudyLevelAgreements } from './sla/study-level-agreements'
 
@@ -18,10 +18,10 @@ export const LegalTabs: FC = () => (
             <Tabs.Tab value="SLA">Study Level Agreements</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="TOS" pt="md">
-            <TosPnUpload doctype="TOS" />
+            <TosPnPanel doctype="TOS" />
         </Tabs.Panel>
         <Tabs.Panel value="PN" pt="md">
-            <TosPnUpload doctype="PN" />
+            <TosPnPanel doctype="PN" />
         </Tabs.Panel>
         <Tabs.Panel value="DOPA" pt="md">
             <ParticipationAgreements type="DOPA" />

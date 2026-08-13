@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import { findOrCreateLegalDocument } from '@/server/db/legal-document'
 import {
     actionResult,
     faker,
@@ -129,27 +130,8 @@ describe('Create Account Actions', () => {
         // Terms of Service are globally scoped, so at most one row can ever exist and a database the
         // e2e seed has touched already holds it. Find-or-create rather than insert, the same way
         // createLegalDocumentDraftAction does — a plain insert returns nothing on conflict and throws.
-        const findOrCreateTosDocument = async () => {
-            const inserted = await db
-                .insertInto('legalDocument')
-                .values({ type: 'TOS', orgId: null, studyId: null })
-                .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
-                .returning('id')
-                .executeTakeFirst()
-            if (inserted) return inserted.id
-
-            const existing = await db
-                .selectFrom('legalDocument')
-                .select('id')
-                .where('type', '=', 'TOS')
-                .where('orgId', 'is', null)
-                .where('studyId', 'is', null)
-                .executeTakeFirstOrThrow()
-            return existing.id
-        }
-
         const publishTos = async () => {
-            const legalDocumentId = await findOrCreateTosDocument()
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
             // Numbered past whatever the document already carries, or the version-number unique
             // constraint fires on a seeded database.
             const { maxVersion } = await db
@@ -193,7 +175,7 @@ describe('Create Account Actions', () => {
         // A draft was never shown to anyone, so agreeing to one would be evidence of nothing. The
         // account is still created — the app-wide gate collects a real acknowledgement later.
         it('ignores a version that was never published', async () => {
-            const legalDocumentId = await findOrCreateTosDocument()
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
             // Only one draft may be outstanding per document; clear any the seed left behind.
             await db
                 .deleteFrom('legalDocumentVersion')

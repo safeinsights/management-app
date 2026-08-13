@@ -1,11 +1,10 @@
 'use client'
 
-import { useMutation, useState } from '@/common'
+import { useMutation, useState, type FC } from '@/common'
 import { reportError } from '@/components/errors'
-import { LegalDocumentType } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type EnforcedLegalDocumentType } from '@/schema/legal-document'
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
@@ -14,14 +13,33 @@ import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@p
 import { PreviewDocument } from '../preview-document'
 import { ReadOnlyField } from '../read-only-field'
 
-// The four modal pages:
+// Only shown once a draft has been saved before; a first upload has nothing to name.
+const SavedDraftField: FC<{ draftName: string | null }> = ({ draftName }) => {
+    if (!draftName) return null
+
+    return <ReadOnlyField label="Current saved draft:" value={draftName} />
+}
+
+// Only shown after the dropzone has taken a file, which is also the only time there is one to remove.
+const ChosenFileRow: FC<{ file: File | null; onRemove: () => void }> = ({ file, onRemove }) => {
+    if (!file) return null
+
+    return (
+        <Group justify="space-between" align="center">
+            <ReadOnlyField label="Uploaded:" value={file.name} />
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+                <TrashIcon size={16} />
+            </ActionIcon>
+        </Group>
+    )
+}
 
 export function DraftForm({
     doctype,
     draftName,
     onDraftSaved,
 }: {
-    doctype: LegalDocumentType
+    doctype: EnforcedLegalDocumentType
     draftName: string | null
     onDraftSaved: () => void
 }) {
@@ -86,15 +104,8 @@ export function DraftForm({
                     </Group>
                 </Dropzone>
                 <Stack pt="sm">
-                    {draftName && <ReadOnlyField label="Current saved draft:" value={draftName}></ReadOnlyField>}
-                    {file && (
-                        <Group justify="space-between" align="center">
-                            <ReadOnlyField label="Uploaded:" value={file.name} />
-                            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
-                                <TrashIcon size={16} />
-                            </ActionIcon>
-                        </Group>
-                    )}
+                    <SavedDraftField draftName={draftName} />
+                    <ChosenFileRow file={file} onRemove={onRemove} />
                 </Stack>
             </Paper>
             <Flex align="right" justify="right">
@@ -118,7 +129,7 @@ export function ReviewPrePublishForm({
     onBack,
     onConfirm,
 }: {
-    doctype: LegalDocumentType
+    doctype: EnforcedLegalDocumentType
     draftUrl: string
     onBack: () => void
     onConfirm: () => void

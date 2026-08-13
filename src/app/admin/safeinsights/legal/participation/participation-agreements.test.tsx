@@ -58,7 +58,7 @@ const confirmation = () =>
     })
 
 describe('ParticipationAgreements', () => {
-    it('shows a published agreement with the signed date as it was stored', async () => {
+    it('shows a published agreement with the signed date in the app date format', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await seedSignedDopa('2026-07-27')
 
@@ -66,7 +66,7 @@ describe('ParticipationAgreements', () => {
 
         const row = await rowFor(org.name)
         // Guards the off-by-one: the day entered must be the day rendered.
-        expect(within(row).getByText('2026-07-27')).toBeDefined()
+        expect(within(row).getByText('Jul 27, 2026')).toBeDefined()
         expect(within(row).getByText('1')).toBeDefined()
         expect(within(row).getByRole('link', { name: 'View PDF' })).toBeDefined()
         expect(within(row).getByRole('button', { name: 'Upload new version' })).toBeDefined()
@@ -145,7 +145,7 @@ describe('ParticipationAgreements', () => {
         const dialog = await confirmation()
 
         expect(within(dialog).getAllByText(org.name).length).toBeGreaterThan(0)
-        expect(within(dialog).getByText('2026-08-03')).toBeDefined()
+        expect(within(dialog).getByText('Aug 03, 2026')).toBeDefined()
         expect(within(dialog).getByText('signed-dopa.pdf')).toBeDefined()
         expect(within(dialog).getByText(/becomes the current Data Organization Participation Agreement/)).toBeDefined()
         // Nothing enforces a ropa/dopa yet, so the confirmation must not say anyone will be asked.
@@ -169,7 +169,7 @@ describe('ParticipationAgreements', () => {
 
         // findByText, not getByText: the table header renders before the versions arrive, so the
         // dialog is on screen while it is still fetching.
-        expect(await within(history).findByText('2026-07-27')).toBeDefined()
+        expect(await within(history).findByText('Jul 27, 2026')).toBeDefined()
     })
 
     it('lists Research Labs rather than Data Partners for a ropa', async () => {

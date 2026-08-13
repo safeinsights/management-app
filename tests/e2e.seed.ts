@@ -19,6 +19,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
+import { findOrCreateLegalDocument } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 
 // openstax is the canonical e2e org pair: the researcher submits from the lab
@@ -424,29 +425,10 @@ async function uploadLegalContent(key: string, content: string) {
     await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
 }
 
-async function findOrCreateLegalDocument(type: 'TOS' | 'PN') {
-    const inserted = await db
-        .insertInto('legalDocument')
-        .values({ type, orgId: null, studyId: null })
-        .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
-        .returning('id')
-        .executeTakeFirst()
-    if (inserted) return inserted.id
-
-    const existing = await db
-        .selectFrom('legalDocument')
-        .select('id')
-        .where('type', '=', type)
-        .where('orgId', 'is', null)
-        .where('studyId', 'is', null)
-        .executeTakeFirstOrThrow()
-    return existing.id
-}
-
 // Published version ids for a document, oldest first. Tops up to `contents.length` so a re-run
 // against a database that already holds the seeded versions adds nothing.
 async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], publishedBy: string) {
-    const legalDocumentId = await findOrCreateLegalDocument(type)
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type })
 
     const existing = await db
         .selectFrom('legalDocumentVersion')

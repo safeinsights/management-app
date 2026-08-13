@@ -5,7 +5,7 @@ import { Anchor, Checkbox, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, ReactNode } from 'react'
 import type { PublicLegalDocument } from './acknowledgement-copy'
-import { LegalDocumentContent } from './document-content'
+import { LegalDocumentSections } from './document-sections'
 
 // Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
 // they exist the real documents render below and the acknowledgement is recorded against them.
@@ -39,19 +39,6 @@ export const TermsCheckboxLabel: FC = () => (
     </Text>
 )
 
-const PublishedDocuments: FC<{ documents: PublicLegalDocument[] }> = ({ documents }) => (
-    <Stack gap="md">
-        {documents.map((document) => (
-            <Stack key={document.versionId} gap="xs">
-                <Text fw={600} fz="sm">
-                    {legalDocumentTypeLabels[document.type]}
-                </Text>
-                <LegalDocumentContent content={document.content} label={legalDocumentTypeLabels[document.type]} />
-            </Stack>
-        ))}
-    </Stack>
-)
-
 const agreementLabel = (documents: PublicLegalDocument[]) =>
     `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}`
 
@@ -76,7 +63,7 @@ const TERMS_ERROR_ID = 'terms-accepted-error'
 // are wired by hand here so the requirement is not conveyed by red text alone.
 export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, onBlur, error, documents = [] }) => (
     <Stack gap="sm" mt="md">
-        <PublishedDocuments documents={documents} />
+        <LegalDocumentSections documents={documents} labelSize="sm" />
         <Checkbox
             checked={checked}
             onChange={(event) => onChange(event.currentTarget.checked)}

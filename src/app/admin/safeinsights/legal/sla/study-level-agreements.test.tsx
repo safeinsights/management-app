@@ -81,19 +81,20 @@ const chooseFile = (name: string) => {
 }
 
 describe('StudyLevelAgreements', () => {
-    it('shows a published agreement with its study, orgs and the signed date as stored', async () => {
+    it('shows a published agreement with its study, orgs and the signed date in the app date format', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const { dataPartner, researchLab } = await seedSignedSla({
-            signedAt: '2026-07-27',
-            title: `SLA study ${faker.string.alpha(6)}`,
-        })
+        const title = `SLA study ${faker.string.alpha(6)}`
+        const { dataPartner, researchLab } = await seedSignedSla({ signedAt: '2026-07-27', title })
 
         renderWithProviders(<StudyLevelAgreements />)
 
-        await waitFor(() => expect(screen.getByText(researchLab.name)).toBeDefined())
-        expect(screen.getByText(dataPartner.name)).toBeDefined()
+        await waitFor(() => expect(screen.getByText(title)).toBeDefined())
+        const row = screen.getByText(title).closest('tr')!
+
+        expect(within(row).getByText(researchLab.name)).toBeDefined()
+        expect(within(row).getByText(dataPartner.name)).toBeDefined()
         // Guards the off-by-one: the day entered must be the day rendered.
-        expect(screen.getByText('2026-07-27')).toBeDefined()
+        expect(within(row).getByText('Jul 27, 2026')).toBeDefined()
     })
 
     it('carries the study over when adding a version, collecting only a date and file', async () => {
@@ -140,7 +141,7 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText(title)).toBeDefined()
         expect(within(confirmation).getByText(researchLab.name)).toBeDefined()
         expect(within(confirmation).getByText(dataPartner.name)).toBeDefined()
-        expect(within(confirmation).getByText('2026-08-03')).toBeDefined()
+        expect(within(confirmation).getByText('Aug 03, 2026')).toBeDefined()
         expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
         // Says what publishing does — files the agreement — and nothing about acknowledgement, which
         // an sla does not trigger: only tos/pn are in enforcedLegalDocumentTypes.
@@ -213,6 +214,6 @@ describe('StudyLevelAgreements', () => {
 
         // findByText, not getByText: the table header renders before the versions arrive, so the
         // dialog is on screen while it is still fetching.
-        expect(await within(history).findByText('2026-07-27')).toBeDefined()
+        expect(await within(history).findByText('Jul 27, 2026')).toBeDefined()
     })
 })

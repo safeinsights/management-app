@@ -13,9 +13,8 @@ import {
     fetchParticipationSignatoriesAction,
 } from '@/server/actions/legal-document.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
 import { PdfDropzone } from '../pdf-dropzone'
-import { ConfirmPublishModal, usePublishAgreement } from '../publish-agreement'
+import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
 import { ReadOnlyField } from '../read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
@@ -117,44 +116,37 @@ export const UploadParticipationAgreementForm: FC<{
     onCompleteAction: () => void
 }> = ({ type, signatory, onCompleteAction }) => {
     const choice = useSignatoryChoice({ type, fixed: signatory })
-    const [signedAt, setSignedAt] = useState('')
-    const [file, setFile] = useState<File | null>(null)
-    const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
-    const {
-        mutate: publishAgreement,
-        isPending,
-        isSuccess,
-    } = usePublishAgreement({ invalidateKeys: invalidateKeysFor(type), onComplete: onCompleteAction })
+    const chosen = choice.signatory
+    const upload = useAgreementUpload({
+        subject: chosen,
+        scopeFor: (org: Signatory) => ({ type, orgId: org.orgId }),
+        invalidateKeys: invalidateKeysFor(type),
+        onComplete: onCompleteAction,
+    })
 
     const documentLabel = legalDocumentTypeLabels[type]
     const orgLabel = participationAgreementOrgLabels[type]
-    const chosen = choice.signatory
-
-    const publish = () => {
-        if (!chosen || !file) return
-        publishAgreement({ scope: { type, orgId: chosen.orgId }, signedAt, file })
-    }
 
     return (
         <Stack>
             <SignatorySelect isVisible={!signatory} orgLabel={orgLabel} choice={choice} />
             <ChosenSignatory orgLabel={orgLabel} signatory={signatory} />
             <VersionNote versionNumber={chosen?.versionNumber} />
-            <SignedOnInput value={signedAt} onChange={setSignedAt} />
-            <PdfDropzone label={`Signed ${documentLabel}`} file={file} onChange={setFile} />
+            <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
+            <PdfDropzone label={`Signed ${documentLabel}`} file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
-                <Button onClick={askForConfirmation} disabled={!chosen || !signedAt || !file || isPending || isSuccess}>
+                <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>
                     Publish
                 </Button>
             </Group>
             <ConfirmPublishModal
-                isOpen={confirming && Boolean(chosen)}
-                signedAt={signedAt}
-                file={file}
-                isPending={isPending}
-                isSettled={isSuccess}
-                onCancel={stopConfirming}
-                onConfirm={publish}
+                isOpen={upload.isConfirming}
+                signedAt={upload.signedAt}
+                file={upload.file}
+                isPending={upload.isPending}
+                isSettled={upload.isSettled}
+                onCancel={upload.stopConfirming}
+                onConfirm={upload.publish}
                 subject={<ChosenSignatory orgLabel={orgLabel} signatory={chosen} />}
                 consequence={publishConsequence(documentLabel, chosen?.orgName ?? '')}
             />

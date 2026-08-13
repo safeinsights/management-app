@@ -1,15 +1,13 @@
 'use client'
 
-import { useQuery, type FC } from '@/common'
+import { useMemo, useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudiesAwaitingSlaAction, fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
 import * as R from 'remeda'
-import { useMemo, useState } from 'react'
 import { PdfDropzone } from '../pdf-dropzone'
-import { ConfirmPublishModal, usePublishAgreement } from '../publish-agreement'
+import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
 import { ReadOnlyField } from '../read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
@@ -172,21 +170,13 @@ const PUBLISH_CONSEQUENCE =
 // and only a new date and file are collected. Without one, the study is picked from the cascade.
 export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({ onCompleteAction, sla }) => {
     const candidates = useSlaCandidates({ enabled: !sla })
-    const [signedAt, setSignedAt] = useState('')
-    const [file, setFile] = useState<File | null>(null)
-    const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
-    const {
-        mutate: publishSla,
-        isPending,
-        isSuccess,
-    } = usePublishAgreement({ invalidateKeys: SLA_INVALIDATE_KEYS, onComplete: onCompleteAction })
-
     const details = sla ?? candidates.selected
-
-    const publish = () => {
-        if (!details || !file) return
-        publishSla({ scope: { type: 'SLA', studyId: details.studyId }, signedAt, file })
-    }
+    const upload = useAgreementUpload({
+        subject: details,
+        scopeFor: (study: StudyDetails) => ({ type: 'SLA' as const, studyId: study.studyId }),
+        invalidateKeys: SLA_INVALIDATE_KEYS,
+        onComplete: onCompleteAction,
+    })
 
     // Nothing to publish against, so the form is replaced rather than shown unfillable.
     if (!sla && candidates.isEmpty) return <NoStudiesWaiting />
@@ -196,24 +186,21 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
             <StudySelect isVisible={!sla} candidates={candidates} />
             <ChosenStudyFields details={sla} />
             <VersionNote sla={sla} />
-            <SignedOnInput value={signedAt} onChange={setSignedAt} />
-            <PdfDropzone label="Signed Study Level Agreement" file={file} onChange={setFile} />
+            <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
+            <PdfDropzone label="Signed Study Level Agreement" file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
-                <Button
-                    onClick={askForConfirmation}
-                    disabled={!details || !signedAt || !file || isPending || isSuccess}
-                >
+                <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>
                     Publish
                 </Button>
             </Group>
             <ConfirmPublishModal
-                isOpen={confirming && Boolean(details)}
-                signedAt={signedAt}
-                file={file}
-                isPending={isPending}
-                isSettled={isSuccess}
-                onCancel={stopConfirming}
-                onConfirm={publish}
+                isOpen={upload.isConfirming}
+                signedAt={upload.signedAt}
+                file={upload.file}
+                isPending={upload.isPending}
+                isSettled={upload.isSettled}
+                onCancel={upload.stopConfirming}
+                onConfirm={upload.publish}
                 subject={<ChosenStudyFields details={details} />}
                 consequence={PUBLISH_CONSEQUENCE}
             />

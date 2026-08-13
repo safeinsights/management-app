@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useState, type FC } from '@/common'
+import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
 import {
@@ -10,9 +10,10 @@ import {
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
 import { fetchParticipationAgreementsAction } from '@/server/actions/legal-document.actions'
-import { Anchor, Button, Flex, Stack, Title } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
+import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
+import { formatSignedOn } from '../dates'
 import { VersionHistoryModal } from '../version-history-modal'
 import { UploadParticipationAgreementForm } from './upload-participation-agreement-form'
 
@@ -31,34 +32,10 @@ const agreementColumns = ({
 }): DataTableColumn<Agreement>[] => [
     { accessor: 'orgName', title: orgLabel },
     { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (agreement) => agreement.signedAt ?? '—' },
-    {
-        accessor: 'downloadUrl',
-        title: 'Agreement',
-        render: (agreement) => (
-            <Anchor href={agreement.downloadUrl} target="_blank" rel="noreferrer">
-                View PDF
-            </Anchor>
-        ),
-    },
-    {
-        accessor: 'history',
-        title: 'History',
-        render: (agreement) => (
-            <Anchor component="button" type="button" onClick={() => onViewHistory(agreement)}>
-                Version History
-            </Anchor>
-        ),
-    },
-    {
-        accessor: 'actions',
-        title: '',
-        render: (agreement) => (
-            <Button variant="subtle" size="compact-sm" onClick={() => onNewVersion(agreement)}>
-                Upload new version
-            </Button>
-        ),
-    },
+    { accessor: 'signedAt', title: 'Signed on', render: (agreement) => formatSignedOn(agreement.signedAt) },
+    documentColumn<Agreement>(),
+    versionHistoryColumn(onViewHistory),
+    newVersionColumn(onNewVersion),
 ]
 
 // Takes the row itself rather than fields picked out of a possibly-null one, so the form's fixed
@@ -82,9 +59,17 @@ const NewVersionForm: FC<{
 }
 
 export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> = ({ type }) => {
-    const [uploadOpened, { open: openUpload, close: closeUpload }] = useDisclosure(false)
-    const [newVersionFor, setNewVersionFor] = useState<Agreement | null>(null)
-    const [historyFor, setHistoryFor] = useState<Agreement | null>(null)
+    const {
+        uploadOpened,
+        openUpload,
+        closeUpload,
+        newVersionFor,
+        openNewVersion,
+        closeNewVersion,
+        historyFor,
+        openHistory,
+        closeHistory,
+    } = useAgreementPanelModals<Agreement>()
     const { data: agreements = [], isLoading } = useQuery({
         queryKey: legalDocumentQueryKeys.participationAgreements(type),
         queryFn: () => fetchParticipationAgreementsAction({ type }),
@@ -92,12 +77,10 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
 
     const label = legalDocumentTypeLabels[type]
     const orgLabel = participationAgreementOrgLabels[type]
-    const closeNewVersion = () => setNewVersionFor(null)
-    const closeHistory = () => setHistoryFor(null)
     const columns = agreementColumns({
         orgLabel,
-        onNewVersion: setNewVersionFor,
-        onViewHistory: setHistoryFor,
+        onNewVersion: openNewVersion,
+        onViewHistory: openHistory,
     })
 
     return (

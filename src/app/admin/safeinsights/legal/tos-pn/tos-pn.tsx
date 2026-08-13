@@ -3,9 +3,12 @@
 import { useMutation, useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
-import { LegalDocumentType } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import {
+    legalDocumentQueryKeys,
+    legalDocumentTypeLabels,
+    type EnforcedLegalDocumentType,
+} from '@/schema/legal-document'
 import { AcknowledgementsTable } from './acknowledgements-table'
 import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
@@ -17,7 +20,8 @@ import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert, reportMutationError } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
-import { formatPublishedOn, VersionHistoryModal } from '../version-history-modal'
+import { formatPublishedOn } from '../dates'
+import { VersionHistoryModal } from '../version-history-modal'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -30,7 +34,7 @@ function UploadModalContents({
     draft,
     onClose,
 }: {
-    doctype: LegalDocumentType
+    doctype: EnforcedLegalDocumentType
     draft: Draft | null
     onClose: () => void
 }) {
@@ -77,7 +81,13 @@ function UploadModalContents({
 
 // What is live right now, without a click. Prior versions live in the shared VersionHistoryModal,
 // the same one the participation and study-level tables open.
-function CurrentVersion({ version, doctype }: { version: PublishedVersion | null; doctype: LegalDocumentType }) {
+function CurrentVersion({
+    version,
+    doctype,
+}: {
+    version: PublishedVersion | null
+    doctype: EnforcedLegalDocumentType
+}) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
     if (!version) return <Text>No published version yet</Text>
@@ -97,7 +107,7 @@ function CurrentVersion({ version, doctype }: { version: PublishedVersion | null
     )
 }
 
-export function TosPnUpload({ doctype }: { doctype: 'TOS' | 'PN' }) {
+export function TosPnPanel({ doctype }: { doctype: EnforcedLegalDocumentType }) {
     const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
     const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false)
 

@@ -12,10 +12,8 @@ export type PendingLegalDocument = PublicLegalDocument & {
 }
 
 // "Terms of Service and Privacy Notice". Only ever one or two documents, so no Oxford comma case.
-const documentNames = (documents: PendingLegalDocument[]) =>
+export const legalAcknowledgementTitle = (documents: PendingLegalDocument[]) =>
     documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')
-
-export const legalAcknowledgementTitle = documentNames
 
 /**
  * Body copy, following the wording UX established for the participation-agreement modals.
@@ -28,7 +26,7 @@ export const legalAcknowledgementTitle = documentNames
 export const legalAcknowledgementBody = (documents: PendingLegalDocument[]) => {
     if (!documents.length) return ''
 
-    const names = documentNames(documents)
+    const names = legalAcknowledgementTitle(documents)
     const isPlural = documents.length > 1
 
     if (documents.every((document) => document.isUpdate)) {
@@ -45,5 +43,5 @@ export const legalAcknowledgementCheckboxLabel = (documents: PendingLegalDocumen
 
     // "updated" only when it is true of every document named in the same sentence.
     const updated = documents.every((document) => document.isUpdate) ? 'updated ' : ''
-    return `I have read and acknowledge the ${updated}${documentNames(documents)}`
+    return `I have read and acknowledge the ${updated}${legalAcknowledgementTitle(documents)}`
 }

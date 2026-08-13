@@ -1,9 +1,8 @@
 'use client'
 
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { LegalDocumentContent } from './document-content'
+import { LegalDocumentSections } from './document-sections'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
@@ -27,17 +26,6 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
 
     return <Alert color="red">{error}</Alert>
 }
-
-const DocumentSections: FC<{ documents: PendingLegalDocument[] }> = ({ documents }) => (
-    <>
-        {documents.map((document) => (
-            <Stack key={document.versionId} gap="xs">
-                <Text fw={600}>{legalDocumentTypeLabels[document.type]}</Text>
-                <LegalDocumentContent content={document.content} label={legalDocumentTypeLabels[document.type]} />
-            </Stack>
-        ))}
-    </>
-)
 
 /**
  * Blocks the app until the user acknowledges the documents they owe.
@@ -73,7 +61,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
             <Stack>
                 <Text>{legalAcknowledgementBody(documents)}</Text>
 
-                <DocumentSections documents={documents} />
+                <LegalDocumentSections documents={documents} />
 
                 <Checkbox
                     checked={isChecked}

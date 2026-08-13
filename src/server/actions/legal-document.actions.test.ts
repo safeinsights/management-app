@@ -478,6 +478,21 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
         expect(row?.acknowledgedVersionNumber).toBe(2)
     })
 
+    it('ignores acknowledgements of other documents', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await publishPn()
+        // Two tos versions so the tos acknowledgement outranks the privacy notice's on version number.
+        await publishTos('terms-v1.md')
+        const tosV2 = await publishTos('terms-v2.md')
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: tosV2.id }))
+
+        const { users } = actionResult(await fetchLegalDocumentAcknowledgementsAction({ type: 'PN' }))
+        const row = users.find((candidate) => candidate.userId === user.id)
+
+        expect(row?.acknowledgedVersionNumber).toBeNull()
+        expect(row?.ackedAt).toBeNull()
+    })
+
     it('collapses a user who belongs to several orgs into a single row', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const firstOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })

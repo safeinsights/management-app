@@ -12,18 +12,13 @@ import {
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import dayjs from 'dayjs'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
+import { formatPublishedOn, formatSignedOn } from './dates'
 import { PreviewDocument } from './preview-document'
 
 type Scope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
 
 type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
-
-// signedAt is a bare YYYY-MM-DD string by design and stays that way; publishedAt is an instant, so it
-// gets the app's date format.
-export const formatPublishedOn = (publishedAt: Version['publishedAt']) =>
-    publishedAt ? dayjs(publishedAt).format('MMM DD, YYYY') : '—'
 
 // A version carries a signature date only where there is a counterparty to sign it, which is exactly
 // the scoped types: the DB check constraint leaves both scope columns null for tos/pn.
@@ -69,7 +64,7 @@ const documentColumnFor = (type: LegalDocumentTypeValue): DataTableColumn<Versio
 const SIGNED_ON_COLUMN: DataTableColumn<Version> = {
     accessor: 'signedAt',
     title: 'Signed on',
-    render: (version) => version.signedAt ?? '—',
+    render: (version) => formatSignedOn(version.signedAt),
 }
 
 const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [

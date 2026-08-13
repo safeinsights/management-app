@@ -1,14 +1,15 @@
 'use client'
 
-import { useQuery, useState, type FC } from '@/common'
+import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
 import { AppModal } from '@/components/modals/app-modal'
-import { Anchor, Button, Flex, Stack, Title } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { UploadSlaForm } from './upload-sla-form'
+import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
+import { formatSignedOn } from '../dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
@@ -28,48 +29,30 @@ const slaColumns = ({
     { accessor: 'researchLabName', title: 'Research Lab' },
     { accessor: 'dataPartnerName', title: 'Data Partner' },
     { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (sla) => sla.signedAt ?? '—' },
-    {
-        accessor: 'downloadUrl',
-        title: 'Agreement',
-        render: (sla) => (
-            <Anchor href={sla.downloadUrl} target="_blank" rel="noreferrer">
-                View PDF
-            </Anchor>
-        ),
-    },
-    {
-        accessor: 'history',
-        title: 'History',
-        render: (sla) => (
-            <Anchor component="button" type="button" onClick={() => onViewHistory(sla)}>
-                Version History
-            </Anchor>
-        ),
-    },
-    {
-        accessor: 'actions',
-        title: '',
-        render: (sla) => (
-            <Button variant="subtle" size="compact-sm" onClick={() => onNewVersion(sla)}>
-                Upload new version
-            </Button>
-        ),
-    },
+    { accessor: 'signedAt', title: 'Signed on', render: (sla) => formatSignedOn(sla.signedAt) },
+    documentColumn<Sla>(),
+    versionHistoryColumn(onViewHistory),
+    newVersionColumn(onNewVersion),
 ]
 
 export const StudyLevelAgreements: FC = () => {
-    const [uploadOpened, { open: openUpload, close: closeUpload }] = useDisclosure(false)
-    const [newVersionFor, setNewVersionFor] = useState<Sla | null>(null)
-    const [historyFor, setHistoryFor] = useState<Sla | null>(null)
+    const {
+        uploadOpened,
+        openUpload,
+        closeUpload,
+        newVersionFor,
+        openNewVersion,
+        closeNewVersion,
+        historyFor,
+        openHistory,
+        closeHistory,
+    } = useAgreementPanelModals<Sla>()
     const { data: agreements = [], isLoading } = useQuery({
         queryKey: legalDocumentQueryKeys.studyLevelAgreements(),
         queryFn: fetchStudyLevelAgreementsAction,
     })
 
-    const closeNewVersion = () => setNewVersionFor(null)
-    const closeHistory = () => setHistoryFor(null)
-    const columns = slaColumns({ onNewVersion: setNewVersionFor, onViewHistory: setHistoryFor })
+    const columns = slaColumns({ onNewVersion: openNewVersion, onViewHistory: openHistory })
 
     return (
         <Stack>

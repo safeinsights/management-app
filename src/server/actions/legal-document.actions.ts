@@ -18,13 +18,12 @@ import {
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
+import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
-
-type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
     (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
@@ -69,32 +68,13 @@ const globalDocumentScope = async () => ({ isGlobal: true, audienceOrgIds: [] })
 // conditions are a TS weak type: params sharing none of those properties won't compile.
 const noDocumentScope = async () => ({ orgId: undefined, studyId: undefined })
 
-// tos/pn are global, so their scope columns are null rather than absent.
-const findDocument = (db: DBExecutor, { type, orgId, studyId }: DocumentScope) =>
-    db
-        .selectFrom('legalDocument')
-        .selectAll('legalDocument')
-        .where('type', '=', type)
-        .where((eb) => (orgId ? eb('orgId', '=', orgId) : eb('orgId', 'is', null)))
-        .where((eb) => (studyId ? eb('studyId', '=', studyId) : eb('studyId', 'is', null)))
-        .executeTakeFirst()
-
 export const createLegalDocumentDraftAction = new Action('createLegalDocumentDraftAction', {
     performsMutations: true,
 })
     .params(createLegalDocumentDraftSchema)
     .requireAbilityTo('create', 'LegalDocument')
     .handler(async ({ db, params: { type, orgId, studyId, fileName } }) => {
-        // Created on first upload rather than seeded. onConflict covers a concurrent first upload.
-        const legalDocument =
-            (await db
-                .insertInto('legalDocument')
-                .values({ type, orgId: orgId ?? null, studyId: studyId ?? null })
-                .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
-                .returningAll()
-                .executeTakeFirst()) ?? (await findDocument(db, { type, orgId, studyId }))
-
-        if (!legalDocument) throw new ActionFailure({ document: 'could not be created' })
+        const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
         // A fresh upload supersedes any pending draft. The old S3 object is left orphaned — deleting
         // it here couldn't roll back with the transaction, and it's unreachable anyway.
@@ -183,7 +163,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
     .params(legalDocumentScopeSchema)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db, params: { type, orgId, studyId } }) => {
-        const legalDocument = await findDocument(db, { type, orgId, studyId })
+        const legalDocument = await findLegalDocument(db, { type, orgId, studyId })
         if (!legalDocument) return { legalDocumentId: null, current: null, history: [], draft: null }
 
         const rows = await db
@@ -207,7 +187,6 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
         const withUrls = await Promise.all(
             rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
         )
-        // Include type guarding with filter
         const published = withUrls.filter(
             (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
         )
@@ -354,7 +333,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
     .params(fetchLegalDocumentAcknowledgementsSchema)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db, params: { type, orgId, studyId, sort } }) => {
-        const legalDocument = await findDocument(db, { type, orgId, studyId })
+        const legalDocument = await findLegalDocument(db, { type, orgId, studyId })
 
         // Audience is derived, not stored: for tos/pn that's every user, and a missing row means
         // "has not agreed".
@@ -378,6 +357,9 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                       'legalDocumentAcknowledgement.ackedAt',
                       'legalDocumentVersion.versionNumber',
                   ])
+                  // Versions of this document only: without it the user's highest-numbered ack of
+                  // anything wins, and a tos acknowledgement reports itself on the privacy notice.
+                  .where('legalDocumentVersion.legalDocumentId', '=', legalDocument.id)
                   // Newest acknowledged version per user.
                   .distinctOn('legalDocumentAcknowledgement.userId')
                   .orderBy('legalDocumentAcknowledgement.userId')

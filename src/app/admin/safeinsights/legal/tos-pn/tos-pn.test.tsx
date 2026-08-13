@@ -6,7 +6,7 @@ import {
     fetchLegalDocumentVersionsAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { TosPnUpload } from './tos-pn'
+import { TosPnPanel } from './tos-pn'
 
 // The two S3 presign helpers are stubbed the same way the other legal suites do it: the browser
 // does the real upload, so there is nothing to hit. Implementations go to vi.fn (not
@@ -40,11 +40,11 @@ const seedPublishedTos = async (fileName: string) => {
 const seedDraftTos = (fileName: string) =>
     createLegalDocumentDraftAction({ type: 'TOS', fileName }).then((r) => actionResult(r).version)
 
-describe('TosPnUpload', () => {
+describe('TosPnPanel', () => {
     it('shows no published version and an empty history before anything is uploaded', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        renderWithProviders(<TosPnUpload doctype="TOS" />)
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
 
         expect(await screen.findByText('No published version yet')).toBeDefined()
 
@@ -57,7 +57,7 @@ describe('TosPnUpload', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await seedPublishedTos('terms.md')
 
-        renderWithProviders(<TosPnUpload doctype="TOS" />)
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
 
         expect(await screen.findByRole('button', { name: 'Version 1' })).toBeDefined()
         expect(screen.getByText(/Published on/)).toBeDefined()
@@ -68,7 +68,7 @@ describe('TosPnUpload', () => {
         await seedPublishedTos('terms-v1.md')
         await seedPublishedTos('terms-v2.md')
 
-        renderWithProviders(<TosPnUpload doctype="TOS" />)
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
 
         // The newest version is the current one shown up top; both live in the history.
         await screen.findByRole('button', { name: 'Version 2' })
@@ -85,7 +85,7 @@ describe('TosPnUpload', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await seedPublishedTos('terms.md')
 
-        renderWithProviders(<TosPnUpload doctype="TOS" />)
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
 
         fireEvent.click(await screen.findByRole('button', { name: 'Version History' }))
 
@@ -98,7 +98,7 @@ describe('TosPnUpload', () => {
     it('opens the modal to the upload page when no draft exists', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        renderWithProviders(<TosPnUpload doctype="TOS" />)
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
 
         fireEvent.click(await screen.findByRole('button', { name: /upload/i }))
 
@@ -109,7 +109,7 @@ describe('TosPnUpload', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await seedDraftTos('terms.md')
 
-        renderWithProviders(<TosPnUpload doctype="TOS" />)
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
 
         // A pending draft means the modal opens straight to the review page.
         fireEvent.click(await screen.findByRole('button', { name: /upload/i }))
