@@ -6,7 +6,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { ReDecryptOutputs } from '@/components/study/re-decrypt-outputs'
+import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -58,7 +58,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
                     }
                 />
                 <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
-                <ReDecryptOutputs job={job} />
+                <DecryptAndViewOutputs job={job} />
                 <Group justify="space-between">
                     <ButtonLink
                         href={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

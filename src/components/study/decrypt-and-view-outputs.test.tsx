@@ -14,7 +14,7 @@ import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { type FileType } from '@/database/types'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { ReDecryptOutputs } from './re-decrypt-outputs'
+import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
@@ -67,7 +67,7 @@ async function seedArtifact(
     }
 }
 
-describe('ReDecryptOutputs', () => {
+describe('DecryptAndViewOutputs', () => {
     let org: Org
     let job: NonNullable<LatestJobForStudy>
 
@@ -86,7 +86,7 @@ describe('ReDecryptOutputs', () => {
     })
 
     it('renders the View outputs again security-key copy (OTTER-677 overrides)', async () => {
-        renderWithProviders(<ReDecryptOutputs job={job} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -99,7 +99,7 @@ describe('ReDecryptOutputs', () => {
 
     it('replaces the form with the output files table after a successful decrypt', async () => {
         const privateKeyPem = await readTestSupportFile('private_key.pem')
-        renderWithProviders(<ReDecryptOutputs job={job} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} />)
 
         await screen.findByRole('button', { name: 'View' })
         fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })

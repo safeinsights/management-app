@@ -8,12 +8,12 @@ import { useOutputsFiles } from '@/hooks/use-outputs-files'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
-type ReDecryptOutputsProps = {
+type DecryptAndViewOutputsProps = {
     job: NonNullable<LatestJobForStudy>
 }
 
 // Post-decision re-decrypt.
-export const ReDecryptOutputs: FC<ReDecryptOutputsProps> = ({ job }) => {
+export const DecryptAndViewOutputs: FC<DecryptAndViewOutputsProps> = ({ job }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
 
     if (decryptedFiles === null) {
