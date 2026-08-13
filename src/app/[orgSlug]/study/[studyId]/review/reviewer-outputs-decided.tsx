@@ -1,13 +1,15 @@
-import { Box, Divider, Group, Stack } from '@mantine/core'
+import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
+import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 
 type ReviewerOutputsDecidedProps = {
     orgSlug: string
@@ -35,9 +37,11 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
     const resultsErrored = statuses.has('JOB-ERRORED')
     const resultsApproved = statuses.has('FILES-APPROVED')
 
+    const { entries: feedbackEntries } = await loadCodeReviewFeedback(study.id)
+
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="lg" py="xl">
+            <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader>Secondary analysis study</StudyPageHeader>
                 <ProposalStepHeader
                     stepLabel="STEP 3"
@@ -52,7 +56,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
                         />
                     }
                 />
-                <Divider color="charcoal.1" />
+                <FeedbackAndNotesSection entries={feedbackEntries} alwaysExpandLatest />
                 <Group justify="space-between">
                     <ButtonLink
                         href={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

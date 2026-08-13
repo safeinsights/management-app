@@ -32,7 +32,7 @@ const setupDecided = async ({
 
     await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: filesDecision }).execute()
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-    return { org, study }
+    return { org, user, study, job }
 }
 
 const renderView = async (study: SelectedStudy, orgSlug: string) =>
@@ -132,5 +132,34 @@ describe('ReviewerOutputsDecided', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
         await renderView(study, org.slug)
         expect(screen.getByText('No decision found')).toBeInTheDocument()
+    })
+
+    it('renders the Feedback and notes section with reviewer feedback entries', async () => {
+        const { org, user, study, job } = await setupDecided()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                round: 1,
+            })
+            .execute()
+
+        await renderView(study, org.slug)
+
+        expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
+        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+    })
+
+    it('hides the Feedback and notes section when there are no entries', async () => {
+        const { org, study } = await setupDecided()
+        await renderView(study, org.slug)
+
+        expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
     })
 })
