@@ -212,4 +212,20 @@ describe('StudyReviewPage', () => {
 
         expect(page?.type).toBe(ReviewerOutputsDecided)
     })
+
+    it('renders ReviewerOutputsDecided for a rejected files decision', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addJobStatus(study.id, 'CODE-APPROVED')
+        await addJobStatus(study.id, 'FILES-REJECTED')
+
+        const page = await callPage(org.slug, study.id)
+
+        expect(page?.type).toBe(ReviewerOutputsDecided)
+    })
 })

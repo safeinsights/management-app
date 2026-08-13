@@ -9,6 +9,7 @@ import {
     renderWithProviders,
     screen,
 } from '@/tests/unit.helpers'
+import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -156,6 +157,62 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
     })
 
+    it('displays the author name and date for a feedback entry', async () => {
+        const { org, user, study, job } = await setupDecided()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: JSON.parse(lexicalJson('Looks good overall.')),
+                round: 1,
+            })
+            .execute()
+
+        await renderView(study, org.slug)
+
+        const entry = screen.getByTestId('feedback-entries')
+        expect(entry).toHaveTextContent(user.fullName)
+        expect(entry).toHaveTextContent(dayjs().format('MMM DD, YYYY'))
+    })
+
+    it('renders a divider between multiple feedback entries', async () => {
+        const { org, user, study, job } = await setupDecided()
+        await db
+            .insertInto('studyReviewComment')
+            .values([
+                {
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'RESULTS',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: JSON.parse(lexicalJson('Round one feedback.')),
+                    round: 1,
+                },
+                {
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'RESULTS',
+                    entryType: 'DECISION',
+                    decision: 'REJECT',
+                    body: JSON.parse(lexicalJson('Round two feedback.')),
+                    round: 2,
+                },
+            ])
+            .execute()
+
+        await renderView(study, org.slug)
+
+        expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+    })
+
     it('hides the Feedback and notes section when there are no entries', async () => {
         const { org, study } = await setupDecided()
         await renderView(study, org.slug)
@@ -171,5 +228,21 @@ describe('ReviewerOutputsDecided', () => {
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
+    })
+
+    it('renders Previous step as a subtle-variant link', async () => {
+        const { org, study } = await setupDecided()
+        await renderView(study, org.slug)
+
+        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute('data-variant', 'subtle')
+    })
+
+    it('renders Back to my studies as a filled-variant link that is enabled by default', async () => {
+        const { org, study } = await setupDecided()
+        await renderView(study, org.slug)
+
+        const link = screen.getByRole('link', { name: /back to my studies/i })
+        expect(link).toHaveAttribute('data-variant', 'filled')
+        expect(link).not.toHaveAttribute('data-disabled')
     })
 })
