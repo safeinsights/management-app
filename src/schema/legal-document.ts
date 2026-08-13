@@ -113,7 +113,9 @@ export const publishLegalDocumentVersionSchema = z.object({
 })
 
 export const acknowledgeLegalDocumentSchema = z.object({
-    versionId: z.string(),
+    // Validated as a uuid because scopeFromVersionId queries on it before any handler runs: a
+    // malformed id would raise there and 500 rather than failing closed.
+    versionId: z.string().uuid(),
 })
 
 // Params for both participation reads — the agreements table and the signatory picker — so it is

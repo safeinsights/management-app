@@ -11,37 +11,19 @@ export type PendingLegalDocument = PublicLegalDocument & {
     isUpdate: boolean
 }
 
-// "Terms of Service and Privacy Notice". Only ever one or two documents, so no Oxford comma case.
-export const legalAcknowledgementTitle = (documents: PendingLegalDocument[]) =>
-    documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')
+export const legalAcknowledgementTitle = (document: PendingLegalDocument) => legalDocumentTypeLabels[document.type]
 
-/**
- * Body copy, following the wording UX established for the participation-agreement modals.
- *
- * A user can owe a brand-new document and an updated one at the same time — acked ToS v1, then we
- * publish ToS v2 alongside the first Privacy Notice. Neither "is now available" nor "has been
- * updated" is true of that pair, so it falls back to neutral wording rather than saying something
- * inaccurate about a legal document.
- */
-export const legalAcknowledgementBody = (documents: PendingLegalDocument[]) => {
-    if (!documents.length) return ''
+// Wording follows what UX established for the participation-agreement modals. One document per modal,
+// so the sentence can always say the true thing about it rather than hedging across a pair.
+export const legalAcknowledgementBody = (document: PendingLegalDocument) => {
+    const name = legalAcknowledgementTitle(document)
+    const state = document.isUpdate ? 'has been updated' : 'is now available'
 
-    const names = legalAcknowledgementTitle(documents)
-    const isPlural = documents.length > 1
-
-    if (documents.every((document) => document.isUpdate)) {
-        return `The ${names} ${isPlural ? 'have' : 'has'} been updated. Please review before proceeding.`
-    }
-    if (documents.every((document) => !document.isUpdate)) {
-        return `The ${names} ${isPlural ? 'are' : 'is'} now available. Please review before proceeding.`
-    }
-    return 'Please review and acknowledge the following before continuing.'
+    return `The ${name} ${state}. Please review before proceeding.`
 }
 
-export const legalAcknowledgementCheckboxLabel = (documents: PendingLegalDocument[]) => {
-    if (!documents.length) return ''
+export const legalAcknowledgementCheckboxLabel = (document: PendingLegalDocument) => {
+    const updated = document.isUpdate ? 'updated ' : ''
 
-    // "updated" only when it is true of every document named in the same sentence.
-    const updated = documents.every((document) => document.isUpdate) ? 'updated ' : ''
-    return `I have read and acknowledge the ${updated}${legalAcknowledgementTitle(documents)}`
+    return `I have read and acknowledge the ${updated}${legalAcknowledgementTitle(document)}`
 }

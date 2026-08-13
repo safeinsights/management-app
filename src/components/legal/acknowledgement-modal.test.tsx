@@ -3,15 +3,18 @@ import { describe, expect, it, vi } from 'vitest'
 import type { PendingLegalDocument } from './acknowledgement-copy'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
-const documents: PendingLegalDocument[] = [
-    { type: 'TOS', versionId: 'tos-v2', isUpdate: true, content: '# Terms\n\nThe updated terms.' },
-]
+const document: PendingLegalDocument = {
+    type: 'TOS',
+    versionId: 'tos-v2',
+    isUpdate: true,
+    content: '# Terms\n\nThe updated terms.',
+}
 
 const renderModal = (props: Partial<Parameters<typeof LegalAcknowledgementModal>[0]> = {}) =>
     renderWithProviders(
         <LegalAcknowledgementModal
             isVisible
-            documents={documents}
+            document={document}
             isChecked={false}
             onCheckedChange={vi.fn()}
             onContinue={vi.fn()}
@@ -43,6 +46,13 @@ describe('LegalAcknowledgementModal', () => {
     it('enables Continue once the box is checked', () => {
         renderModal({ isChecked: true })
         expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    })
+
+    // Mantine's `loading` blocks pointer clicks without setting `disabled`, so the button stays
+    // keyboard-focusable and Enter would fire a second write mid-flight.
+    it('keeps Continue disabled while a submission is in flight', () => {
+        renderModal({ isChecked: true, isSubmitting: true })
+        expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
     })
 
     it('reports the checkbox being ticked', async () => {

@@ -27,10 +27,12 @@ vi.mock('@/server/storage', async (importOriginal) => ({
     fetchFileContents: vi.fn(async () => new Blob([TERMS_BODY])),
 }))
 
-const publishTos = async () => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' }))
+const publish = async (type: 'TOS' | 'PN', fileName: string) => {
+    const { version } = actionResult(await createLegalDocumentDraftAction({ type, fileName }))
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
+
+const publishTos = () => publish('TOS', 'terms.md')
 
 const acknowledgementsFor = (userId: string) =>
     db
@@ -65,6 +67,36 @@ describe('RequireLegalAcknowledgement', () => {
             expect(acks).toHaveLength(1)
             expect(acks[0]!.legalDocumentVersionId).toBe(version.id)
         })
+        // Scoped to the document this test published: a local dev database also holds a seeded
+        // Privacy Notice, which this user legitimately still owes.
+        await waitFor(() => expect(screen.queryByText(/The Terms of Service/)).toBeNull())
+    })
+
+    // Each modal covers one document, so the ticked box, the text on screen and the row written can
+    // never disagree. The second document is reached by the refetch that acknowledging triggers.
+    it('asks about one document at a time', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        await publishTos()
+        await publish('PN', 'privacy.md')
+
+        const { user } = await mockSessionWithTestData()
+        renderWithProviders(<RequireLegalAcknowledgement />)
+
+        expect(await screen.findByText(/The Terms of Service is now available/)).toBeDefined()
+        expect(screen.queryByText(/Privacy Notice/)).toBeNull()
+
+        await userEvent.click(screen.getByRole('checkbox'))
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+        expect(await screen.findByText(/The Privacy Notice is now available/)).toBeDefined()
+        expect(screen.queryByText(/Terms of Service/)).toBeNull()
+        // Ticking the first document must not carry over to the second.
+        expect(screen.getByRole('checkbox')).not.toBeChecked()
+
+        await userEvent.click(screen.getByRole('checkbox'))
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+        await waitFor(async () => expect(await acknowledgementsFor(user.id)).toHaveLength(2))
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 

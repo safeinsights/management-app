@@ -2,7 +2,7 @@
 
 import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { LegalDocumentSections } from './document-sections'
+import { LegalDocumentSection } from './document-sections'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
@@ -12,7 +12,7 @@ import {
 
 type Props = {
     isVisible: boolean
-    documents: PendingLegalDocument[]
+    document?: PendingLegalDocument
     isChecked: boolean
     onCheckedChange: (checked: boolean) => void
     onContinue: () => void
@@ -28,7 +28,10 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
 }
 
 /**
- * Blocks the app until the user acknowledges the documents they owe.
+ * Blocks the app until the user acknowledges the document they owe.
+ *
+ * One document per modal: acknowledging refetches what is outstanding, so a user owing both the Terms
+ * of Service and the Privacy Notice is asked about the second once the first is recorded.
  *
  * Deliberately not dismissable — no close button, no escape, no click-outside — because dismissing
  * it and carrying on is the thing it exists to prevent. Declining is still a legitimate choice, so
@@ -37,7 +40,7 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
  */
 export const LegalAcknowledgementModal: FC<Props> = ({
     isVisible,
-    documents,
+    document,
     isChecked,
     onCheckedChange,
     onContinue,
@@ -45,13 +48,13 @@ export const LegalAcknowledgementModal: FC<Props> = ({
     isSubmitting,
     error,
 }) => {
-    if (!isVisible) return null
+    if (!isVisible || !document) return null
 
     return (
         <Modal
             opened
             onClose={() => {}}
-            title={legalAcknowledgementTitle(documents)}
+            title={legalAcknowledgementTitle(document)}
             size="lg"
             centered
             withCloseButton={false}
@@ -59,14 +62,14 @@ export const LegalAcknowledgementModal: FC<Props> = ({
             closeOnClickOutside={false}
         >
             <Stack>
-                <Text>{legalAcknowledgementBody(documents)}</Text>
+                <Text>{legalAcknowledgementBody(document)}</Text>
 
-                <LegalDocumentSections documents={documents} />
+                <LegalDocumentSection document={document} />
 
                 <Checkbox
                     checked={isChecked}
                     onChange={(event) => onCheckedChange(event.currentTarget.checked)}
-                    label={legalAcknowledgementCheckboxLabel(documents)}
+                    label={legalAcknowledgementCheckboxLabel(document)}
                 />
 
                 <AcknowledgementError error={error} />
@@ -75,7 +78,8 @@ export const LegalAcknowledgementModal: FC<Props> = ({
                     <Button variant="subtle" onClick={onSignOut} disabled={isSubmitting}>
                         Sign out
                     </Button>
-                    <Button onClick={onContinue} disabled={!isChecked} loading={isSubmitting}>
+                    {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
+                    <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
                         Continue
                     </Button>
                 </Group>
