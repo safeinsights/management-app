@@ -10,7 +10,7 @@ import { ReDecryptOutputs } from '@/components/study/re-decrypt-outputs'
 import { Routes } from '@/lib/routes'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
+import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {
     orgSlug: string
@@ -38,7 +38,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
     const resultsErrored = statuses.has('JOB-ERRORED')
     const resultsApproved = statuses.has('FILES-APPROVED')
 
-    const { entries: feedbackEntries } = await loadCodeReviewFeedback(study.id)
+    const { entries: feedbackEntries } = await loadOutputsFeedback(study.id)
 
     return (
         <Box bg="grey.10">

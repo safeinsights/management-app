@@ -978,6 +978,51 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
+export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
+    .params(z.object({ studyId: z.string().uuid() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, db }) => {
+        const rows = await db
+            .selectFrom('studyReviewComment')
+            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+            .select([
+                'studyReviewComment.id',
+                'studyReviewComment.authorId',
+                'studyReviewComment.entryType',
+                'studyReviewComment.decision',
+                'studyReviewComment.body',
+                'studyReviewComment.createdAt',
+                'studyReviewComment.round',
+                'author.fullName as authorName',
+            ])
+            .where('studyReviewComment.studyId', '=', studyId)
+            .where('studyReviewComment.reviewKind', '=', 'RESULTS')
+            .where('studyReviewComment.entryType', '=', 'DECISION')
+            .orderBy('studyReviewComment.createdAt', 'desc')
+            .execute()
+
+        return rows.map((row) => ({
+            id: row.id,
+            authorId: row.authorId,
+            entryType: 'REVIEWER-FEEDBACK' as const,
+            decision: row.decision,
+            body: row.body,
+            createdAt: row.createdAt,
+            authorName: row.authorName,
+            version: row.round ?? null,
+        }))
+    })
+
+export type OutputsDecisionFeedbackEntry = ActionSuccessType<typeof getOutputsDecisionFeedbackAction>[number]
+
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => {

@@ -142,7 +142,7 @@ describe('ReviewerOutputsDecided', () => {
                 studyId: study.id,
                 studyJobId: job.id,
                 authorId: user.id,
-                reviewKind: 'CODE',
+                reviewKind: 'RESULTS',
                 entryType: 'DECISION',
                 decision: 'APPROVE',
                 body: { root: { type: 'root', children: [] } },
