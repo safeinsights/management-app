@@ -13,7 +13,7 @@ import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-documen
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
-import { formatPublishedOn, formatSignedOn } from './dates'
+import { formatInstant, formatDayString } from './dates'
 import { PreviewDocument } from './preview-document'
 
 type Scope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
@@ -64,13 +64,13 @@ const documentColumnFor = (type: LegalDocumentTypeValue): DataTableColumn<Versio
 const SIGNED_ON_COLUMN: DataTableColumn<Version> = {
     accessor: 'signedAt',
     title: 'Signed on',
-    render: (version) => formatSignedOn(version.signedAt),
+    render: (version) => formatDayString(version.signedAt),
 }
 
 const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [
     { accessor: 'versionNumber', title: 'Version' },
     ...(hasSignatory(scope) ? [SIGNED_ON_COLUMN] : []),
-    { accessor: 'publishedAt', title: 'Published on', render: (version) => formatPublishedOn(version.publishedAt) },
+    { accessor: 'publishedAt', title: 'Published on', render: (version) => formatInstant(version.publishedAt) },
     { accessor: 'publishedByName', title: 'Published by', render: (version) => version.publishedByName ?? '—' },
     documentColumnFor(scope.type),
 ]

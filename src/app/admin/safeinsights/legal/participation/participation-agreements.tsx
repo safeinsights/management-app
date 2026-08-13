@@ -13,7 +13,7 @@ import { fetchParticipationAgreementsAction } from '@/server/actions/legal-docum
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
-import { formatSignedOn } from '../dates'
+import { formatDayString } from '../dates'
 import { VersionHistoryModal } from '../version-history-modal'
 import { UploadParticipationAgreementForm } from './upload-participation-agreement-form'
 
@@ -32,7 +32,7 @@ const agreementColumns = ({
 }): DataTableColumn<Agreement>[] => [
     { accessor: 'orgName', title: orgLabel },
     { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (agreement) => formatSignedOn(agreement.signedAt) },
+    { accessor: 'signedAt', title: 'Signed on', render: (agreement) => formatDayString(agreement.signedAt) },
     documentColumn<Agreement>(),
     versionHistoryColumn(onViewHistory),
     newVersionColumn(onNewVersion),

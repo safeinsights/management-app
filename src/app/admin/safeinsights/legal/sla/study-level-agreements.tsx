@@ -9,7 +9,7 @@ import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { UploadSlaForm } from './upload-sla-form'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
-import { formatSignedOn } from '../dates'
+import { formatDayString } from '../dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
@@ -29,7 +29,7 @@ const slaColumns = ({
     { accessor: 'researchLabName', title: 'Research Lab' },
     { accessor: 'dataPartnerName', title: 'Data Partner' },
     { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (sla) => formatSignedOn(sla.signedAt) },
+    { accessor: 'signedAt', title: 'Signed on', render: (sla) => formatDayString(sla.signedAt) },
     documentColumn<Sla>(),
     versionHistoryColumn(onViewHistory),
     newVersionColumn(onNewVersion),

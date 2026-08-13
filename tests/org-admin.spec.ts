@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker'
 import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
+import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
 
@@ -72,7 +73,7 @@ test.describe('Organization Admin', () => {
 
         // The published documents are rendered inline on the form, and the acknowledgement recorded
         // at signup is against the versions shown here.
-        await expect(page.getByText('This version supersedes v1.')).toBeVisible()
+        await expect(page.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
         await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice' }).check()
 
         const submitBtn = page.getByRole('button', { name: /create account/i })

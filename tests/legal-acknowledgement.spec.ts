@@ -1,4 +1,5 @@
 import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
+import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 
 // The `legal` role exists for this spec alone. Terms of Service and Privacy Notice are globally
 // scoped, so a user who owes one is blocked on every page — borrowing another role's user would
@@ -7,7 +8,6 @@ import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
 test.use({ storageState: authFileFor('legal') })
 
 const DASHBOARD = '/dashboard'
-const UPDATED_TOS_BODY = 'This version supersedes v1.'
 
 test.describe('Terms of Service acknowledgement', () => {
     test('a user owing an updated Terms of Service must acknowledge it before continuing', async ({ page }) => {
@@ -17,7 +17,7 @@ test.describe('Terms of Service acknowledgement', () => {
         await expect(modal).toBeVisible()
 
         // The document itself is in the modal, not behind a link — there is nowhere else to read it.
-        await expect(modal.getByText(UPDATED_TOS_BODY)).toBeVisible()
+        await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.
         await expect(modal.getByText('Privacy Notice')).toBeHidden()

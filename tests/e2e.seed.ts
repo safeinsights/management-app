@@ -415,9 +415,13 @@ const assertDisposableDatabase = () => {
 
 // Two Terms of Service versions so the `legal` role can sit acknowledged at v1 and owing v2, which
 // is the "has been updated" path the card is about.
+// Asserted on by the specs that prove a real published document is on screen, so it lives here with
+// the content it names rather than being retyped in each of them.
+export const SEEDED_TOS_V2_BODY = 'This version supersedes v1.'
+
 const TOS_CONTENT = [
     '# Terms of Service\n\nVersion 1. Seeded for end-to-end tests.\n',
-    '# Terms of Service\n\nVersion 2. Seeded for end-to-end tests. This version supersedes v1.\n',
+    `# Terms of Service\n\nVersion 2. Seeded for end-to-end tests. ${SEEDED_TOS_V2_BODY}\n`,
 ]
 const PN_CONTENT = ['# Privacy Notice\n\nVersion 1. Seeded for end-to-end tests.\n']
 

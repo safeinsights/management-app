@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { actionResult } from '@/lib/utils'
+import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     acknowledgeLegalDocumentAction,
     fetchPendingLegalAcknowledgementsAction,
@@ -11,8 +12,6 @@ import {
 import { useState } from 'react'
 import type { PendingLegalDocument } from './acknowledgement-copy'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
-
-export const PENDING_LEGAL_ACKNOWLEDGEMENTS_QUERY_KEY = ['pendingLegalAcknowledgements']
 
 const NO_DOCUMENTS: PendingLegalDocument[] = []
 
@@ -22,7 +21,7 @@ function usePendingLegalAcknowledgements() {
     const [isChecked, setIsChecked] = useState(false)
 
     const { data: documents = NO_DOCUMENTS } = useQuery({
-        queryKey: PENDING_LEGAL_ACKNOWLEDGEMENTS_QUERY_KEY,
+        queryKey: legalDocumentQueryKeys.pendingAcknowledgements(),
         queryFn: () => fetchPendingLegalAcknowledgementsAction(),
         enabled: Boolean(session),
     })
@@ -47,7 +46,7 @@ function usePendingLegalAcknowledgements() {
         },
         onSuccess: async () => {
             setIsChecked(false)
-            await queryClient.invalidateQueries({ queryKey: PENDING_LEGAL_ACKNOWLEDGEMENTS_QUERY_KEY })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.pendingAcknowledgements() })
         },
     })
 

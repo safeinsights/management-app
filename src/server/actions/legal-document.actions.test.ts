@@ -493,6 +493,31 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
         expect(row?.ackedAt).toBeNull()
     })
 
+    it('sorts users who never acknowledged last, whichever way the date column points', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const published = await publishTos()
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
+
+        const positions = async (direction: 'asc' | 'desc') => {
+            const { users } = actionResult(
+                await fetchLegalDocumentAcknowledgementsAction({
+                    type: 'TOS',
+                    sort: { columnAccessor: 'ackedAt', direction },
+                }),
+            )
+            return {
+                acked: users.findIndex((candidate) => candidate.userId === user.id),
+                neverAcked: users.findIndex((candidate) => candidate.ackedAt === null),
+            }
+        }
+
+        const ascending = await positions('asc')
+        const descending = await positions('desc')
+
+        expect(ascending.acked).toBeLessThan(ascending.neverAcked)
+        expect(descending.acked).toBeLessThan(descending.neverAcked)
+    })
+
     it('collapses a user who belongs to several orgs into a single row', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const firstOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })

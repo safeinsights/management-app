@@ -20,7 +20,7 @@ import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert, reportMutationError } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
-import { formatPublishedOn } from '../dates'
+import { formatInstant } from '../dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
@@ -102,7 +102,7 @@ function CurrentVersion({
             <AppModal title="Review version" isOpen={viewModalOpened} onClose={closeViewModal}>
                 <PreviewDocument url={version.downloadUrl} label={label} />
             </AppModal>
-            <Text>Published on {formatPublishedOn(version.publishedAt)}</Text>
+            <Text>Published on {formatInstant(version.publishedAt)}</Text>
         </Group>
     )
 }

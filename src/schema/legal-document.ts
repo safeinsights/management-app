@@ -151,6 +151,8 @@ export const legalDocumentQueryKeys = {
     // Prefix of the above, so invalidating after a publish reaches every scope of that type without
     // the writer having to know which readers are mounted.
     versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
+    // What the app-wide gate owes the signed-in user. No scope: it answers for whoever is asking.
+    pendingAcknowledgements: () => ['pendingLegalAcknowledgements'] as const,
     // Sort is part of the key because the action orders the rows: the audience is assembled in
     // memory, so a re-sort is a new read rather than a client-side shuffle.
     acknowledgements: (type: LegalDocumentTypeValue, sort: LegalDocumentAcknowledgementSort) =>

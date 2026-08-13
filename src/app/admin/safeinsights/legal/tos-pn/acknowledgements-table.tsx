@@ -10,8 +10,8 @@ import {
 } from '@/schema/legal-document'
 import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal-document.actions'
 import { Stack, Title } from '@mantine/core'
-import dayjs from 'dayjs'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
+import { formatInstant } from '../dates'
 
 type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledgementsAction>['users'][number]
 
@@ -43,7 +43,7 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
         accessor: 'ackedAt',
         title: 'Agreed on',
         sortable: true,
-        render: (row) => (row.ackedAt ? dayjs(row.ackedAt).format('MMM DD, YYYY') : '—'),
+        render: (row) => formatInstant(row.ackedAt),
     },
 ]
 

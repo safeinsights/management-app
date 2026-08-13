@@ -397,7 +397,10 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         const flip = direction === 'asc' ? 1 : -1
         users.sort((a, b) => {
             if (columnAccessor === 'ackedAt') {
-                return ((a.ackedAt?.getTime() ?? 0) - (b.ackedAt?.getTime() ?? 0)) * flip
+                // Never-acked users sort last whichever way the column is pointed: sorting by a date
+                // asks for the rows that have one, and "has not agreed" is what the version column says.
+                if (!a.ackedAt || !b.ackedAt) return Number(Boolean(b.ackedAt)) - Number(Boolean(a.ackedAt))
+                return (a.ackedAt.getTime() - b.ackedAt.getTime()) * flip
             }
             return (a[columnAccessor] ?? '').localeCompare(b[columnAccessor] ?? '') * flip
         })

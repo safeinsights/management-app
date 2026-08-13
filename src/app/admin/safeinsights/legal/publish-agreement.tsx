@@ -13,7 +13,7 @@ import {
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
-import { formatSignedOn } from './dates'
+import { formatDayString } from './dates'
 import { ReadOnlyField } from './read-only-field'
 
 // Which document the new version belongs to. tos/pn leave both scope fields off.
@@ -116,7 +116,7 @@ export const ConfirmPublishModal: FC<{
     <AppModal isOpen={isOpen} onClose={onCancel} title="Publish this file?" zIndex={400}>
         <Stack>
             {subject}
-            <ReadOnlyField label="Signed on" value={formatSignedOn(signedAt)} />
+            <ReadOnlyField label="Signed on" value={formatDayString(signedAt)} />
             <ReadOnlyField label="File" value={file?.name ?? ''} />
             <Text>{consequence}</Text>
             <Group justify="flex-end">

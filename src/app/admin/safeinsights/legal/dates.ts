@@ -2,10 +2,9 @@ import dayjs from 'dayjs'
 
 const DISPLAY_FORMAT = 'MMM DD, YYYY'
 
-// publishedAt is an instant, so it gets the app's date format.
-export const formatPublishedOn = (publishedAt: Date | null) =>
-    publishedAt ? dayjs(publishedAt).format(DISPLAY_FORMAT) : '—'
+// For the timestamps the server stamps itself: publishedAt, ackedAt.
+export const formatInstant = (value: Date | null) => (value ? dayjs(value).format(DISPLAY_FORMAT) : '—')
 
-// signedAt stays a bare YYYY-MM-DD string end to end so it never meets a timezone; parsing it here
-// is local-only and cannot shift the day.
-export const formatSignedOn = (signedAt: string | null) => (signedAt ? dayjs(signedAt).format(DISPLAY_FORMAT) : '—')
+// signedAt is the one date a person types, and it stays a bare YYYY-MM-DD string end to end so it
+// never meets a timezone; parsing it here is local-only and cannot shift the day.
+export const formatDayString = (value: string | null) => (value ? dayjs(value).format(DISPLAY_FORMAT) : '—')
