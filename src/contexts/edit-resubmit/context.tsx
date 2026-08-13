@@ -88,9 +88,26 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     const savingNoteRef = useRef<string | null>(null)
     const inFlightNoteSaveRef = useRef<Promise<boolean> | null>(null)
 
+    // A Server Action posts to whatever route is current when the request goes out, so an autosave
+    // still in flight when the researcher navigates away resolves against the new route. That route
+    // has no matching action, so Next returns a non-RSC 200 and the client throws "An unexpected
+    // response was received from the server." Reporting it would show an "unable to save" toast on
+    // a page the researcher already left, about a save they did not ask for and cannot retry.
+    const isMountedRef = useRef(true)
+    useEffect(() => {
+        isMountedRef.current = true
+        return () => {
+            isMountedRef.current = false
+        }
+    }, [])
+
+    const reportNoteSaveError = reportMutationError('Unable to save resubmission note draft')
     const noteSaveMutation = useMutation({
         mutationFn: (note: string) => saveProposalResubmissionNoteDraftAction({ studyId, note }),
-        onError: reportMutationError('Unable to save resubmission note draft'),
+        onError: (error: unknown) => {
+            if (!isMountedRef.current) return
+            reportNoteSaveError(error)
+        },
     })
 
     const flushNoteSave = useCallback(
