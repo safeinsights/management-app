@@ -109,7 +109,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-errored')
     })
 
-    it('run complete then files decision → reviewer-study-results (available no longer intercepted)', () => {
+    it('run complete then files approved → reviewer-outputs-decided (OTTER-677)', () => {
         expect(
             screen(
                 st({
@@ -121,7 +121,10 @@ describe('resolveScreen(reviewer)', () => {
                     resultsDisplayStatus: 'FILES-APPROVED',
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
+    })
+
+    it('run complete then files rejected → reviewer-outputs-decided (OTTER-677)', () => {
         expect(
             screen(
                 st({
@@ -133,10 +136,10 @@ describe('resolveScreen(reviewer)', () => {
                     resultsDisplayStatus: 'FILES-REJECTED',
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
-    it('job errored then files-rejected → reviewer-study-results (errored no longer intercepted)', () => {
+    it('job errored then files-rejected → reviewer-outputs-decided (errored no longer intercepted)', () => {
         expect(
             screen(
                 st({
@@ -148,10 +151,25 @@ describe('resolveScreen(reviewer)', () => {
                     resultsRejected: true,
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
-    it('results out-rank the executing window → reviewer-study-results (not outputs-pending)', () => {
+    it('job errored then files-approved → reviewer-outputs-decided', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsErrored: true,
+                    resultsApproved: true,
+                }),
+            ),
+        ).toBe('reviewer-outputs-decided')
+    })
+
+    it('decided results out-rank the executing window → reviewer-outputs-decided (not outputs-pending)', () => {
         expect(
             screen(
                 st({
@@ -163,10 +181,10 @@ describe('resolveScreen(reviewer)', () => {
                     resultsApproved: true,
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
-    it('results out-rank a present code decision → reviewer-study-results', () => {
+    it('decided results out-rank a present code decision → reviewer-outputs-decided', () => {
         expect(
             screen(
                 st({
@@ -177,7 +195,7 @@ describe('resolveScreen(reviewer)', () => {
                     resultsApproved: true,
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
     it('resubmission (fresh submit, no live decision) → back to reviewer-code-review, not stale feedback', () => {

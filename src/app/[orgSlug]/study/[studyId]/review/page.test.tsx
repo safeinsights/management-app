@@ -19,7 +19,7 @@ import { ProposalReviewView } from './proposal-review-view'
 import { PostFeedbackView } from './post-feedback-view'
 import { CodeReview } from './code-review'
 import { SecondaryAnalysisView } from './secondary-analysis-view'
-import { StudyDetailsReviewer } from './study-details-reviewer'
+import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 
 const mockRedirect = vi.mocked(redirect)
 
@@ -197,7 +197,7 @@ describe('StudyReviewPage', () => {
         expect(page?.type).toBe(SecondaryAnalysisView)
     })
 
-    it('renders StudyDetailsReviewer when results are present', async () => {
+    it('renders ReviewerOutputsDecided when a files decision is present', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -210,6 +210,22 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        expect(page?.type).toBe(StudyDetailsReviewer)
+        expect(page?.type).toBe(ReviewerOutputsDecided)
+    })
+
+    it('renders ReviewerOutputsDecided for a rejected files decision', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addJobStatus(study.id, 'CODE-APPROVED')
+        await addJobStatus(study.id, 'FILES-REJECTED')
+
+        const page = await callPage(org.slug, study.id)
+
+        expect(page?.type).toBe(ReviewerOutputsDecided)
     })
 })

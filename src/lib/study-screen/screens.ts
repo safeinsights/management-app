@@ -18,7 +18,7 @@ export type ScreenId =
     | 'reviewer-outputs-pending'
     | 'reviewer-outputs-errored'
     | 'reviewer-outputs-available'
-    | 'reviewer-study-results'
+    | 'reviewer-outputs-decided'
 
 // The rule table decides WHICH screen a study shows; each leaf view owns its own back/forward
 // buttons (nav is simple and stable, and the screen-selection logic is the part that needed

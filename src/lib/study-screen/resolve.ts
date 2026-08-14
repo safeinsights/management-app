@@ -33,11 +33,11 @@ const REVIEWER_CODE_SCREENS: ReadonlyArray<ScreenId> = [
 ]
 
 // Reviewer counterpart to resolveResearcherCodeScreen, for the read-only /review/code route a DO walks
-// back to from the results screen. Excluding reviewer-study-results from the candidate set is the whole
-// point: a results study keeps codeDecision === 'CODE-APPROVED', so re-running the table's own predicates
-// over just the code-stage screens lands on reviewer-code-feedback instead of looping back to results
-// (which out-ranks everything in REVIEWER_SCREEN_RULES). undefined when the study hasn't reached code yet,
-// so the route 404s rather than jumping forward.
+// back to from the decided-outputs screen. Excluding reviewer-outputs-decided from the candidate set is
+// the whole point: a decided study keeps codeDecision === 'CODE-APPROVED', so re-running the table's own
+// predicates over just the code-stage screens lands on reviewer-code-feedback instead of looping back to
+// decided (which out-ranks everything in REVIEWER_SCREEN_RULES). undefined when the study hasn't reached
+// code yet, so the route 404s rather than jumping forward.
 export function resolveReviewerCodeScreen(state: StudyState): ScreenDescriptor | undefined {
     const screen = REVIEWER_SCREEN_RULES.find(
         ([id, rule]) => REVIEWER_CODE_SCREENS.includes(id) && rule.when(state),
