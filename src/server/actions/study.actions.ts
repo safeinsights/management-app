@@ -39,6 +39,16 @@ import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 
+// Shared middleware for feedback actions that need study org/permission context.
+const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId', 'submittedByOrgId', 'status'])
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound('study'))
+    return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+}
+
 // NOT exported, for internal use by actions in this file.
 // Soft-delete filter (`deletedAt IS NULL`) is intentionally scoped to dashboard listings via this helper.
 // Direct study reads by ID elsewhere — editor polling, agreements/code-review middlewares, getInfoForStudyId —
@@ -857,14 +867,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
         // Both reviewer decisions and resubmission notes are versioned by the study-wide submission
@@ -980,14 +983,7 @@ export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeed
 
 export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
         const rows = await db
@@ -996,7 +992,6 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
             .select([
                 'studyReviewComment.id',
                 'studyReviewComment.authorId',
-                'studyReviewComment.entryType',
                 'studyReviewComment.decision',
                 'studyReviewComment.body',
                 'studyReviewComment.createdAt',
@@ -1009,6 +1004,8 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
             .orderBy('studyReviewComment.createdAt', 'desc')
             .execute()
 
+        // Outputs decisions don't carry criteria (unlike code reviews), so entryType is mapped to the
+        // shared FeedbackAndNotesSection shape without it.
         return rows.map((row) => ({
             id: row.id,
             authorId: row.authorId,
