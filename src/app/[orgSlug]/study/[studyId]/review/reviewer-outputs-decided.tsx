@@ -9,6 +9,9 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { Routes } from '@/lib/routes'
+import { latestStatusAt } from '@/lib/study-job-status'
+import type { RawStudyState } from '@/lib/study-screen'
+import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
@@ -16,6 +19,7 @@ import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 type ReviewerOutputsDecidedProps = {
     orgSlug: string
     study: SelectedStudy
+    raw: RawStudyState
 }
 
 const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: OutputsDecisionFeedbackEntry[] }> = ({
@@ -28,15 +32,14 @@ const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: OutputsDecision
     return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
-export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputsDecidedProps) {
+export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOutputsDecidedProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const statuses = new Set(job.statusChanges.map((c) => c.status))
-    const filesDecision = job.statusChanges.find((c) => c.status === 'FILES-APPROVED' || c.status === 'FILES-REJECTED')
-    if (!filesDecision) {
+    const state = projectStudyState(raw)
+    if (!state.hasResults) {
         return (
             <AlertNotFound
                 title="No decision found"
@@ -46,8 +49,8 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
     }
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const resultsErrored = statuses.has('JOB-ERRORED')
-    const resultsApproved = statuses.has('FILES-APPROVED')
+    const decidedAt =
+        latestStatusAt(job.statusChanges, 'FILES-APPROVED') ?? latestStatusAt(job.statusChanges, 'FILES-REJECTED')
 
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
 
@@ -61,10 +64,10 @@ export async function ReviewerOutputsDecided({ study, orgSlug }: ReviewerOutputs
                     studyTitle={study.title ?? ''}
                     banner={
                         <OutputsDecidedBanner
-                            resultsErrored={resultsErrored}
-                            resultsApproved={resultsApproved}
+                            resultsErrored={state.resultsErrored}
+                            resultsApproved={state.resultsApproved}
                             labName={labName}
-                            decidedAt={filesDecision.createdAt}
+                            decidedAt={decidedAt}
                         />
                     }
                 />
