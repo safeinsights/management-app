@@ -1,9 +1,4 @@
 import { getOutputsDecisionFeedbackAction } from '@/server/actions/study.actions'
-import { isActionError } from '@/lib/errors'
+import { loadFeedbackEntries } from './load-feedback-entries'
 
-export async function loadOutputsFeedback(studyId: string) {
-    const entriesResult = await getOutputsDecisionFeedbackAction({ studyId })
-    const feedbackLoadError = isActionError(entriesResult)
-    const entries = feedbackLoadError ? [] : entriesResult
-    return { entries, feedbackLoadError }
-}
+export const loadOutputsFeedback = (studyId: string) => loadFeedbackEntries(getOutputsDecisionFeedbackAction, studyId)
