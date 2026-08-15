@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
@@ -216,12 +216,45 @@ function EditorUnavailable() {
     )
 }
 
-function ReconnectingBanner() {
+/**
+ * Deliberately in normal flow above the editor: it must never cover what the user has written, and
+ * reserving its height while connected would cost the layout a permanent gap for a state that is
+ * rare. The consequence is that showing and hiding it moves everything below, toolbar included;
+ * {@link useSettlingLayout} is what keeps that movement from being read as the user walking away.
+ */
+function ReconnectingBanner({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+
     return (
         <Alert color="yellow" mb="sm" title="Working offline">
             You can keep editing — your changes will sync once we reconnect to the collaboration server.
         </Alert>
     )
+}
+
+/**
+ * Reports whether the editor's own layout has just moved (OTTER-647).
+ *
+ * The offline banner is 85px of in-flow content directly above the editor, so every appearance and
+ * removal shifts the toolbar at the editor's bottom edge. A reviewer already reaching for a toolbar
+ * button cannot correct a jump that lands in the last fraction of the movement, so the press lands
+ * on the page instead, outside the widget, and the blur guard reads a required field as abandoned.
+ *
+ * The window is short on purpose. It covers the ballistic tail of a pointing movement, roughly
+ * 150-250ms, and nothing else: a reviewer who sees the banner and then decides to click elsewhere
+ * takes far longer than this, so genuine departures still validate. Anything suppressed here
+ * surfaces on the next press outside the editor or on submit.
+ */
+const LAYOUT_SETTLING_MS = 400
+
+function useSettlingLayout(movesLayout: boolean): () => boolean {
+    const movedAt = useRef(0)
+
+    useLayoutEffect(() => {
+        movedAt.current = Date.now()
+    }, [movesLayout])
+
+    return useCallback(() => Date.now() - movedAt.current < LAYOUT_SETTLING_MS, [])
 }
 
 // Auth-failure codes that are NOT a "study no longer editable" kick-out. Anything
@@ -263,7 +296,6 @@ export function CollaborativeEditor({
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const { getToken } = useAuth()
-    const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
     const providerRef = useRef<HocuspocusProvider | null>(null)
     // State mirror of providerRef — the ref is needed for synchronous access in
     // the factory callback; state is needed so the cleanup effect can depend on
@@ -272,6 +304,11 @@ export function CollaborativeEditor({
     const [authFailureCode, setAuthFailureCode] = useState<AuthFailureCode | null>(null)
     const infraRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const phase = useConnectionPhase()
+    // INFRA_UNAVAILABLE is a recoverable server-side blip, so it reads to the user as the same
+    // "we're offline, keep typing" state the reconnect path shows, and shifts the layout the same way.
+    const isDisconnected = phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE'
+    const isSettling = useSettlingLayout(isDisconnected)
+    const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur, { isSettling })
     const triggerKickOut = useTriggerStudyKickOut()
     const userId = user?.id
     const username = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Anonymous'
@@ -364,7 +401,7 @@ export function CollaborativeEditor({
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
-                {(phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE') && <ReconnectingBanner />}
+                <ReconnectingBanner isVisible={isDisconnected} />
                 <Paper
                     p={0}
                     className="collaborative-editor-container"

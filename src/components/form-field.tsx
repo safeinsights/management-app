@@ -125,6 +125,19 @@ export interface WidgetBlurProps<T extends HTMLElement> {
     onBlur: (event: FocusEvent<T>) => void
 }
 
+export interface WidgetBlurOptions {
+    /**
+     * Called on every outside press; return true to let this one pass without validating.
+     *
+     * For widgets that can move under the pointer. The press signal cannot tell "left the field"
+     * from "aimed at the widget and it moved first", because both are a press landing outside it.
+     * The widget itself can, since it knows when its own layout shifted, so the decision lives with
+     * the caller rather than as a guess in here (OTTER-647). The widget stays visited, so the next
+     * genuine departure still validates.
+     */
+    isSettling?: () => boolean
+}
+
 /**
  * Fires `onLeave` once the user has visited a composite widget and then moved on.
  *
@@ -164,7 +177,10 @@ export interface WidgetBlurProps<T extends HTMLElement> {
  * Deliberately not `useFocusWithin`: its containment check treats a null `relatedTarget` as
  * having left, which is the exact bug above.
  */
-export function useWidgetBlur<T extends HTMLElement = HTMLDivElement>(onLeave?: () => void): WidgetBlurProps<T> {
+export function useWidgetBlur<T extends HTMLElement = HTMLDivElement>(
+    onLeave?: () => void,
+    { isSettling }: WidgetBlurOptions = {},
+): WidgetBlurProps<T> {
     const visited = useRef(false)
 
     const leave = () => {
@@ -173,7 +189,13 @@ export function useWidgetBlur<T extends HTMLElement = HTMLDivElement>(onLeave?: 
         onLeave?.()
     }
 
-    const ref = useClickOutside<T>(leave)
+    const pressedOutside = () => {
+        // Stays visited: a press the widget cannot vouch for is deferred, not forgiven.
+        if (isSettling?.()) return
+        leave()
+    }
+
+    const ref = useClickOutside<T>(pressedOutside)
 
     return {
         ref,
