@@ -89,7 +89,6 @@
         "@types/papaparse": "^5.5.2",
         "@types/pg": "^8.15.6",
         "@zip.js/zip.js": "^2.8.26",
-        "child_process": "^1.0.2",
         "clsx": "^2.1.1",
         "commander": "^14.0.3",
         "dayjs": "^1.11.19",
