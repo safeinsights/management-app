@@ -147,9 +147,6 @@ importers:
       '@zip.js/zip.js':
         specifier: ^2.8.26
         version: 2.8.26
-      aws-iam-policy-types:
-        specifier: ^1.0.2
-        version: 1.0.2
       child_process:
         specifier: ^1.0.2
         version: 1.0.2
@@ -2988,11 +2985,6 @@ packages:
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
-
-  aws-iam-policy-types@1.0.2:
-    resolution: {integrity: sha512-vdkTEqWn9WLINbb/jLsi7Ra1MvVFThuP5qanfKF+rJ79J8GPnAXnuoNKusXm62NZ84VyczQ0GkiPVD8YlvghvQ==}
-    engines: {node: '>=18.0.0'}
-    hasBin: true
 
   aws-sdk-client-mock@4.1.0:
     resolution: {integrity: sha512-h/tOYTkXEsAcV3//6C1/7U4ifSpKyJvb6auveAepqqNJl6TdZaPFEtKjBQNf8UxQdDP850knB2i/whq4zlsxJw==}
@@ -9542,8 +9534,6 @@ snapshots:
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
-
-  aws-iam-policy-types@1.0.2: {}
 
   aws-sdk-client-mock@4.1.0:
     dependencies:
