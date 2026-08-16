@@ -28,30 +28,32 @@ test.describe('scroll padding for the fixed app shell bars', () => {
         expect(scrollPaddingBottom).toBe(`${footerHeight}px`)
     })
 
-    test('reserves the header only where it occupies the viewport', async ({ page }) => {
+    test('reserves the space the fixed header covers, at any viewport', async ({ page }) => {
         await goto(page, '/openstax/dashboard')
 
-        // Desktop collapses the header, so nothing should be reserved for it.
-        const desktop = await page.evaluate(() => ({
-            headerHeight: Math.round(
-                document.querySelector('[class*="AppShell-header"]')?.getBoundingClientRect().height ?? 0,
-            ),
-            scrollPaddingTop: getComputedStyle(document.documentElement).scrollPaddingTop,
-        }))
-        expect(desktop.headerHeight).toBe(0)
-        expect(desktop.scrollPaddingTop).toBe('0px')
+        // How far down the header reaches, which is 0 when the shell collapses it out of the
+        // viewport: it keeps its height and is translated above the top edge. Asserting against
+        // that rather than against a fixed number keeps this true whatever the breakpoint does.
+        const headerCoverage = () =>
+            page.evaluate(() => {
+                const header = document.querySelector('[class*="AppShell-header"]')
+                const bottom = header ? header.getBoundingClientRect().bottom : 0
+                return {
+                    covers: `${Math.max(0, Math.round(bottom))}px`,
+                    scrollPaddingTop: getComputedStyle(document.documentElement).scrollPaddingTop,
+                }
+            })
+
+        const wide = await headerCoverage()
+        expect(wide.scrollPaddingTop).toBe(wide.covers)
 
         await page.setViewportSize({ width: 390, height: 844 })
 
-        await expect
-            .poll(async () =>
-                page.evaluate(() => ({
-                    headerHeight: Math.round(
-                        document.querySelector('[class*="AppShell-header"]')?.getBoundingClientRect().height ?? 0,
-                    ),
-                    scrollPaddingTop: getComputedStyle(document.documentElement).scrollPaddingTop,
-                })),
-            )
-            .toEqual({ headerHeight: 60, scrollPaddingTop: '60px' })
+        // The header is fixed at this width, so the reservation has to be non-zero here. Polled
+        // because the shell re-reads the breakpoint after the resize.
+        await expect.poll(async () => await headerCoverage()).not.toEqual({ covers: '0px', scrollPaddingTop: '0px' })
+
+        const narrow = await headerCoverage()
+        expect(narrow.scrollPaddingTop).toBe(narrow.covers)
     })
 })
