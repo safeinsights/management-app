@@ -17,21 +17,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import type { RawStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { setupStudyAction } from '@/tests/db-action.helpers'
+import { seedJobFileRow } from '@/tests/artifact.helpers'
 import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
-
-// Only the row matters here: the re-decrypt form is gated on the job's own files, not on what the
-// artifact fetch returns.
-const seedEncryptedResult = async (jobId: string) => {
-    await db
-        .insertInto('studyJobFile')
-        .values({
-            studyJobId: jobId,
-            name: 'encrypted-results.zip',
-            path: `test-org/${jobId}/results/encrypted-results.zip`,
-            fileType: 'ENCRYPTED-RESULT',
-        })
-        .execute()
-}
 
 const setupDecided = async ({
     jobStatus = 'RUN-COMPLETE' as StudyJobStatus,
@@ -242,7 +229,7 @@ describe('ReviewerOutputsDecided', () => {
 
     it('renders the View outputs again security-key section', async () => {
         const { org, study, job, raw } = await setupDecided()
-        await seedEncryptedResult(job.id)
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, raw, org.slug)
 
         expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()

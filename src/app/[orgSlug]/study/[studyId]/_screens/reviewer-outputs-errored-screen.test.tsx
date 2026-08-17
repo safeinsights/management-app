@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { useParams } from 'next/navigation'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import {
     actionResult,
     db,
@@ -15,7 +13,8 @@ import {
     type ScreenInputs,
     waitFor,
 } from '@/tests/unit.helpers'
-import type { FileType, StudyJobStatus } from '@/database/types'
+import type { StudyJobStatus } from '@/database/types'
+import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -28,40 +27,6 @@ vi.mock('@/server/actions/study-job.actions', async () => {
     )
     return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
 })
-
-const toArrayBuffer = (str: string): ArrayBuffer => {
-    const buf = Buffer.from(str, 'utf-8')
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-}
-
-// Encrypt an artifact the way the enclave would (whole-zip + embedded manifest) so the reviewer's
-// real key decrypts it, so the phase flip is driven by genuine decryption rather than a stub.
-async function seedArtifact(jobId: string, files: { name: string; content: string }[], fileType: FileType) {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
-    for (const file of files) await writer.addFile(file.name, toArrayBuffer(file.content))
-    const zip = await writer.generate()
-
-    const row = await db
-        .insertInto('studyJobFile')
-        .values({
-            studyJobId: jobId,
-            name: 'encrypted-logs.zip',
-            path: `test-org/${jobId}/results/encrypted-logs.zip`,
-            fileType,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    return {
-        studyJobFileId: row.id,
-        fileType,
-        name: 'encrypted-logs.zip',
-        encryptedBody: await zip.arrayBuffer(),
-        recipientKeys: {} as Record<string, string>,
-    }
-}
 
 const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
@@ -86,7 +51,10 @@ const unlock = async () => {
 const setupWithArtifact = async () => {
     const ctx = await setupErrored()
     vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-        await seedArtifact(ctx.job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG'),
+        await seedEncryptedArtifact(ctx.job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'boom' }],
+        }),
     ])
     // The screen reads job.files to decide whether a key is needed, so re-read it after seeding.
     return { ...ctx, job: await latestJobForStudy(ctx.study.id) }
@@ -128,7 +96,10 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     it('keeps the outputs hidden when the key is wrong', async () => {
         const { org, study, job, raw } = await setupErrored()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedArtifact(job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG'),
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-CODE-RUN-LOG',
+                files: [{ name: 'run.log', content: 'boom' }],
+            }),
         ])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -148,7 +119,10 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     // no-artifacts path either: that would let a keyless reviewer decide on outputs they never saw.
     it('does not unlock the review view when the artifacts cannot be fetched', async () => {
         const { org, study, job, raw } = await setupErrored()
-        await seedArtifact(job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG')
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'boom' }],
+        })
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -204,15 +178,6 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status }).execute()
     }
 
-    // A file row with no encrypted counterpart, which is what the containerizer stores on its own
-    // when the org has no key holders for encryptAndStoreLog to encrypt to.
-    const seedPlaintextFile = async (jobId: string, fileType: FileType, name: string) => {
-        await db
-            .insertInto('studyJobFile')
-            .values({ studyJobId: jobId, name, path: `test-org/${jobId}/results/${name}`, fileType })
-            .execute()
-    }
-
     // The reported case: the source scan succeeded so a security scan log exists, but packaging
     // failed and produced nothing. The old copy told the reviewer to go and read error logs.
     //
@@ -221,7 +186,10 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     // only artifact is a submission-time scan log.
     it('offers neither a key form nor sharing when the only artifact is a security scan log', async () => {
         const { org, study, job } = await setupErrored()
-        await seedArtifact(job.id, [{ name: 'security-scan-log.txt', content: 'clean' }], 'ENCRYPTED-SECURITY-SCAN-LOG')
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+            files: [{ name: 'security-scan-log.txt', content: 'clean' }],
+        })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -238,7 +206,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     // the reviewer to enter a key would point at a form this screen does not render.
     it('neither denies nor promises a key for a plaintext-only error log', async () => {
         const { org, study, job } = await setupErrored()
-        await seedPlaintextFile(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
+        await seedJobFileRow(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -252,7 +220,10 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     // be decrypted and reviewed, so the key gate stays (OTTER-675) and the banner has to say so.
     it('still requires a key for an errored run that produced results', async () => {
         const { org, study, job } = await setupErrored()
-        await seedArtifact(job.id, [{ name: 'results.csv', content: 'a,b\n1,2' }], 'ENCRYPTED-RESULT')
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -384,7 +355,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     // produced no files would contradict it on one screen.
     it('does not deny the files it cannot share when an undecryptable log exists', async () => {
         const { org, study, job } = await setupErrored()
-        await seedPlaintextFile(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
+        await seedJobFileRow(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -398,7 +369,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     // announce that the run produced nothing while such a row exists.
     it('does not deny a legacy plaintext result it cannot offer', async () => {
         const { org, study, job } = await setupErrored()
-        await seedPlaintextFile(job.id, 'APPROVED-RESULT', 'results.csv')
+        await seedJobFileRow(job.id, 'APPROVED-RESULT', 'results.csv')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -443,7 +414,7 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     const setupDecrypted = async (files: { name: string; content: string }[]) => {
         const { org, study, job, raw } = await setupErrored()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedArtifact(job.id, files, 'ENCRYPTED-CODE-RUN-LOG'),
+            await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files }),
         ])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
