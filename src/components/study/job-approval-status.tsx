@@ -2,8 +2,8 @@ import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
-import { type StudyJobStatus } from '@/database/types'
 import { type AllStatus } from '@/lib/types'
+import { LatestJobForStudy } from '@/server/db/queries'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -29,10 +29,8 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
     )
 }
 
-// Only the status history is read, so the prop is narrowed to that rather than the whole job: adding
-// a selected column to the query should not ripple out into every caller of this component.
 export const ApprovalStatus: FC<{
-    job: { statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }> }
+    job: LatestJobForStudy
     orgSlug: string
     type: 'code' | 'files'
 }> = ({ job, type }) => {

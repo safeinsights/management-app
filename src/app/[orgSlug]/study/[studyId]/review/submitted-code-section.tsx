@@ -2,7 +2,6 @@ import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantin
 import { ArrowSquareOut, DownloadSimple, WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
 import { scanLogDownloadURL } from '@/lib/paths'
-import type { StudyJobStatus } from '@/database/types'
 import type { JobScanResult, ScanToolStatus, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { AiSummaryCollapsible, StudyCodeViewer } from './submitted-code-interactive'
@@ -195,12 +194,7 @@ type SubmittedCodeSectionProps = {
 // "Submitted/Resubmitted on" header label). We scan for the max createdAt rather
 // than relying on statusChanges arriving in any particular order, so a caller
 // passing an unsorted array still gets the newest submission back.
-// Takes only the two fields it reads rather than Pick<LatestJobForStudy, ...>: widening the query's
-// selected columns should not oblige every caller to supply fields this has no use for.
-export function latestCodeSubmittedAt(job: {
-    createdAt: Date | string
-    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>
-}): Date | string {
+export function latestCodeSubmittedAt(job: Pick<LatestJobForStudy, 'createdAt' | 'statusChanges'>): Date | string {
     const submissions = job.statusChanges.filter((change) => change.status === 'CODE-SUBMITTED')
     if (submissions.length === 0) return job.createdAt
     return submissions.reduce((latest, change) =>
