@@ -9,6 +9,12 @@ const schema = z.object({
     jobId: z.string(),
     status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
+    // OTTER-524: a short reason to record alongside the status. Optional because the payload the
+    // build sends on failure is whatever we handed it at trigger time, and the buildspec has a
+    // fallback path that posts that payload raw if the build dies before its own handler runs, so a
+    // message-less failure webhook has to stay valid. Unknown keys are stripped by z.object, so
+    // this must be declared for the message we do send to survive.
+    message: z.string().optional(),
 })
 
 export const POST = createWebhookHandler({
@@ -66,6 +72,7 @@ export const POST = createWebhookHandler({
                     userId: job.researcherId,
                     studyJobId: job.jobId,
                     status: body.status,
+                    message: body.message ?? null,
                 })
                 .execute()
         }

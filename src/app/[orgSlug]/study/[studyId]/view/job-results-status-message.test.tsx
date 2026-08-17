@@ -28,6 +28,7 @@ describe('JobResultsStatusMessage', () => {
         statusChanges: statuses.map((status) => ({
             status,
             createdAt: new Date().toISOString(),
+            message: null,
         })),
         createdAt: new Date(),
         files: [],

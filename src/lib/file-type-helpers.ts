@@ -58,6 +58,28 @@ export function isLogType(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || isApprovedLogType(fileType) || isPlaintextLogType(fileType)
 }
 
+// Logs that say something about a FAILED run, as opposed to any log at all. Three unrelated
+// services write into the ENCRYPTED-* set: the code scanner (on submission), the containerizer (on
+// a packaging failure), and the enclave (when a container exits non-zero). Asking "does this job
+// have any log?" therefore answers a different question from "can this reviewer find out why the
+// run failed?", and conflating the two is how an errored job with nothing but a security scan log
+// came to promise error logs it did not have (OTTER-524).
+const ERROR_LOG_TYPES: FileType[] = [
+    'ENCRYPTED-CODE-RUN-LOG',
+    'ENCRYPTED-PACKAGING-ERROR-LOG',
+    'APPROVED-CODE-RUN-LOG',
+    'APPROVED-PACKAGING-ERROR-LOG',
+    'PACKAGING-ERROR-LOG',
+]
+
+export function isErrorLogType(fileType: FileType): boolean {
+    return ERROR_LOG_TYPES.includes(fileType)
+}
+
+export function filesIncludeErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => isErrorLogType(f.fileType))
+}
+
 export function logLabel(fileType: FileType): string {
     return LOG_LABELS[fileType] ?? 'Results'
 }

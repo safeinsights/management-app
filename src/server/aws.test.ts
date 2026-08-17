@@ -10,6 +10,7 @@ import {
     toPgDbName,
     withS3Prefix,
 } from './aws'
+import { packagingFailureMessage } from '@/lib/job-error-details'
 
 // The CodeBuild triggers in aws.ts construct a `StartBuildCommand` from a
 // pure builder and send it. We test the builders directly (which is what
@@ -91,7 +92,11 @@ describe('buildTriggerBuildImageCommandInput', () => {
             },
             {
                 name: 'ON_FAILURE_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+                value: JSON.stringify({
+                    jobId: info.studyJobId,
+                    status: 'JOB-ERRORED',
+                    message: packagingFailureMessage(info.codeEnvURL),
+                }),
             },
             { name: 'STUDY_JOB_ID', value: info.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-123/code' },

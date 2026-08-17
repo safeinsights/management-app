@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+    filesIncludeErrorLog,
     isEncryptedArtifact,
+    isErrorLogType,
     isLegacyResultArtifact,
+    isLogType,
     jobHasEncryptedArtifacts,
     jobHasLegacyResults,
 } from './file-type-helpers'
@@ -36,5 +39,28 @@ describe('file-type-helpers result classification', () => {
         expect(jobHasLegacyResults([{ fileType: 'ENCRYPTED-RESULT' }])).toBe(false)
         // no result artifacts at all → not legacy
         expect(jobHasLegacyResults([{ fileType: 'MAIN-CODE' }])).toBe(false)
+    })
+
+    // OTTER-524: the distinction the reviewer's errored screen depends on. A job carrying only the
+    // security scan log from submission has no artifact that explains a failed run.
+    it('isErrorLogType excludes security scan logs', () => {
+        expect(isErrorLogType('ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
+        expect(isErrorLogType('ENCRYPTED-CODE-RUN-LOG')).toBe(true)
+        expect(isErrorLogType('APPROVED-PACKAGING-ERROR-LOG')).toBe(true)
+        expect(isErrorLogType('PACKAGING-ERROR-LOG')).toBe(true)
+        expect(isErrorLogType('ENCRYPTED-SECURITY-SCAN-LOG')).toBe(false)
+        expect(isErrorLogType('SECURITY-SCAN-LOG')).toBe(false)
+        expect(isErrorLogType('ENCRYPTED-RESULT')).toBe(false)
+    })
+
+    it('filesIncludeErrorLog distinguishes an error log from any log', () => {
+        // The exact shape of the reported bug: an errored job whose only log is the scan log.
+        expect(filesIncludeErrorLog([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }])).toBe(false)
+        expect(
+            filesIncludeErrorLog([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }, { fileType: 'ENCRYPTED-CODE-RUN-LOG' }]),
+        ).toBe(true)
+        expect(filesIncludeErrorLog([])).toBe(false)
+        // isLogType would answer true for all three above, which is the conflation being fixed.
+        expect(isLogType('ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
     })
 })
