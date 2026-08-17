@@ -125,11 +125,13 @@ export function DraftForm({
 
 export function ReviewPrePublishForm({
     doctype,
+    draftId,
     draftUrl,
     onBack,
     onConfirm,
 }: {
     doctype: EnforcedLegalDocumentType
+    draftId: string
     draftUrl: string
     onBack: () => void
     onConfirm: () => void
@@ -139,7 +141,7 @@ export function ReviewPrePublishForm({
             <Title order={4} pb="sm">
                 Review your saved draft:
             </Title>
-            <PreviewDocument url={draftUrl} label={legalDocumentTypeLabels[doctype]} />
+            <PreviewDocument versionId={draftId} url={draftUrl} label={legalDocumentTypeLabels[doctype]} />
             <Group pt="md">
                 <Button variant="outline" onClick={onBack}>
                     Back
@@ -171,8 +173,9 @@ export function ConfirmPublishForm({
                 Publish this file?
             </Title>
             <ReadOnlyField label="File" value={draftName} />
+            {/* The gate lives in AppShell, so signing in and /account/* stay reachable; everything else does not. */}
             <Text>
-                Publishing will trigger an acknowledgment popup for every user, blocking them from logging in. This
+                Publishing asks every user to acknowledge the new version before they can keep using the app. This
                 cannot be undone.
             </Text>
             <Group pt="md">

@@ -155,6 +155,11 @@ export const legalDocumentQueryKeys = {
     versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
     // What the app-wide gate owes the signed-in user next. No scope: it answers for whoever is asking.
     nextPendingAcknowledgement: () => ['nextPendingLegalAcknowledgement'] as const,
+    // Read by the signup form before an account exists, so there is no session to key it by.
+    publicDocuments: () => ['publicLegalDocuments'] as const,
+    // Keyed by version rather than by the signed URL the reader fetches: a presigned URL is re-minted
+    // on every read, so keying on it meant a fresh cache entry each time and never a hit.
+    documentContent: (versionId: string) => ['legalDocumentContent', versionId] as const,
     // Sort is part of the key because the action orders the rows: the audience is assembled in
     // memory, so a re-sort is a new read rather than a client-side shuffle.
     acknowledgements: (type: LegalDocumentTypeValue, sort: LegalDocumentAcknowledgementSort) =>

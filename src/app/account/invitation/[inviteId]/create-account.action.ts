@@ -227,7 +227,9 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             // The versions the form actually displayed, not "whatever is latest now". If a new
             // version is published between page load and submit we record what they were shown, and
             // the app-wide gate collects the newer one on first login.
-            acknowledgedVersionIds: z.array(z.string()).optional(),
+            // Validated as uuids because a malformed one reaches Postgres as a 22P02 inside the
+            // account-creation transaction, which by then has a Clerk user standing behind it.
+            acknowledgedVersionIds: z.array(z.string().uuid()).optional(),
         }),
     )
 

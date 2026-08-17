@@ -1,5 +1,5 @@
 import { sql } from 'kysely'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '@/server/aws'
 import {
@@ -9,6 +9,7 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    resetLegalDocuments,
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
@@ -41,6 +42,10 @@ vi.mock('@/server/storage', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/storage')>()),
     fetchFileContents: vi.fn(async (path: string) => new Blob([`content of ${path}`])),
 }))
+
+// Version numbers and "nothing published yet" are assertions about the global tos/pn singletons, so
+// the seeded documents on a dev database have to go first.
+beforeEach(resetLegalDocuments)
 
 const createDraft = async (fileName = 'terms.md') =>
     actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName }))

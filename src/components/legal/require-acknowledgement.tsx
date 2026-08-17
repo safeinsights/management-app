@@ -3,13 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
-import { actionResult } from '@/lib/utils'
+import { errorToString } from '@/lib/errors'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     acknowledgeLegalDocumentAction,
     fetchNextPendingLegalAcknowledgementAction,
 } from '@/server/actions/legal-document.actions'
-import { useState } from 'react'
+import { captureException } from '@sentry/nextjs'
+import { useEffect, useState } from 'react'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
 // Asking about one document at a time keeps the ack row, the rendered text and the ticked box a
@@ -19,21 +20,25 @@ function useNextPendingLegalAcknowledgement() {
     const queryClient = useQueryClient()
     const [consentedVersionId, setConsentedVersionId] = useState<string | null>(null)
 
-    const { data: document } = useQuery({
+    const { data: document, error: readError } = useQuery({
         queryKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
         queryFn: () => fetchNextPendingLegalAcknowledgementAction(),
         enabled: Boolean(session),
     })
+
+    // An unreadable document leaves the gate open, which is the right call — the user can do nothing
+    // about it and the compliance artifact is the ack row, not the blocking. But a gate that has
+    // quietly stopped asking must not also be invisible to us.
+    useEffect(() => {
+        if (readError) captureException(readError)
+    }, [readError])
 
     const {
         mutate: acknowledge,
         isPending,
         error,
     } = useMutation({
-        // actionResult is what makes a failure visible at all: actions resolve with { error } rather
-        // than rejecting, so without it a refused acknowledgement would run onSuccess and silently
-        // reopen the modal saying nothing.
-        mutationFn: async (versionId: string) => actionResult(await acknowledgeLegalDocumentAction({ versionId })),
+        mutationFn: (versionId: string) => acknowledgeLegalDocumentAction({ versionId }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.nextPendingAcknowledgement() })
         },
@@ -50,7 +55,9 @@ function useNextPendingLegalAcknowledgement() {
             if (consentedVersionId) acknowledge(consentedVersionId)
         },
         isSubmitting: isPending,
-        error: error?.message ?? null,
+        // errorToString, not error.message: the wrapped useMutation throws an ActionFailure whose
+        // message is the JSON of its field errors, which is what the modal would otherwise display.
+        error: error ? errorToString(error) : null,
     }
 }
 

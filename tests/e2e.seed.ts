@@ -429,18 +429,37 @@ async function uploadLegalContent(key: string, content: string) {
     await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
 }
 
+const seededFileName = (type: 'TOS' | 'PN', index: number) => `${type}-v${index + 1}.md`
+
 // Published version ids for a document, oldest first. Tops up to `contents.length` so a re-run
 // against a database that already holds the seeded versions adds nothing.
+//
+// Refuses rather than tops up when the versions already there are not the ones this function wrote —
+// a document published by hand through the admin Legal tab leaves the specs asserting on seeded
+// content that is no longer current, which fails a long way from the cause.
 async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], publishedBy: string) {
     const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type })
 
     const existing = await db
         .selectFrom('legalDocumentVersion')
-        .select(['id', 'versionNumber'])
+        .select(['id', 'versionNumber', 'fileName'])
         .where('legalDocumentId', '=', legalDocumentId)
         .where('publishedAt', 'is not', null)
         .orderBy('versionNumber')
         .execute()
+
+    // Extra versions count as drift too: the specs assert on the newest, and anything past this
+    // seed's own list is content it does not know.
+    const unseeded = existing.filter(
+        (version, index) => index >= contents.length || version.fileName !== seededFileName(type, index),
+    )
+    if (unseeded.length) {
+        throw new Error(
+            `${type} already has published versions this seed did not write ` +
+                `(${unseeded.map((version) => version.fileName).join(', ')}). ` +
+                'Reset the database and re-run `pnpm run db:migrate` before the e2e suite.',
+        )
+    }
 
     const versionIds = existing.map((version) => version.id)
 
@@ -455,7 +474,7 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
                 id: versionId,
                 legalDocumentId,
                 filePath,
-                fileName: `${type}-v${index + 1}.md`,
+                fileName: seededFileName(type, index),
                 format: 'markdown',
                 versionNumber: index + 1,
                 publishedAt: new Date(),

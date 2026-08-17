@@ -505,6 +505,25 @@ export const insertTestStudyJobUsers = async ({
     return { study, job, user1, user2, ...rest }
 }
 
+/**
+ * Clear every legal document, version and acknowledgement.
+ *
+ * Terms of Service and Privacy Notice are global singletons, so a suite asserting "nothing published"
+ * or counting versions is asserting on database-wide state — which a seeded dev database (`db:migrate`
+ * plus `db:seed-legal`) already occupies, and CI does not. Call it in `beforeEach` so those suites
+ * mean the same thing in both places.
+ *
+ * Safe under the per-test transaction (vitest.setup.ts starts one and rolls it back): another suite's
+ * rows are uncommitted and invisible here, so this can only remove committed seed data, and even that
+ * is undone at the end of the test. Keep the order — acknowledgement, version, document — or the
+ * foreign keys refuse, and two suites deleting in opposite orders could deadlock.
+ */
+export const resetLegalDocuments = async () => {
+    await db.deleteFrom('legalDocumentAcknowledgement').execute()
+    await db.deleteFrom('legalDocumentVersion').execute()
+    await db.deleteFrom('legalDocument').execute()
+}
+
 export type InsertTestOrgOptions = {
     slug: string
     name?: string

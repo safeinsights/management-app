@@ -13,6 +13,8 @@ export const LegalTabs: FC = () => (
         <Tabs.List>
             <Tabs.Tab value="TOS">{legalDocumentTypeLabels.TOS}</Tabs.Tab>
             <Tabs.Tab value="PN">{legalDocumentTypeLabels.PN}</Tabs.Tab>
+            {/* Acronyms: the full participation-agreement names run to 40+ characters, which no tab
+                strip survives. Each panel's own heading carries the full name. */}
             <Tabs.Tab value="DOPA">DOPA</Tabs.Tab>
             <Tabs.Tab value="ROPA">ROPA</Tabs.Tab>
             <Tabs.Tab value="SLA">Study Level Agreements</Tabs.Tab>

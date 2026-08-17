@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, within } from '@testing-library/react'
-import { actionResult, db, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import { actionResult, mockSessionWithTestData, renderWithProviders, resetLegalDocuments } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchLegalDocumentVersionsAction,
@@ -27,9 +27,7 @@ beforeEach(async () => {
         'fetch',
         vi.fn(async () => ({ ok: true, status: 200, text: async () => '# Terms of Service' }) as unknown as Response),
     )
-    await db.deleteFrom('legalDocumentAcknowledgement').execute()
-    await db.deleteFrom('legalDocumentVersion').execute()
-    await db.deleteFrom('legalDocument').execute()
+    await resetLegalDocuments()
 })
 
 const seedPublishedTos = async (fileName: string) => {

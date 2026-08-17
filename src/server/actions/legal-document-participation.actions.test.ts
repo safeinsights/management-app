@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { signedUrlForFile } from '@/server/aws'
-import { actionResult, faker, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { actionResult, faker, insertTestOrg, mockSessionWithTestData, resetLegalDocuments } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchParticipationAgreementsAction,
@@ -20,6 +20,8 @@ vi.mock('@/server/aws', async (importOriginal) => {
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
+
+beforeEach(resetLegalDocuments)
 
 const insertSignatory = (type: ParticipationAgreementType) =>
     insertTestOrg({ slug: faker.string.alpha(10), type: type === 'DOPA' ? 'enclave' : 'lab' })

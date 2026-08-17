@@ -1,7 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
 import { signedUrlForFile } from '@/server/aws'
-import { actionResult, faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    insertTestUser,
+    mockSessionWithTestData,
+    resetLegalDocuments,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchStudiesAwaitingSlaAction,
@@ -20,6 +27,8 @@ vi.mock('@/server/aws', async (importOriginal) => {
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
+
+beforeEach(resetLegalDocuments)
 
 // The shared helpers put both of a study's orgs on one org, which would hide a swapped join.
 // study.orgId is the enclave (Data Partner), study.submittedByOrgId is the lab (Research Lab).

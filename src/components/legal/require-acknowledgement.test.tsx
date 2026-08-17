@@ -1,7 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { db } from '@/database'
-import { actionResult, mockSessionWithTestData, renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    mockSessionWithTestData,
+    renderWithProviders,
+    resetLegalDocuments,
+    userEvent,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
@@ -26,6 +32,10 @@ vi.mock('@/server/storage', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/storage')>()),
     fetchFileContents: vi.fn(async () => new Blob([TERMS_BODY])),
 }))
+
+// The gate answers for every published tos/pn, so a seeded dev database would leave a second
+// document outstanding behind the one under test.
+beforeEach(resetLegalDocuments)
 
 const publish = async (type: 'TOS' | 'PN', fileName: string) => {
     const { version } = actionResult(await createLegalDocumentDraftAction({ type, fileName }))
@@ -67,8 +77,6 @@ describe('RequireLegalAcknowledgement', () => {
             expect(acks).toHaveLength(1)
             expect(acks[0]!.legalDocumentVersionId).toBe(version.id)
         })
-        // Scoped to the document this test published: a local dev database also holds a seeded
-        // Privacy Notice, which this user legitimately still owes.
         await waitFor(() => expect(screen.queryByText(/The Terms of Service/)).toBeNull())
     })
 
@@ -100,8 +108,8 @@ describe('RequireLegalAcknowledgement', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
-    // Actions resolve with { error } rather than rejecting, so without actionResult a refusal would
-    // run onSuccess and reopen the modal saying nothing — the user would click Continue forever.
+    // The whole sentence, not a fragment of it: the thrown ActionFailure's own message is the JSON of
+    // its field errors, and a regression to that would still satisfy a looser match.
     it('shows why an acknowledgement was refused rather than silently reopening', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const version = await publishTos()
@@ -121,7 +129,7 @@ describe('RequireLegalAcknowledgement', () => {
         await userEvent.click(screen.getByRole('checkbox'))
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
-        expect(await screen.findByText(/is not published/)).toBeDefined()
+        expect(await screen.findByText('Version is not published and cannot be acknowledged')).toBeDefined()
         expect(await acknowledgementsFor(user.id)).toHaveLength(0)
     })
 })

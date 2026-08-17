@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { faker } from '@faker-js/faker'
 import dayjs from 'dayjs'
-import { actionResult, db, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    db,
+    mockSessionWithTestData,
+    renderWithProviders,
+    resetLegalDocuments,
+} from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
@@ -19,11 +25,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-beforeEach(async () => {
-    await db.deleteFrom('legalDocumentAcknowledgement').execute()
-    await db.deleteFrom('legalDocumentVersion').execute()
-    await db.deleteFrom('legalDocument').execute()
-})
+beforeEach(resetLegalDocuments)
 
 const publishTos = async () => {
     const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' }))

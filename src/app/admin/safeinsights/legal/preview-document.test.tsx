@@ -12,7 +12,9 @@ describe('PreviewDocument', () => {
             ),
         )
 
-        renderWithProviders(<PreviewDocument url="https://example.com/doc.md" label="Terms of Service" />)
+        renderWithProviders(
+            <PreviewDocument versionId="tos-v1" url="https://example.com/doc.md" label="Terms of Service" />,
+        )
 
         expect(await screen.findByRole('heading', { name: 'Terms of Service' })).toBeDefined()
     })
@@ -23,7 +25,9 @@ describe('PreviewDocument', () => {
             vi.fn(async () => ({ ok: false, status: 404, text: async () => '' }) as unknown as Response),
         )
 
-        renderWithProviders(<PreviewDocument url="https://example.com/doc.md" label="Terms of Service" />)
+        renderWithProviders(
+            <PreviewDocument versionId="tos-v1" url="https://example.com/doc.md" label="Terms of Service" />,
+        )
 
         // ErrorAlert always renders its default title.
         expect(await screen.findByText('An error occurred')).toBeDefined()

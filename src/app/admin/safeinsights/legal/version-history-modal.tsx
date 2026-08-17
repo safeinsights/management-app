@@ -26,7 +26,7 @@ const hasSignatory = (scope: Scope) => Boolean(scope.orgId || scope.studyId)
 
 // Rendered in place rather than linked, because a signed URL to a .md gives the reader raw source or
 // a download. Per row so each version opens its own copy.
-const PreviewLink: FC<{ url: string; label: string }> = ({ url, label }) => {
+const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ versionId, url, label }) => {
     const [isOpen, { open, close }] = useDisclosure(false)
 
     return (
@@ -35,7 +35,7 @@ const PreviewLink: FC<{ url: string; label: string }> = ({ url, label }) => {
                 View
             </Anchor>
             <AppModal isOpen={isOpen} onClose={close} title={label} zIndex={400}>
-                <PreviewDocument url={url} label={label} />
+                <PreviewDocument versionId={versionId} url={url} label={label} />
             </AppModal>
         </>
     )
@@ -46,7 +46,9 @@ const documentColumnFor = (type: LegalDocumentTypeValue): DataTableColumn<Versio
         return {
             accessor: 'downloadUrl',
             title: 'Document',
-            render: (version) => <PreviewLink url={version.downloadUrl} label={legalDocumentTypeLabels[type]} />,
+            render: (version) => (
+                <PreviewLink versionId={version.id} url={version.downloadUrl} label={legalDocumentTypeLabels[type]} />
+            ),
         }
     }
 
