@@ -64,11 +64,13 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
             editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
         }
         setIsEditing(false)
+        editor.focus()
     }, [editor, url])
 
     const cancelLink = useCallback(() => {
         setIsEditing(false)
-    }, [])
+        editor.focus()
+    }, [editor])
 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
@@ -127,38 +129,55 @@ export const Toolbar = () => {
         )
     }, [editor, updateToolbar])
 
-    const formatText = (format: TextFormatType) => {
-        editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)
+    // Lexical re-renders the surface a command touched, which can drop the caret and with it DOM
+    // focus, leaving the user typing nowhere and the container's blur validation reading the
+    // toolbar click as "left the field incomplete" (OTTER-647). Restoring focus fixes both.
+    const runOnEditor = (dispatch: () => void) => {
+        dispatch()
+        editor.focus()
     }
 
+    const formatText = (format: TextFormatType) => {
+        runOnEditor(() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format))
+    }
+
+    // The decision is read out of the editor state, but the dispatch happens after the read
+    // closes: unlinking has to go through runOnEditor like every other command, or it leaves the
+    // caret wherever Lexical dropped it and the field reads the toolbar click as "left incomplete"
+    // (OTTER-647). Opening the link editor is the one command that should move focus, so it does
+    // not restore it.
     const toggleLink = () => {
-        editor.getEditorState().read(() => {
+        const selected = editor.getEditorState().read(() => {
             const selection = $getSelection()
-            if (!$isRangeSelection(selection)) return
+            if (!$isRangeSelection(selection)) return null
 
             const node = selection.anchor.getNode()
             const parent = node.getParent()
-            const existingUrl = $isLinkNode(parent) ? parent.getURL() : $isLinkNode(node) ? node.getURL() : null
-
-            if (existingUrl) {
-                editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
-            } else {
-                linkEditor.openLinkEditor(null)
-            }
+            return { existingUrl: $isLinkNode(parent) ? parent.getURL() : $isLinkNode(node) ? node.getURL() : null }
         })
-    }
 
-    const toggleList = (type: 'bullet' | 'number') => {
-        if (formatState.listType === type) {
-            editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
+        if (!selected) return
+
+        if (selected.existingUrl) {
+            runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
         } else {
-            const command = type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND
-            editor.dispatchCommand(command, undefined)
+            linkEditor.openLinkEditor(null)
         }
     }
 
-    const indent = () => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
-    const outdent = () => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
+    const toggleList = (type: 'bullet' | 'number') => {
+        runOnEditor(() => {
+            if (formatState.listType === type) {
+                editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
+                return
+            }
+            const command = type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND
+            editor.dispatchCommand(command, undefined)
+        })
+    }
+
+    const indent = () => runOnEditor(() => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined))
+    const outdent = () => runOnEditor(() => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined))
 
     return (
         <Box

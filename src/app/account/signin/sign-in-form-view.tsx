@@ -54,6 +54,10 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
                         mt={10}
                         placeholder="*********"
                         aria-label="Password"
+                        // Mantine renders PasswordInput's inner <input> under an Input with
+                        // withAria disabled, so its own `error` lands `data-invalid` and the
+                        // describedby but never `aria-invalid`. Pass it here (OTTER-647).
+                        aria-invalid={!!form.errors.password || undefined}
                     />
                     <Link c="blue.7" fw={600} w="fit-content" size="xs" href={forgotPasswordHref}>
                         Forgot password?
