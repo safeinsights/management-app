@@ -97,9 +97,13 @@ export function isKnownFailureReason(value: string | null | undefined): value is
     return !!value && (JOB_FAILURE_REASONS as readonly string[]).includes(value)
 }
 
+// Names who can act rather than telling the reader to go and do it: reviewing is open to any member
+// of an enclave org (permissions.ts), while the Code Environments page sits behind the org admin
+// layout, which redirects everyone else to the dashboard. "Check the image URL" would be an
+// instruction most reviewers cannot carry out.
 const FAILURE_REASON_EXPLANATION: Record<JobFailureReason, string> = {
     BASE_IMAGE_UNAVAILABLE:
-        'The code environment image could not be found or could not be accessed, so the code never ran. Check the image URL on the Code Environments page.',
+        'The code environment image could not be found or could not be accessed, so the code never ran. An organization administrator can check the image URL on the Code Environments page.',
 }
 
 export type JobErrorDetails = {

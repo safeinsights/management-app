@@ -30,21 +30,23 @@ const contentStyle = {
 // honored.
 //
 // Worded as "nothing here that can be shared" rather than "there are no output files": the branch is
-// also reached by a job holding a submission-time scan log, or an error log stored in a form this
-// screen cannot display, and the banner above says so in the same breath. Denying those files exist
-// would contradict it on one screen.
+// also reached by a job holding files this screen cannot offer, and claiming they do not exist would
+// contradict the banner above, which says an error log was recorded. Three shapes reach it: a
+// submission-time scan log, an error log stored in a form no key opens, and a pre-#764 job whose
+// results are plaintext APPROVED-* rows the reviewer flow has never been able to share.
 const noOutputsShareHint = (labName: string) => `There is nothing from this run that can be shared with ${labName}.`
 
 // A real <ul>, not "<br />•": the two clauses are a list, and a screen reader should announce them
 // as one ("list, 2 items") rather than as a single run-on sentence with stray bullet characters.
 const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labName, canShareOutputs }) => {
     // With nothing shareable there is no judgment to make about contents, so the two-branch guidance
-    // would be describing a choice the reviewer does not have.
+    // would be describing a choice the reviewer does not have. States what this screen can do rather
+    // than what the run produced, which is the one thing that is true for every shape reaching here.
     if (!canShareOutputs) {
         return (
             <Text component="div" fz={16} c="charcoal.9">
-                There are no outputs from this run for you to review. Describe what happened in your feedback so{' '}
-                {labName} can revise the code.
+                Sharing outputs is not available for this run. Describe what happened in your feedback so {labName} can
+                revise the code.
             </Text>
         )
     }

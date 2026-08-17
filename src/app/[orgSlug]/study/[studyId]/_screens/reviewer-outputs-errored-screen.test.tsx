@@ -294,6 +294,9 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('could not be found or could not be accessed')
         expect(alert).toHaveTextContent('Code Environments page')
+        // Reviewing is open to any enclave-org member, but that page is behind the org admin layout,
+        // so the sentence names who can act rather than sending this reader somewhere they cannot go.
+        expect(alert).toHaveTextContent('An organization administrator can check the image URL')
     })
 
     // The guard that keeps AWS detail off this screen whichever service wrote the row. The enclave
@@ -388,6 +391,20 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const section = screen.getByTestId('outputs-decision-section')
         expect(section).not.toHaveTextContent('There are no output files')
         expect(section).toHaveTextContent('There is nothing from this run that can be shared with')
+    })
+
+    // A pre-#764 job stores results as plaintext APPROVED-* rows, which no key opens and this flow
+    // has never been able to share. The decision still has to be recorded, but the copy must not
+    // announce that the run produced nothing while such a row exists.
+    it('does not deny a legacy plaintext result it cannot offer', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedPlaintextFile(job.id, 'APPROVED-RESULT', 'results.csv')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const section = screen.getByTestId('outputs-decision-section')
+        expect(section).not.toHaveTextContent('There are no outputs')
+        expect(section).toHaveTextContent('Sharing outputs is not available for this run')
     })
 
     // The bypass is opt-in per screen. A completed run with no artifacts means delivery went wrong,
