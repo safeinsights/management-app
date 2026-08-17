@@ -36,9 +36,6 @@ importers:
       '@aws-sdk/client-codebuild':
         specifier: ^3.893.0
         version: 3.1049.0
-      '@aws-sdk/client-ecr':
-        specifier: ^3.893.0
-        version: 3.1049.0
       '@aws-sdk/client-glue':
         specifier: ^3.893.0
         version: 3.1049.0
@@ -147,12 +144,6 @@ importers:
       '@zip.js/zip.js':
         specifier: ^2.8.26
         version: 2.8.26
-      aws-iam-policy-types:
-        specifier: ^1.0.2
-        version: 1.0.2
-      child_process:
-        specifier: ^1.0.2
-        version: 1.0.2
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -165,18 +156,12 @@ importers:
       debug:
         specifier: ^4.4.3
         version: 4.4.3
-      eventsource-parser:
-        specifier: ^3.0.6
-        version: 3.0.8
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
-      jws:
-        specifier: ^4.0.1
-        version: 4.0.1
       kysely:
         specifier: ^0.28.12
         version: 0.28.17
@@ -186,9 +171,6 @@ importers:
       lexical:
         specifier: ^0.41.0
         version: 0.41.0
-      libphonenumber-js:
-        specifier: ^1.12.38
-        version: 1.13.2
       mailgun.js:
         specifier: ^12.7.0
         version: 12.9.0(debug@4.4.3)
@@ -222,9 +204,6 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
-      react-icons:
-        specifier: ^5.5.0
-        version: 5.6.0(react@19.2.4)
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.14)(react@19.2.4)
@@ -237,27 +216,18 @@ importers:
       remeda:
         specifier: ^2.33.6
         version: 2.34.1
-      server-only:
-        specifier: ^0.0.1
-        version: 0.0.1
       si-encryption:
         specifier: github:safeinsights/encryption#3cb802df301d02813f8f67261c34144686b8540a
         version: https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a
       uuid:
         specifier: ^14.0.0
         version: 14.0.0
-      validator:
-        specifier: ^13.15.26
-        version: 13.15.35
       yjs:
         specifier: ^13.6.30
         version: 13.6.30
       zod:
         specifier: ^4.3.6
         version: 4.4.3
-      zustand:
-        specifier: ^5.0.11
-        version: 5.0.13(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.2
@@ -316,9 +286,6 @@ importers:
       eslint:
         specifier: ^9.39.2
         version: 9.39.4(jiti@2.7.0)
-      eslint-config-prettier:
-        specifier: '*'
-        version: 10.1.8(eslint@9.39.4(jiti@2.7.0))
       eslint-import-resolver-typescript:
         specifier: ^4.4.4
         version: 4.4.4(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
@@ -334,9 +301,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@9.39.4(jiti@2.7.0))
-      globals:
-        specifier: ^17.4.0
-        version: 17.6.0
       happy-dom:
         specifier: '*'
         version: 20.9.0
@@ -471,10 +435,6 @@ packages:
 
   '@aws-sdk/client-cognito-identity@3.1049.0':
     resolution: {integrity: sha512-gfgKqA8If1CVtHgDma2yIpBDbYiB8jshbGe+nagfjBmlOmrBAycpgXxPGg3VONtm+UfgzbkSYbbR9xKW8rRCQg==}
-    engines: {node: '>=20.0.0'}
-
-  '@aws-sdk/client-ecr@3.1049.0':
-    resolution: {integrity: sha512-DkLyg4kXthvZOLT84gdXVBwQQ4qc749TG05r1boTMmlgF/ns+7JjgFpJ1CNXIgxP4Q/72N//H3vIUhTVNBi8NA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-glue@3.1049.0':
@@ -2989,11 +2949,6 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  aws-iam-policy-types@1.0.2:
-    resolution: {integrity: sha512-vdkTEqWn9WLINbb/jLsi7Ra1MvVFThuP5qanfKF+rJ79J8GPnAXnuoNKusXm62NZ84VyczQ0GkiPVD8YlvghvQ==}
-    engines: {node: '>=18.0.0'}
-    hasBin: true
-
   aws-sdk-client-mock@4.1.0:
     resolution: {integrity: sha512-h/tOYTkXEsAcV3//6C1/7U4ifSpKyJvb6auveAepqqNJl6TdZaPFEtKjBQNf8UxQdDP850knB2i/whq4zlsxJw==}
 
@@ -3133,9 +3088,6 @@ packages:
 
   character-reference-invalid@2.0.1:
     resolution: {integrity: sha512-iBZ4F4wRbyORVsu0jPV7gXkOsGYjGHPmAyv+HiHG8gi5PtC9KI2j1+v8/tlibRvjoWX027ypmG/n0HtO5t7unw==}
-
-  child_process@1.0.2:
-    resolution: {integrity: sha512-Wmza/JzL0SiWz7kl6MhIKT5ceIlnFPJX+lwUGj7Clhy5MMldsSoJR0+uvRzOS5Kv45Mq7t1PoE8TsOA9bzvb6g==}
 
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
@@ -3580,12 +3532,6 @@ packages:
     resolution: {integrity: sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==}
     engines: {node: '>=12'}
 
-  eslint-config-prettier@10.1.8:
-    resolution: {integrity: sha512-82GZUjRS0p/jganf6q1rEO25VSoHH0hKPCTrgillPjdI/3bgBhAE1QzHrHTizjpRvy6pGAvKjDJtk2pF9NDq8w==}
-    hasBin: true
-    peerDependencies:
-      eslint: '>=7.0.0'
-
   eslint-import-context@0.1.9:
     resolution: {integrity: sha512-K9Hb+yRaGAGUbwjhFNHvSmmkZs9+zbuoe3kFQ4V1wYjrepUFYM2dZAfNtjbbj3qsPfUfsA68Bx/ICWQMi+C8Eg==}
     engines: {node: ^12.20.0 || ^14.18.0 || >=16.0.0}
@@ -3741,10 +3687,6 @@ packages:
   events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
     engines: {node: '>=0.8.x'}
-
-  eventsource-parser@3.0.8:
-    resolution: {integrity: sha512-70QWGkr4snxr0OXLRWsFLeRBIRPuQOvt4s8QYjmUlmlkyTZkRqS7EDVRZtzU3TiyDbXSzaOeF0XUKy8PchzukQ==}
-    engines: {node: '>=18.0.0'}
 
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
@@ -3948,10 +3890,6 @@ packages:
 
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
-    engines: {node: '>=18'}
-
-  globals@17.6.0:
-    resolution: {integrity: sha512-sepffkT8stwnIYbsMBpoCHJuJM5l98FUF2AnE07hfvE0m/qp3R586hw4jF4uadbhvg1ooIdzuu7CsfD2jzCaNA==}
     engines: {node: '>=18'}
 
   globalthis@1.0.4:
@@ -5395,11 +5333,6 @@ packages:
       react: '>=16.8.1'
       react-dom: '>=16.8.1'
 
-  react-icons@5.6.0:
-    resolution: {integrity: sha512-RH93p5ki6LfOiIt0UtDyNg/cee+HLVR6cHHtW3wALfo+eOHTp8RnU2kRkI6E+H19zMIs03DyxUG/GfZMOGvmiA==}
-    peerDependencies:
-      react: '*'
-
   react-inspector@6.0.2:
     resolution: {integrity: sha512-x+b7LxhmHXjHoU/VrFAzw5iutsILRoYyDq97EDYdFpPLcvqtEzk4ZSZSQjnFPbr5T57tLXnHcqFYoN1pI6u8uQ==}
     peerDependencies:
@@ -6270,10 +6203,6 @@ packages:
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
-  validator@13.15.35:
-    resolution: {integrity: sha512-TQ5pAGhd5whStmqWvYF4OjQROlmv9SMFVt37qoCBdqRffuuklWYQlCNnEs2ZaIBD1kZRNnikiZOS1eqgkar0iw==}
-    engines: {node: '>= 0.10'}
-
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
@@ -6554,24 +6483,6 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
-  zustand@5.0.13:
-    resolution: {integrity: sha512-efI2tVaVQPqtOh114loML/Z80Y4NP3yc+Ff0fYiZJPauNeWZeIp/bRFD7I9bfmCOYBh/PHxlglQ9+wvlwnPikQ==}
-    engines: {node: '>=12.20.0'}
-    peerDependencies:
-      '@types/react': 19.2.14
-      immer: '>=9.0.6'
-      react: '>=18.0.0'
-      use-sync-external-store: '>=1.2.0'
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-      immer:
-        optional: true
-      react:
-        optional: true
-      use-sync-external-store:
-        optional: true
-
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
@@ -6647,19 +6558,6 @@ snapshots:
       tslib: 2.8.1
 
   '@aws-sdk/client-cognito-identity@3.1049.0':
-    dependencies:
-      '@aws-crypto/sha256-browser': 5.2.0
-      '@aws-crypto/sha256-js': 5.2.0
-      '@aws-sdk/core': 3.974.12
-      '@aws-sdk/credential-provider-node': 3.972.43
-      '@aws-sdk/types': 3.973.8
-      '@smithy/core': 3.24.3
-      '@smithy/fetch-http-handler': 5.4.3
-      '@smithy/node-http-handler': 4.7.3
-      '@smithy/types': 4.14.2
-      tslib: 2.8.1
-
-  '@aws-sdk/client-ecr@3.1049.0':
     dependencies:
       '@aws-crypto/sha256-browser': 5.2.0
       '@aws-crypto/sha256-js': 5.2.0
@@ -9543,8 +9441,6 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  aws-iam-policy-types@1.0.2: {}
-
   aws-sdk-client-mock@4.1.0:
     dependencies:
       '@types/sinon': 17.0.4
@@ -9693,8 +9589,6 @@ snapshots:
   character-entities@2.0.2: {}
 
   character-reference-invalid@2.0.1: {}
-
-  child_process@1.0.2: {}
 
   chokidar@4.0.3:
     dependencies:
@@ -10156,10 +10050,6 @@ snapshots:
 
   escape-string-regexp@5.0.0: {}
 
-  eslint-config-prettier@10.1.8(eslint@9.39.4(jiti@2.7.0)):
-    dependencies:
-      eslint: 9.39.4(jiti@2.7.0)
-
   eslint-import-context@0.1.9(unrs-resolver@1.12.2):
     dependencies:
       get-tsconfig: 4.14.0
@@ -10383,8 +10273,6 @@ snapshots:
 
   events@3.3.0: {}
 
-  eventsource-parser@3.0.8: {}
-
   expect-type@1.3.0: {}
 
   exsolve@1.0.8: {}
@@ -10579,8 +10467,6 @@ snapshots:
       path-scurry: 2.0.2
 
   globals@14.0.0: {}
-
-  globals@17.6.0: {}
 
   globalthis@1.0.4:
     dependencies:
@@ -12394,10 +12280,6 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  react-icons@5.6.0(react@19.2.4):
-    dependencies:
-      react: 19.2.4
-
   react-inspector@6.0.2(react@19.2.4):
     dependencies:
       react: 19.2.4
@@ -13410,8 +13292,6 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
-  validator@13.15.35: {}
-
   vary@1.1.2: {}
 
   vfile-location@5.0.3:
@@ -13694,11 +13574,5 @@ snapshots:
       zod: 4.4.3
 
   zod@4.4.3: {}
-
-  zustand@5.0.13(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):
-    optionalDependencies:
-      '@types/react': 19.2.14
-      react: 19.2.4
-      use-sync-external-store: 1.6.0(react@19.2.4)
 
   zwitch@2.0.4: {}
