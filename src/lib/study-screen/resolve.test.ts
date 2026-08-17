@@ -145,11 +145,11 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
 })
 
 describe('resolveScreen (reviewer)', () => {
-    it('decided results → reviewer-study-results (highest precedence)', () => {
+    it('decided results → reviewer-outputs-decided (OTTER-677, highest precedence)', () => {
         expect(
             resolveScreen('reviewer', state({ hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }))
                 .screen,
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
     it('undecided results → reviewer-outputs-available (decrypt-before-review, OTTER-668)', () => {
         expect(
@@ -167,8 +167,8 @@ describe('resolveScreen (reviewer)', () => {
 })
 
 // OTTER-643: resolveReviewerCodeScreen backs the read-only /review/code route — the DO counterpart to
-// resolveResearcherCodeScreen. It returns the matching code screen (skipping reviewer-study-results so
-// a results study doesn't loop), or undefined when the study hasn't reached the code stage (route 404s).
+// resolveResearcherCodeScreen. It returns the matching code screen (skipping reviewer-outputs-decided so
+// a decided study doesn't loop), or undefined when the study hasn't reached the code stage (route 404s).
 describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
     it('results study → reviewer-code-feedback (results imply an approved code decision)', () => {
         const resultsStudy = state({

@@ -5,15 +5,13 @@ import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
-import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
-import { OutputsFilesSection } from '@/components/study/outputs-files-section'
+import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
-import { useOutputsFiles } from '@/hooks/use-outputs-files'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
@@ -162,19 +160,11 @@ const ReviewBody: FC<ReviewBodyProps> = ({
     maxWords,
     previousHref,
 }) => {
-    const files = useOutputsFiles({ jobId: job.id, decryptedFiles })
     const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, maxWords, decryptedFiles })
-    const previewFile = files.viewing ? { name: files.viewing.name, contents: files.viewing.contents } : null
 
     return (
         <>
-            <OutputsFilesSection
-                rows={files.rows}
-                isPreparingZip={files.isPreparingZip}
-                onView={files.onView}
-                onDownload={files.onDownload}
-                onDownloadAll={files.onDownloadAll}
-            />
+            <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} />
             <OutputsDecisionSection
                 jobId={job.id}
                 studyId={studyId}
@@ -205,11 +195,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 isSubmitting={decision.isSubmitting}
                 onClose={decision.closeModal}
                 onConfirm={decision.confirmSubmit}
-            />
-            <FileOrImagePreviewModal
-                file={previewFile}
-                onClose={files.closeViewer}
-                onDownload={files.onViewerDownload}
             />
         </>
     )

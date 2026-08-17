@@ -19,11 +19,11 @@ export const REVIEWER_SCREEN_RULES = [
     //     checks (#922 review).
     ['reviewer-outputs-available', { when: (s) => s.resultsDisplayStatus === 'RUN-COMPLETE' }],
 
-    // 1c. Results exist and a files decision was recorded → results-only Study Details (OTTER-538).
-    //     1a/1b claim the undecided results states above, so only decided results reach this rule.
-    //     Out-ranks the code decision (CODE-APPROVED is always present once results land), mirroring
-    //     legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
-    ['reviewer-study-results', { when: (s) => s.hasResults }],
+    // 1c. Results exist and a files decision was recorded (OTTER-677) → the post-review page that
+    //     surfaces the decision, feedback history, and lets the reviewer re-decrypt outputs. 1a/1b
+    //     claim the undecided states above, so only decided results reach this rule. Out-ranks the
+    //     code decision (CODE-APPROVED is always present once results land).
+    ['reviewer-outputs-decided', { when: (s) => s.hasResults }],
 
     // 2. Code approved and executing in the enclave, no results yet → the "Secondary
     //    analysis study" outputs view surfacing the current job stage.
