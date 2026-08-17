@@ -73,6 +73,18 @@ describe('rawStudyStateForStudy', () => {
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
+        // The name and the study_id both have to point here. No writer can produce this row (the editor
+        // service derives study_id from the same parsed name), so it stands in for the naming convention
+        // drifting out from under the SQL: the fragment fails closed instead of matching across studies.
+        it('ignores a document whose name matches but whose study_id belongs to another study', async () => {
+            const study = await insertDraft()
+            const other = await insertDraft()
+            await insertYjsDoc(other.id, proposalFieldsDocName(study.id))
+
+            const raw = await rawStudyStateForStudy(study.id)
+            expect(raw!.hasStep2CollabDoc).toBe(false)
+        })
+
         it('ignores documents that are not Step 2 proposal documents', async () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, `review-feedback-${study.id}-v1`)

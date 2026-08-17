@@ -49,6 +49,8 @@ export type StudyState = {
     // A DRAFT that has reached Step 2 of the proposal wizard, from either persistence layer: the flushed
     // columns (DraftStep2Fields) or the collaborative document (hasStep2CollabDoc). Routes a "resume draft"
     // entry to the step the researcher last left off (OTTER-572) instead of always landing on Step 1.
+    // Draft-gated in projectStudyState, so it is false for every non-DRAFT status even though both
+    // persistence layers keep their Step 2 traces past submission.
     hasStep2Progress: boolean
     researcherAgreementsAcked: boolean
     reviewerAgreementsAcked: boolean

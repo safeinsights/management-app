@@ -120,7 +120,8 @@ correctly reads "under review again." Counting handles both shapes and is permut
   layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
   document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
   collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
-  reviewer / Submit, so the columns alone under-report progress (OTTER-572).
+  reviewer / Submit, so the columns alone under-report progress (OTTER-572). Gated on `isDraft`:
+  neither layer clears itself on submit, so a non-DRAFT study reports `false` regardless.
 
 ---
 
