@@ -7,28 +7,23 @@ import { actionResult } from '@/lib/utils'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     acknowledgeLegalDocumentAction,
-    fetchPendingLegalAcknowledgementsAction,
+    fetchNextPendingLegalAcknowledgementAction,
 } from '@/server/actions/legal-document.actions'
 import { useState } from 'react'
-import type { PendingLegalDocument } from './acknowledgement-copy'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
-const NO_DOCUMENTS: PendingLegalDocument[] = []
-
-function usePendingLegalAcknowledgements() {
+// Asking about one document at a time keeps the ack row, the rendered text and the ticked box a
+// single unit. Any others arrive on the refetch below.
+function useNextPendingLegalAcknowledgement() {
     const { session } = useSession()
     const queryClient = useQueryClient()
     const [consentedVersionId, setConsentedVersionId] = useState<string | null>(null)
 
-    const { data: documents = NO_DOCUMENTS } = useQuery({
-        queryKey: legalDocumentQueryKeys.pendingAcknowledgements(),
-        queryFn: () => fetchPendingLegalAcknowledgementsAction(),
+    const { data: document } = useQuery({
+        queryKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
+        queryFn: () => fetchNextPendingLegalAcknowledgementAction(),
         enabled: Boolean(session),
     })
-
-    // Asking about one document at a time keeps the ack row, the rendered text and the ticked box a
-    // single unit. The rest of the list arrives on the refetch below.
-    const document = documents[0]
 
     const {
         mutate: acknowledge,
@@ -40,7 +35,7 @@ function usePendingLegalAcknowledgements() {
         // reopen the modal saying nothing.
         mutationFn: async (versionId: string) => actionResult(await acknowledgeLegalDocumentAction({ versionId })),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.pendingAcknowledgements() })
+            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.nextPendingAcknowledgement() })
         },
     })
 
@@ -68,7 +63,7 @@ function usePendingLegalAcknowledgements() {
  */
 export const RequireLegalAcknowledgement = () => {
     const signOut = useSignOut()
-    const { document, isChecked, setIsChecked, onContinue, isSubmitting, error } = usePendingLegalAcknowledgements()
+    const { document, isChecked, setIsChecked, onContinue, isSubmitting, error } = useNextPendingLegalAcknowledgement()
 
     return (
         <LegalAcknowledgementModal

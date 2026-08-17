@@ -262,18 +262,21 @@ const latestEnforcedVersions = async (db: DBExecutor): Promise<EnforcedVersion[]
 const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
 
 /**
- * What the signed-in user still owes, current version only.
+ * The next thing the signed-in user still owes, current version only.
  *
  * A user owes a document when its latest published version has no acknowledgement row from them.
  * Superseded versions are not backfilled — the obligation is to the terms in force, which is also
  * what the SI-admin audit reports, so the two views cannot disagree.
+ *
+ * One document rather than the whole list because the gate asks for one at a time; the next arrives
+ * on the refetch that acknowledging triggers.
  */
-export const fetchPendingLegalAcknowledgementsAction = new Action('fetchPendingLegalAcknowledgementsAction')
+export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextPendingLegalAcknowledgementAction')
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, session }) => {
         const latest = await latestEnforcedVersions(db)
-        if (!latest.length) return []
+        if (!latest.length) return null
 
         const acknowledged = await db
             .selectFrom('legalDocumentAcknowledgement')
@@ -296,18 +299,18 @@ export const fetchPendingLegalAcknowledgementsAction = new Action('fetchPendingL
         // available", so the modal can say which one happened.
         const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
 
-        const pending = latest.filter((version) => !acknowledgedVersionIds.has(version.versionId))
+        // latestEnforcedVersions is ordered, so the first outstanding one is also the one to ask about.
+        const next = latest.find((version) => !acknowledgedVersionIds.has(version.versionId))
+        if (!next) return null
 
         // S3 is read only once something is actually outstanding. Every page load runs this action and
         // the overwhelmingly common answer is "nothing pending".
-        return await Promise.all(
-            pending.map(async (version) => ({
-                type: version.type,
-                versionId: version.versionId,
-                isUpdate: acknowledgedDocumentIds.has(version.legalDocumentId),
-                content: await contentOf(version.filePath),
-            })),
-        )
+        return {
+            type: next.type,
+            versionId: next.versionId,
+            isUpdate: acknowledgedDocumentIds.has(next.legalDocumentId),
+            content: await contentOf(next.filePath),
+        }
     })
 
 /**

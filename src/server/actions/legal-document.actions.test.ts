@@ -15,7 +15,7 @@ import {
     createLegalDocumentDraftAction,
     fetchLegalDocumentAcknowledgementsAction,
     fetchLegalDocumentVersionsAction,
-    fetchPendingLegalAcknowledgementsAction,
+    fetchNextPendingLegalAcknowledgementAction,
     fetchPublicLegalDocumentsAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
@@ -358,11 +358,11 @@ const publishTos = async (fileName = 'terms.md') =>
 const publishPn = async (fileName = 'privacy.md') =>
     await publish(actionResult(await createLegalDocumentDraftAction({ type: 'PN', fileName })).version.id)
 
-describe('fetchPendingLegalAcknowledgementsAction', () => {
+describe('fetchNextPendingLegalAcknowledgementAction', () => {
     it('reports nothing when no document has been published', async () => {
         await mockSessionWithTestData()
 
-        expect(actionResult(await fetchPendingLegalAcknowledgementsAction())).toEqual([])
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
     })
 
     it('reports a published document the user has never acknowledged, with its content', async () => {
@@ -370,14 +370,13 @@ describe('fetchPendingLegalAcknowledgementsAction', () => {
         const tos = await publishTos()
 
         await mockSessionWithTestData()
-        const pending = actionResult(await fetchPendingLegalAcknowledgementsAction())
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
 
-        expect(pending).toHaveLength(1)
-        expect(pending[0]!.type).toBe('TOS')
-        expect(pending[0]!.versionId).toBe(tos.id)
-        expect(pending[0]!.content).toContain(tos.filePath)
+        expect(pending!.type).toBe('TOS')
+        expect(pending!.versionId).toBe(tos.id)
+        expect(pending!.content).toContain(tos.filePath)
         // Never acknowledged, so the modal must say "is now available" rather than "has been updated".
-        expect(pending[0]!.isUpdate).toBe(false)
+        expect(pending!.isUpdate).toBe(false)
     })
 
     it('reports nothing once the current version is acknowledged', async () => {
@@ -387,7 +386,7 @@ describe('fetchPendingLegalAcknowledgementsAction', () => {
         await mockSessionWithTestData()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
 
-        expect(actionResult(await fetchPendingLegalAcknowledgementsAction())).toEqual([])
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
     })
 
     // The obligation is to the terms in force: acknowledging v1 does not settle v2, and v1 is never
@@ -400,10 +399,10 @@ describe('fetchPendingLegalAcknowledgementsAction', () => {
         actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
         const second = await publishTos('terms-v2.md')
 
-        const pending = actionResult(await fetchPendingLegalAcknowledgementsAction())
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
 
-        expect(pending.map((document) => document.versionId)).toEqual([second.id])
-        expect(pending[0]!.isUpdate).toBe(true)
+        expect(pending!.versionId).toBe(second.id)
+        expect(pending!.isUpdate).toBe(true)
     })
 
     it('ignores a draft, which obliges nobody', async () => {
@@ -412,18 +411,21 @@ describe('fetchPendingLegalAcknowledgementsAction', () => {
 
         await mockSessionWithTestData()
 
-        expect(actionResult(await fetchPendingLegalAcknowledgementsAction())).toEqual([])
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
     })
 
-    it('returns the Terms of Service before the Privacy Notice when both are outstanding', async () => {
+    // Ordering matters here because only the head is returned: the Privacy Notice is unreachable
+    // until the Terms of Service is settled.
+    it('asks for the Terms of Service before the Privacy Notice when both are outstanding', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await publishPn()
-        await publishTos()
+        const tos = await publishTos()
 
         await mockSessionWithTestData()
-        const pending = actionResult(await fetchPendingLegalAcknowledgementsAction())
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('TOS')
 
-        expect(pending.map((document) => document.type)).toEqual(['TOS', 'PN'])
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('PN')
     })
 })
 

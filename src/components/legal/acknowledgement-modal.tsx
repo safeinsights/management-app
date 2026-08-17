@@ -12,7 +12,7 @@ import {
 
 type Props = {
     isVisible: boolean
-    document?: PendingLegalDocument
+    document?: PendingLegalDocument | null
     isChecked: boolean
     onCheckedChange: (checked: boolean) => void
     onContinue: () => void
