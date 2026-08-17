@@ -4,6 +4,7 @@ import {
     filesIncludeUndecryptableErrorLog,
     jobHasDecryptableRunOutcome,
 } from '@/lib/file-type-helpers'
+import { hasJobStatus } from '@/lib/study-job-status'
 
 // OTTER-524: everything we can honestly tell a reviewer about why a run failed.
 //
@@ -31,10 +32,9 @@ import {
 export type JobFailureStage = 'packaging' | 'never-started' | 'run' | 'unknown'
 
 export function jobFailureStage(statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): JobFailureStage {
-    const statuses = new Set(statusChanges.map((c) => c.status))
-    if (statuses.has('JOB-RUNNING')) return 'run'
-    if (statuses.has('JOB-READY')) return 'never-started'
-    if (statuses.has('JOB-PACKAGING')) return 'packaging'
+    if (hasJobStatus(statusChanges, ['JOB-RUNNING'])) return 'run'
+    if (hasJobStatus(statusChanges, ['JOB-READY'])) return 'never-started'
+    if (hasJobStatus(statusChanges, ['JOB-PACKAGING'])) return 'packaging'
     return 'unknown'
 }
 
