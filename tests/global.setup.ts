@@ -14,8 +14,9 @@ import { chromium, type FullConfig } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
 import { authFileFor, type TestingRole } from './e2e.helpers'
+import { seedLegalDocuments } from './e2e.seed'
 
-const ROLES: TestingRole[] = ['researcher', 'reviewer', 'admin']
+const ROLES: TestingRole[] = ['researcher', 'reviewer', 'admin', 'legal']
 
 const WARMUP_ROUTES = [
     '/researcher/dashboard',
@@ -56,7 +57,11 @@ export default async function globalSetup(config: FullConfig) {
         await fs.promises.writeFile(file, JSON.stringify(storageStateFor(role), null, 2))
     }
 
-    // 2. Warm routes with a single admin-cookie browser context.
+    // 2. Put ToS/PN acknowledgement state into a known shape. Must happen here, not in a spec: the
+    //    documents are global, so publishing one mid-run blocks every other worker's user.
+    await seedLegalDocuments()
+
+    // 3. Warm routes with a single admin-cookie browser context.
     const browser = await chromium.launch()
     try {
         const context = await browser.newContext({ storageState: authFileFor('admin') })

@@ -15,6 +15,7 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ToggleChevron } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -90,19 +91,6 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
                 </Markdown>
             </Typography>
         </Text>
-    )
-}
-
-function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
-    return (
-        <CaretRightIcon
-            size={12}
-            weight="bold"
-            style={{
-                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
-                transition: 'transform 200ms ease',
-            }}
-        />
     )
 }
 
