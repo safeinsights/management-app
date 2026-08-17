@@ -5,6 +5,7 @@ import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction } from '@/database/types'
+import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -136,18 +137,22 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
 }
 
 /**
- * The reason a service recorded on the job's most recent JOB-ERRORED row, or null (OTTER-524).
+ * The classified failure class a service recorded against the job's JOB-ERRORED, or null (OTTER-524).
  *
  * A separate narrow query on purpose: `jobStatusChange.message` must NOT be selected in
  * `latestJobForStudyQuery` or `getStudyJobInfo`, because both feed actions the submitting researcher
  * is allowed to call, and this column can hold text written by a build service or a raw AWS error
  * from the enclave. Read it only where the audience is a reviewer.
  *
- * The value is unvetted by construction, so callers MUST classify it before display. `jobErrorDetails`
- * is the only intended consumer and it renders nothing it does not recognize.
+ * Restricted to the known code set in SQL rather than "whatever the newest row holds", because a
+ * second JOB-ERRORED row is routine and would otherwise mask a classified one: the enclave and
+ * `/api/job/[jobId]` both append their own JOB-ERRORED with an arbitrary message, and the
+ * containerizer's read-then-write dedup can lose a race and let a code-less duplicate land last.
+ * Filtering here means the answer no longer depends on which row happens to sort first, and raw
+ * service text never leaves the database at all.
  *
- * Ordered in SQL rather than in memory because a retried delivery can append a second row for the
- * same status, and callers should not inherit a hidden ordering contract.
+ * Callers still classify what they get back (`jobErrorDetails` is the only intended consumer), so the
+ * display rule holds even if this query is ever loosened.
  */
 export async function latestRecordedJobFailureReason(studyJobId: string): Promise<string | null> {
     const row = await Action.db
@@ -155,6 +160,7 @@ export async function latestRecordedJobFailureReason(studyJobId: string): Promis
         .select('message')
         .where('studyJobId', '=', studyJobId)
         .where('status', '=', 'JOB-ERRORED')
+        .where('message', 'in', [...JOB_FAILURE_REASONS])
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
         .limit(1)

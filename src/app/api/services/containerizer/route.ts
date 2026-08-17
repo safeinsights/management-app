@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { throwNotFound } from '@/lib/errors'
-import { isKnownFailureReason } from '@/lib/job-error-details'
+import { isKnownFailureReason, type JobFailureReason } from '@/lib/job-error-details'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -18,6 +18,11 @@ const schema = z.object({
     // path also always posts a code-less payload. Unknown values are discarded on the insert below.
     failureReason: z.string().optional(),
 })
+
+// Only a failure carries a failure class, and only classified codes are kept, so unvetted text a
+// build script sent never lands in the database at all and no future reader can surface it.
+const classifiedFailureReason = (body: z.infer<typeof schema>): JobFailureReason | null =>
+    body.status === 'JOB-ERRORED' && isKnownFailureReason(body.failureReason) ? body.failureReason : null
 
 export const POST = createWebhookHandler({
     route: '/api/services/containerizer',
@@ -58,9 +63,11 @@ export const POST = createWebhookHandler({
             }
         }
 
+        const failureReason = classifiedFailureReason(body)
+
         const last = await db
             .selectFrom('jobStatusChange')
-            .select(['status'])
+            .select(['id', 'status', 'message'])
             .where('studyJobId', '=', job.jobId)
             .orderBy('createdAt', 'desc')
             .orderBy('id', 'desc')
@@ -74,11 +81,18 @@ export const POST = createWebhookHandler({
                     userId: job.researcherId,
                     studyJobId: job.jobId,
                     status: body.status,
-                    // Store only classified codes, so unvetted text a build script sent never lands
-                    // in the database at all and no future reader can surface it by accident.
-                    message: isKnownFailureReason(body.failureReason) ? body.failureReason : null,
+                    message: failureReason,
                 })
                 .execute()
+            return
+        }
+
+        // The status dedup would otherwise throw the classification away with the duplicate row. Two
+        // deliveries report one failure (the build script's own handler and the buildspec's bare
+        // `post_build` fallback) and only one of them carries the code, so whichever lands second
+        // must still be able to record it. Nothing is overwritten: an existing message is left alone.
+        if (failureReason && !last.message) {
+            await db.updateTable('jobStatusChange').set({ message: failureReason }).where('id', '=', last.id).execute()
         }
     },
 })

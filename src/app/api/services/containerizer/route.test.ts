@@ -183,6 +183,41 @@ test('containerizer keeps the recorded reason when the bare fallback follows it'
     expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
 })
 
+// The reverse order of the test above, which the buildspec is not required to guarantee: a CodeBuild
+// abort can fire the bare fallback before the script's own handler ever posts. The status dedup
+// discards the duplicate row, so the code has to be recorded against the row already there rather
+// than dropped with it.
+test('containerizer records a reason that arrives after the bare failure', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const first = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
+    expect(first.ok).toBe(true)
+    const second = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(second.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
+// Backfilling a code-less row must not turn into clearing a recorded one when the follow-up delivery
+// carries something this app cannot classify.
+test('containerizer keeps a recorded reason when an unknown code follows it', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }))
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'SOMETHING_WE_DO_NOT_KNOW' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
 // The buildspec's fallback path posts the payload raw when the build dies before its own handler
 // runs, so a reason-less failure webhook has to stay valid permanently.
 test('containerizer still accepts a failure webhook with no reason', async () => {
