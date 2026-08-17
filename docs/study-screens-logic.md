@@ -182,6 +182,12 @@ cannot display (a plaintext log stored when the org has no key holders). Those s
 from the same file list and the same predicate as the key gate, so the banner cannot instruct the
 reviewer to use a form that is not rendered, nor drop the instruction while the form renders.
 
+The stage sentence is replaced by a more specific one when a build service reported a failure class
+it recognizes, such as an unavailable base image. Only classified codes are rendered: the value is
+read through a reviewer-scoped query (never the shared job queries, which the submitting researcher
+can reach) and anything unrecognized falls back to the stage sentence. Service-supplied text is never
+echoed, which keeps AWS and deployment detail off a screen another organization reads.
+
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
 (which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
