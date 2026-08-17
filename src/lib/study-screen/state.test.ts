@@ -21,6 +21,7 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     jobs: [],
     ...overrides,
 })
@@ -213,5 +214,22 @@ describe('projectStudyState', () => {
         expect(projectStudyState(raw({ status: 'DRAFT', researchQuestions: { q: 1 } })).hasStep2Progress).toBe(true)
         // empty datasets array is not progress
         expect(projectStudyState(raw({ status: 'DRAFT', datasets: [] })).hasStep2Progress).toBe(false)
+    })
+
+    // OTTER-572 follow-up: in collaborative mode Step 2 autosaves into Yjs and leaves every column
+    // empty until an explicit flush, so the document alone has to count as progress.
+    it('hasStep2Progress: true from the collaborative document with every Step 2 column empty', () => {
+        const s = projectStudyState(raw({ status: 'DRAFT', hasStep2CollabDoc: true }))
+        expect(s.hasStep2Progress).toBe(true)
+    })
+
+    // Neither persistence layer clears itself on submit, so the projection has to do the gating:
+    // a submitted or decided study is out of the wizard and has no Step 2 to resume.
+    it('hasStep2Progress: false for every non-DRAFT status, from either layer', () => {
+        const statuses: RawStudyState['status'][] = ['PENDING-REVIEW', 'APPROVED', 'REJECTED', 'CHANGE-REQUESTED']
+        for (const status of statuses) {
+            expect(projectStudyState(raw({ status, piUserId: 'pi-1' })).hasStep2Progress).toBe(false)
+            expect(projectStudyState(raw({ status, hasStep2CollabDoc: true })).hasStep2Progress).toBe(false)
+        }
     })
 })

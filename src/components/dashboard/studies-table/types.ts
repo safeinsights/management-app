@@ -25,6 +25,8 @@ export type StudyRow = {
     projectSummary: Json | null
     impact: Json | null
     additionalNotes: Json | null
+    // Same purpose, for the Step 2 edits that live only in Yjs because no flush wrote the columns above.
+    hasStep2CollabDoc: boolean
     // Org actions return these
     reviewingEnclaveName?: string
     submittingLabName?: string

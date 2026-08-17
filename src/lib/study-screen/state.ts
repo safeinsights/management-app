@@ -115,10 +115,16 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     // outside this module/tests — kept as the one deliberate cross-job fact (see state.types.ts).
     const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
 
+    // "Reached Step 2 of the wizard" is only meaningful while the study is still in it. Neither
+    // persistence layer clears itself on submit (the columns are what Submit flushes, and a
+    // CHANGE-REQUESTED round writes the documents again), so a submitted study would otherwise report
+    // progress it can no longer resume. Gate once here rather than leaving each consumer to remember it.
+    const isDraft = raw.status === 'DRAFT'
+
     return {
         status: raw.status,
-        isDraft: raw.status === 'DRAFT',
-        hasStep2Progress: draftHasStep2Progress(raw),
+        isDraft,
+        hasStep2Progress: isDraft && (draftHasStep2Progress(raw) || raw.hasStep2CollabDoc),
         researcherAgreementsAcked: !!raw.researcherAgreementsAckedAt,
         reviewerAgreementsAcked: !!raw.reviewerAgreementsAckedAt,
         hasAnyJob: raw.jobs.length > 0,

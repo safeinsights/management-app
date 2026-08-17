@@ -35,6 +35,9 @@ import {
 import { finalizeStudySubmissionAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
+import { proposalFieldsDocName } from '@/lib/collaboration-documents'
+import { projectStudyState } from '@/lib/study-screen'
+import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 
 vi.mock('@/server/mailgun', () => ({
     deliver: vi.fn(),
@@ -586,6 +589,33 @@ describe('Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(row.status).toBe('PENDING-REVIEW')
         })
+    })
+
+    // OTTER-572: a draft whose Step 2 edits only ever reached Yjs must still be reported as having Step 2
+    // progress, so the dashboard resumes it on the proposal editor instead of the Step 1 picker.
+    it('reports hasStep2CollabDoc for a DRAFT whose Step 2 edits live only in Yjs', async () => {
+        const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'step2-collab-doc-enclave' })
+        // A DRAFT may carry a null title, which the dashboard renders as blank; normalize the way the
+        // table does so the row can go through the same projection the Edit link uses.
+        const stateFor = async () => {
+            const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+            const row = rows.find((s) => s.id === studyId)!
+            return { row, state: projectStudyState(dashboardRawStateFromRow({ ...row, title: row.title ?? '' })) }
+        }
+
+        const before = await stateFor()
+        expect(before.row.status).toBe('DRAFT')
+        expect(before.row.hasStep2CollabDoc).toBe(false)
+        expect(before.state.hasStep2Progress).toBe(false)
+
+        await db
+            .insertInto('yjsDocument')
+            .values({ name: proposalFieldsDocName(studyId), studyId, data: Buffer.from([0]) })
+            .execute()
+
+        const after = await stateFor()
+        expect(after.row.hasStep2CollabDoc).toBe(true)
+        expect(after.state.hasStep2Progress).toBe(true)
     })
 
     it('DRAFT studies have lastUpdatedAt defaulting to creation time', async () => {

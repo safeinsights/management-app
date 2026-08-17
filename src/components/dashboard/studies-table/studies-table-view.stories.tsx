@@ -32,6 +32,7 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     orgName: 'Mars University',
     orgSlug: 'mars-university',
     reviewingEnclaveName: 'Mars University Data Partner',
