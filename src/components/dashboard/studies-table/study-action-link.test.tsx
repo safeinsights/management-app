@@ -70,6 +70,24 @@ describe('StudyActionLink', () => {
             expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/proposal`)
         })
 
+        // OTTER-572 follow-up: collaborative Step 2 edits live in Yjs, so a draft left on Step 2 without
+        // an explicit flush has no Step 2 columns at all and must still reopen on the proposal editor.
+        it('links a DRAFT with only a Step 2 collaborative document to the proposal editor', () => {
+            const study = mockStudyRow({ status: 'DRAFT' as StudyStatus, hasStep2CollabDoc: true })
+            renderWithProviders(
+                <StudyActionLink
+                    study={study}
+                    audience="researcher"
+                    scope="user"
+                    orgSlug={ORG_SLUG}
+                    isHighlighted={false}
+                />,
+            )
+
+            const link = screen.getByRole('link', { name: /edit draft study/i })
+            expect(link.getAttribute('href')).toBe(`/${ORG_SLUG}/study/${STUDY_ID}/proposal`)
+        })
+
         it('links to submitted page for PENDING-REVIEW studies without job activity', () => {
             const study = mockStudyRow({ status: 'PENDING-REVIEW' as StudyStatus, jobStatusChanges: [] })
             renderWithProviders(

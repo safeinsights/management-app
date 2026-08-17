@@ -1,5 +1,6 @@
 import { db as defaultDb, jsonArrayFrom, type DBExecutor } from '@/database'
 import type { RawStudyState } from '@/lib/study-screen'
+import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 
 // Accepts an optional executor (mirrors codeSubmissionVersion) so a mutation action can run this gate
 // on its own handler transaction rather than the module singleton. Pages call it with the default.
@@ -26,6 +27,7 @@ export async function rawStudyStateForStudy(
             'study.impact',
             'study.additionalNotes',
         ])
+        .select(hasStep2CollabDocSql.as('hasStep2CollabDoc'))
         .select((eb) => [
             jsonArrayFrom(
                 eb
@@ -40,7 +42,9 @@ export async function rawStudyStateForStudy(
                             j
                                 .selectFrom('jobStatusChange')
                                 .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                                .select(['jobStatusChange.status']),
+                                // createdAt is display-only (dates the outputs-feedback banner);
+                                // the projection itself never reads it.
+                                .select(['jobStatusChange.status', 'jobStatusChange.createdAt']),
                         ).as('statusChanges'),
                     ]),
             ).as('jobs'),

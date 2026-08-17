@@ -148,7 +148,7 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(path.dirname(filename), 'support', file), 'utf8')
 }
 
-export type TestingRole = 'researcher' | 'reviewer' | 'admin'
+export type TestingRole = 'researcher' | 'reviewer' | 'admin' | 'legal'
 
 // Credentials for driving the faked sign-in form. Identifiers come from the same
 // fixtures the in-app fake matches on (src/lib/clerk-fake/fixtures); the password is any
@@ -158,6 +158,7 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     admin: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.admin.email, password: FAKE_PASSWORD },
     researcher: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.researcher.email, password: FAKE_PASSWORD },
     reviewer: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.reviewer.email, password: FAKE_PASSWORD },
+    legal: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.legal.email, password: FAKE_PASSWORD },
 }
 
 // Per-role storageState file written by tests/global.setup.ts and consumed by specs

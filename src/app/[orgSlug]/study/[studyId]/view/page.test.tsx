@@ -580,8 +580,9 @@ describe('StudyViewPage', () => {
     describe('study-details redesign (OTTER-538)', () => {
         // JOB-ERRORED is intentionally excluded here: a bare error stays hidden from the researcher
         // until a reviewer records a FILES-* decision, so it holds on the code-approved page instead
-        // (see the execution-window describe block / OTTER-598 comment 43898).
-        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'] as const)(
+        // (see the execution-window describe block / OTTER-598 comment 43898). A clean-run
+        // FILES-REJECTED left this list for the outputs-feedback screen (OTTER-695, below).
+        it.each(['RUN-COMPLETE', 'FILES-APPROVED'] as const)(
             'renders StudyDetailsResearcher when latest job status is %s',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -609,6 +610,35 @@ describe('StudyViewPage', () => {
                 )
             },
         )
+
+        it('renders the outputs-feedback screen when the reviewer shared feedback only (FILES-REJECTED)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'RUN-COMPLETE')
+            await addJobStatus(study.id, 'FILES-REJECTED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Feedback on outputs available/)).toBeInTheDocument()
+            expect(screen.getByText('Verify outputs')).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code`,
+            )
+            expect(screen.getByRole('link', { name: /edit code/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/resubmit`,
+            )
+        })
 
         it('threads returnTo=org to the results screen via dashboardHref', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })

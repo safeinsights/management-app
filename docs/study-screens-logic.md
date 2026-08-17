@@ -116,6 +116,12 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
   stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
+- `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
+  layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
+  document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
+  collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
+  reviewer / Submit, so the columns alone under-report progress (OTTER-572). Gated on `isDraft`:
+  neither layer clears itself on submit, so a non-DRAFT study reports `false` regardless.
 
 ---
 
@@ -131,16 +137,21 @@ raw jobs.
 
 | #   | When                                                                             | Screen              |
 | --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
-| 2   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
-| 3   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
-| 4   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 5   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 6   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 7   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 8   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 9   | `isDraft`                                                                        | `study-overview`    |
-| 10  | fallback                                                                         | `study-overview`    |
+| 1   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`  |
+| 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
+| 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
+| 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
+| 5   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
+| 6   | `codeAwaitingDecision`                                                           | `code-under-review` |
+| 7   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
+| 8   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
+| 9   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
+| 10  | `isDraft`                                                                        | `study-overview`    |
+| 11  | fallback                                                                         | `study-overview`    |
+
+Researcher precedence note (OTTER-695): rule #1 claims a clean run decided with **Share feedback
+only** before `study-results` can; an errored run's `FILES-REJECTED` and `resultsApproved` both
+still fall through to `study-results` (#2).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
@@ -149,7 +160,7 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | --- | ------------------------------------------------------------------------ | ---------------------------- |
 | 1   | `awaitingFilesDecisionOnError`                                           | `reviewer-outputs-errored`   |
 | 2   | `resultsDisplayStatus === 'RUN-COMPLETE'`                                | `reviewer-outputs-available` |
-| 3   | `hasResults`                                                             | `reviewer-study-results`     |
+| 3   | `hasResults`                                                             | `reviewer-outputs-decided`   |
 | 4   | `isExecuting`                                                            | `reviewer-outputs-pending`   |
 | 5   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
 | 6   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
@@ -157,11 +168,12 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | 8   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
 | 9   | fallback                                                                 | `study-overview`             |
 
-Precedence notes: errored/available/results form a priority chain (#1–#3) — an errored run is
-claimed before a completed run, which in turn is claimed before decided results; `isExecuting` (#4)
-out-ranks a present code decision (#5 — `CODE-APPROVED` is always present once execution starts);
-and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once
-code exists.
+Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
+decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
+(which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
+present code decision (#5 — `CODE-APPROVED` is always present once execution starts); and the
+proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once code
+exists.
 
 **OTTER-727 — the hidden agreements gate.** A `reviewer-agreements` rule used to sit between #5 and
 #6, claiming `codeAwaitingDecision && !reviewerAgreementsAcked` so a Data Partner had to ack before
@@ -169,7 +181,9 @@ the review page rendered. It was removed when the Agreements page was hidden: #6
 `codeAwaitingDecision` state (its predicate is the same one minus the ack clause). The `ScreenId`,
 its `SCREEN_COMPONENTS` entry and `_screens/reviewer-agreements-screen.tsx` are deliberately
 **retained but unreachable** — restoring the gate means re-adding that one rule entry (plus the
-back-edges that were re-pointed). `reviewer-screen-rules.test.ts` guards the unreachability.
+back-edges that were re-pointed). `reviewer-screen-rules.test.ts` guards the unreachability. The gate
+was always intended to give way to `legal_document` SLA acknowledgements (SHRMP-273); OTTER-727 hides
+the placeholder ahead of that ack frontend shipping.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
@@ -213,12 +227,17 @@ share a `guardExecutionStage` helper for their common precondition checks.
 
 | #   | When                                                                                       | Link             | Label                     |
 | --- | ------------------------------------------------------------------------------------------ | ---------------- | ------------------------- |
-| 1   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
-| 2   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
-| 3   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
-| 4   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
-| 5   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
-| 6   | fallback                                                                                   | `studyView`      | `View`                    |
+| 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal`  | `Edit` (+ `delete-draft`) |
+| 2   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
+| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
+| 4   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
+| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
+| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
+| 7   | fallback                                                                                   | `studyView`      | `View`                    |
+
+Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
+draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays
+redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ---
 
@@ -280,7 +299,10 @@ re-architecting — exactly as the design intended.
   can't reach the placeholder or write an ack. Nothing links to either route. The screen component,
   the shared `agreements-page.tsx`, both `Routes.*Agreements` definitions, `ackAgreementsAction` and
   the two `*_agreements_acked_at` columns are all retained for a future revival; the ack facts are
-  still projected onto `StudyState` but no screen rule reads them.
+  still projected onto `StudyState` but no screen rule reads them. This gate read
+  `study.reviewerAgreementsAckedAt`, and was already slated to go when study-level-agreement
+  acknowledgement ships on `legal_document` (SHRMP-273) — two agreement gates on one study would
+  disagree. Hiding it now means that landing does not have to remove a live gate.
 - **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
   initial request" link. It always shows the **decided** initial request regardless of code stage,
   and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the

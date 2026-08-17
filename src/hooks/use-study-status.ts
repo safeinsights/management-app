@@ -32,6 +32,7 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
         projectSummary: null,
         impact: null,
         additionalNotes: null,
+        hasStep2CollabDoc: false,
         jobs: jobStatusChanges.length ? [{ id: '0', statusChanges: jobStatusChanges }] : [],
     })
     return resolvePillStatus(audience, state)

@@ -19,6 +19,26 @@ const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 // ever suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
 const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 
+// Server Action IDs, and the encrypted arguments bound into them, are derived from Next's Server
+// Actions encryption key. Left unset, Next mints a fresh key per build, so a browser still holding
+// the previous build's JS posts an action ID the new build cannot resolve; Next rejects it with
+// "Invalid Server Actions request." before any of our code — and so before Sentry — runs, which is
+// why those 500s never reached Sentry. A blue/green slot cutover swaps builds under live tabs,
+// which is exactly that case.
+//
+// Next 16 reads the key ONLY from this environment variable — the old
+// experimental.serverActions.encryptionKey config option no longer exists — and it has to be set
+// identically for `next build` (the IDs are baked in there) and for the running server. Deployed
+// builds get it from Secrets Manager; local dev and CI let Next generate a throwaway one, since
+// nothing there outlives a rebuild. A deployed build silently falling back to a generated key is
+// the bug being fixed here, so fail loudly rather than ship one.
+if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev) {
+    throw new Error(
+        'NEXT_SERVER_ACTIONS_ENCRYPTION_KEY must be set for a production build. ' +
+            'It comes from the MgmntAppBuildVars secret; see cicd/management-app in the iac repo.',
+    )
+}
+
 const securityHeaders = [
     // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
     // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN

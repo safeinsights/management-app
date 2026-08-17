@@ -1,3 +1,4 @@
+import type { LegalDocumentType } from '@/database/types'
 import type { MinimalCodeEnvInfo, MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import type { AgentId, BuildId, CoderUsername, WorkspaceId } from '@/server/coder/types'
 import { sanitizeFileName } from './utils'
@@ -19,6 +20,16 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
+
+// The versionId is the whole key, not a prefix holding a named file: drafts have no version number
+// yet, and one object per version stops a replacement draft colliding with a published file. Nothing
+// derives from the extension — `format` is a column — so the uploaded name is stored beside the path
+// rather than baked into it, which keeps the key free of anything the client chose.
+export const pathForLegalDocumentVersion = (parts: {
+    type: LegalDocumentType
+    legalDocumentId: string
+    versionId: string
+}) => `legal/${parts.type}/${parts.legalDocumentId}/${parts.versionId}`
 
 const pathForCodeEnv = (parts: MinimalCodeEnvInfo) => `code-env/${parts.orgSlug}/${parts.codeEnvId}`
 

@@ -19,11 +19,11 @@ export const REVIEWER_SCREEN_RULES = [
     //     checks (#922 review).
     ['reviewer-outputs-available', { when: (s) => s.resultsDisplayStatus === 'RUN-COMPLETE' }],
 
-    // 1c. Results exist and a files decision was recorded → results-only Study Details (OTTER-538).
-    //     1a/1b claim the undecided results states above, so only decided results reach this rule.
-    //     Out-ranks the code decision (CODE-APPROVED is always present once results land), mirroring
-    //     legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`.
-    ['reviewer-study-results', { when: (s) => s.hasResults }],
+    // 1c. Results exist and a files decision was recorded (OTTER-677) → the post-review page that
+    //     surfaces the decision, feedback history, and lets the reviewer re-decrypt outputs. 1a/1b
+    //     claim the undecided states above, so only decided results reach this rule. Out-ranks the
+    //     code decision (CODE-APPROVED is always present once results land).
+    ['reviewer-outputs-decided', { when: (s) => s.hasResults }],
 
     // 2. Code approved and executing in the enclave, no results yet → the "Secondary
     //    analysis study" outputs view surfacing the current job stage.
@@ -37,6 +37,8 @@ export const REVIEWER_SCREEN_RULES = [
     //    `reviewer-agreements` gate that used to sit above this rule (claiming the same state when
     //    !reviewerAgreementsAcked), so this rule now owns the whole codeAwaitingDecision state. The
     //    screen and its component are retained but unreachable — see reviewer-agreements-screen.tsx.
+    //    The gate was always meant to be superseded by legal_document SLA acknowledgements
+    //    (SHRMP-273); OTTER-727 just hides the placeholder ahead of that ack frontend shipping.
     ['reviewer-code-review', { when: (s) => s.codeAwaitingDecision }],
 
     // 5. Proposal decided but no code yet → read-only proposal feedback.
