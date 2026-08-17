@@ -23,13 +23,15 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
         reviewerAgreementsAckedAt: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
-        // Step 2 fields drive hasStep2Progress so a reopened DRAFT resumes on the right step (OTTER-572).
+        // Step 2 fields and the collaborative document drive hasStep2Progress so a reopened DRAFT resumes
+        // on the right step (OTTER-572). The document covers the edits no flush wrote to the columns.
         piUserId: study.piUserId,
         datasets: study.datasets,
         researchQuestions: study.researchQuestions,
         projectSummary: study.projectSummary,
         impact: study.impact,
         additionalNotes: study.additionalNotes,
+        hasStep2CollabDoc: !!study.hasStep2CollabDoc,
         jobs: hasActivity
             ? [{ id: '0', statusChanges: study.jobStatusChanges.map((c) => ({ status: c.status })) }]
             : [],

@@ -32,6 +32,7 @@ const base = (jobs: RawJob[]): RawStudyState => ({
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     jobs,
 })
 

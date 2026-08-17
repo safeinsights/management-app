@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import { findOrCreateLegalDocument } from '@/server/db/legal-document'
 import {
     actionResult,
     faker,
@@ -107,6 +108,101 @@ describe('Create Account Actions', () => {
             .where('orgId', '=', org.id)
             .executeTakeFirstOrThrow()
         expect(membership.isAdmin).toBe(false)
+    })
+
+    // The signup checkbox has never been persisted, so a user affirmatively agreed with no evidence
+    // recorded. These two cover the fix and the state the app is in before anything is published.
+    describe('signup acknowledgements', () => {
+        const form = { firstName: 'Test', lastName: 'User', password: 'password', confirmPassword: 'password' }
+
+        const createInvite = async () =>
+            await db
+                .insertInto('pendingUser')
+                .values({
+                    orgId: org.id,
+                    email: faker.internet.email({ provider: 'test.com' }),
+                    isAdmin: false,
+                    invitedByUserId: invitingUser.user.id,
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        // Terms of Service are globally scoped, so at most one row can ever exist and a database the
+        // e2e seed has touched already holds it. Find-or-create rather than insert, the same way
+        // createLegalDocumentDraftAction does — a plain insert returns nothing on conflict and throws.
+        const publishTos = async () => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
+            // Numbered past whatever the document already carries, or the version-number unique
+            // constraint fires on a seeded database.
+            const { maxVersion } = await db
+                .selectFrom('legalDocumentVersion')
+                .select((eb) => eb.fn.max('versionNumber').as('maxVersion'))
+                .where('legalDocumentId', '=', legalDocumentId)
+                .executeTakeFirstOrThrow()
+
+            return await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId,
+                    filePath: 'legal/TOS/terms',
+                    fileName: 'terms.md',
+                    format: 'markdown',
+                    versionNumber: Number(maxVersion ?? 0) + 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
+
+        const acknowledgementsFor = async (email: string) =>
+            await db
+                .selectFrom('legalDocumentAcknowledgement')
+                .innerJoin('user', 'user.id', 'legalDocumentAcknowledgement.userId')
+                .select('legalDocumentAcknowledgement.legalDocumentVersionId')
+                .where('user.email', '=', email)
+                .execute()
+
+        it('records agreement to the versions the form displayed', async () => {
+            const version = await publishTos()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [version.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: version.id }])
+        })
+
+        // A draft was never shown to anyone, so agreeing to one would be evidence of nothing. The
+        // account is still created — the app-wide gate collects a real acknowledgement later.
+        it('ignores a version that was never published', async () => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
+            // Only one draft may be outstanding per document; clear any the seed left behind.
+            await db
+                .deleteFrom('legalDocumentVersion')
+                .where('legalDocumentId', '=', legalDocumentId)
+                .where('publishedAt', 'is', null)
+                .execute()
+            const draft = await db
+                .insertInto('legalDocumentVersion')
+                .values({ legalDocumentId, filePath: 'legal/TOS/draft', fileName: 'draft.md', format: 'markdown' })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [draft.id] })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+
+        it('creates the account when nothing has been published to acknowledge', async () => {
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
     })
 
     it('onCreateAccountAction throws an error if invite not found', async () => {

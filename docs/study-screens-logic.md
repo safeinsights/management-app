@@ -116,6 +116,12 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
   stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
+- `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
+  layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
+  document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
+  collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
+  reviewer / Submit, so the columns alone under-report progress (OTTER-572). Gated on `isDraft`:
+  neither layer clears itself on submit, so a non-DRAFT study reports `false` regardless.
 
 ---
 
@@ -131,16 +137,21 @@ raw jobs.
 
 | #   | When                                                                             | Screen              |
 | --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
-| 2   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
-| 3   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
-| 4   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 5   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 6   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 7   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 8   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 9   | `isDraft`                                                                        | `study-overview`    |
-| 10  | fallback                                                                         | `study-overview`    |
+| 1   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`  |
+| 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
+| 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
+| 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
+| 5   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
+| 6   | `codeAwaitingDecision`                                                           | `code-under-review` |
+| 7   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
+| 8   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
+| 9   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
+| 10  | `isDraft`                                                                        | `study-overview`    |
+| 11  | fallback                                                                         | `study-overview`    |
+
+Researcher precedence note (OTTER-695): rule #1 claims a clean run decided with **Share feedback
+only** before `study-results` can; an errored run's `FILES-REJECTED` and `resultsApproved` both
+still fall through to `study-results` (#2).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
@@ -238,12 +249,17 @@ share a `guardExecutionStage` helper for their common precondition checks.
 
 | #   | When                                                                                       | Link             | Label                     |
 | --- | ------------------------------------------------------------------------------------------ | ---------------- | ------------------------- |
-| 1   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
-| 2   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
-| 3   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
-| 4   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
-| 5   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
-| 6   | fallback                                                                                   | `studyView`      | `View`                    |
+| 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal`  | `Edit` (+ `delete-draft`) |
+| 2   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
+| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
+| 4   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
+| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
+| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
+| 7   | fallback                                                                                   | `studyView`      | `View`                    |
+
+Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
+draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays
+redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ---
 
@@ -300,7 +316,9 @@ re-architecting — exactly as the design intended.
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
 - **Agreements gate as a screen**: the old redirect-to-`/agreements` is now the `reviewer-agreements`
   screen (rule #3). The reviewer branch of `agreements/page.tsx` became a plain revisitable step
-  (no `?from=`), like the researcher branch.
+  (no `?from=`), like the researcher branch. This gate reads
+  `study.reviewerAgreementsAckedAt`; once study-level-agreement acknowledgement ships on
+  `legal_document`, rule #6 goes with it — two agreement gates on one study would disagree.
 - **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
   initial request" link. It always shows the **decided** initial request regardless of code stage,
   and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the

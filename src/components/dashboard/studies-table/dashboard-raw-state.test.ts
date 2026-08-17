@@ -22,6 +22,7 @@ const row = (overrides: Partial<StudyRow>): StudyRow => ({
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     ...overrides,
 })
 
@@ -35,6 +36,11 @@ describe('dashboardRawStateFromRow', () => {
     it('maps researcherAgreementsAckedAt', () => {
         const state = projectStudyState(dashboardRawStateFromRow(row({ researcherAgreementsAckedAt: new Date() })))
         expect(state.researcherAgreementsAcked).toBe(true)
+    })
+    it('maps hasStep2CollabDoc into Step 2 progress', () => {
+        expect(projectStudyState(dashboardRawStateFromRow(row({ status: 'DRAFT' }))).hasStep2Progress).toBe(false)
+        const state = projectStudyState(dashboardRawStateFromRow(row({ status: 'DRAFT', hasStep2CollabDoc: true })))
+        expect(state.hasStep2Progress).toBe(true)
     })
     it('no job activity → empty jobs', () => {
         const state = projectStudyState(dashboardRawStateFromRow(row({ jobStatusChanges: [] })))

@@ -26,6 +26,7 @@ import {
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getOutputsDecisionFeedbackAction,
+    getOutputsFeedbackThreadAction,
     getStudyAction,
     rejectStudyProposalAction,
     softDeleteStudyAction,
@@ -35,6 +36,9 @@ import {
 import { finalizeStudySubmissionAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
+import { proposalFieldsDocName } from '@/lib/collaboration-documents'
+import { projectStudyState } from '@/lib/study-screen'
+import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 
 vi.mock('@/server/mailgun', () => ({
     deliver: vi.fn(),
@@ -586,6 +590,33 @@ describe('Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(row.status).toBe('PENDING-REVIEW')
         })
+    })
+
+    // OTTER-572: a draft whose Step 2 edits only ever reached Yjs must still be reported as having Step 2
+    // progress, so the dashboard resumes it on the proposal editor instead of the Step 1 picker.
+    it('reports hasStep2CollabDoc for a DRAFT whose Step 2 edits live only in Yjs', async () => {
+        const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'step2-collab-doc-enclave' })
+        // A DRAFT may carry a null title, which the dashboard renders as blank; normalize the way the
+        // table does so the row can go through the same projection the Edit link uses.
+        const stateFor = async () => {
+            const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+            const row = rows.find((s) => s.id === studyId)!
+            return { row, state: projectStudyState(dashboardRawStateFromRow({ ...row, title: row.title ?? '' })) }
+        }
+
+        const before = await stateFor()
+        expect(before.row.status).toBe('DRAFT')
+        expect(before.row.hasStep2CollabDoc).toBe(false)
+        expect(before.state.hasStep2Progress).toBe(false)
+
+        await db
+            .insertInto('yjsDocument')
+            .values({ name: proposalFieldsDocName(studyId), studyId, data: Buffer.from([0]) })
+            .execute()
+
+        const after = await stateFor()
+        expect(after.row.hasStep2CollabDoc).toBe(true)
+        expect(after.state.hasStep2Progress).toBe(true)
     })
 
     it('DRAFT studies have lastUpdatedAt defaulting to creation time', async () => {
@@ -2267,6 +2298,96 @@ describe('submitCodeReviewDecisionAction', () => {
             .where('name', '=', `code-review-feedback-${job.id}`)
             .execute()
         expect(remaining).toHaveLength(0)
+    })
+})
+
+describe('getOutputsFeedbackThreadAction', () => {
+    it('returns RESULTS decision rows with resubmission notes, newest first, and excludes CODE rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        // Pin the submission timestamp so the note (dated by the latest CODE-SUBMITTED) sorts
+        // deterministically below the outputs decision instead of tying on the transaction's now().
+        await db
+            .updateTable('jobStatusChange')
+            .set({ createdAt: new Date('2026-07-01T00:00:00Z') })
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-SUBMITTED')
+            .execute()
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson('my resubmission note')), resubmissionRound: 1 })
+            .where('id', '=', job.id)
+            .execute()
+
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: JSON.parse(lexicalJson('code approval note')),
+                round: 1,
+                createdAt: new Date('2026-07-02T00:00:00Z'),
+            })
+            .execute()
+        const outputs = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('outputs withheld, fix aggregation')),
+                round: 1,
+                createdAt: new Date('2026-08-05T00:00:00Z'),
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const rows = actionResult(await getOutputsFeedbackThreadAction({ studyId: study.id }))
+
+        expect(rows).toHaveLength(2)
+        expect(rows[0].id).toBe(outputs.id)
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
+        expect(rows[1].entryType).toBe('RESUBMISSION-NOTE')
+        expect(rows[1].version).toBe(1)
+    })
+
+    it('kind isolation is symmetric: the CODE action does not return RESULTS rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('outputs feedback only')),
+                round: 1,
+            })
+            .execute()
+
+        const codeRows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        expect(codeRows.filter((r) => r.entryType === 'REVIEWER-FEEDBACK')).toHaveLength(0)
     })
 })
 

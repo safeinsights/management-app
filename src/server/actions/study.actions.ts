@@ -4,7 +4,7 @@ import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
-import type { StudyStatus } from '@/database/types'
+import type { StudyReviewCommentKind, StudyStatus } from '@/database/types'
 import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
@@ -22,6 +22,7 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
+import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 import { purgeCodeReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     deferred,
@@ -125,6 +126,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
+        .select(hasStep2CollabDocSql.as('hasStep2CollabDoc'))
         .orderBy('study.lastUpdatedAt', 'desc')
 }
 
@@ -865,121 +867,140 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         return { submitterFullName: submitter.fullName }
     })
 
+// Reviewer DECISION rows of one reviewKind merged with resubmission notes, newest first. Shared by
+// the code and outputs feedback actions so entry shape, version labels, and ordering can't drift.
+async function loadReviewFeedbackThread(
+    db: DBExecutor,
+    studyId: string,
+    reviewKind: Extract<StudyReviewCommentKind, 'CODE' | 'RESULTS'>,
+) {
+    // Both reviewer decisions and resubmission notes are versioned by the study-wide submission
+    // round (see codeSubmissionVersion): the decision stores it in studyReviewComment.round, the
+    // note in studyJob.resubmissionRound. This keeps a round's note and decision on the same
+    // label even when a same-job resubmit revises in place (OTTER-316/638) and the job ordinal
+    // would not advance. jobVersion (job creation order) is only a fallback for legacy rows whose
+    // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
+    // resubmission note is the user recorded on the job's latest CODE-SUBMITTED (left-joined so
+    // the timestamp and author are independent: a null/deleted user does not lose the submission
+    // row). A same-job resubmit appends more than one CODE-SUBMITTED, so joining the rows directly
+    // would multiply the job into duplicate codeJobs rows (and duplicate note entries); a lateral
+    // join to the single latest submission keeps each job to one row.
+    const codeJobs = await db
+        .selectFrom('studyJob')
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange as cs')
+                    .leftJoin('user as submitter', 'submitter.id', 'cs.userId')
+                    .select([
+                        'cs.userId as authorId',
+                        'submitter.fullName as authorName',
+                        'cs.createdAt as submittedAt',
+                    ])
+                    .whereRef('cs.studyJobId', '=', 'studyJob.id')
+                    .where('cs.status', '=', 'CODE-SUBMITTED')
+                    .orderBy('cs.createdAt', 'desc')
+                    .orderBy('cs.id', 'desc')
+                    .limit(1)
+                    .as('latestSubmission'),
+            (join) => join.onTrue(),
+        )
+        .select([
+            'studyJob.id as studyJobId',
+            'studyJob.resubmissionNote',
+            'studyJob.resubmissionRound',
+            'studyJob.createdAt',
+            'latestSubmission.authorId',
+            'latestSubmission.authorName',
+            'latestSubmission.submittedAt',
+        ])
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('studyJob.createdAt', 'asc')
+        .execute()
+
+    const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
+
+    const reviewerRows = await db
+        .selectFrom('studyReviewComment')
+        .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+        .select([
+            'studyReviewComment.id',
+            'studyReviewComment.authorId',
+            'studyReviewComment.entryType',
+            'studyReviewComment.decision',
+            'studyReviewComment.body',
+            'studyReviewComment.criteria',
+            'studyReviewComment.createdAt',
+            'studyReviewComment.round',
+            'author.fullName as authorName',
+        ])
+        .where('studyReviewComment.studyId', '=', studyId)
+        .where('studyReviewComment.reviewKind', '=', reviewKind)
+        .where('studyReviewComment.entryType', '=', 'DECISION')
+        .execute()
+
+    const reviewerEntries = reviewerRows.map((row) => ({
+        id: row.id,
+        authorId: row.authorId,
+        entryType: 'REVIEWER-FEEDBACK' as const,
+        decision: row.decision,
+        body: row.body,
+        criteria: row.criteria,
+        createdAt: row.createdAt,
+        authorName: row.authorName,
+        version: row.round ?? null,
+    }))
+
+    const noteEntries = codeJobs
+        .filter((j) => j.resubmissionNote != null)
+        .map((j) => ({
+            id: `job-note-${j.studyJobId}`,
+            authorId: j.authorId ?? '',
+            entryType: 'RESUBMISSION-NOTE' as const,
+            decision: null,
+            body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
+            criteria: null,
+            // The note is written at resubmit time, not job creation: a same-job resubmit revises
+            // an old job in place, so use the latest CODE-SUBMITTED timestamp to position the note
+            // in the round it opened (newest-first sort below). Falls back to job creation only for
+            // a job with no submission (which never carries a note).
+            createdAt: j.submittedAt ?? j.createdAt,
+            authorName: j.authorName ?? '',
+            version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
+        }))
+
+    return [...reviewerEntries, ...noteEntries].sort((a, b) => {
+        const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        if (createdAtDiff !== 0) return createdAtDiff
+
+        const versionDiff = (b.version ?? 0) - (a.version ?? 0)
+        if (versionDiff !== 0) return versionDiff
+
+        const entryTypeDiff = a.entryType.localeCompare(b.entryType)
+        if (entryTypeDiff !== 0) return entryTypeDiff
+
+        return a.id.localeCompare(b.id)
+    })
+}
+
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
     .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db }) => {
-        // Both reviewer decisions and resubmission notes are versioned by the study-wide submission
-        // round (see codeSubmissionVersion): the decision stores it in studyReviewComment.round, the
-        // note in studyJob.resubmissionRound. This keeps a round's note and decision on the same
-        // label even when a same-job resubmit revises in place (OTTER-316/638) and the job ordinal
-        // would not advance. jobVersion (job creation order) is only a fallback for legacy rows whose
-        // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
-        // resubmission note is the user recorded on the job's latest CODE-SUBMITTED (left-joined so
-        // the timestamp and author are independent: a null/deleted user does not lose the submission
-        // row). A same-job resubmit appends more than one CODE-SUBMITTED, so joining the rows directly
-        // would multiply the job into duplicate codeJobs rows (and duplicate note entries); a lateral
-        // join to the single latest submission keeps each job to one row.
-        const codeJobs = await db
-            .selectFrom('studyJob')
-            .leftJoinLateral(
-                (eb) =>
-                    eb
-                        .selectFrom('jobStatusChange as cs')
-                        .leftJoin('user as submitter', 'submitter.id', 'cs.userId')
-                        .select([
-                            'cs.userId as authorId',
-                            'submitter.fullName as authorName',
-                            'cs.createdAt as submittedAt',
-                        ])
-                        .whereRef('cs.studyJobId', '=', 'studyJob.id')
-                        .where('cs.status', '=', 'CODE-SUBMITTED')
-                        .orderBy('cs.createdAt', 'desc')
-                        .orderBy('cs.id', 'desc')
-                        .limit(1)
-                        .as('latestSubmission'),
-                (join) => join.onTrue(),
-            )
-            .select([
-                'studyJob.id as studyJobId',
-                'studyJob.resubmissionNote',
-                'studyJob.resubmissionRound',
-                'studyJob.createdAt',
-                'latestSubmission.authorId',
-                'latestSubmission.authorName',
-                'latestSubmission.submittedAt',
-            ])
-            .where('studyJob.studyId', '=', studyId)
-            .orderBy('studyJob.createdAt', 'asc')
-            .execute()
-
-        const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
-
-        const reviewerRows = await db
-            .selectFrom('studyReviewComment')
-            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
-            .select([
-                'studyReviewComment.id',
-                'studyReviewComment.authorId',
-                'studyReviewComment.entryType',
-                'studyReviewComment.decision',
-                'studyReviewComment.body',
-                'studyReviewComment.criteria',
-                'studyReviewComment.createdAt',
-                'studyReviewComment.round',
-                'author.fullName as authorName',
-            ])
-            .where('studyReviewComment.studyId', '=', studyId)
-            .where('studyReviewComment.reviewKind', '=', 'CODE')
-            .where('studyReviewComment.entryType', '=', 'DECISION')
-            .execute()
-
-        const reviewerEntries = reviewerRows.map((row) => ({
-            id: row.id,
-            authorId: row.authorId,
-            entryType: 'REVIEWER-FEEDBACK' as const,
-            decision: row.decision,
-            body: row.body,
-            criteria: row.criteria,
-            createdAt: row.createdAt,
-            authorName: row.authorName,
-            version: row.round ?? null,
-        }))
-
-        const noteEntries = codeJobs
-            .filter((j) => j.resubmissionNote != null)
-            .map((j) => ({
-                id: `job-note-${j.studyJobId}`,
-                authorId: j.authorId ?? '',
-                entryType: 'RESUBMISSION-NOTE' as const,
-                decision: null,
-                body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
-                criteria: null,
-                // The note is written at resubmit time, not job creation: a same-job resubmit revises
-                // an old job in place, so use the latest CODE-SUBMITTED timestamp to position the note
-                // in the round it opened (newest-first sort below). Falls back to job creation only for
-                // a job with no submission (which never carries a note).
-                createdAt: j.submittedAt ?? j.createdAt,
-                authorName: j.authorName ?? '',
-                version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
-            }))
-
-        return [...reviewerEntries, ...noteEntries].sort((a, b) => {
-            const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            if (createdAtDiff !== 0) return createdAtDiff
-
-            const versionDiff = (b.version ?? 0) - (a.version ?? 0)
-            if (versionDiff !== 0) return versionDiff
-
-            const entryTypeDiff = a.entryType.localeCompare(b.entryType)
-            if (entryTypeDiff !== 0) return entryTypeDiff
-
-            return a.id.localeCompare(b.id)
-        })
-    })
+    .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'CODE'))
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
+
+// OTTER-695: the researcher-facing outputs thread — RESULTS decisions plus resubmission notes.
+// Distinct from getOutputsDecisionFeedbackAction above, which returns the decisions alone for the
+// reviewer's post-review page.
+export const getOutputsFeedbackThreadAction = new Action('getOutputsFeedbackThreadAction')
+    .params(z.object({ studyId: z.string().uuid() }))
+    .middleware(studyViewMiddleware)
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'RESULTS'))
+
+export type OutputsFeedbackThreadEntry = ActionSuccessType<typeof getOutputsFeedbackThreadAction>[number]
 
 export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))

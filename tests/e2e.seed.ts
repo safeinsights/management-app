@@ -14,8 +14,13 @@
 // researcher test account and reviewed by the real openstax enclave, so the app
 // authorises the same role the tests sign in as.
 
+import { PutObjectCommand } from '@aws-sdk/client-s3'
+import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { pathForLegalDocumentVersion } from '@/lib/paths'
+import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 
 // openstax is the canonical e2e org pair: the researcher submits from the lab
 // (openstax-lab) and the reviewer reviews in the enclave (openstax). Matches the
@@ -31,6 +36,7 @@ const FIXED_USER_IDS = {
     admin: '00000000-0000-4000-8000-000000000001',
     researcher: '00000000-0000-4000-8000-000000000002',
     reviewer: '00000000-0000-4000-8000-000000000003',
+    legal: '00000000-0000-4000-8000-000000000004',
 } as const
 
 type SeedRole = keyof typeof FIXED_USER_IDS
@@ -39,6 +45,9 @@ const ROLE_EMAIL_ENV: Record<SeedRole, string> = {
     admin: 'CLERK_ADMIN_EMAIL',
     researcher: 'CLERK_RESEARCHER_EMAIL',
     reviewer: 'CLERK_REVIEWER_EMAIL',
+    // Faked-auth only, never provisioned in Clerk, so there is no env override to resolve by. The
+    // empty name simply never matches, leaving the fixed seed id as the answer.
+    legal: 'CLERK_LEGAL_EMAIL',
 }
 
 // --- identity resolution -----------------------------------------------------
@@ -134,12 +143,16 @@ type StudyOverrides = {
     // both sides have acked. Seed those timestamps so the state machine resolves the
     // code screens instead of bouncing back to the agreements gate.
     agreementsAcked?: boolean
+    // Default to the canonical e2e pair. Only local dev seeding overrides these, to
+    // spread studies across org pairs so pickers have something to narrow.
+    enclaveSlug?: string
+    labSlug?: string
 }
 
 async function insertStudy(overrides: StudyOverrides) {
     const [enclave, lab, researcherId, reviewerId] = await Promise.all([
-        resolveOrg(ENCLAVE_SLUG),
-        resolveOrg(LAB_SLUG),
+        resolveOrg(overrides.enclaveSlug ?? ENCLAVE_SLUG),
+        resolveOrg(overrides.labSlug ?? LAB_SLUG),
         resolveUserId('researcher'),
         resolveUserId('reviewer'),
     ])
@@ -276,6 +289,21 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
+// As above but against a named org pair. For local dev seeding only: an SLA belongs to a
+// study, so the admin's Data Partner > Research Lab > study picker is empty until studies
+// exist across more than one pair.
+export async function seedStudyFor(
+    overrides: Pick<StudyOverrides, 'title' | 'status' | 'enclaveSlug' | 'labSlug'>,
+): Promise<SeedResult> {
+    const status = overrides.status ?? 'APPROVED'
+    const { study } = await insertStudy({
+        ...overrides,
+        status,
+        approvedAt: status === 'APPROVED' ? new Date() : null,
+    })
+    return { studyId: study.id }
+}
+
 // APPROVED proposal + a submitted job in CODE-SUBMITTED, agreements acked. For
 // reviewer code-review tests (approve / request-revision / reject) and the
 // two-context code-review collaboration spec.
@@ -347,6 +375,167 @@ export async function seedCodeRejected(title: string): Promise<SeedResult> {
     })
     await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-REJECTED'])
     return { studyId: study.id }
+}
+
+// --- legal documents ---------------------------------------------------------
+//
+// Terms of Service and Privacy Notice are GLOBALLY scoped — one document each, applying to every
+// user — so publishing one from inside a test would make every other worker's user instantly owe an
+// acknowledgement and block them. Nothing here may run during a spec; global.setup calls it once
+// before any worker starts.
+//
+// It lives here rather than in src/database/seeds because those seeds also execute in deployed
+// environments via the migrator Lambda, and a stub Terms of Service must never be published there.
+
+// The one role deliberately left owing something. Every other seeded role is brought up to date.
+const PENDING_ACK_ROLE: SeedRole = 'legal'
+
+// Hosts whose database is disposable: a docker-compose service, a CI service container, or a local
+// one. Publishing a Terms of Service obliges every user of whatever database it lands in, and these
+// documents read "Seeded for end-to-end tests", so anywhere shared has to refuse rather than gate
+// real people behind a stub.
+const DISPOSABLE_DB_HOSTS = ['localhost', '127.0.0.1', 'postgres', 'db', 'db-unit-test']
+
+// Runs on CI too: the CI service hostnames are already listed above, so exempting CI would only
+// remove the check where no human is looking at the target.
+const assertDisposableDatabase = () => {
+    // Unset is refused rather than tolerated: databaseURL() falls back to the DB_SECRET_ARN secret,
+    // which is how a deployed environment resolves its database.
+    const databaseUrl = process.env.DATABASE_URL
+    if (!databaseUrl) throw new Error('DATABASE_URL is not set, so there is no telling which database this would reach')
+
+    const { hostname } = new URL(databaseUrl)
+    if (!DISPOSABLE_DB_HOSTS.includes(hostname)) {
+        throw new Error(
+            `refusing to publish seeded legal documents to '${hostname}': Terms of Service and Privacy Notice are ` +
+                'global, so every user of that environment would be blocked until they acknowledged a test stub',
+        )
+    }
+}
+
+// Two Terms of Service versions so the `legal` role can sit acknowledged at v1 and owing v2, which
+// is the "has been updated" path the card is about.
+// Asserted on by the specs that prove a real published document is on screen, so it lives here with
+// the content it names rather than being retyped in each of them.
+export const SEEDED_TOS_V2_BODY = 'This version supersedes v1.'
+
+const TOS_CONTENT = [
+    '# Terms of Service\n\nVersion 1. Seeded for end-to-end tests.\n',
+    `# Terms of Service\n\nVersion 2. Seeded for end-to-end tests. ${SEEDED_TOS_V2_BODY}\n`,
+]
+const PN_CONTENT = ['# Privacy Notice\n\nVersion 1. Seeded for end-to-end tests.\n']
+
+async function uploadLegalContent(key: string, content: string) {
+    await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
+}
+
+const seededFileName = (type: 'TOS' | 'PN', index: number) => `${type}-v${index + 1}.md`
+
+// Published version ids for a document, oldest first. Tops up to `contents.length` so a re-run
+// against a database that already holds the seeded versions adds nothing.
+//
+// Refuses rather than tops up when the versions already there are not the ones this function wrote —
+// a document published by hand through the admin Legal tab leaves the specs asserting on seeded
+// content that is no longer current, which fails a long way from the cause.
+async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], publishedBy: string) {
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type })
+
+    const existing = await db
+        .selectFrom('legalDocumentVersion')
+        .select(['id', 'versionNumber', 'fileName'])
+        .where('legalDocumentId', '=', legalDocumentId)
+        .where('publishedAt', 'is not', null)
+        .orderBy('versionNumber')
+        .execute()
+
+    // Extra versions count as drift too: the specs assert on the newest, and anything past this
+    // seed's own list is content it does not know.
+    const unseeded = existing.filter(
+        (version, index) => index >= contents.length || version.fileName !== seededFileName(type, index),
+    )
+    if (unseeded.length) {
+        throw new Error(
+            `${type} already has published versions this seed did not write ` +
+                `(${unseeded.map((version) => version.fileName).join(', ')}). ` +
+                'Reset the database and re-run `pnpm run db:migrate` before the e2e suite.',
+        )
+    }
+
+    const versionIds = existing.map((version) => version.id)
+
+    for (let index = existing.length; index < contents.length; index++) {
+        const versionId = uuidv7()
+        const filePath = pathForLegalDocumentVersion({ type, legalDocumentId, versionId })
+        await uploadLegalContent(filePath, contents[index])
+
+        const version = await db
+            .insertInto('legalDocumentVersion')
+            .values({
+                id: versionId,
+                legalDocumentId,
+                filePath,
+                fileName: seededFileName(type, index),
+                format: 'markdown',
+                versionNumber: index + 1,
+                publishedAt: new Date(),
+                publishedBy,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        versionIds.push(version.id)
+    }
+
+    return versionIds
+}
+
+async function acknowledgeVersions(userIds: string[], versionIds: string[]) {
+    if (!userIds.length || !versionIds.length) return
+    await db
+        .insertInto('legalDocumentAcknowledgement')
+        .values(
+            userIds.flatMap((userId) =>
+                versionIds.map((legalDocumentVersionId) => ({ legalDocumentVersionId, userId })),
+            ),
+        )
+        .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
+        .execute()
+}
+
+/**
+ * Put every e2e role into a known acknowledgement state.
+ *
+ * Every role but `legal` is acknowledged up to date, so the gate never fires for the specs that use
+ * them. `legal` is acknowledged at Terms of Service v1 and at the current Privacy Notice, leaving
+ * exactly one thing outstanding — ToS v2 — so the modal takes the "has been updated" path rather
+ * than the neutral wording it uses when a new and an updated document arrive together.
+ *
+ * Its rows are cleared first: the spec acknowledges v2, so a re-run against the same database would
+ * otherwise find nothing outstanding and no modal.
+ */
+export async function seedLegalDocuments() {
+    assertDisposableDatabase()
+
+    const adminId = await resolveUserId('admin')
+
+    const tosVersionIds = await ensurePublishedVersions('TOS', TOS_CONTENT, adminId)
+    const pnVersionIds = await ensurePublishedVersions('PN', PN_CONTENT, adminId)
+
+    const legalUserId = await resolveUserId(PENDING_ACK_ROLE)
+    await db.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', legalUserId).execute()
+
+    const currentVersionIds = [tosVersionIds.at(-1), pnVersionIds.at(-1)].filter((id) => id !== undefined)
+
+    // Every other user in the database, not just the fixture roles. This also runs against a local
+    // dev database holding QA logins and the developer's own row, and anyone left un-acked meets a
+    // modal quoting a test stub with no clue which test run put it there.
+    const others = await db.selectFrom('user').select('id').where('id', '!=', legalUserId).execute()
+    await acknowledgeVersions(
+        others.map((user) => user.id),
+        currentVersionIds,
+    )
+
+    await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
 }
 
 export { ENCLAVE_SLUG, LAB_SLUG }
