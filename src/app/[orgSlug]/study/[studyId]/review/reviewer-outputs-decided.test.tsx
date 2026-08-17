@@ -19,6 +19,20 @@ import { Routes } from '@/lib/routes'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 
+// Only the row matters here: the re-decrypt form is gated on the job's own files, not on what the
+// artifact fetch returns.
+const seedEncryptedResult = async (jobId: string) => {
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: jobId,
+            name: 'encrypted-results.zip',
+            path: `test-org/${jobId}/results/encrypted-results.zip`,
+            fileType: 'ENCRYPTED-RESULT',
+        })
+        .execute()
+}
+
 const setupDecided = async ({
     jobStatus = 'RUN-COMPLETE' as StudyJobStatus,
     filesDecision = 'FILES-APPROVED' as StudyJobStatus,
@@ -227,13 +241,24 @@ describe('ReviewerOutputsDecided', () => {
     })
 
     it('renders the View outputs again security-key section', async () => {
-        const { org, study, raw } = await setupDecided()
+        const { org, study, job, raw } = await setupDecided()
+        await seedEncryptedResult(job.id)
         await renderView(study, raw, org.slug)
 
         expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
+    })
+
+    // OTTER-524: an errored run can be closed out with nothing to decrypt, and coming back here would
+    // otherwise ask the reviewer for a key against files that do not exist, which no key can satisfy.
+    it('omits the security-key section when the decided run left nothing to decrypt', async () => {
+        const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
     it('renders Previous step as a subtle-variant link', async () => {

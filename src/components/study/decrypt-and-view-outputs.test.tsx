@@ -86,7 +86,7 @@ describe('DecryptAndViewOutputs', () => {
     })
 
     it('renders the View outputs again security-key copy (OTTER-677 overrides)', async () => {
-        renderWithProviders(<DecryptAndViewOutputs job={job} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -97,9 +97,18 @@ describe('DecryptAndViewOutputs', () => {
         expect(screen.queryByTestId('outputs-files-section')).not.toBeInTheDocument()
     })
 
+    // A run closed out with nothing to decrypt (OTTER-524) would otherwise be asked for a key that
+    // could never open anything, because there is nothing to open.
+    it('renders nothing when the job holds no artifact a key could open', async () => {
+        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible={false} />)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
+    })
+
     it('replaces the form with the output files table after a successful decrypt', async () => {
         const privateKeyPem = await readTestSupportFile('private_key.pem')
-        renderWithProviders(<DecryptAndViewOutputs job={job} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
 
         await screen.findByRole('button', { name: 'View' })
         fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })
