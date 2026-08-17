@@ -299,25 +299,26 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to studyResearcherAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
+        // OTTER-727 hid Agreements, so Back walks straight to the approved proposal (/submitted).
+        it('renders Back as a link to the submitted proposal (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
             const backLink = screen.getByRole('link', { name: /back/i })
             const backHref = backLink.getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
             expect(backHref).not.toContain('from=')
 
             const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
             expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
         })
 
-        it('threads returnTo=org onto the Back → agreements link so org scope survives the hop', async () => {
+        it('threads returnTo=org onto the Back link so org scope survives the hop', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { returnTo: 'org' })
 
             const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
             expect(backHref).toContain('returnTo=org')
         })
 

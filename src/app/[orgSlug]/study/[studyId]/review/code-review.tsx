@@ -80,7 +80,10 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
 
     const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
+    // OTTER-727 hid the Agreements step, so Previous walks straight back to the decided proposal —
+    // the target agreements itself pointed at (OTTER-643). Not /review, which re-resolves to this
+    // very screen.
+    const previousHref = proposalHref
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
     const version = deriveCodeReviewVersion(entries)

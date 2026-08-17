@@ -130,9 +130,9 @@ type StudyOverrides = {
     submittedAt?: Date | null
     approvedAt?: Date | null
     rejectedAt?: Date | null
-    // When the flow has progressed past the agreements gate (code upload / review),
-    // both sides have acked. Seed those timestamps so the state machine resolves the
-    // code screens instead of bouncing back to the agreements gate.
+    // Inert since OTTER-727 hid the agreements gate: no screen rule reads these timestamps any more,
+    // so the code screens resolve whether or not they are set. Kept because the columns still exist
+    // and seeding them keeps historical rows realistic — safe to drop when agreements is resolved.
     agreementsAcked?: boolean
 }
 
@@ -270,7 +270,7 @@ export async function seedProposalPendingReview(title: string): Promise<SeedResu
 }
 
 // APPROVED proposal with no job yet. For the researcher code-upload entry flow
-// (the /submitted -> /agreements/researcher -> /code path).
+// (the /submitted -> /code path).
 export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
     return { studyId: study.id }

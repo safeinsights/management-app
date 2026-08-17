@@ -26,11 +26,7 @@ export function resolveResearcherCodeScreen(state: StudyState): ScreenDescriptor
     return screen ? { screen } : undefined
 }
 
-const REVIEWER_CODE_SCREENS: ReadonlyArray<ScreenId> = [
-    'reviewer-code-feedback',
-    'reviewer-agreements',
-    'reviewer-code-review',
-]
+const REVIEWER_CODE_SCREENS: ReadonlyArray<ScreenId> = ['reviewer-code-feedback', 'reviewer-code-review']
 
 // Reviewer counterpart to resolveResearcherCodeScreen, for the read-only /review/code route a DO walks
 // back to from the results screen. Excluding reviewer-study-results from the candidate set is the whole
