@@ -80,6 +80,17 @@ const unlock = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
 }
 
+// A job that carries an encrypted artifact, so the key gate applies. insertTestStudyJobData creates
+// no studyJobFile rows, so without this the job is the OTTER-524 zero-artifact case instead.
+const setupWithArtifact = async () => {
+    const ctx = await setupErrored()
+    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+        await seedArtifact(ctx.job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG'),
+    ])
+    // The screen reads job.files to decide whether a key is needed, so re-read it after seeding.
+    return { ...ctx, job: await latestJobForStudy(ctx.study.id) }
+}
+
 describe('ReviewerOutputsErroredScreen before decryption', () => {
     beforeEach(() => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
@@ -95,7 +106,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('asks for the security key rather than showing the review view', async () => {
-        const { org, study, raw } = await setupErrored()
+        const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
@@ -105,7 +116,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     // The two-part gate: JOB-ERRORED alone must not surface the outputs. Only a validated key
     // does, which is why this screen is a client phase flip and not a route.
     it('hides the outputs table, decision section and submit until a key validates', async () => {
-        const { org, study, raw } = await setupErrored()
+        const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
@@ -130,10 +141,14 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
     })
 
-    // The default mock serves no artifacts, which is a legitimate state (no registered reviewer
-    // key, or a failed fetch). A well-formed key must not unlock the review view against nothing.
-    it('does not unlock the review view when there are no artifacts to decrypt', async () => {
-        const { org, study, raw } = await setupErrored()
+    // The job HAS an artifact but the action hands back nothing, which is what happens when this
+    // reviewer has no registered public key or the fetch failed. A well-formed key must not unlock
+    // the review view against nothing (OTTER-675), and it must not fall through to the
+    // no-artifacts path either: that would let a keyless reviewer decide on outputs they never saw.
+    it('does not unlock the review view when the artifacts cannot be fetched', async () => {
+        const { org, study, job, raw } = await setupErrored()
+        await seedArtifact(job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG')
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
@@ -145,7 +160,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('links Previous step to the read-only code page for this study', async () => {
-        const { org, study, raw } = await setupErrored()
+        const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
@@ -172,6 +187,102 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByText('No error found')).toBeInTheDocument()
+    })
+})
+
+// OTTER-524. Two independent problems live here. The banner used to promise error logs whatever the
+// job actually held, and a run that produced no artifact at all left the reviewer at a key form with
+// nothing to open and no way to record a decision, which in turn stranded the researcher on
+// "code is running" forever.
+describe('ReviewerOutputsErroredScreen with no error log', () => {
+    beforeEach(() => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+    })
+
+    const addStatus = async (jobId: string, status: StudyJobStatus, message: string | null = null) => {
+        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status, message }).execute()
+    }
+
+    // The reported case: the source scan succeeded so a security scan log exists, but packaging
+    // failed and produced nothing. The old copy told the reviewer to go and read error logs.
+    it('does not promise error logs when the only artifact is a security scan log', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedArtifact(job.id, [{ name: 'security-scan-log.txt', content: 'clean' }], 'ENCRYPTED-SECURITY-SCAN-LOG')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('There is no error log for this run.')
+        expect(alert).not.toHaveTextContent('see what went wrong')
+    })
+
+    it('names packaging as the failed stage when the job never reached JOB-READY', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-PACKAGING')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('The code environment image could not be prepared')
+    })
+
+    it('says the code ran when the job reached JOB-RUNNING', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-RUNNING')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('The code ran in the secure enclave')
+    })
+
+    // The reason the containerizer and the enclave record with the status. Shown as supporting
+    // detail so the data partner who configured the image can act on it, never as the headline.
+    it('shows the recorded reason as secondary detail', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-ERRORED', 'base image: harbor.safeinsights.org/opensta/r-base:4.5.1')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('base image: harbor.safeinsights.org/opensta/r-base:4.5.1')
+        expect(alert).toHaveTextContent('The code environment image could not be prepared')
+    })
+
+    it('asks for no key when the run produced nothing to decrypt', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+    })
+
+    // The escape hatch. Without it the round can never be closed and the researcher is never told.
+    it('lets the reviewer record a decision without a key', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
+        expect(screen.getByTestId('outputs-submit-decision')).toBeEnabled()
+    })
+
+    it('offers only share-feedback-only, with sharing disabled and explained', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        // Both options stay rendered so the reviewer can see why only one is selectable; the radios
+        // are read by role because Mantine puts the test id on the wrapper, not the input.
+        const [shareOutputs, feedbackOnly] = screen.getAllByRole('radio')
+        expect(shareOutputs).toBeDisabled()
+        expect(feedbackOnly).toBeEnabled()
+        expect(screen.getByTestId('outputs-decision-section')).toHaveTextContent(
+            'There are no output files for this run, so there is nothing to share.',
+        )
+    })
+
+    it('keeps the decision unselected on arrival so closing the round stays deliberate', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        for (const radio of screen.getAllByRole('radio')) expect(radio).not.toBeChecked()
     })
 })
 
