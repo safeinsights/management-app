@@ -44,16 +44,26 @@ test.describe('scroll padding for the fixed app shell bars', () => {
                 }
             })
 
-        const wide = await headerCoverage()
-        expect(wide.scrollPaddingTop).toBe(wide.covers)
+        // Both values are re-read inside one retry, never measured once and compared afterwards. The
+        // header settles into place over a few frames (fonts at load, the shell's own transition
+        // after a viewport change) while the reservation takes its final value immediately, so a
+        // single read can catch a part-way header against a settled reservation and compare two
+        // moments in time. That is a race, not a broken reservation: it reported a 55px or 59px
+        // header against a 60px reservation, differing per run, and passed on re-run of the same
+        // commit. A genuinely missing reservation never converges and still fails here.
+        const expectReservationToMatchHeader = async ({ mustCover = false } = {}) => {
+            await expect(async () => {
+                const { covers, scrollPaddingTop } = await headerCoverage()
+                if (mustCover) expect(covers).not.toBe('0px')
+                expect(scrollPaddingTop).toBe(covers)
+            }).toPass()
+        }
+
+        await expectReservationToMatchHeader()
 
         await page.setViewportSize({ width: 390, height: 844 })
 
-        // The header is fixed at this width, so the reservation has to be non-zero here. Polled
-        // because the shell re-reads the breakpoint after the resize.
-        await expect.poll(async () => await headerCoverage()).not.toEqual({ covers: '0px', scrollPaddingTop: '0px' })
-
-        const narrow = await headerCoverage()
-        expect(narrow.scrollPaddingTop).toBe(narrow.covers)
+        // The header is fixed at this width, so the reservation has to be non-zero here.
+        await expectReservationToMatchHeader({ mustCover: true })
     })
 })
