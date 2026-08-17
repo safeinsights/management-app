@@ -9,11 +9,12 @@
  * counterparty to these agreements rather than a party to them.
  *
  * Run inside the container:
- *   docker exec mgmnt-app pnpm exec tsx bin/seed-dev-studies.ts [countPerPair]
+ *   docker exec mgmnt-app sh -c 'ALLOW_TESTING_DATA=TRUE pnpm exec tsx bin/seed-dev-studies.ts [countPerPair]'
  */
 import { db } from '@/database'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { seedStudyFor } from '../tests/e2e.seed'
+import { testingDataAllowed } from './lib/testing-data-gate'
 
 // Enough to see the cascade narrow at each step without burying the table.
 const DEFAULT_PER_PAIR = 2
@@ -45,6 +46,10 @@ const orgPairs = async () => {
 }
 
 const main = async () => {
+    // These studies are fixtures under real org slugs, and nothing about the script says which
+    // database it is pointed at. Same gate the other fixture-writing entry points use.
+    if (!testingDataAllowed('seed-dev-studies')) return
+
     const perPair = Number(process.argv[2] ?? DEFAULT_PER_PAIR)
     if (!Number.isInteger(perPair) || perPair < 1) {
         throw new Error(`countPerPair must be a positive integer, got '${process.argv[2]}'`)
