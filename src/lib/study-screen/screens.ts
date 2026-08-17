@@ -7,6 +7,7 @@ export type ScreenId =
     | 'code-approved'
     | 'code-feedback'
     | 'outputs-pending'
+    | 'outputs-feedback'
     | 'study-results'
     | 'study-overview'
     // reviewer

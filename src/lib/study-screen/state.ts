@@ -49,7 +49,9 @@ export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
     'INITIATED',
 ]
 
-function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
+// Exported for consumers that need a display fact (e.g. a status date) from the SAME job the
+// projection decided on, so a separately-queried "latest job" cannot disagree (OTTER-695 review).
+export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
     // max(id): v7 ids are insertion-ordered, so lexical max === most recently created round.
     // Prefer the latest job that has been submitted (has a non-INITIATED status), matching the
@@ -153,3 +155,9 @@ export function projectStudyState(raw: RawStudyState): StudyState {
 export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
+
+// OTTER-695: the reviewer withheld the outputs and shared feedback only, on a run that did not
+// error. Shared by the researcher rule table and the outputs-feedback screen's render guard so the
+// two cannot drift (same pattern as awaitingFilesDecisionOnError above).
+export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected' | 'resultsErrored'>): boolean =>
+    s.resultsRejected && !s.resultsErrored

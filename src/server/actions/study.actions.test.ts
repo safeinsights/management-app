@@ -26,6 +26,7 @@ import {
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getOutputsDecisionFeedbackAction,
+    getOutputsFeedbackThreadAction,
     getStudyAction,
     rejectStudyProposalAction,
     softDeleteStudyAction,
@@ -2297,6 +2298,96 @@ describe('submitCodeReviewDecisionAction', () => {
             .where('name', '=', `code-review-feedback-${job.id}`)
             .execute()
         expect(remaining).toHaveLength(0)
+    })
+})
+
+describe('getOutputsFeedbackThreadAction', () => {
+    it('returns RESULTS decision rows with resubmission notes, newest first, and excludes CODE rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        // Pin the submission timestamp so the note (dated by the latest CODE-SUBMITTED) sorts
+        // deterministically below the outputs decision instead of tying on the transaction's now().
+        await db
+            .updateTable('jobStatusChange')
+            .set({ createdAt: new Date('2026-07-01T00:00:00Z') })
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-SUBMITTED')
+            .execute()
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson('my resubmission note')), resubmissionRound: 1 })
+            .where('id', '=', job.id)
+            .execute()
+
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: JSON.parse(lexicalJson('code approval note')),
+                round: 1,
+                createdAt: new Date('2026-07-02T00:00:00Z'),
+            })
+            .execute()
+        const outputs = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('outputs withheld, fix aggregation')),
+                round: 1,
+                createdAt: new Date('2026-08-05T00:00:00Z'),
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const rows = actionResult(await getOutputsFeedbackThreadAction({ studyId: study.id }))
+
+        expect(rows).toHaveLength(2)
+        expect(rows[0].id).toBe(outputs.id)
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
+        expect(rows[1].entryType).toBe('RESUBMISSION-NOTE')
+        expect(rows[1].version).toBe(1)
+    })
+
+    it('kind isolation is symmetric: the CODE action does not return RESULTS rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('outputs feedback only')),
+                round: 1,
+            })
+            .execute()
+
+        const codeRows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        expect(codeRows.filter((r) => r.entryType === 'REVIEWER-FEEDBACK')).toHaveLength(0)
     })
 })
 
