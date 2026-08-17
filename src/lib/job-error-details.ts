@@ -1,4 +1,9 @@
-import type { StudyJobStatus } from '@/database/types'
+import type { FileType, StudyJobStatus } from '@/database/types'
+import {
+    filesIncludeDecryptableErrorLog,
+    filesIncludeUndecryptableErrorLog,
+    jobHasDecryptableRunOutcome,
+} from '@/lib/file-type-helpers'
 
 // OTTER-524: everything we can honestly tell a reviewer about why a run failed.
 //
@@ -6,17 +11,11 @@ import type { StudyJobStatus } from '@/database/types'
 // enclave and the packaging step send NO log. AWS produces no container log stream when a task
 // never starts (nothing ran to emit one), and the containerizer's failure webhook carries no log
 // either. So "show the error log" is frequently impossible, and the next best thing is to say
-// which stage failed and pass along whatever short reason did arrive.
-
-export type StatusChangeDetail = {
-    status: StudyJobStatus
-    message?: string | null
-    createdAt?: Date | string
-}
+// which stage failed and be straight about the absence.
 
 /**
  * How far the job got before it failed. Derived from the status history alone, which is why it
- * works even when no log or message arrived.
+ * works even when no log arrived.
  *
  * The pipeline is JOB-PACKAGING -> JOB-READY -> JOB-PROVISIONING -> JOB-RUNNING, and every stage is
  * recorded, so the absence of a stage is as informative as its presence. Keyed on JOB-READY rather
@@ -25,7 +24,7 @@ export type StatusChangeDetail = {
  */
 export type JobFailureStage = 'packaging' | 'never-started' | 'run'
 
-export function jobFailureStage(statusChanges: ReadonlyArray<StatusChangeDetail>): JobFailureStage {
+export function jobFailureStage(statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): JobFailureStage {
     const statuses = new Set(statusChanges.map((c) => c.status))
     if (statuses.has('JOB-RUNNING')) return 'run'
     if (statuses.has('JOB-READY')) return 'never-started'
@@ -39,57 +38,45 @@ const STAGE_EXPLANATION: Record<JobFailureStage, string> = {
 }
 
 export const NO_ERROR_LOG_TEXT = 'There is no error log for this run.'
+export const KEY_PROMPT_TEXT = 'Enter your security key below to review the error log.'
+// A run that errored after producing results, or one whose only encrypted artifact is something
+// other than an error log. There is still a reason to enter a key, just not an error log to read.
+export const NO_LOG_WITH_ARTIFACTS_TEXT = `${NO_ERROR_LOG_TEXT} Enter your security key below to review what it did produce.`
+// Deliberately neutral about why. The log exists but reaches this screen in a form no key opens, and
+// the two ways that happens (an org with no key holders, or a pre-#764 legacy row) would need
+// different explanations that neither helps the reviewer nor changes what they can do here.
+export const UNDECRYPTABLE_LOG_TEXT = 'An error log was recorded for this run, but it cannot be displayed here.'
 
 /**
- * The most recent reason recorded against a status, or null. Selected by recency rather than array
- * position because statusChanges ordering differs per query (see latestStatusAt), and a retried
- * delivery can append a second row for the same status.
+ * What the banner may promise about logs, given what the job actually holds.
+ *
+ * The ordering encodes the invariant the reviewer's screen depends on: the two branches that mention
+ * a security key are exactly the two where `jobHasDecryptableRunOutcome` is true, which is the same
+ * predicate that decides whether the key form renders. Deriving both from one file list in one place
+ * is what stops the banner instructing the reviewer to use a form that is not on the page, or
+ * dropping the instruction while the form renders anyway.
  */
-export function latestStatusMessage(
-    statusChanges: ReadonlyArray<StatusChangeDetail>,
-    status: StudyJobStatus,
-): string | null {
-    const withMessage = statusChanges.filter((c) => c.status === status && !!c.message?.trim())
-    if (withMessage.length === 0) return null
-    const latest = withMessage.reduce((a, b) => {
-        if (!a.createdAt || !b.createdAt) return b
-        return new Date(b.createdAt) > new Date(a.createdAt) ? b : a
-    })
-    return latest.message?.trim() ?? null
+function errorLogSentence(files: ReadonlyArray<{ fileType: FileType }>): string {
+    if (filesIncludeDecryptableErrorLog(files)) return KEY_PROMPT_TEXT
+    if (jobHasDecryptableRunOutcome(files)) return NO_LOG_WITH_ARTIFACTS_TEXT
+    if (filesIncludeUndecryptableErrorLog(files)) return UNDECRYPTABLE_LOG_TEXT
+    return NO_ERROR_LOG_TEXT
 }
 
 export type JobErrorDetails = {
     /** Plain-language sentence naming the stage that failed. Always present. */
     explanation: string
-    /** Short reason recorded by whichever service reported the failure, if any. */
-    detail: string | null
-    /** True when there is genuinely nothing to decrypt, so the copy must not promise a log. */
-    hasErrorLog: boolean
+    /** What can be said about an error log, from "here is how to read it" to "there isn't one". */
+    logSentence: string
 }
 
-/**
- * Resolves what the reviewer's errored screen should say. Leads with the derived explanation and
- * demotes the recorded reason to supporting detail: the reason is written by a service (registry
- * errors, ECS stop reasons) and is useful to the data partner who configured the image, but it is
- * not a sentence to open with.
- */
+/** Resolves what the reviewer's errored screen should say about a failed run. */
 export function jobErrorDetails(
-    statusChanges: ReadonlyArray<StatusChangeDetail>,
-    { hasErrorLog }: { hasErrorLog: boolean },
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
+    files: ReadonlyArray<{ fileType: FileType }>,
 ): JobErrorDetails {
     return {
         explanation: STAGE_EXPLANATION[jobFailureStage(statusChanges)],
-        detail: latestStatusMessage(statusChanges, 'JOB-ERRORED'),
-        hasErrorLog,
+        logSentence: errorLogSentence(files),
     }
-}
-
-/**
- * The `message` the management app attaches to the containerizer's failure payload. States only the
- * image the build was pointed at, never a cause: this string is fixed when the build is triggered,
- * but the build can fail at source sync, registry auth, resolving this image, or pushing the
- * result. Naming a cause here would misattribute three failures out of four.
- */
-export function packagingFailureMessage(codeEnvURL: string): string {
-    return `base image: ${codeEnvURL}`
 }

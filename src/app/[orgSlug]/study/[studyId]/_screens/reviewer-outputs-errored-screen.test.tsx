@@ -200,13 +200,26 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
     })
 
-    const addStatus = async (jobId: string, status: StudyJobStatus, message: string | null = null) => {
-        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status, message }).execute()
+    const addStatus = async (jobId: string, status: StudyJobStatus) => {
+        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status }).execute()
+    }
+
+    // A file row with no encrypted counterpart, which is what the containerizer stores on its own
+    // when the org has no key holders for encryptAndStoreLog to encrypt to.
+    const seedPlaintextFile = async (jobId: string, fileType: FileType, name: string) => {
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: jobId, name, path: `test-org/${jobId}/results/${name}`, fileType })
+            .execute()
     }
 
     // The reported case: the source scan succeeded so a security scan log exists, but packaging
     // failed and produced nothing. The old copy told the reviewer to go and read error logs.
-    it('does not promise error logs when the only artifact is a security scan log', async () => {
+    //
+    // Asserts the banner AND the gate together. Fixing only the copy left the key form rendering
+    // under a banner that no longer mentioned it, and left "share outputs" enabled on a run whose
+    // only artifact is a submission-time scan log.
+    it('offers neither a key form nor sharing when the only artifact is a security scan log', async () => {
         const { org, study, job } = await setupErrored()
         await seedArtifact(job.id, [{ name: 'security-scan-log.txt', content: 'clean' }], 'ENCRYPTED-SECURITY-SCAN-LOG')
         const raw = await requireRawState(study.id)
@@ -215,6 +228,39 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('There is no error log for this run.')
         expect(alert).not.toHaveTextContent('see what went wrong')
+        expect(alert).not.toHaveTextContent('security key')
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+        const [shareOutputs] = screen.getAllByRole('radio')
+        expect(shareOutputs).toBeDisabled()
+    })
+
+    // An error log that exists but that no key can open. Denying it exists would be false; telling
+    // the reviewer to enter a key would point at a form this screen does not render.
+    it('neither denies nor promises a key for a plaintext-only error log', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedPlaintextFile(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('An error log was recorded for this run, but it cannot be displayed here.')
+        expect(alert).not.toHaveTextContent('security key')
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+    })
+
+    // A run that errored after producing results. No error log to read, but the results still have to
+    // be decrypted and reviewed, so the key gate stays (OTTER-675) and the banner has to say so.
+    it('still requires a key for an errored run that produced results', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedArtifact(job.id, [{ name: 'results.csv', content: 'a,b\n1,2' }], 'ENCRYPTED-RESULT')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('There is no error log for this run.')
+        expect(alert).toHaveTextContent('Enter your security key below')
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
     it('names packaging as the failed stage when the job never reached JOB-READY', async () => {
@@ -233,19 +279,6 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByTestId('status-alert')).toHaveTextContent('The code ran in the secure enclave')
-    })
-
-    // The reason the containerizer and the enclave record with the status. Shown as supporting
-    // detail so the data partner who configured the image can act on it, never as the headline.
-    it('shows the recorded reason as secondary detail', async () => {
-        const { org, study, job } = await setupErrored()
-        await addStatus(job.id, 'JOB-ERRORED', 'base image: harbor.safeinsights.org/opensta/r-base:4.5.1')
-        const raw = await requireRawState(study.id)
-        await renderScreen({ study, raw }, org.slug)
-
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('base image: harbor.safeinsights.org/opensta/r-base:4.5.1')
-        expect(alert).toHaveTextContent('The code environment image could not be prepared')
     })
 
     it('asks for no key when the run produced nothing to decrypt', async () => {

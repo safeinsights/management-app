@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-    filesIncludeErrorLog,
+    filesIncludeDecryptableErrorLog,
+    filesIncludeUndecryptableErrorLog,
     isEncryptedArtifact,
-    isErrorLogType,
     isLegacyResultArtifact,
     isLogType,
+    jobHasDecryptableRunOutcome,
     jobHasEncryptedArtifacts,
     jobHasLegacyResults,
 } from './file-type-helpers'
@@ -43,24 +44,35 @@ describe('file-type-helpers result classification', () => {
 
     // OTTER-524: the distinction the reviewer's errored screen depends on. A job carrying only the
     // security scan log from submission has no artifact that explains a failed run.
-    it('isErrorLogType excludes security scan logs', () => {
-        expect(isErrorLogType('ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
-        expect(isErrorLogType('ENCRYPTED-CODE-RUN-LOG')).toBe(true)
-        expect(isErrorLogType('APPROVED-PACKAGING-ERROR-LOG')).toBe(true)
-        expect(isErrorLogType('PACKAGING-ERROR-LOG')).toBe(true)
-        expect(isErrorLogType('ENCRYPTED-SECURITY-SCAN-LOG')).toBe(false)
-        expect(isErrorLogType('SECURITY-SCAN-LOG')).toBe(false)
-        expect(isErrorLogType('ENCRYPTED-RESULT')).toBe(false)
+    it('filesIncludeDecryptableErrorLog distinguishes an error log from any log', () => {
+        // The exact shape of the reported bug: an errored job whose only log is the scan log.
+        expect(filesIncludeDecryptableErrorLog([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }])).toBe(false)
+        expect(filesIncludeDecryptableErrorLog([{ fileType: 'ENCRYPTED-CODE-RUN-LOG' }])).toBe(true)
+        expect(filesIncludeDecryptableErrorLog([{ fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG' }])).toBe(true)
+        expect(filesIncludeDecryptableErrorLog([])).toBe(false)
+        // isLogType answers true for the scan log too, which is the conflation being fixed.
+        expect(isLogType('ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
     })
 
-    it('filesIncludeErrorLog distinguishes an error log from any log', () => {
-        // The exact shape of the reported bug: an errored job whose only log is the scan log.
-        expect(filesIncludeErrorLog([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }])).toBe(false)
-        expect(
-            filesIncludeErrorLog([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }, { fileType: 'ENCRYPTED-CODE-RUN-LOG' }]),
-        ).toBe(true)
-        expect(filesIncludeErrorLog([])).toBe(false)
-        // isLogType would answer true for all three above, which is the conflation being fixed.
-        expect(isLogType('ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
+    // Written on its own when the org has no key holders, so no key exists to open it.
+    it('filesIncludeUndecryptableErrorLog matches plaintext and legacy error logs', () => {
+        expect(filesIncludeUndecryptableErrorLog([{ fileType: 'PACKAGING-ERROR-LOG' }])).toBe(true)
+        expect(filesIncludeUndecryptableErrorLog([{ fileType: 'APPROVED-CODE-RUN-LOG' }])).toBe(true)
+        expect(filesIncludeUndecryptableErrorLog([{ fileType: 'SECURITY-SCAN-LOG' }])).toBe(false)
+        expect(filesIncludeUndecryptableErrorLog([{ fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG' }])).toBe(false)
+    })
+
+    // The single gate for the reviewer's errored screen. Narrower than jobHasEncryptedArtifacts by
+    // exactly one type, and that one type is the whole bug: a scan log is not a run's outcome.
+    it('jobHasDecryptableRunOutcome covers results and error logs but not the scan log', () => {
+        expect(jobHasDecryptableRunOutcome([{ fileType: 'ENCRYPTED-RESULT' }])).toBe(true)
+        expect(jobHasDecryptableRunOutcome([{ fileType: 'ENCRYPTED-CODE-RUN-LOG' }])).toBe(true)
+        expect(jobHasDecryptableRunOutcome([{ fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG' }])).toBe(true)
+        expect(jobHasDecryptableRunOutcome([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }])).toBe(false)
+        expect(jobHasDecryptableRunOutcome([{ fileType: 'PACKAGING-ERROR-LOG' }])).toBe(false)
+        expect(jobHasDecryptableRunOutcome([])).toBe(false)
+        // The predicate it replaced at the key gate, kept for the results views, answers differently
+        // on the reported job.
+        expect(jobHasEncryptedArtifacts([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }])).toBe(true)
     })
 })

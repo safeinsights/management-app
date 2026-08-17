@@ -32,7 +32,6 @@ import {
 } from '@/lib/paths'
 import type { MinimalCodeEnvInfo } from '@/lib/types'
 import { substituteEntryPointFile, strToAscii } from '@/lib/string'
-import { packagingFailureMessage } from '@/lib/job-error-details'
 import { parseCsv } from '@/lib/file-content-helpers'
 import logger from '@/lib/logger'
 import { Readable } from 'stream'
@@ -501,21 +500,7 @@ export async function buildTriggerBuildImageCommandInput(
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {
             ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-PACKAGING' },
             ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-READY' },
-            // OTTER-524: the containerizer's failure webhook is this literal payload, forwarded
-            // verbatim (the CodeBuild scripts only enrich payloads during the scanning stage), so
-            // without a message here a packaging failure reaches us with no reason at all and the
-            // reviewer is shown an error with nothing to explain it.
-            //
-            // Deliberately states only the image we asked it to build FROM, not a cause. This text
-            // is fixed at trigger time while the build can fail at any of four steps (source sync,
-            // registry auth, resolving the base image, pushing the result), so naming a cause here
-            // would misattribute the other three. The reviewer-facing sentence is derived from the
-            // job's own status history instead; this is supporting detail.
-            ON_FAILURE_PAYLOAD: {
-                jobId: info.studyJobId,
-                status: 'JOB-ERRORED',
-                message: packagingFailureMessage(info.codeEnvURL),
-            },
+            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
             STUDY_JOB_ID: info.studyJobId,
             S3_PATH: withS3Prefix(pathForStudyJobCode(info)),
             DOCKER_CMD_LINE: cmd,

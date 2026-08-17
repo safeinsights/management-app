@@ -48,9 +48,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    // message carries the reason a service recorded with the status (OTTER-524).
-                    // Only JOB-ERRORED rows have ever carried one in practice.
-                    .select(['status', 'createdAt', 'message'])
+                    .select(['status', 'createdAt'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                     .orderBy('createdAt', 'desc')
                     .orderBy('jobStatusChange.id', 'desc'),
@@ -90,8 +88,7 @@ function latestJobForStudyQuery(studyId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    // See getStudyJobInfo above for why message is selected (OTTER-524).
-                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt', 'jobStatusChange.message'])
+                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
                     .orderBy('createdAt', 'desc')
                     .orderBy('jobStatusChange.id', 'desc')
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),

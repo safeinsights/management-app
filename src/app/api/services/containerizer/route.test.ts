@@ -109,45 +109,6 @@ test('containerizer persists JOB-ERRORED once and is idempotent for same status'
     expect(afterSecondErr).toBe(afterFirstErr)
 })
 
-// OTTER-524: the containerizer's failure webhook is the only place a packaging failure can say
-// anything at all, so the reason has to survive the round trip into jobStatusChange.
-test('containerizer records the failure message alongside JOB-ERRORED', async () => {
-    const { org, user } = await mockSessionWithTestData()
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    const jobId = jobIds[0]
-    const message = 'base image: harbor.safeinsights.org/opensta/r-base:4.5.1'
-
-    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED', message }))
-    expect(resp.ok).toBe(true)
-
-    const rows = await db
-        .selectFrom('jobStatusChange')
-        .select(['status', 'message'])
-        .where('studyJobId', '=', jobId)
-        .where('status', '=', 'JOB-ERRORED')
-        .execute()
-    expect(rows.map((r) => r.message)).toContain(message)
-})
-
-// The buildspec has a fallback path that posts the payload raw when the build dies before its own
-// handler runs, and older builds send no message at all, so a message-less failure must stay valid.
-test('containerizer still accepts a failure webhook with no message', async () => {
-    const { org, user } = await mockSessionWithTestData()
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    const jobId = jobIds[0]
-
-    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
-    expect(resp.ok).toBe(true)
-
-    const rows = await db
-        .selectFrom('jobStatusChange')
-        .select(['message'])
-        .where('studyJobId', '=', jobId)
-        .where('status', '=', 'JOB-ERRORED')
-        .execute()
-    expect(rows.some((r) => r.message === null)).toBe(true)
-})
-
 test('logs error with context on invalid payload', async () => {
     const resp = await apiHandler.POST(authedRequest({ jobId: 'job-invalid', status: 'INVALID_STATUS' }))
     expect(resp.ok).toBe(false)

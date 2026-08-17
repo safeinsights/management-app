@@ -64,20 +64,39 @@ export function isLogType(fileType: FileType): boolean {
 // have any log?" therefore answers a different question from "can this reviewer find out why the
 // run failed?", and conflating the two is how an errored job with nothing but a security scan log
 // came to promise error logs it did not have (OTTER-524).
-const ERROR_LOG_TYPES: FileType[] = [
-    'ENCRYPTED-CODE-RUN-LOG',
-    'ENCRYPTED-PACKAGING-ERROR-LOG',
+const ENCRYPTED_ERROR_LOG_TYPES: FileType[] = ['ENCRYPTED-CODE-RUN-LOG', 'ENCRYPTED-PACKAGING-ERROR-LOG']
+
+// The same logs in a form no security key opens. PACKAGING-ERROR-LOG is written on its own when the
+// org has no key holders, so encryptAndStoreLog produced nothing to pair it with; the APPROVED-*
+// pair are pre-#764 legacy rows. Kept separate from the encrypted set because the reviewer's screen
+// must promise a key form only for logs a key can actually open.
+const UNDECRYPTABLE_ERROR_LOG_TYPES: FileType[] = [
+    'PACKAGING-ERROR-LOG',
     'APPROVED-CODE-RUN-LOG',
     'APPROVED-PACKAGING-ERROR-LOG',
-    'PACKAGING-ERROR-LOG',
 ]
 
-export function isErrorLogType(fileType: FileType): boolean {
-    return ERROR_LOG_TYPES.includes(fileType)
+export function filesIncludeDecryptableErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => ENCRYPTED_ERROR_LOG_TYPES.includes(f.fileType))
 }
 
-export function filesIncludeErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
-    return files.some((f) => isErrorLogType(f.fileType))
+export function filesIncludeUndecryptableErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => UNDECRYPTABLE_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
+/**
+ * The encrypted artifacts that describe THIS run's outcome: what it produced, and the log saying why
+ * it failed. The single gate the reviewer's errored screen turns on, so that what the banner promises
+ * and what the screen renders cannot disagree (OTTER-524).
+ *
+ * ENCRYPTED-SECURITY-SCAN-LOG is deliberately excluded. It is written by the code scanner at
+ * submission, is already surfaced on the code review step, and says nothing about a run, so an
+ * errored job carrying only that log has genuinely nothing for a key to open here. Including it is
+ * what produced a key form under a banner reading "there is no error log for this run", and an
+ * enabled "share outputs" that would have shared a submission-time scan log as the run's outputs.
+ */
+export function jobHasDecryptableRunOutcome(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => f.fileType === 'ENCRYPTED-RESULT' || ENCRYPTED_ERROR_LOG_TYPES.includes(f.fileType))
 }
 
 export function logLabel(fileType: FileType): string {

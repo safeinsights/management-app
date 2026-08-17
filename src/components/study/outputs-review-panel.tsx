@@ -12,7 +12,7 @@ import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
-import { jobHasEncryptedArtifacts } from '@/lib/file-type-helpers'
+import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
@@ -64,16 +64,17 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
 }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
 
-    // OTTER-524: a run can fail without producing any artifact, and there is then nothing for a key
-    // to open. The old flow left the reviewer stuck at the key form with no way to record a decision,
-    // which in turn left the researcher on "code is running" forever.
+    // OTTER-524: a run can fail without producing anything about its own outcome, and there is then
+    // nothing for a key to open. The old flow left the reviewer stuck at the key form with no way to
+    // record a decision, which in turn left the researcher on "code is running" forever.
     //
     // Read from the job's own files, NEVER from an empty result out of fetchEncryptedJobFilesAction:
     // that action also returns [] when the caller has no registered public key or when the fetch
     // failed, and treating those as "nothing to decrypt" would let a reviewer without a key skip
     // decryption entirely and decide on outputs they never saw. That is exactly the hole OTTER-675
-    // closed.
-    const requiresKey = !allowDecisionWithoutArtifacts || jobHasEncryptedArtifacts(job.files ?? [])
+    // closed. The predicate still covers every ENCRYPTED-RESULT, so no run's outputs can be decided
+    // on unseen; it excludes only the submission-time security scan log, which no run produced.
+    const requiresKey = !allowDecisionWithoutArtifacts || jobHasDecryptableRunOutcome(job.files ?? [])
 
     const isLocked = requiresKey && decryptedFiles === null
     // Stays on the errored banner when there is nothing to decrypt: the unlocked banner warns about
