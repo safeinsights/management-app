@@ -158,6 +158,23 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
 | 10  | fallback                                                                 | `study-overview`             |
 
+`reviewer-outputs-errored` (#1) has two shapes, decided by whether the job carries any encrypted
+artifact (OTTER-524). With artifacts, the reviewer enters their security key as usual. With none, a
+run that failed before producing anything, there is nothing a key could open, so the screen skips the
+key step and offers the decision directly with `Share outputs and feedback` disabled: only
+`Share feedback only` can be honored. Without that escape the round could never be closed, and the
+researcher would sit on `outputs-pending` ("code is running") indefinitely. The bypass is opt-in per
+screen and deliberately NOT set on `reviewer-outputs-available`: for a completed run, missing
+artifacts mean delivery went wrong rather than that there is nothing to review. It is also keyed on
+the job's own files, never on the artifact fetch returning empty, since that also happens when the
+reviewer has no registered key.
+
+The same screen's banner no longer promises error logs unconditionally. It names the stage that
+failed, derived from the status history (no `JOB-READY` means packaging failed; `JOB-RUNNING` means
+the code ran), and states plainly when no error log exists. "Error log" excludes the security scan
+log written at submission, which is why an errored job carrying only that log used to be told to go
+and review error logs it did not have.
+
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
 (which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a

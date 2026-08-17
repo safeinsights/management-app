@@ -19,6 +19,7 @@ import type { FileType, StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
+import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
@@ -276,6 +277,26 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         expect(screen.getByTestId('outputs-decision-section')).toHaveTextContent(
             'There are no output files for this run, so there is nothing to share.',
         )
+    })
+
+    // The bypass is opt-in per screen. A completed run with no artifacts means delivery went wrong,
+    // not that there is nothing to review, so the outputs-available screen must keep its key gate.
+    // Pinned here because both screens share OutputsReviewPanel.
+    it('does not leak the bypass into the outputs-available screen', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study: dbStudy } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'RUN-COMPLETE',
+        })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const raw = await requireRawState(dbStudy.id)
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug: org.slug }))
+
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
     it('keeps the decision unselected on arrival so closing the round stays deliberate', async () => {

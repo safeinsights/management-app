@@ -28,6 +28,15 @@ type OutputsReviewPanelProps = {
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
     previousHref: Route
+    /**
+     * Opt in to letting the reviewer decide when the job carries no encrypted artifact (OTTER-524).
+     *
+     * Only the errored screen sets this. For a completed run, no artifacts is not an expected
+     * outcome but a sign that delivery went wrong, and skipping the key step there would quietly
+     * present a broken hand-off as a reviewable one. For an errored run it is routine: a packaging
+     * failure produces nothing, and AWS emits no container log when a task never starts.
+     */
+    allowDecisionWithoutArtifacts?: boolean
 }
 
 /**
@@ -51,12 +60,12 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     lockedBanner,
     unlockedBanner,
     previousHref,
+    allowDecisionWithoutArtifacts = false,
 }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
 
-    // OTTER-524: a run can fail without producing any artifact (a packaging failure ships none, and
-    // AWS emits no container log when a task never starts). There is then nothing for a key to open,
-    // and the old flow left the reviewer stuck at the key form with no way to record a decision,
+    // OTTER-524: a run can fail without producing any artifact, and there is then nothing for a key
+    // to open. The old flow left the reviewer stuck at the key form with no way to record a decision,
     // which in turn left the researcher on "code is running" forever.
     //
     // Read from the job's own files, NEVER from an empty result out of fetchEncryptedJobFilesAction:
@@ -64,7 +73,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     // failed, and treating those as "nothing to decrypt" would let a reviewer without a key skip
     // decryption entirely and decide on outputs they never saw. That is exactly the hole OTTER-675
     // closed.
-    const requiresKey = jobHasEncryptedArtifacts(job.files ?? [])
+    const requiresKey = !allowDecisionWithoutArtifacts || jobHasEncryptedArtifacts(job.files ?? [])
 
     const isLocked = requiresKey && decryptedFiles === null
     // Stays on the errored banner when there is nothing to decrypt: the unlocked banner warns about
