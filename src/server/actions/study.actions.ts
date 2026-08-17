@@ -39,6 +39,16 @@ import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 
+// Shared middleware for feedback actions that need study org/permission context.
+const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId', 'submittedByOrgId', 'status'])
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow(throwNotFound('study'))
+    return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+}
+
 // NOT exported, for internal use by actions in this file.
 // Soft-delete filter (`deletedAt IS NULL`) is intentionally scoped to dashboard listings via this helper.
 // Direct study reads by ID elsewhere — editor polling, agreements/code-review middlewares, getInfoForStudyId —
@@ -971,35 +981,63 @@ async function loadReviewFeedbackThread(
     })
 }
 
-// The authorization lookup exists once for both feedback actions, so a future change to who may
-// view feedback cannot update one and miss the other. A full action factory would be tighter
-// still, but validate-actions requires each export to be a literal `new Action('<export name>')`
-// chain, so the two short chains below stay spelled out.
-const feedbackStudyAuthz = async (db: DBExecutor, studyId: string) => {
-    const study = await db
-        .selectFrom('study')
-        .select(['orgId', 'submittedByOrgId', 'status'])
-        .where('id', '=', studyId)
-        .executeTakeFirstOrThrow(throwNotFound('study'))
-    return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-}
-
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(async ({ params: { studyId }, db }) => feedbackStudyAuthz(db, studyId))
+    .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'CODE'))
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
-// OTTER-695: outputs counterpart ('RESULTS' rows are written by submitOutputsDecisionAction).
-export const getOutputsFeedbackAction = new Action('getOutputsFeedbackAction')
+// OTTER-695: the researcher-facing outputs thread — RESULTS decisions plus resubmission notes.
+// Distinct from getOutputsDecisionFeedbackAction above, which returns the decisions alone for the
+// reviewer's post-review page.
+export const getOutputsFeedbackThreadAction = new Action('getOutputsFeedbackThreadAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(async ({ params: { studyId }, db }) => feedbackStudyAuthz(db, studyId))
+    .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'RESULTS'))
 
-export type OutputsFeedbackEntry = ActionSuccessType<typeof getOutputsFeedbackAction>[number]
+export type OutputsFeedbackThreadEntry = ActionSuccessType<typeof getOutputsFeedbackThreadAction>[number]
+
+export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
+    .params(z.object({ studyId: z.string().uuid() }))
+    .middleware(studyViewMiddleware)
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, db }) => {
+        const rows = await db
+            .selectFrom('studyReviewComment')
+            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+            .select([
+                'studyReviewComment.id',
+                'studyReviewComment.authorId',
+                'studyReviewComment.decision',
+                'studyReviewComment.body',
+                'studyReviewComment.createdAt',
+                'studyReviewComment.round',
+                'author.fullName as authorName',
+            ])
+            .where('studyReviewComment.studyId', '=', studyId)
+            .where('studyReviewComment.reviewKind', '=', 'RESULTS')
+            .where('studyReviewComment.entryType', '=', 'DECISION')
+            .orderBy('studyReviewComment.createdAt', 'desc')
+            .execute()
+
+        // Outputs decisions don't carry criteria (unlike code reviews), so entryType is mapped to the
+        // shared FeedbackAndNotesSection shape without it.
+        return rows.map((row) => ({
+            id: row.id,
+            authorId: row.authorId,
+            entryType: 'REVIEWER-FEEDBACK' as const,
+            decision: row.decision,
+            body: row.body,
+            createdAt: row.createdAt,
+            authorName: row.authorName,
+            version: row.round ?? null,
+        }))
+    })
+
+export type OutputsDecisionFeedbackEntry = ActionSuccessType<typeof getOutputsDecisionFeedbackAction>[number]
 
 export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
     .params(z.object({ studyId: z.string() }))

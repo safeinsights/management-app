@@ -120,6 +120,27 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
     })
 
+    // the post-decision page reuses this form with different header/body copy.
+    it('renders caller-supplied title and description overrides', async () => {
+        renderWithProviders(
+            <SecurityKeyForm
+                job={job}
+                type="reviewer"
+                onDecrypted={onDecrypted}
+                title="View outputs again"
+                description="The outputs are encrypted. Enter your security key to view them again."
+            />,
+        )
+
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+        expect(
+            screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
+        ).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /security key/i })).not.toBeInTheDocument()
+    })
+
     // The two roles are served different key sets, and a reviewer holds no re-wrapped per-file
     // keys. Asking as a researcher returns [] for them, which strands the outputs step on the
     // locked phase, so the role has to reach the action rather than being assumed by the hook.

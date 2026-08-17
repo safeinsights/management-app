@@ -5,7 +5,7 @@ import { projectStudyState, hasNextStepFromCode } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
-import { loadReviewFeedback } from '../view/load-review-feedback'
+import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 import type { ScreenComponentProps } from './types'
 
 // code-approved AND code-feedback both render the post-decision view. The effective decision is
@@ -27,7 +27,7 @@ export async function CodeDecisionScreen({
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
     if (!isSubmittedStudy(study)) notFound()
-    const { entries, feedbackLoadError } = await loadReviewFeedback(study.id, 'CODE')
+    const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
     // OTTER-614 / OTTER-687: the code page forwards to plain /view instead of ending at the

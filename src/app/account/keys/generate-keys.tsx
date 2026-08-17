@@ -5,10 +5,11 @@ import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { Button, Code, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
-import { useClipboard, useDisclosure } from '@mantine/hooks'
+import { useDisclosure } from '@mantine/hooks'
 import { CheckIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
@@ -19,17 +20,86 @@ interface Keys {
     fingerprint: string
 }
 
-type GenerateKeysProps = {
-    isRegenerating?: boolean
+// AC: a reset returns to "My dashboard"; the first key ever generated returns to the landing the
+// page resolved for this account. An explicit redirect_url (invite flows, deep links) overrides it.
+// Keyed off account state rather than off the presence of that parameter: the RequireUserKey guard
+// is the entry point most first keys arrive through, and it passes none (OTTER-655).
+//
+// firstKeyRedirect is the fallback argument on purpose, so a redirect_url that fails validation
+// falls back to the resolved landing rather than to Routes.dashboard. Passing Routes.dashboard here
+// instead would look equivalent and would quietly demote a first key to "My dashboard" whenever the
+// parameter is malformed, which is the bug this function exists to fix.
+export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
+    if (isRegenerating) return Routes.dashboard
+
+    return safeRedirectUrl(redirectParam, firstKeyRedirect)
 }
 
-export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) => {
+type GenerateKeysProps = {
+    isRegenerating?: boolean
+    /** Where a first key lands when no redirect_url is supplied; ignored for a reset. */
+    firstKeyRedirect?: Route
+}
+
+const COPIED_VISIBLE_MS = 2000
+
+type CopyIndication = { hue: 'green' | 'red'; Icon: typeof CheckIcon; fw?: number; text: string }
+
+const COPY_SUCCEEDED: CopyIndication = { hue: 'green', Icon: CheckIcon, fw: 500, text: 'Copied!' }
+
+const COPY_FAILED: CopyIndication = {
+    hue: 'red',
+    Icon: XIcon,
+    text: 'Copy did not work. Select the key above and copy it manually.',
+}
+
+// The AC allows exactly one indicator at a time, which rules out Mantine's useClipboard: it folds
+// every attempt into one pair of flags, so a slow rejection (a permission prompt left open) can
+// land after a later success and light the green check and the red failure together. Each attempt
+// aborts the one before it and an aborted attempt writes no state, because a copy the user has
+// already superseded says nothing about what is on their clipboard now (OTTER-655).
+function useCopyIndication() {
+    const [indication, setIndication] = useState<CopyIndication | null>(null)
+    const pending = useRef<AbortController>(undefined)
+    const hideCopied = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+    useEffect(() => () => clearTimeout(hideCopied.current), [])
+
+    const copy = async (value: string) => {
+        pending.current?.abort()
+        const attempt = (pending.current = new AbortController())
+        clearTimeout(hideCopied.current)
+        setIndication(null)
+
+        try {
+            if (!navigator.clipboard) throw new Error('clipboard is not available in this browser')
+            await navigator.clipboard.writeText(value)
+            if (attempt.signal.aborted) return
+            setIndication(COPY_SUCCEEDED)
+            hideCopied.current = setTimeout(() => {
+                if (!attempt.signal.aborted) setIndication(null)
+            }, COPIED_VISIBLE_MS)
+        } catch {
+            if (attempt.signal.aborted) return
+            // The message tells the user to select the key manually, so the reason does not matter
+            // and there is nothing actionable to report.
+            setIndication(COPY_FAILED)
+        }
+    }
+
+    return { indication, copy }
+}
+
+export const GenerateKeys: FC<GenerateKeysProps> = ({
+    isRegenerating = false,
+    firstKeyRedirect = Routes.dashboard,
+}) => {
     const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // Reveal Next after any copy attempt so a blocked clipboard doesn't trap the user.
     const [hasAttemptedCopy, setHasAttemptedCopy] = useState(false)
-    const clipboard = useClipboard({ timeout: 2000 })
+    const { indication: copyIndication, copy } = useCopyIndication()
 
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
@@ -47,7 +117,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
     if (!keys) return null
 
     const onCopy = () => {
-        clipboard.copy(keys.privateKey)
+        void copy(keys.privateKey)
         setHasAttemptedCopy(true)
     }
 
@@ -89,8 +159,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                         <Button onClick={onCopy}>Copy key</Button>
                         <NextButton isVisible={hasAttemptedCopy} onClick={openConfirm} />
                     </Group>
-                    <CopySucceededIndicator isVisible={clipboard.copied} />
-                    <CopyFailedIndicator isVisible={clipboard.error != null} />
+                    <CopyIndicator indication={copyIndication} />
                 </Stack>
             </Stack>
 
@@ -99,6 +168,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                 isOpen={confirmationOpened}
                 keys={keys}
                 isRegenerating={isRegenerating}
+                firstKeyRedirect={firstKeyRedirect}
             />
         </Paper>
     )
@@ -113,38 +183,28 @@ const NextButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible
     )
 }
 
-const CopySucceededIndicator: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+const CopyIndicator: FC<{ indication: CopyIndication | null }> = ({ indication }) => {
     const theme = useMantineTheme()
-    if (!isVisible) return null
+    if (!indication) return null
+
+    const { hue, Icon, fw, text } = indication
     return (
         <Group gap="xs">
-            <CheckIcon size={16} color={theme.colors.green[9]} />
-            <Text c="green.9" fz={14} fw={500}>
-                Copied!
+            <Icon size={16} color={theme.colors[hue][9]} />
+            <Text c={`${hue}.9`} fz={14} fw={fw}>
+                {text}
             </Text>
         </Group>
     )
 }
 
-const CopyFailedIndicator: FC<{ isVisible: boolean }> = ({ isVisible }) => {
-    const theme = useMantineTheme()
-    if (!isVisible) return null
-    return (
-        <Group gap="xs">
-            <XIcon size={16} color={theme.colors.red[9]} />
-            <Text c="red.9" fz={14}>
-                Copy did not work. Select the key above and copy it manually.
-            </Text>
-        </Group>
-    )
-}
-
-const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; isRegenerating: boolean }> = ({
-    onClose,
-    isOpen,
-    keys,
-    isRegenerating,
-}) => {
+const ConfirmationModal: FC<{
+    onClose: () => void
+    isOpen: boolean
+    keys: Keys
+    isRegenerating: boolean
+    firstKeyRedirect: Route
+}> = ({ onClose, isOpen, keys, isRegenerating, firstKeyRedirect }) => {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -157,8 +217,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
         },
         onError: reportMutationError('Failed to save security key'),
         onSuccess() {
-            // First-time onboarding carries an org-dashboard redirect_url; a reset carries none.
-            router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
+            router.push(postKeyRedirect(isRegenerating, searchParams.get('redirect_url'), firstKeyRedirect))
         },
     })
 

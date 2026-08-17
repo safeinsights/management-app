@@ -25,7 +25,8 @@ import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
-    getOutputsFeedbackAction,
+    getOutputsDecisionFeedbackAction,
+    getOutputsFeedbackThreadAction,
     getStudyAction,
     rejectStudyProposalAction,
     softDeleteStudyAction,
@@ -2270,7 +2271,7 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 })
 
-describe('getOutputsFeedbackAction', () => {
+describe('getOutputsFeedbackThreadAction', () => {
     it('returns RESULTS decision rows with resubmission notes, newest first, and excludes CODE rows', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
@@ -2323,7 +2324,7 @@ describe('getOutputsFeedbackAction', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const rows = actionResult(await getOutputsFeedbackAction({ studyId: study.id }))
+        const rows = actionResult(await getOutputsFeedbackThreadAction({ studyId: study.id }))
 
         expect(rows).toHaveLength(2)
         expect(rows[0].id).toBe(outputs.id)
@@ -2578,6 +2579,75 @@ function validCriteriaFixture() {
         privacyProtection: 'yes',
     } as const
 }
+
+describe('getOutputsDecisionFeedbackAction', () => {
+    it('returns RESULTS decision rows ordered newest first and excludes CODE rows', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const older = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'REJECT',
+                body: { root: { type: 'root', children: [] } },
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const newerJob = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        const newer = await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: newerJob.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                createdAt: new Date('2026-02-01T00:00:00Z'),
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        // A CODE decision that must not appear in the results
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                criteria: validCriteriaFixture(),
+            })
+            .execute()
+
+        const rows = actionResult(await getOutputsDecisionFeedbackAction({ studyId: study.id }))
+        expect(rows).toHaveLength(2)
+        expect(rows[0].id).toBe(newer.id)
+        expect(rows[1].id).toBe(older.id)
+        expect(rows.every((r) => r.entryType === 'REVIEWER-FEEDBACK')).toBe(true)
+        expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
+    })
+})
 
 describe('softDeleteStudyAction', () => {
     it('soft-deletes a DRAFT study and hides it from the researcher dashboard', async () => {

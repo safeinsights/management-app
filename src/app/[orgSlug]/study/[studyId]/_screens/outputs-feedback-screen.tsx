@@ -13,9 +13,9 @@ import { displayOrgName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
-import type { OutputsFeedbackEntry } from '@/server/actions/study.actions'
+import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
 import { getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
-import { loadReviewFeedback } from '../view/load-review-feedback'
+import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
 import type { ScreenComponentProps } from './types'
 
 const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => {
@@ -35,7 +35,7 @@ const FeedbackSection = ({
     entries,
 }: {
     feedbackLoadError: boolean
-    entries: OutputsFeedbackEntry[]
+    entries: OutputsFeedbackThreadEntry[]
 }) => {
     if (feedbackLoadError) {
         return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
@@ -70,7 +70,7 @@ export async function OutputsFeedbackScreen({
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
 
-    const { entries, feedbackLoadError } = await loadReviewFeedback(study.id, 'RESULTS')
+    const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
     const decidedAt = latestStatusAt(job.statusChanges, 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route

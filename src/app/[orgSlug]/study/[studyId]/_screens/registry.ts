@@ -16,7 +16,7 @@ import { OutputsFeedbackScreen } from './outputs-feedback-screen'
 import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
-import { ReviewerStudyResultsScreen } from './reviewer-study-results-screen'
+import { ReviewerOutputsDecidedScreen } from './reviewer-outputs-decided-screen'
 
 // Screens may be async server components (they load their own data). Returned node is awaited
 // at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
@@ -42,5 +42,5 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'reviewer-outputs-pending': ReviewerOutputsPendingScreen,
     'reviewer-outputs-errored': ReviewerOutputsErroredScreen,
     'reviewer-outputs-available': ReviewerOutputsAvailableScreen,
-    'reviewer-study-results': ReviewerStudyResultsScreen,
+    'reviewer-outputs-decided': ReviewerOutputsDecidedScreen,
 }

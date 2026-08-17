@@ -154,7 +154,7 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | --- | ------------------------------------------------------------------------ | ---------------------------- |
 | 1   | `awaitingFilesDecisionOnError`                                           | `reviewer-outputs-errored`   |
 | 2   | `resultsDisplayStatus === 'RUN-COMPLETE'`                                | `reviewer-outputs-available` |
-| 3   | `hasResults`                                                             | `reviewer-study-results`     |
+| 3   | `hasResults`                                                             | `reviewer-outputs-decided`   |
 | 4   | `isExecuting`                                                            | `reviewer-outputs-pending`   |
 | 5   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
 | 6   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
@@ -163,12 +163,13 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
 | 10  | fallback                                                                 | `study-overview`             |
 
-Precedence notes: errored/available/results form a priority chain (#1–#3) — an errored run is
-claimed before a completed run, which in turn is claimed before decided results; `isExecuting` (#4)
-out-ranks a present code decision (#5 — `CODE-APPROVED` is always present once execution starts);
-the agreements gate sits **above** active review (#6 > #7 — a reviewer must ack before the review
-page renders); and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own
-the screen once code exists.
+Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
+decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
+(which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
+present code decision (#5 — `CODE-APPROVED` is always present once execution starts); the agreements
+gate sits **above** active review (#6 > #7 — a reviewer must ack before the review page renders);
+and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once
+code exists.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
