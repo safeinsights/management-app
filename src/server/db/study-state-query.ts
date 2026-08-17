@@ -40,7 +40,9 @@ export async function rawStudyStateForStudy(
                             j
                                 .selectFrom('jobStatusChange')
                                 .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                                .select(['jobStatusChange.status']),
+                                // createdAt is display-only (dates the outputs-feedback banner);
+                                // the projection itself never reads it.
+                                .select(['jobStatusChange.status', 'jobStatusChange.createdAt']),
                         ).as('statusChanges'),
                     ]),
             ).as('jobs'),

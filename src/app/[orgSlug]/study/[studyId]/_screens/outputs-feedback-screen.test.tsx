@@ -121,15 +121,18 @@ describe('OutputsFeedbackScreen', () => {
         expect(alert).not.toHaveTextContent(dayjs(new Date()).format('MMM DD, YYYY'))
     })
 
-    it('degrades to an undated banner when the payload job carries no FILES-REJECTED row', async () => {
-        const { org, study, raw, job } = await setupFeedbackOnly()
-        // raw was captured before this delete, so routing still lands here; the payload lacks the date.
-        await db
-            .deleteFrom('jobStatusChange')
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'FILES-REJECTED')
-            .execute()
-        await renderScreen(study, raw, org.slug)
+    it('degrades to an undated banner when the raw FILES-REJECTED row carries no timestamp', async () => {
+        const { org, study, raw } = await setupFeedbackOnly()
+        // The banner date is display-only and sourced from raw; an undated row (as fixtures may
+        // supply) must not block a page the routing guard already chose.
+        const undatedRaw: RawStudyState = {
+            ...raw,
+            jobs: raw.jobs.map((j) => ({
+                ...j,
+                statusChanges: j.statusChanges.map((c) => (c.status === 'FILES-REJECTED' ? { status: c.status } : c)),
+            })),
+        }
+        await renderScreen(study, undatedRaw, org.slug)
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Feedback on outputs available')

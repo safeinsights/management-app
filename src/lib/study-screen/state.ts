@@ -49,7 +49,9 @@ export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
     'INITIATED',
 ]
 
-function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
+// Exported for consumers that need a display fact (e.g. a status date) from the SAME job the
+// projection decided on, so a separately-queried "latest job" cannot disagree (OTTER-695 review).
+export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
     // max(id): v7 ids are insertion-ordered, so lexical max === most recently created round.
     // Prefer the latest job that has been submitted (has a non-INITIATED status), matching the

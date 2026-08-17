@@ -5,10 +5,12 @@ import type { CodeDecisionStatus } from '@/lib/study-job-status'
 export type StudyRole = 'researcher' | 'reviewer'
 
 // Raw rows as fetched. statusChanges/jobs order is NOT significant — the projection
-// selects the latest job by max(id) and treats each job's statuses as a set.
+// selects the latest job by max(id) and treats each job's statuses as a set. createdAt is
+// display-only (e.g. dating the outputs-feedback banner, OTTER-695): the projection never reads
+// it, and fixtures may omit it.
 export type RawJob = {
     id: string
-    statusChanges: ReadonlyArray<{ status: StudyJobStatus }>
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt?: Date | string }>
 }
 
 // Step 2 of the proposal wizard is the first time any of these columns is written (Step 1 saves only

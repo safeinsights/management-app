@@ -1,4 +1,5 @@
 import type { Route } from 'next'
+import type { StudyJobStatus } from '@/database/types'
 import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
@@ -11,12 +12,16 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
-import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, latestJob, projectStudyState, type RawJob } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
 import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
-import { getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { getOrgNameFromId } from '@/server/db/queries'
 import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
 import type { ScreenComponentProps } from './types'
+
+// Raw status rows carry createdAt optionally (fixtures omit it); only dated rows can date the banner.
+const datedStatusChanges = (job: RawJob) =>
+    job.statusChanges.filter((c): c is { status: StudyJobStatus; createdAt: Date | string } => !!c.createdAt)
 
 const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => {
     // Display-only date: degrade to an undated banner rather than block a page routing already chose.
@@ -65,14 +70,16 @@ export async function OutputsFeedbackScreen({
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
 
-    const job = await latestSubmittedJobForStudy(study.id)
+    // The banner date comes from the SAME raw job the routing guard decided on — no second
+    // latest-job query whose definition could drift from the projection's (review on this card).
+    const job = latestJob(raw.jobs)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
 
     const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
-    const decidedAt = latestStatusAt(job.statusChanges, 'FILES-REJECTED')
+    const decidedAt = latestStatusAt(datedStatusChanges(job), 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
 
