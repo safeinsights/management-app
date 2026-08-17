@@ -24,22 +24,27 @@ const contentStyle = {
     lineHeight: 1.6,
 } as const
 
-// OTTER-524: a run can fail before producing any artifact at all, and the reviewer still has to
-// close the round out. The decision therefore stands, but sharing is impossible because there is
-// nothing to share. Everything below that reads `canShareOutputs` exists to say that plainly instead
-// of offering a choice that cannot be honored.
-const NO_OUTPUTS_SHARE_HINT = 'There are no output files for this run, so there is nothing to share.'
+// OTTER-524: a run can fail before producing anything a reviewer can open, and the reviewer still has
+// to close the round out. The decision therefore stands, but sharing is impossible. Everything below
+// that reads `canShareOutputs` exists to say that plainly instead of offering a choice that cannot be
+// honored.
+//
+// Worded as "nothing here that can be shared" rather than "there are no output files": the branch is
+// also reached by a job holding a submission-time scan log, or an error log stored in a form this
+// screen cannot display, and the banner above says so in the same breath. Denying those files exist
+// would contradict it on one screen.
+const noOutputsShareHint = (labName: string) => `There is nothing from this run that can be shared with ${labName}.`
 
 // A real <ul>, not "<br />•": the two clauses are a list, and a screen reader should announce them
 // as one ("list, 2 items") rather than as a single run-on sentence with stray bullet characters.
 const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labName, canShareOutputs }) => {
-    // With no outputs there is no judgement to make about their contents, so the two-branch guidance
+    // With nothing shareable there is no judgment to make about contents, so the two-branch guidance
     // would be describing a choice the reviewer does not have.
     if (!canShareOutputs) {
         return (
             <Text component="div" fz={16} c="charcoal.9">
-                This run produced no outputs to review. Describe what happened in your feedback so {labName} can revise
-                the code.
+                There are no outputs from this run for you to review. Describe what happened in your feedback so{' '}
+                {labName} can revise the code.
             </Text>
         )
     }
@@ -67,7 +72,7 @@ const buildDecisionOptions = (labName: string, canShareOutputs: boolean): Decisi
         title: 'Share outputs and feedback',
         description: canShareOutputs
             ? `Share the output files and your feedback with ${labName}.`
-            : NO_OUTPUTS_SHARE_HINT,
+            : noOutputsShareHint(labName),
         disabled: !canShareOutputs,
     },
     {

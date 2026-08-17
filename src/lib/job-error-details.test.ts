@@ -9,6 +9,7 @@ import {
     NO_ERROR_LOG_TEXT,
     NO_LOG_WITH_ARTIFACTS_TEXT,
     UNDECRYPTABLE_LOG_TEXT,
+    UNDECRYPTABLE_LOG_WITH_ARTIFACTS_TEXT,
 } from './job-error-details'
 
 const at = (status: StudyJobStatus) => ({ status })
@@ -19,6 +20,12 @@ describe('jobFailureStage', () => {
     // packaging failure. This is the case OTTER-524 was reported for.
     it('reads a missing JOB-READY as a packaging failure', () => {
         expect(jobFailureStage([at('CODE-APPROVED'), at('JOB-PACKAGING'), at('JOB-ERRORED')])).toBe('packaging')
+    })
+
+    // The scan webhook and /api/job/[jobId] both accept JOB-ERRORED, so a job can error before the
+    // containerizer ever posts JOB-PACKAGING. Blaming the image would name a step that never ran.
+    it('names no stage when the job errored before packaging started', () => {
+        expect(jobFailureStage([at('CODE-SUBMITTED'), at('JOB-ERRORED')])).toBe('unknown')
     })
 
     it('reads JOB-READY without JOB-RUNNING as never started', () => {
@@ -87,6 +94,26 @@ describe('jobErrorDetails', () => {
 
         expect(details.logSentence).toBe(UNDECRYPTABLE_LOG_TEXT)
         expect(details.logSentence).not.toContain('security key')
+    })
+
+    // A key holder registering between the log write and the results write leaves the job holding
+    // both. Reaching for the results sentence alone would deny a log that is sitting right there.
+    it('does not deny a plaintext log just because the run also produced results', () => {
+        const details = jobErrorDetails(
+            [at('JOB-RUNNING'), at('JOB-ERRORED')],
+            files('ENCRYPTED-RESULT', 'PACKAGING-ERROR-LOG'),
+        )
+
+        expect(details.logSentence).toBe(UNDECRYPTABLE_LOG_WITH_ARTIFACTS_TEXT)
+        expect(details.logSentence).not.toContain('no error log')
+        expect(details.logSentence).toContain('security key')
+    })
+
+    it('says nothing about the failed stage it cannot identify', () => {
+        const details = jobErrorDetails([at('CODE-SUBMITTED'), at('JOB-ERRORED')], [])
+
+        expect(details.explanation).not.toContain('code environment image')
+        expect(details.explanation).toBe('This run did not complete successfully.')
     })
 
     it('prefers the decryptable log when both halves of the same log were stored', () => {
@@ -168,6 +195,19 @@ describe('banner and key gate agree', () => {
             const { logSentence } = jobErrorDetails([at('JOB-ERRORED')], jobFiles)
 
             expect(logSentence.includes('security key')).toBe(jobHasDecryptableRunOutcome(jobFiles))
+        },
+    )
+
+    // The other half of the same honesty rule: whatever else the job holds, the banner never denies a
+    // log the job is carrying. Asserted over the same combinations for the same reason.
+    it.each(combinations(CANDIDATES).map((combo) => [combo.join(', ') || '(no files)', combo] as const))(
+        'never denies a log the job holds: %s',
+        (_label, combo) => {
+            const jobFiles = files(...combo)
+            const { logSentence } = jobErrorDetails([at('JOB-ERRORED')], jobFiles)
+            const hasErrorLog = combo.some((type) => type.includes('PACKAGING-ERROR-LOG') || type.includes('RUN-LOG'))
+
+            expect(logSentence.includes('no error log') && hasErrorLog).toBe(false)
         },
     )
 })

@@ -21,20 +21,29 @@ import {
  * recorded, so the absence of a stage is as informative as its presence. Keyed on JOB-READY rather
  * than JOB-RUNNING for the packaging case: JOB-READY is precisely the containerizer reporting
  * success, so its absence means packaging is what failed.
+ *
+ * JOB-PACKAGING is required before blaming packaging, not just inferred from a missing JOB-READY.
+ * The build posts it the moment it starts (ON_START_PAYLOAD), so a real packaging failure always
+ * carries it, while a job that errored earlier never does: `/api/services/job-scan-results` and
+ * `/api/job/[jobId]` both accept JOB-ERRORED, and telling that reviewer the image could not be
+ * prepared would name a step that never ran.
  */
-export type JobFailureStage = 'packaging' | 'never-started' | 'run'
+export type JobFailureStage = 'packaging' | 'never-started' | 'run' | 'unknown'
 
 export function jobFailureStage(statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): JobFailureStage {
     const statuses = new Set(statusChanges.map((c) => c.status))
     if (statuses.has('JOB-RUNNING')) return 'run'
     if (statuses.has('JOB-READY')) return 'never-started'
-    return 'packaging'
+    if (statuses.has('JOB-PACKAGING')) return 'packaging'
+    return 'unknown'
 }
 
 const STAGE_EXPLANATION: Record<JobFailureStage, string> = {
     packaging: 'The code environment image could not be prepared, so the code never ran.',
     'never-started': 'The code was packaged but never started running in the secure enclave.',
     run: 'The code ran in the secure enclave and did not finish successfully.',
+    // Named no stage rather than guessing one: the history says only that the job errored.
+    unknown: 'This run did not complete successfully.',
 }
 
 export const NO_ERROR_LOG_TEXT = 'There is no error log for this run.'
@@ -46,19 +55,30 @@ export const NO_LOG_WITH_ARTIFACTS_TEXT = `${NO_ERROR_LOG_TEXT} Enter your secur
 // the two ways that happens (an org with no key holders, or a pre-#764 legacy row) would need
 // different explanations that neither helps the reviewer nor changes what they can do here.
 export const UNDECRYPTABLE_LOG_TEXT = 'An error log was recorded for this run, but it cannot be displayed here.'
+// Both facts at once: a log exists that this screen cannot show, and there is still something a key
+// opens. Saying only the first would drop the key instruction while the form renders; saying only the
+// second would deny a log the job demonstrably holds.
+export const UNDECRYPTABLE_LOG_WITH_ARTIFACTS_TEXT = `${UNDECRYPTABLE_LOG_TEXT} Enter your security key below to review what it did produce.`
 
 /**
  * What the banner may promise about logs, given what the job actually holds.
  *
- * The ordering encodes the invariant the reviewer's screen depends on: the two branches that mention
- * a security key are exactly the two where `jobHasDecryptableRunOutcome` is true, which is the same
+ * The ordering encodes the invariant the reviewer's screen depends on: the branches that mention a
+ * security key are exactly those where `jobHasDecryptableRunOutcome` is true, which is the same
  * predicate that decides whether the key form renders. Deriving both from one file list in one place
  * is what stops the banner instructing the reviewer to use a form that is not on the page, or
  * dropping the instruction while the form renders anyway.
  */
 function errorLogSentence(files: ReadonlyArray<{ fileType: FileType }>): string {
     if (filesIncludeDecryptableErrorLog(files)) return KEY_PROMPT_TEXT
-    if (jobHasDecryptableRunOutcome(files)) return NO_LOG_WITH_ARTIFACTS_TEXT
+    // A job can hold both a results artifact and a log no key opens, which happens when a key holder
+    // registers between the two writes. Checking the log inside this branch rather than after it is
+    // what stops the results case denying a log that is sitting right there.
+    if (jobHasDecryptableRunOutcome(files)) {
+        return filesIncludeUndecryptableErrorLog(files)
+            ? UNDECRYPTABLE_LOG_WITH_ARTIFACTS_TEXT
+            : NO_LOG_WITH_ARTIFACTS_TEXT
+    }
     if (filesIncludeUndecryptableErrorLog(files)) return UNDECRYPTABLE_LOG_TEXT
     return NO_ERROR_LOG_TEXT
 }
@@ -83,7 +103,7 @@ const FAILURE_REASON_EXPLANATION: Record<JobFailureReason, string> = {
 }
 
 export type JobErrorDetails = {
-    /** Plain-language sentence naming the stage that failed. Always present. */
+    /** Plain-language sentence about what failed. Always present, even when no stage can be named. */
     explanation: string
     /** What can be said about an error log, from "here is how to read it" to "there isn't one". */
     logSentence: string

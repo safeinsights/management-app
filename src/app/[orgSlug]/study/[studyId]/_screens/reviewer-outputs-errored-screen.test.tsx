@@ -300,6 +300,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     // writes a raw thrown error into this same column, so it must never reach the reviewer.
     it('never renders raw service text recorded against the status', async () => {
         const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-PACKAGING')
         const raw = 'Command "aws s3 sync s3://si-secret-bucket/studies/x/code" exited with code 1'
         await db
             .insertInto('jobStatusChange')
@@ -312,6 +313,36 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         expect(alert).not.toHaveTextContent('s3://')
         expect(alert).not.toHaveTextContent('si-secret-bucket')
         expect(alert).toHaveTextContent('The code environment image could not be prepared')
+    })
+
+    // A second JOB-ERRORED row is routine: the enclave and /api/job/[jobId] both append one with
+    // their own message, and the containerizer's dedup can lose a race. Reading whatever the newest
+    // row happens to hold would let any of them silently erase the classified reason.
+    it('surfaces the classified reason even when a later errored row overwrites the order', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-PACKAGING')
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: null })
+            .execute()
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('could not be found or could not be accessed')
+    })
+
+    // A job that errored before the containerizer ever started has no packaging step to blame.
+    it('names no stage when the job errored before packaging started', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).not.toHaveTextContent('The code environment image could not be prepared')
+        expect(alert).toHaveTextContent('This run did not complete successfully.')
     })
 
     it('asks for no key when the run produced nothing to decrypt', async () => {
@@ -341,8 +372,22 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         expect(shareOutputs).toBeDisabled()
         expect(feedbackOnly).toBeEnabled()
         expect(screen.getByTestId('outputs-decision-section')).toHaveTextContent(
-            'There are no output files for this run, so there is nothing to share.',
+            `There is nothing from this run that can be shared with ${study.submittingLabName ?? study.submittedByOrgSlug}.`,
         )
+    })
+
+    // The copy has to hold for the shapes that actually reach this branch, not just for a job with no
+    // files at all: the banner two elements above says an error log was recorded, so claiming the run
+    // produced no files would contradict it on one screen.
+    it('does not deny the files it cannot share when an undecryptable log exists', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedPlaintextFile(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const section = screen.getByTestId('outputs-decision-section')
+        expect(section).not.toHaveTextContent('There are no output files')
+        expect(section).toHaveTextContent('There is nothing from this run that can be shared with')
     })
 
     // The bypass is opt-in per screen. A completed run with no artifacts means delivery went wrong,

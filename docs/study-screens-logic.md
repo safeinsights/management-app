@@ -186,18 +186,22 @@ errored job carrying only a scan log has nothing to review here, and offering to
 run's outputs would repeat the conflation this card fixed.
 
 The same screen's banner no longer promises error logs unconditionally. It names the stage that
-failed, derived from the status history (no `JOB-READY` means packaging failed; `JOB-RUNNING` means
-the code ran), and then says what can honestly be said about a log: how to open it, that there is
-none, that there is none but the results still need a key, or that one exists in a form this screen
-cannot display (a plaintext log stored when the org has no key holders). Those sentences are derived
-from the same file list and the same predicate as the key gate, so the banner cannot instruct the
-reviewer to use a form that is not rendered, nor drop the instruction while the form renders.
+failed, derived from the status history (`JOB-PACKAGING` without `JOB-READY` means packaging failed;
+`JOB-RUNNING` means the code ran; a job that errored before packaging even started is told neither,
+since `/api/services/job-scan-results` and `/api/job/[jobId]` can both record `JOB-ERRORED` first).
+It then says what can honestly be said about a log: how to open it, that there is none, that there is
+none but the results still need a key, or that one exists in a form this screen cannot display (a
+plaintext log stored when the org has no key holders), with or without a key step, since a job can
+hold both that log and a decryptable artifact. Those sentences are derived from the same file list
+and the same predicate as the key gate, so the banner cannot instruct the reviewer to use a form that
+is not rendered, nor drop the instruction while the form renders.
 
 The stage sentence is replaced by a more specific one when a build service reported a failure class
 it recognizes, such as an unavailable base image. Only classified codes are rendered: the value is
 read through a reviewer-scoped query (never the shared job queries, which the submitting researcher
-can reach) and anything unrecognized falls back to the stage sentence. Service-supplied text is never
-echoed, which keeps AWS and deployment detail off a screen another organization reads.
+can reach), that query selects only known codes so a later code-less or free-text `JOB-ERRORED` row
+cannot mask one, and anything unrecognized still falls back to the stage sentence. Service-supplied
+text is never echoed, which keeps AWS and deployment detail off a screen another organization reads.
 
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state

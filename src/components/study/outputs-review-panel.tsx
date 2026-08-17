@@ -16,6 +16,9 @@ import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
+// Module-level so the no-key path hands the same array identity down on every render.
+const NO_FILES: JobFileInfo[] = []
+
 type OutputsReviewPanelProps = {
     orgSlug: string
     studyId: string
@@ -77,6 +80,9 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     const requiresKey = !allowDecisionWithoutArtifacts || jobHasDecryptableRunOutcome(job.files ?? [])
 
     const isLocked = requiresKey && decryptedFiles === null
+    // Non-null with no key step, which is what flips UnlockedPhase on: with nothing to decrypt the
+    // reviewer goes straight to the decision, and there are no files to list.
+    const reviewableFiles = requiresKey ? decryptedFiles : NO_FILES
     // Stays on the errored banner when there is nothing to decrypt: the unlocked banner warns about
     // sharing outputs, and there are none.
     const banner = requiresKey && !isLocked ? unlockedBanner : lockedBanner
@@ -98,7 +104,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     onDecrypted={setDecryptedFiles}
                 />
                 <UnlockedPhase
-                    decryptedFiles={requiresKey ? decryptedFiles : []}
+                    decryptedFiles={reviewableFiles}
                     canShareOutputs={requiresKey}
                     orgSlug={orgSlug}
                     studyId={studyId}
