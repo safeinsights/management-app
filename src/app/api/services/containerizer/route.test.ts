@@ -109,6 +109,93 @@ test('containerizer persists JOB-ERRORED once and is idempotent for same status'
     expect(afterSecondErr).toBe(afterFirstErr)
 })
 
+async function erroredReasons(jobId: string) {
+    const rows = await db
+        .selectFrom('jobStatusChange')
+        .select(['message'])
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    return rows.map((r) => r.message)
+}
+
+// OTTER-524: a packaging failure has no log to send, so a classified failure class is the only thing
+// that can explain it. It has to survive the round trip into jobStatusChange.
+test('containerizer records a known failure reason alongside JOB-ERRORED', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toContain('BASE_IMAGE_UNAVAILABLE')
+})
+
+// The containerizer deploys independently of this app. A code we do not recognize yet must not fail
+// validation, or that deploy would stop jobs being marked errored at all. It is dropped, not stored.
+test('containerizer accepts an unknown failure reason without storing it', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'SOMETHING_WE_DO_NOT_KNOW' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).not.toContain('SOMETHING_WE_DO_NOT_KNOW')
+})
+
+// Nothing a build script writes may be stored verbatim, so infrastructure detail cannot reach the
+// database and be surfaced later by accident.
+test('containerizer discards raw text sent as a failure reason', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const raw = 'Command "aws s3 sync s3://si-prod-bucket/studies/org/study/jobs/job/code" exited with code 1'
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: raw }))
+    expect(resp.ok).toBe(true)
+
+    const reasons = await erroredReasons(jobId)
+    expect(reasons).not.toContain(raw)
+    expect(reasons.every((r) => !r?.includes('s3://'))).toBe(true)
+})
+
+// A classified failure is delivered twice: the build script posts the reason from its own handler,
+// then the buildspec's post_build fallback fires and posts the bare payload. The script always goes
+// first, so the status dedup has to leave the classified row alone rather than the bare one winning.
+test('containerizer keeps the recorded reason when the bare fallback follows it', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const first = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(first.ok).toBe(true)
+    const second = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
+    expect(second.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
+// The buildspec's fallback path posts the payload raw when the build dies before its own handler
+// runs, so a reason-less failure webhook has to stay valid permanently.
+test('containerizer still accepts a failure webhook with no reason', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toContain(null)
+})
+
 test('logs error with context on invalid payload', async () => {
     const resp = await apiHandler.POST(authedRequest({ jobId: 'job-invalid', status: 'INVALID_STATUS' }))
     expect(resp.ok).toBe(false)

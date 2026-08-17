@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FileType, StudyJobStatus } from '@/database/types'
 import { jobHasDecryptableRunOutcome } from './file-type-helpers'
 import {
+    isKnownFailureReason,
     jobErrorDetails,
     jobFailureStage,
     KEY_PROMPT_TEXT,
@@ -92,6 +93,54 @@ describe('jobErrorDetails', () => {
         const details = jobErrorDetails(packagingFailure, files('PACKAGING-ERROR-LOG', 'ENCRYPTED-PACKAGING-ERROR-LOG'))
 
         expect(details.logSentence).toBe(KEY_PROMPT_TEXT)
+    })
+})
+
+// OTTER-524: the reviewer may see only sentences this app authored. Everything a service recorded is
+// classified first, so no AWS or deployment detail can reach a screen another organization reads.
+describe('recorded failure reasons', () => {
+    const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
+
+    it('explains a known failure class in our own words', () => {
+        const details = jobErrorDetails(packagingFailure, [], 'BASE_IMAGE_UNAVAILABLE')
+
+        expect(details.explanation).toContain('could not be found or could not be accessed')
+        expect(details.explanation).toContain('Code Environments page')
+    })
+
+    it('falls back to the stage sentence when no reason was recorded', () => {
+        expect(jobErrorDetails(packagingFailure, [], null).explanation).toBe(
+            jobErrorDetails(packagingFailure, []).explanation,
+        )
+    })
+
+    // A containerizer deploy can introduce a code before this app knows it. Unknown means silent.
+    it('drops an unrecognized code rather than showing it', () => {
+        const details = jobErrorDetails(packagingFailure, [], 'SOMETHING_WE_DO_NOT_KNOW')
+
+        expect(details.explanation).not.toContain('SOMETHING_WE_DO_NOT_KNOW')
+        expect(details.explanation).toBe(jobErrorDetails(packagingFailure, []).explanation)
+    })
+
+    // The enclave writes a raw thrown AWS error into this same column today. This is the guard that
+    // stops bucket names, ARNs, and account ids reaching the screen from any producer.
+    it.each([
+        'Command "aws s3 sync s3://si-prod-bucket/studies/x/y/jobs/z/code" exited with code 1',
+        'User: arn:aws:sts::123456789012:assumed-role/MgmntAppContainerizer/abc is not authorized',
+        'CannotPullContainerError: ref pull has been retried 5 time(s)',
+    ])('never renders raw service text: %s', (raw) => {
+        const details = jobErrorDetails(packagingFailure, [], raw)
+
+        expect(details.explanation).toBe(jobErrorDetails(packagingFailure, []).explanation)
+        expect(details.explanation + details.logSentence).not.toContain(raw)
+    })
+
+    it('classifies only the codes it declares', () => {
+        expect(isKnownFailureReason('BASE_IMAGE_UNAVAILABLE')).toBe(true)
+        expect(isKnownFailureReason('base_image_unavailable')).toBe(false)
+        expect(isKnownFailureReason('')).toBe(false)
+        expect(isKnownFailureReason(null)).toBe(false)
+        expect(isKnownFailureReason(undefined)).toBe(false)
     })
 })
 

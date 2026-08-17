@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import { throwNotFound } from '@/lib/errors'
+import { isKnownFailureReason } from '@/lib/job-error-details'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -9,6 +10,13 @@ const schema = z.object({
     jobId: z.string(),
     status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
+    // OTTER-524: the failure class the build reports on JOB-ERRORED, e.g. BASE_IMAGE_UNAVAILABLE.
+    //
+    // Deliberately z.string() rather than z.enum, and deliberately optional. A code this app does not
+    // recognize yet must not fail validation: the containerizer deploys independently, so rejecting
+    // an unknown code would stop the job ever being marked errored at all. The buildspec's fallback
+    // path also always posts a code-less payload. Unknown values are discarded on the insert below.
+    failureReason: z.string().optional(),
 })
 
 export const POST = createWebhookHandler({
@@ -66,6 +74,9 @@ export const POST = createWebhookHandler({
                     userId: job.researcherId,
                     studyJobId: job.jobId,
                     status: body.status,
+                    // Store only classified codes, so unvetted text a build script sent never lands
+                    // in the database at all and no future reader can surface it by accident.
+                    message: isKnownFailureReason(body.failureReason) ? body.failureReason : null,
                 })
                 .execute()
         }

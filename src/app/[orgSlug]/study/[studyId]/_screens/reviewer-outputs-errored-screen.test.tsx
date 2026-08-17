@@ -281,6 +281,39 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent('The code ran in the secure enclave')
     })
 
+    // OTTER-524: a classified failure class replaces the derived stage sentence, in our own wording.
+    it('explains a recorded failure class in place of the stage sentence', async () => {
+        const { org, study, job } = await setupErrored()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
+            .execute()
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('could not be found or could not be accessed')
+        expect(alert).toHaveTextContent('Code Environments page')
+    })
+
+    // The guard that keeps AWS detail off this screen whichever service wrote the row. The enclave
+    // writes a raw thrown error into this same column, so it must never reach the reviewer.
+    it('never renders raw service text recorded against the status', async () => {
+        const { org, study, job } = await setupErrored()
+        const raw = 'Command "aws s3 sync s3://si-secret-bucket/studies/x/code" exited with code 1'
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: raw })
+            .execute()
+        const rawState = await requireRawState(study.id)
+        await renderScreen({ study, raw: rawState }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).not.toHaveTextContent('s3://')
+        expect(alert).not.toHaveTextContent('si-secret-bucket')
+        expect(alert).toHaveTextContent('The code environment image could not be prepared')
+    })
+
     it('asks for no key when the run produced nothing to decrypt', async () => {
         const { org, study, raw } = await setupErrored()
         await renderScreen({ study, raw }, org.slug)

@@ -63,6 +63,25 @@ function errorLogSentence(files: ReadonlyArray<{ fileType: FileType }>): string 
     return NO_ERROR_LOG_TEXT
 }
 
+/**
+ * Failure classes a build service may report alongside JOB-ERRORED (OTTER-524).
+ *
+ * A stable code, never prose. The management app owns every user-facing sentence, which means copy
+ * changes without an infra deploy, and no text written by a build script can reach a reviewer's
+ * screen. Adding a code here is what makes it renderable; until then it is dropped.
+ */
+export const JOB_FAILURE_REASONS = ['BASE_IMAGE_UNAVAILABLE'] as const
+export type JobFailureReason = (typeof JOB_FAILURE_REASONS)[number]
+
+export function isKnownFailureReason(value: string | null | undefined): value is JobFailureReason {
+    return !!value && (JOB_FAILURE_REASONS as readonly string[]).includes(value)
+}
+
+const FAILURE_REASON_EXPLANATION: Record<JobFailureReason, string> = {
+    BASE_IMAGE_UNAVAILABLE:
+        'The code environment image could not be found or could not be accessed, so the code never ran. Check the image URL on the Code Environments page.',
+}
+
 export type JobErrorDetails = {
     /** Plain-language sentence naming the stage that failed. Always present. */
     explanation: string
@@ -70,13 +89,26 @@ export type JobErrorDetails = {
     logSentence: string
 }
 
-/** Resolves what the reviewer's errored screen should say about a failed run. */
+/**
+ * Resolves what the reviewer's errored screen should say about a failed run.
+ *
+ * `recordedReason` is whatever a service stored against the status. It is classified against
+ * JOB_FAILURE_REASONS and NEVER rendered as-is: anything unrecognized falls back to the stage
+ * sentence. That single rule is what keeps AWS and deployment detail off a screen another
+ * organization reads, and it covers every producer at once. The enclave, for instance, writes a raw
+ * thrown AWS error into this same column today, and it will never be displayed.
+ *
+ * Optional so the screen behaves identically before any service sends a code.
+ */
 export function jobErrorDetails(
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
     files: ReadonlyArray<{ fileType: FileType }>,
+    recordedReason: string | null = null,
 ): JobErrorDetails {
     return {
-        explanation: STAGE_EXPLANATION[jobFailureStage(statusChanges)],
+        explanation: isKnownFailureReason(recordedReason)
+            ? FAILURE_REASON_EXPLANATION[recordedReason]
+            : STAGE_EXPLANATION[jobFailureStage(statusChanges)],
         logSentence: errorLogSentence(files),
     }
 }

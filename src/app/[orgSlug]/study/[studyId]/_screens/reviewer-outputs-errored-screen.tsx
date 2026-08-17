@@ -8,7 +8,7 @@ import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
 // OTTER-524: this banner used to promise error logs unconditionally. For the two commonest failures
@@ -44,9 +44,12 @@ export async function ReviewerOutputsErroredScreen({
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
     const erroredAt = latestStatusAt(job.statusChanges, 'JOB-ERRORED')
+    // Read here rather than from the job payload: the reason lives on a reviewer-scoped query so it
+    // never reaches the researcher, and jobErrorDetails drops anything it cannot classify.
+    const recordedReason = await latestRecordedJobFailureReason(job.id)
     // Both the banner copy and the panel's key gate read the same file list through the same
     // predicate, so the screen cannot promise a key form it does not render (OTTER-524).
-    const details = jobErrorDetails(job.statusChanges, job.files ?? [])
+    const details = jobErrorDetails(job.statusChanges, job.files ?? [], recordedReason)
 
     return (
         <OutputsReviewPanel

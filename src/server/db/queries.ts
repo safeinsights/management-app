@@ -135,6 +135,34 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
+/**
+ * The reason a service recorded on the job's most recent JOB-ERRORED row, or null (OTTER-524).
+ *
+ * A separate narrow query on purpose: `jobStatusChange.message` must NOT be selected in
+ * `latestJobForStudyQuery` or `getStudyJobInfo`, because both feed actions the submitting researcher
+ * is allowed to call, and this column can hold text written by a build service or a raw AWS error
+ * from the enclave. Read it only where the audience is a reviewer.
+ *
+ * The value is unvetted by construction, so callers MUST classify it before display. `jobErrorDetails`
+ * is the only intended consumer and it renders nothing it does not recognize.
+ *
+ * Ordered in SQL rather than in memory because a retried delivery can append a second row for the
+ * same status, and callers should not inherit a hidden ordering contract.
+ */
+export async function latestRecordedJobFailureReason(studyJobId: string): Promise<string | null> {
+    const row = await Action.db
+        .selectFrom('jobStatusChange')
+        .select('message')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return row?.message ?? null
+}
+
 // Submission version = 1 + the number of times a NEW submission round was opened across the whole
 // study. A new round opens for one of two reasons, each recorded once in the status history:
 //   - CODE-CHANGES-REQUESTED — the reviewer asked for changes (same-job resubmit, OTTER-316).
