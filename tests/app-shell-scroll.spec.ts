@@ -48,9 +48,8 @@ test.describe('scroll padding for the fixed app shell bars', () => {
         // header settles into place over a few frames (fonts at load, the shell's own transition
         // after a viewport change) while the reservation takes its final value immediately, so a
         // single read can catch a part-way header against a settled reservation and compare two
-        // moments in time. That is a race, not a broken reservation: it reported a 55px or 59px
-        // header against a 60px reservation, differing per run, and passed on re-run of the same
-        // commit. A genuinely missing reservation never converges and still fails here.
+        // moments in time. That is a race, not a broken reservation, and a genuinely missing
+        // reservation still fails here because it never converges.
         const expectReservationToMatchHeader = async ({ mustCover = false } = {}) => {
             await expect(async () => {
                 const { covers, scrollPaddingTop } = await headerCoverage()
