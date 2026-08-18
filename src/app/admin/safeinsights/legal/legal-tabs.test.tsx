@@ -12,7 +12,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 describe('LegalTabs', () => {
-    it('opens on Terms of Service and switches to the SLA panel', async () => {
+    it('opens on Terms of Service and switches to the study agreement panel', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
         renderWithProviders(<LegalTabs />)
@@ -22,7 +22,7 @@ describe('LegalTabs', () => {
 
         fireEvent.click(screen.getByRole('tab', { name: 'Study Agreements' }))
 
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed SLA' })).toBeDefined())
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed study agreement' })).toBeDefined())
         expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull()
     })
 })

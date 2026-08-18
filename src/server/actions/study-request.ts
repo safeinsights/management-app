@@ -35,7 +35,7 @@ import {
     resubmissionNoteWordCount,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
-import { requireStudyAgreementAcknowledged } from '@/server/study-agreement'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -531,9 +531,8 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
-        await requireStudyAgreementAcknowledged(db, { studyId, userId: session.user.id })
-
         if (fileNames.length === 0) {
             throw new Error('No files provided')
         }
@@ -854,10 +853,9 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
-
-        await requireStudyAgreementAcknowledged(db, { studyId, userId: session.user.id })
 
         // Same projected-state eligibility as the autosave action and the resubmit page: order-independent
         // (a late CODE-SCANNED sorting to the top can't mask the decision) and liveness-aware (a study

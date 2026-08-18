@@ -5,7 +5,7 @@ import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Tabs } from '@mantine/core'
 import { TosPnPanel } from './tos-pn/tos-pn'
 import { ParticipationAgreements } from './participation/participation-agreements'
-import { StudyLevelAgreements } from './sla/study-level-agreements'
+import { StudyAgreements } from './study-agreement/study-agreements'
 
 // keepMounted={false} so a tab's queries only run once its panel is opened.
 export const LegalTabs: FC = () => (
@@ -32,7 +32,7 @@ export const LegalTabs: FC = () => (
             <ParticipationAgreements type="ROPA" />
         </Tabs.Panel>
         <Tabs.Panel value="SLA" pt="md">
-            <StudyLevelAgreements />
+            <StudyAgreements />
         </Tabs.Panel>
     </Tabs>
 )

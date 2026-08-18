@@ -124,7 +124,7 @@ describe('fetchParticipationSignatoriesAction', () => {
     })
 
     // Renewing is a new version of the same document, so signing once does not take an org off the
-    // list the way it does for a study's SLA.
+    // list the way it does for a study agreement.
     it('keeps offering an org that has already signed', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('DOPA')

@@ -13,7 +13,7 @@ import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
-import { StudyLevelAgreements } from './study-level-agreements'
+import { StudyAgreements } from './study-agreements'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -26,7 +26,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-// An approved study with no SLA yet: what the upload cascade offers, and what the form's empty
+// An approved study with no study agreement yet: what the upload cascade offers, and what the form's empty
 // state depends on the absence of.
 const seedApprovedStudy = async (title: string) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -58,14 +58,18 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
     const seeded = await seedApprovedStudy(title)
 
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'SLA', studyId: seeded.study.id, fileName: 'sla.pdf' }),
+        await createLegalDocumentDraftAction({
+            type: 'SLA',
+            studyId: seeded.study.id,
+            fileName: 'study-agreement.pdf',
+        }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 
     return seeded
 }
 
-// Scoped to one study's row: the table shows every SLA the suite has seeded.
+// Scoped to one study's row: the table shows every agreement the suite has seeded.
 const openNewVersionFor = async (title: string) => {
     await waitFor(() => expect(screen.getByText(title)).toBeDefined())
     const row = screen.getByText(title).closest('tr')
@@ -80,13 +84,13 @@ const chooseFile = (name: string) => {
     fireEvent.change(input, { target: { files: [new File(['pdf bytes'], name, { type: 'application/pdf' })] } })
 }
 
-describe('StudyLevelAgreements', () => {
+describe('StudyAgreements', () => {
     it('shows a published agreement with its study, orgs and the signed date in the app date format', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const title = `SLA study ${faker.string.alpha(6)}`
+        const title = `Study agreement ${faker.string.alpha(6)}`
         const { dataPartner, researchLab } = await seedSignedSla({ signedAt: '2026-07-27', title })
 
-        renderWithProviders(<StudyLevelAgreements />)
+        renderWithProviders(<StudyAgreements />)
 
         await waitFor(() => expect(screen.getByText(title)).toBeDefined())
         const row = screen.getByText(title).closest('tr')!
@@ -99,10 +103,10 @@ describe('StudyLevelAgreements', () => {
 
     it('carries the study over when adding a version, collecting only a date and file', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const title = `SLA study ${faker.string.alpha(6)}`
+        const title = `Study agreement ${faker.string.alpha(6)}`
         await seedSignedSla({ signedAt: '2026-07-27', title })
 
-        renderWithProviders(<StudyLevelAgreements />)
+        renderWithProviders(<StudyAgreements />)
 
         await openNewVersionFor(title)
 
@@ -113,21 +117,21 @@ describe('StudyLevelAgreements', () => {
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
 
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
-        chooseFile('signed-sla.pdf')
+        chooseFile('signed-study-agreement.pdf')
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
     })
 
     it('lists the study, orgs, date and file in the publish confirmation', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const title = `SLA study ${faker.string.alpha(6)}`
+        const title = `Study agreement ${faker.string.alpha(6)}`
         const { dataPartner, researchLab } = await seedSignedSla({ signedAt: '2026-07-27', title })
 
-        renderWithProviders(<StudyLevelAgreements />)
+        renderWithProviders(<StudyAgreements />)
 
         await openNewVersionFor(title)
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
-        chooseFile('signed-sla.pdf')
+        chooseFile('signed-study-agreement.pdf')
 
         fireEvent.click(await screen.findByRole('button', { name: 'Publish' }))
 
@@ -142,9 +146,9 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText(researchLab.name)).toBeDefined()
         expect(within(confirmation).getByText(dataPartner.name)).toBeDefined()
         expect(within(confirmation).getByText('Aug 03, 2026')).toBeDefined()
-        expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
+        expect(within(confirmation).getByText('signed-study-agreement.pdf')).toBeDefined()
         // Says what publishing does — files the agreement — and nothing about acknowledgement, which
-        // an sla does not trigger: only tos/pn are in enforcedLegalDocumentTypes.
+        // a study agreement does not trigger: only tos/pn are in enforcedLegalDocumentTypes.
         expect(within(confirmation).getByText(/becomes the current Study Agreement on record/)).toBeDefined()
         expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
@@ -154,14 +158,14 @@ describe('StudyLevelAgreements', () => {
     // same agreement, irreversibly.
     it('keeps the confirmation up and the form locked while publishing', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const title = `SLA study ${faker.string.alpha(6)}`
+        const title = `Study agreement ${faker.string.alpha(6)}`
         await seedSignedSla({ signedAt: '2026-07-27', title })
 
-        renderWithProviders(<StudyLevelAgreements />)
+        renderWithProviders(<StudyAgreements />)
 
         await openNewVersionFor(title)
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
-        chooseFile('signed-sla.pdf')
+        chooseFile('signed-study-agreement.pdf')
         fireEvent.click(await screen.findByRole('button', { name: 'Publish' }))
 
         const confirmation = await waitFor(() => {
@@ -180,13 +184,13 @@ describe('StudyLevelAgreements', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         // Seeded rather than relying on whatever else the suite left approved: with no candidates
         // the form renders its empty state and there are no selects to assert on.
-        await seedApprovedStudy(`SLA candidate ${faker.string.alpha(6)}`)
+        await seedApprovedStudy(`Study agreement candidate ${faker.string.alpha(6)}`)
 
-        renderWithProviders(<StudyLevelAgreements />)
+        renderWithProviders(<StudyAgreements />)
 
-        fireEvent.click(screen.getByRole('button', { name: 'Upload signed SLA' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Upload signed study agreement' }))
 
-        await waitFor(() => expect(screen.getByText('Upload a signed SLA')).toBeDefined())
+        await waitFor(() => expect(screen.getByText('Upload a signed study agreement')).toBeDefined())
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
         expect(screen.getByLabelText('Signed on')).toBeDefined()
         expect(screen.getByText('Signed Study Agreement')).toBeDefined()
@@ -196,10 +200,10 @@ describe('StudyLevelAgreements', () => {
 
     it('opens the version history for a study without loading it up front', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const title = `SLA study ${faker.string.alpha(6)}`
+        const title = `Study agreement ${faker.string.alpha(6)}`
         await seedSignedSla({ signedAt: '2026-07-27', title })
 
-        renderWithProviders(<StudyLevelAgreements />)
+        renderWithProviders(<StudyAgreements />)
 
         await waitFor(() => expect(screen.getByText(title)).toBeDefined())
         const row = screen.getByText(title).closest('tr')

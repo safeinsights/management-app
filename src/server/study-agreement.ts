@@ -1,5 +1,6 @@
 import { type DBExecutor } from '@/database'
 import { ActionFailure } from '@/lib/errors'
+import { type UserSession } from '@/lib/types'
 import { hasAcknowledgedLegalDocumentVersion, latestPublishedStudyAgreement } from './db/legal-document'
 
 export const STUDY_AGREEMENT_REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
@@ -29,3 +30,19 @@ export const requireStudyAgreementAcknowledged = async (
         throw new ActionFailure({ studyAgreement: STUDY_AGREEMENT_REQUIRED_MESSAGE })
     }
 }
+
+// Action-chain form of the guard, declared after .requireAbilityTo so it cannot drift into the
+// middle of a handler. studyId stays per-action rather than being read off params generically:
+// submitOutputsDecisionAction trusts only the job id and derives the study from it.
+export const requireStudyAgreement =
+    <Ctx extends { session?: UserSession; db: DBExecutor }>(getStudyId: (ctx: Ctx) => string) =>
+    async (ctx: Ctx) => {
+        if (!ctx.session) throw new ActionFailure({ user: 'is not logged in' })
+
+        await requireStudyAgreementAcknowledged(ctx.db, {
+            studyId: getStudyId(ctx),
+            userId: ctx.session.user.id,
+        })
+
+        return {}
+    }

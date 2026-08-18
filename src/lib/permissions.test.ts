@@ -235,7 +235,7 @@ test('acknowledging a legal document is bounded by the audience it binds', () =>
         ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [otherOrgId] })),
     ).toBe(false)
 
-    // An sla names both of its study's orgs; belonging to either side is enough.
+    // A study agreement names both of its study's orgs; belonging to either side is enough.
     expect(
         ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [otherOrgId, orgId] })),
     ).toBe(true)

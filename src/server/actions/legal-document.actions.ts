@@ -69,7 +69,7 @@ const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentT
 /**
  * Resolves who a version binds, for the ability check to match on.
  *
- * tos/pn bind everyone (isGlobal). A ropa/dopa binds its org; an sla binds both of its study's orgs
+ * tos/pn bind everyone (isGlobal). A ropa/dopa binds its org; a study agreement binds both of its study's orgs
  * — the Data Partner holding the data (study.orgId) and the Research Lab that submitted it
  * (study.submittedByOrgId) — which is the same audience the upload confirmation names. An unknown
  * versionId yields no audience at all, so every condition fails closed.
@@ -528,7 +528,7 @@ export const fetchParticipationSignatoriesAction = new Action('fetchParticipatio
             .execute(),
     )
 
-export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
+export const fetchStudyAgreementsAction = new Action('fetchStudyAgreementsAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
@@ -576,11 +576,11 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
     })
 
-export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSlaAction')
+export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudiesAwaitingStudyAgreementAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
-        // Approved only: an SLA is drawn up after approval, so earlier studies have nothing signed.
+        // Approved only: a study agreement is drawn up after approval, so earlier studies have nothing signed.
         return await db
             .selectFrom('study')
             .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')

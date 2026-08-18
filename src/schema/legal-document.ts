@@ -14,10 +14,10 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
-// are global — one document each, no org or study scope — so the audience is simply everybody.
-// Adding sla here also means retiring study.researcherAgreementsAckedAt / reviewerAgreementsAckedAt;
-// two agreement gates on the same study would disagree.
+// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/study
+// agreements these are global — one document each, no org or study scope — so the audience is simply
+// everybody. Adding the study agreement here also means retiring study.researcherAgreementsAckedAt /
+// reviewerAgreementsAckedAt: two agreement gates on the same study would disagree.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
@@ -68,7 +68,7 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'sla must belong to a study' })
+        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })
@@ -178,8 +178,8 @@ export const legalDocumentQueryKeys = {
         ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
-    studyLevelAgreements: () => ['studyLevelAgreements'] as const,
-    studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+    studyAgreements: () => ['studyAgreements'] as const,
+    studiesAwaitingStudyAgreement: () => ['studiesAwaitingStudyAgreement'] as const,
     // Per study: the layout's gate and the proposal step's notice share the entry, so one request
     // answers both.
     studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,

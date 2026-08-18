@@ -1,5 +1,5 @@
 import { expect, goto, test, withRole, type Page } from './e2e.helpers'
-import { seedApprovedWithPublishedSla } from './e2e.seed'
+import { seedApprovedWithPublishedStudyAgreement } from './e2e.seed'
 
 // Study-scoped, unlike the global Terms of Service, so this spec publishes its own at runtime against
 // a uniquely-titled study and needs no dedicated role.
@@ -24,8 +24,8 @@ test('a study with an unacknowledged Study Agreement is blocked until it is ackn
     browser,
     studyFeatures,
 }) => {
-    const studyTitle = studyFeatures.uniqueTitle('sla-gate')
-    await seedApprovedWithPublishedSla(studyTitle)
+    const studyTitle = studyFeatures.uniqueTitle('study-agreement-gate')
+    await seedApprovedWithPublishedStudyAgreement(studyTitle)
 
     await withRole(browser, 'researcher', async (page) => {
         await openStudy(page, studyTitle)

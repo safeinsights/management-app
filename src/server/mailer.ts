@@ -66,8 +66,8 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// TODO(SHRMP-277, Iris): sendSlaPreparationEmail — SI admin needs the study id and proposal URL to
-// draw the SLA up by hand in Zoho Sign.
+// TODO(SHRMP-277, Iris): sendStudyAgreementPreparationEmail — SI admin needs the study id and proposal URL to
+// draw the agreement up by hand in Zoho Sign.
 
 // Audience: reviewer, Trigger: Status == Code Needs Review
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {

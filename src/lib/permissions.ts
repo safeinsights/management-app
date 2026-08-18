@@ -54,7 +54,7 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Orgs')
 
     // Who may acknowledge a document is who the document binds. tos/pn are global, so everyone; a
-    // ropa/dopa binds its org's members and an sla binds both of its study's orgs, which the actions'
+    // ropa/dopa binds its org's members and a study agreement binds both of its study's orgs, which the actions'
     // middleware resolves into audienceOrgIds. Two OR-combined rules rather than one unconditioned
     // rule, so a crafted versionId cannot record consent to another org's agreement. Both conditions
     // fail closed when their field is absent. Deliberately does NOT widen 'view', which would hand

@@ -291,7 +291,7 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
 
 // APPROVED proposal with a published Study Agreement nobody has acknowledged. Study-scoped, unlike
 // the Terms of Service, so publishing it from inside a spec cannot reach another worker's user.
-export async function seedApprovedWithPublishedSla(title: string): Promise<SeedResult> {
+export async function seedApprovedWithPublishedStudyAgreement(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
 
     const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId: study.id })
@@ -318,7 +318,7 @@ export async function seedApprovedWithPublishedSla(title: string): Promise<SeedR
     return { studyId: study.id }
 }
 
-// As above but against a named org pair. For local dev seeding only: an SLA belongs to a
+// As above but against a named org pair. For local dev seeding only: a study agreement belongs to a
 // study, so the admin's Data Partner > Research Lab > study picker is empty until studies
 // exist across more than one pair.
 export async function seedStudyFor(

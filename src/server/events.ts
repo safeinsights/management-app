@@ -102,7 +102,7 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
-    // TODO(SHRMP-277, Iris): call sendSlaPreparationEmail once it exists in mailer.ts
+    // TODO(SHRMP-277, Iris): call sendStudyAgreementPreparationEmail once it exists in mailer.ts
 
     await capturePostHogEvent({
         distinctId: userId,

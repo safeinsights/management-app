@@ -39,7 +39,7 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
-import { requireStudyAgreementAcknowledged } from '@/server/study-agreement'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 // Shared middleware for feedback actions that need study org/permission context.
 const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
@@ -754,10 +754,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('review', 'Study')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
         const userId = session.user.id
-
-        await requireStudyAgreementAcknowledged(db, { studyId, userId })
 
         const { json, wordCount } = normalizeFeedbackToLexical(feedback)
         if (wordCount < FEEDBACK_MIN_WORDS) {
