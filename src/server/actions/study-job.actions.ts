@@ -26,6 +26,7 @@ import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested 
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
+import { requireStudyAgreementAcknowledged } from '@/server/study-agreement'
 
 /**
  * Guards what "share outputs" actually promises: the lab can open every encrypted artifact of
@@ -193,6 +194,8 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         const userId = session.user.id
         const studyId = studyJob.studyId
         const studyJobId = studyJob.studyJobId
+
+        await requireStudyAgreementAcknowledged(db, { studyId, userId })
         const jobStatuses = studyJob.statusChanges.map((change) => change.status)
 
         // Server-side state gate. UI routing decides which screen renders, but it is not an

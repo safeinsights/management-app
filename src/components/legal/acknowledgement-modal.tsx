@@ -1,7 +1,8 @@
 'use client'
 
-import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
+import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
+import { BlockingModal } from './blocking-modal'
 import { LegalDocumentSection } from './document-sections'
 import {
     legalAcknowledgementBody,
@@ -51,16 +52,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
     if (!isVisible || !document) return null
 
     return (
-        <Modal
-            opened
-            onClose={() => {}}
-            title={legalAcknowledgementTitle(document)}
-            size="lg"
-            centered
-            withCloseButton={false}
-            closeOnEscape={false}
-            closeOnClickOutside={false}
-        >
+        <BlockingModal title={legalAcknowledgementTitle(document)}>
             <Stack>
                 <Text>{legalAcknowledgementBody(document)}</Text>
 
@@ -84,6 +76,6 @@ export const LegalAcknowledgementModal: FC<Props> = ({
                     </Button>
                 </Group>
             </Stack>
-        </Modal>
+        </BlockingModal>
     )
 }

@@ -5,6 +5,7 @@ import { Alert, Button, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
@@ -191,6 +192,7 @@ export function ProposalSubmitted({
                     entries={entries}
                     initialExpanded={false}
                 />
+                <StudyAgreementPreparingNotice studyId={study.id} isVisible={proposalStatus === 'APPROVED'} />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
                 <ProposalNavigation orgSlug={orgSlug} study={study} returnTo={returnTo} />

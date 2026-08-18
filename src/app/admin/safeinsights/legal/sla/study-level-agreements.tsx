@@ -57,7 +57,7 @@ export const StudyLevelAgreements: FC = () => {
     return (
         <Stack>
             <Flex justify="space-between" align="center">
-                <Title order={2}>Study Level Agreements</Title>
+                <Title order={2}>Study Agreements</Title>
                 <Button onClick={openUpload}>Upload signed SLA</Button>
             </Flex>
             <AppModal

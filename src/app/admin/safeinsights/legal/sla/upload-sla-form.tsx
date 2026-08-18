@@ -164,7 +164,7 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
 // Says nothing about acknowledgement: an sla is filed here, not enforced — only tos/pn are in
 // enforcedLegalDocumentTypes.
 const PUBLISH_CONSEQUENCE =
-    'This becomes the current Study Level Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
+    'This becomes the current Study Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
 
 // Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
 // and only a new date and file are collected. Without one, the study is picked from the cascade.
@@ -187,7 +187,7 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
             <ChosenStudyFields details={sla} />
             <VersionNote sla={sla} />
             <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
-            <PdfDropzone label="Signed Study Level Agreement" file={upload.file} onChange={upload.setFile} />
+            <PdfDropzone label="Signed Study Agreement" file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
                 <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>
                     Publish

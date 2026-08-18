@@ -28,3 +28,37 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
 
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
+
+// Newest published Study Agreement for a study, with the orgs it binds. Undefined until an SI admin
+// publishes one, which is the ordinary state for a freshly approved study.
+export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =>
+    db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.filePath as filePath',
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+        ])
+        .where('legalDocument.type', '=', 'SLA')
+        .where('legalDocument.studyId', '=', studyId)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+export const hasAcknowledgedLegalDocumentVersion = async (
+    db: DBExecutor,
+    { versionId, userId }: { versionId: string; userId: string },
+) => {
+    const ack = await db
+        .selectFrom('legalDocumentAcknowledgement')
+        .select('id')
+        .where('legalDocumentVersionId', '=', versionId)
+        .where('userId', '=', userId)
+        .executeTakeFirst()
+
+    return Boolean(ack)
+}

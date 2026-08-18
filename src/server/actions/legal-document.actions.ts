@@ -16,9 +16,16 @@ import {
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
+    studyAgreementStatusSchema,
+    type StudyAgreementStatus,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
-import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
+import {
+    findLegalDocument,
+    findOrCreateLegalDocument,
+    hasAcknowledgedLegalDocumentVersion,
+    latestPublishedStudyAgreement,
+} from '../db/legal-document'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
 
@@ -58,6 +65,22 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
         audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
             (orgId): orgId is string => orgId != null,
         ),
+    }
+}
+
+// As scopeFromVersionId, but for a caller holding a study rather than a version. An unknown studyId
+// yields an empty audience, so the condition fails closed.
+const scopeFromStudyId = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId as dataPartnerId', 'submittedByOrgId as researchLabId'])
+        .where('id', '=', studyId)
+        .executeTakeFirst()
+
+    return {
+        studyId,
+        isGlobal: false,
+        audienceOrgIds: study ? [study.dataPartnerId, study.researchLabId] : [],
     }
 }
 
@@ -119,7 +142,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .selectFrom('legalDocumentVersion')
             .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
             .selectAll('legalDocumentVersion')
-            .select('legalDocument.type as type')
+            .select(['legalDocument.type as type', 'legalDocument.studyId as studyId'])
             .where('legalDocumentVersion.id', '=', versionId)
             .executeTakeFirstOrThrow()
 
@@ -145,7 +168,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
 
         // The publishedAt guard makes a concurrent second publish claim zero rows and throw rather
         // than overwrite the first.
-        return await db
+        const published = await db
             .updateTable('legalDocumentVersion')
             .set({
                 publishedAt: new Date(),
@@ -157,6 +180,15 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .where('publishedAt', 'is', null)
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        // Follow-up: enable once the Mailgun template exists (needs the import from '../events'). Kept
+        // here because publishing is the only moment that both parties become owing, so it is the one
+        // place the notification can be triggered from.
+        // if (version.type === 'SLA' && version.studyId) {
+        //     onStudyAgreementPublished({ studyId: version.studyId })
+        // }
+
+        return published
     })
 
 export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVersionsAction')
@@ -553,4 +585,38 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .orderBy('researchLab.name')
             .orderBy('study.title')
             .execute()
+    })
+
+/**
+ * What the signed-in user's Study Agreement situation is for one study.
+ *
+ * Drives both the blocking modal and the proposal step's "being prepared" notice, so those two
+ * cannot disagree. `none` is returned to anyone the agreement does not bind — an SI admin holds
+ * `manage all` and so passes the ability check, but is the counterparty to every agreement and never
+ * a signatory, and recording an acknowledgement from them would put SafeInsights in its own audit.
+ */
+export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementStatusAction')
+    .params(studyAgreementStatusSchema)
+    .middleware(scopeFromStudyId)
+    .requireAbilityTo('acknowledge', 'LegalDocument')
+    .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
+        const agreement = await latestPublishedStudyAgreement(db, studyId)
+        if (!agreement) return { state: 'none' }
+
+        const usersOrgIds = Object.values(session.orgs).map((org) => org.id)
+        const isParty = [agreement.dataPartnerId, agreement.researchLabId].some((orgId) => usersOrgIds.includes(orgId))
+        if (!isParty) return { state: 'none' }
+
+        if (
+            await hasAcknowledgedLegalDocumentVersion(db, { versionId: agreement.versionId, userId: session.user.id })
+        ) {
+            return { state: 'acknowledged' }
+        }
+
+        return {
+            state: 'pending',
+            versionId: agreement.versionId,
+            // Inline so the link opens the agreement in a tab to be read, rather than downloading it.
+            downloadUrl: await signedUrlForFile(agreement.filePath, { ResponseContentDisposition: 'inline' }),
+        }
     })

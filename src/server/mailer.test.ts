@@ -51,6 +51,38 @@ describe('mailgun email functions', () => {
         )
     })
 
+    it('sendStudyAgreementReadyEmail reaches the researcher, in Bcc', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        const researcher = await getUser(study.researcherId)
+
+        await mailgun.sendStudyAgreementReadyEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: SI_EMAIL,
+                bcc: expect.stringContaining(researcher.email || ''),
+                subject: expect.stringContaining('Study Agreement'),
+                vars: expect.objectContaining({ studyTitle: study.title }),
+            }),
+        )
+    })
+
+    // piName is a plain string on the proposal, so most studies have no second address to reach. The
+    // PI is only mailable once piUserId points at an account.
+    it('sendStudyAgreementReadyEmail adds the PI once they hold an account, without duplicating them', async () => {
+        const { study, user1 } = await insertTestOrgStudyJobUsers()
+        await db.updateTable('study').set({ piUserId: user1.id }).where('id', '=', study.id).execute()
+        const researcher = await getUser(study.researcherId)
+
+        await mailgun.sendStudyAgreementReadyEmail(study.id)
+
+        const { bcc } = deliverMock.mock.calls.at(-1)![0]
+        const recipients = (bcc as string).split(', ')
+        expect(recipients).toContain(user1.email)
+        expect(recipients).toContain(researcher.email)
+        expect(new Set(recipients).size).toBe(recipients.length)
+    })
+
     it('sendStudyCodeSubmittedEmail sends all org members in Bcc, not To (OTTER-651)', async () => {
         const { study, user1 } = await insertTestOrgStudyJobUsers()
         const researcher = await getUser(study.researcherId)

@@ -111,6 +111,10 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     })
 })
 
+export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId: string }) => {
+    await email.sendStudyAgreementReadyEmail(studyId)
+})
+
 export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {
     await generateAndStoreStudyReview(studyJobId)
 })

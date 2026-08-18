@@ -7,7 +7,7 @@ export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
-    SLA: 'Study Level Agreement',
+    SLA: 'Study Agreement',
     // "Organization" is the wording on the executed documents themselves, so an admin matching a
     // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
     DOPA: 'Data Organization Participation Agreement',
@@ -118,6 +118,23 @@ export const acknowledgeLegalDocumentSchema = z.object({
     versionId: z.string().uuid(),
 })
 
+export const studyAgreementStatusSchema = z.object({
+    // As above: scopeFromStudyId queries on this before the handler runs.
+    studyId: z.string().uuid(),
+})
+
+/**
+ * What a study's agreement means for the current user.
+ *
+ * One shape for both surfaces — the blocking modal and the "being prepared" notice on the proposal
+ * step — so the two cannot disagree about the same study. `none` covers a study whose agreement has
+ * not been published yet; `acknowledged` renders nothing today.
+ */
+export type StudyAgreementStatus =
+    | { state: 'none' }
+    | { state: 'pending'; versionId: string; downloadUrl: string }
+    | { state: 'acknowledged' }
+
 // Params for both participation reads — the agreements table and the signatory picker — so it is
 // named for what it carries rather than for one of its callers.
 export const participationAgreementTypeParams = z.object({
@@ -168,4 +185,7 @@ export const legalDocumentQueryKeys = {
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyLevelAgreements: () => ['studyLevelAgreements'] as const,
     studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+    // Per study: the gate mounted in the study layout and the proposal step's notice read the same
+    // entry, so one request answers both.
+    studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,
 }
