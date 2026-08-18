@@ -12,7 +12,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
-import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { latestJobForStudy } from '@/server/db/queries'
 import { type FileType } from '@/database/types'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
@@ -85,7 +85,8 @@ const FeedbackProbe = () => {
 }
 
 describe('ErroredOutputsSharedPanel', () => {
-    let job: NonNullable<LatestJobForStudy>
+    // The panel reads only job.id; a real row still has to exist for the seeded artifact to hang off.
+    let job: { id: string }
 
     const renderPanel = () =>
         renderWithProviders(
@@ -116,10 +117,6 @@ describe('ErroredOutputsSharedPanel', () => {
             orgType: 'lab',
         })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: (await latestJobForStudy(study.id))!.id, status: 'JOB-ERRORED' })
-            .execute()
         job = (await latestJobForStudy(study.id))!
 
         const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')

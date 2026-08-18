@@ -11,6 +11,7 @@ import {
     screen,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
+import type { StudyJobStatus } from '@/database/types'
 import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
@@ -100,49 +101,39 @@ const setupErroredShared = async ({ withNote = false }: { withNote?: boolean } =
 }
 
 describe('OutputsErroredSharedScreen', () => {
-    it('renders the reused page header and STEP 4 "Verify outputs" section header with the study title', async () => {
+    // Copy and variant are the panel's contract (see errored-outputs-shared-panel.test.tsx); the
+    // screen's own job is wiring — that it hands down THIS study's title, partner and decision date.
+    it('wires the page header and the study title through to the section header', async () => {
         const { org, study, raw } = await setupErroredShared()
         await renderScreen(study, raw, org.slug)
 
         expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
-        const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 4')
-        expect(header).toHaveTextContent('Verify outputs')
-        expect(header).toHaveTextContent(study.title!)
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent(study.title!)
     })
 
-    it('renders the reused action alert with the exact copy, data partner name, and decision date', async () => {
+    it('dates the banner from the FILES-APPROVED decision — not the error, code approval, or today — and names the partner', async () => {
         const { org, study, raw } = await setupErroredShared()
         await renderScreen(study, raw, org.slug)
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveAttribute('data-variant', 'action')
-        expect(alert).toHaveTextContent(
-            `Decrypt outputs to view code error • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`,
-        )
         expect(alert).toHaveTextContent(BANNER_BODY(displayOrgName(org.name)))
-    })
-
-    it('dates the banner from the FILES-APPROVED decision, not the error, code approval, or today', async () => {
-        const { org, study, raw } = await setupErroredShared()
-        await renderScreen(study, raw, org.slug)
-
-        const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
         expect(alert).not.toHaveTextContent(dayjs(ERRORED_AT).format('MMM DD, YYYY'))
         expect(alert).not.toHaveTextContent(dayjs(APPROVED_AT).format('MMM DD, YYYY'))
         expect(alert).not.toHaveTextContent(dayjs(new Date()).format('MMM DD, YYYY'))
     })
 
-    it('degrades to an undated banner when the payload job carries no FILES-APPROVED row', async () => {
-        const { org, study, raw, job } = await setupErroredShared()
-        // raw was captured before this delete, so routing still lands here; the payload lacks the date.
-        await db
-            .deleteFrom('jobStatusChange')
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'FILES-APPROVED')
-            .execute()
-        await renderScreen(study, raw, org.slug)
+    it('degrades to an undated banner when the payload job carries no dated FILES-APPROVED row', async () => {
+        const { org, study, raw } = await setupErroredShared()
+        // Strip only the timestamp: routing still lands here, but the payload cannot date the banner.
+        const undated = {
+            ...raw,
+            jobs: raw.jobs.map((j) => ({
+                ...j,
+                statusChanges: j.statusChanges.map((c) => (c.status === 'FILES-APPROVED' ? { status: c.status } : c)),
+            })),
+        }
+        await renderScreen(study, undated, org.slug)
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Decrypt outputs to view code error')
@@ -210,18 +201,15 @@ describe('OutputsErroredSharedScreen', () => {
         expect(screen.queryByText('Code-step approval feedback.')).not.toBeInTheDocument()
     })
 
-    it('renders the security key gate and only the Previous step link before decryption', async () => {
+    it('renders the key gate and points Previous step at this study', async () => {
         const { org, study, raw } = await setupErroredShared()
         await renderScreen(study, raw, org.slug)
 
         expect(await screen.findByTestId('security-key-form')).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).not.toBeInTheDocument()
-
-        const previous = screen.getByRole('link', { name: /previous step/i })
-        expect(previous).toHaveAttribute('href', `/${org.slug}/study/${study.id}/view/code`)
-        expect(previous).toHaveAttribute('data-variant', 'subtle')
-        expect(screen.queryByRole('link', { name: /edit code/i })).not.toBeInTheDocument()
-        expect(screen.queryByRole('link', { name: /back to my studies/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+            'href',
+            `/${org.slug}/study/${study.id}/view/code`,
+        )
     })
 
     it('passes returnTo through to the Previous step link', async () => {
@@ -261,54 +249,32 @@ describe('OutputsErroredSharedScreen', () => {
         expect(screen.getByText('No submission found')).toBeInTheDocument()
     })
 
-    it('guards against rendering for an errored run still awaiting the reviewer files decision', async () => {
+    // Adjacent outcomes that must NOT route here. results-approved is called out by the card
+    // because it owns a near-identical outputs-and-feedback screen — cross-routing would be silent.
+    const renderWithStatuses = async (statuses: StudyJobStatus[]) => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
         const { study: dbStudy, job } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
+        for (const status of statuses) {
+            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status }).execute()
+        }
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-
         await renderScreen(study, raw, org.slug)
+    }
+
+    it.each([
+        ['an errored run still awaiting the reviewer files decision', ['JOB-ERRORED']],
+        ['a clean approved run, which belongs to the results flow', ['RUN-COMPLETE', 'FILES-APPROVED']],
+        ['an errored run decided feedback-only', ['JOB-ERRORED', 'FILES-REJECTED']],
+    ] as [string, StudyJobStatus[]][])('guards against rendering for %s', async (_label, statuses) => {
+        await renderWithStatuses(statuses)
 
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
-    })
-
-    it('guards against rendering for a clean approved run, which belongs to the results flow', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
-        const { study: dbStudy, job } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
-        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
-        const raw = await requireRawState(dbStudy.id)
-        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-
-        await renderScreen(study, raw, org.slug)
-
-        expect(screen.getByText('Outputs not found')).toBeInTheDocument()
-    })
-
-    it('guards against rendering for an errored run decided feedback-only', async () => {
-        const { org, study, job } = await setupErroredShared()
-        await db
-            .deleteFrom('jobStatusChange')
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'FILES-APPROVED')
-            .execute()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
-        const feedbackOnlyRaw = await requireRawState(study.id)
-
-        await renderScreen(study, feedbackOnlyRaw, org.slug)
-
-        expect(screen.getByText('Outputs not found')).toBeInTheDocument()
     })
 })
