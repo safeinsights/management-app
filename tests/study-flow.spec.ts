@@ -434,7 +434,12 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
 
 // The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
 // so this runs only after reviewerSharesOutputs (OTTER-675).
-async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+// OTTER-696: sharing the outputs on an errored run records FILES-APPROVED alongside JOB-ERRORED,
+// which now routes the researcher to the errored-outputs step instead of the old inline error
+// panel — they decrypt with their own key to diagnose the failure, then edit and resubmit.
+// Asserts the pre-decryption landing only: the decrypt phase needs researcher-wrapped keys that
+// this seed does not provision, and is covered by errored-outputs-shared-panel.test.tsx.
+async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -442,10 +447,14 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
 
     await viewStudyDetails(page, studyTitle)
 
-    await expect(page.getByText(/The code errored/i)).toBeVisible()
-    await expect(page.getByText(/Job ID/i)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
+    await expect(page.getByText(/Decrypt outputs to view code error/i)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
 
-    await expect(page.getByText('Code Run Log')).toBeVisible()
+    // Both post-decryption actions stay out of the DOM until a key has been validated.
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 }
 
 // ============================================================================
@@ -595,7 +604,7 @@ test('Error log review', async ({ browser, studyFeatures }) => {
     })
 
     await withRole(browser, 'researcher', async (page) => {
-        await verifyFailedStatusDisplay(page, studyTitle)
+        await verifyErroredOutputsSharedDisplay(page, studyTitle)
     })
 })
 
