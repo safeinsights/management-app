@@ -252,8 +252,9 @@ if [ ${#vitest_args[@]} -eq 0 ]; then
 elif [ "$db_needs_setup" = true ]; then
     # DB was wiped (--clean / mismatch rebuild) or is empty (first run): migrate + seed
     # before the targeted run (passing vitest args overrides the default command, which
-    # would otherwise migrate/seed itself).
-    run_targeted_tests 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run'
+    # would otherwise migrate/seed itself). ALLOW_TESTING_DATA=TRUE is the seed's opt-in;
+    # see the same note on the default command in docker-compose.testunit.yml.
+    run_targeted_tests 'pnpm exec kysely migrate:latest && ALLOW_TESTING_DATA=TRUE pnpm exec kysely seed:run'
 elif [ "$pending_migration" = true ]; then
     # DB is set up + seeded but a migration is pending on disk: apply it (no reseed).
     run_targeted_tests 'pnpm exec kysely migrate:latest'
