@@ -161,3 +161,8 @@ export const awaitingFilesDecisionOnError = (
 // two cannot drift (same pattern as awaitingFilesDecisionOnError above).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected' | 'resultsErrored'>): boolean =>
     s.resultsRejected && !s.resultsErrored
+
+// Errored run whose outputs the reviewer withheld (JOB-ERRORED + FILES-REJECTED).
+// Disjoint from isFeedbackOnlyOutcome by construction, so the two screens can never both claim a study.
+export const isErroredFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected' | 'resultsErrored'>): boolean =>
+    s.resultsRejected && s.resultsErrored

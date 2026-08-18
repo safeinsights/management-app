@@ -135,23 +135,24 @@ raw jobs.
 
 **Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                             | Screen              |
-| --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`  |
-| 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
-| 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
-| 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
-| 5   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 6   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 7   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 8   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 9   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 10  | `isDraft`                                                                        | `study-overview`    |
-| 11  | fallback                                                                         | `study-overview`    |
+| #   | When                                                                             | Screen                     |
+| --- | -------------------------------------------------------------------------------- | -------------------------- |
+| 1   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`         |
+| 2   | `isErroredFeedbackOnlyOutcome` (`resultsRejected && resultsErrored`)             | `outputs-errored-feedback` |
+| 3   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`            |
+| 4   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`          |
+| 5   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`            |
+| 6   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`            |
+| 7   | `codeAwaitingDecision`                                                           | `code-under-review`        |
+| 8   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback`        |
+| 9   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`           |
+| 10  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback`        |
+| 11  | `isDraft`                                                                        | `study-overview`           |
+| 12  | fallback                                                                         | `study-overview`           |
 
-Researcher precedence note (OTTER-695): rule #1 claims a clean run decided with **Share feedback
-only** before `study-results` can; an errored run's `FILES-REJECTED` and `resultsApproved` both
-still fall through to `study-results` (#2).
+Researcher precedence (OTTER-695, OTTER-697): `FILES-REJECTED` clears `awaitingFilesDecisionOnError`,
+so without #1/#2 both feedback-only outcomes would hit `study-results`. Share-outputs
+(`resultsApproved`) still hits `study-results`.
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):

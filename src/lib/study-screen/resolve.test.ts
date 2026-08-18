@@ -21,13 +21,38 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-pending')
     })
-    it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
+    it('errored job after a share-outputs decision → study-results (error no longer hidden)', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }),
+            ).screen,
+        ).toBe('study-results')
+    })
+    it('OTTER-697: feedback-only decision on an errored run → outputs-errored-feedback', () => {
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
             ).screen,
-        ).toBe('study-results')
+        ).toBe('outputs-errored-feedback')
+    })
+    it('OTTER-697: the two feedback-only screens never cross-route (errored flag is the only difference)', () => {
+        const decided = { hasResults: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' } as const
+        expect(resolveScreen('researcher', state({ ...decided, resultsErrored: true })).screen).toBe(
+            'outputs-errored-feedback',
+        )
+        expect(resolveScreen('researcher', state({ ...decided, resultsErrored: false })).screen).toBe(
+            'outputs-feedback',
+        )
+    })
+    it('OTTER-697: an errored run still awaiting a files decision does not reach the errored feedback screen', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
+            ).screen,
+        ).toBe('outputs-pending')
     })
     it('OTTER-695: feedback-only decision on a clean run → outputs-feedback (out-ranks study-results)', () => {
         expect(
@@ -144,6 +169,19 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             codeDecision: 'CODE-APPROVED',
             hasResults: true,
             resultsRejected: true,
+        })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
+    })
+
+    it('OTTER-697: errored feedback-only study → approved-code screen (Previous step target)', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            hasResults: true,
+            resultsRejected: true,
+            resultsErrored: true,
         })
         expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
     })

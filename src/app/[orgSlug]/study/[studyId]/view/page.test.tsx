@@ -640,6 +640,37 @@ describe('StudyViewPage', () => {
             )
         })
 
+        it('renders the errored outputs-feedback screen when the run errored and feedback only was shared (OTTER-697)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'JOB-ERRORED')
+            await addJobStatus(study.id, 'FILES-REJECTED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
+            expect(screen.getByText('Verify outputs')).toBeInTheDocument()
+            // The near-identical clean-run screen must not claim this state.
+            expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code`,
+            )
+            expect(screen.getByRole('link', { name: /edit code/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/resubmit`,
+            )
+        })
+
         it('threads returnTo=org to the results screen via dashboardHref', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
