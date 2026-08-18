@@ -238,6 +238,16 @@ describe('ReviewerOutputsDecided', () => {
         ).toBeInTheDocument()
     })
 
+    // The gate here is wider than the errored screen's: this screen only asks whether a key opens
+    // anything, so an artifact that screen excludes from its own question is still re-openable.
+    it('keeps the security-key section when the only encrypted artifact is a scan log', async () => {
+        const { org, study, job, raw } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
+        await renderView(study, raw, org.slug)
+
+        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+    })
+
     // OTTER-524: an errored run can be closed out with nothing to decrypt, and coming back here would
     // otherwise ask the reviewer for a key against files that do not exist, which no key can satisfy.
     it('omits the security-key section when the decided run left nothing to decrypt', async () => {

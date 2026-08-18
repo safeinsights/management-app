@@ -203,6 +203,13 @@ can reach), that query selects only known codes so a later code-less or free-tex
 cannot mask one, and anything unrecognized still falls back to the stage sentence. Service-supplied
 text is never echoed, which keeps AWS and deployment detail off a screen another organization reads.
 
+`reviewer-outputs-decided` (#3) hides its post-decision `View outputs again` key form when the job
+holds no encrypted artifact, for the same reason: an errored run can now be closed out having
+produced nothing, and returning here would ask for a key no key holder could satisfy. That gate is
+deliberately wider than the errored screen's. This screen asks only whether a key opens anything at
+all, not what may be promised about the run's outcome, so a decided job whose sole encrypted artifact
+is a scan log keeps its re-decrypt.
+
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
 (which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a

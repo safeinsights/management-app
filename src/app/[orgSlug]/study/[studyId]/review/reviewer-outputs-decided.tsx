@@ -8,7 +8,7 @@ import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
-import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
+import { jobHasEncryptedArtifacts } from '@/lib/file-type-helpers'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState } from '@/lib/study-screen'
@@ -55,9 +55,12 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
 
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
 
-    // Read through the same predicate the errored screen gates its key form on, so a run closed out
-    // with nothing to decrypt does not come back here asking for a key that cannot work (OTTER-524).
-    const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
+    // A run closed out with nothing to decrypt must not come back here asking for a key that cannot
+    // work (OTTER-524). Deliberately a wider question than the errored screen's gate: that screen
+    // asks what it may promise about THIS run's outcome, while all this one asks is whether a key
+    // opens anything at all, so a decided job whose only encrypted artifact is a scan log keeps its
+    // re-decrypt instead of losing it to a predicate written for a different question.
+    const hasDecryptableOutputs = jobHasEncryptedArtifacts(job.files ?? [])
 
     return (
         <Box bg="grey.10">
