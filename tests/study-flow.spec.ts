@@ -45,7 +45,10 @@ async function selectOrgAndLanguage(page: Page, orgNameRegex: RegExp = /openstax
     await expect(page.getByText(/^STEP 1A$/i)).toBeVisible()
     const orgSelect = page.getByTestId('org-select')
     await expect(orgSelect).toBeEnabled()
-    await orgSelect.click()
+    // The Select is keyed on the form field, so a re-initialisation detaches the node mid-click.
+    await expect(async () => {
+        await orgSelect.click()
+    }).toPass()
     await page.getByRole('option', { name: orgNameRegex }).click()
 
     // Language radios appear after an org is chosen.
