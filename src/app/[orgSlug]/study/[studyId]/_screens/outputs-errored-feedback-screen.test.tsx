@@ -116,7 +116,7 @@ describe('OutputsErroredFeedbackScreen', () => {
             expect(alert).toHaveAttribute('data-variant', 'action')
             expect(alert).toHaveTextContent('Resolve the code error to proceed • Aug 05, 2026')
             expect(alert).toHaveTextContent(
-                'Riverside University has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.',
+                `${DATA_PARTNER} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
             )
             expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
         })

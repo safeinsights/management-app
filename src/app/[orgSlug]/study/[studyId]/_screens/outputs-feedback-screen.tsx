@@ -51,7 +51,7 @@ export async function OutputsFeedbackScreen({
     }
 
     // The banner date comes from the SAME raw job the routing guard decided on — no second
-    // latest-job query whose definition could drift from the projection's (review on this card).
+    // latest-job query whose definition could drift from the projection's.
     const job = latestJob(raw.jobs)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />

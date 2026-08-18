@@ -24,9 +24,9 @@ const ErroredFeedbackOnlyBanner = ({
     decidedAt: Date | string | null
     dataPartner: string
 }) => {
-    const decidedOn = decidedAt ? `${STATUS_ALERT_SEPARATOR} ${dayjs(decidedAt).format('MMM DD, YYYY')}` : ''
+    const decidedOn = decidedAt ? ` ${STATUS_ALERT_SEPARATOR} ${dayjs(decidedAt).format('MMM DD, YYYY')}` : ''
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Resolve the code error to proceed ${decidedOn}`}>
+        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Resolve the code error to proceed${decidedOn}`}>
             {dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study.
             When you are ready, edit your code and resubmit.
         </StatusAlert>

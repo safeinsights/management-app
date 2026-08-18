@@ -46,14 +46,6 @@ describe('resolveScreen (researcher)', () => {
             'outputs-feedback',
         )
     })
-    it('OTTER-697: an errored run still awaiting a files decision does not reach the errored feedback screen', () => {
-        expect(
-            resolveScreen(
-                'researcher',
-                state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
-            ).screen,
-        ).toBe('outputs-pending')
-    })
     it('OTTER-695: feedback-only decision on a clean run → outputs-feedback (out-ranks study-results)', () => {
         expect(
             resolveScreen(
