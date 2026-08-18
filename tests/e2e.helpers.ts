@@ -72,11 +72,19 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     }
 }
 
+// OTTER-690 caps the study title at 60 characters and Step 1 enforces it, so a generated title
+// has to fit or the flow cannot get past the first page. The generated words are only there to
+// make a failure readable; the suffix and timestamp are what make the title unique, so the words
+// are what gets trimmed.
+const STUDY_TITLE_MAX_CHARACTERS = 60
+
 class StudyFeatures {
     public studyTitle = `${faker.hacker.ingverb()} ${faker.commerce.productName().toLowerCase()}`
 
     uniqueTitle(suffix: string) {
-        return `${this.studyTitle} - ${suffix} ${Date.now()}`
+        const unique = `${suffix} ${Date.now()}`
+        const roomForWords = STUDY_TITLE_MAX_CHARACTERS - unique.length - ' - '.length
+        return `${this.studyTitle.slice(0, Math.max(roomForWords, 0)).trim()} - ${unique}`
     }
 
     static perWorkerFeatures: Record<number, StudyFeatures> = {}
