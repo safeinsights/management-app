@@ -1,6 +1,6 @@
 ## Hard Rules
 
-- Keep JSX minimal: No complex ternary operators, map functions, or calculations inside the return statement.
+- Keep JSX minimal: no logic inside the return statement — no complex ternaries, no calculations, no object or array literals built inline. A bare `.map()` that delegates each item to an extracted row component is fine; a `.map()` whose callback contains logic is not.
 - Move logic out: All state management, event handling, and data processing must be in custom hooks (useFeatureName) or helper functions outside the main component function.
 - Co-locate, don't embed: If logic is used only in the component, define it just above the JSX, keep the JSX clean of declarations and other logic
 - Extract: If a sub-section of a function or JSX is complex, break it into separate, smaller parts.

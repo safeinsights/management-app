@@ -287,7 +287,9 @@ re-architecting — exactly as the design intended.
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
 - **Agreements gate as a screen**: the old redirect-to-`/agreements` is now the `reviewer-agreements`
   screen (rule #3). The reviewer branch of `agreements/page.tsx` became a plain revisitable step
-  (no `?from=`), like the researcher branch.
+  (no `?from=`), like the researcher branch. This gate reads
+  `study.reviewerAgreementsAckedAt`; once study-level-agreement acknowledgement ships on
+  `legal_document`, rule #6 goes with it — two agreement gates on one study would disagree.
 - **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
   initial request" link. It always shows the **decided** initial request regardless of code stage,
   and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the
