@@ -107,6 +107,43 @@ describe('useSubmitProposal', () => {
         })
     })
 
+    // OTTER-690: Step 1 owns study.title on a DRAFT. The Step 2 form still carries a seeded copy
+    // for the reviewer preview, and submit is the moment the column becomes immutable, so a stale
+    // copy landing here would be permanent.
+    it('leaves the Step 1 title untouched on submit', async () => {
+        const { studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'submit-title-owner',
+            studyInfo: { title: 'Chosen on Step 1' },
+        })
+        const { yjsForm, sendStateless } = buildStubYjsForm()
+
+        const { result } = renderHook(
+            () => {
+                const form = useForm<ProposalFormValues>({
+                    mode: 'controlled',
+                    initialValues: { ...buildValidProposalValues(user.id), title: 'stale Step 2 copy' },
+                })
+                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                return { form, ...submit }
+            },
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await act(async () => {
+            result.current.submitProposal()
+        })
+
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+
+        const study = await db
+            .selectFrom('study')
+            .select(['title', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.status).toBe('PENDING-REVIEW')
+        expect(study.title).toBe('Chosen on Step 1')
+    })
+
     it('does not call the action or navigate when validation fails', async () => {
         const { studyId } = await createTestProposalDraft({ enclaveSlug: 'submit-invalid' })
         const { yjsForm, sendStateless } = buildStubYjsForm()

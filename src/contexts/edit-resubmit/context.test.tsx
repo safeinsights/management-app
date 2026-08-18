@@ -170,7 +170,41 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
 
         expect(screen.getByLabelText('Resubmission note')).toHaveValue(draft)
     })
+
+    // OTTER-690 regression guard. The DRAFT proposal page dropped its title rule because Step 1
+    // owns that column there. This flow does not: it still renders an editable collaborative
+    // title, so swapping it onto the DRAFT resolver would let a resubmission through with no
+    // title and violate study_title_required_when_not_draft on submit.
+    describe('title ownership (OTTER-690)', () => {
+        const renderTitleProbe = (title: string) => {
+            ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+
+            renderWithProviders(
+                <EditResubmitProvider studyId={STUDY_ID} draftData={{ title }}>
+                    <TitleValidityProbe />
+                </EditResubmitProvider>,
+            )
+        }
+
+        it('still reports a blank title as invalid', () => {
+            renderTitleProbe('')
+            expect(screen.getByTestId('title-valid')).toHaveTextContent('false')
+        })
+
+        it('accepts a real title', () => {
+            renderTitleProbe('A resubmitted study')
+            expect(screen.getByTestId('title-valid')).toHaveTextContent('true')
+        })
+    })
 })
+
+// `isValid` rather than `validate`: validate writes the error state, which re-renders the probe,
+// which validates again.
+function TitleValidityProbe() {
+    const { form } = useEditResubmit()
+
+    return <span data-testid="title-valid">{String(form.isValid('title'))}</span>
+}
 
 // Sanity touch — ensures the export wiring of resubmitProposalAction isn't broken
 // by our changes. The hook isn't exercised here but importing it forces the mock
