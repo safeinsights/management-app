@@ -244,7 +244,10 @@ describe('fetchLegalDocumentVersionsAction', () => {
         expect(result.current?.versionNumber).toBe(2)
         expect(result.history.map((version) => version.versionNumber)).toEqual([1])
         expect(result.draft?.id).toBe(pending.version.id)
-        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(result.current!.filePath)
+        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(result.current!.filePath, {
+            ResponseContentType: 'text/markdown; charset=utf-8',
+            ResponseContentDisposition: `inline; filename="${result.current!.fileName}"`,
+        })
     })
 })
 

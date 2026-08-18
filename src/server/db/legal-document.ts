@@ -39,6 +39,8 @@ export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =
         .select([
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
+            'legalDocumentVersion.format as format',
             'study.orgId as dataPartnerId',
             'study.submittedByOrgId as researchLabId',
         ])

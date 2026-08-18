@@ -13,6 +13,7 @@ import {
     fetchLegalDocumentAcknowledgementsSchema,
     participationAgreementTypeParams,
     legalDocumentFormats,
+    type LegalDocumentFormat,
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
@@ -31,6 +32,36 @@ import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
+
+const legalDocumentMimeTypes: Record<LegalDocumentFormat, string> = {
+    pdf: 'application/pdf',
+    markdown: 'text/markdown; charset=utf-8',
+}
+
+/**
+ * Every link to a stored legal document, so a version's name and type always come from the row that
+ * describes it.
+ *
+ * Both overrides are load-bearing. The presigned POST the browser uploads with carries no
+ * Content-Type, so the object sits in S3 as octet-stream, which a browser downloads whatever the
+ * disposition says; and the key is the bare versionId, so without a filename the download is named
+ * after a uuid with no extension.
+ */
+const legalDocumentDownloadUrl = ({
+    filePath,
+    fileName,
+    format,
+}: {
+    filePath: string
+    fileName: string
+    format: string
+}) =>
+    signedUrlForFile(filePath, {
+        ResponseContentType: legalDocumentMimeTypes[format as LegalDocumentFormat] ?? 'application/octet-stream',
+        // S3 echoes this straight into the response header, and the name is whatever the admin's file
+        // was called.
+        ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
+    })
 
 const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
     (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
@@ -216,7 +247,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
             .execute()
 
         const withUrls = await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
         const published = withUrls.filter(
             (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
@@ -458,6 +489,8 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'org.id as orgId',
@@ -474,7 +507,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
         rows.sort((a, b) => a.orgName.localeCompare(b.orgName))
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
     })
 
@@ -510,6 +543,8 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'study.id as studyId',
@@ -537,7 +572,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
     })
 
@@ -610,7 +645,7 @@ export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementSt
         return {
             state: 'pending',
             versionId: agreement.versionId,
-            // Inline so the link opens the agreement in a tab to be read, rather than downloading it.
-            downloadUrl: await signedUrlForFile(agreement.filePath, { ResponseContentDisposition: 'inline' }),
+            // Opens the agreement in a tab to be read, rather than downloading it.
+            downloadUrl: await legalDocumentDownloadUrl(agreement),
         }
     })
