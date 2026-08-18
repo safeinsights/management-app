@@ -1182,13 +1182,10 @@ type InsertTestStudyAgreementOptions = {
     published?: boolean
 }
 
-/**
- * A Study Agreement version against a study, written directly.
- *
- * Publishing through the admin action needs an SI-admin session, and swapping sessions mid-test to
- * arrange a fixture obscures which session the assertion is about. The draft_or_published constraint
- * wants published_at, published_by and version_number set or absent together.
- */
+// Written directly rather than through the admin action, which needs an SI-admin session: swapping
+// sessions to arrange a fixture obscures which session the assertion is about. The
+// draft_or_published constraint wants published_at, published_by and version_number set or absent
+// together.
 export const insertTestStudyAgreement = async ({
     studyId,
     versionNumber = 1,

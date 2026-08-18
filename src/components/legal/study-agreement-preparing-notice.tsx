@@ -14,12 +14,8 @@ type Props = {
     isVisible: boolean
 }
 
-/**
- * Says an agreement is on its way, on the proposal step of both parties.
- *
- * Deliberately not a gate: an approved study with no agreement yet must still let code be uploaded
- * and reviewed, or every study would stall on SI admin paperwork.
- */
+// Deliberately not a gate: an approved study with no agreement yet must still let code be uploaded
+// and reviewed, or every study stalls on SI admin paperwork.
 export const StudyAgreementPreparingNotice: FC<Props> = ({ studyId, isVisible }) => {
     const status = useStudyAgreementStatus(studyId)
 

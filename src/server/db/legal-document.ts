@@ -29,8 +29,8 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
 
-// Newest published Study Agreement for a study, with the orgs it binds. Undefined until an SI admin
-// publishes one, which is the ordinary state for a freshly approved study.
+// With the orgs it binds. Undefined until an SI admin publishes one, the ordinary state for a
+// freshly approved study.
 export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =>
     db
         .selectFrom('legalDocument')

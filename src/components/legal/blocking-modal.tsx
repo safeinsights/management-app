@@ -8,13 +8,8 @@ type Props = {
     children: ReactNode
 }
 
-/**
- * Modal shell for the legal gates.
- *
- * Shared for one reason: dismissing one of these and carrying on is the thing they exist to prevent,
- * so the three props that make that impossible must not drift apart between them. Each gate still
- * offers its own way out — the alternative to agreeing cannot be closing the tab.
- */
+// Shared so the three props that make dismissal impossible cannot drift apart between the gates.
+// Each gate supplies its own way out: the alternative to agreeing must not be closing the tab.
 export const BlockingModal: FC<Props> = ({ title, children }) => (
     <Modal
         opened

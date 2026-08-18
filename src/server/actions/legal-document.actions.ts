@@ -68,7 +68,7 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
     }
 }
 
-// As scopeFromVersionId, but for a caller holding a study rather than a version. An unknown studyId
+// As scopeFromVersionId, for a caller holding a study rather than a version. An unknown studyId
 // yields an empty audience, so the condition fails closed.
 const scopeFromStudyId = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
     const study = await db
@@ -181,9 +181,8 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        // Follow-up: enable once the Mailgun template exists (needs the import from '../events'). Kept
-        // here because publishing is the only moment that both parties become owing, so it is the one
-        // place the notification can be triggered from.
+        // Follow-up: enable once the Mailgun template exists (needs the import from '../events').
+        // Publishing is the only moment both parties become owing, so it is the one place to fire from.
         // if (version.type === 'SLA' && version.studyId) {
         //     onStudyAgreementPublished({ studyId: version.studyId })
         // }
@@ -587,14 +586,9 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .execute()
     })
 
-/**
- * What the signed-in user's Study Agreement situation is for one study.
- *
- * Drives both the blocking modal and the proposal step's "being prepared" notice, so those two
- * cannot disagree. `none` is returned to anyone the agreement does not bind — an SI admin holds
- * `manage all` and so passes the ability check, but is the counterparty to every agreement and never
- * a signatory, and recording an acknowledgement from them would put SafeInsights in its own audit.
- */
+// `none` for anyone the agreement does not bind: an SI admin holds `manage all` and so passes the
+// ability check, but is the counterparty to every agreement and never a signatory, and an
+// acknowledgement row from them would put SafeInsights into its own audit.
 export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementStatusAction')
     .params(studyAgreementStatusSchema)
     .middleware(scopeFromStudyId)

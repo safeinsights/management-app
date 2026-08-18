@@ -289,9 +289,8 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
-// APPROVED proposal with a published Study Agreement nobody has acknowledged. Unlike the Terms of
-// Service, a Study Agreement is scoped to one study, so publishing it from inside a spec blocks only
-// that spec's own study and cannot reach another worker's user.
+// APPROVED proposal with a published Study Agreement nobody has acknowledged. Study-scoped, unlike
+// the Terms of Service, so publishing it from inside a spec cannot reach another worker's user.
 export async function seedApprovedWithPublishedSla(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
 
@@ -299,7 +298,7 @@ export async function seedApprovedWithPublishedSla(title: string): Promise<SeedR
     const versionId = uuidv7()
     const filePath = pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId })
 
-    // The spec asserts on the link, never follows it, so no object is uploaded — presigning does not
+    // No object uploaded: the spec asserts on the link without following it, and presigning does not
     // need one to exist.
     await db
         .insertInto('legalDocumentVersion')

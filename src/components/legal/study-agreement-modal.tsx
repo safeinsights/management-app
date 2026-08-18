@@ -27,13 +27,9 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
     return <Alert color="red">{error}</Alert>
 }
 
-/**
- * Blocks a study until the user acknowledges its Study Agreement.
- *
- * The agreement is a PDF, so it opens in a tab rather than rendering inline the way the Terms of
- * Service does. Cancel leaves for the dashboard: this blocks one study, not the app, so declining
- * has somewhere to go.
- */
+// The agreement is a PDF, so it opens in a tab rather than rendering inline as the Terms of Service
+// does. Cancel goes to the dashboard: this blocks one study, not the app, so declining has somewhere
+// to go.
 export const StudyAgreementModal: FC<Props> = ({
     isVisible,
     downloadUrl,

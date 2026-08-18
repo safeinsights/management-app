@@ -1,9 +1,8 @@
 import { expect, goto, test, withRole, type Page } from './e2e.helpers'
 import { seedApprovedWithPublishedSla } from './e2e.seed'
 
-// A Study Agreement is scoped to one study, unlike the global Terms of Service, so this spec
-// publishes its own at runtime against a uniquely-titled study. That reaches no other worker's user,
-// which is why no dedicated role is needed here.
+// Study-scoped, unlike the global Terms of Service, so this spec publishes its own at runtime against
+// a uniquely-titled study and needs no dedicated role.
 
 const RESEARCHER_DASHBOARD = '/openstax-lab/dashboard'
 

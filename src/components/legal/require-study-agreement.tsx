@@ -21,15 +21,14 @@ export const useStudyAgreementStatus = (studyId: string) => {
         queryKey: legalDocumentQueryKeys.studyAgreement(studyId),
         queryFn: () => fetchStudyAgreementStatusAction({ studyId }),
         enabled: Boolean(session),
-        // No polling: the mutations the agreement governs are refused server-side, so an unacknowledged
-        // user can do nothing from a page left open. Dropping a non-dismissible modal over the code
-        // upload page, whose file selection is not autosaved, would cost more than it buys. Refetch on
-        // window focus still applies, which also re-mints the presigned URL before it expires.
+        // No polling: the guarded mutations already refuse an unacknowledged user, so a modal landing
+        // on the code upload page — whose file selection is not autosaved — would cost more than it
+        // buys. Window-focus refetch still applies, and re-mints the presigned URL before it expires.
         refetchInterval: false,
     })
 
-    // Failing open is the right call — the user can do nothing about an unreadable agreement — but a
-    // gate that has quietly stopped asking must not also be invisible to us.
+    // Failing open is right — the user cannot fix an unreadable agreement — but a gate that has
+    // quietly stopped asking must not also be invisible to us.
     useEffect(() => {
         if (error) captureException(error)
     }, [error])
@@ -58,8 +57,8 @@ const usePendingStudyAgreement = (studyId: string) => {
 
     return {
         downloadUrl: status?.state === 'pending' ? status.downloadUrl : undefined,
-        // Keyed to the version that was on screen rather than kept as a bare boolean, so a new version
-        // published while the modal is open cannot inherit a tick given to the one before it.
+        // Keyed to the version on screen, not a bare boolean: a version published while the modal is
+        // open must not inherit a tick given to the one before it.
         isChecked: consentedVersionId === versionId,
         setIsChecked: (checked: boolean) => setConsentedVersionId(checked ? (versionId ?? null) : null),
         onContinue: () => {
@@ -73,12 +72,8 @@ const usePendingStudyAgreement = (studyId: string) => {
     }
 }
 
-/**
- * Study-wide gate: a member of either party owing this study's agreement is blocked until they give it.
- *
- * Mounted in the study layout so it covers every route of the study for both roles — the proposal
- * step, the code pages and the review pages alike — rather than the two pages the design names.
- */
+// Blocks a member of either party who owes this study's agreement. Mounted in the study layout, so
+// it covers every route of the study for both roles.
 export const RequireStudyAgreement = ({ studyId }: { studyId: string }) => {
     const { downloadUrl, isChecked, setIsChecked, onContinue, onCancel, isSubmitting, error } =
         usePendingStudyAgreement(studyId)

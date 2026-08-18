@@ -221,8 +221,7 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
 export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    // The PI is often just a name on the proposal — piUserId is null until they hold an account, and
-    // there is no address to reach them at until then.
+    // piUserId is null until the PI holds an account, and until then there is no address for them.
     const pi = study.piUserId
         ? await db.selectFrom('user').select(['email', 'fullName']).where('id', '=', study.piUserId).executeTakeFirst()
         : undefined

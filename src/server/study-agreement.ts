@@ -4,14 +4,10 @@ import { hasAcknowledgedLegalDocumentVersion, latestPublishedStudyAgreement } fr
 
 export const STUDY_AGREEMENT_REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
 
-/**
- * Refuses the acts the Study Agreement governs while it is unacknowledged.
- *
- * The modal that blocks the study pages is client-side, so it stops a user rather than an attacker.
- * Submitting code into an enclave and releasing results are what the agreement actually binds, so
- * those are checked where they cannot be bypassed. A study with no published agreement is not
- * blocked — most approved studies sit there while SI admin draws one up.
- */
+// The modal blocking the study pages is client-side, so the acts the agreement actually binds —
+// submitting code into an enclave, releasing results — are checked here where they cannot be
+// bypassed. No published agreement means no block: most approved studies sit there while SI admin
+// draws one up.
 export const requireStudyAgreementAcknowledged = async (
     db: DBExecutor,
     { studyId, userId }: { studyId: string; userId: string },
@@ -19,8 +15,7 @@ export const requireStudyAgreementAcknowledged = async (
     const agreement = await latestPublishedStudyAgreement(db, studyId)
     if (!agreement) return
 
-    // Only the two orgs the agreement binds owe an acknowledgement; an SI admin acting on the study
-    // is not a party to it.
+    // Only the two orgs the agreement binds owe one; an SI admin acting on the study is not a party.
     const isParty = await db
         .selectFrom('orgUser')
         .select('id')

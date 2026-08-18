@@ -123,13 +123,8 @@ export const studyAgreementStatusSchema = z.object({
     studyId: z.string().uuid(),
 })
 
-/**
- * What a study's agreement means for the current user.
- *
- * One shape for both surfaces — the blocking modal and the "being prepared" notice on the proposal
- * step — so the two cannot disagree about the same study. `none` covers a study whose agreement has
- * not been published yet; `acknowledged` renders nothing today.
- */
+// One shape for both surfaces — the blocking modal and the proposal step's "being prepared" notice —
+// so the two cannot disagree about the same study. `acknowledged` renders nothing today.
 export type StudyAgreementStatus =
     | { state: 'none' }
     | { state: 'pending'; versionId: string; downloadUrl: string }
@@ -185,7 +180,7 @@ export const legalDocumentQueryKeys = {
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyLevelAgreements: () => ['studyLevelAgreements'] as const,
     studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
-    // Per study: the gate mounted in the study layout and the proposal step's notice read the same
-    // entry, so one request answers both.
+    // Per study: the layout's gate and the proposal step's notice share the entry, so one request
+    // answers both.
     studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,
 }

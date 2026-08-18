@@ -27,8 +27,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 
 beforeEach(resetLegalDocuments)
 
-// study.orgId is the Data Partner, study.submittedByOrgId is the Research Lab. Kept on separate orgs
-// so a swapped join in the audience check cannot pass.
+// Separate orgs for the two sides, so a swapped join in the audience check cannot pass.
 const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus } = {}) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -119,9 +118,8 @@ describe('fetchStudyAgreementStatusAction', () => {
         })
     })
 
-    // SI admins hold ('manage', 'all'), so the ability check alone would hand them the modal. They are
-    // the counterparty to every agreement and never a signatory, so an acknowledgement row from them
-    // would put SafeInsights into its own audit.
+    // SI admins hold ('manage', 'all'), so the ability check alone would hand them the modal — and an
+    // acknowledgement row from the counterparty would land in SHRMP-274's audit.
     it('reports none for an SI admin, who is not a party to the agreement', async () => {
         const { study } = await insertStudyWithDistinctOrgs()
         await insertTestStudyAgreement({ studyId: study.id })
@@ -130,8 +128,7 @@ describe('fetchStudyAgreementStatusAction', () => {
         expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
     })
 
-    // Denied rather than 'none': audienceOrgIds only matches the study's two orgs, so an outsider does
-    // not learn whether the study has an agreement at all.
+    // Denied rather than 'none', so an outsider does not learn whether the study has an agreement.
     it('denies a member of neither org', async () => {
         const { study } = await insertStudyWithDistinctOrgs()
         await insertTestStudyAgreement({ studyId: study.id })
