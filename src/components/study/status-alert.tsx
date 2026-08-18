@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import dayjs from 'dayjs'
 
 export const STATUS_ALERT_SEPARATOR = '•'
+
+// Appends the "• MMM DD, YYYY" suffix a dated banner title carries. Display-only: an absent date
+// degrades to an undated title rather than blocking a page routing already chose.
+export const statusAlertTitle = (title: string, at: Date | string | null | undefined): string =>
+    at ? `${title} ${STATUS_ALERT_SEPARATOR} ${dayjs(at).format('MMM DD, YYYY')}` : title
 
 export const STATUS_ALERT_VARIANT = {
     informative: 'informative',

@@ -1,51 +1,31 @@
 import type { Route } from 'next'
-import type { StudyJobStatus } from '@/database/types'
 import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
-import { latestStatusAt } from '@/lib/study-job-status'
-import { isFeedbackOnlyOutcome, latestJob, projectStudyState, type RawJob } from '@/lib/study-screen'
+import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
+import { isFeedbackOnlyOutcome, latestJob, projectStudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
-import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
 import { getOrgNameFromId } from '@/server/db/queries'
 import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
 import type { ScreenComponentProps } from './types'
 
-// Raw status rows carry createdAt optionally (fixtures omit it); only dated rows can date the banner.
-const datedStatusChanges = (job: RawJob) =>
-    job.statusChanges.filter((c): c is { status: StudyJobStatus; createdAt: Date | string } => !!c.createdAt)
-
 const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => {
-    // Display-only date: degrade to an undated banner rather than block a page routing already chose.
-    const decidedOn = decidedAt ? ` ${STATUS_ALERT_SEPARATOR} ${dayjs(decidedAt).format('MMM DD, YYYY')}` : ''
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Feedback on outputs available${decidedOn}`}>
+        <StatusAlert
+            variant={STATUS_ALERT_VARIANT.action}
+            title={statusAlertTitle('Feedback on outputs available', decidedAt)}
+        >
             {dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When
             you are ready, edit your code and resubmit.
         </StatusAlert>
     )
-}
-
-// Mirrors the code surface: a failed fetch swaps in the shared notice instead of hiding the section.
-const FeedbackSection = ({
-    feedbackLoadError,
-    entries,
-}: {
-    feedbackLoadError: boolean
-    entries: OutputsFeedbackThreadEntry[]
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 // OTTER-695: clean run whose outputs the reviewer withheld with "Share feedback only"
@@ -79,7 +59,7 @@ export async function OutputsFeedbackScreen({
 
     const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
-    const decidedAt = latestStatusAt(datedStatusChanges(job), 'FILES-REJECTED')
+    const decidedAt = latestStatusAt(datedStatusChanges(job.statusChanges), 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
 
@@ -93,7 +73,7 @@ export async function OutputsFeedbackScreen({
                     studyTitle={study.title}
                     banner={<FeedbackOnlyBanner decidedAt={decidedAt} dataPartner={dataPartner} />}
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
+                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <Group justify="space-between">
                     <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
                         Previous step

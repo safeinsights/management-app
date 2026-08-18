@@ -1,6 +1,5 @@
 import { Box, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import type { FC } from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -13,23 +12,13 @@ import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
-import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {
     orgSlug: string
     study: SelectedStudy
     raw: RawStudyState
-}
-
-const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: OutputsDecisionFeedbackEntry[] }> = ({
-    feedbackLoadError,
-    entries,
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOutputsDecidedProps) {
@@ -71,7 +60,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
                         />
                     }
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={feedbackEntries} />
+                <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecryptAndViewOutputs job={job} />
                 <Group justify="space-between">
                     <ButtonLink

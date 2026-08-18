@@ -6,28 +6,12 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
-import { latestStatusAt } from '@/lib/study-job-status'
-import { isErroredOutputsSharedOutcome, projectStudyState } from '@/lib/study-screen'
+import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
+import { isErroredOutputsSharedOutcome, latestJob, projectStudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
-import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
-import { getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { getOrgNameFromId } from '@/server/db/queries'
 import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
 import type { ScreenComponentProps } from './types'
-
-// Mirrors the feedback-only surface: a failed fetch swaps in the shared notice instead of hiding
-// the section, so a researcher never reads "no feedback" when the query simply failed.
-const FeedbackSection = ({
-    feedbackLoadError,
-    entries,
-}: {
-    feedbackLoadError: boolean
-    entries: OutputsFeedbackThreadEntry[]
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
-}
 
 /**
  * OTTER-696: an errored run whose outputs the reviewer released with "Share outputs and feedback"
@@ -56,7 +40,9 @@ export async function OutputsErroredSharedScreen({
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
 
-    const job = await latestSubmittedJobForStudy(study.id)
+    // The banner date comes from the SAME raw job the routing guard decided on — no second
+    // latest-job query whose definition could drift from the projection's (OTTER-695 review).
+    const job = latestJob(raw.jobs)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
@@ -64,7 +50,7 @@ export async function OutputsErroredSharedScreen({
     const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
     // The reviewer's decision, not the error: FILES-APPROVED is written when they submit it.
-    const decidedAt = latestStatusAt(job.statusChanges, 'FILES-APPROVED')
+    const decidedAt = latestStatusAt(datedStatusChanges(job.statusChanges), 'FILES-APPROVED')
 
     return (
         <Box bg="grey.10">
@@ -75,7 +61,9 @@ export async function OutputsErroredSharedScreen({
                     dataPartner={dataPartner}
                     decidedAt={decidedAt}
                     job={job}
-                    feedbackSection={<FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />}
+                    feedbackSection={
+                        <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
+                    }
                     previousHref={Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route}
                     editCodeHref={Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route}
                     dashboardHref={dashboardHref as Route}
