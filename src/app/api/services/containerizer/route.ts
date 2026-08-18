@@ -90,8 +90,14 @@ export const POST = createWebhookHandler({
         // The status dedup would otherwise throw the classification away with the duplicate row. Two
         // deliveries report one failure (the build script's own handler and the buildspec's bare
         // `post_build` fallback) and only one of them carries the code, so whichever lands second
-        // must still be able to record it. Nothing is overwritten: an existing message is left alone.
-        if (failureReason && !last.message) {
+        // must still be able to record it.
+        //
+        // Keyed on whether the row already holds a CLASSIFIED code, not on whether it holds any text
+        // at all. A recorded classification is never overwritten, but unclassified text (the enclave
+        // writes a raw thrown AWS error into this same column, and `/api/job/[jobId]` accepts any
+        // message) is, because it is deliberately never displayed and would otherwise mask the one
+        // value the errored screen can actually explain.
+        if (failureReason && !isKnownFailureReason(last.message)) {
             await db.updateTable('jobStatusChange').set({ message: failureReason }).where('id', '=', last.id).execute()
         }
     },

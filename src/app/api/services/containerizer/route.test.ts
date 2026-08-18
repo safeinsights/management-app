@@ -218,6 +218,28 @@ test('containerizer keeps a recorded reason when an unknown code follows it', as
     expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
 })
 
+// Another producer can get to JOB-ERRORED first: `/api/job/[jobId]` and the enclave both write free
+// text into this column. The dedup then lands on their row, so backfilling has to key on whether a
+// CLASSIFIED code is already recorded rather than on the column being empty, or the one value the
+// errored screen can explain is lost to text that is never displayed anyway.
+test('containerizer records a reason against an errored row holding unclassified text', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({ studyJobId: jobId, status: 'JOB-ERRORED', message: 'Task stopped: exit code 137' })
+        .execute()
+
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
 // The buildspec's fallback path posts the payload raw when the build dies before its own handler
 // runs, so a reason-less failure webhook has to stay valid permanently.
 test('containerizer still accepts a failure webhook with no reason', async () => {
