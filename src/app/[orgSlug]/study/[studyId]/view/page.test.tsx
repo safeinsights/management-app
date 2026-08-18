@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
+import { Routes } from '@/lib/routes'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
@@ -659,16 +660,37 @@ describe('StudyViewPage', () => {
             renderWithProviders(page!)
             expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
-            // The near-identical clean-run screen must not claim this state.
             expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
             expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
                 'href',
-                `/${org.slug}/study/${study.id}/view/code`,
+                Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
             )
             expect(screen.getByRole('link', { name: /edit code/i })).toHaveAttribute(
                 'href',
-                `/${org.slug}/study/${study.id}/resubmit`,
+                Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }),
             )
+        })
+
+        it('renders study-results when the run errored and the reviewer shared the outputs (OTTER-697)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'JOB-ERRORED')
+            await addJobStatus(study.id, 'FILES-APPROVED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText('Study Status')).toBeInTheDocument()
+            expect(screen.getByText('Study Details')).toBeInTheDocument()
+            expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })
 
         it('threads returnTo=org to the results screen via dashboardHref', async () => {
