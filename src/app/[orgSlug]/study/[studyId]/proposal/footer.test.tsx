@@ -13,6 +13,7 @@ import {
     setTestStudyStatus,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { ProposalProvider, useProposal, type ProposalDraftData } from '@/contexts/proposal'
@@ -31,8 +32,8 @@ function lexicalText(text: string): string {
     })
 }
 
-// Every required field populated EXCEPT the title (left blank, as drafts now
-// persist a NULL title instead of a placeholder; reproduces OTTER-557).
+// Every field this page owns, populated. The title is blank on purpose: Step 1 owns it now
+// (OTTER-690), so Step 2 must neither require it nor write it back.
 const fullyValidExceptTitle: ProposalFormValues = {
     title: '',
     datasets: ['dataset-1'],
@@ -51,45 +52,45 @@ const TitleInputProbe = () => {
     return <TextInput aria-label="Study Title Probe" {...form.getInputProps('title')} />
 }
 
-const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle) =>
+const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle, studyTitle?: string | null) =>
     renderWithProviders(
         <ProposalProvider studyId={STUDY_ID} draftData={draftData}>
-            <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
+            <ProposalFooter researcherName="Researcher" researcherId="researcher-1" studyTitle={studyTitle} />
         </ProposalProvider>,
     )
 
-describe('ProposalFooter submit gating (OTTER-557)', () => {
-    it('keeps Submit disabled when the title is empty', () => {
+// Replaces the OTTER-557 gating suite. That suite asserted a blank title blocks Submit here,
+// which OTTER-690 deliberately ends: Step 2 no longer renders a title field, and a required rule
+// on an unrendered field is a submit blocker the user has no way to clear (OTTER-647).
+describe('ProposalFooter submit gating', () => {
+    it('enables Submit with a blank title, which Step 1 now owns', () => {
         renderFooter()
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
-    })
-
-    it('keeps Submit disabled when the title is whitespace only', () => {
-        renderFooter({ ...fullyValidExceptTitle, title: '   ' })
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
-    })
-
-    it('enables Submit when the researcher provides a real title', () => {
-        renderFooter({ ...fullyValidExceptTitle, title: 'My Real Study Title' })
         expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeEnabled()
     })
 
-    it('enables Submit after the researcher types a real title in the form input', async () => {
+    it('enables Submit with a whitespace-only title', () => {
+        renderFooter({ ...fullyValidExceptTitle, title: '   ' })
+        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeEnabled()
+    })
+
+    it('still gates Submit on the fields this page does own', () => {
+        renderFooter({ ...fullyValidExceptTitle, datasets: [] })
+        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
+    })
+})
+
+describe('ProposalFooter reviewer preview title (OTTER-690)', () => {
+    // The preview must read the persisted study.title, not the form's seeded copy: on a DRAFT the
+    // form copy is never edited, so reading it would render whatever was seeded at mount.
+    it('renders the persisted title rather than the form value', async () => {
         const user = userEvent.setup()
-        renderWithProviders(
-            <ProposalProvider studyId={STUDY_ID} draftData={fullyValidExceptTitle}>
-                <TitleInputProbe />
-                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
-            </ProposalProvider>,
-        )
+        renderFooter({ ...fullyValidExceptTitle, title: 'stale form copy' }, 'Persisted Step 1 title')
 
-        const submit = screen.getByRole('button', { name: 'Submit initial request' })
-        expect(submit).toBeDisabled()
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
-        await user.clear(screen.getByLabelText('Study Title Probe'))
-        await user.type(screen.getByLabelText('Study Title Probe'), 'My Real Study Title')
-
-        expect(submit).toBeEnabled()
+        const dialog = await screen.findByRole('dialog')
+        expect(within(dialog).getByText('Persisted Step 1 title')).toBeInTheDocument()
+        expect(within(dialog).queryByText('stale form copy')).not.toBeInTheDocument()
     })
 })
 
@@ -107,13 +108,16 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
             </ProposalProvider>,
         )
 
-    it('flushes edited fields to the study row, then navigates to Step 1', async () => {
+    // OTTER-690: the flush carries every field this page owns, and deliberately not the title.
+    // The probe below edits the form's title copy to prove that a stale Step 2 value cannot
+    // overwrite the one Step 1 persisted.
+    it('flushes edited fields to the study row and leaves the Step 1 title alone', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-save' })
         memoryRouter.setCurrentUrl('/start')
 
         renderFooterForStudy(studyId, researcher.id)
-        await user.type(screen.getByLabelText('Study Title Probe'), 'Saved on Previous')
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
 
         await user.click(screen.getByRole('button', { name: 'Previous' }))
 
@@ -126,7 +130,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
             .select(['title', 'piName', 'datasets'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow()
-        expect(study.title).toBe('Saved on Previous')
+        expect(study.title).toBe('Test draft')
         expect(study.piName).toBe('Jane Smith')
         expect(study.datasets).toEqual(['dataset-1'])
     })
@@ -140,7 +144,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         ;(notifications.show as Mock).mockClear()
 
         renderFooterForStudy(studyId, researcher.id)
-        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Edited so the form is dirty')
 
         await user.click(screen.getByRole('button', { name: 'Previous' }))
 
@@ -163,7 +167,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-preview-save' })
 
         renderFooterForStudy(studyId, researcher.id)
-        await user.type(screen.getByLabelText('Study Title Probe'), 'Saved before preview')
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
@@ -174,7 +178,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
             .select(['title', 'piUserId'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow()
-        expect(study.title).toBe('Saved before preview')
+        expect(study.title).toBe('Test draft')
         expect(study.piUserId).toBe(researcher.id)
     })
 

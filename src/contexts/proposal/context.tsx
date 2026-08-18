@@ -5,8 +5,9 @@ import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, zodResolver } from '@/common'
 import {
-    proposalFormSchema,
+    draftProposalFormSchema,
     initialProposalValues,
+    type CollabFieldKey,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
@@ -42,14 +43,28 @@ interface ProposalProviderProps {
     draftData?: DraftStudyData
 }
 
+// Everything below is unconditional because this provider only ever serves a DRAFT: the route
+// redirects CHANGE-REQUESTED to /edit-and-resubmit (see proposal/page.tsx). Do not reintroduce a
+// `status` prop and half-branch these; if that redirect is ever reverted, all of them have to
+// branch together.
+//
+// `title` is excluded: Step 1 owns study.title on a DRAFT (OTTER-690). Leaving it in would let a
+// cold fields-doc seed a blank title, or a stale persisted one, over the Step 1 value via the
+// server-side mirror.
+const DRAFT_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
+
 export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
     const form = useForm<ProposalFormValues>({
-        validate: zodResolver(proposalFormSchema),
+        validate: zodResolver(draftProposalFormSchema),
         initialValues: { ...initialProposalValues, ...draftData },
         validateInputOnChange: true,
     })
 
-    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({
+        studyId,
+        form,
+        collabKeys: DRAFT_COLLAB_KEYS,
+    })
 
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 

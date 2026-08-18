@@ -7,7 +7,6 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 import { FormField, nativeFieldProps } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import {
     SaveStatusAnnouncer,
@@ -16,9 +15,8 @@ import {
     type SaveStatusValue,
 } from '@/components/save-status'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
-import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS, type CollabFieldKey, type ProposalFormValues } from './schema'
+import { type CollabFieldKey, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -40,6 +38,11 @@ interface ProposalFormProps {
     researcherName?: string
     researcherId?: string
     enclaveOrgSlug?: string
+    /**
+     * The persisted `study.title`. Step 1 owns it now (OTTER-690), so this page reads it rather
+     * than editing it, and passes it down for the reviewer preview.
+     */
+    studyTitle?: string | null
 }
 
 const EditableTextFieldEntry: FC<{
@@ -72,11 +75,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     researcherName = '',
     researcherId = '',
     enclaveOrgSlug,
+    studyTitle,
 }) => {
     const { studyId, form, websocketProvider, yjsForm, tabSessionId } = useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const titleWordCount = countWords(form.values.title)
-    const titleInputProps = form.getInputProps('title')
     const fieldsSaveStatus = useProviderSaveStatus(yjsForm.provider)
 
     // The Yjs provider saves the whole fields doc, so its status is form-wide;
@@ -85,15 +87,14 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     // that field's validation error owns the row (OTTER-674).
     const saveStatusFor = (key: CollabFieldKey, error: unknown): SaveStatusValue =>
         yjsForm.editedKeys.has(key) && !error ? fieldsSaveStatus : 'idle'
-    const titleSaveStatus = saveStatusFor('title', form.errors.title)
     const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
     const piSaveStatus = saveStatusFor('piName', form.errors.piName)
 
-    // All three read the same provider, so a live region on each would have a screen reader read
-    // "All changes saved" three times per save cycle. They stay visual and announce from here
+    // Both read the same provider, so a live region on each would have a screen reader read
+    // "All changes saved" twice per save cycle. They stay visual and announce from here
     // once (OTTER-675). The collaborative text editors below own separate providers and so keep
     // their own regions.
-    const fieldsAnnouncedStatus = announcedSaveStatus([titleSaveStatus, datasetsSaveStatus, piSaveStatus])
+    const fieldsAnnouncedStatus = announcedSaveStatus([datasetsSaveStatus, piSaveStatus])
 
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
@@ -127,29 +128,8 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Text>
 
                     <Stack gap="xxl">
-                        <FormField
-                            inputId="title"
-                            label="Study title"
-                            required
-                            description="Give your study a short, clear title. This will help identify and reference your project on SafeInsights."
-                            error={form.errors.title}
-                            footer={<WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />}
-                        >
-                            <TextInput
-                                id="title"
-                                aria-label="Study Title"
-                                placeholder="Ex. Impact of highlighting on student learning outcomes."
-                                {...titleInputProps}
-                                onChange={(event) => {
-                                    titleInputProps.onChange?.(event)
-                                    yjsForm.pushField('title', event.currentTarget.value)
-                                }}
-                                value={form.values.title ?? ''}
-                                {...nativeFieldProps(form.errors.title, { required: true, description: true })}
-                            />
-                            <SaveStatusIndicator status={titleSaveStatus} announce={false} />
-                        </FormField>
-
+                        {/* No Study title field: it moved to Step 1 with OTTER-690, which owns
+                            study.title for drafts. */}
                         <FormField
                             inputId="datasets"
                             label="Dataset(s) of interest"
@@ -276,6 +256,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     researcherName={researcherName}
                     researcherId={researcherId}
                     enclaveOrgSlug={enclaveOrgSlug}
+                    studyTitle={studyTitle}
                 />
             </Stack>
         </StudyKickOutProvider>

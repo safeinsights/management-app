@@ -21,6 +21,16 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
+    // OTTER-690: /proposal is the DRAFT Step 2 editor and nothing routes a CHANGE-REQUESTED study
+    // here (the dashboard sends it to /edit-and-resubmit, which is the page built for that state:
+    // it carries the reviewer feedback and the resubmission note this one has no UI for). Making
+    // that explicit lets ProposalProvider below be unconditionally DRAFT, so the title ownership
+    // split does not have to be re-derived by every consumer. A stale bookmark now lands on the
+    // working page instead of a half-working one.
+    if (result.status === 'CHANGE-REQUESTED') {
+        redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
+    }
+
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
@@ -46,6 +56,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     researcherName={result.researcherName}
                     researcherId={result.researcherId}
                     enclaveOrgSlug={result.orgSlug}
+                    studyTitle={result.title}
                 />
             </ProposalProvider>
         </Stack>

@@ -29,8 +29,16 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
         // sets the field snapshot AND flips status. A separate pre-submit
         // onUpdateDraftStudyAction would let a losing concurrent submitter overwrite
         // the winner's data between the two transactions.
+        // titleMode 'omit': Step 1 owns study.title on a DRAFT (OTTER-690). This form still carries
+        // a seeded copy for the reviewer preview, and sending it would overwrite the Step 1 value
+        // at the exact moment it becomes immutable.
         mutationFn: async () =>
-            actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) })),
+            actionResult(
+                await finalizeStudySubmissionAction({
+                    studyId,
+                    studyInfo: buildStudyInfo(form.getValues(), 'omit'),
+                }),
+            ),
         onSuccess: (result) => {
             form.resetDirty()
             const submittedByClerkId = user?.id
