@@ -133,15 +133,15 @@ const configWithSentry = withSentryConfig(nextConfig, {
         enabled: true,
     },
     sourcemaps: {
-        deleteSourcemapsAfterUpload: false,
+        // Sentry keeps its own uploaded copy, so stripping .map files from the client
+        // bundle preserves symbolication while keeping sourcesContent off the CDN.
+        deleteSourcemapsAfterUpload: true,
     },
     // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
     // This can increase your server load as well as your hosting bill.
     // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of
     // client-side errors will fail.
     // tunnelRoute: "/monitoring",
-
-    // Hides source maps from generated client bundles
 
     // Automatically tree-shake Sentry logger statements to reduce bundle size
     disableLogger: true,
