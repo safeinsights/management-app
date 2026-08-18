@@ -17,8 +17,9 @@ const artifactPath = (jobId: string, name: string) => `test-org/${jobId}/results
 /**
  * One `studyJobFile` row with no encrypted body behind it.
  *
- * A real shape rather than a shortcut: the containerizer stores a plaintext PACKAGING-ERROR-LOG on
- * its own when the org has no key holders, and pre-#764 jobs hold plaintext APPROVED-* results.
+ * A real shape rather than a shortcut: the containerizer stores a plaintext PACKAGING-ERROR-LOG
+ * beside the encrypted one (and alone when the org has no key holders), and pre-#764 jobs hold
+ * plaintext APPROVED-* results.
  *
  * Idempotent, because the artifact-slot unique index forbids a second row for a slot the job
  * already has, and a suite may seed the same artifact twice across a setup helper and a test.

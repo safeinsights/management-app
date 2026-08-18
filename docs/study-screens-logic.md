@@ -191,10 +191,13 @@ failed, derived from the status history (`JOB-PACKAGING` without `JOB-READY` mea
 since `/api/services/job-scan-results` and `/api/job/[jobId]` can both record `JOB-ERRORED` first).
 It then says what can honestly be said about a log: how to open it, that there is none, that there is
 none but the results still need a key, or that one exists in a form this screen cannot display (a
-plaintext log stored when the org has no key holders), with or without a key step, since a job can
-hold both that log and a decryptable artifact. Those sentences are derived from the same file list
-and the same predicate as the key gate, so the banner cannot instruct the reviewer to use a form that
-is not rendered, nor drop the instruction while the form renders.
+pre-#764 legacy row, or the plaintext twin of a log whose encrypted half never stored). The
+decryptable question is asked first, so an ordinary packaging failure, which stores both halves of
+one log, is reported as readable rather than as one this screen cannot display. Each of those
+sentences carries a key step or not according to whether a job also holds a decryptable artifact,
+since it can hold both. They are derived from the same file list and the same predicate as the key
+gate, so the banner cannot instruct the reviewer to use a form that is not rendered, nor drop the
+instruction while the form renders.
 
 The stage sentence is replaced by a more specific one when a build service reported a failure class
 it recognizes, such as an unavailable base image. Only classified codes are rendered: the value is

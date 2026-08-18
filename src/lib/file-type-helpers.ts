@@ -66,10 +66,15 @@ export function isLogType(fileType: FileType): boolean {
 // came to promise error logs it did not have (OTTER-524).
 const ENCRYPTED_ERROR_LOG_TYPES: FileType[] = ['ENCRYPTED-CODE-RUN-LOG', 'ENCRYPTED-PACKAGING-ERROR-LOG']
 
-// The same logs in a form no security key opens. PACKAGING-ERROR-LOG is written on its own when the
-// org has no key holders, so encryptAndStoreLog produced nothing to pair it with; the APPROVED-*
-// pair are pre-#764 legacy rows. Kept separate from the encrypted set because the reviewer's screen
-// must promise a key form only for logs a key can actually open.
+// The same logs in a form no security key opens. PACKAGING-ERROR-LOG is the plaintext twin the
+// containerizer writes beside the encrypted one whenever that one stored (and alone when the org has
+// no key holders, so encryptAndStoreLog produced nothing to pair it with); the APPROVED-* pair are
+// pre-#764 legacy rows. Kept separate from the encrypted set because the reviewer's screen must
+// promise a key form only for logs a key can actually open.
+//
+// This set therefore OVERLAPS the encrypted one on an ordinary packaging failure, which holds both
+// halves of the same log. Only errorLogSentence's ordering resolves that, by asking the decryptable
+// question first; a caller that asks this one alone will call a readable log undisplayable.
 const UNDECRYPTABLE_ERROR_LOG_TYPES: FileType[] = [
     'PACKAGING-ERROR-LOG',
     'APPROVED-CODE-RUN-LOG',
