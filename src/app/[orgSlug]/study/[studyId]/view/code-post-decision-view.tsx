@@ -6,7 +6,6 @@ import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@manti
 import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -250,17 +249,10 @@ export function CodePostDecisionView({
     const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboardHref],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
-
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
         <Stack p="xl" gap="xxl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
             <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">

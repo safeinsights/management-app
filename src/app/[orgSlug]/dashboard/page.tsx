@@ -2,10 +2,9 @@
 
 import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { orgInitials, displayOrgName } from '@/lib/string'
+import { displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { Stack, Text, Title } from '@mantine/core'
@@ -20,7 +19,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     }
 
     const isEnclave = isEnclaveOrg(org)
-    const orgInitialsOnly = orgInitials(org.name, org.type, true)
     const orgName = displayOrgName(org.name)
 
     const description = isEnclave
@@ -29,12 +27,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="xxl" gap="xxl">
-            <PageBreadcrumbs
-                crumbs={[
-                    ['My Dashboard', isEnclave ? '/dashboard?audience=reviewer' : '/dashboard?audience=researcher'],
-                    [orgInitialsOnly + (isEnclave ? ' Data Partner' : ' Research Lab')],
-                ]}
-            />
             <Title order={1}>{orgName + (isEnclave ? ' Data Partner' : ' Research Lab')} dashboard</Title>
             <JoinedOrgBanner />
             <Text mt="-md">{description}</Text>
