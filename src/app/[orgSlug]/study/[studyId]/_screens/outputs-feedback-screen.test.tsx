@@ -21,7 +21,7 @@ import { displayOrgName } from '@/lib/string'
 import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
-import { OutputsFeedbackScreen } from './outputs-feedback-layout'
+import { OutputsFeedbackScreen } from './outputs-feedback-screen'
 import type { ScreenComponentProps } from './types'
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
