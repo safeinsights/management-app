@@ -200,6 +200,49 @@ describe('OutputsFeedbackScreen', () => {
             expect(alert).toHaveTextContent('Feedback on outputs available')
             expect(alert).not.toHaveTextContent('•')
         })
+        it('shows clean-run copy when JOB-ERRORED came from packaging but the run completed (RUN-COMPLETE present)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+            await db.updateTable('org').set({ name: 'Riverside University' }).where('id', '=', org.id).execute()
+            const { study: dbStudy, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id })
+                .execute()
+            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
+            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'FILES-REJECTED', userId: user.id, createdAt: DECIDED_AT })
+                .execute()
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: dbStudy.id,
+                    studyJobId: job.id,
+                    authorId: user.id,
+                    reviewKind: 'RESULTS',
+                    entryType: 'DECISION',
+                    decision: 'NEEDS-CLARIFICATION',
+                    body: JSON.parse(lexicalJson('PII found in results.')),
+                    round: 1,
+                    createdAt: DECIDED_AT,
+                })
+                .execute()
+
+            const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+            const raw = await requireRawState(dbStudy.id)
+            ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+            await renderScreen(study, raw, org.slug)
+
+            const alert = screen.getByTestId('status-alert')
+            expect(alert).toHaveTextContent('Feedback on outputs available')
+            expect(alert).toHaveTextContent('Riverside University has shared feedback on the latest code run.')
+            expect(alert).not.toHaveTextContent('Resolve the code error')
+        })
     })
 
     describe('errored run banner (OTTER-697)', () => {
@@ -209,7 +252,9 @@ describe('OutputsFeedbackScreen', () => {
 
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'action')
-            expect(alert).toHaveTextContent('Resolve the code error to proceed • Aug 05, 2026')
+            expect(alert).toHaveTextContent(
+                `Resolve the code error to proceed • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`,
+            )
             expect(alert).toHaveTextContent(
                 `Riverside University has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
             )
@@ -221,9 +266,9 @@ describe('OutputsFeedbackScreen', () => {
             await renderScreen(study, raw, org.slug)
 
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveTextContent('Aug 05, 2026')
-            expect(alert).not.toHaveTextContent('Jul 15, 2026')
-            expect(alert).not.toHaveTextContent('Jun 20, 2026')
+            expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
+            expect(alert).not.toHaveTextContent(dayjs(ERRORED_AT).format('MMM DD, YYYY'))
+            expect(alert).not.toHaveTextContent(dayjs(APPROVED_AT).format('MMM DD, YYYY'))
         })
 
         it('degrades to an undated banner when the FILES-REJECTED row has no timestamp', async () => {
@@ -320,8 +365,8 @@ describe('OutputsFeedbackScreen', () => {
             expect(section).toHaveTextContent('Resubmission note (v1.0)')
             expect(section).toHaveTextContent('Raised the timeout to 60s.')
             expect(section).toHaveTextContent(user.fullName)
-            expect(section).toHaveTextContent('Aug 05, 2026')
-            expect(section).toHaveTextContent('Jul 01, 2026')
+            expect(section).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
+            expect(section).toHaveTextContent(dayjs(SUBMITTED_AT).format('MMM DD, YYYY'))
             expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
         })
 

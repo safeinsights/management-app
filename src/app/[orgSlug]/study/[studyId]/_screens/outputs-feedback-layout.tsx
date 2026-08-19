@@ -101,7 +101,11 @@ export async function OutputsFeedbackScreen({
     const decidedAt = latestStatusAt(datedStatusChanges(job), 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
-    const banner = bannerCopy(state.resultsErrored, dataPartner)
+    // JOB-ERRORED is shared by the scanner, containerizer, and the run itself. A packaging
+    // error followed by a successful run leaves both JOB-ERRORED and RUN-COMPLETE on the job;
+    // only a JOB-ERRORED without RUN-COMPLETE means the run itself failed.
+    const runErrored = state.resultsErrored && !job.statusChanges.some((c) => c.status === 'RUN-COMPLETE')
+    const banner = bannerCopy(runErrored, dataPartner)
 
     return (
         <Box bg="grey.10">
