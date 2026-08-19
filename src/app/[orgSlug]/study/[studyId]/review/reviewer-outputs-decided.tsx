@@ -1,9 +1,9 @@
 import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
@@ -63,13 +63,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
                 <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecryptAndViewOutputs job={job} />
                 <Group justify="space-between">
-                    <ButtonLink
-                        href={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
-                        variant="subtle"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous step
-                    </ButtonLink>
+                    <PreviousStepLink previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })} />
                     <ButtonLink href={Routes.dashboard} variant="filled" size="md">
                         Back to my studies
                     </ButtonLink>

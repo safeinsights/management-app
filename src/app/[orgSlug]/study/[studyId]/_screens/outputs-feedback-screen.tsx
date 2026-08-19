@@ -1,32 +1,25 @@
 import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { AlertNotFound } from '@/components/errors'
 import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
-import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
-import { isFeedbackOnlyOutcome, latestJob, projectStudyState } from '@/lib/study-screen'
-import { isSubmittedStudy } from '@/schema/study'
-import { getOrgNameFromId } from '@/server/db/queries'
-import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
+import { isFeedbackOnlyOutcome } from '@/lib/study-screen'
+import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
-const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => {
-    return (
-        <StatusAlert
-            variant={STATUS_ALERT_VARIANT.action}
-            title={statusAlertTitle('Feedback on outputs available', decidedAt)}
-        >
-            {dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When
-            you are ready, edit your code and resubmit.
-        </StatusAlert>
-    )
-}
+const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => (
+    <StatusAlert
+        variant={STATUS_ALERT_VARIANT.action}
+        title={statusAlertTitle('Feedback on outputs available', decidedAt)}
+    >
+        {dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you
+        are ready, edit your code and resubmit.
+    </StatusAlert>
+)
 
 // OTTER-695: clean run whose outputs the reviewer withheld with "Share feedback only"
 // (FILES-REJECTED without JOB-ERRORED); the researcher reads the feedback and resubmits.
@@ -36,30 +29,19 @@ export async function OutputsFeedbackScreen({
     orgSlug,
     returnTo,
 }: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'>) {
-    // The routing predicate first (raw is in hand, so the check is free and render cannot disagree
-    // with the rule table), then the narrowing lookups that cost I/O.
-    if (!isFeedbackOnlyOutcome(projectStudyState(raw))) {
-        return (
-            <AlertNotFound
-                title="Feedback not found"
-                message="This study does not have outputs feedback to display yet."
-            />
-        )
-    }
-    if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
-    }
+    const result = await guardOutputsFeedbackScreen({
+        study,
+        raw,
+        matches: isFeedbackOnlyOutcome,
+        notFound: {
+            title: 'Feedback not found',
+            message: 'This study does not have outputs feedback to display yet.',
+        },
+        decisionStatus: 'FILES-REJECTED',
+    })
+    if (!('job' in result)) return result
 
-    // The banner date comes from the SAME raw job the routing guard decided on — no second
-    // latest-job query whose definition could drift from the projection's (review on this card).
-    const job = latestJob(raw.jobs)
-    if (!job) {
-        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
-    }
-
-    const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
-    const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
-    const decidedAt = latestStatusAt(datedStatusChanges(job.statusChanges), 'FILES-REJECTED')
+    const { entries, feedbackLoadError, dataPartner, decidedAt } = result
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
 
@@ -70,14 +52,12 @@ export async function OutputsFeedbackScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title}
+                    studyTitle={study.title!}
                     banner={<FeedbackOnlyBanner decidedAt={decidedAt} dataPartner={dataPartner} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous step
-                    </ButtonLink>
+                    <PreviousStepLink previousHref={previousHref} />
                     <ButtonLink href={editCodeHref} variant="outline" size="md">
                         Edit code
                     </ButtonLink>

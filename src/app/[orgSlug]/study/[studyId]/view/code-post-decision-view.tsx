@@ -3,10 +3,11 @@
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
@@ -107,12 +108,6 @@ type DecisionActionsProps = {
     nextStepHref?: Route
 }
 
-const PreviousStepLink: FC<{ href: Route }> = ({ href }) => (
-    <ButtonLink href={href} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
-
 const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
     if (!isVisible) return null
     return (
@@ -147,7 +142,7 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, 
     const showNextStep = !showResubmit && !!nextStepHref
     return (
         <Group justify="space-between">
-            <PreviousStepLink href={previousHref} />
+            <PreviousStepLink previousHref={previousHref} />
             <NextStepAction isVisible={showNextStep} href={nextStepHref} />
             <DashboardAction isVisible={!showResubmit && !showNextStep} href={dashboardHref} />
             <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
@@ -155,7 +150,6 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, 
     )
 }
 
-// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
 type StepCardProps = {
     study: Submitted<SelectedStudy>
     copy: DecisionCopy
