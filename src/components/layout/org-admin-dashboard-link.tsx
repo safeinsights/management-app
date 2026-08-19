@@ -12,6 +12,10 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 type Org = ActionSuccessType<typeof fetchUsersOrgsAction>[number]
 
+// Org admin routes are org-scoped (/{orgSlug}/admin/...) while the SafeInsights
+// admin tree is top-level (/admin/safeinsights), so match the segment anywhere.
+const isAdminPathname = (pathname: string) => /(^|\/)admin(\/|$)/.test(pathname)
+
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
     org: Org
@@ -21,7 +25,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const pathname = usePathname()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
-    const isAdminPage = pathname.startsWith('/admin/')
+    const isAdminPage = isAdminPathname(pathname)
 
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
