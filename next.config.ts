@@ -9,15 +9,15 @@ const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 // (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
 const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 
-// Turbopack's persistent filesystem cache for `next build` is experimental (opt-in) in
-// Next 16, so it's gated behind TURBOPACK_FS_CACHE and only turned on for the CI e2e build
-// (see .github/workflows/checks.yml), never for the production deploy build. It writes to
-// .next/cache, which CI persists across runs to make incremental rebuilds much faster.
-// A corrupt cache fails loudly at build time (a red build, never a false-green test run). The
-// rarer, quieter risk is a stale build if invalidation ever missed a change; content-hash change
-// detection plus a cache key that hashes every source file make this unlikely, but if a build is
-// ever suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
-const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
+// Turbopack's persistent filesystem cache for `next build` is on by default from Next 16.3, so
+// there is no config key here to gate it any more. It writes to .next/cache, which CI persists
+// across runs (see .github/workflows/checks.yml) to make incremental rebuilds much faster. The
+// deploy build is unaffected either way: iac's cicd/management-app wipes its build directory and
+// re-extracts the release tarball for every release, so that cache is always cold there. A corrupt
+// cache fails loudly at build time (a red build, never a false-green test run). The rarer, quieter
+// risk is a stale build if invalidation ever missed a change; content-hash change detection plus a
+// cache key that hashes every source file make this unlikely, but if a CI build is ever suspected
+// stale, bust the cache by bumping the tpc token in the workflow cache key.
 
 // Server Action IDs, and the encrypted arguments bound into them, are derived from Next's Server
 // Actions encryption key. Left unset, Next mints a fresh key per build, so a browser still holding
@@ -32,7 +32,12 @@ const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 // builds get it from Secrets Manager; local dev and CI let Next generate a throwaway one, since
 // nothing there outlives a rebuild. A deployed build silently falling back to a generated key is
 // the bug being fixed here, so fail loudly rather than ship one.
-if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev) {
+//
+// `next typegen` loads this config with the production-build phase but emits no build, so it is
+// exempt: since Next 16.3 the throw is fatal there, which would fail `pnpm run checks` for every
+// developer without the secret over a key typegen never uses.
+const isTypegen = process.argv.includes('typegen')
+if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev && !isTypegen) {
     throw new Error(
         'NEXT_SERVER_ACTIONS_ENCRYPTION_KEY must be set for a production build. ' +
             'It comes from the MgmntAppBuildVars secret; see cicd/management-app in the iac repo.',
@@ -67,6 +72,17 @@ const nextConfig: NextConfig = {
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',
     output: 'standalone',
+    // The compiled server chunks resolve SWC's ESM helpers at runtime, but file tracing follows
+    // @swc/helpers through its CJS export condition and copies cjs/ only. Without these globs the
+    // standalone server dies on boot with "Cannot find module .../@swc/helpers/esm/...", so trace
+    // the ESM helpers explicitly. Both layouts are listed because pnpm keeps the real package
+    // under .pnpm/ and only symlinks it where a dependent can see it.
+    outputFileTracingIncludes: {
+        '**': [
+            './node_modules/.pnpm/@swc+helpers@*/node_modules/@swc/helpers/esm/**',
+            './node_modules/**/@swc/helpers/esm/**',
+        ],
+    },
     typedRoutes: true,
     transpilePackages: ['si-encryption'],
     env: {
@@ -100,7 +116,6 @@ const nextConfig: NextConfig = {
         return config
     },
     experimental: {
-        ...(turbopackFsCache ? { turbopackFileSystemCacheForBuild: true } : {}),
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {
