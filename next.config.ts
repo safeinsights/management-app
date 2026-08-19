@@ -9,15 +9,22 @@ const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 // (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
 const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 
-// Turbopack's persistent filesystem cache for `next build` is on by default from Next 16.3, so
-// there is no config key here to gate it any more. It writes to .next/cache, which CI persists
-// across runs (see .github/workflows/checks.yml) to make incremental rebuilds much faster. The
-// deploy build is unaffected either way: iac's cicd/management-app wipes its build directory and
-// re-extracts the release tarball for every release, so that cache is always cold there. A corrupt
-// cache fails loudly at build time (a red build, never a false-green test run). The rarer, quieter
-// risk is a stale build if invalidation ever missed a change; content-hash change detection plus a
-// cache key that hashes every source file make this unlikely, but if a CI build is ever suspected
-// stale, bust the cache by bumping the tpc token in the workflow cache key.
+// Turbopack's persistent filesystem cache for `next build` writes to .next/cache and only pays off
+// where that directory survives between builds. It is on by default from Next 16.3, so the value
+// below must be passed unconditionally: omitting the key now means "on", which is why this is a
+// plain boolean rather than the conditional spread it used to be.
+//
+// TURBOPACK_FS_CACHE is set for the CI e2e build alone (see .github/workflows/checks.yml), where
+// actions/cache restores .next/cache across runs and makes incremental rebuilds much faster. The
+// deploy build gets it off: iac's cicd/management-app wipes its build directory and re-extracts the
+// release tarball for every release, so a cache there could only ever be written and never read.
+// Next's own guidance is to disable it when the environment does not preserve .next/cache.
+//
+// A corrupt cache fails loudly at build time (a red build, never a false-green test run). The rarer,
+// quieter risk is a stale build if invalidation ever missed a change; content-hash change detection
+// plus a cache key that hashes every source file make this unlikely, but if a CI build is ever
+// suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
+const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 
 // Server Action IDs, and the encrypted arguments bound into them, are derived from Next's Server
 // Actions encryption key. Left unset, Next mints a fresh key per build, so a browser still holding
@@ -116,6 +123,7 @@ const nextConfig: NextConfig = {
         return config
     },
     experimental: {
+        turbopackFileSystemCacheForBuild: turbopackFsCache,
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {

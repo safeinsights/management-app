@@ -244,6 +244,13 @@ jobs:
             SINGLE_USER_EDITING: 't'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk'
             NEXT_PUBLIC_CI: 'true'
+            # Opt this build into Turbopack's persistent filesystem cache. next.config.ts passes
+            # turbopackFileSystemCacheForBuild explicitly (Next 16.3 defaults it on), so it is
+            # enabled only where this is set: here, and never for the production deploy build,
+            # whose workspace is recreated per release so a cache would never be reused. Turbopack
+            # writes the cache into .next/cache, which the actions/cache step below persists
+            # between runs to make incremental rebuilds fast.
+            TURBOPACK_FS_CACHE: '1'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
             AWS_ACCESS_KEY_ID: 'si-local-s3'
@@ -270,7 +277,7 @@ jobs:
             # push-to-main (see the save step after the tests): the save uploads ~400MB and would
             # add ~50s to every PR's critical path. PR runs restore main's cache via the tiers
             # below and rebuild incrementally. The `tpc1` token namespaces the Turbopack
-            # persistent build cache (on by default from Next 16.3) and lets us bust it with a
+            # persistent build cache (enabled via TURBOPACK_FS_CACHE) and lets us bust it with a
             # one-character bump if a cached build ever misbehaves.
             - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               id: next_cache
