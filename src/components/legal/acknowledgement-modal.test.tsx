@@ -1,6 +1,6 @@
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import type { PendingLegalDocument } from './acknowledgement-copy'
+import type { PendingLegalDocument } from '@/schema/legal-document'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
 const document: PendingLegalDocument = {

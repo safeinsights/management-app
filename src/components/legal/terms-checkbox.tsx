@@ -1,10 +1,9 @@
 'use client'
 
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Anchor, Checkbox, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, ReactNode } from 'react'
-import type { PublicLegalDocument } from './acknowledgement-copy'
 import { LegalDocumentSections } from './document-sections'
 
 // Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
@@ -39,7 +38,7 @@ export const TermsCheckboxLabel: FC = () => (
     </Text>
 )
 
-const agreementLabel = (documents: PublicLegalDocument[]) =>
+const agreementLabel = (documents: GlobalLegalDocument[]) =>
     `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}`
 
 type TermsCheckboxProps = {
@@ -53,7 +52,7 @@ type TermsCheckboxProps = {
      * the placeholder copy stands in and no acknowledgement is recorded — there is no version to
      * record one against. The app-wide gate then collects it once a real document exists.
      */
-    documents?: PublicLegalDocument[]
+    documents?: GlobalLegalDocument[]
 }
 
 const TERMS_ERROR_ID = 'terms-accepted-error'

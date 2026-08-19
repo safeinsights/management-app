@@ -3,11 +3,12 @@
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import type { PublicLegalDocument } from './acknowledgement-copy'
 import { LegalDocumentContent } from './document-content'
+import type { ResolvedLegalDocument } from '@/schema/legal-document'
 
-// Every place a user is asked to agree names the document, then renders it in full.
-export const LegalDocumentSection: FC<{ document: PublicLegalDocument; labelSize?: string }> = ({
+// Every place a user is asked to agree names the document, then renders it in full. Takes the more generic type
+// so both the global signup set and a pending enforced document can render here.
+export const LegalDocumentSection: FC<{ document: ResolvedLegalDocument; labelSize?: string }> = ({
     document,
     labelSize,
 }) => (
@@ -20,7 +21,7 @@ export const LegalDocumentSection: FC<{ document: PublicLegalDocument; labelSize
 )
 
 // Signup agrees to everything published at once; the app-wide gate asks one document at a time.
-export const LegalDocumentSections: FC<{ documents: PublicLegalDocument[]; labelSize?: string }> = ({
+export const LegalDocumentSections: FC<{ documents: ResolvedLegalDocument[]; labelSize?: string }> = ({
     documents,
     labelSize,
 }) => (

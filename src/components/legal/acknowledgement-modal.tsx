@@ -7,8 +7,8 @@ import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
     legalAcknowledgementTitle,
-    type PendingLegalDocument,
 } from './acknowledgement-copy'
+import type { PendingLegalDocument } from '@/schema/legal-document'
 
 type Props = {
     isVisible: boolean

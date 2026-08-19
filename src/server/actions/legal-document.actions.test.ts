@@ -17,7 +17,7 @@ import {
     fetchLegalDocumentAcknowledgementsAction,
     fetchLegalDocumentVersionsAction,
     fetchNextPendingLegalAcknowledgementAction,
-    fetchPublicLegalDocumentsAction,
+    fetchGlobalLegalDocumentsAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 
@@ -329,6 +329,26 @@ describe('acknowledgeLegalDocumentAction', () => {
         expect(acks).toHaveLength(0)
     })
 
+    // ropa is an enforced type, so a scope that equates "enforced" with "global" would grant every
+    // authenticated user the isGlobal acknowledge rule and let an outsider record consent to another
+    // org's ropa. A ropa binds only its org, so this must be refused like the dopa case above.
+    it('refuses a user outside the org a ropa binds, though ropa is an enforced type', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('ROPA')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData()
+        const result = await acknowledgeLegalDocumentAction({ versionId: published.id })
+
+        expect(result).toHaveProperty('error')
+        const acks = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .selectAll('legalDocumentAcknowledgement')
+            .where('legalDocumentVersionId', '=', published.id)
+            .execute()
+        expect(acks).toHaveLength(0)
+    })
+
     it('refuses to acknowledge a draft, which no one has been shown', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const draft = await createDraft()
@@ -434,14 +454,14 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
     })
 })
 
-describe('fetchPublicLegalDocumentsAction', () => {
+describe('fetchGlobalLegalDocumentsAction', () => {
     it('returns the current published documents without a session', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await publishTos()
         const current = await publishTos('terms-v2.md')
 
         mockClerkSession(null)
-        const documents = actionResult(await fetchPublicLegalDocumentsAction())
+        const documents = actionResult(await fetchGlobalLegalDocumentsAction())
 
         expect(documents.map((document) => document.versionId)).toEqual([current.id])
         expect(documents[0]!.content).toContain(current.filePath)

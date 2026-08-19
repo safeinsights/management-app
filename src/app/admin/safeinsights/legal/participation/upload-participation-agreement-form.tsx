@@ -103,10 +103,8 @@ const VersionNote: FC<{ versionNumber: number | null | undefined }> = ({ version
     )
 }
 
-// Says nothing about acknowledgement: a ropa/dopa is filed here, not enforced — only tos/pn are in
-// enforcedLegalDocumentTypes, and org-scoped enforcement is SHRMP-302.
 const publishConsequence = (documentLabel: string, orgName: string) =>
-    `This becomes the current ${documentLabel} on record for ${orgName}. Earlier versions stay in the record. This cannot be undone.`
+    `This becomes the current ${documentLabel} on record for ${orgName}. Earlier versions stay in the record. Publication will prompt all users to whom this document applies to re-acknowledge. to This cannot be undone.`
 
 // Given a `signatory`, this adds a version to that org: only a new date and file are collected.
 // Without one, the org is picked from the dropdown.

@@ -1,15 +1,4 @@
-import { type EnforcedLegalDocumentType, legalDocumentTypeLabels } from '@/schema/legal-document'
-
-export type PublicLegalDocument = {
-    type: EnforcedLegalDocumentType
-    versionId: string
-    content: string
-}
-
-export type PendingLegalDocument = PublicLegalDocument & {
-    /** True when the user acknowledged an earlier version of this document, false when they never have. */
-    isUpdate: boolean
-}
+import { legalDocumentTypeLabels, type PendingLegalDocument } from '@/schema/legal-document'
 
 export const legalAcknowledgementTitle = (document: PendingLegalDocument) => legalDocumentTypeLabels[document.type]
 

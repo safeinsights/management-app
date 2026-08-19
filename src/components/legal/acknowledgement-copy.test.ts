@@ -3,8 +3,8 @@ import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
     legalAcknowledgementTitle,
-    type PendingLegalDocument,
 } from './acknowledgement-copy'
+import type { PendingLegalDocument } from '@/schema/legal-document'
 
 const document = (type: PendingLegalDocument['type'], isUpdate: boolean): PendingLegalDocument => ({
     type,

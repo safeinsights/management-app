@@ -16,6 +16,10 @@ import {
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
+    GlobalLegalDocumentType,
+    globalLegalDocumentTypes,
+    type GlobalLegalDocument,
+    type PendingLegalDocument,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
 import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
@@ -25,8 +29,8 @@ import { Action, ActionFailure } from './action'
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
 
-const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
-    (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
+const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
+    (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
 
 /**
  * Resolves who a version binds, for the ability check to match on.
@@ -54,7 +58,10 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
     return {
         orgId: scope?.orgId ?? undefined,
         studyId: scope?.studyId ?? undefined,
-        isGlobal: scope ? isEnforcedType(scope.type) : false,
+        // Globally-scoped tos/pn bind everyone, so the acknowledge rule grants any authenticated user.
+        // A ropa/dopa is enforced too but binds only its org — it must NOT be global, or every user
+        // could record consent to another org's agreement; those are matched by audienceOrgIds instead.
+        isGlobal: scope ? isGlobalType(scope.type) : false,
         audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
             (orgId): orgId is string => orgId != null,
         ),
@@ -227,16 +234,24 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
         return { acknowledged: true }
     })
 
-type EnforcedVersion = {
-    type: EnforcedLegalDocumentType
+type GenericVersion = {
+    type: EnforcedLegalDocumentType | GlobalLegalDocumentType
     legalDocumentId: string
     versionId: string
     filePath: string
 }
 
-// The current version of each globally-scoped document. Drafts are excluded: nobody can be obliged
-// by something that was never published.
-const latestEnforcedVersions = async (db: DBExecutor): Promise<EnforcedVersion[]> => {
+type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
+
+export type GlobalVersion = GenericVersion & { type: GlobalLegalDocumentType }
+
+// The current published version of each document of the given types, narrowed to those types and
+// ordered as `types` lists them. Drafts are excluded: nobody can be obliged by something that was
+// never published.
+const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
+    db: DBExecutor,
+    types: readonly T[],
+): Promise<(GenericVersion & { type: T })[]> => {
     const rows = await db
         .selectFrom('legalDocument')
         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
@@ -246,18 +261,29 @@ const latestEnforcedVersions = async (db: DBExecutor): Promise<EnforcedVersion[]
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
         ])
-        .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        .where('legalDocument.type', 'in', [...types])
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .distinctOn('legalDocument.id')
         .orderBy('legalDocument.id')
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
         .execute()
 
-    // distinctOn dictates the ORDER BY above, so presentation order is applied after the fact.
+    const isRequestedType = (type: LegalDocumentType): type is T =>
+        (types as readonly LegalDocumentType[]).includes(type)
+
+    // The `in` filter already excludes everything else; the guard just re-narrows the DB enum back to
+    // T. distinctOn dictates the ORDER BY above, so presentation order — the order `types` lists the
+    // types — is applied after the fact.
     return rows
-        .flatMap((row) => (isEnforcedType(row.type) ? [{ ...row, type: row.type }] : []))
-        .sort((a, b) => enforcedLegalDocumentTypes.indexOf(a.type) - enforcedLegalDocumentTypes.indexOf(b.type))
+        .flatMap((row) => (isRequestedType(row.type) ? [{ ...row, type: row.type }] : []))
+        .sort((a, b) => types.indexOf(a.type) - types.indexOf(b.type))
 }
+
+const latestGlobalVersions = (db: DBExecutor): Promise<GlobalVersion[]> =>
+    latestVersionsOfTypes(db, globalLegalDocumentTypes)
+
+const latestEnforcedVersions = (db: DBExecutor): Promise<EnforcedVersion[]> =>
+    latestVersionsOfTypes(db, enforcedLegalDocumentTypes)
 
 const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
 
@@ -274,7 +300,7 @@ const contentOf = async (filePath: string) => await (await fetchFileContents(fil
 export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextPendingLegalAcknowledgementAction')
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
-    .handler(async ({ db, session }) => {
+    .handler(async ({ db, session }): Promise<PendingLegalDocument | null> => {
         const latest = await latestEnforcedVersions(db)
         if (!latest.length) return null
 
@@ -318,19 +344,21 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
  *
  * The invitation signup form renders these before an account exists, so there is nobody to
  * authorise. Safe because the response is confined to published versions of the two globally-scoped
- * public documents; nothing org- or study-scoped is reachable here.
+ * documents; nothing org- or study-scoped is reachable here.
  */
-export const fetchPublicLegalDocumentsAction = new Action('fetchPublicLegalDocumentsAction').handler(async ({ db }) => {
-    const latest = await latestEnforcedVersions(db)
+export const fetchGlobalLegalDocumentsAction = new Action('fetchGlobalLegalDocumentsAction').handler(
+    async ({ db }): Promise<GlobalLegalDocument[]> => {
+        const latest = await latestGlobalVersions(db)
 
-    return await Promise.all(
-        latest.map(async (version) => ({
-            type: version.type,
-            versionId: version.versionId,
-            content: await contentOf(version.filePath),
-        })),
-    )
-})
+        return await Promise.all(
+            latest.map(async (version) => ({
+                type: version.type,
+                versionId: version.versionId,
+                content: await contentOf(version.filePath),
+            })),
+        )
+    },
+)
 
 export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDocumentAcknowledgementsAction')
     .params(fetchLegalDocumentAcknowledgementsSchema)

@@ -10,7 +10,7 @@ import { TermsCheckbox } from '@/components/legal/terms-checkbox'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchPublicLegalDocumentsAction } from '@/server/actions/legal-document.actions'
+import { fetchGlobalLegalDocumentsAction } from '@/server/actions/legal-document.actions'
 import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
@@ -90,8 +90,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         isPending: isLoadingLegalDocuments,
         isError: legalDocumentsUnavailable,
     } = useQuery({
-        queryKey: legalDocumentQueryKeys.publicDocuments(),
-        queryFn: () => fetchPublicLegalDocumentsAction(),
+        queryKey: legalDocumentQueryKeys.globalDocuments(),
+        queryFn: () => fetchGlobalLegalDocumentsAction(),
     })
 
     // Submitting before the documents arrive, or after they failed to, falls back to the "Once
