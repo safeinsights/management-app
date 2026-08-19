@@ -1,6 +1,7 @@
 import { memoryRouter } from 'next-router-mock'
 import {
     beforeEach,
+    createTestQueryClient,
     db,
     describe,
     expect,
@@ -68,16 +69,30 @@ const setupFixtures = async () => {
     })
     await insertTestCodeEnv({ orgId: pythonOnlyPartner.id, language: 'PYTHON' })
 
+    // No code environments at all, standing in for a partner that had one when the draft was saved
+    // and has since lost it. It is deliberately absent from the Data Partner list, which only
+    // offers study-capable orgs, and is reachable only as a draft's already-persisted partner.
+    const retiredPartner = await insertTestOrg({
+        type: 'enclave',
+        slug: `setup-retired-${suffix}`,
+        name: `Retired Partner ${suffix}`,
+    })
+
     const { org: lab } = await mockSessionWithTestData({ orgSlug: `setup-lab-${suffix}`, orgType: 'lab' })
 
-    return { lab, singleLanguagePartner, multiLanguagePartner, pythonOnlyPartner }
+    return { lab, singleLanguagePartner, multiLanguagePartner, pythonOnlyPartner, retiredPartner }
 }
 
-const renderSetup = (fixtures: Fixtures, props: { studyId?: string; draftData?: DraftStudyData | null } = {}) =>
+const renderSetup = (
+    fixtures: Fixtures,
+    props: { studyId?: string; draftData?: DraftStudyData | null } = {},
+    queryClient?: ReturnType<typeof createTestQueryClient>,
+) =>
     renderWithProviders(
         <StudyRequestProvider submittingOrgSlug={fixtures.lab.slug}>
             <StudyProposal {...props} />
         </StudyRequestProvider>,
+        { queryClient },
     )
 
 const titleInput = () => screen.getByLabelText(/study title/i)
@@ -698,6 +713,43 @@ describe('Locked fields', () => {
         const submitted = draftFor(fixtures, { status: 'APPROVED' })
         renderSetup(fixtures, { studyId: submitted.id, draftData: submitted })
         await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    })
+
+    // A partner's supported languages are server state and can change after the draft was saved.
+    // A locked field renders read-only text with no error slot, and a failed Continue skips locked
+    // ids when it looks for something to focus, so a value cleared here would leave the draft
+    // permanently uncompletable with nothing on screen to explain it.
+    it('keeps a locked language when the Data Partner no longer supports any', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const draftData = draftFor(fixtures, {
+            orgSlug: fixtures.retiredPartner.slug,
+            orgName: fixtures.retiredPartner.name,
+            language: 'R',
+        })
+        // Primed rather than fetched. The effect under test fires when the languages query
+        // resolves, and a locked field renders nothing derived from it, so there is no DOM signal
+        // to wait on and a live fetch would race the Continue click. Seeding the cache (the test
+        // client does not refetch on mount) makes the effect run before the click, every time.
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(['languages-for-org', fixtures.retiredPartner.slug], {
+            orgName: fixtures.retiredPartner.name,
+            languages: [],
+        })
+
+        renderSetup(fixtures, { studyId: draftData.id, draftData }, queryClient)
+
+        expect(await screen.findByText(fixtures.retiredPartner.name)).toBeInTheDocument()
+        await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
+        expect(screen.getByText('R')).toBeInTheDocument()
+
+        await user.click(continueButton())
+
+        // The modal only opens when every Step 1 field validates, so it is the proof that the
+        // persisted language survived the partner's language set emptying underneath it.
+        expect(await screen.findByText('Continue to the next step?')).toBeInTheDocument()
+        expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+        expect(screen.getByText('R')).toBeInTheDocument()
     })
 
     it('never sends focus into a locked field on a failed click', async () => {

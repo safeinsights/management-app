@@ -25,13 +25,14 @@ interface DataPartnerFieldProps {
 
 export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lockedOrgName }) => {
     const { user, isLoaded } = useUser()
+    const isSessionReady = isLoaded && !!user
 
     const { data: orgs = [], isLoading } = useQuery({
         queryKey: ['orgs-with-languages'],
         queryFn: () => getStudyCapableEnclaveOrgsAction(),
         // The action requires an authenticated ability check, so it must not fire before Clerk
         // has resolved the session.
-        enabled: isLoaded && !!user,
+        enabled: isSessionReady,
     })
 
     if (isLocked) return <ReadOnlyField label={LABEL} value={lockedOrgName || form.getValues().orgSlug} />
@@ -48,7 +49,11 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
                 allowDeselect={false}
                 data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                 placeholder="Select a Data Partner"
-                disabled={isLoading}
+                // `isSessionReady` as well as `isLoading`: a query held back by `enabled` reports
+                // fetchStatus 'idle', so `isLoading` is false and the Select would otherwise be
+                // openable with an empty list, offering "Nothing found" for the one required
+                // choice on the page.
+                disabled={isLoading || !isSessionReady}
                 {...form.getInputProps('orgSlug')}
                 {...nativeFieldProps(error, { required: true, description: DESCRIPTION })}
             />

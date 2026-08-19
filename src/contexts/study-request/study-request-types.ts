@@ -42,7 +42,6 @@ export interface StudyRequestContextValue {
     submittingOrgSlug: string
     form: UseFormReturnType<StudyProposalFormValues>
     existingFiles: ExistingFiles | undefined
-    isStep1Valid: boolean
     documentFiles: DocumentFileState
     setStudyId: (id: string) => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void

@@ -67,7 +67,11 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     }
 
     useEffect(() => {
-        if (!data) return
+        // A locked field renders read-only text with no error slot, and `visibleFieldIds` skips
+        // locked ids, so a value this effect changed could be neither seen nor corrected: the
+        // resulting required-error would leave Continue with nothing to focus and no way to pass
+        // validation (OTTER-647). The persisted value is authoritative once locked.
+        if (isLocked || !data) return
 
         if (data.languages.length === 1) {
             form.setFieldValue('language', data.languages[0].value)
@@ -82,7 +86,7 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
             form.setFieldValue('language', null)
             form.clearFieldError('language')
         }
-    }, [selectedOrgSlug, form, data])
+    }, [selectedOrgSlug, form, data, isLocked])
 
     const widgetBlur = useWidgetBlur(() => form.validateField('language'))
 
