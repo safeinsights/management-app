@@ -17,7 +17,7 @@ export async function fetchFileContents(filePath: string) {
 
 export async function urlForFile(
     filePath: string,
-    commandOverrides: Partial<{ ResponseContentDisposition: string }> = {},
+    commandOverrides: Partial<{ ResponseContentDisposition: string; ResponseContentType: string }> = {},
 ): Promise<string> {
     return await signedUrlForFile(filePath, commandOverrides)
 }

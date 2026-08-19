@@ -187,11 +187,9 @@ test.describe('Organization Admin', () => {
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
     })
 
-    // Covers the route, the org-admin gate and that both panels mount. Navigates directly rather
-    // than clicking the nav: the Admin submenu keeps its links out of the DOM while collapsed, and
-    // it does not auto-open on org-admin routes. The nav link itself is unit-tested.
-    // Deliberately asserts no row content — other specs approve studies against this org in
-    // parallel, so counting rows (or asserting the table is empty) would depend on run order.
+    // Covers the route, the org-admin gate and that both panels mount. Deliberately asserts no row
+    // content: other specs approve studies against this org in parallel, so counting rows (or
+    // asserting the table is empty) would depend on which spec ran first.
     test('org admin can open the legal center', async ({ page }) => {
         await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
 

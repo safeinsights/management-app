@@ -62,7 +62,6 @@ export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: 
                         .selectFrom('legalDocument')
                         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
                         .select([
-                            'legalDocumentVersion.id as versionId',
                             'legalDocumentVersion.filePath as filePath',
                             'legalDocumentVersion.fileName as fileName',
                             'legalDocumentVersion.format as format',
@@ -70,6 +69,11 @@ export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: 
                         ])
                         .whereRef('legalDocument.studyId', '=', 'study.id')
                         .where('legalDocument.type', '=', 'SLA')
+                        // Redundant against the CHECK constraint, which already forbids an org on an
+                        // SLA, but the planner cannot infer that: without it only the leading `type`
+                        // column of legal_document_scope_unique (type, org_id, study_id) bounds the
+                        // scan, so every outer study re-scans every SLA document.
+                        .where('legalDocument.orgId', 'is', null)
                         .where('legalDocumentVersion.publishedAt', 'is not', null)
                         .orderBy('legalDocumentVersion.versionNumber', 'desc')
                         .limit(1)
@@ -80,7 +84,6 @@ export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: 
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'counterparty.name as counterpartyName',
-                'agreement.versionId',
                 'agreement.filePath',
                 'agreement.fileName',
                 'agreement.format',
@@ -91,7 +94,8 @@ export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: 
             // Approved is the stage an agreement is drawn up at. The second arm is the durability
             // clause: once we hold a signed agreement for a study it stays on this page permanently,
             // so archiving the study cannot make an executed contract vanish from the org's records.
-            .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.versionId', 'is not', null)]))
+            // filePath stands in for "the lateral matched" — it is NOT NULL on every version.
+            .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.filePath', 'is not', null)]))
             .execute()
     )
 }
@@ -106,7 +110,6 @@ export const orgParticipationAgreement = (
         .selectFrom('legalDocument')
         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
         .select([
-            'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
             'legalDocumentVersion.fileName as fileName',
             'legalDocumentVersion.format as format',
@@ -114,6 +117,9 @@ export const orgParticipationAgreement = (
         ])
         .where('legalDocument.type', '=', type)
         .where('legalDocument.orgId', '=', orgId)
+        .where('legalDocument.studyId', 'is', null)
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        // executeTakeFirst alone fetches every published version and discards all but this one.
+        .limit(1)
         .executeTakeFirst()

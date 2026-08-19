@@ -5,7 +5,7 @@ import {
     actionResult,
     faker,
     insertTestOrg,
-    insertTestUser,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     resetLegalDocuments,
 } from '@/tests/unit.helpers'
@@ -31,32 +31,22 @@ beforeEach(resetLegalDocuments)
 
 // study.orgId is the enclave (Data Partner), study.submittedByOrgId is the lab (Research Lab). Kept
 // on two distinct orgs so a swapped join or a party/counterparty mix-up cannot pass.
+const insertPartyOrgs = async () => ({
+    dataPartner: await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' }),
+    researchLab: await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' }),
+})
+
 const insertStudyWithDistinctOrgs = async ({
     status = 'APPROVED' as StudyStatus,
     title = 'A study',
 }: { status?: StudyStatus; title?: string } = {}) => {
-    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-    const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-    const { user: researcher } = await insertTestUser({
-        org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
+    const { dataPartner, researchLab } = await insertPartyOrgs()
+    const { study } = await insertTestStudyOnly({
+        org: dataPartner,
+        submittedByOrg: researchLab,
+        title,
+        status,
     })
-
-    const study = await db
-        .insertInto('study')
-        .values({
-            orgId: dataPartner.id,
-            submittedByOrgId: researchLab.id,
-            containerLocation: 'test-container',
-            title,
-            researcherId: researcher.id,
-            piName: 'test',
-            status,
-            dataSources: ['all'],
-            outputMimeType: 'application/zip',
-            language: 'R',
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
 
     return { study, dataPartner, researchLab }
 }
@@ -174,40 +164,22 @@ describe('fetchOrgStudyAgreementsAction', () => {
         expect(rows.find((candidate) => candidate.studyId === study.id)).toBeUndefined()
     })
 
-    it('returns the most recently effective agreement first, with unsigned studies last', async () => {
-        const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const { user: researcher } = await insertTestUser({
-            org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
-        })
+    it('returns every study at the agreement stage, signed or not', async () => {
+        const { dataPartner, researchLab } = await insertPartyOrgs()
         const insertStudy = async (title: string) =>
-            await db
-                .insertInto('study')
-                .values({
-                    orgId: dataPartner.id,
-                    submittedByOrgId: researchLab.id,
-                    containerLocation: 'test-container',
-                    title,
-                    researcherId: researcher.id,
-                    piName: 'test',
-                    status: 'APPROVED',
-                    dataSources: ['all'],
-                    outputMimeType: 'application/zip',
-                    language: 'R',
-                })
-                .returningAll()
-                .executeTakeFirstOrThrow()
+            (await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title })).study
 
-        const older = await insertStudy('Older agreement')
-        const newer = await insertStudy('Newer agreement')
+        const signed = await insertStudy('Has an agreement')
         await insertStudy('Nothing signed')
-        await publishAgreementAsSiAdmin({ studyId: older.id }, '2026-02-02')
-        await publishAgreementAsSiAdmin({ studyId: newer.id }, '2026-07-07')
+        await publishAgreementAsSiAdmin({ studyId: signed.id }, '2026-02-02')
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
         const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
 
-        expect(rows.map((row) => row.studyTitle)).toEqual(['Newer agreement', 'Older agreement', 'Nothing signed'])
+        // Order is the table's job, so this asserts membership only.
+        expect(rows.map((row) => row.studyTitle).sort()).toEqual(['Has an agreement', 'Nothing signed'])
+        expect(rows.find((row) => row.studyTitle === 'Has an agreement')?.signedAt).toBe('2026-02-02')
+        expect(rows.find((row) => row.studyTitle === 'Nothing signed')?.signedAt).toBeNull()
     })
 
     it('refuses an org the caller does not administer', async () => {

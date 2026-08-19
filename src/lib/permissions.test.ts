@@ -249,14 +249,14 @@ test('an org admin may read their own legal center, and only their own', () => {
     const orgId = session.orgs.test.id
     const otherOrgId = faker.string.uuid()
 
-    expect(ability.can('viewAsParty', toRecord('LegalDocument', { orgId }))).toBe(true)
-    expect(ability.can('viewAsParty', toRecord('LegalDocument', { orgId: otherOrgId }))).toBe(false)
+    expect(ability.can('view', toRecord('OrgLegalDocuments', { orgId }))).toBe(true)
+    expect(ability.can('view', toRecord('OrgLegalDocuments', { orgId: otherOrgId }))).toBe(false)
 
     // An unknown org slug leaves orgId absent from the subject, and the `$in` fails closed.
-    expect(ability.can('viewAsParty', toRecord('LegalDocument', {}))).toBe(false)
+    expect(ability.can('view', toRecord('OrgLegalDocuments', {}))).toBe(false)
 
-    // The new verb must not drag the SI-admin reads along with it: those expose unpublished drafts
-    // and version history, which is the whole reason it is a separate verb (SHRMP-304).
+    // The org-admin subject must not drag the SI-admin reads along with it: those expose unpublished
+    // drafts and version history, which is the whole reason it is separate (SHRMP-304).
     expect(ability.can('view', toRecord('LegalDocument', { orgId }))).toBe(false)
     expect(ability.can('create', toRecord('LegalDocument', { orgId }))).toBe(false)
     expect(ability.can('publish', toRecord('LegalDocument', { orgId }))).toBe(false)
@@ -265,7 +265,7 @@ test('an org admin may read their own legal center, and only their own', () => {
 test('a plain org member may not read the legal center', () => {
     const { ability, session } = createAbilty({}, 'enclave')
 
-    expect(ability.can('viewAsParty', toRecord('LegalDocument', { orgId: session.orgs.test.id }))).toBe(false)
+    expect(ability.can('view', toRecord('OrgLegalDocuments', { orgId: session.orgs.test.id }))).toBe(false)
 })
 
 test('non-SI-admin is still bounded (manage/all does not leak to regular users)', () => {

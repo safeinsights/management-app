@@ -62,14 +62,20 @@ export const participationAgreementTypeForOrgType: Record<OrgType, Participation
     lab: 'ROPA',
 }
 
-// Which side of a study agreement the viewing org sits on. The Data Partner holds the data
-// (study.orgId) and receives the agreement FROM the lab that submitted it; the Research Lab
-// (study.submittedByOrgId) sends it TO the data partner. Drives both the join and the column header,
-// so the two cannot disagree about who the counterparty is.
+// The counterparty column's header. A Data Partner holds the data and receives the agreement FROM
+// the lab that submitted it; a Research Lab sends it TO the data partner. Header only — which study
+// column actually names the counterparty is `studyAgreementSides` in server/db/legal-document.ts.
 export const studyAgreementCounterpartyLabels: Record<OrgType, string> = {
     enclave: 'From',
     lab: 'To',
 }
+
+// study.title is nullable, so the id is what an untitled study is displayed and ordered under.
+// Shared so the column, the sort and any other reader agree on the same name for the same row —
+// `??` and `||` differ on an empty-string title, which is enough to make a table sort disagree with
+// what it shows.
+export const studyAgreementDisplayTitle = (row: { studyTitle: string | null; studyId: string }) =>
+    row.studyTitle || row.studyId
 
 // Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
 const scopeSchema = z.object({

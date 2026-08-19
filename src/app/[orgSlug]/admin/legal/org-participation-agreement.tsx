@@ -9,7 +9,10 @@ import {
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
 import { fetchOrgParticipationAgreementAction } from '@/server/actions/legal-document.actions'
-import { Anchor, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core'
+import { ErrorAlert } from '@/components/errors'
+import { LinkWithIcon } from '@/components/links'
+import { LoadingMessage } from '@/components/loading'
+import { Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
@@ -17,13 +20,16 @@ type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgree
 // One record by construction — an org signs one participation agreement, and only its latest
 // published version is on show — so this is a small read-out rather than a one-row table.
 const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
-    <Stack gap="xs">
+    <Stack gap="xs" align="flex-start">
         <Text>Effective on: {formatDayString(agreement.signedAt)}</Text>
-        <Group gap={4}>
-            <Anchor href={agreement.downloadUrl} target="_blank" rel="noreferrer">
-                PDF <ArrowSquareOutIcon size={14} />
-            </Anchor>
-        </Group>
+        <LinkWithIcon
+            href={agreement.downloadUrl}
+            target="_blank"
+            rel="noreferrer"
+            icon={<ArrowSquareOutIcon size={14} />}
+        >
+            PDF
+        </LinkWithIcon>
     </Stack>
 )
 
@@ -34,14 +40,18 @@ const EmptyState: FC<{ label: string }> = ({ label }) => (
     </Stack>
 )
 
-// The three states of one record — still loading, nothing on file, on file — resolved here so the
-// panel's own return stays a heading and a body.
-const AgreementBody: FC<{ isLoading: boolean; agreement: Agreement | null | undefined; label: string }> = ({
-    isLoading,
-    agreement,
-    label,
-}) => {
-    if (isLoading) return <Loader size="sm" />
+// The four states of one record, resolved here so the panel's own return stays a heading and a body.
+// isError comes first: a refused read leaves data undefined, and falling through would tell the
+// admin nothing is on file when in truth we never managed to look.
+const AgreementBody: FC<{
+    isLoading: boolean
+    isError: boolean
+    error: unknown
+    agreement: Agreement | null | undefined
+    label: string
+}> = ({ isLoading, isError, error, agreement, label }) => {
+    if (isError) return <ErrorAlert error={error} />
+    if (isLoading) return <LoadingMessage message="Loading..." />
     if (!agreement) return <EmptyState label={label} />
 
     return <AgreementDetails agreement={agreement} />
@@ -51,7 +61,7 @@ export const OrgParticipationAgreement: FC<{ orgSlug: string; type: Participatio
     orgSlug,
     type,
 }) => {
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: legalDocumentQueryKeys.orgParticipationAgreement(orgSlug),
         queryFn: () => fetchOrgParticipationAgreementAction({ orgSlug }),
     })
@@ -63,7 +73,13 @@ export const OrgParticipationAgreement: FC<{ orgSlug: string; type: Participatio
             <Title order={3} mb="lg">
                 {label}
             </Title>
-            <AgreementBody isLoading={isLoading} agreement={data?.agreement} label={label} />
+            <AgreementBody
+                isLoading={isLoading}
+                isError={isError}
+                error={error}
+                agreement={data?.agreement}
+                label={label}
+            />
         </Paper>
     )
 }

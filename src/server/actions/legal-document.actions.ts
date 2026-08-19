@@ -2,7 +2,7 @@
 
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentType } from '@/database/types'
+import type { LegalDocumentType, OrgType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
@@ -600,10 +600,13 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
 
 // A signed row carries a download URL; an unsigned one carries nulls all the way through, so the
 // table has a single shape and the "nothing signed yet" cells are an absence rather than a sentinel.
-const withAgreementDownloadUrl = async <Row extends { versionId: string | null; filePath: string | null }>(
-    row: Row & { fileName: string | null; format: string | null },
-) => {
-    const { filePath, fileName, format, ...rest } = row
+// The storage columns are stripped: the client needs the link, not the key it was minted from.
+const withAgreementDownloadUrl = async ({
+    filePath,
+    fileName,
+    format,
+    ...rest
+}: Awaited<ReturnType<typeof orgStudyAgreements>>[number]) => {
     if (!filePath) return { ...rest, downloadUrl: null }
 
     return {
@@ -612,32 +615,26 @@ const withAgreementDownloadUrl = async <Row extends { versionId: string | null; 
     }
 }
 
-// Most recently effective agreement first, with the studies still waiting on one pooled at the
-// bottom. Applied in memory rather than in SQL because signedAt is a nullable YYYY-MM-DD string and
-// Postgres orders DESC nulls-first; the table re-sorts client-side from here anyway.
-const byEffectiveDateDesc = (
-    a: { signedAt: string | null; studyTitle: string | null; studyId: string },
-    b: { signedAt: string | null; studyTitle: string | null; studyId: string },
-) => {
-    if (a.signedAt !== b.signedAt) {
-        if (!a.signedAt) return 1
-        if (!b.signedAt) return -1
-        return b.signedAt.localeCompare(a.signedAt)
-    }
-    // An untitled study sorts by the id it is displayed under.
-    return (a.studyTitle ?? a.studyId).localeCompare(b.studyTitle ?? b.studyId)
+// orgIdFromSlug leaves orgId and orgType ABSENT for a slug with no org, which denies anyone whose
+// grant is the `$in` rule — but an SI admin holds ('manage','all') and passes the check anyway, so
+// the handler would run on undefined and index a Record with it. TypeScript cannot see this: the
+// action builder types a middleware's return as non-optional even though this one is executeTakeFirst.
+const requireResolvedOrg: (ctx: { orgId?: string; orgType?: OrgType }) => void = ({ orgId, orgType }) => {
+    if (!orgId || !orgType) throw new ActionFailure({ org: 'was not found' })
 }
 
 // The org-admin Legal center's study-agreement tab. Scoped to the org in the route: an admin of two
-// orgs gets each org's own rows, and `viewAsParty` refuses an org they do not administer.
+// orgs gets each org's own rows, and the OrgLegalDocuments rule refuses an org they do not administer.
 export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
     .params(orgLegalParams)
     .middleware(orgIdFromSlug)
-    .requireAbilityTo('viewAsParty', 'LegalDocument')
+    .requireAbilityTo('view', 'OrgLegalDocuments')
+    // Unordered on purpose: the table sorts client-side from its first paint, so ordering here would
+    // be a second copy of the same rule with nothing to keep the two honest.
     .handler(async ({ db, orgId, orgType }) => {
-        const rows = await orgStudyAgreements(db, { orgId, orgType })
+        requireResolvedOrg({ orgId, orgType })
 
-        rows.sort(byEffectiveDateDesc)
+        const rows = await orgStudyAgreements(db, { orgId, orgType })
 
         return await Promise.all(rows.map(withAgreementDownloadUrl))
     })
@@ -647,8 +644,10 @@ export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreements
 export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
     .params(orgLegalParams)
     .middleware(orgIdFromSlug)
-    .requireAbilityTo('viewAsParty', 'LegalDocument')
+    .requireAbilityTo('view', 'OrgLegalDocuments')
     .handler(async ({ db, orgId, orgType }) => {
+        requireResolvedOrg({ orgId, orgType })
+
         const type = participationAgreementTypeForOrgType[orgType]
         const agreement = await orgParticipationAgreement(db, { orgId, type })
 
@@ -657,7 +656,6 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
         return {
             type,
             agreement: {
-                versionId: agreement.versionId,
                 signedAt: agreement.signedAt,
                 downloadUrl: await legalDocumentDownloadUrl(agreement),
             },

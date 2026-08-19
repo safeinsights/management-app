@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { db } from '@/database'
 import {
     actionResult,
     faker,
     insertTestOrg,
-    insertTestUser,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
 } from '@/tests/unit.helpers'
@@ -26,50 +25,18 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-const insertApprovedStudy = async ({
-    dataPartnerId,
-    researchLabId,
-    researcherId,
-    title,
-}: {
-    dataPartnerId: string
-    researchLabId: string
-    researcherId: string
-    title: string
-}) =>
-    await db
-        .insertInto('study')
-        .values({
-            orgId: dataPartnerId,
-            submittedByOrgId: researchLabId,
-            containerLocation: 'test-container',
-            title,
-            researcherId,
-            piName: 'test',
-            status: 'APPROVED',
-            dataSources: ['all'],
-            outputMimeType: 'application/zip',
-            language: 'R',
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
+// The Research Lab is a separate org from the Data Partner, which is what the counterparty column
+// must name — sharing one org would let a swapped join pass.
+const insertPartyOrgs = async () => ({
+    dataPartner: await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' }),
+    researchLab: await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' }),
+})
 
-// A Data Partner whose admin is the signed-in user, so the panel reads its own org's rows. The
-// Research Lab is a separate org, which is what the counterparty column must name.
 const seedDataPartnerWithStudy = async (title: string) => {
-    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-    const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-    const { user: researcher } = await insertTestUser({
-        org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
-    })
-    const study = await insertApprovedStudy({
-        dataPartnerId: dataPartner.id,
-        researchLabId: researchLab.id,
-        researcherId: researcher.id,
-        title,
-    })
+    const { dataPartner, researchLab } = await insertPartyOrgs()
+    const { study } = await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title })
 
-    return { study, dataPartner, researchLab, researcherId: researcher.id }
+    return { study, dataPartner, researchLab }
 }
 
 const publishAgreement = async (studyId: string, signedAt: string) => {
@@ -79,6 +46,12 @@ const publishAgreement = async (studyId: string, signedAt: string) => {
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
+
+const rowTitles = () =>
+    screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent ?? '')
 
 const rowFor = async (title: string) => {
     await waitFor(() => expect(screen.getByText(title)).toBeDefined())
@@ -146,30 +119,24 @@ describe('OrgStudyAgreements', () => {
     })
 
     it('keeps unsigned studies last when the admin sorts by Effective on', async () => {
-        const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const { user: researcher } = await insertTestUser({
-            org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
-        })
+        const { dataPartner, researchLab } = await insertPartyOrgs()
         const signedTitle = `Signed ${faker.string.alpha(6)}`
         const unsignedTitle = `Unsigned ${faker.string.alpha(6)}`
-        const signed = await insertApprovedStudy({
-            dataPartnerId: dataPartner.id,
-            researchLabId: researchLab.id,
-            researcherId: researcher.id,
+        const { study: signed } = await insertTestStudyOnly({
+            org: dataPartner,
+            submittedByOrg: researchLab,
             title: signedTitle,
         })
-        await insertApprovedStudy({
-            dataPartnerId: dataPartner.id,
-            researchLabId: researchLab.id,
-            researcherId: researcher.id,
-            title: unsignedTitle,
-        })
+        await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title: unsignedTitle })
         await publishAgreement(signed.id, '2026-02-02')
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
 
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
         await rowFor(signedTitle)
+
+        // The action returns rows unordered, so this is the table's own default sort: most recently
+        // effective first, nothing-signed-yet last.
+        await waitFor(() => expect(rowTitles()[rowTitles().length - 1]).toContain(unsignedTitle))
 
         // Ascending would put the earliest date first; the study with no date still sorts last.
         // Clicked through the header's text rather than by role: a sortable header is a button whose
@@ -178,12 +145,6 @@ describe('OrgStudyAgreements', () => {
         if (!header) throw new Error('no Effective on header')
         fireEvent.click(header)
 
-        await waitFor(() => {
-            const titles = screen
-                .getAllByRole('row')
-                .slice(1)
-                .map((row) => row.textContent ?? '')
-            expect(titles[titles.length - 1]).toContain(unsignedTitle)
-        })
+        await waitFor(() => expect(rowTitles()[rowTitles().length - 1]).toContain(unsignedTitle))
     })
 })

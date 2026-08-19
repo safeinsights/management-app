@@ -72,18 +72,23 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
-    // view/create/publish are SI-admin only, via ('manage','all'). 'viewAsParty' is the org-admin
-    // read of their OWN org's agreements and is deliberately a separate verb: several view-gated
-    // actions build their ability subject straight from client params, so widening 'view' would also
-    // hand an org admin unpublished drafts and full version history (SHRMP-304).
-    // isGlobal and audienceOrgIds are derived per request by the actions' middleware and answer the
-    // only question 'acknowledge' asks: who does this document bind? Both must appear on the arm for
-    // the CASL subject union to accept them as conditions.
+    // orgId/studyId carry the DOCUMENT's scope. view/create/publish are SI-admin only, via
+    // ('manage','all'). isGlobal and audienceOrgIds are derived per request by the actions'
+    // middleware and answer the only question 'acknowledge' asks: who does this document bind? Both
+    // must appear on the arm for the CASL subject union to accept them as conditions.
     | Ability<
           'LegalDocument',
-          'view' | 'viewAsParty' | 'create' | 'publish' | 'acknowledge',
+          'view' | 'create' | 'publish' | 'acknowledge',
           { orgId?: UUID; studyId?: UUID; isGlobal?: boolean; audienceOrgIds?: UUID[] }
       >
+    // The org-admin Legal center read: the agreements an org is a party to. Its own subject rather
+    // than a verb on LegalDocument, following OrgConfig/OrgMembers/OrgStudies above — the same read
+    // narrowed to a different audience is a subject in this file, and it keeps `orgId` meaning one
+    // thing. Here it is the org whose page is being read, not the document's scope, which for a
+    // study agreement is a study and no org at all. Kept off LegalDocument's own 'view' because
+    // fetchLegalDocumentVersionsAction takes its scope straight from client params, so widening that
+    // verb would also hand an org admin unpublished drafts and full version history (SHRMP-304).
+    | Ability<'OrgLegalDocuments', 'view', { orgId?: UUID }>
     // Both fields optional: `load IDE` is granted by two OR-combined rules — the study's own
     // researcher (researcherId) and any member of the submitting lab (submittedByOrgId, OTTER-719).
     // Every field used in a condition must appear on the arm for the CASL subject union to accept it.

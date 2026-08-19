@@ -2,28 +2,42 @@
 
 import { useQuery, type FC } from '@/common'
 import type { OrgType } from '@/database/types'
-import { formatDayString } from '@/lib/dates'
+import { EMPTY_CELL, formatDayString } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, studyAgreementCounterpartyLabels } from '@/schema/legal-document'
+import {
+    legalDocumentQueryKeys,
+    studyAgreementCounterpartyLabels,
+    studyAgreementDisplayTitle,
+} from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
-import { Anchor, Paper, Stack, Text, Title } from '@mantine/core'
+import { ErrorAlert } from '@/components/errors'
+import { LinkWithIcon } from '@/components/links'
+import { Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useMemo, useState } from 'react'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-// The row's own text for a column that has no value yet. A study listed before anything is signed is
-// the ordinary case here, not a gap in the data.
-const NOT_YET = '—'
+// What the table opens on. The action returns rows unordered, so this is the only thing deciding
+// what an admin sees first.
+const DEFAULT_SORT: DataTableSortStatus<StudyAgreement> = { columnAccessor: 'signedAt', direction: 'desc' }
+
+// Stable identity so the sort memo is not invalidated on every render while the query is loading.
+const EMPTY_ROWS: StudyAgreement[] = []
 
 const AgreementLink: FC<{ agreement: StudyAgreement }> = ({ agreement }) => {
-    if (!agreement.downloadUrl) return <Text c="dimmed">{NOT_YET}</Text>
+    if (!agreement.downloadUrl) return <Text c="dimmed">{EMPTY_CELL}</Text>
 
     return (
-        <Anchor href={agreement.downloadUrl} target="_blank" rel="noreferrer">
-            PDF <ArrowSquareOutIcon size={14} />
-        </Anchor>
+        <LinkWithIcon
+            href={agreement.downloadUrl}
+            target="_blank"
+            rel="noreferrer"
+            icon={<ArrowSquareOutIcon size={14} />}
+        >
+            PDF
+        </LinkWithIcon>
     )
 }
 
@@ -31,13 +45,7 @@ const AgreementLink: FC<{ agreement: StudyAgreement }> = ({ agreement }) => {
 // names one org over and over on most pages, so ordering by it says nothing.
 const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID', sortable: true },
-    // study.title is nullable, and the id is what the study is displayed under when it is.
-    {
-        accessor: 'studyTitle',
-        title: 'Study title',
-        sortable: true,
-        render: (agreement) => agreement.studyTitle || agreement.studyId,
-    },
+    { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
     { accessor: 'counterpartyName', title: counterpartyLabel },
     {
         accessor: 'signedAt',
@@ -48,20 +56,32 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
     { accessor: 'downloadUrl', title: 'View', render: (agreement) => <AgreementLink agreement={agreement} /> },
 ]
 
+// One value per sortable column, so the sort orders rows by exactly what the column displays.
+const sortValues: Record<string, (row: StudyAgreement) => string> = {
+    studyId: (row) => row.studyId,
+    studyTitle: studyAgreementDisplayTitle,
+    signedAt: (row) => row.signedAt ?? '',
+}
+
 // Studies still waiting on an agreement stay at the bottom whichever way the column is pointed:
-// sorting by a date asks for the rows that have one. Everything else is a plain string compare, and
-// signedAt is a YYYY-MM-DD string so it sorts chronologically as text.
+// sorting by a date asks for the rows that have one. signedAt is a YYYY-MM-DD string, so it sorts
+// chronologically as text.
 const sortAgreements = (rows: StudyAgreement[], { columnAccessor, direction }: DataTableSortStatus<StudyAgreement>) => {
     const flip = direction === 'asc' ? 1 : -1
-    const key = columnAccessor as 'studyId' | 'studyTitle' | 'signedAt'
+    const valueOf = sortValues[columnAccessor as string] ?? (() => '')
 
     return [...rows].sort((a, b) => {
-        if (key === 'signedAt' && (!a.signedAt || !b.signedAt)) {
-            return Number(Boolean(b.signedAt)) - Number(Boolean(a.signedAt))
+        if (columnAccessor === 'signedAt' && (!a.signedAt || !b.signedAt)) {
+            // Only decides between a signed row and an unsigned one. Two unsigned rows tie here and
+            // fall through to the title, since the action returns rows in no particular order and
+            // returning 0 would leave them in whatever order the planner produced.
+            const bySignedPresence = Number(Boolean(b.signedAt)) - Number(Boolean(a.signedAt))
+            if (bySignedPresence !== 0) return bySignedPresence
+        } else {
+            const byColumn = valueOf(a).localeCompare(valueOf(b)) * flip
+            if (byColumn !== 0) return byColumn
         }
-        const left = key === 'studyTitle' ? a.studyTitle || a.studyId : (a[key] ?? '')
-        const right = key === 'studyTitle' ? b.studyTitle || b.studyId : (b[key] ?? '')
-        return left.localeCompare(right) * flip
+        return studyAgreementDisplayTitle(a).localeCompare(studyAgreementDisplayTitle(b))
     })
 }
 
@@ -72,38 +92,51 @@ const EmptyState: FC = () => (
     </Stack>
 )
 
-export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ orgSlug, orgType }) => {
-    const { data: agreements = [], isLoading } = useQuery({
+const useOrgStudyAgreements = (orgSlug: string) => {
+    const {
+        data: agreements = EMPTY_ROWS,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
         queryKey: legalDocumentQueryKeys.orgStudyAgreements(orgSlug),
         queryFn: () => fetchOrgStudyAgreementsAction({ orgSlug }),
     })
-    // The action already returns effective-date-descending, so this only takes over once the admin
-    // picks a column.
-    const [sortStatus, setSortStatus] = useState<DataTableSortStatus<StudyAgreement> | null>(null)
+    const [sortStatus, setSortStatus] = useState<DataTableSortStatus<StudyAgreement>>(DEFAULT_SORT)
 
-    const records = useMemo(
-        () => (sortStatus ? sortAgreements(agreements, sortStatus) : agreements),
-        [agreements, sortStatus],
-    )
-    const columns = agreementColumns(studyAgreementCounterpartyLabels[orgType])
+    const records = useMemo(() => sortAgreements(agreements, sortStatus), [agreements, sortStatus])
+
+    return { records, isLoading, isError, error, sortStatus, setSortStatus }
+}
+
+// A failed read must not fall through to the table: an empty result and a refused one look identical
+// there, and "No Study Agreement yet" is a bad thing to tell an admin whose query errored.
+const StudyAgreementsTable: FC<{ orgSlug: string; counterpartyLabel: string }> = ({ orgSlug, counterpartyLabel }) => {
+    const { records, isLoading, isError, error, sortStatus, setSortStatus } = useOrgStudyAgreements(orgSlug)
+
+    if (isError) return <ErrorAlert error={error} />
 
     return (
-        <Paper shadow="xs" p="xl">
-            <Title order={3} mb="lg">
-                Study Agreement
-            </Title>
-            <DataTable
-                withTableBorder
-                horizontalSpacing="md"
-                verticalSpacing="sm"
-                fetching={isLoading}
-                idAccessor="studyId"
-                emptyState={<EmptyState />}
-                records={records}
-                columns={columns}
-                sortStatus={sortStatus ?? { columnAccessor: 'signedAt', direction: 'desc' }}
-                onSortStatusChange={setSortStatus}
-            />
-        </Paper>
+        <DataTable
+            withTableBorder
+            horizontalSpacing="md"
+            verticalSpacing="sm"
+            fetching={isLoading}
+            idAccessor="studyId"
+            emptyState={<EmptyState />}
+            records={records}
+            columns={agreementColumns(counterpartyLabel)}
+            sortStatus={sortStatus}
+            onSortStatusChange={setSortStatus}
+        />
     )
 }
+
+export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ orgSlug, orgType }) => (
+    <Paper shadow="xs" p="xl">
+        <Title order={3} mb="lg">
+            Study Agreement
+        </Title>
+        <StudyAgreementsTable orgSlug={orgSlug} counterpartyLabel={studyAgreementCounterpartyLabels[orgType]} />
+    </Paper>
+)

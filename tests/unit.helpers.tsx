@@ -456,30 +456,40 @@ export const insertTestBaselineJob = async (studyId: string, { createdAt }: { cr
     return job
 }
 
+// `submittedByOrg` defaults to `org`, which is what most callers want. Pass it to put the two sides
+// of a study on DIFFERENT orgs — study.orgId is the Data Partner, submittedByOrgId the Research Lab
+// — which anything reading one side or naming the other has to be tested against, since a swapped
+// join passes silently when both are the same org.
 export const insertTestStudyOnly = async ({
     org,
+    submittedByOrg,
     researcherId,
+    title = 'study without job',
+    status = 'APPROVED',
 }: {
     org?: MinimalTestOrg
+    submittedByOrg?: MinimalTestOrg
     researcherId?: string
+    title?: string
+    status?: StudyStatus
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
     }
     if (!researcherId) {
-        const { user } = await insertTestUser({ org })
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
         researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
             orgId: org.id,
-            submittedByOrgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
             containerLocation: 'test-container',
-            title: 'study without job',
+            title,
             researcherId,
             piName: 'test',
-            status: 'APPROVED',
+            status,
             submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',

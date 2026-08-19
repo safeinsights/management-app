@@ -146,7 +146,9 @@ describe('OrgAdminDashboardLink', () => {
         expect(screen.getByRole('button', { name: /Admin/i })).toHaveAttribute('data-active', 'true')
     })
 
-    it('is open by default when on the SafeInsights admin tree', async () => {
+    // Defensive coverage, not a live path: AppNav only renders this component when the route
+    // resolves to an org, and `admin` is a NON_ORG_PREFIX, so /admin/safeinsights never mounts it.
+    it('is open by default on a top-level admin path too', async () => {
         const orgSlug = faker.lorem.slug()
         const org = {
             type: 'enclave' as const,
