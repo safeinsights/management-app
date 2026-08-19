@@ -19,9 +19,9 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
         full({ status: 'REJECTED', isDraft: false }),
         full({ status: 'CHANGE-REQUESTED', isDraft: false }),
         full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true }),
-        // Feedback-only outputs decision → outputs-feedback screen (OTTER-695).
+        // Feedback-only outputs decision → outputs-feedback screen (OTTER-695/697).
         full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true }),
-        // Same decision on an errored run → outputs-errored-feedback screen.
+        // Same decision on an errored run → same outputs-feedback screen (banner copy differs).
         full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true, resultsErrored: true }),
         // Errored job, no reviewer files decision: the pill reads "Code approved", so the 'View' link
         // must resolve to a real screen (outputs-pending), never the study-overview fallback (OTTER-598).

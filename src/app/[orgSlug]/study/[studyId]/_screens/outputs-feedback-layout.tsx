@@ -12,7 +12,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
-import { latestJob, projectStudyState, type RawJob, type StudyState } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, latestJob, projectStudyState, type RawJob } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
 import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
 import { getOrgNameFromId } from '@/server/db/queries'
@@ -35,11 +35,6 @@ const FeedbackSection = ({
     return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
-type OutputsFeedbackBannerCopy = {
-    title: string
-    message: (dataPartner: string) => string
-}
-
 const FeedbackBanner = ({
     title,
     message,
@@ -58,22 +53,30 @@ const FeedbackBanner = ({
     )
 }
 
-type OutputsFeedbackLayoutProps = Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'> & {
-    matches: (state: StudyState) => boolean
-    banner: OutputsFeedbackBannerCopy
-}
+const bannerCopy = (errored: boolean, dataPartner: string) =>
+    errored
+        ? {
+              title: 'Resolve the code error to proceed',
+              message: `${dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+          }
+        : {
+              title: 'Feedback on outputs available',
+              message: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+          }
 
-export async function OutputsFeedbackLayout({
+// OTTER-695/697: researcher page for the outputs decision (FILES-REJECTED).
+// Covers both clean runs and errored runs; the banner copy is the only difference.
+export async function OutputsFeedbackScreen({
     study,
     raw,
     orgSlug,
     returnTo,
-    matches,
-    banner,
-}: OutputsFeedbackLayoutProps) {
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'>) {
+    const state = projectStudyState(raw)
+
     // The routing predicate first (raw is in hand, so the check is free and render cannot disagree
     // with the rule table), then the narrowing lookups that cost I/O.
-    if (!matches(projectStudyState(raw))) {
+    if (!isFeedbackOnlyOutcome(state)) {
         return (
             <AlertNotFound
                 title="Feedback not found"
@@ -98,8 +101,7 @@ export async function OutputsFeedbackLayout({
     const decidedAt = latestStatusAt(datedStatusChanges(job), 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
-    const bannerMessage = banner.message(dataPartner)
-    const statusBanner = <FeedbackBanner title={banner.title} message={bannerMessage} decidedAt={decidedAt} />
+    const banner = bannerCopy(state.resultsErrored, dataPartner)
 
     return (
         <Box bg="grey.10">
@@ -109,7 +111,7 @@ export async function OutputsFeedbackLayout({
                     stepLabel="STEP 4"
                     heading="Verify outputs"
                     studyTitle={study.title}
-                    banner={statusBanner}
+                    banner={<FeedbackBanner title={banner.title} message={banner.message} decidedAt={decidedAt} />}
                 />
                 <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
                 <Group justify="space-between">

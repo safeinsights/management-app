@@ -641,7 +641,7 @@ describe('StudyViewPage', () => {
             )
         })
 
-        it('renders the errored outputs-feedback screen when the run errored and feedback only was shared (OTTER-697)', async () => {
+        it('renders the outputs-feedback screen with errored banner when the run errored and feedback only was shared (OTTER-697)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,

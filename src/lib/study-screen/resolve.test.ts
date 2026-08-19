@@ -29,19 +29,17 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('study-results')
     })
-    it('OTTER-697: feedback-only decision on an errored run → outputs-errored-feedback', () => {
+    it('OTTER-697: feedback-only decision on an errored run → outputs-feedback', () => {
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
             ).screen,
-        ).toBe('outputs-errored-feedback')
+        ).toBe('outputs-feedback')
     })
-    it('OTTER-697: the two feedback-only screens never cross-route (errored flag is the only difference)', () => {
+    it('errored and clean feedback-only decisions both resolve to the same outputs-feedback screen', () => {
         const decided = { hasResults: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' } as const
-        expect(resolveScreen('researcher', state({ ...decided, resultsErrored: true })).screen).toBe(
-            'outputs-errored-feedback',
-        )
+        expect(resolveScreen('researcher', state({ ...decided, resultsErrored: true })).screen).toBe('outputs-feedback')
         expect(resolveScreen('researcher', state({ ...decided, resultsErrored: false })).screen).toBe(
             'outputs-feedback',
         )
