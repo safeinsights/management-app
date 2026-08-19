@@ -36,7 +36,7 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
             codeExplanation: {
                 type: 'string',
                 description:
-                    'What the code does in plain language, referencing file paths. Up to two paragraphs, ~300 words max. Use numbered steps if helpful.',
+                    'Summarize what the code does for a reader with beginner programming skills. Use plain language. Title each section of the summary and use paragraph breaks between sections. Reference file paths if helpful. Use numbered steps if helpful. Include a list of variables used in the file at the end of the summary.',
             },
             resultsSummary: {
                 type: 'string',
