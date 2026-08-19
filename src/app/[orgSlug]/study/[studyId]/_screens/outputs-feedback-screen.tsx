@@ -64,8 +64,6 @@ const bannerCopy = (errored: boolean, dataPartner: string) =>
               message: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
           }
 
-// OTTER-695/697: researcher page for the outputs decision (FILES-REJECTED).
-// Covers both clean runs and errored runs; the banner copy is the only difference.
 export async function OutputsFeedbackScreen({
     study,
     raw,
@@ -74,8 +72,7 @@ export async function OutputsFeedbackScreen({
 }: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'>) {
     const state = projectStudyState(raw)
 
-    // The routing predicate first (raw is in hand, so the check is free and render cannot disagree
-    // with the rule table), then the narrowing lookups that cost I/O.
+    // Same predicate as the rule table so render cannot disagree with routing.
     if (!isOutputsFeedbackOutcome(state)) {
         return (
             <AlertNotFound
@@ -97,7 +94,7 @@ export async function OutputsFeedbackScreen({
 
     const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
-    // Banner date is FILES-REJECTED (the reviewer's withhold), not JOB-ERRORED or the comment timestamp.
+    // FILES-REJECTED is the withhold, not JOB-ERRORED or the comment timestamp.
     const decidedAt = latestStatusAt(datedStatusChanges(job), 'FILES-REJECTED')
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route

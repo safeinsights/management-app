@@ -151,8 +151,9 @@ raw jobs.
 
 Researcher precedence (OTTER-695, OTTER-697): `FILES-REJECTED` clears `awaitingFilesDecisionOnError`,
 so without #1 the feedback-only outcome would hit `study-results`. Share-outputs
-(`resultsApproved`) still hits `study-results`. The screen picks errored vs clean banner
-copy from `resultsErrored`.
+(`resultsApproved`) still hits `study-results`. The screen uses the errored banner only when
+`JOB-ERRORED` is present and `RUN-COMPLETE` is not (a packaging error plus a successful run
+still carries `JOB-ERRORED`).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):

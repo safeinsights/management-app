@@ -156,9 +156,6 @@ export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
 
-// OTTER-695/697: the reviewer withheld the outputs and shared feedback only (FILES-REJECTED).
 // Shared by the researcher rule table and the outputs-feedback screen's render guard so the
-// two cannot drift (same pattern as awaitingFilesDecisionOnError above). Covers both clean
-// runs (RUN-COMPLETE + FILES-REJECTED) and errored runs (JOB-ERRORED + FILES-REJECTED);
-// the screen picks banner copy based on resultsErrored.
+// two cannot drift (same pattern as awaitingFilesDecisionOnError).
 export const isOutputsFeedbackOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected

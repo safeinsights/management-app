@@ -8,7 +8,8 @@ import { awaitingFilesDecisionOnError, isOutputsFeedbackOutcome } from './state'
 export const RESEARCHER_SCREEN_RULES = [
     // Share-feedback-only decision (OTTER-695/697): the researcher reads the feedback and resubmits.
     // Covers both clean runs (RUN-COMPLETE + FILES-REJECTED) and errored runs (JOB-ERRORED +
-    // FILES-REJECTED); the screen picks banner copy based on whether the run errored.
+    // FILES-REJECTED). Banner copy is chosen on the screen: errored only when JOB-ERRORED is
+    // present and RUN-COMPLETE is not.
     // Out-ranks study-results, which would otherwise claim any FILES-* decision.
     ['outputs-feedback', { when: isOutputsFeedbackOutcome }],
 
