@@ -1,5 +1,5 @@
 import type { ScreenRuleEntry } from './screen-rules'
-import { awaitingFilesDecisionOnError } from './state'
+import { awaitingFilesDecisionOnError, isOutputsFeedbackOutcome } from './state'
 
 // Researcher Tier-2 rules. Order = display precedence. First match wins. Each entry pairs the screen
 // it routes to with the condition that selects it; the leaf view owns its own back/forward buttons.
@@ -10,7 +10,7 @@ export const RESEARCHER_SCREEN_RULES = [
     // Covers both clean runs (RUN-COMPLETE + FILES-REJECTED) and errored runs (JOB-ERRORED +
     // FILES-REJECTED); the screen picks banner copy based on whether the run errored.
     // Out-ranks study-results, which would otherwise claim any FILES-* decision.
-    ['outputs-feedback', { when: (s) => s.resultsRejected }],
+    ['outputs-feedback', { when: isOutputsFeedbackOutcome }],
 
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
     // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher sits on

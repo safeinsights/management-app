@@ -12,7 +12,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
-import { isFeedbackOnlyOutcome, latestJob, projectStudyState, type RawJob } from '@/lib/study-screen'
+import { isOutputsFeedbackOutcome, latestJob, projectStudyState, type RawJob } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
 import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
 import { getOrgNameFromId } from '@/server/db/queries'
@@ -76,7 +76,7 @@ export async function OutputsFeedbackScreen({
 
     // The routing predicate first (raw is in hand, so the check is free and render cannot disagree
     // with the rule table), then the narrowing lookups that cost I/O.
-    if (!isFeedbackOnlyOutcome(state)) {
+    if (!isOutputsFeedbackOutcome(state)) {
         return (
             <AlertNotFound
                 title="Feedback not found"
