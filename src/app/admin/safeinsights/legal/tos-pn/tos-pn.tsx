@@ -7,7 +7,7 @@ import { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
     legalDocumentTypeLabels,
-    type EnforcedLegalDocumentType,
+    type GlobalLegalDocumentType,
 } from '@/schema/legal-document'
 import { AcknowledgementsTable } from './acknowledgements-table'
 import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
@@ -34,7 +34,7 @@ function UploadModalContents({
     draft,
     onClose,
 }: {
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
     draft: Draft | null
     onClose: () => void
 }) {
@@ -87,7 +87,7 @@ function CurrentVersion({
     doctype,
 }: {
     version: PublishedVersion | null
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
 }) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
@@ -108,7 +108,7 @@ function CurrentVersion({
     )
 }
 
-export function TosPnPanel({ doctype }: { doctype: EnforcedLegalDocumentType }) {
+export function TosPnPanel({ doctype }: { doctype: GlobalLegalDocumentType }) {
     const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
     const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false)
 

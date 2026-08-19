@@ -14,8 +14,10 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The legal document types enforced by the modal
-export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA'] as const
+// The legal document types enforced by the acknowledgement gate, in the order they are asked. Global
+// tos/pn come first (everyone owes them); the org-scoped ropa/dopa follow and are only owed by members
+// of the org each one binds.
+export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
 // The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these

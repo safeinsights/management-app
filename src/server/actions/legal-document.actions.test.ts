@@ -452,6 +452,59 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
         expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('PN')
     })
+
+    it('surfaces an org-scoped ropa to a member of the org it binds', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'lab' })
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+
+        expect(pending!.type).toBe('ROPA')
+        expect(pending!.versionId).toBe(published.id)
+    })
+
+    // dopa is newly enforced, so a member of the data partner it binds must be asked for it too.
+    it('surfaces an org-scoped dopa to a member of the org it binds', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('DOPA')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave' })
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+
+        expect(pending!.type).toBe('DOPA')
+        expect(pending!.versionId).toBe(published.id)
+    })
+
+    // A ropa binds only its org: an outsider owes it nothing, and the gate must not ask for a document
+    // they could not then acknowledge.
+    it('does not surface an org-scoped agreement to a user outside its org', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('ROPA')
+        await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData()
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
+    })
+
+    // Global tos/pn precede the org-scoped agreements, so a member owing both is asked the tos first
+    // and reaches the ropa only once the global obligations are settled.
+    it('asks for global tos before an org-scoped ropa the member also owes', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const tos = await publishTos()
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        const ropa = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'lab' })
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('TOS')
+
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        expect(pending!.type).toBe('ROPA')
+        expect(pending!.versionId).toBe(ropa.id)
+    })
 })
 
 describe('fetchGlobalLegalDocumentsAction', () => {

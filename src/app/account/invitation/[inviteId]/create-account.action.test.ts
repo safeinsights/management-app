@@ -203,6 +203,32 @@ describe('Create Account Actions', () => {
             expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
             expect(await acknowledgementsFor(invite.email)).toEqual([])
         })
+
+        // The form only ever shows the globally-scoped tos/pn. An org-scoped ropa/dopa binds members
+        // of a specific org and is never displayed here, so a crafted request naming one must not
+        // manufacture consent to it — the account is still created, minus that acknowledgement.
+        it('ignores an org-scoped agreement the signup form never displays', async () => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'ROPA', orgId: org.id })).id
+            const ropa = await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId,
+                    filePath: 'legal/ROPA/agreement',
+                    fileName: 'agreement.pdf',
+                    format: 'pdf',
+                    versionNumber: 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [ropa.id] })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
     })
 
     it('onCreateAccountAction throws an error if invite not found', async () => {
