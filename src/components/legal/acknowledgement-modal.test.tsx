@@ -7,7 +7,9 @@ const document: PendingLegalDocument = {
     type: 'TOS',
     versionId: 'tos-v2',
     isUpdate: true,
+    format: 'markdown',
     content: '# Terms\n\nThe updated terms.',
+    orgName: null,
 }
 
 const renderModal = (props: Partial<Parameters<typeof LegalAcknowledgementModal>[0]> = {}) =>

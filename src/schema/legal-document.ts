@@ -14,9 +14,8 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The legal document types enforced by the acknowledgement gate, in the order they are asked. Global
-// tos/pn come first (everyone owes them); the org-scoped ropa/dopa follow and are only owed by members
-// of the org each one binds.
+// Types the gate enforces, in ask order: global tos/pn (everyone owes) before org-scoped ropa/dopa
+// (only that org's members).
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
@@ -27,26 +26,29 @@ export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[numb
 export const globalLegalDocumentTypes = ['TOS', 'PN'] as const
 export type GlobalLegalDocumentType = (typeof globalLegalDocumentTypes)[number]
 
-// A published legal document with its content loaded, ready to render or acknowledge. Scope-neutral:
-// the global signup set and the enforced acknowledgement set each narrow `type` to their own subset,
-// so neither is built on the other. Lives here rather than beside the copy helpers or the actions so
-// both the server actions that return it and the client components that render it can depend on it
-// without depending on each other.
+// How a resolved document renders: markdown is inlined, a pdf is a signed-url link. A tagged union,
+// not two optional fields, so exactly one payload is representable.
+export type LegalDocumentBody = { format: 'markdown'; content: string } | { format: 'pdf'; url: string }
+
+// A published document with its body resolved. Scope-neutral: global and enforced sets each narrow
+// `type`; the orthogonal format/body axis is one shared union composed in. Lives here, not in copy or
+// actions, so both server and client can depend on it without depending on each other.
 export type ResolvedLegalDocument = {
     type: LegalDocumentTypeValue
     versionId: string
-    content: string
-}
+} & LegalDocumentBody
 
 // The tos/pn shown at signup, readable without a session.
 export type GlobalLegalDocument = ResolvedLegalDocument & { type: GlobalLegalDocumentType }
 
-// A document the app-wide gate is currently blocking on. Keyed off what is *enforced*, not what is
-// global/public: ropa/dopa are enforced and session-required, but never public.
+// What the app-wide gate is blocking on — keyed off *enforced*, not global/public (ropa/dopa are
+// enforced but never public).
 export type PendingLegalDocument = ResolvedLegalDocument & {
     type: EnforcedLegalDocumentType
-    /** True when the user acknowledged an earlier version of this document, false when they never have. */
+    /** True if the user acknowledged an earlier version, false if never. */
     isUpdate: boolean
+    /** The org an org-scoped ropa/dopa binds, for the copy to name; null for global tos/pn. */
+    orgName: string | null
 }
 
 export const legalDocumentFormatSchema = z.enum(['markdown', 'pdf'])

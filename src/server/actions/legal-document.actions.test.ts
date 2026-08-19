@@ -329,9 +329,7 @@ describe('acknowledgeLegalDocumentAction', () => {
         expect(acks).toHaveLength(0)
     })
 
-    // ropa is an enforced type, so a scope that equates "enforced" with "global" would grant every
-    // authenticated user the isGlobal acknowledge rule and let an outsider record consent to another
-    // org's ropa. A ropa binds only its org, so this must be refused like the dopa case above.
+    // ropa = non-global but enforced
     it('refuses a user outside the org a ropa binds, though ropa is an enforced type', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { version } = await createOrgAgreementDraft('ROPA')
@@ -399,7 +397,11 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
         expect(pending!.type).toBe('TOS')
         expect(pending!.versionId).toBe(tos.id)
-        expect(pending!.content).toContain(tos.filePath)
+        // A markdown tos inlines content, not a signed-url link.
+        if (pending?.format !== 'markdown') throw new Error('expected a markdown body')
+        expect(pending.content).toContain(tos.filePath)
+        // Global tos/pn bind no org, so nothing to name.
+        expect(pending.orgName).toBeNull()
         // Never acknowledged, so the modal must say "is now available" rather than "has been updated".
         expect(pending!.isUpdate).toBe(false)
     })
@@ -463,9 +465,13 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
         expect(pending!.type).toBe('ROPA')
         expect(pending!.versionId).toBe(published.id)
+        expect(pending!.orgName).toBe(org.name)
+        // A ropa is a pdf: a signed-url link, not inlined.
+        if (pending?.format !== 'pdf') throw new Error('expected a pdf body')
+        expect(pending.url).toBeTruthy()
     })
 
-    // dopa is newly enforced, so a member of the data partner it binds must be asked for it too.
+    // dopa is newly enforced, so its org's members must be asked too.
     it('surfaces an org-scoped dopa to a member of the org it binds', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { version, org } = await createOrgAgreementDraft('DOPA')
@@ -476,10 +482,12 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
         expect(pending!.type).toBe('DOPA')
         expect(pending!.versionId).toBe(published.id)
+        expect(pending!.orgName).toBe(org.name)
+        if (pending?.format !== 'pdf') throw new Error('expected a pdf body')
+        expect(pending.url).toBeTruthy()
     })
 
-    // A ropa binds only its org: an outsider owes it nothing, and the gate must not ask for a document
-    // they could not then acknowledge.
+    // A ropa binds only its org; an outsider owes it nothing, so the gate must not ask.
     it('does not surface an org-scoped agreement to a user outside its org', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { version } = await createOrgAgreementDraft('ROPA')
@@ -489,8 +497,7 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
     })
 
-    // Global tos/pn precede the org-scoped agreements, so a member owing both is asked the tos first
-    // and reaches the ropa only once the global obligations are settled.
+    // Global tos/pn precede org-scoped ones, so a member owing both gets tos first, ropa only after.
     it('asks for global tos before an org-scoped ropa the member also owes', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const tos = await publishTos()
@@ -517,7 +524,10 @@ describe('fetchGlobalLegalDocumentsAction', () => {
         const documents = actionResult(await fetchGlobalLegalDocumentsAction())
 
         expect(documents.map((document) => document.versionId)).toEqual([current.id])
-        expect(documents[0]!.content).toContain(current.filePath)
+        // tos/pn are markdown, so the global set inlines content, not a link.
+        const document = documents[0]!
+        if (document.format !== 'markdown') throw new Error('expected a markdown body')
+        expect(document.content).toContain(current.filePath)
     })
 })
 

@@ -4,7 +4,7 @@ import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
 import type { LegalDocumentType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
     acknowledgeLegalDocumentSchema,
     createLegalDocumentDraftSchema,
@@ -20,6 +20,8 @@ import {
     globalLegalDocumentTypes,
     type GlobalLegalDocument,
     type PendingLegalDocument,
+    type LegalDocumentBody,
+    type LegalDocumentTypeValue,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
 import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
@@ -58,9 +60,7 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
     return {
         orgId: scope?.orgId ?? undefined,
         studyId: scope?.studyId ?? undefined,
-        // Globally-scoped tos/pn bind everyone, so the acknowledge rule grants any authenticated user.
-        // A ropa/dopa is enforced too but binds only its org — it must NOT be global, or every user
-        // could record consent to another org's agreement; those are matched by audienceOrgIds instead.
+        // Only global tos/pn bind everyone. A ropa/dopa is enforced but binds one org
         isGlobal: scope ? isGlobalType(scope.type) : false,
         audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
             (orgId): orgId is string => orgId != null,
@@ -239,8 +239,7 @@ type GenericVersion = {
     legalDocumentId: string
     versionId: string
     filePath: string
-    // The org a version binds, or null for the global tos/pn. Lets the pending gate keep only the
-    // org-scoped documents whose org the signed-in user belongs to.
+    // The org a version binds, null for global tos/pn — lets the pending gate keep only the user's orgs.
     orgId: string | null
 }
 
@@ -248,9 +247,7 @@ type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
 
 export type GlobalVersion = GenericVersion & { type: GlobalLegalDocumentType }
 
-// The current published version of each document of the given types, narrowed to those types and
-// ordered as `types` lists them. Drafts are excluded: nobody can be obliged by something that was
-// never published.
+// Current published version of each document of the given types, ordered as `types` lists them.
 const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
     db: DBExecutor,
     types: readonly T[],
@@ -272,12 +269,10 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
         .execute()
 
+    // Narrow DB enum to T
     const isRequestedType = (type: LegalDocumentType): type is T =>
         (types as readonly LegalDocumentType[]).includes(type)
 
-    // The `in` filter already excludes everything else; the guard just re-narrows the DB enum back to
-    // T. distinctOn dictates the ORDER BY above, so presentation order — the order `types` lists the
-    // types — is applied after the fact.
     return rows
         .flatMap((row) => (isRequestedType(row.type) ? [{ ...row, type: row.type }] : []))
         .sort((a, b) => types.indexOf(a.type) - types.indexOf(b.type))
@@ -286,32 +281,38 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
 const latestGlobalVersions = (db: DBExecutor): Promise<GlobalVersion[]> =>
     latestVersionsOfTypes(db, globalLegalDocumentTypes)
 
-const latestEnforcedVersions = (db: DBExecutor): Promise<EnforcedVersion[]> =>
-    latestVersionsOfTypes(db, enforcedLegalDocumentTypes)
+const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise<EnforcedVersion[] | null> => {
+    const usersOrgIds = new Set(Object.values(session.orgs).map((org) => org.id))
+    const owed = (await latestVersionsOfTypes(db, enforcedLegalDocumentTypes)).filter(
+        (version) => version.orgId === null || usersOrgIds.has(version.orgId),
+    )
+    if (!owed.length) return null
+    return owed
+}
 
 const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+
+// Either format == pdf & has `url`, or format == markdown and has `content`
+const bodyForVersion = async (type: LegalDocumentTypeValue, filePath: string): Promise<LegalDocumentBody> =>
+    legalDocumentFormats[type] === 'pdf'
+        ? { format: 'pdf', url: await signedUrlForFile(filePath) }
+        : { format: 'markdown', content: await contentOf(filePath) }
 
 /**
  * The next thing the signed-in user still owes, current version only.
  *
- * A user owes a document when its latest published version has no acknowledgement row from them.
- * Global tos/pn are owed by everyone; an org-scoped ropa/dopa is owed only by members of the org it
- * binds, matching who the acknowledge rule lets record consent — so the gate never asks for a document
- * the user could not then acknowledge. Superseded versions are not backfilled — the obligation is to
- * the terms in force, which is also what the SI-admin audit reports, so the two views cannot disagree.
+ * A user owes a document when its latest published version in the user's scope has no acknowledgement row from them.
+ * Global tos/pn are owed by everyone; ropa/dopa only if the user is a member of that org.
  *
- * One document rather than the whole list because the gate asks for one at a time; the next arrives
+ * One document rather than the whole list; the next arrives
  * on the refetch that acknowledging triggers.
  */
 export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextPendingLegalAcknowledgementAction')
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, session }): Promise<PendingLegalDocument | null> => {
-        const usersOrgIds = new Set(Object.values(session.orgs).map((org) => org.id))
-        const owed = (await latestEnforcedVersions(db)).filter(
-            (version) => version.orgId === null || usersOrgIds.has(version.orgId),
-        )
-        if (!owed.length) return null
+        const owed = await latestOwedVersions(db, session)
+        if (!owed) return null
 
         const acknowledged = await db
             .selectFrom('legalDocumentAcknowledgement')
@@ -334,17 +335,25 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
         // available", so the modal can say which one happened.
         const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
 
-        // latestEnforcedVersions is ordered, so the first outstanding one is also the one to ask about.
+        // latestOwedVersions is ordered, so the first outstanding one is also the one to ask about.
         const next = owed.find((version) => !acknowledgedVersionIds.has(version.versionId))
         if (!next) return null
 
-        // S3 is read only once something is actually outstanding. Every page load runs this action and
-        // the overwhelmingly common answer is "nothing pending".
+        // Only org-scoped ropa/dopa carry an org (null otherwise). Looked up for just the returned doc,
+        // not joined onto every owed row.
+        const orgName = next.orgId
+            ? ((await db.selectFrom('org').select('name').where('id', '=', next.orgId).executeTakeFirst())?.name ??
+              null)
+            : null
+
+        // Body resolved only once something is outstanding — every page load runs this, and usually
+        // nothing is pending.
         return {
             type: next.type,
             versionId: next.versionId,
             isUpdate: acknowledgedDocumentIds.has(next.legalDocumentId),
-            content: await contentOf(next.filePath),
+            orgName,
+            ...(await bodyForVersion(next.type, next.filePath)),
         }
     })
 
@@ -363,7 +372,7 @@ export const fetchGlobalLegalDocumentsAction = new Action('fetchGlobalLegalDocum
             latest.map(async (version) => ({
                 type: version.type,
                 versionId: version.versionId,
-                content: await contentOf(version.filePath),
+                ...(await bodyForVersion(version.type, version.filePath)),
             })),
         )
     },

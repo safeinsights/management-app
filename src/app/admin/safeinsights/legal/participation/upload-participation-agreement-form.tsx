@@ -104,7 +104,9 @@ const VersionNote: FC<{ versionNumber: number | null | undefined }> = ({ version
 }
 
 const publishConsequence = (documentLabel: string, orgName: string) =>
-    `This becomes the current ${documentLabel} on record for ${orgName}. Earlier versions stay in the record. Publication will prompt all users to whom this document applies to re-acknowledge. to This cannot be undone.`
+    `This becomes the current ${documentLabel} on record for ${orgName}.
+Earlier versions stay in the record. Publication will prompt all users to whom this
+document applies to re-acknowledge. This cannot be undone.`
 
 // Given a `signatory`, this adds a version to that org: only a new date and file are collected.
 // Without one, the org is picked from the dropdown.
