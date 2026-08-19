@@ -186,4 +186,22 @@ test.describe('Organization Admin', () => {
         await expect(codeViewerDialog).toBeVisible()
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
     })
+
+    // Covers the route, the org-admin gate and that both panels mount. Navigates directly rather
+    // than clicking the nav: the Admin submenu keeps its links out of the DOM while collapsed, and
+    // it does not auto-open on org-admin routes. The nav link itself is unit-tested.
+    // Deliberately asserts no row content — other specs approve studies against this org in
+    // parallel, so counting rows (or asserting the table is empty) would depend on run order.
+    test('org admin can open the legal center', async ({ page }) => {
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+
+        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/legal/)
+        await expect(page.getByRole('heading', { name: 'Legal center' })).toBeVisible()
+        await expect(page.getByRole('tab', { name: 'Study Agreement' })).toBeVisible()
+
+        const participationTab = page.getByRole('tab', { name: 'Data Organization Participation Agreement' })
+        await expect(participationTab).toBeVisible()
+        await participationTab.click()
+        await expect(page.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeVisible()
+    })
 })

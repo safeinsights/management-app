@@ -95,11 +95,11 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
 )
 
 // Says why the cascade is empty. Both causes are ordinary states rather than faults: nothing has
-// been approved yet, or every approved study already has its SLA.
+// been approved yet, or every approved study already has one.
 const NoStudiesWaiting: FC = () => (
     <Text c="dimmed">
-        No approved studies are waiting for an SLA. A study becomes available here once its proposal has been approved
-        and it does not already have one.
+        No approved studies are waiting for a study agreement. A study becomes available here once its proposal has been
+        approved and it does not already have one.
     </Text>
 )
 
@@ -132,7 +132,7 @@ const StudySelect: FC<{
             />
             <Select
                 label="Study"
-                description="Only approved studies that do not already have an SLA are listed"
+                description="Only approved studies that do not already have one are listed"
                 placeholder="Select a study"
                 data={candidates.studyOptions}
                 value={candidates.studyId}
@@ -164,7 +164,7 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
 // Says nothing about acknowledgement: an sla is filed here, not enforced — only tos/pn are in
 // enforcedLegalDocumentTypes.
 const PUBLISH_CONSEQUENCE =
-    'This becomes the current Study Level Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
+    'This becomes the current Study Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
 
 // Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
 // and only a new date and file are collected. Without one, the study is picked from the cascade.
@@ -187,7 +187,7 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
             <ChosenStudyFields details={sla} />
             <VersionNote sla={sla} />
             <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
-            <PdfDropzone label="Signed Study Level Agreement" file={upload.file} onChange={upload.setFile} />
+            <PdfDropzone label="Signed Study Agreement" file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
                 <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>
                     Publish

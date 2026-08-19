@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { OrgType } from '@/database/types'
 
 export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
 
@@ -7,17 +8,17 @@ export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
-    SLA: 'Study Level Agreement',
+    SLA: 'Study Agreement',
     // "Organization" is the wording on the executed documents themselves, so an admin matching a
     // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
     DOPA: 'Data Organization Participation Agreement',
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
-// are global — one document each, no org or study scope — so the audience is simply everybody.
-// Adding sla here also means retiring study.researcherAgreementsAckedAt / reviewerAgreementsAckedAt;
-// two agreement gates on the same study would disagree.
+// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/study
+// agreements these are global — one document each, no org or study scope — so the audience is simply
+// everybody. Adding the study agreement here also means retiring study.researcherAgreementsAckedAt /
+// reviewerAgreementsAckedAt: two agreement gates on the same study would disagree.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
@@ -53,6 +54,23 @@ export const participationAgreementOrgLabels: Record<ParticipationAgreementType,
     ROPA: 'Research Lab',
 }
 
+// participationAgreementOrgTypes read the other way, for the org-admin Legal center: given the org
+// whose page this is, which participation agreement is theirs. A Record<OrgType, …> rather than a
+// ternary so a new OrgType is a type error here instead of silently falling through to ROPA.
+export const participationAgreementTypeForOrgType: Record<OrgType, ParticipationAgreementType> = {
+    enclave: 'DOPA',
+    lab: 'ROPA',
+}
+
+// Which side of a study agreement the viewing org sits on. The Data Partner holds the data
+// (study.orgId) and receives the agreement FROM the lab that submitted it; the Research Lab
+// (study.submittedByOrgId) sends it TO the data partner. Drives both the join and the column header,
+// so the two cannot disagree about who the counterparty is.
+export const studyAgreementCounterpartyLabels: Record<OrgType, string> = {
+    enclave: 'From',
+    lab: 'To',
+}
+
 // Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
 const scopeSchema = z.object({
     type: legalDocumentTypeSchema,
@@ -68,7 +86,7 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'sla must belong to a study' })
+        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })
@@ -116,6 +134,12 @@ export const acknowledgeLegalDocumentSchema = z.object({
     // Validated as a uuid because scopeFromVersionId queries on it before any handler runs: a
     // malformed id would raise there and 500 rather than failing closed.
     versionId: z.string().uuid(),
+})
+
+// The org whose Legal center is being read. A slug rather than an id because that is what the route
+// carries; the actions' middleware resolves it and refuses an unknown one.
+export const orgLegalParams = z.object({
+    orgSlug: z.string().min(1, 'An organization is required'),
 })
 
 // Params for both participation reads — the agreements table and the signatory picker — so it is
@@ -168,4 +192,8 @@ export const legalDocumentQueryKeys = {
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyLevelAgreements: () => ['studyLevelAgreements'] as const,
     studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+    // Keyed by org rather than shared with the SI-admin listings above: these return one org's rows,
+    // so an admin of two orgs must not read the first org's cache on the second org's page.
+    orgStudyAgreements: (orgSlug: string) => ['orgStudyAgreements', orgSlug] as const,
+    orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
 }

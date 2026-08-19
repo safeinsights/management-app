@@ -141,8 +141,12 @@ describe('fetchStudyLevelAgreementsAction', () => {
         expect(row?.versionNumber).toBe(1)
         // Read back as text, so the day entered survives whatever zone the reader is in.
         expect(row?.signedAt).toBe('2026-07-27')
-        // Must be signed from this row's own key, not another version's.
-        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath)
+        // Must be signed from this row's own key, not another version's, and carry the type and name
+        // the browser needs to show it rather than download a nameless blob.
+        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath, {
+            ResponseContentType: 'application/pdf',
+            ResponseContentDisposition: `inline; filename="${row!.fileName}"`,
+        })
     })
 
     it('leaves out an SLA that has only been drafted, not published', async () => {

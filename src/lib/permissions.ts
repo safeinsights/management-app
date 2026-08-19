@@ -62,6 +62,13 @@ export function defineAbilityFor(session: UserSession) {
     permit('acknowledge', 'LegalDocument', { isGlobal: true })
     permit('acknowledge', 'LegalDocument', { audienceOrgIds: { $in: usersOrgIds } })
 
+    // An org admin reads their own org's Legal center: the participation agreement it signed and the
+    // study agreements for studies it is a party to. Its own verb rather than a widened 'view'
+    // because view-gated actions like fetchLegalDocumentVersionsAction take their scope from client
+    // params, so a 'view' rule keyed on orgId would also expose unpublished drafts and version
+    // history. `$in` fails closed when the field is absent. SI admins get it via ('manage','all').
+    permit('viewAsParty', 'LegalDocument', { orgId: { $in: usersAdminOrgIds } })
+
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
 

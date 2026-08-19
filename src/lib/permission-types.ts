@@ -72,14 +72,16 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
-    // orgId/studyId carry the document's scope, so a future rule can scope an org admin to their own
-    // org's agreements. view/create/publish are SI-admin only, via ('manage','all').
+    // view/create/publish are SI-admin only, via ('manage','all'). 'viewAsParty' is the org-admin
+    // read of their OWN org's agreements and is deliberately a separate verb: several view-gated
+    // actions build their ability subject straight from client params, so widening 'view' would also
+    // hand an org admin unpublished drafts and full version history (SHRMP-304).
     // isGlobal and audienceOrgIds are derived per request by the actions' middleware and answer the
     // only question 'acknowledge' asks: who does this document bind? Both must appear on the arm for
     // the CASL subject union to accept them as conditions.
     | Ability<
           'LegalDocument',
-          'view' | 'create' | 'publish' | 'acknowledge',
+          'view' | 'viewAsParty' | 'create' | 'publish' | 'acknowledge',
           { orgId?: UUID; studyId?: UUID; isGlobal?: boolean; audienceOrgIds?: UUID[] }
       >
     // Both fields optional: `load IDE` is granted by two OR-combined rules — the study's own

@@ -59,6 +59,30 @@ describe('OrgAdminDashboardLink', () => {
         await userEvent.click(adminButton)
         expect(screen.getByRole('link', { name: 'Team' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
+        // The slug comes from the mocked route params rather than the org prop, so the assertion is
+        // on the route's shape.
+        expect(screen.getByRole('link', { name: 'Legal center' }).getAttribute('href')).toMatch(/\/admin\/legal$/)
+    })
+
+    // Settings is enclave-only; the Legal center is not, since a lab reads its ROPA and its study
+    // agreements there.
+    it('shows the legal center to a lab admin, which has no Settings link', async () => {
+        const orgSlug = faker.lorem.slug()
+        const org = {
+            type: 'lab' as const,
+            name: faker.company.name(),
+            id: faker.string.uuid(),
+            slug: orgSlug,
+        }
+        await mockSessionWithTestData({ orgSlug, orgType: 'lab', isAdmin: true })
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
+        await userEvent.click(screen.getByRole('button', { name: /Admin/i }))
+
+        expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
+        // The slug comes from the mocked route params rather than the org prop, so the assertion is
+        // on the route's shape.
+        expect(screen.getByRole('link', { name: 'Legal center' }).getAttribute('href')).toMatch(/\/admin\/legal$/)
     })
 
     it('is open by default when on an admin page', async () => {

@@ -1,7 +1,7 @@
 'use client'
 
 import { NavLink } from '@mantine/core'
-import { GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
+import { FileTextIcon, GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
 import { FC, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
@@ -63,6 +63,14 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
                     url={Routes.adminSettings({ orgSlug })}
+                    pl="xl"
+                />
+                {/* Both org types: a lab reads its ROPA and study agreements here, an enclave its DOPA. */}
+                <NavbarLink
+                    isVisible
+                    label="Legal center"
+                    icon={<FileTextIcon size={20} />}
+                    url={Routes.adminLegal({ orgSlug })}
                     pl="xl"
                 />
             </NavLink>

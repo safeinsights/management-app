@@ -11,19 +11,58 @@ import {
     enforcedLegalDocumentTypes,
     type EnforcedLegalDocumentType,
     fetchLegalDocumentAcknowledgementsSchema,
+    orgLegalParams,
     participationAgreementTypeParams,
+    participationAgreementTypeForOrgType,
     legalDocumentFormats,
+    type LegalDocumentFormat,
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
-import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
+import {
+    findLegalDocument,
+    findOrCreateLegalDocument,
+    orgParticipationAgreement,
+    orgStudyAgreements,
+} from '../db/legal-document'
+import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
+
+const legalDocumentMimeTypes: Record<LegalDocumentFormat, string> = {
+    pdf: 'application/pdf',
+    markdown: 'text/markdown; charset=utf-8',
+}
+
+/**
+ * Every link to a stored legal document, so a version's name and type always come from the row that
+ * describes it.
+ *
+ * Both overrides are load-bearing. The presigned POST the browser uploads with carries no
+ * Content-Type, so the object sits in S3 as octet-stream, which a browser downloads whatever the
+ * disposition says; and the key is the bare versionId, so without a filename the download is named
+ * after a uuid with no extension.
+ */
+const legalDocumentDownloadUrl = ({
+    filePath,
+    fileName,
+    format,
+}: {
+    filePath: string
+    fileName: string
+    format: string
+}) =>
+    signedUrlForFile(filePath, {
+        ResponseContentType: legalDocumentMimeTypes[format as LegalDocumentFormat] ?? 'application/octet-stream',
+        // S3 echoes this straight into the response header, and the name is whatever the admin's file
+        // was called.
+        ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
+    })
 
 const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
     (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
@@ -185,7 +224,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
             .execute()
 
         const withUrls = await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
         const published = withUrls.filter(
             (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
@@ -427,6 +466,8 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'org.id as orgId',
@@ -443,7 +484,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
         rows.sort((a, b) => a.orgName.localeCompare(b.orgName))
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
     })
 
@@ -479,6 +520,8 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'study.id as studyId',
@@ -506,7 +549,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
     })
 
@@ -553,4 +596,70 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .orderBy('researchLab.name')
             .orderBy('study.title')
             .execute()
+    })
+
+// A signed row carries a download URL; an unsigned one carries nulls all the way through, so the
+// table has a single shape and the "nothing signed yet" cells are an absence rather than a sentinel.
+const withAgreementDownloadUrl = async <Row extends { versionId: string | null; filePath: string | null }>(
+    row: Row & { fileName: string | null; format: string | null },
+) => {
+    const { filePath, fileName, format, ...rest } = row
+    if (!filePath) return { ...rest, downloadUrl: null }
+
+    return {
+        ...rest,
+        downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName: fileName ?? '', format: format ?? '' }),
+    }
+}
+
+// Most recently effective agreement first, with the studies still waiting on one pooled at the
+// bottom. Applied in memory rather than in SQL because signedAt is a nullable YYYY-MM-DD string and
+// Postgres orders DESC nulls-first; the table re-sorts client-side from here anyway.
+const byEffectiveDateDesc = (
+    a: { signedAt: string | null; studyTitle: string | null; studyId: string },
+    b: { signedAt: string | null; studyTitle: string | null; studyId: string },
+) => {
+    if (a.signedAt !== b.signedAt) {
+        if (!a.signedAt) return 1
+        if (!b.signedAt) return -1
+        return b.signedAt.localeCompare(a.signedAt)
+    }
+    // An untitled study sorts by the id it is displayed under.
+    return (a.studyTitle ?? a.studyId).localeCompare(b.studyTitle ?? b.studyId)
+}
+
+// The org-admin Legal center's study-agreement tab. Scoped to the org in the route: an admin of two
+// orgs gets each org's own rows, and `viewAsParty` refuses an org they do not administer.
+export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
+    .params(orgLegalParams)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('viewAsParty', 'LegalDocument')
+    .handler(async ({ db, orgId, orgType }) => {
+        const rows = await orgStudyAgreements(db, { orgId, orgType })
+
+        rows.sort(byEffectiveDateDesc)
+
+        return await Promise.all(rows.map(withAgreementDownloadUrl))
+    })
+
+// The org's own participation agreement. Which type that is comes from the org's own record, never
+// from the caller, so a lab admin cannot ask for a DOPA.
+export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
+    .params(orgLegalParams)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('viewAsParty', 'LegalDocument')
+    .handler(async ({ db, orgId, orgType }) => {
+        const type = participationAgreementTypeForOrgType[orgType]
+        const agreement = await orgParticipationAgreement(db, { orgId, type })
+
+        if (!agreement) return { type, agreement: null }
+
+        return {
+            type,
+            agreement: {
+                versionId: agreement.versionId,
+                signedAt: agreement.signedAt,
+                downloadUrl: await legalDocumentDownloadUrl(agreement),
+            },
+        }
     })
