@@ -239,6 +239,9 @@ type GenericVersion = {
     legalDocumentId: string
     versionId: string
     filePath: string
+    // The org a version binds, or null for the global tos/pn. Lets the pending gate keep only the
+    // org-scoped documents whose org the signed-in user belongs to.
+    orgId: string | null
 }
 
 type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
@@ -258,6 +261,7 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
         .select([
             'legalDocument.id as legalDocumentId',
             'legalDocument.type as type',
+            'legalDocument.orgId as orgId',
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
         ])
@@ -291,8 +295,10 @@ const contentOf = async (filePath: string) => await (await fetchFileContents(fil
  * The next thing the signed-in user still owes, current version only.
  *
  * A user owes a document when its latest published version has no acknowledgement row from them.
- * Superseded versions are not backfilled — the obligation is to the terms in force, which is also
- * what the SI-admin audit reports, so the two views cannot disagree.
+ * Global tos/pn are owed by everyone; an org-scoped ropa/dopa is owed only by members of the org it
+ * binds, matching who the acknowledge rule lets record consent — so the gate never asks for a document
+ * the user could not then acknowledge. Superseded versions are not backfilled — the obligation is to
+ * the terms in force, which is also what the SI-admin audit reports, so the two views cannot disagree.
  *
  * One document rather than the whole list because the gate asks for one at a time; the next arrives
  * on the refetch that acknowledging triggers.
@@ -301,8 +307,11 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, session }): Promise<PendingLegalDocument | null> => {
-        const latest = await latestEnforcedVersions(db)
-        if (!latest.length) return null
+        const usersOrgIds = new Set(Object.values(session.orgs).map((org) => org.id))
+        const owed = (await latestEnforcedVersions(db)).filter(
+            (version) => version.orgId === null || usersOrgIds.has(version.orgId),
+        )
+        if (!owed.length) return null
 
         const acknowledged = await db
             .selectFrom('legalDocumentAcknowledgement')
@@ -316,7 +325,7 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
             .where(
                 'legalDocumentVersion.legalDocumentId',
                 'in',
-                latest.map((version) => version.legalDocumentId),
+                owed.map((version) => version.legalDocumentId),
             )
             .execute()
 
@@ -326,7 +335,7 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
         const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
 
         // latestEnforcedVersions is ordered, so the first outstanding one is also the one to ask about.
-        const next = latest.find((version) => !acknowledgedVersionIds.has(version.versionId))
+        const next = owed.find((version) => !acknowledgedVersionIds.has(version.versionId))
         if (!next) return null
 
         // S3 is read only once something is actually outstanding. Every page load runs this action and
