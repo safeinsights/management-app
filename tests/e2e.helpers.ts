@@ -84,7 +84,9 @@ class StudyFeatures {
     uniqueTitle(suffix: string) {
         const unique = `${suffix} ${Date.now()}`
         const roomForWords = STUDY_TITLE_MAX_CHARACTERS - unique.length - ' - '.length
-        return `${this.studyTitle.slice(0, Math.max(roomForWords, 0)).trim()} - ${unique}`
+        const words = this.studyTitle.slice(0, Math.max(roomForWords, 0)).trim()
+        // A long suffix can leave no room at all, and a bare separator would then lead the title.
+        return words ? `${words} - ${unique}` : unique
     }
 
     static perWorkerFeatures: Record<number, StudyFeatures> = {}

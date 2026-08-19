@@ -31,6 +31,15 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
     }
 
+    // A DRAFT predating OTTER-690 can have no title: the migration that made the column nullable
+    // cleared every 'Untitled Draft' placeholder, and this page no longer carries a title field to
+    // put one back. Submitting from here would violate the study_title_required_when_not_draft
+    // check constraint, and the dashboard routes any draft with Step 2 progress straight here, so
+    // Step 1 (which owns the title and is revisitable) is the only way out.
+    if (!result.title?.trim()) {
+        redirect(Routes.studyEdit({ orgSlug, studyId }))
+    }
+
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 

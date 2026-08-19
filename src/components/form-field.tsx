@@ -238,7 +238,9 @@ const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNod
     footer,
     errorLive,
 }) => {
-    if (!error && !footer) return null
+    // `errorLive` keeps the row mounted on its own: FieldErrorSlot's live region has to exist
+    // before the message does, and a row that appears with the error would defeat that.
+    if (!error && !footer && !errorLive) return null
 
     return (
         <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt={4} wrap="nowrap">

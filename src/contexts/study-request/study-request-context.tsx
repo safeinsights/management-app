@@ -57,8 +57,6 @@ export function StudyRequestProvider({
 
     const { initDocumentFilesFromPaths, resetDocumentFiles, ...documentFiles } = useDocumentFiles()
 
-    const isStep1Valid = form.isValid()
-
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
         submittingOrgSlug,
@@ -123,7 +121,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
 
             ...documentFiles,
 
@@ -140,7 +137,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
             documentFiles.documentFiles,
             documentFiles.existingFiles,
             documentFiles.setDocumentFile,

@@ -28,6 +28,7 @@ import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import {
+    STUDY_TITLE_BLANK_ERROR,
     STUDY_TITLE_MAX_CHARACTERS,
     STUDY_TITLE_OVER_LIMIT_ERROR,
     draftStudyApiSchema,
@@ -404,6 +405,21 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             for (const key of updatable) {
                 if (studyInfo[key] !== undefined) snapshotFields[key] = studyInfo[key]
             }
+        }
+
+        // Most callers pass titleMode 'omit', because Step 1 owns study.title on a DRAFT, so the
+        // title being submitted is usually the persisted one. A draft predating OTTER-690 can have
+        // none, and `study_title_required_when_not_draft` rejects that the moment status leaves
+        // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error;
+        // /proposal redirects such a draft to Step 1 before it can reach this point.
+        const submittedTitle =
+            'title' in snapshotFields
+                ? (snapshotFields.title as string | null)
+                : ((await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirst())?.title ??
+                  null)
+
+        if (!submittedTitle?.trim()) {
+            throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
         }
 
         const submittedAt = new Date()

@@ -130,9 +130,11 @@ export const createTestQueryWrapper = () => {
  */
 export function renderWithProviders(
     ui: ReactElement,
-    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean },
+    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean; queryClient?: QueryClient },
 ) {
-    const testQueryClient = createTestQueryClient()
+    // A caller-supplied client is how a test primes a query before the first render, which is the
+    // only way to assert on an effect that fires when a query resolves but renders nothing itself.
+    const testQueryClient = options?.queryClient ?? createTestQueryClient()
 
     return render(
         <QueryClientProvider client={testQueryClient}>

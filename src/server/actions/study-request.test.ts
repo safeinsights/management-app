@@ -31,6 +31,7 @@ import {
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
+import { STUDY_TITLE_BLANK_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -309,6 +310,25 @@ describe('Request Study Actions', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('APPROVED')
+    })
+
+    // Step 1 owns study.title on a DRAFT, so submit sends no title at all and a draft predating
+    // OTTER-690 can have none. `study_title_required_when_not_draft` would reject the status flip
+    // as a raw DB error, so the blank has to be caught before the UPDATE runs.
+    it('finalizeStudySubmissionAction rejects a DRAFT whose title was never set', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-untitled' })
+        await db.updateTable('study').set({ title: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { title: STUDY_TITLE_BLANK_ERROR } })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
     })
 
     describe('OpenStax Proposal Flow (Step 2)', () => {
