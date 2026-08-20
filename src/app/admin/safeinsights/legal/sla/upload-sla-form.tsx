@@ -132,7 +132,7 @@ const StudySelect: FC<{
             />
             <Select
                 label="Study"
-                description="Only approved studies that do not already have one are listed"
+                description="Only approved studies without a study agreement are listed"
                 placeholder="Select a study"
                 data={candidates.studyOptions}
                 value={candidates.studyId}

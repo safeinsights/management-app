@@ -606,12 +606,11 @@ const withAgreementDownloadUrl = async ({
     format,
     ...rest
 }: Awaited<ReturnType<typeof orgStudyAgreements>>[number]) => {
-    if (!filePath) return { ...rest, downloadUrl: null }
+    // Null together, all three being NOT NULL. Checked rather than coerced: an empty name would
+    // reach the browser as filename="".
+    if (!filePath || !fileName || !format) return { ...rest, downloadUrl: null }
 
-    return {
-        ...rest,
-        downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName: fileName ?? '', format: format ?? '' }),
-    }
+    return { ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) }
 }
 
 // An unknown slug leaves both ABSENT, which the `$in` rule denies — but ('manage','all') passes it,
