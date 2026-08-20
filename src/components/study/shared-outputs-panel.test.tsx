@@ -16,7 +16,7 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { type FileType } from '@/database/types'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { ErroredOutputsSharedPanel } from './errored-outputs-shared-panel'
+import { SharedOutputsPanel } from './shared-outputs-panel'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
@@ -30,11 +30,20 @@ vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
 
-const LOCKED_TITLE = 'Decrypt outputs to view code error • Aug 05, 2026'
+// Undated headings go in as props; the panel appends the shared decision date to both phases.
+const LOCKED_HEADING = 'Decrypt outputs to view code error'
+const UNLOCKED_HEADING = 'Outputs and feedback available'
 const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
-const UNLOCKED_TITLE = 'Outputs and feedback available • Aug 05, 2026'
 const UNLOCKED_BODY =
     "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit."
+
+const LOCKED_TITLE = `${LOCKED_HEADING} • Aug 05, 2026`
+const UNLOCKED_TITLE = `${UNLOCKED_HEADING} • Aug 05, 2026`
+
+const BANNER = {
+    locked: { title: LOCKED_HEADING, body: LOCKED_BODY },
+    unlocked: { title: UNLOCKED_HEADING, body: UNLOCKED_BODY },
+}
 
 const PREVIOUS_HREF = '/test-lab/study/abc/view/code' as Route
 const EDIT_CODE_HREF = '/test-lab/study/abc/resubmit' as Route
@@ -84,16 +93,16 @@ const FeedbackProbe = () => {
     return <div data-testid="feedback-probe">Feedback and notes</div>
 }
 
-describe('ErroredOutputsSharedPanel', () => {
+describe('SharedOutputsPanel', () => {
     // The panel reads only job.id; a real row still has to exist for the seeded artifact to hang off.
     let job: { id: string }
 
     const renderPanel = () =>
         renderWithProviders(
-            <ErroredOutputsSharedPanel
+            <SharedOutputsPanel
                 studyTitle="Diabetes readmission rates"
-                dataPartner={DATA_PARTNER}
                 decidedAt={DECIDED_AT}
+                banner={BANNER}
                 job={job}
                 feedbackSection={<FeedbackProbe />}
                 previousHref={PREVIOUS_HREF}
@@ -146,10 +155,10 @@ describe('ErroredOutputsSharedPanel', () => {
 
         it('degrades to an undated banner when no decision timestamp is available', () => {
             renderWithProviders(
-                <ErroredOutputsSharedPanel
+                <SharedOutputsPanel
                     studyTitle="Diabetes readmission rates"
-                    dataPartner={DATA_PARTNER}
                     decidedAt={null}
+                    banner={BANNER}
                     job={job}
                     feedbackSection={<FeedbackProbe />}
                     previousHref={PREVIOUS_HREF}

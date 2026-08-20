@@ -101,7 +101,7 @@ const setupErroredShared = async ({ withNote = false }: { withNote?: boolean } =
 }
 
 describe('OutputsErroredSharedScreen', () => {
-    // Copy and variant are the panel's contract (see errored-outputs-shared-panel.test.tsx); the
+    // Copy and variant are the panel's contract (see shared-outputs-panel.test.tsx); the
     // screen's own job is wiring — that it hands down THIS study's title, partner and decision date.
     it('wires the page header and the study title through to the section header', async () => {
         const { org, study, raw } = await setupErroredShared()

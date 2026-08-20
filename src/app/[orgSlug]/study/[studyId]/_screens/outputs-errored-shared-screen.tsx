@@ -1,6 +1,6 @@
 import type { Route } from 'next'
 import { Box, Stack } from '@mantine/core'
-import { ErroredOutputsSharedPanel } from '@/components/study/errored-outputs-shared-panel'
+import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
@@ -40,10 +40,19 @@ export async function OutputsErroredSharedScreen({
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader>Secondary analysis study</StudyPageHeader>
-                <ErroredOutputsSharedPanel
+                <SharedOutputsPanel
                     studyTitle={study.title!}
-                    dataPartner={dataPartner}
                     decidedAt={decidedAt}
+                    banner={{
+                        locked: {
+                            title: 'Decrypt outputs to view code error',
+                            body: `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+                        },
+                        unlocked: {
+                            title: 'Outputs and feedback available',
+                            body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+                        },
+                    }}
                     job={job}
                     feedbackSection={
                         <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />

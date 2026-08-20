@@ -438,7 +438,7 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
 // which now routes the researcher to the errored-outputs step instead of the old inline error
 // panel — they decrypt with their own key to diagnose the failure, then edit and resubmit.
 // Asserts the pre-decryption landing only: the decrypt phase needs researcher-wrapped keys that
-// this seed does not provision, and is covered by errored-outputs-shared-panel.test.tsx.
+// this seed does not provision, and is covered by shared-outputs-panel.test.tsx.
 async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 

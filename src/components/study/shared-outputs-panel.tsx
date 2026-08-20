@@ -12,24 +12,25 @@ import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/component
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import type { JobFileInfo } from '@/lib/types'
 
-const LOCKED_TITLE = 'Decrypt outputs to view code error'
-const UNLOCKED_TITLE = 'Outputs and feedback available'
-const UNLOCKED_BODY =
-    "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit."
+/**
+ * Per-phase banner copy, supplied by the screen.
+ *
+ * Copy rather than two ReactNodes (which is how OutputsReviewPanel takes its banners): this panel
+ * announces the phase change, and announcing only works while the live region stays mounted across
+ * the swap. Two nodes swapped by a conditional would remount it and drop the announcement, so the
+ * panel keeps ONE StatusAlert and varies its props. Titles are undated — the panel appends the
+ * shared decision date to both.
+ */
+export type SharedOutputsBannerCopy = {
+    locked: { title: string; body: ReactNode }
+    unlocked: { title: string; body: ReactNode }
+}
 
-const lockedBody = (dataPartner: string) =>
-    `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
-
-const resolveBannerCopy = ({ isLocked, dataPartner }: { isLocked: boolean; dataPartner: string }) =>
-    isLocked
-        ? { variant: STATUS_ALERT_VARIANT.action, title: LOCKED_TITLE, body: lockedBody(dataPartner) }
-        : { variant: STATUS_ALERT_VARIANT.success, title: UNLOCKED_TITLE, body: UNLOCKED_BODY }
-
-type ErroredOutputsSharedPanelProps = {
+type SharedOutputsPanelProps = {
     studyTitle: string
-    dataPartner: string
-    /** When the reviewer submitted the decision; dates BOTH banners. Null degrades to undated. */
+    /** When the reviewer submitted the decision; dates BOTH phases. Null degrades to undated. */
     decidedAt: Date | string | null
+    banner: SharedOutputsBannerCopy
     /** Only the id is read, by the key form's fetch and the outputs table. */
     job: { id: string }
     /**
@@ -43,17 +44,17 @@ type ErroredOutputsSharedPanelProps = {
 }
 
 /**
- * The researcher's errored-outputs step, in its two phases (OTTER-696).
+ * The researcher's step for outputs a reviewer chose to share, in its two phases (OTTER-696).
  *
- * Mirrors OutputsReviewPanel's locked/unlocked split, over the same useDecryptPhase flip. One
- * StatusAlert spans both phases on purpose — swapping two banner COMPONENTS would remount the live
- * region and lose the announcement (see StatusAlert's `announce`). Both phases date from the SAME
- * event, the reviewer's decision, so `decidedAt` is computed once by the caller and reused here.
+ * Shared by the errored and clean-run screens: they differ only in banner copy and their routing
+ * predicate, so everything below — the decryption lifecycle, the outputs table, and the navigation
+ * that changes across the flip — lives here once. Mirrors OutputsReviewPanel's locked/unlocked
+ * split over the same useDecryptPhase flip.
  */
-export const ErroredOutputsSharedPanel: FC<ErroredOutputsSharedPanelProps> = ({
+export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
     studyTitle,
-    dataPartner,
     decidedAt,
+    banner,
     job,
     feedbackSection,
     previousHref,
@@ -61,9 +62,10 @@ export const ErroredOutputsSharedPanel: FC<ErroredOutputsSharedPanelProps> = ({
     dashboardHref,
 }) => {
     const { decryptedFiles, isLocked, onDecrypted } = useDecryptPhase()
-    const { variant, title, body } = resolveBannerCopy({ isLocked, dataPartner })
+    const { title, body } = isLocked ? banner.locked : banner.unlocked
+    const variant = isLocked ? STATUS_ALERT_VARIANT.action : STATUS_ALERT_VARIANT.success
 
-    const banner = (
+    const bannerAlert = (
         <StatusAlert variant={variant} title={statusAlertTitle(title, decidedAt)} announce>
             {body}
         </StatusAlert>
@@ -71,7 +73,12 @@ export const ErroredOutputsSharedPanel: FC<ErroredOutputsSharedPanelProps> = ({
 
     return (
         <>
-            <ProposalStepHeader stepLabel="STEP 4" heading="Verify outputs" studyTitle={studyTitle} banner={banner} />
+            <ProposalStepHeader
+                stepLabel="STEP 4"
+                heading="Verify outputs"
+                studyTitle={studyTitle}
+                banner={bannerAlert}
+            />
             {feedbackSection}
             <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
             <UnlockedPhase decryptedFiles={decryptedFiles} jobId={job.id} />
