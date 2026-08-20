@@ -244,12 +244,9 @@ jobs:
             SINGLE_USER_EDITING: 't'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk'
             NEXT_PUBLIC_CI: 'true'
-            # Opt this build into Turbopack's persistent filesystem cache (experimental in
-            # Next 16, off by default). next.config.ts reads TURBOPACK_FS_CACHE and enables
-            # turbopackFileSystemCacheForBuild only when set, so it applies to this CI e2e
-            # build alone and never to the production deploy build. Turbopack writes the
-            # cache into .next/cache, which the actions/cache step below persists between
-            # runs to make incremental rebuilds fast.
+            # Turns on Turbopack's build filesystem cache for this build only; next.config.ts
+            # reads this variable and leaves the deploy build without it. Turbopack writes the
+            # cache into .next/cache, which the actions/cache step below keeps between runs.
             TURBOPACK_FS_CACHE: '1'
             S3_ENDPOINT: 'http://127.0.0.1:8333'
             S3_BROWSER_ENDPOINT: 'http://127.0.0.1:8333'
