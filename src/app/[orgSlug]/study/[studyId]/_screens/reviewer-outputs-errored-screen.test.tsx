@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { useParams } from 'next/navigation'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import {
     actionResult,
     db,
@@ -15,10 +13,12 @@ import {
     type ScreenInputs,
     waitFor,
 } from '@/tests/unit.helpers'
-import type { FileType, StudyJobStatus } from '@/database/types'
+import type { StudyJobStatus } from '@/database/types'
+import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
+import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
@@ -27,40 +27,6 @@ vi.mock('@/server/actions/study-job.actions', async () => {
     )
     return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
 })
-
-const toArrayBuffer = (str: string): ArrayBuffer => {
-    const buf = Buffer.from(str, 'utf-8')
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-}
-
-// Encrypt an artifact the way the enclave would (whole-zip + embedded manifest) so the reviewer's
-// real key decrypts it, so the phase flip is driven by genuine decryption rather than a stub.
-async function seedArtifact(jobId: string, files: { name: string; content: string }[], fileType: FileType) {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
-    for (const file of files) await writer.addFile(file.name, toArrayBuffer(file.content))
-    const zip = await writer.generate()
-
-    const row = await db
-        .insertInto('studyJobFile')
-        .values({
-            studyJobId: jobId,
-            name: 'encrypted-logs.zip',
-            path: `test-org/${jobId}/results/encrypted-logs.zip`,
-            fileType,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    return {
-        studyJobFileId: row.id,
-        fileType,
-        name: 'encrypted-logs.zip',
-        encryptedBody: await zip.arrayBuffer(),
-        recipientKeys: {} as Record<string, string>,
-    }
-}
 
 const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
@@ -80,6 +46,20 @@ const unlock = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
 }
 
+// A job that carries an encrypted artifact, so the key gate applies. insertTestStudyJobData creates
+// no studyJobFile rows, so without this the job is the OTTER-524 zero-artifact case instead.
+const setupWithArtifact = async () => {
+    const ctx = await setupErrored()
+    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+        await seedEncryptedArtifact(ctx.job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'boom' }],
+        }),
+    ])
+    // The screen reads job.files to decide whether a key is needed, so re-read it after seeding.
+    return { ...ctx, job: await latestJobForStudy(ctx.study.id) }
+}
+
 describe('ReviewerOutputsErroredScreen before decryption', () => {
     beforeEach(() => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
@@ -95,7 +75,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('asks for the security key rather than showing the review view', async () => {
-        const { org, study, raw } = await setupErrored()
+        const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
@@ -105,7 +85,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     // The two-part gate: JOB-ERRORED alone must not surface the outputs. Only a validated key
     // does, which is why this screen is a client phase flip and not a route.
     it('hides the outputs table, decision section and submit until a key validates', async () => {
-        const { org, study, raw } = await setupErrored()
+        const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
@@ -116,7 +96,10 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     it('keeps the outputs hidden when the key is wrong', async () => {
         const { org, study, job, raw } = await setupErrored()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedArtifact(job.id, [{ name: 'run.log', content: 'boom' }], 'ENCRYPTED-CODE-RUN-LOG'),
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-CODE-RUN-LOG',
+                files: [{ name: 'run.log', content: 'boom' }],
+            }),
         ])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -130,10 +113,17 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
     })
 
-    // The default mock serves no artifacts, which is a legitimate state (no registered reviewer
-    // key, or a failed fetch). A well-formed key must not unlock the review view against nothing.
-    it('does not unlock the review view when there are no artifacts to decrypt', async () => {
-        const { org, study, raw } = await setupErrored()
+    // The job HAS an artifact but the action hands back nothing, which is what happens when this
+    // reviewer has no registered public key or the fetch failed. A well-formed key must not unlock
+    // the review view against nothing (OTTER-675), and it must not fall through to the
+    // no-artifacts path either: that would let a keyless reviewer decide on outputs they never saw.
+    it('does not unlock the review view when the artifacts cannot be fetched', async () => {
+        const { org, study, job, raw } = await setupErrored()
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'boom' }],
+        })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
@@ -145,7 +135,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 
     it('links Previous step to the read-only code page for this study', async () => {
-        const { org, study, raw } = await setupErrored()
+        const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
@@ -175,6 +165,247 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     })
 })
 
+// OTTER-524. Two independent problems live here. The banner used to promise error logs whatever the
+// job actually held, and a run that produced no artifact at all left the reviewer at a key form with
+// nothing to open and no way to record a decision, which in turn stranded the researcher on
+// "code is running" forever.
+describe('ReviewerOutputsErroredScreen with no error log', () => {
+    beforeEach(() => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+    })
+
+    const addStatus = async (jobId: string, status: StudyJobStatus) => {
+        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status }).execute()
+    }
+
+    // The reported case: the source scan succeeded so a security scan log exists, but packaging
+    // failed and produced nothing. The old copy told the reviewer to go and read error logs.
+    //
+    // Asserts the banner AND the gate together. Fixing only the copy left the key form rendering
+    // under a banner that no longer mentioned it, and left "share outputs" enabled on a run whose
+    // only artifact is a submission-time scan log.
+    it('offers neither a key form nor sharing when the only artifact is a security scan log', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-SECURITY-SCAN-LOG',
+            files: [{ name: 'security-scan-log.txt', content: 'clean' }],
+        })
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('There is no error log for this run.')
+        expect(alert).not.toHaveTextContent('see what went wrong')
+        expect(alert).not.toHaveTextContent('security key')
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+        const [shareOutputs] = screen.getAllByRole('radio')
+        expect(shareOutputs).toBeDisabled()
+    })
+
+    // An error log that exists but that no key can open. Denying it exists would be false; telling
+    // the reviewer to enter a key would point at a form this screen does not render.
+    it('neither denies nor promises a key for a plaintext-only error log', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedJobFileRow(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('An error log was recorded for this run, but it cannot be displayed here.')
+        expect(alert).not.toHaveTextContent('security key')
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+    })
+
+    // A run that errored after producing results. No error log to read, but the results still have to
+    // be decrypted and reviewed, so the key gate stays (OTTER-675) and the banner has to say so.
+    it('still requires a key for an errored run that produced results', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('There is no error log for this run.')
+        expect(alert).toHaveTextContent('Enter your security key below')
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
+    })
+
+    it('names packaging as the failed stage when the job never reached JOB-READY', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-PACKAGING')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('The code environment image could not be prepared')
+    })
+
+    it('says the code ran when the job reached JOB-RUNNING', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-RUNNING')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('The code ran in the secure enclave')
+    })
+
+    // OTTER-524: a classified failure class replaces the derived stage sentence, in our own wording.
+    it('explains a recorded failure class in place of the stage sentence', async () => {
+        const { org, study, job } = await setupErrored()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
+            .execute()
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('could not be found or could not be accessed')
+        expect(alert).toHaveTextContent('Code Environments page')
+        // Reviewing is open to any enclave-org member, but that page is behind the org admin layout,
+        // so the sentence names who can act rather than sending this reader somewhere they cannot go.
+        expect(alert).toHaveTextContent('An organization administrator can check the image URL')
+    })
+
+    // The guard that keeps AWS detail off this screen whichever service wrote the row. The enclave
+    // writes a raw thrown error into this same column, so it must never reach the reviewer.
+    it('never renders raw service text recorded against the status', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-PACKAGING')
+        const raw = 'Command "aws s3 sync s3://si-secret-bucket/studies/x/code" exited with code 1'
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: raw })
+            .execute()
+        const rawState = await requireRawState(study.id)
+        await renderScreen({ study, raw: rawState }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).not.toHaveTextContent('s3://')
+        expect(alert).not.toHaveTextContent('si-secret-bucket')
+        expect(alert).toHaveTextContent('The code environment image could not be prepared')
+    })
+
+    // A second JOB-ERRORED row is routine: the enclave and /api/job/[jobId] both append one with
+    // their own message, and the containerizer's dedup can lose a race. Reading whatever the newest
+    // row happens to hold would let any of them silently erase the classified reason.
+    it('surfaces the classified reason even when a later errored row overwrites the order', async () => {
+        const { org, study, job } = await setupErrored()
+        await addStatus(job.id, 'JOB-PACKAGING')
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: null })
+            .execute()
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('could not be found or could not be accessed')
+    })
+
+    // A job that errored before the containerizer ever started has no packaging step to blame.
+    it('names no stage when the job errored before packaging started', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).not.toHaveTextContent('The code environment image could not be prepared')
+        expect(alert).toHaveTextContent('This run did not complete successfully.')
+    })
+
+    it('asks for no key when the run produced nothing to decrypt', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
+        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+    })
+
+    // The escape hatch. Without it the round can never be closed and the researcher is never told.
+    it('lets the reviewer record a decision without a key', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
+        expect(screen.getByTestId('outputs-submit-decision')).toBeEnabled()
+    })
+
+    it('offers only share-feedback-only, with sharing disabled and explained', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        // Both options stay rendered so the reviewer can see why only one is selectable; the radios
+        // are read by role because Mantine puts the test id on the wrapper, not the input.
+        const [shareOutputs, feedbackOnly] = screen.getAllByRole('radio')
+        expect(shareOutputs).toBeDisabled()
+        expect(feedbackOnly).toBeEnabled()
+        expect(screen.getByTestId('outputs-decision-section')).toHaveTextContent(
+            `There is nothing from this run that can be shared with ${study.submittingLabName ?? study.submittedByOrgSlug}.`,
+        )
+    })
+
+    // The copy has to hold for the shapes that actually reach this branch, not just for a job with no
+    // files at all: the banner two elements above says an error log was recorded, so claiming the run
+    // produced no files would contradict it on one screen.
+    it('does not deny the files it cannot share when an undecryptable log exists', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedJobFileRow(job.id, 'PACKAGING-ERROR-LOG', 'packaging-error-log.txt')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const section = screen.getByTestId('outputs-decision-section')
+        expect(section).not.toHaveTextContent('There are no output files')
+        expect(section).toHaveTextContent('There is nothing from this run that can be shared with')
+    })
+
+    // A pre-#764 job stores results as plaintext APPROVED-* rows, which no key opens and this flow
+    // has never been able to share. The decision still has to be recorded, but the copy must not
+    // announce that the run produced nothing while such a row exists.
+    it('does not deny a legacy plaintext result it cannot offer', async () => {
+        const { org, study, job } = await setupErrored()
+        await seedJobFileRow(job.id, 'APPROVED-RESULT', 'results.csv')
+        const raw = await requireRawState(study.id)
+        await renderScreen({ study, raw }, org.slug)
+
+        const section = screen.getByTestId('outputs-decision-section')
+        expect(section).not.toHaveTextContent('There are no outputs')
+        expect(section).toHaveTextContent('Sharing outputs is not available for this run')
+    })
+
+    // The bypass is opt-in per screen. A completed run with no artifacts means delivery went wrong,
+    // not that there is nothing to review, so the outputs-available screen must keep its key gate.
+    // Pinned here because both screens share OutputsReviewPanel.
+    it('does not leak the bypass into the outputs-available screen', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study: dbStudy } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'RUN-COMPLETE',
+        })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const raw = await requireRawState(dbStudy.id)
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug: org.slug }))
+
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
+    })
+
+    it('keeps the decision unselected on arrival so closing the round stays deliberate', async () => {
+        const { org, study, raw } = await setupErrored()
+        await renderScreen({ study, raw }, org.slug)
+
+        for (const radio of screen.getAllByRole('radio')) expect(radio).not.toBeChecked()
+    })
+})
+
 describe('ReviewerOutputsErroredScreen after decryption', () => {
     beforeEach(() => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
@@ -183,7 +414,7 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     const setupDecrypted = async (files: { name: string; content: string }[]) => {
         const { org, study, job, raw } = await setupErrored()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedArtifact(job.id, files, 'ENCRYPTED-CODE-RUN-LOG'),
+            await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files }),
         ])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())

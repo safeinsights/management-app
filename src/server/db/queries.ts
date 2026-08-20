@@ -5,6 +5,7 @@ import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction } from '@/database/types'
+import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -133,6 +134,39 @@ export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJo
 
 export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+}
+
+/**
+ * The classified failure class a service recorded against the job's JOB-ERRORED, or null (OTTER-524).
+ *
+ * A separate narrow query on purpose: `jobStatusChange.message` must NOT be selected in
+ * `latestJobForStudyQuery` or `getStudyJobInfo`, because both feed actions the submitting researcher
+ * is allowed to call, and this column can hold text written by a build service or a raw AWS error
+ * from the enclave. Read it only where the audience is a reviewer.
+ *
+ * Restricted to the known code set in SQL rather than "whatever the newest row holds", because a
+ * second JOB-ERRORED row is routine and would otherwise mask a classified one: the enclave and
+ * `/api/job/[jobId]` both append their own JOB-ERRORED with an arbitrary message, and the
+ * containerizer's read-then-write dedup can lose a race and let a code-less duplicate land last.
+ * Filtering here means the answer no longer depends on which row happens to sort first, and raw
+ * service text never leaves the database at all.
+ *
+ * Callers still classify what they get back (`jobErrorDetails` is the only intended consumer), so the
+ * display rule holds even if this query is ever loosened.
+ */
+export async function latestRecordedJobFailureReason(studyJobId: string): Promise<string | null> {
+    const row = await Action.db
+        .selectFrom('jobStatusChange')
+        .select('message')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .where('message', 'in', [...JOB_FAILURE_REASONS])
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return row?.message ?? null
 }
 
 // Submission version = 1 + the number of times a NEW submission round was opened across the whole

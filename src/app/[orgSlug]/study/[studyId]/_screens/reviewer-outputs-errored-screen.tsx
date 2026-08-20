@@ -2,17 +2,21 @@ import { AlertNotFound } from '@/components/errors'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
+import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
 import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
-const ErroredBanner = ({ erroredAt }: { erroredAt: Date | string | null }) => {
+// OTTER-524: this banner used to promise error logs unconditionally. For the two commonest failures
+// there are none, so it now names the stage that failed and says plainly when no log exists.
+const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => {
+    const body = `${details.explanation} ${details.logSentence}`
     return (
         <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
-            Enter your security key below to access the outputs and see what went wrong.
+            {body}
         </StatusAlert>
     )
 }
@@ -36,6 +40,12 @@ export async function ReviewerOutputsErroredScreen({
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
     const erroredAt = latestStatusAt(job.statusChanges, 'JOB-ERRORED')
+    // Read here rather than from the job payload: the reason lives on a reviewer-scoped query so it
+    // never reaches the researcher, and jobErrorDetails drops anything it cannot classify.
+    const recordedReason = await latestRecordedJobFailureReason(job.id)
+    // Both the banner copy and the panel's key gate read the same file list through the same
+    // predicate, so the screen cannot promise a key form it does not render (OTTER-524).
+    const details = jobErrorDetails(job.statusChanges, job.files ?? [], recordedReason)
 
     return (
         <OutputsReviewPanel
@@ -45,9 +55,12 @@ export async function ReviewerOutputsErroredScreen({
             job={job}
             labName={labName}
             maxWords={ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS}
-            lockedBanner={<ErroredBanner erroredAt={erroredAt} />}
+            lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
+            // A failed run producing nothing is routine, so the reviewer must still be able to close
+            // the round out. Deliberately not set on the outputs-available screen (OTTER-524).
+            allowDecisionWithoutArtifacts
         />
     )
 }

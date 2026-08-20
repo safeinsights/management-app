@@ -173,6 +173,50 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
 | 10  | fallback                                                                 | `study-overview`             |
 
+`reviewer-outputs-errored` (#1) has two shapes, decided by whether the job carries an encrypted
+artifact describing the run's own outcome: an `ENCRYPTED-RESULT`, or an encrypted error log
+(OTTER-524). With one, the reviewer enters their security key as usual. With none, a run that failed
+before producing anything, there is nothing a key could open, so the screen skips the key step and
+offers the decision directly with `Share outputs and feedback` disabled: only `Share feedback only`
+can be honored. Without that escape the round could never be closed, and the researcher would sit on
+`outputs-pending` ("code is running") indefinitely. The bypass is opt-in per screen and deliberately
+NOT set on `reviewer-outputs-available`: for a completed run, missing artifacts mean delivery went
+wrong rather than that there is nothing to review. It is also keyed on the job's own files, never on
+the artifact fetch returning empty, since that also happens when the reviewer has no registered key.
+
+The security scan log does not count towards that gate. It is written by the code scanner at
+submission and is already surfaced on the code review step, so it says nothing about a run: an
+errored job carrying only a scan log has nothing to review here, and offering to share it as the
+run's outputs would repeat the conflation this card fixed.
+
+The same screen's banner no longer promises error logs unconditionally. It names the stage that
+failed, derived from the status history (`JOB-PACKAGING` without `JOB-READY` means packaging failed;
+`JOB-RUNNING` means the code ran; a job that errored before packaging even started is told neither,
+since `/api/services/job-scan-results` and `/api/job/[jobId]` can both record `JOB-ERRORED` first).
+It then says what can honestly be said about a log: how to open it, that there is none, that there is
+none but the results still need a key, or that one exists in a form this screen cannot display (a
+pre-#764 legacy row, or the plaintext twin of a log whose encrypted half never stored). The
+decryptable question is asked first, so an ordinary packaging failure, which stores both halves of
+one log, is reported as readable rather than as one this screen cannot display. Each of those
+sentences carries a key step or not according to whether a job also holds a decryptable artifact,
+since it can hold both. They are derived from the same file list and the same predicate as the key
+gate, so the banner cannot instruct the reviewer to use a form that is not rendered, nor drop the
+instruction while the form renders.
+
+The stage sentence is replaced by a more specific one when a build service reported a failure class
+it recognizes, such as an unavailable base image. Only classified codes are rendered: the value is
+read through a reviewer-scoped query (never the shared job queries, which the submitting researcher
+can reach), that query selects only known codes so a later code-less or free-text `JOB-ERRORED` row
+cannot mask one, and anything unrecognized still falls back to the stage sentence. Service-supplied
+text is never echoed, which keeps AWS and deployment detail off a screen another organization reads.
+
+`reviewer-outputs-decided` (#3) hides its post-decision `View outputs again` key form when the job
+holds no encrypted artifact, for the same reason: an errored run can now be closed out having
+produced nothing, and returning here would ask for a key no key holder could satisfy. That gate is
+deliberately wider than the errored screen's. This screen asks only whether a key opens anything at
+all, not what may be promised about the run's outcome, so a decided job whose sole encrypted artifact
+is a scan log keeps its re-decrypt.
+
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
 (which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
