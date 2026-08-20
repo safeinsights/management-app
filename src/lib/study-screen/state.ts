@@ -161,6 +161,12 @@ export const awaitingFilesDecisionOnError = (
 // render guard so the two cannot drift (same pattern as awaitingFilesDecisionOnError above).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected
 
+// OTTER-697: the RUN itself failed — narrower than resultsErrored's bare JOB-ERRORED, which the
+// scanner and containerizer also write, so a packaging error before a good run leaves both that and
+// RUN-COMPLETE on the job. Only the outputs-feedback banner's copy splits on this; routing does not.
+export const runErrored = (statusChanges: RawJob['statusChanges']): boolean =>
+    statusChanges.some((c) => c.status === 'JOB-ERRORED') && !statusChanges.some((c) => c.status === 'RUN-COMPLETE')
+
 // OTTER-696: the run errored AND the reviewer chose "Share outputs and feedback" (JOB-ERRORED plus
 // FILES-APPROVED). Shared by the researcher rule table and the screen's own render guard so routing
 // and rendering cannot disagree (same pattern as awaitingFilesDecisionOnError above).

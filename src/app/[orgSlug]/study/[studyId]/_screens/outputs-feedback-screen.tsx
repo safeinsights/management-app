@@ -7,7 +7,7 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
-import { isFeedbackOnlyOutcome } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, runErrored } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
@@ -57,13 +57,7 @@ export async function OutputsFeedbackScreen({
     const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
-    // JOB-ERRORED is shared by the scanner, containerizer, and the run itself. A packaging
-    // error followed by a successful run leaves both JOB-ERRORED and RUN-COMPLETE on the job;
-    // only a JOB-ERRORED without RUN-COMPLETE means the run itself failed.
-    const runErrored =
-        job.statusChanges.some((c) => c.status === 'JOB-ERRORED') &&
-        !job.statusChanges.some((c) => c.status === 'RUN-COMPLETE')
-    const banner = bannerCopy(runErrored, dataPartner)
+    const banner = bannerCopy(runErrored(job.statusChanges), dataPartner)
 
     return (
         <Box bg="grey.10">

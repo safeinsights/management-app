@@ -52,9 +52,9 @@ export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
 
 /**
  * The authoritative cap for a job, derived from its own status history rather than taken from the
- * request. An errored run is capped shorter than a completed one; JOB-ERRORED wins when both
- * statuses are present, matching the screen rules, which keep an errored run on the errored view
- * even after a RUN-COMPLETE also landed.
+ * request. An errored run is capped shorter; a bare JOB-ERRORED wins when RUN-COMPLETE is also
+ * present, matching resultsErrored and reviewer routing — deliberately not the narrower
+ * runErrored behind the researcher banner's copy.
  */
 export function outputsFeedbackMaxWords(jobStatuses: readonly string[]): number {
     return jobStatuses.includes('JOB-ERRORED')

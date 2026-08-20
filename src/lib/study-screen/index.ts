@@ -4,6 +4,7 @@ export {
     projectStudyState,
     awaitingFilesDecisionOnError,
     isFeedbackOnlyOutcome,
+    runErrored,
     latestJob,
     isErroredOutputsSharedOutcome,
 } from './state'
