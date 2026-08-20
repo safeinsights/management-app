@@ -27,7 +27,13 @@ import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
+import {
+    STUDY_TITLE_BLANK_ERROR,
+    STUDY_TITLE_MAX_CHARACTERS,
+    STUDY_TITLE_OVER_LIMIT_ERROR,
+    draftStudyApiSchema,
+    step1DraftStudyApiSchema,
+} from '@/app/[orgSlug]/study/request/form-schemas'
 import {
     RESUBMIT_NOTE_MAX_WORDS,
     RESUBMIT_NOTE_MIN_WORDS,
@@ -154,11 +160,12 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
-// Schema for creating a new draft
+// Schema for creating a new draft. Step 1 is the only caller, so this one may enforce the
+// 60-character title cap; the update schema below deliberately may not (see there).
 const onSaveDraftStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     submittingOrgSlug: z.string(),
-    studyInfo: draftStudyApiSchema,
+    studyInfo: step1DraftStudyApiSchema,
 })
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
@@ -212,16 +219,29 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         }
     })
 
-// Schema for updating an existing draft
-const onUpdateDraftStudyActionArgsSchema = onSaveDraftStudyActionArgsSchema
-    .omit({ orgSlug: true, submittingOrgSlug: true })
-    .extend({ studyId: z.string() })
+// Schema for updating an existing draft. Declared standalone rather than derived from the
+// create schema on purpose: this action serves Step 1 updates AND the CHANGE-REQUESTED resubmit
+// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft), where the title rule is
+// still 20 words and a title over 60 characters is legitimate. Inheriting the create schema's
+// cap would reject that payload inside `.params()`, before the handler could look at the
+// persisted status, and no status-aware handler logic can rescue input that never parses.
+const onUpdateDraftStudyActionArgsSchema = z.object({
+    studyId: z.string(),
+    studyInfo: draftStudyApiSchema,
+})
 
 export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', { performsMutations: true })
     .params(onUpdateDraftStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status }) => {
+        // The title rule is selected by workflow, not by action: a DRAFT row's title is owned by
+        // Step 1 and capped at 60 characters, while a CHANGE-REQUESTED row's is owned by the
+        // resubmit form and still governed by its 20-word rule.
+        if (status === 'DRAFT' && (studyInfo.title?.length ?? 0) > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+
         // Update study fields (only defined values)
         const updatable = [
             'title',
@@ -385,6 +405,21 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             for (const key of updatable) {
                 if (studyInfo[key] !== undefined) snapshotFields[key] = studyInfo[key]
             }
+        }
+
+        // Most callers pass titleMode 'omit', because Step 1 owns study.title on a DRAFT, so the
+        // title being submitted is usually the persisted one. A draft predating OTTER-690 can have
+        // none, and `study_title_required_when_not_draft` rejects that the moment status leaves
+        // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error;
+        // /proposal redirects such a draft to Step 1 before it can reach this point.
+        const submittedTitle =
+            'title' in snapshotFields
+                ? (snapshotFields.title as string | null)
+                : ((await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirst())?.title ??
+                  null)
+
+        if (!submittedTitle?.trim()) {
+            throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
         }
 
         const submittedAt = new Date()

@@ -17,13 +17,22 @@ interface ProposalFooterProps {
     researcherName: string
     researcherId: string
     enclaveOrgSlug?: string
+    /** The persisted `study.title`, which Step 1 owns for drafts (OTTER-690). */
+    studyTitle?: string | null
 }
 
-export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, researcherId, enclaveOrgSlug }) => {
+export const ProposalFooter: FC<ProposalFooterProps> = ({
+    researcherName,
+    researcherId,
+    enclaveOrgSlug,
+    studyTitle,
+}) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, submitProposal, isSubmitting } = useProposal()
-    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form)
+    // titleMode 'omit': Step 1 owns study.title on a DRAFT, and this form's copy is only a seed
+    // for the reviewer preview. Sending it back would let a stale value overwrite the Step 1 one.
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omit' })
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
@@ -100,6 +109,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
             <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
+                    studyTitle={studyTitle}
                     values={form.values}
                     researcherName={researcherName}
                     researcherId={researcherId}

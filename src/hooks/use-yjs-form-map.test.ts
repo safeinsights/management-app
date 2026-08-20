@@ -58,6 +58,9 @@ const setupCollabHook = ({
     return { form, hookResult }
 }
 
+// What the DRAFT Step 2 editor passes: no `title`, which Step 1 owns (OTTER-690).
+const DRAFT_KEYS = ['datasets', 'piUserId', 'piName'] as const
+
 const createDraftStudy = (slugTag: string, formTitle = 'Original') =>
     createTestProposalDraft({
         enclaveSlug: `yjs-${slugTag}-enclave`,
@@ -94,6 +97,79 @@ describe('useYjsFormMap', () => {
         expect(fieldsMap!.get('datasets')).toEqual(['ds-1'])
         expect(fieldsMap!.get('piName')).toBe('PI')
         expect(fieldsMap!.get('piUserId')).toBe(piUserId)
+    })
+
+    // OTTER-690: the DRAFT Step 2 editor passes a reduced key set because Step 1 owns study.title
+    // there. Seeding `title` from that page would let a blank or stale collaborative copy reach the
+    // column through the server-side mirror.
+    it('cold load: seeds only the keys the caller asked for', async () => {
+        const { studyId } = await createDraftStudy('cold-scoped')
+
+        const { result: formResult } = buildProposalForm({
+            title: 'Owned by Step 1',
+            datasets: ['ds-1'],
+            piName: 'PI',
+            piUserId: faker.string.uuid(),
+        })
+        // Built once, outside the render callback: a fresh websocket provider per render would
+        // re-run the effect under test forever.
+        const websocketProvider = newWebsocketProvider()
+        const hookResult = renderHook(() =>
+            useYjsFormMap({
+                studyId,
+                form: formResult.current,
+                websocketProvider,
+                collabKeys: DRAFT_KEYS,
+            }),
+        )
+
+        expect(constructed).toHaveLength(1)
+        constructed[0].triggerSync()
+
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        const fieldsMap = hookResult.result.current.fieldsMap!
+        expect(fieldsMap.get('title')).toBeUndefined()
+        expect(fieldsMap.get('datasets')).toEqual(['ds-1'])
+        expect(fieldsMap.get('piName')).toBe('PI')
+    })
+
+    // The legacy fields-doc of any pre-OTTER-690 draft still holds a `title` key. A reduced key
+    // set has to ignore it on the way in as well, or reopening such a draft would overwrite the
+    // Step 1 title in the form with the stale collaborative one.
+    it('ignores a remote title when the caller did not ask for it', async () => {
+        const { studyId } = await createDraftStudy('remote-scoped', 'Owned by Step 1')
+
+        const { result: formResult } = buildProposalForm({
+            title: 'Owned by Step 1',
+            datasets: ['ds-1'],
+            piName: 'PI',
+            piUserId: faker.string.uuid(),
+        })
+        const form = formResult.current
+        const websocketProvider = newWebsocketProvider()
+        const hookResult = renderHook(() =>
+            useYjsFormMap({
+                studyId,
+                form,
+                websocketProvider,
+                collabKeys: DRAFT_KEYS,
+            }),
+        )
+
+        const handle = constructed[0]
+        handle.triggerSync()
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        const remoteOrigin = Symbol('remote')
+        const document = handle.document!
+        document.transact(() => {
+            document.getMap('fields').set('title', 'Stale collaborative title')
+            document.getMap('fields').set('datasets', ['ds-2'])
+        }, remoteOrigin)
+
+        await waitFor(() => expect(form.getValues().datasets).toEqual(['ds-2']))
+        expect(form.getValues().title).toBe('Owned by Step 1')
     })
 
     it('warm load: applies CRDT state pushed before sync to the form when a yjsDocument row exists', async () => {

@@ -200,15 +200,51 @@ export interface FormFieldProps {
      * Shares a row with the error so a long message and the counter never collide.
      */
     footer?: ReactNode
+    /**
+     * Announce the message whenever it appears, not only when focus reaches the control.
+     *
+     * Off by default, deliberately: most fields here raise their error on blur or on submit,
+     * where the user is already being moved to the control, and a live region on every field
+     * would have a screen reader read messages the user is about to hear anyway. Turn it on for
+     * a field whose error can appear while the user is still typing in it, which is otherwise
+     * silent (the Step 1 study title's character-limit error, OTTER-690).
+     */
+    errorLive?: boolean
     children: ReactNode
 }
 
-const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode }> = ({ inputId, error, footer }) => {
-    if (!error && !footer) return null
+/**
+ * The message itself. Kept in a container that is always mounted when `errorLive` is set:
+ * a live region inserted at the same moment as its content is unreliably announced, so the
+ * region has to exist before the error does.
+ */
+const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boolean }> = ({
+    inputId,
+    error,
+    errorLive,
+}) => {
+    const message = error ? <Input.Error id={fieldErrorId(inputId)}>{error}</Input.Error> : null
+
+    // Polite, never assertive: a character-limit message can re-fire on every keystroke past the
+    // cap, and an assertive region would interrupt the user mid-word.
+    if (errorLive) return <Box aria-live="polite">{message}</Box>
+
+    return message
+}
+
+const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode; errorLive?: boolean }> = ({
+    inputId,
+    error,
+    footer,
+    errorLive,
+}) => {
+    // `errorLive` keeps the row mounted on its own: FieldErrorSlot's live region has to exist
+    // before the message does, and a row that appears with the error would defeat that.
+    if (!error && !footer && !errorLive) return null
 
     return (
         <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt={4} wrap="nowrap">
-            {error && <Input.Error id={fieldErrorId(inputId)}>{error}</Input.Error>}
+            <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
         </Group>
     )
@@ -221,6 +257,7 @@ export const FormField: FC<FormFieldProps> = ({
     description,
     error,
     footer,
+    errorLive,
     children,
 }) => {
     return (
@@ -244,7 +281,7 @@ export const FormField: FC<FormFieldProps> = ({
             >
                 {children}
             </Input.Wrapper>
-            <FieldFooterRow inputId={inputId} error={error} footer={footer} />
+            <FieldFooterRow inputId={inputId} error={error} footer={footer} errorLive={errorLive} />
         </Box>
     )
 }

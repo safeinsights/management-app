@@ -3,13 +3,15 @@
 import { useState } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
-import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { type CollabFieldKey, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 
 interface Args {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
+    /** Forwarded to {@link useYjsFormMap}; omit to co-edit every collaborative field. */
+    collabKeys?: readonly CollabFieldKey[]
 }
 
 interface Return {
@@ -23,7 +25,7 @@ interface Return {
 // flows. Both surfaces co-edit the same `proposal-${studyId}-*` Yjs documents, so
 // they need the same per-mount tab id, websocket, and form map. Keeping it here
 // avoids the two providers drifting apart.
-export function useProposalCollaboration({ studyId, form }: Args): Return {
+export function useProposalCollaboration({ studyId, form, collabKeys }: Args): Return {
     // One id per mount of the provider. Different tabs get different ids even for
     // the same Clerk user, which is what the listener compares against to skip
     // only the broadcaster's own tab.
@@ -31,7 +33,7 @@ export function useProposalCollaboration({ studyId, form }: Args): Return {
 
     const websocketProvider = useYjsWebsocket()
 
-    const yjsForm = useYjsFormMap({ studyId, form, websocketProvider })
+    const yjsForm = useYjsFormMap({ studyId, form, websocketProvider, collabKeys })
 
     return { websocketProvider, yjsForm, tabSessionId }
 }

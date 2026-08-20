@@ -49,9 +49,19 @@ const insertNamedUser = async (firstName: string) => {
 // about how many rows happen to exist. Index 0 is the header row.
 const topRowText = () => screen.getAllByRole('row')[1]?.textContent ?? ''
 
+// Same hazard, for the two tests that look up one specific row: a faker name sorts anywhere, so
+// once the shared database holds 25 users ahead of it the row is on page two and the lookup fails
+// for reasons that have nothing to do with acknowledgements. Renaming to sort near the front keeps
+// the row on page one without asserting anything about how many users exist. Not `topRowText`:
+// these tests may run with each other's sort-first users already inserted, so they must find their
+// own row rather than assume it is on top.
+const sortNearFront = (userId: string) =>
+    db.updateTable('user').set({ firstName: 'Aaa', lastName: 'Sorter' }).where('id', '=', userId).execute()
+
 describe('AcknowledgementsTable', () => {
     it('lists a user who has agreed to nothing', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
         await publishTos()
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
@@ -62,6 +72,7 @@ describe('AcknowledgementsTable', () => {
 
     it('reports the version a user agreed to and when', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
         const published = await publishTos()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
 

@@ -35,62 +35,79 @@ const PI_UNLINKED_ERROR = 'Select a Principal Investigator from the list.'
  */
 export const isLinkedPiUserId = (piUserId: string | undefined) => z.uuid().safeParse(piUserId).success
 
-export const proposalFormSchema = z
-    .object({
-        // trim() before min(1) so a whitespace-only title fails here rather than passing schema
-        // validation while a separate trimmed check silently disables submit (OTTER-647).
-        title: z
-            .string()
-            .trim()
-            .min(1, { message: REQUIRED_FIELD_ERROR })
-            .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
-        datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
-        researchQuestions: z
-            .string()
-            .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-                message: REQUIRED_FIELD_ERROR,
-            })
-            .refine(maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).check, {
-                message: maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).message,
-            }),
-        projectSummary: z
-            .string()
-            .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-                message: REQUIRED_FIELD_ERROR,
-            })
-            .refine(maxWordsLexicalRefine(WORD_LIMITS.projectSummary).check, {
-                message: maxWordsLexicalRefine(WORD_LIMITS.projectSummary).message,
-            }),
-        impact: z
-            .string()
-            .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-                message: REQUIRED_FIELD_ERROR,
-            })
-            .refine(maxWordsLexicalRefine(WORD_LIMITS.impact).check, {
-                message: maxWordsLexicalRefine(WORD_LIMITS.impact).message,
-            }),
-        additionalNotes: z
-            .string()
-            .refine((val) => !val || countWordsFromLexical(val) <= WORD_LIMITS.additionalNotes, {
-                message: WORD_LIMIT_ERROR,
-            })
-            .optional()
-            .default(''),
-        piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
-        // No rule of its own: no field displays piUserId, so an error on this path is one the user
-        // cannot see or clear while it still blocks submit (OTTER-647). `default` also absorbs the
-        // `undefined` that hydrating a draft with no PI yields, which a bare `z.string()` rejects.
-        piUserId: z.string().default(''),
-    })
-    // The PI must be a linked user, not just a name: downstream reviewer views key off piUserId to
-    // show the researcher profile, and a name without an id renders a PI with no profile. The issue
-    // is attached to `piName` because that is the path the Select displays, so the gate is
-    // enforceable without being invisible.
-    .superRefine((data, ctx) => {
-        if (data.piName && !isLinkedPiUserId(data.piUserId)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: PI_UNLINKED_ERROR, path: ['piName'] })
-        }
-    })
+/**
+ * The linked-PI rule, lifted out of the schema body so the full and DRAFT-only variants below
+ * cannot drift. The PI must be a linked user, not just a name: downstream reviewer views key off
+ * piUserId to show the researcher profile, and a name without an id renders a PI with no profile.
+ * The issue is attached to `piName` because that is the path the Select displays, so the gate is
+ * enforceable without being invisible.
+ */
+const validateLinkedPi = (data: { piName: string; piUserId: string }, ctx: z.RefinementCtx) => {
+    if (data.piName && !isLinkedPiUserId(data.piUserId)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: PI_UNLINKED_ERROR, path: ['piName'] })
+    }
+}
+
+const proposalFieldsSchema = z.object({
+    // trim() before min(1) so a whitespace-only title fails here rather than passing schema
+    // validation while a separate trimmed check silently disables submit (OTTER-647).
+    title: z
+        .string()
+        .trim()
+        .min(1, { message: REQUIRED_FIELD_ERROR })
+        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+    datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
+    researchQuestions: z
+        .string()
+        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
+            message: REQUIRED_FIELD_ERROR,
+        })
+        .refine(maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).check, {
+            message: maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).message,
+        }),
+    projectSummary: z
+        .string()
+        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
+            message: REQUIRED_FIELD_ERROR,
+        })
+        .refine(maxWordsLexicalRefine(WORD_LIMITS.projectSummary).check, {
+            message: maxWordsLexicalRefine(WORD_LIMITS.projectSummary).message,
+        }),
+    impact: z
+        .string()
+        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
+            message: REQUIRED_FIELD_ERROR,
+        })
+        .refine(maxWordsLexicalRefine(WORD_LIMITS.impact).check, {
+            message: maxWordsLexicalRefine(WORD_LIMITS.impact).message,
+        }),
+    additionalNotes: z
+        .string()
+        .refine((val) => !val || countWordsFromLexical(val) <= WORD_LIMITS.additionalNotes, {
+            message: WORD_LIMIT_ERROR,
+        })
+        .optional()
+        .default(''),
+    piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
+    // No rule of its own: no field displays piUserId, so an error on this path is one the user
+    // cannot see or clear while it still blocks submit (OTTER-647). `default` also absorbs the
+    // `undefined` that hydrating a draft with no PI yields, which a bare `z.string()` rejects.
+    piUserId: z.string().default(''),
+})
+
+export const proposalFormSchema = proposalFieldsSchema.superRefine(validateLinkedPi)
+
+/**
+ * Step 2's resolver on a DRAFT, where the title lives on Step 1 (OTTER-690) and this page does
+ * not render it. A required rule on an unrendered field is a submit blocker nothing can clear
+ * (OTTER-647), so the rule is dropped rather than the field: `title` stays in
+ * `ProposalFormValues`, `COLLAB_FIELD_KEYS` and `initialProposalValues` because the
+ * CHANGE-REQUESTED resubmit flow still edits it, and that flow keeps `proposalFormSchema`.
+ *
+ * Derived by omitting from the bare object, not from `proposalFormSchema`: zod refuses `.omit()`
+ * on an object carrying refinements, and that failure is at module load, not at runtime.
+ */
+export const draftProposalFormSchema = proposalFieldsSchema.omit({ title: true }).superRefine(validateLinkedPi)
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 

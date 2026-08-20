@@ -23,6 +23,24 @@ const renderForm = (data: ProposalDraftData = draftData) =>
         </ProposalProvider>,
     )
 
+// OTTER-690 moved the study title to Step 1. The AC asks for this as an explicit regression
+// test: the field must be gone from its prior location, not merely unused.
+describe('ProposalForm study title removal (OTTER-690)', () => {
+    it('does not render a Study title field', () => {
+        renderForm()
+
+        expect(screen.queryByLabelText(/study title/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('Study title')).not.toBeInTheDocument()
+    })
+
+    it('still renders the fields this step does own', () => {
+        renderForm()
+
+        expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
+        expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
+    })
+})
+
 describe('ProposalForm autosave announcements', () => {
     // Title, datasets and PI all mirror one Yjs provider, so a live region on each would have a
     // screen reader read "All changes saved" three times per save cycle. The isolated save-status

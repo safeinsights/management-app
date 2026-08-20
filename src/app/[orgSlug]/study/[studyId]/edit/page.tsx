@@ -29,6 +29,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
             'study.containerLocation',
             'study.outputMimeType',
             'org.slug as orgSlug',
+            'org.name as orgName',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -50,7 +51,9 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
                 title: study.title ?? '',
                 piName: study.piName,
                 language: study.language,
+                status: study.status,
                 orgSlug: study.orgSlug,
+                orgName: study.orgName,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,
                 agreementDocPath: study.agreementDocPath,

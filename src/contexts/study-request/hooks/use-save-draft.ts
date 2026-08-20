@@ -22,9 +22,16 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
     const mutation = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // title is omitted: it's owned by the Step 2 editor's autosave mirror and by
-            // submission. Sending Step 1's stale copy would overwrite the mirrored title.
+            // OTTER-690: Step 1 owns `study.title` on a DRAFT, so it is sent from here. The
+            // Step 2 editor no longer renders or mirrors the title for drafts, which is what
+            // makes this the single writer rather than a racing second one.
+            //
+            // `undefined` rather than `null` for a blank title: an accidental blank save must
+            // never clear a stored title. The Save & continue click gate makes a blank save
+            // unreachable anyway. This is also the one place the title is trimmed; validation
+            // measures the raw length so it agrees with the character counter.
             const draftInfo = {
+                title: formValues.title?.trim() || undefined,
                 piName: formValues.piName || undefined,
                 language: formValues.language || undefined,
             }

@@ -13,6 +13,13 @@ import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
     studyId: string
+    /**
+     * Where the title comes from is the caller's call, because the two callers disagree
+     * (OTTER-690). On a DRAFT the title is owned by Step 1 and `values.title` is a stale copy,
+     * so the proposal footer passes the persisted `study.title`. On the resubmit page the title
+     * genuinely is edited live on the page, so that footer passes `form.values.title`.
+     */
+    studyTitle: string | null | undefined
     values: ProposalFormValues
     researcherName: string
     researcherId: string
@@ -23,6 +30,7 @@ interface ReviewerPreviewProps {
 // rendered from any context (ProposalProvider, EditResubmitProvider, ...).
 export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
     studyId,
+    studyTitle,
     values,
     researcherName,
     researcherId,
@@ -39,7 +47,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                     Study title
                 </Text>
                 <Text size="md" fw={400}>
-                    {values.title?.trim() || 'Not provided'}
+                    {studyTitle?.trim() || 'Not provided'}
                 </Text>
             </Box>
 
