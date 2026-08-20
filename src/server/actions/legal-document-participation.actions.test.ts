@@ -53,7 +53,10 @@ describe('fetchParticipationAgreementsAction', () => {
         expect(row?.versionNumber).toBe(1)
         // Read back as text, so the day entered survives whatever zone the reader is in.
         expect(row?.signedAt).toBe('2026-07-27')
-        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath)
+        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath, {
+            ResponseContentType: 'application/pdf',
+            ResponseContentDisposition: `inline; filename="${row!.fileName}"`,
+        })
     })
 
     // The table is a list of the agreements we hold; orgs that owe us one are reached through the
@@ -121,7 +124,7 @@ describe('fetchParticipationSignatoriesAction', () => {
     })
 
     // Renewing is a new version of the same document, so signing once does not take an org off the
-    // list the way it does for a study's SLA.
+    // list the way it does for a study agreement.
     it('keeps offering an org that has already signed', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('DOPA')

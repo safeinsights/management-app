@@ -7,17 +7,17 @@ export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
-    SLA: 'Study Level Agreement',
+    SLA: 'Study Agreement',
     // "Organization" is the wording on the executed documents themselves, so an admin matching a
     // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
     DOPA: 'Data Organization Participation Agreement',
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
-// are global — one document each, no org or study scope — so the audience is simply everybody.
-// Adding sla here also means retiring study.researcherAgreementsAckedAt / reviewerAgreementsAckedAt;
-// two agreement gates on the same study would disagree.
+// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/study
+// agreements these are global — one document each, no org or study scope — so the audience is simply
+// everybody. Adding the study agreement here also means retiring study.researcherAgreementsAckedAt /
+// reviewerAgreementsAckedAt: two agreement gates on the same study would disagree.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
@@ -68,7 +68,7 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'sla must belong to a study' })
+        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })
@@ -118,6 +118,18 @@ export const acknowledgeLegalDocumentSchema = z.object({
     versionId: z.string().uuid(),
 })
 
+export const studyAgreementStatusSchema = z.object({
+    // As above: scopeFromStudyId queries on this before the handler runs.
+    studyId: z.string().uuid(),
+})
+
+// One shape for both surfaces — the blocking modal and the proposal step's "being prepared" notice —
+// so the two cannot disagree about the same study. `acknowledged` renders nothing today.
+export type StudyAgreementStatus =
+    | { state: 'none' }
+    | { state: 'pending'; versionId: string; downloadUrl: string }
+    | { state: 'acknowledged' }
+
 // Params for both participation reads — the agreements table and the signatory picker — so it is
 // named for what it carries rather than for one of its callers.
 export const participationAgreementTypeParams = z.object({
@@ -166,6 +178,9 @@ export const legalDocumentQueryKeys = {
         ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
-    studyLevelAgreements: () => ['studyLevelAgreements'] as const,
-    studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+    studyAgreements: () => ['studyAgreements'] as const,
+    studiesAwaitingStudyAgreement: () => ['studiesAwaitingStudyAgreement'] as const,
+    // Per study: the layout's gate and the proposal step's notice share the entry, so one request
+    // answers both.
+    studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,
 }

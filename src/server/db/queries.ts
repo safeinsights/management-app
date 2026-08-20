@@ -291,6 +291,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
         .select([
             'study.orgId',
             'study.researcherId',
+            'study.piUserId',
             'study.title',
             'reviewer.email as reviewerEmail',
             'reviewer.fullName as reviewerFullName',

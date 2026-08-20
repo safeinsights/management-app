@@ -1,7 +1,8 @@
 'use client'
 
-import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
+import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
+import { BlockingModal } from './blocking-modal'
 import { LegalDocumentSection } from './document-sections'
 import {
     legalAcknowledgementBody,
@@ -33,10 +34,9 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
  * One document per modal: acknowledging refetches what is outstanding, so a user owing both the Terms
  * of Service and the Privacy Notice is asked about the second once the first is recorded.
  *
- * Deliberately not dismissable — no close button, no escape, no click-outside — because dismissing
- * it and carrying on is the thing it exists to prevent. Declining is still a legitimate choice, so
- * Sign out is offered as the alternative to agreeing; without it the modal covers the nav and the
- * only way out is closing the tab, which leaves the session intact and puts them straight back here.
+ * Declining is legitimate, so Sign out is the alternative to agreeing. Without it the modal covers
+ * the nav and the only way out is closing the tab, which leaves the session intact and puts them
+ * straight back here.
  */
 export const LegalAcknowledgementModal: FC<Props> = ({
     isVisible,
@@ -51,16 +51,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
     if (!isVisible || !document) return null
 
     return (
-        <Modal
-            opened
-            onClose={() => {}}
-            title={legalAcknowledgementTitle(document)}
-            size="lg"
-            centered
-            withCloseButton={false}
-            closeOnEscape={false}
-            closeOnClickOutside={false}
-        >
+        <BlockingModal title={legalAcknowledgementTitle(document)}>
             <Stack>
                 <Text>{legalAcknowledgementBody(document)}</Text>
 
@@ -84,6 +75,6 @@ export const LegalAcknowledgementModal: FC<Props> = ({
                     </Button>
                 </Group>
             </Stack>
-        </Modal>
+        </BlockingModal>
     )
 }

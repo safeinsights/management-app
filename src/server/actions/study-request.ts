@@ -35,6 +35,7 @@ import {
     resubmissionNoteWordCount,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -530,6 +531,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')
@@ -851,6 +853,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 

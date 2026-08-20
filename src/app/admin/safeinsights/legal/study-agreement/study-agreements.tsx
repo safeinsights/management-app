@@ -3,39 +3,39 @@
 import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
-import { UploadSlaForm } from './upload-sla-form'
+import { UploadStudyAgreementForm } from './upload-study-agreement-form'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
 import { formatDayString } from '../dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
-type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
+type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
 
 // Built here rather than inline in the JSX, and DataTable rather than a bare Table so that fetching
 // and noRecordsText come from the component the rest of this admin section already uses.
-const slaColumns = ({
+const studyAgreementColumns = ({
     onNewVersion,
     onViewHistory,
 }: {
-    onNewVersion: (sla: Sla) => void
-    onViewHistory: (sla: Sla) => void
-}): DataTableColumn<Sla>[] => [
+    onNewVersion: (agreement: StudyAgreement) => void
+    onViewHistory: (agreement: StudyAgreement) => void
+}): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID' },
     // study.title is nullable, and the upload cascade already falls back to the id.
-    { accessor: 'studyTitle', title: 'Study', render: (sla) => sla.studyTitle || sla.studyId },
+    { accessor: 'studyTitle', title: 'Study', render: (agreement) => agreement.studyTitle || agreement.studyId },
     { accessor: 'researchLabName', title: 'Research Lab' },
     { accessor: 'dataPartnerName', title: 'Data Partner' },
     { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (sla) => formatDayString(sla.signedAt) },
-    documentColumn<Sla>(),
+    { accessor: 'signedAt', title: 'Signed on', render: (agreement) => formatDayString(agreement.signedAt) },
+    documentColumn<StudyAgreement>(),
     versionHistoryColumn(onViewHistory),
     newVersionColumn(onNewVersion),
 ]
 
-export const StudyLevelAgreements: FC = () => {
+export const StudyAgreements: FC = () => {
     const {
         uploadOpened,
         openUpload,
@@ -46,27 +46,27 @@ export const StudyLevelAgreements: FC = () => {
         historyFor,
         openHistory,
         closeHistory,
-    } = useAgreementPanelModals<Sla>()
+    } = useAgreementPanelModals<StudyAgreement>()
     const { data: agreements = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.studyLevelAgreements(),
-        queryFn: fetchStudyLevelAgreementsAction,
+        queryKey: legalDocumentQueryKeys.studyAgreements(),
+        queryFn: fetchStudyAgreementsAction,
     })
 
-    const columns = slaColumns({ onNewVersion: openNewVersion, onViewHistory: openHistory })
+    const columns = studyAgreementColumns({ onNewVersion: openNewVersion, onViewHistory: openHistory })
 
     return (
         <Stack>
             <Flex justify="space-between" align="center">
-                <Title order={2}>Study Level Agreements</Title>
-                <Button onClick={openUpload}>Upload signed SLA</Button>
+                <Title order={2}>Study Agreements</Title>
+                <Button onClick={openUpload}>Upload signed study agreement</Button>
             </Flex>
             <AppModal
                 isOpen={uploadOpened}
                 onClose={closeUpload}
-                title="Upload a signed SLA"
+                title="Upload a signed study agreement"
                 closeOnClickOutside={false}
             >
-                <UploadSlaForm onCompleteAction={closeUpload} />
+                <UploadStudyAgreementForm onCompleteAction={closeUpload} />
             </AppModal>
             <AppModal
                 isOpen={Boolean(newVersionFor)}
@@ -75,10 +75,10 @@ export const StudyLevelAgreements: FC = () => {
                 closeOnClickOutside={false}
             >
                 {/* Keyed by study so a second row opens a fresh form rather than the last one's file. */}
-                <UploadSlaForm
+                <UploadStudyAgreementForm
                     key={newVersionFor?.studyId}
                     onCompleteAction={closeNewVersion}
-                    sla={newVersionFor ?? undefined}
+                    agreement={newVersionFor ?? undefined}
                 />
             </AppModal>
             <VersionHistoryModal
@@ -93,7 +93,7 @@ export const StudyLevelAgreements: FC = () => {
                 verticalSpacing="sm"
                 fetching={isLoading}
                 idAccessor="legalDocumentId"
-                noRecordsText="No signed SLAs have been uploaded yet"
+                noRecordsText="No study agreements have been uploaded yet"
                 records={agreements}
                 columns={columns}
             />

@@ -3,7 +3,10 @@
 import { useMemo, useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchStudiesAwaitingSlaAction, fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
+import {
+    fetchStudiesAwaitingStudyAgreementAction,
+    fetchStudyAgreementsAction,
+} from '@/server/actions/legal-document.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import * as R from 'remeda'
 import { PdfDropzone } from '../pdf-dropzone'
@@ -11,12 +14,12 @@ import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
 import { ReadOnlyField } from '../read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
-type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingSlaAction>[number]
-type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
+type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingStudyAgreementAction>[number]
+type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
 
 // What it takes to name the study being published against. A row from the table and a study picked
 // through the cascade both satisfy it, so the rest of the form does not care which one it has.
-type StudyDetails = Pick<Sla, 'studyId' | 'studyTitle' | 'researchLabName' | 'dataPartnerName'>
+type StudyDetails = Pick<StudyAgreement, 'studyId' | 'studyTitle' | 'researchLabName' | 'dataPartnerName'>
 
 const toOptions = (pairs: [string, string][]) =>
     R.pipe(
@@ -26,10 +29,10 @@ const toOptions = (pairs: [string, string][]) =>
     )
 
 // Fetched once and narrowed in memory as the Data Partner > Research Lab > study cascade is used.
-const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
+const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
     const { data: candidates = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.studiesAwaitingSla(),
-        queryFn: fetchStudiesAwaitingSlaAction,
+        queryKey: legalDocumentQueryKeys.studiesAwaitingStudyAgreement(),
+        queryFn: fetchStudiesAwaitingStudyAgreementAction,
         enabled,
     })
     const [dataPartnerId, setDataPartnerId] = useState<string | null>(null)
@@ -63,7 +66,7 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
 
     return {
         isLoading,
-        // An SLA hangs off an approved study, so with none waiting the cascade has nothing to offer
+        // A study agreement hangs off an approved study, so with none waiting the cascade has nothing to offer
         // and would otherwise render as three empty dropdowns that look broken.
         isEmpty: !isLoading && candidates.length === 0,
         dataPartnerId,
@@ -80,9 +83,9 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
     }
 }
 
-const SLA_INVALIDATE_KEYS = [
-    legalDocumentQueryKeys.studyLevelAgreements(),
-    legalDocumentQueryKeys.studiesAwaitingSla(),
+const STUDY_AGREEMENT_INVALIDATE_KEYS = [
+    legalDocumentQueryKeys.studyAgreements(),
+    legalDocumentQueryKeys.studiesAwaitingStudyAgreement(),
     legalDocumentQueryKeys.versionsForType('SLA'),
 ]
 
@@ -95,18 +98,18 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
 )
 
 // Says why the cascade is empty. Both causes are ordinary states rather than faults: nothing has
-// been approved yet, or every approved study already has its SLA.
+// been approved yet, or every approved study already has its agreement.
 const NoStudiesWaiting: FC = () => (
     <Text c="dimmed">
-        No approved studies are waiting for an SLA. A study becomes available here once its proposal has been approved
-        and it does not already have one.
+        No approved studies are waiting for a study agreement. A study becomes available here once its proposal has been
+        approved and it does not already have one.
     </Text>
 )
 
 // Only shown when the study is not already fixed by the row that opened the form.
 const StudySelect: FC<{
     isVisible: boolean
-    candidates: ReturnType<typeof useSlaCandidates>
+    candidates: ReturnType<typeof useStudyAgreementCandidates>
 }> = ({ isVisible, candidates }) => {
     if (!isVisible) return null
 
@@ -132,7 +135,7 @@ const StudySelect: FC<{
             />
             <Select
                 label="Study"
-                description="Only approved studies that do not already have an SLA are listed"
+                description="Only approved studies that do not already have one are listed"
                 placeholder="Select a study"
                 data={candidates.studyOptions}
                 value={candidates.studyId}
@@ -144,13 +147,13 @@ const StudySelect: FC<{
     )
 }
 
-const VersionNote: FC<{ sla: Sla | undefined }> = ({ sla }) => {
-    if (!sla) return null
+const VersionNote: FC<{ agreement: StudyAgreement | undefined }> = ({ agreement }) => {
+    if (!agreement) return null
 
     return (
         <Text size="sm" c="dimmed">
-            This study is on version {sla.versionNumber}. Publishing makes the new file the current agreement; earlier
-            versions stay in the record.
+            This study is on version {agreement.versionNumber}. Publishing makes the new file the current agreement;
+            earlier versions stay in the record.
         </Text>
     )
 }
@@ -161,33 +164,36 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
     return <StudyFields details={details} />
 }
 
-// Says nothing about acknowledgement: an sla is filed here, not enforced — only tos/pn are in
+// Says nothing about acknowledgement: a study agreement is filed here, not enforced — only tos/pn are in
 // enforcedLegalDocumentTypes.
 const PUBLISH_CONSEQUENCE =
-    'This becomes the current Study Level Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
+    'This becomes the current Study Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
 
-// Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
+// Given an `agreement`, this adds a version to that study: the study and its orgs carry over from the row
 // and only a new date and file are collected. Without one, the study is picked from the cascade.
-export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({ onCompleteAction, sla }) => {
-    const candidates = useSlaCandidates({ enabled: !sla })
-    const details = sla ?? candidates.selected
+export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreement?: StudyAgreement }> = ({
+    onCompleteAction,
+    agreement,
+}) => {
+    const candidates = useStudyAgreementCandidates({ enabled: !agreement })
+    const details = agreement ?? candidates.selected
     const upload = useAgreementUpload({
         subject: details,
         scopeFor: (study: StudyDetails) => ({ type: 'SLA' as const, studyId: study.studyId }),
-        invalidateKeys: SLA_INVALIDATE_KEYS,
+        invalidateKeys: STUDY_AGREEMENT_INVALIDATE_KEYS,
         onComplete: onCompleteAction,
     })
 
     // Nothing to publish against, so the form is replaced rather than shown unfillable.
-    if (!sla && candidates.isEmpty) return <NoStudiesWaiting />
+    if (!agreement && candidates.isEmpty) return <NoStudiesWaiting />
 
     return (
         <Stack>
-            <StudySelect isVisible={!sla} candidates={candidates} />
-            <ChosenStudyFields details={sla} />
-            <VersionNote sla={sla} />
+            <StudySelect isVisible={!agreement} candidates={candidates} />
+            <ChosenStudyFields details={agreement} />
+            <VersionNote agreement={agreement} />
             <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
-            <PdfDropzone label="Signed Study Level Agreement" file={upload.file} onChange={upload.setFile} />
+            <PdfDropzone label="Signed Study Agreement" file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
                 <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>
                     Publish

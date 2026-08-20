@@ -289,7 +289,36 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
-// As above but against a named org pair. For local dev seeding only: an SLA belongs to a
+// APPROVED proposal with a published Study Agreement nobody has acknowledged. Study-scoped, unlike
+// the Terms of Service, so publishing it from inside a spec cannot reach another worker's user.
+export async function seedApprovedWithPublishedStudyAgreement(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId: study.id })
+    const versionId = uuidv7()
+    const filePath = pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId })
+
+    // No object uploaded: the spec asserts on the link without following it, and presigning does not
+    // need one to exist.
+    await db
+        .insertInto('legalDocumentVersion')
+        .values({
+            id: versionId,
+            legalDocumentId,
+            versionNumber: 1,
+            fileName: 'study-agreement.pdf',
+            format: 'pdf',
+            filePath,
+            publishedAt: new Date(),
+            publishedBy: await resolveUserId('admin'),
+            signedAt: '2026-01-01',
+        })
+        .execute()
+
+    return { studyId: study.id }
+}
+
+// As above but against a named org pair. For local dev seeding only: a study agreement belongs to a
 // study, so the admin's Data Partner > Research Lab > study picker is empty until studies
 // exist across more than one pair.
 export async function seedStudyFor(
