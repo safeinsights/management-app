@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import type { Route } from 'next'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-    db,
     fireEvent,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -11,11 +10,9 @@ import {
     screen,
     waitFor,
 } from '@/tests/unit.helpers'
+import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
-import { type FileType } from '@/database/types'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { SharedOutputsPanel } from './shared-outputs-panel'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
@@ -48,37 +45,6 @@ const BANNER = {
 const PREVIOUS_HREF = '/test-lab/study/abc/view/code' as Route
 const EDIT_CODE_HREF = '/test-lab/study/abc/resubmit' as Route
 const DASHBOARD_HREF = '/dashboard' as Route
-
-const toArrayBuffer = (str: string): ArrayBuffer => {
-    const buf = Buffer.from(str, 'utf-8')
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-}
-
-async function seedArtifact(
-    jobId: string,
-    { fileType, files }: { fileType: FileType; files: { name: string; content: string }[] },
-) {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
-    for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
-    const zip = await writer.generate()
-
-    const path = `test-org/${jobId}/results/encrypted-results/encrypted-results.zip`
-    const row = await db
-        .insertInto('studyJobFile')
-        .values({ studyJobId: jobId, name: 'encrypted-results.zip', path, fileType })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    return {
-        studyJobFileId: row.id,
-        fileType,
-        name: 'encrypted-results.zip',
-        encryptedBody: await zip.arrayBuffer(),
-        recipientKeys: {} as Record<string, string>,
-    }
-}
 
 // Stands in for the server-rendered feedback section. Counting mounts is the only way to prove the
 // banner swap did not remount it — a remount silently resets each entry's expand/collapse state.
@@ -129,7 +95,7 @@ describe('SharedOutputsPanel', () => {
         job = (await latestJobForStudy(study.id))!
 
         const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-        const artifact = await seedArtifact(job.id, {
+        const artifact = await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
         })
