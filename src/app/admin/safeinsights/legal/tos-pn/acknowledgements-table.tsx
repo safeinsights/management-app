@@ -5,7 +5,7 @@ import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
     legalDocumentTypeLabels,
-    type EnforcedLegalDocumentType,
+    type GlobalLegalDocumentType,
     type LegalDocumentAcknowledgementSort,
 } from '@/schema/legal-document'
 import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal-document.actions'
@@ -49,7 +49,7 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
 
 // Sorted server-side: the action builds the audience in memory from every user, so ordering it is
 // part of the read.
-const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
+const useAcknowledgements = (type: GlobalLegalDocumentType) => {
     const [sort, setSort] = useState<LegalDocumentAcknowledgementSort>(DEFAULT_SORT)
     const [page, setPage] = useState(1)
     const { data, isLoading } = useQuery({
@@ -84,7 +84,7 @@ const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
 // Every user in the app, with the version of this document they last agreed to. The audience is
 // derived rather than stored, so someone who has never agreed is a row with no version, not a
 // missing row.
-export const AcknowledgementsTable: FC<{ type: EnforcedLegalDocumentType }> = ({ type }) => {
+export const AcknowledgementsTable: FC<{ type: GlobalLegalDocumentType }> = ({ type }) => {
     const { records, totalRecords, isLoading, sort, onSortStatusChange, page, setPage } = useAcknowledgements(type)
 
     return (

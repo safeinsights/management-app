@@ -3,24 +3,31 @@
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import type { PublicLegalDocument } from './acknowledgement-copy'
 import { LegalDocumentContent } from './document-content'
+import type { ResolvedLegalDocument } from '@/schema/legal-document'
 
-// Every place a user is asked to agree names the document, then renders it in full.
-export const LegalDocumentSection: FC<{ document: PublicLegalDocument; labelSize?: string }> = ({
+// Every place a user is asked to agree names the document, then renders it in full. Takes the
+// scope-neutral base; a pdf has no inline view (it's the link in the sentence), so nothing renders here.
+export const LegalDocumentSection: FC<{ document: ResolvedLegalDocument; labelSize?: string }> = ({
     document,
     labelSize,
-}) => (
-    <Stack gap="xs">
-        <Text fw={600} fz={labelSize}>
-            {legalDocumentTypeLabels[document.type]}
-        </Text>
-        <LegalDocumentContent content={document.content} label={legalDocumentTypeLabels[document.type]} />
-    </Stack>
-)
+}) => {
+    if (document.format !== 'markdown') return null
+
+    const label = legalDocumentTypeLabels[document.type]
+
+    return (
+        <Stack gap="xs">
+            <Text fw={600} fz={labelSize}>
+                {label}
+            </Text>
+            <LegalDocumentContent content={document.content} label={label} />
+        </Stack>
+    )
+}
 
 // Signup agrees to everything published at once; the app-wide gate asks one document at a time.
-export const LegalDocumentSections: FC<{ documents: PublicLegalDocument[]; labelSize?: string }> = ({
+export const LegalDocumentSections: FC<{ documents: ResolvedLegalDocument[]; labelSize?: string }> = ({
     documents,
     labelSize,
 }) => (

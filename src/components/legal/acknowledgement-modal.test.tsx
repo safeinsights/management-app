@@ -1,13 +1,15 @@
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import type { PendingLegalDocument } from './acknowledgement-copy'
+import type { PendingLegalDocument } from '@/schema/legal-document'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
 const document: PendingLegalDocument = {
     type: 'TOS',
     versionId: 'tos-v2',
     isUpdate: true,
+    format: 'markdown',
     content: '# Terms\n\nThe updated terms.',
+    orgName: null,
 }
 
 const renderModal = (props: Partial<Parameters<typeof LegalAcknowledgementModal>[0]> = {}) =>

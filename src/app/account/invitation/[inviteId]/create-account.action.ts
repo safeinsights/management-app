@@ -1,7 +1,7 @@
 'use server'
 
 import type { DBExecutor } from '@/database'
-import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
+import { globalLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
@@ -30,7 +30,7 @@ async function recordSignupAcknowledgements(db: DBExecutor, userId: string, vers
         .select('legalDocumentVersion.id')
         .where('legalDocumentVersion.id', 'in', versionIds)
         .where('legalDocumentVersion.publishedAt', 'is not', null)
-        .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        .where('legalDocument.type', 'in', [...globalLegalDocumentTypes])
         .execute()
 
     if (!eligible.length) return
