@@ -138,7 +138,7 @@ raw jobs.
 | #   | When                                                                             | Screen                   |
 | --- | -------------------------------------------------------------------------------- | ------------------------ |
 | 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)            | `outputs-errored-shared` |
-| 2   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`       |
+| 2   | `resultsRejected`                                                                | `outputs-feedback`       |
 | 3   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`          |
 | 4   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`        |
 | 5   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`          |
@@ -150,12 +150,12 @@ raw jobs.
 | 11  | `isDraft`                                                                        | `study-overview`         |
 | 12  | fallback                                                                         | `study-overview`         |
 
-Researcher precedence note (OTTER-695, OTTER-696): the two outputs-decision rules sit above
+Researcher precedence note (OTTER-695, OTTER-697, OTTER-696): the two outputs-decision rules sit above
 `study-results` because a recorded `FILES-*` decision clears `awaitingFilesDecisionOnError`, so
 `study-results` (#3) would otherwise claim every decided run. They split the decision by run
 outcome: #1 is an errored run whose outputs were **shared** (the researcher decrypts to diagnose),
-#2 is a clean run whose outputs were **withheld**. The remaining pair — an errored run decided
-feedback-only, and a clean run decided share-outputs — still falls through to `study-results` (#3).
+#2 is an errored or clean run whose outputs were **withheld**. A clean run whose outputs were
+**shared** still falls through to `study-results` (#3).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):

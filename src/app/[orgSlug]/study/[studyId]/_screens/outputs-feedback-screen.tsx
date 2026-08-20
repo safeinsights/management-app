@@ -7,22 +7,35 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
-import { isFeedbackOnlyOutcome } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, runErrored } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
-const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => (
-    <StatusAlert
-        variant={STATUS_ALERT_VARIANT.action}
-        title={statusAlertTitle('Feedback on outputs available', decidedAt)}
-    >
-        {dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you
-        are ready, edit your code and resubmit.
+const FeedbackBanner = ({
+    title,
+    message,
+    decidedAt,
+}: {
+    title: string
+    message: string
+    decidedAt: Date | string | null
+}) => (
+    <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle(title, decidedAt)}>
+        {message}
     </StatusAlert>
 )
 
-// OTTER-695: clean run whose outputs the reviewer withheld with "Share feedback only"
-// (FILES-REJECTED without JOB-ERRORED); the researcher reads the feedback and resubmits.
+const bannerCopy = (errored: boolean, dataPartner: string) =>
+    errored
+        ? {
+              title: 'Resolve the code error to proceed',
+              message: `${dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+          }
+        : {
+              title: 'Feedback on outputs available',
+              message: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+          }
+
 export async function OutputsFeedbackScreen({
     study,
     raw,
@@ -41,9 +54,10 @@ export async function OutputsFeedbackScreen({
     })
     if (!('job' in result)) return result
 
-    const { entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
     const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
+    const banner = bannerCopy(runErrored(job.statusChanges), dataPartner)
 
     return (
         <Box bg="grey.10">
@@ -53,7 +67,7 @@ export async function OutputsFeedbackScreen({
                     stepLabel="STEP 4"
                     heading="Verify outputs"
                     studyTitle={study.title!}
-                    banner={<FeedbackOnlyBanner decidedAt={decidedAt} dataPartner={dataPartner} />}
+                    banner={<FeedbackBanner title={banner.title} message={banner.message} decidedAt={decidedAt} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <Group justify="space-between">

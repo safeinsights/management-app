@@ -11,8 +11,11 @@ export const RESEARCHER_SCREEN_RULES = [
     // awaitingFilesDecisionOnError, so study-results would otherwise claim it.
     ['outputs-errored-shared', { when: isErroredOutputsSharedOutcome }],
 
-    // Share-feedback-only decision on a clean run: the researcher reads the feedback and resubmits
-    // (OTTER-695). Out-ranks study-results, which would otherwise claim any FILES-* decision.
+    // Share-feedback-only decision (OTTER-695/697): the researcher reads the feedback and resubmits.
+    // Covers both clean runs (RUN-COMPLETE + FILES-REJECTED) and errored runs (JOB-ERRORED +
+    // FILES-REJECTED). Banner copy is chosen on the screen: errored only when JOB-ERRORED is
+    // present and RUN-COMPLETE is not.
+    // Out-ranks study-results, which would otherwise claim any FILES-* decision.
     ['outputs-feedback', { when: isFeedbackOnlyOutcome }],
 
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
