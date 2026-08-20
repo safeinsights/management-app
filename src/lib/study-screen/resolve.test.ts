@@ -21,14 +21,6 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-pending')
     })
-    it('errored job after a share-outputs decision → study-results (error no longer hidden)', () => {
-        expect(
-            resolveScreen(
-                'researcher',
-                state({ hasResults: true, resultsErrored: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }),
-            ).screen,
-        ).toBe('study-results')
-    })
     it('OTTER-697: feedback-only decision on an errored run → outputs-feedback', () => {
         expect(
             resolveScreen(
@@ -73,14 +65,12 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-errored-shared')
     })
-    it('OTTER-696: errored run decided feedback-only stays on study-results, not the shared-outputs screen', () => {
-        // The errored + FILES-REJECTED pair is a different card; neither OTTER-695 (which excludes
-        // errored runs) nor OTTER-696 (which requires FILES-APPROVED) may claim it.
+    it('OTTER-697: errored run decided feedback-only → outputs-feedback, not the shared-outputs screen', () => {
         const screen = resolveScreen(
             'researcher',
             state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
         ).screen
-        expect(screen).toBe('study-results')
+        expect(screen).toBe('outputs-feedback')
         expect(screen).not.toBe('outputs-errored-shared')
     })
     it('OTTER-696: an errored run still awaiting a files decision does not reach the shared-outputs screen', () => {

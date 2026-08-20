@@ -671,7 +671,7 @@ describe('StudyViewPage', () => {
             )
         })
 
-        it('renders study-results when the run errored and the reviewer shared the outputs (OTTER-697)', async () => {
+        it('renders outputs-errored-shared when the run errored and the reviewer shared the outputs (OTTER-696)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -688,8 +688,8 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
-            expect(screen.getByText('Study Status')).toBeInTheDocument()
-            expect(screen.getByText('Study Details')).toBeInTheDocument()
+            expect(screen.getByText(/Decrypt outputs to view code error/)).toBeInTheDocument()
+            expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })
 
