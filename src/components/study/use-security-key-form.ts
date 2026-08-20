@@ -3,7 +3,6 @@ import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
-import type { LatestJobForStudy } from '@/server/db/queries'
 import * as Sentry from '@sentry/nextjs'
 
 const ERRORS = {
@@ -13,7 +12,8 @@ const ERRORS = {
 } as const
 
 type UseSecurityKeyFormOptions = {
-    job: LatestJobForStudy
+    /** Only the id is read (it keys the encrypted-files fetch), so callers need not load a full job row. */
+    job: { id: string }
     /**
      * Which key set to ask the server for. It cannot be inferred here: this form serves both the
      * reviewer's outputs step (manifest recipient, no wrapped keys) and the researcher reading

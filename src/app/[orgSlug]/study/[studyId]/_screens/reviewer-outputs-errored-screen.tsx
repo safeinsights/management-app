@@ -1,6 +1,5 @@
-import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
-import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
@@ -14,12 +13,9 @@ import type { ScreenComponentProps } from './types'
 // OTTER-524: this banner used to promise error logs unconditionally. For the two commonest failures
 // there are none, so it now names the stage that failed and says plainly when no log exists.
 const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => {
-    // The date is display-only, so a payload job missing JOB-ERRORED degrades to an undated
-    // banner rather than blocking the triage the state machine already routed here.
-    const erroredOn = erroredAt ? `${STATUS_ALERT_SEPARATOR} ${dayjs(erroredAt).format('MMM DD, YYYY')}` : ''
     const body = `${details.explanation} ${details.logSentence}`
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Code errored ${erroredOn}`}>
+        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
             {body}
         </StatusAlert>
     )

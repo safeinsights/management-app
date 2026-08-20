@@ -1,6 +1,5 @@
 import { FC } from 'react'
-import dayjs from 'dayjs'
-import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 
 type OutputsDecidedBannerProps = {
     resultsErrored: boolean
@@ -49,10 +48,9 @@ export const OutputsDecidedBanner: FC<OutputsDecidedBannerProps> = ({
     decidedAt,
 }) => {
     const { title, body } = resolveBannerCopy({ resultsErrored, resultsApproved, labName })
-    const dateStr = decidedAt ? ` ${STATUS_ALERT_SEPARATOR} ${dayjs(decidedAt).format('MMM DD, YYYY')}` : ''
 
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.informative} title={`${title}${dateStr}`}>
+        <StatusAlert variant={STATUS_ALERT_VARIANT.informative} title={statusAlertTitle(title, decidedAt)}>
             {body}
         </StatusAlert>
     )

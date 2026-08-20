@@ -1,8 +1,8 @@
 import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { ButtonLink } from '@/components/links'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { OutputsStatusAlert } from './outputs-status-alert'
@@ -33,9 +33,7 @@ export function SecondaryAnalysisView({
                     banner={<OutputsStatusAlert stageStatus={stageStatus} startedAt={stageStartedAt} />}
                 />
                 <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous step
-                    </ButtonLink>
+                    <PreviousStepLink previousHref={previousHref} />
                     <ButtonLink href={dashboardHref} size="md">
                         Back to my studies
                     </ButtonLink>

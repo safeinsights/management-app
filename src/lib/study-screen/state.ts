@@ -161,3 +161,9 @@ export const awaitingFilesDecisionOnError = (
 // two cannot drift (same pattern as awaitingFilesDecisionOnError above).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected' | 'resultsErrored'>): boolean =>
     s.resultsRejected && !s.resultsErrored
+
+// OTTER-696: the run errored AND the reviewer chose "Share outputs and feedback" (JOB-ERRORED plus
+// FILES-APPROVED). Shared by the researcher rule table and the screen's own render guard so routing
+// and rendering cannot disagree (same pattern as awaitingFilesDecisionOnError above).
+export const isErroredOutputsSharedOutcome = (s: Pick<StudyState, 'resultsErrored' | 'resultsApproved'>): boolean =>
+    s.resultsErrored && s.resultsApproved

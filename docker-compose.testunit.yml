@@ -67,10 +67,16 @@ services:
             - sh
             - -c
             - '{ pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile --prefer-offline --config.trustLockfile=true --config.confirmModulesPurge=false || { echo "docker-test: pnpm-lock.yaml is out of sync with package.json (--frozen-lockfile failed)." >&2; echo "docker-test: run  pnpm install  on the host to refresh the lockfile, then re-run." >&2; exit 1; }; } && exec "$$0" "$$@"'
+        # ALLOW_TESTING_DATA=TRUE is the test-user seed's opt-in (OTTER-722). Without it the seed
+        # returns early, this database has no seeded users, and the guard tests in
+        # src/database/seed-test-public-key.test.ts fail on a fixture that was never written. CI
+        # gets the same opt-in from bin/migrate-dev-db, which is why those tests pass there and
+        # not here. Scoped to the seed step, not the environment block, so it stays off the
+        # migration step and out of the vitest process, matching bin/migrate-dev-db.
         command:
             - sh
             - -c
-            - 'pnpm exec kysely migrate:latest && pnpm exec kysely seed:run && pnpm run test:unit'
+            - 'pnpm exec kysely migrate:latest && ALLOW_TESTING_DATA=TRUE pnpm exec kysely seed:run && pnpm run test:unit'
         depends_on:
             db-unit-test:
                 condition: service_healthy

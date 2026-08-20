@@ -1,9 +1,9 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
-import type { JobFileInfo } from '@/lib/types'
+import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
 type DecryptAndViewOutputsProps = {
@@ -20,7 +20,7 @@ type DecryptAndViewOutputsProps = {
 
 // Post-decision re-decrypt.
 export const DecryptAndViewOutputs: FC<DecryptAndViewOutputsProps> = ({ job, isVisible }) => {
-    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
+    const { decryptedFiles, onDecrypted } = useDecryptPhase()
 
     if (!isVisible) return null
 
@@ -29,7 +29,7 @@ export const DecryptAndViewOutputs: FC<DecryptAndViewOutputsProps> = ({ job, isV
             <SecurityKeyForm
                 job={job}
                 type="reviewer"
-                onDecrypted={setDecryptedFiles}
+                onDecrypted={onDecrypted}
                 title="View outputs again"
                 description="The outputs are encrypted. Enter your security key to view them again."
             />
