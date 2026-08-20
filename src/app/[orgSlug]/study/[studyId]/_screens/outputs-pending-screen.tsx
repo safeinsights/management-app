@@ -1,11 +1,10 @@
 import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
 import { ButtonLink } from '@/components/links'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { Routes } from '@/lib/routes'
 import { guardExecutionStage } from './execution-stage-guard'
 import type { ScreenComponentProps } from './types'
@@ -13,7 +12,7 @@ import type { ScreenComponentProps } from './types'
 const ProcessingBanner = ({ approvedAt }: { approvedAt: Date | string }) => (
     <StatusAlert
         variant={STATUS_ALERT_VARIANT.informative}
-        title={`Outputs not ready, code processing started ${STATUS_ALERT_SEPARATOR} ${dayjs(approvedAt).format('MMM DD, YYYY')}`}
+        title={statusAlertTitle('Outputs not ready, code processing started', approvedAt)}
     >
         Your code is running in the secure enclave. This can take a while, depending on how complex it is. We will let
         you know when your outputs are ready or if anything goes wrong.
@@ -44,9 +43,7 @@ export async function OutputsPendingScreen({
                     banner={<ProcessingBanner approvedAt={approvedAt} />}
                 />
                 <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous step
-                    </ButtonLink>
+                    <PreviousStepLink previousHref={previousHref} />
                     <ButtonLink href={dashboardHref as Route} variant="filled" size="md">
                         Back to my studies
                     </ButtonLink>
