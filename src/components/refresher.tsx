@@ -1,5 +1,18 @@
+import type { ReactNode } from 'react'
 import { useTimer } from './timer'
 import { Text, Flex, Loader } from '@mantine/core'
+
+// The refresher's width varies by state; a dedicated right-aligned row with a fixed
+// minimum height keeps it at the table's top-right corner without shifting other
+// header controls as it changes.
+export const RefresherSlot: React.FC<{ refresher: ReactNode }> = ({ refresher }) => {
+    if (!refresher) return null
+    return (
+        <Flex justify="flex-end" align="center" mih={24} data-testid="refresher-slot">
+            {refresher}
+        </Flex>
+    )
+}
 
 export const Refresher: React.FC<{ isEnabled: boolean; refresh: () => void; isPending: boolean }> = ({
     isEnabled,

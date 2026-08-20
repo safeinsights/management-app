@@ -1,8 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ActionIcon, Badge, Box, Button, Divider, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { ActionIcon, Badge, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretDownIcon, CheckCircleIcon, PlusCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
 
 // Presentational pieces for the "Code Environments" settings card. They own the card
@@ -126,14 +127,12 @@ export function CodeEnvsView({ onAdd, refresher, children }: CodeEnvsViewProps) 
                     <Title order={3} size="lg">
                         Code Environments
                     </Title>
-                    <Flex justify="flex-end" align="center" gap="md">
-                        {refresher}
-                        <Button leftSection={<PlusCircleIcon size={16} />} onClick={onAdd}>
-                            Add Code Environment
-                        </Button>
-                    </Flex>
+                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={onAdd}>
+                        Add Code Environment
+                    </Button>
                 </Group>
                 <Divider c="dimmed" />
+                <RefresherSlot refresher={refresher} />
                 {children}
             </Stack>
         </Paper>

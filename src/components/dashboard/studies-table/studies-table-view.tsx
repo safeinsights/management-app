@@ -6,6 +6,7 @@ import { Divider, Flex, Group, Paper, Stack, Table, TableTbody, Text, Title } fr
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { ErrorAlert } from '@/components/errors'
+import { RefresherSlot } from '@/components/refresher'
 import { TableHeader } from './columns'
 import { EmptyState } from './empty-state'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
@@ -68,7 +69,6 @@ export function StudiesTableView({
                 {title && <Title order={3}>{title}</Title>}
                 <Flex justify="flex-end" align="center" gap="md">
                     {headerActions}
-                    {refresher}
                     {newStudyHref && (
                         <ButtonLink leftSection={<PlusIcon />} data-testid="new-study" href={newStudyHref}>
                             Propose New Study
@@ -78,6 +78,7 @@ export function StudiesTableView({
             </Group>
             <Divider c="charcoal.1" />
             {description && <Text mb="md">{description}</Text>}
+            <RefresherSlot refresher={refresher} />
             {body}
         </Stack>
     )
