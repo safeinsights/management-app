@@ -2,6 +2,8 @@ import {
     actionResult,
     describe,
     expect,
+    faker,
+    insertTestOrg,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -28,6 +30,16 @@ const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const ERRORED_AT = new Date('2026-07-15T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
+
+const DATA_PARTNER = 'Riverside University'
+
+// The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
+// would still match. study.orgId is the Data Partner, so give the study its own enclave.
+const givenDataPartner = async (studyId: string) => {
+    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave', name: DATA_PARTNER })
+    await db.updateTable('study').set({ orgId: dataPartner.id }).where('id', '=', studyId).execute()
+    return dataPartner
+}
 
 const renderScreen = async (
     study: ScreenComponentProps['study'],
@@ -90,14 +102,13 @@ const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = 
 
 // Errored run + "Share feedback only" (OTTER-697).
 const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
-    const DATA_PARTNER = 'Riverside University'
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
-    await db.updateTable('org').set({ name: DATA_PARTNER }).where('id', '=', org.id).execute()
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
         jobStatus: 'CODE-SUBMITTED',
     })
+    const dataPartner = await givenDataPartner(dbStudy.id)
 
     await db
         .updateTable('jobStatusChange')
@@ -143,7 +154,7 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-    return { org, user, study, raw, job, commentId: comment.id }
+    return { org, user, study, raw, job, dataPartner, commentId: comment.id }
 }
 
 describe('OutputsFeedbackScreen', () => {
@@ -202,12 +213,12 @@ describe('OutputsFeedbackScreen', () => {
         })
         it('shows clean-run copy when JOB-ERRORED came from packaging but the run completed (RUN-COMPLETE present)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
-            await db.updateTable('org').set({ name: 'Riverside University' }).where('id', '=', org.id).execute()
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
                 jobStatus: 'CODE-SUBMITTED',
             })
+            await givenDataPartner(dbStudy.id)
             await db
                 .insertInto('jobStatusChange')
                 .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id })
@@ -240,14 +251,14 @@ describe('OutputsFeedbackScreen', () => {
 
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveTextContent('Feedback on outputs available')
-            expect(alert).toHaveTextContent('Riverside University has shared feedback on the latest code run.')
+            expect(alert).toHaveTextContent(`${DATA_PARTNER} has shared feedback on the latest code run.`)
             expect(alert).not.toHaveTextContent('Resolve the code error')
         })
     })
 
     describe('errored run banner (OTTER-697)', () => {
         it('renders the resolve-error copy, data partner, and decision date', async () => {
-            const { org, study, raw } = await setupErroredFeedbackOnly()
+            const { org, study, raw, dataPartner } = await setupErroredFeedbackOnly()
             await renderScreen(study, raw, org.slug)
 
             const alert = screen.getByTestId('status-alert')
@@ -256,8 +267,9 @@ describe('OutputsFeedbackScreen', () => {
                 `Resolve the code error to proceed • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`,
             )
             expect(alert).toHaveTextContent(
-                `Riverside University has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+                `${dataPartner.name} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
             )
+            expect(alert).not.toHaveTextContent(displayOrgName(org.name))
             expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
         })
 

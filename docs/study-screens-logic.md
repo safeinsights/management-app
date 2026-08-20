@@ -154,7 +154,8 @@ Researcher precedence note (OTTER-695, OTTER-697, OTTER-696): the two outputs-de
 `study-results` because a recorded `FILES-*` decision clears `awaitingFilesDecisionOnError`, so
 `study-results` (#3) would otherwise claim every decided run. They split the decision by run
 outcome: #1 is an errored run whose outputs were **shared** (the researcher decrypts to diagnose),
-#2 is a errored or clean run whose outputs were **withheld**.
+#2 is an errored or clean run whose outputs were **withheld**. A clean run whose outputs were
+**shared** still falls through to `study-results` (#3).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
