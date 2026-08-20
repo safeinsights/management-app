@@ -187,9 +187,8 @@ test.describe('Organization Admin', () => {
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
     })
 
-    // Covers the route, the org-admin gate and that both panels mount. Deliberately asserts no row
-    // content: other specs approve studies against this org in parallel, so counting rows (or
-    // asserting the table is empty) would depend on which spec ran first.
+    // Asserts no row content: other specs approve studies against this org in parallel, so counting
+    // rows (or asserting none) would depend on which spec ran first.
     test('org admin can open the legal center', async ({ page }) => {
         await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
 

@@ -598,9 +598,8 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .execute()
     })
 
-// A signed row carries a download URL; an unsigned one carries nulls all the way through, so the
-// table has a single shape and the "nothing signed yet" cells are an absence rather than a sentinel.
-// The storage columns are stripped: the client needs the link, not the key it was minted from.
+// An unsigned row carries nulls through, so the table has one shape and no sentinel value. Storage
+// columns are stripped: the client needs the link, not the key it was minted from.
 const withAgreementDownloadUrl = async ({
     filePath,
     fileName,
@@ -615,22 +614,20 @@ const withAgreementDownloadUrl = async ({
     }
 }
 
-// orgIdFromSlug leaves orgId and orgType ABSENT for a slug with no org, which denies anyone whose
-// grant is the `$in` rule — but an SI admin holds ('manage','all') and passes the check anyway, so
-// the handler would run on undefined and index a Record with it. TypeScript cannot see this: the
-// action builder types a middleware's return as non-optional even though this one is executeTakeFirst.
+// An unknown slug leaves both ABSENT, which the `$in` rule denies — but ('manage','all') passes it,
+// so an SI admin would reach the handler and index a Record with undefined. TypeScript cannot see
+// it: the action builder types a middleware return as non-optional.
 const requireResolvedOrg: (ctx: { orgId?: string; orgType?: OrgType }) => void = ({ orgId, orgType }) => {
     if (!orgId || !orgType) throw new ActionFailure({ org: 'was not found' })
 }
 
-// The org-admin Legal center's study-agreement tab. Scoped to the org in the route: an admin of two
-// orgs gets each org's own rows, and the OrgLegalDocuments rule refuses an org they do not administer.
+// Scoped to the org in the route, so an admin of two orgs gets each org's own rows.
 export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
     .params(orgLegalParams)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'OrgLegalDocuments')
-    // Unordered on purpose: the table sorts client-side from its first paint, so ordering here would
-    // be a second copy of the same rule with nothing to keep the two honest.
+    // Unordered on purpose: the table sorts from its first paint, so ordering here would be a
+    // second copy of the same rule.
     .handler(async ({ db, orgId, orgType }) => {
         requireResolvedOrg({ orgId, orgType })
 
@@ -639,8 +636,7 @@ export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreements
         return await Promise.all(rows.map(withAgreementDownloadUrl))
     })
 
-// The org's own participation agreement. Which type that is comes from the org's own record, never
-// from the caller, so a lab admin cannot ask for a DOPA.
+// The type comes from the org's own record, never the caller, so a lab admin cannot ask for a DOPA.
 export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
     .params(orgLegalParams)
     .middleware(orgIdFromSlug)

@@ -17,8 +17,7 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
 
-// One record by construction — an org signs one participation agreement, and only its latest
-// published version is on show — so this is a small read-out rather than a one-row table.
+// One record by construction, so a read-out rather than a one-row table.
 const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
     <Stack gap="xs" align="flex-start">
         <Text>Effective on: {formatDayString(agreement.signedAt)}</Text>
@@ -40,9 +39,8 @@ const EmptyState: FC<{ label: string }> = ({ label }) => (
     </Stack>
 )
 
-// The four states of one record, resolved here so the panel's own return stays a heading and a body.
-// isError comes first: a refused read leaves data undefined, and falling through would tell the
-// admin nothing is on file when in truth we never managed to look.
+// isError first: a refused read leaves data undefined, and falling through would claim nothing is
+// on file when we never managed to look.
 const AgreementBody: FC<{
     isLoading: boolean
     isError: boolean

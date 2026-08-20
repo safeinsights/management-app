@@ -30,25 +30,16 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
 
-// Which study column names the viewing org, and which names the org on the other side of the
-// agreement. The Data Partner holds the data (study.orgId); the Research Lab submitted the study
-// (study.submittedByOrgId). Both directions come from here so the party filter and the counterparty
-// column can never end up pointing at the same org.
+// The Data Partner holds the data (study.orgId); the Research Lab submitted it
+// (study.submittedByOrgId). Both directions come from here so they cannot point at the same org.
 const studyAgreementSides = {
     enclave: { party: 'study.orgId', counterparty: 'study.submittedByOrgId' },
     lab: { party: 'study.submittedByOrgId', counterparty: 'study.orgId' },
 } as const
 
-/**
- * One org's study agreements, as STUDIES rather than as agreements: a study that has reached the
- * agreement stage is listed whether or not anything has been signed for it yet, so the org admin can
- * see what is outstanding.
- *
- * A lateral join rather than a join to legalDocumentVersion, because a study with several versions
- * would otherwise multiply into one row per version. It also does double duty: the same subquery
- * supplies the display fields AND answers "is there a signed agreement", which is the second half of
- * the row-set rule below.
- */
+// Lists STUDIES, not agreements: one that has reached the agreement stage appears whether or not
+// anything is signed yet. Lateral rather than a join to legalDocumentVersion, which would multiply a
+// study into one row per version.
 export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: string; orgType: OrgType }) => {
     const { party, counterparty } = studyAgreementSides[orgType]
 
@@ -69,10 +60,9 @@ export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: 
                         ])
                         .whereRef('legalDocument.studyId', '=', 'study.id')
                         .where('legalDocument.type', '=', 'SLA')
-                        // Redundant against the CHECK constraint, which already forbids an org on an
-                        // SLA, but the planner cannot infer that: without it only the leading `type`
-                        // column of legal_document_scope_unique (type, org_id, study_id) bounds the
-                        // scan, so every outer study re-scans every SLA document.
+                        // Redundant against the CHECK constraint, but the planner cannot infer it:
+                        // without it only `type` bounds the scan of
+                        // legal_document_scope_unique (type, org_id, study_id).
                         .where('legalDocument.orgId', 'is', null)
                         .where('legalDocumentVersion.publishedAt', 'is not', null)
                         .orderBy('legalDocumentVersion.versionNumber', 'desc')
@@ -91,17 +81,14 @@ export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: 
             ])
             .where('study.deletedAt', 'is', null)
             .where(party, '=', orgId)
-            // Approved is the stage an agreement is drawn up at. The second arm is the durability
-            // clause: once we hold a signed agreement for a study it stays on this page permanently,
-            // so archiving the study cannot make an executed contract vanish from the org's records.
-            // filePath stands in for "the lateral matched" — it is NOT NULL on every version.
+            // Second arm is the durability clause: once signed, a study stays listed whatever its
+            // status becomes. filePath stands in for "the lateral matched", being NOT NULL.
             .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.filePath', 'is not', null)]))
             .execute()
     )
 }
 
-// The org's own participation agreement — its latest published version, or undefined when SafeInsights
-// has not uploaded one yet, which is an ordinary state.
+// Latest published version, or undefined when none is uploaded yet, which is an ordinary state.
 export const orgParticipationAgreement = (
     db: DBExecutor,
     { orgId, type }: { orgId: string; type: ParticipationAgreementType },

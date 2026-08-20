@@ -19,8 +19,7 @@ import { useMemo, useState } from 'react'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-// What the table opens on. The action returns rows unordered, so this is the only thing deciding
-// what an admin sees first.
+// The action returns rows unordered, so this alone decides what an admin sees first.
 const DEFAULT_SORT: DataTableSortStatus<StudyAgreement> = { columnAccessor: 'signedAt', direction: 'desc' }
 
 // Stable identity so the sort memo is not invalidated on every render while the query is loading.
@@ -41,8 +40,8 @@ const AgreementLink: FC<{ agreement: StudyAgreement }> = ({ agreement }) => {
     )
 }
 
-// Built here rather than inline in the JSX. The counterparty column is unsortable by design: it
-// names one org over and over on most pages, so ordering by it says nothing.
+// The counterparty column is unsortable: it names the same org on most rows, so ordering by it
+// says nothing.
 const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID', sortable: true },
     { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
@@ -63,18 +62,16 @@ const sortValues: Record<string, (row: StudyAgreement) => string> = {
     signedAt: (row) => row.signedAt ?? '',
 }
 
-// Studies still waiting on an agreement stay at the bottom whichever way the column is pointed:
-// sorting by a date asks for the rows that have one. signedAt is a YYYY-MM-DD string, so it sorts
-// chronologically as text.
+// Unsigned studies stay at the bottom whichever way the column is pointed: sorting by a date asks
+// for the rows that have one. signedAt is YYYY-MM-DD, so it sorts chronologically as text.
 const sortAgreements = (rows: StudyAgreement[], { columnAccessor, direction }: DataTableSortStatus<StudyAgreement>) => {
     const flip = direction === 'asc' ? 1 : -1
     const valueOf = sortValues[columnAccessor as string] ?? (() => '')
 
     return [...rows].sort((a, b) => {
         if (columnAccessor === 'signedAt' && (!a.signedAt || !b.signedAt)) {
-            // Only decides between a signed row and an unsigned one. Two unsigned rows tie here and
-            // fall through to the title, since the action returns rows in no particular order and
-            // returning 0 would leave them in whatever order the planner produced.
+            // Only separates signed from unsigned. Two unsigned rows fall through to the title,
+            // since returning 0 would leave them in whatever order the planner produced.
             const bySignedPresence = Number(Boolean(b.signedAt)) - Number(Boolean(a.signedAt))
             if (bySignedPresence !== 0) return bySignedPresence
         } else {
@@ -109,8 +106,8 @@ const useOrgStudyAgreements = (orgSlug: string) => {
     return { records, isLoading, isError, error, sortStatus, setSortStatus }
 }
 
-// A failed read must not fall through to the table: an empty result and a refused one look identical
-// there, and "No Study Agreement yet" is a bad thing to tell an admin whose query errored.
+// A refused read must not fall through to the table, where it is indistinguishable from an org with
+// no agreements yet.
 const StudyAgreementsTable: FC<{ orgSlug: string; counterpartyLabel: string }> = ({ orgSlug, counterpartyLabel }) => {
     const { records, isLoading, isError, error, sortStatus, setSortStatus } = useOrgStudyAgreements(orgSlug)
 

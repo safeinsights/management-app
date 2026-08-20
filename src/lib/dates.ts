@@ -2,8 +2,7 @@ import dayjs from 'dayjs'
 
 const DISPLAY_FORMAT = 'MMM DD, YYYY'
 
-// What a cell shows when it has no value. Exported so a column rendering an absence itself — a
-// missing document rather than a missing date — reads the same as the formatters below.
+// Exported so a column rendering an absent document reads the same as an absent date below.
 export const EMPTY_CELL = '—'
 
 // For the timestamps the server stamps itself: publishedAt, ackedAt.

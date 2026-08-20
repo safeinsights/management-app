@@ -15,10 +15,10 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/study
-// agreements these are global — one document each, no org or study scope — so the audience is simply
-// everybody. Adding the study agreement here also means retiring study.researcherAgreementsAckedAt /
-// reviewerAgreementsAckedAt: two agreement gates on the same study would disagree.
+// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/sla these
+// are global — one document each, no org or study scope — so the audience is simply everybody.
+// Adding sla here also means retiring study.researcherAgreementsAckedAt / reviewerAgreementsAckedAt;
+// two agreement gates on the same study would disagree.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
@@ -54,26 +54,22 @@ export const participationAgreementOrgLabels: Record<ParticipationAgreementType,
     ROPA: 'Research Lab',
 }
 
-// participationAgreementOrgTypes read the other way, for the org-admin Legal center: given the org
-// whose page this is, which participation agreement is theirs. A Record<OrgType, …> rather than a
-// ternary so a new OrgType is a type error here instead of silently falling through to ROPA.
+// participationAgreementOrgTypes read the other way. A Record rather than a ternary so a new
+// OrgType is a type error here instead of falling through to ROPA.
 export const participationAgreementTypeForOrgType: Record<OrgType, ParticipationAgreementType> = {
     enclave: 'DOPA',
     lab: 'ROPA',
 }
 
-// The counterparty column's header. A Data Partner holds the data and receives the agreement FROM
-// the lab that submitted it; a Research Lab sends it TO the data partner. Header only — which study
-// column actually names the counterparty is `studyAgreementSides` in server/db/legal-document.ts.
+// Header only. Which study column actually names the counterparty is `studyAgreementSides` in
+// server/db/legal-document.ts.
 export const studyAgreementCounterpartyLabels: Record<OrgType, string> = {
     enclave: 'From',
     lab: 'To',
 }
 
-// study.title is nullable, so the id is what an untitled study is displayed and ordered under.
-// Shared so the column, the sort and any other reader agree on the same name for the same row —
-// `??` and `||` differ on an empty-string title, which is enough to make a table sort disagree with
-// what it shows.
+// study.title is nullable, so an untitled study shows its id. Shared because `??` and `||` differ
+// on an empty-string title, which is enough to make a sort disagree with what it displays.
 export const studyAgreementDisplayTitle = (row: { studyTitle: string | null; studyId: string }) =>
     row.studyTitle || row.studyId
 
@@ -142,8 +138,7 @@ export const acknowledgeLegalDocumentSchema = z.object({
     versionId: z.string().uuid(),
 })
 
-// The org whose Legal center is being read. A slug rather than an id because that is what the route
-// carries; the actions' middleware resolves it and refuses an unknown one.
+// A slug rather than an id because that is what the route carries.
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })
@@ -198,8 +193,7 @@ export const legalDocumentQueryKeys = {
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyLevelAgreements: () => ['studyLevelAgreements'] as const,
     studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
-    // Keyed by org rather than shared with the SI-admin listings above: these return one org's rows,
-    // so an admin of two orgs must not read the first org's cache on the second org's page.
+    // Keyed by org so an admin of two orgs cannot read the first org's cache on the second's page.
     orgStudyAgreements: (orgSlug: string) => ['orgStudyAgreements', orgSlug] as const,
     orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
 }

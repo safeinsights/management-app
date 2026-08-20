@@ -255,8 +255,8 @@ test('an org admin may read their own legal center, and only their own', () => {
     // An unknown org slug leaves orgId absent from the subject, and the `$in` fails closed.
     expect(ability.can('view', toRecord('OrgLegalDocuments', {}))).toBe(false)
 
-    // The org-admin subject must not drag the SI-admin reads along with it: those expose unpublished
-    // drafts and version history, which is the whole reason it is separate (SHRMP-304).
+    // The org-admin subject must not drag the SI-admin reads along: those expose unpublished drafts
+    // and version history, which is the whole reason it is separate.
     expect(ability.can('view', toRecord('LegalDocument', { orgId }))).toBe(false)
     expect(ability.can('create', toRecord('LegalDocument', { orgId }))).toBe(false)
     expect(ability.can('publish', toRecord('LegalDocument', { orgId }))).toBe(false)
