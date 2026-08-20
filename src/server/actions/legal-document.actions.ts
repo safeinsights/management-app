@@ -298,7 +298,7 @@ const contentOf = async (filePath: string) => await (await fetchFileContents(fil
 // Either format == pdf & has `url`, or format == markdown and has `content`
 const bodyForVersion = async (type: LegalDocumentTypeValue, filePath: string): Promise<LegalDocumentBody> =>
     legalDocumentFormats[type] === 'pdf'
-        ? { format: 'pdf', url: await signedUrlForFile(filePath) }
+        ? { format: 'pdf', url: await signedUrlForFile(filePath) } // todo: use `legalDocumentDownloadUrl` when 304 merged
         : { format: 'markdown', content: await contentOf(filePath) }
 
 /**
