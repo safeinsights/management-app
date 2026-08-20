@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@/common'
-import { useDecryptFiles } from '@/hooks/use-decrypt-files'
+import { ResultsIntegrityFailure, useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import * as Sentry from '@sentry/nextjs'
@@ -9,6 +9,9 @@ const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
     noFiles: 'No encrypted outputs available to decrypt.',
+    // Deliberately does not invite a retry: re-entering the key cannot fix an archive that failed
+    // verification, and presenting this as a key problem is what sent reviewers back to the input.
+    integrity: 'These outputs could not be verified. Do not approve them — contact your administrator.',
 } as const
 
 type UseSecurityKeyFormOptions = {
@@ -48,6 +51,11 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
     const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
+    const handleDecryptError = useCallback(
+        (err: Error) => setError(err instanceof ResultsIntegrityFailure ? ERRORS.integrity : ERRORS.invalid),
+        [],
+    )
+
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
         onSuccess: (files) => {
@@ -62,7 +70,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
             setError(undefined)
             onDecrypted(files)
         },
-        onError: failInvalid,
+        onError: handleDecryptError,
     })
 
     useEffect(() => {
