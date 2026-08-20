@@ -42,7 +42,7 @@
         "update-db-types": "kysely-codegen --camel-case --date-parser string --out-file src/database/types.ts",
         "checks": "concurrently 'pnpm:typecheck' 'pnpm:lint:eslint' 'pnpm:lint:prettier' 'pnpm:validate-actions'",
         "test:e2e": "playwright test",
-        "test:e2e:up": "./bin/test-e2e-up",
+        "test:e2e:up": "./bin/local-e2e",
         "test:e2e:debug": "playwright test --ui --headed --debug",
         "app:test": "./bin/app-test",
         "test:unit": "vitest",
