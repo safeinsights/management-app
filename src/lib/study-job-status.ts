@@ -37,6 +37,13 @@ export function currentExecutionStage(
     return { status: latest.status, startedAt: latest.createdAt }
 }
 
+// Raw status rows carry createdAt optionally (projection fixtures omit it); only dated rows can
+// date a banner, so callers filter through this before latestStatusAt.
+export const datedStatusChanges = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt?: Date | string }>,
+): Array<{ status: StudyJobStatus; createdAt: Date | string }> =>
+    statusChanges.filter((c): c is { status: StudyJobStatus; createdAt: Date | string } => !!c.createdAt)
+
 // The most recent time `status` was recorded on the job, or null if it never was. Selected by
 // timestamp, not array position: statusChanges ordering differs by query, and rows written in one
 // transaction tie on createdAt (see latestSubmittedJobHasLiveCodeDecision), so callers must not

@@ -3,11 +3,11 @@
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { AlertNotFound } from '@/components/errors'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
@@ -108,12 +108,6 @@ type DecisionActionsProps = {
     nextStepHref?: Route
 }
 
-const PreviousStepLink: FC<{ href: Route }> = ({ href }) => (
-    <ButtonLink href={href} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
-
 const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
     if (!isVisible) return null
     return (
@@ -148,24 +142,12 @@ function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, 
     const showNextStep = !showResubmit && !!nextStepHref
     return (
         <Group justify="space-between">
-            <PreviousStepLink href={previousHref} />
+            <PreviousStepLink previousHref={previousHref} />
             <NextStepAction isVisible={showNextStep} href={nextStepHref} />
             <DashboardAction isVisible={!showResubmit && !showNextStep} href={dashboardHref} />
             <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
         </Group>
     )
-}
-
-// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
-// (same as the DO review page) in place of the feedback section, rather than a legacy view.
-const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
-    feedbackLoadError,
-    entries,
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 type StepCardProps = {
@@ -279,7 +261,7 @@ export function CodePostDecisionView({
                     proposalHref={proposalHref}
                     onCollapse={collapse}
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
+                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecisionActions
                     decision={latestJobStatus}
                     previousHref={previousHref}

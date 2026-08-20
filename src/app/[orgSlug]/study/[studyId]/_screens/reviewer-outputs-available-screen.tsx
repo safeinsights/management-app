@@ -1,8 +1,7 @@
-import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
-import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
@@ -11,11 +10,11 @@ import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
 const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string | null; labName: string }) => {
-    // The date is display-only, so a payload job missing RUN-COMPLETE degrades to an undated
-    // banner rather than blocking a review the state machine already routed here.
-    const availableOn = availableAt ? ` • ${dayjs(availableAt).format('MMM DD, YYYY')}` : ''
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Outputs are available for review${availableOn}`}>
+        <StatusAlert
+            variant={STATUS_ALERT_VARIANT.action}
+            title={statusAlertTitle('Outputs are available for review', availableAt)}
+        >
             Enter your security key to decrypt the outputs, review them, and then share with {labName}.
         </StatusAlert>
     )

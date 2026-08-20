@@ -1,17 +1,22 @@
 import type { ScreenRuleEntry } from './screen-rules'
-import { awaitingFilesDecisionOnError, isOutputsFeedbackOutcome } from './state'
+import { awaitingFilesDecisionOnError, isErroredOutputsSharedOutcome, isFeedbackOnlyOutcome } from './state'
 
 // Researcher Tier-2 rules. Order = display precedence. First match wins. Each entry pairs the screen
 // it routes to with the condition that selects it; the leaf view owns its own back/forward buttons.
 // The live contract is the researcher table in docs/study-screens-logic.md — extend from there.
 
 export const RESEARCHER_SCREEN_RULES = [
+    // Errored run whose outputs the reviewer shared along with feedback (OTTER-696). Ranked above
+    // study-results for the same reason as outputs-feedback below: FILES-APPROVED clears
+    // awaitingFilesDecisionOnError, so study-results would otherwise claim it.
+    ['outputs-errored-shared', { when: isErroredOutputsSharedOutcome }],
+
     // Share-feedback-only decision (OTTER-695/697): the researcher reads the feedback and resubmits.
     // Covers both clean runs (RUN-COMPLETE + FILES-REJECTED) and errored runs (JOB-ERRORED +
     // FILES-REJECTED). Banner copy is chosen on the screen: errored only when JOB-ERRORED is
     // present and RUN-COMPLETE is not.
     // Out-ranks study-results, which would otherwise claim any FILES-* decision.
-    ['outputs-feedback', { when: isOutputsFeedbackOutcome }],
+    ['outputs-feedback', { when: isFeedbackOnlyOutcome }],
 
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
     // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher sits on

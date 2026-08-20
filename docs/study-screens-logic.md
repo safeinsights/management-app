@@ -135,25 +135,26 @@ raw jobs.
 
 **Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                             | Screen              |
-| --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `resultsRejected`                                                                | `outputs-feedback`  |
-| 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
-| 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
-| 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
-| 5   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 6   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 7   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 8   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 9   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 10  | `isDraft`                                                                        | `study-overview`    |
-| 11  | fallback                                                                         | `study-overview`    |
+| #   | When                                                                             | Screen                   |
+| --- | -------------------------------------------------------------------------------- | ------------------------ |
+| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)            | `outputs-errored-shared` |
+| 2   | `resultsRejected`                                                                | `outputs-feedback`       |
+| 3   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`          |
+| 4   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`        |
+| 5   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`          |
+| 6   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`          |
+| 7   | `codeAwaitingDecision`                                                           | `code-under-review`      |
+| 8   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback`      |
+| 9   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`         |
+| 10  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback`      |
+| 11  | `isDraft`                                                                        | `study-overview`         |
+| 12  | fallback                                                                         | `study-overview`         |
 
-Researcher precedence (OTTER-695, OTTER-697): `FILES-REJECTED` clears `awaitingFilesDecisionOnError`,
-so without #1 the feedback-only outcome would hit `study-results`. Share-outputs
-(`resultsApproved`) still hits `study-results`. The screen uses the errored banner only when
-`JOB-ERRORED` is present and `RUN-COMPLETE` is not (a packaging error plus a successful run
-still carries `JOB-ERRORED`).
+Researcher precedence note (OTTER-695, OTTER-697, OTTER-696): the two outputs-decision rules sit above
+`study-results` because a recorded `FILES-*` decision clears `awaitingFilesDecisionOnError`, so
+`study-results` (#3) would otherwise claim every decided run. They split the decision by run
+outcome: #1 is an errored run whose outputs were **shared** (the researcher decrypts to diagnose),
+#2 is a errored or clean run whose outputs were **withheld**.
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):

@@ -1,16 +1,16 @@
 'use client'
 
-import { FC, ReactNode, useState } from 'react'
+import { FC, ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { ButtonLink } from '@/components/links'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
+import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -51,8 +51,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     unlockedBanner,
     previousHref,
 }) => {
-    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
-    const isLocked = decryptedFiles === null
+    const { decryptedFiles, isLocked, onDecrypted } = useDecryptPhase()
     const banner = isLocked ? lockedBanner : unlockedBanner
 
     return (
@@ -65,12 +64,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     studyTitle={studyTitle}
                     banner={banner}
                 />
-                <LockedPhase
-                    isVisible={isLocked}
-                    job={job}
-                    previousHref={previousHref}
-                    onDecrypted={setDecryptedFiles}
-                />
+                <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
                 <UnlockedPhase
                     decryptedFiles={decryptedFiles}
                     orgSlug={orgSlug}
@@ -106,12 +100,6 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
         </>
     )
 }
-
-const PreviousStepLink: FC<{ previousHref: Route }> = ({ previousHref }) => (
-    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
 
 type UnlockedPhaseProps = {
     /** null until a key has successfully decrypted; the whole review view is gated on it. */
