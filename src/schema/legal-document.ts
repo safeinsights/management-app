@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { OrgType } from '@/database/types'
 
 export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
 
@@ -7,7 +8,7 @@ export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
 export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
-    SLA: 'Study Level Agreement',
+    SLA: 'Study Agreement',
     // "Organization" is the wording on the executed documents themselves, so an admin matching a
     // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
     DOPA: 'Data Organization Participation Agreement',
@@ -53,6 +54,25 @@ export const participationAgreementOrgLabels: Record<ParticipationAgreementType,
     ROPA: 'Research Lab',
 }
 
+// participationAgreementOrgTypes read the other way. A Record rather than a ternary so a new
+// OrgType is a type error here instead of falling through to ROPA.
+export const participationAgreementTypeForOrgType: Record<OrgType, ParticipationAgreementType> = {
+    enclave: 'DOPA',
+    lab: 'ROPA',
+}
+
+// Header only. Which study column actually names the counterparty is `studyAgreementSides` in
+// server/db/legal-document.ts.
+export const studyAgreementCounterpartyLabels: Record<OrgType, string> = {
+    enclave: 'From',
+    lab: 'To',
+}
+
+// study.title is nullable, so an untitled study shows its id. Shared because `??` and `||` differ
+// on an empty-string title, which is enough to make a sort disagree with what it displays.
+export const studyAgreementDisplayTitle = (row: { studyTitle: string | null; studyId: string }) =>
+    row.studyTitle || row.studyId
+
 // Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
 const scopeSchema = z.object({
     type: legalDocumentTypeSchema,
@@ -68,7 +88,7 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'sla must belong to a study' })
+        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })
@@ -116,6 +136,11 @@ export const acknowledgeLegalDocumentSchema = z.object({
     // Validated as a uuid because scopeFromVersionId queries on it before any handler runs: a
     // malformed id would raise there and 500 rather than failing closed.
     versionId: z.string().uuid(),
+})
+
+// A slug rather than an id because that is what the route carries.
+export const orgLegalParams = z.object({
+    orgSlug: z.string().min(1, 'An organization is required'),
 })
 
 // Params for both participation reads — the agreements table and the signatory picker — so it is
@@ -168,4 +193,7 @@ export const legalDocumentQueryKeys = {
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyLevelAgreements: () => ['studyLevelAgreements'] as const,
     studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+    // Keyed by org so an admin of two orgs cannot read the first org's cache on the second's page.
+    orgStudyAgreements: (orgSlug: string) => ['orgStudyAgreements', orgSlug] as const,
+    orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
 }

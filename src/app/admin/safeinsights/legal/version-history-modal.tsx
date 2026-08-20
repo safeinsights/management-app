@@ -13,7 +13,7 @@ import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-documen
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
-import { formatInstant, formatDayString } from './dates'
+import { formatInstant, formatDayString } from '@/lib/dates'
 import { PreviewDocument } from './preview-document'
 
 type Scope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }

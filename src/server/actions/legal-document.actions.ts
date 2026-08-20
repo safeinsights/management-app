@@ -2,7 +2,7 @@
 
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentType } from '@/database/types'
+import type { LegalDocumentType, OrgType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
@@ -11,19 +11,58 @@ import {
     enforcedLegalDocumentTypes,
     type EnforcedLegalDocumentType,
     fetchLegalDocumentAcknowledgementsSchema,
+    orgLegalParams,
     participationAgreementTypeParams,
+    participationAgreementTypeForOrgType,
     legalDocumentFormats,
+    type LegalDocumentFormat,
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
-import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
+import {
+    findLegalDocument,
+    findOrCreateLegalDocument,
+    orgParticipationAgreement,
+    orgStudyAgreements,
+} from '../db/legal-document'
+import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
+
+const legalDocumentMimeTypes: Record<LegalDocumentFormat, string> = {
+    pdf: 'application/pdf',
+    markdown: 'text/markdown; charset=utf-8',
+}
+
+/**
+ * Every link to a stored legal document, so a version's name and type always come from the row that
+ * describes it.
+ *
+ * Both overrides are load-bearing. The presigned POST the browser uploads with carries no
+ * Content-Type, so the object sits in S3 as octet-stream, which a browser downloads whatever the
+ * disposition says; and the key is the bare versionId, so without a filename the download is named
+ * after a uuid with no extension.
+ */
+const legalDocumentDownloadUrl = ({
+    filePath,
+    fileName,
+    format,
+}: {
+    filePath: string
+    fileName: string
+    format: string
+}) =>
+    signedUrlForFile(filePath, {
+        ResponseContentType: legalDocumentMimeTypes[format as LegalDocumentFormat] ?? 'application/octet-stream',
+        // S3 echoes this straight into the response header, and the name is whatever the admin's file
+        // was called.
+        ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
+    })
 
 const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
     (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
@@ -185,7 +224,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
             .execute()
 
         const withUrls = await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
         const published = withUrls.filter(
             (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
@@ -427,6 +466,8 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'org.id as orgId',
@@ -443,7 +484,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
         rows.sort((a, b) => a.orgName.localeCompare(b.orgName))
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
     })
 
@@ -479,6 +520,8 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'study.id as studyId',
@@ -506,7 +549,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
         )
     })
 
@@ -553,4 +596,63 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .orderBy('researchLab.name')
             .orderBy('study.title')
             .execute()
+    })
+
+// An unsigned row carries nulls through, so the table has one shape and no sentinel value. Storage
+// columns are stripped: the client needs the link, not the key it was minted from.
+const withAgreementDownloadUrl = async ({
+    filePath,
+    fileName,
+    format,
+    ...rest
+}: Awaited<ReturnType<typeof orgStudyAgreements>>[number]) => {
+    // Null together, all three being NOT NULL. Checked rather than coerced: an empty name would
+    // reach the browser as filename="".
+    if (!filePath || !fileName || !format) return { ...rest, downloadUrl: null }
+
+    return { ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) }
+}
+
+// An unknown slug leaves both ABSENT, which the `$in` rule denies — but ('manage','all') passes it,
+// so an SI admin would reach the handler and index a Record with undefined. TypeScript cannot see
+// it: the action builder types a middleware return as non-optional.
+const requireResolvedOrg: (ctx: { orgId?: string; orgType?: OrgType }) => void = ({ orgId, orgType }) => {
+    if (!orgId || !orgType) throw new ActionFailure({ org: 'was not found' })
+}
+
+// Scoped to the org in the route, so an admin of two orgs gets each org's own rows.
+export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
+    .params(orgLegalParams)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'OrgLegalDocuments')
+    // Unordered on purpose: the table sorts from its first paint, so ordering here would be a
+    // second copy of the same rule.
+    .handler(async ({ db, orgId, orgType }) => {
+        requireResolvedOrg({ orgId, orgType })
+
+        const rows = await orgStudyAgreements(db, { orgId, orgType })
+
+        return await Promise.all(rows.map(withAgreementDownloadUrl))
+    })
+
+// The type comes from the org's own record, never the caller, so a lab admin cannot ask for a DOPA.
+export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
+    .params(orgLegalParams)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'OrgLegalDocuments')
+    .handler(async ({ db, orgId, orgType }) => {
+        requireResolvedOrg({ orgId, orgType })
+
+        const type = participationAgreementTypeForOrgType[orgType]
+        const agreement = await orgParticipationAgreement(db, { orgId, type })
+
+        if (!agreement) return { type, agreement: null }
+
+        return {
+            type,
+            agreement: {
+                signedAt: agreement.signedAt,
+                downloadUrl: await legalDocumentDownloadUrl(agreement),
+            },
+        }
     })
