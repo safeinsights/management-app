@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolveScreen } from './resolve'
+import { REVIEWER_SCREEN_RULES } from './reviewer-screen-rules'
 import { studyState } from './state.fixture'
 
 const st = (overrides: Partial<StudyState>): StudyState =>
@@ -19,7 +20,9 @@ describe('resolveScreen(reviewer)', () => {
         expect(screen(st({ status: 'CHANGE-REQUESTED' }))).toBe('reviewer-proposal-feedback')
     })
 
-    it('code submitted, agreements NOT acked → reviewer-agreements (gate before review)', () => {
+    // OTTER-727 hid the Agreements gate that used to claim this state, so the ack no longer gates
+    // review: an unacked reviewer goes straight to the code-review editor.
+    it('code submitted, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         expect(
             screen(
                 st({
@@ -29,7 +32,7 @@ describe('resolveScreen(reviewer)', () => {
                     reviewerAgreementsAcked: false,
                 }),
             ),
-        ).toBe('reviewer-agreements')
+        ).toBe('reviewer-code-review')
     })
 
     it('code submitted, agreements acked → reviewer-code-review', () => {
@@ -212,7 +215,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('agreements gate only applies while awaiting decision (irrelevant once decided)', () => {
+    it('an unacked study with a code decision still resolves on the decision', () => {
         expect(
             screen(
                 st({
@@ -223,5 +226,40 @@ describe('resolveScreen(reviewer)', () => {
                 }),
             ),
         ).toBe('reviewer-code-feedback')
+    })
+})
+
+// OTTER-727 hid the Agreements step. The screen and its component are deliberately retained, so the
+// only thing keeping it off-screen is the absence of a rule — guard that directly, both at the table
+// level and across the state space the gate used to claim.
+describe('reviewer-agreements is unreachable (OTTER-727)', () => {
+    it('no rule in the table maps to it', () => {
+        expect(REVIEWER_SCREEN_RULES.map(([id]) => id)).not.toContain('reviewer-agreements')
+    })
+
+    it('no reviewer state resolves to it', () => {
+        const statuses = ['PENDING-REVIEW', 'APPROVED', 'REJECTED', 'CHANGE-REQUESTED', 'DRAFT'] as const
+        const codeDecisions = [null, 'CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const
+        const flags = [false, true]
+
+        for (const status of statuses) {
+            for (const codeDecision of codeDecisions) {
+                for (const reviewerAgreementsAcked of flags) {
+                    for (const codeAwaitingDecision of flags) {
+                        for (const hasSubmittedCode of flags) {
+                            const s = st({
+                                status,
+                                isDraft: status === 'DRAFT',
+                                codeDecision,
+                                reviewerAgreementsAcked,
+                                codeAwaitingDecision,
+                                hasSubmittedCode,
+                            })
+                            expect(screen(s)).not.toBe('reviewer-agreements')
+                        }
+                    }
+                }
+            }
+        }
     })
 })

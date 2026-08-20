@@ -229,7 +229,8 @@ export function CodePostDecisionView({
     const { expanded, toggle, collapse } = useExpandable()
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
+    // OTTER-727 hid Agreements; "Previous step" now walks straight to the approved proposal.
+    const previousHref = proposalHref
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
     const breadcrumbs: Array<[string, string?]> = [

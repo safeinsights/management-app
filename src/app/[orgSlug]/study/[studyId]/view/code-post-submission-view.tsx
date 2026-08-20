@@ -182,7 +182,8 @@ export function CodePostSubmissionView({
 
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
+    // OTTER-727 hid Agreements; Back now walks straight to the approved proposal it sat between.
+    const previousHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
     const breadcrumbs: Array<[string, string?]> = [
         ['Dashboard', dashboard],

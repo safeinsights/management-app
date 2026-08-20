@@ -1,25 +1,23 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { Stack } from '@mantine/core'
-import { StudyPageHeader } from '@/components/study/study-page-header'
-import { AgreementsPage } from '../agreements-page'
+import { redirect } from 'next/navigation'
 
-// Researcher agreements step. A dual-role user (reviewer via the enclave, researcher via their own
-// lab) reaches this route — not the reviewer one — so they stay in the researcher flow even though
-// they also hold the review ability. Access requires view of the submitting org's study.
+// OTTER-727: the Agreements step is hidden. Nothing links here any more, so this route exists only to
+// catch stale bookmarks, browser history and old emails — it redirects to the code step instead of
+// rendering the placeholder. The study is still loaded because the destination depends on code stage,
+// and access is still checked so the redirect can't be used to probe studies the user can't see.
 export default async function ResearcherAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
     searchParams: Promise<Record<string, string | undefined>>
 }) {
-    const { orgSlug, studyId } = await props.params
+    const { studyId } = await props.params
     const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
@@ -36,35 +34,14 @@ export default async function ResearcherAgreementsRoute(props: {
         return <AccessDeniedAlert />
     }
 
-    // /agreements/researcher is a revisitable step. An authorized researcher can view it directly —
-    // forward or back — even after acknowledging, so it does not self-redirect. The screen authority
-    // (resolveScreen on /view) decides the canonical screen.
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
-    // Previous → /submitted (the approved-proposal page with its own "Proceed to step 3" button),
-    // NOT /view. /view re-resolves to proposal-feedback, which has no forward path here, so it would
-    // dead-end an approved-no-code researcher (recoverable only via browser back).
-    const previousHref = Routes.studySubmitted({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
-
-    // Once code is submitted, "Proceed to Step 4" lands on the read-only code step (/view/code) —
-    // NOT plain /view, which would jump an advanced study straight to results (Step 5). Before
-    // submission it targets the upload page for the first-time code upload.
+    // Inherits what the Agreements page's own Proceed computed: once code is submitted, land on the
+    // read-only code step — NOT plain /view, which would jump an advanced study straight to results.
     const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-    const proceedHref = codeSubmitted
-        ? Routes.studyViewCode({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
-        : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
-
-    return (
-        <Stack p="xl" gap="xxl">
-            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
-            <StudyPageHeader>Study request</StudyPageHeader>
-            <AgreementsPage
-                isReviewer={false}
-                studyId={studyId}
-                proceedHref={proceedHref}
-                previousHref={previousHref}
-                previousLabel="Previous"
-            />
-        </Stack>
+    redirect(
+        codeSubmitted
+            ? Routes.studyViewCode({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
+            : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId }),
     )
 }

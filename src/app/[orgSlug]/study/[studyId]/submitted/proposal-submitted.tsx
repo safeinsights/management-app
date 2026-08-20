@@ -14,6 +14,7 @@ import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
+import { studyHasJobStatus } from '@/lib/studies'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 
 interface ProposalSubmittedProps {
@@ -49,7 +50,7 @@ const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
         bg: STATUS_BANNER_BG.approved,
         statusBadge: 'Approved on',
         message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+            `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
     },
     REJECTED: {
         color: 'red',
@@ -101,6 +102,14 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
     const proposalStatus = effectiveProposalStatus(study)
 
+    // OTTER-727 hid the Agreements step this used to lead to, so proceed straight to the code step,
+    // inheriting the destination agreements' own Proceed computed: once code is submitted, the
+    // read-only code step — NOT plain /view, which would jump an advanced study to results.
+    const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
+    const proceedHref = codeSubmitted
+        ? Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
+        : Routes.studyCode(studyParams)
+
     switch (proposalStatus) {
         case 'CHANGE-REQUESTED':
             return (
@@ -131,11 +140,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
                     >
                         Back
                     </Button>
-                    <Button
-                        component={Link}
-                        href={Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })}
-                        size="md"
-                    >
+                    <Button component={Link} href={proceedHref} size="md">
                         Proceed to step 3
                     </Button>
                 </Group>
