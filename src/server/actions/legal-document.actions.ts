@@ -239,8 +239,8 @@ type GenericVersion = {
     legalDocumentId: string
     versionId: string
     filePath: string
-    // The org a version binds, null for global tos/pn — lets the pending gate keep only the user's orgs.
-    orgId: string | null
+    orgId: string | null // not null only for ropa/dopa
+    studyId: string | null // not null only for sla
 }
 
 type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
@@ -259,6 +259,7 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
             'legalDocument.id as legalDocumentId',
             'legalDocument.type as type',
             'legalDocument.orgId as orgId',
+            'legalDocument.studyId as studyId',
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
         ])
@@ -284,7 +285,9 @@ const latestGlobalVersions = (db: DBExecutor): Promise<GlobalVersion[]> =>
 const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise<EnforcedVersion[] | null> => {
     const usersOrgIds = new Set(Object.values(session.orgs).map((org) => org.id))
     const owed = (await latestVersionsOfTypes(db, enforcedLegalDocumentTypes)).filter(
-        (version) => version.orgId === null || usersOrgIds.has(version.orgId),
+        (version) =>
+            (version.orgId === null && version.studyId === null) || // TOS/PN
+            (version.orgId !== null && usersOrgIds.has(version.orgId)), // ROPA/DOPA by user
     )
     if (!owed.length) return null
     return owed
