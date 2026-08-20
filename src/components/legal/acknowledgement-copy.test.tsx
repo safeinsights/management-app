@@ -55,7 +55,9 @@ describe('legalAcknowledgementBody', () => {
     })
 
     it('links a pdf agreement to its signed url in a new tab', () => {
-        renderWithProviders(<>{legalAcknowledgementBody(pdfDoc('ROPA', false, 'Acme Lab', 'https://files.example/ropa.pdf'))}</>)
+        renderWithProviders(
+            <>{legalAcknowledgementBody(pdfDoc('ROPA', false, 'Acme Lab', 'https://files.example/ropa.pdf'))}</>,
+        )
 
         const link = screen.getByRole('link', { name: /Research Organization Participation Agreement/ })
         expect(link).toHaveAttribute('href', 'https://files.example/ropa.pdf')

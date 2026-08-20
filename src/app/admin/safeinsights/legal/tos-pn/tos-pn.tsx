@@ -4,11 +4,7 @@ import { useMutation, useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type GlobalLegalDocumentType,
-} from '@/schema/legal-document'
+import { legalDocumentQueryKeys, legalDocumentTypeLabels, type GlobalLegalDocumentType } from '@/schema/legal-document'
 import { AcknowledgementsTable } from './acknowledgements-table'
 import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
@@ -82,13 +78,7 @@ function UploadModalContents({
 
 // What is live right now, without a click. Prior versions live in the shared VersionHistoryModal,
 // the same one the participation and study-level tables open.
-function CurrentVersion({
-    version,
-    doctype,
-}: {
-    version: PublishedVersion | null
-    doctype: GlobalLegalDocumentType
-}) {
+function CurrentVersion({ version, doctype }: { version: PublishedVersion | null; doctype: GlobalLegalDocumentType }) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
     if (!version) return <Text>No published version yet</Text>
