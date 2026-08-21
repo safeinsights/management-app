@@ -9,17 +9,23 @@ import { buildStudyInfo, type TitleMode } from './build-study-info'
 type Options = {
     /** Who owns `study.title` on this write. See {@link TitleMode}. */
     titleMode: TitleMode
+    /**
+     * Set false when the caller reports the failure itself. The submit-failure path does: its own
+     * toast already says whether the work survived, and a second "Failed to save draft" beside it
+     * reads as a separate problem rather than the same one.
+     */
+    reportErrors?: boolean
 }
 
 export function useSaveProposalDraft(
     studyId: string,
     form: UseFormReturnType<ProposalFormValues>,
-    { titleMode }: Options,
+    { titleMode, reportErrors = true }: Options,
 ) {
     const mutation = useMutation({
         mutationFn: () => onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues(), titleMode) }),
         onSuccess: () => form.resetDirty(),
-        onError: reportMutationError('Failed to save draft'),
+        onError: reportErrors ? reportMutationError('Failed to save draft') : undefined,
     })
 
     const saveDraft = useCallback(async (): Promise<boolean> => {

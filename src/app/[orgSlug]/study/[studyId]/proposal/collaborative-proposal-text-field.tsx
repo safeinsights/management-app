@@ -39,6 +39,14 @@ type Props = {
      * still counts words, and shares this component.
      */
     countMode?: 'words' | 'characters'
+    /**
+     * Opt-in for the same reason `placeholder` is: Figma gives Step 2 a per-field box height
+     * (OTTER-691) while the resubmit page shares this component and keeps one uniform height.
+     * Reading `field.contentHeight` here would resize the resubmit page too.
+     */
+    contentHeight?: number
+    /** Opt-in drag handle. Step 2 asks for one; the resubmit page was never in the card's scope. */
+    isResizable?: boolean
 }
 
 export function CollaborativeProposalTextField({
@@ -51,6 +59,8 @@ export function CollaborativeProposalTextField({
     websocketProvider,
     placeholder,
     countMode = 'words',
+    contentHeight,
+    isResizable,
 }: Props) {
     const countsCharacters = countMode === 'characters'
     const count = countsCharacters ? countCharactersFromLexical : countWordsFromLexical
@@ -92,7 +102,8 @@ export function CollaborativeProposalTextField({
                         initialValue={initialValue}
                         websocketProvider={websocketProvider}
                         contentStyle={contentStyle}
-                        contentHeight={field.contentHeight}
+                        contentHeight={contentHeight}
+                        isResizable={isResizable}
                         placeholder={placeholder}
                         ariaLabel={field.label}
                         onChange={onTextChange}

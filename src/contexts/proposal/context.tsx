@@ -53,10 +53,25 @@ interface ProposalProviderProps {
 // server-side mirror.
 const DRAFT_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
 
+/**
+ * Drops the keys a persisted NULL column arrives as.
+ *
+ * An explicit `undefined` wins in an object spread, so passing one through would blank out the
+ * matching entry in `initialProposalValues` and leave the form holding `undefined` where the
+ * schema expects an array or a string. Validation would then answer with a zod type message
+ * ("expected array, received undefined") instead of the field's own required copy, on exactly the
+ * untouched draft that needs the required copy most.
+ */
+function definedDraftFields(draftData?: DraftStudyData): DraftStudyData {
+    if (!draftData) return {}
+    const entries = Object.entries(draftData).filter(([, value]) => value !== undefined && value !== null)
+    return Object.fromEntries(entries) as DraftStudyData
+}
+
 export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
     const form = useForm<ProposalFormValues>({
         validate: zodResolver(draftProposalFormSchema),
-        initialValues: { ...initialProposalValues, ...draftData },
+        initialValues: { ...initialProposalValues, ...definedDraftFields(draftData) },
         // No validateInputOnChange: the card requires that an error clears while the user is
         // editing and does not come back until the next blur or Submit click. Mantine's
         // clearInputErrorOnChange (on by default) does the clearing; re-validating on every

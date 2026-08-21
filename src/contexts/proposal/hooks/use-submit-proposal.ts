@@ -18,6 +18,12 @@ import { useSaveProposalDraft } from './use-save-proposal-draft'
 export const SUBMIT_SUCCESS_TITLE = 'Proposal submitted'
 export const SUBMIT_FAILURE_TITLE = 'Proposal could not be submitted'
 export const SUBMIT_FAILURE_MESSAGE = 'Your work is saved. Try again.'
+/**
+ * Replaces {@link SUBMIT_FAILURE_MESSAGE} when the recovery save fails too, which is the likely
+ * case when the outage that failed the submit is the network. Telling the user their work is safe
+ * when it is not is the one thing this path must not do.
+ */
+export const SUBMIT_FAILURE_UNSAVED_MESSAGE = 'We could not save your work. Keep this tab open and try again.'
 
 interface UseSubmitProposalOptions {
     studyId: string
@@ -31,7 +37,8 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { user } = useUser()
     // titleMode 'omit' for the same reason the submit below uses it: Step 1 owns study.title.
-    const { saveDraft } = useSaveProposalDraft(studyId, form, { titleMode: 'omit' })
+    // reportErrors false: the failure branch below folds the outcome into its own toast.
+    const { saveDraft } = useSaveProposalDraft(studyId, form, { titleMode: 'omit', reportErrors: false })
 
     const mutation = useMutation({
         // Atomic submit: a single transactional UPDATE in finalizeStudySubmissionAction
@@ -73,21 +80,25 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
             yjsForm.provider?.sendStateless(payload)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: (error) => {
+        onError: async (error) => {
             // Not reportError: that appends a Sentry reference id to the message, and the card
             // specifies this copy exactly. Sentry still gets the exception.
             captureException(error)
-            notifications.show({ color: 'red', title: SUBMIT_FAILURE_TITLE, message: SUBMIT_FAILURE_MESSAGE })
 
-            // Makes "Your work is saved" true rather than merely reassuring. A failed submit writes
-            // nothing (finalizeStudySubmissionAction is one transaction), and in single-user mode
-            // there is no Yjs autosave behind it either, so without this flush the message would be
-            // wrong on exactly the environments that run without collaboration.
-            void saveDraft()
+            // Awaited before the toast, not fired alongside it. A failed submit writes nothing
+            // (finalizeStudySubmissionAction is one transaction) and in single-user mode there is
+            // no Yjs autosave behind it either, so this flush is what decides whether the work is
+            // actually saved, so the message has to report that outcome rather than assume it.
+            const saved = await saveDraft()
+            notifications.show({
+                color: 'red',
+                title: SUBMIT_FAILURE_TITLE,
+                message: saved ? SUBMIT_FAILURE_MESSAGE : SUBMIT_FAILURE_UNSAVED_MESSAGE,
+            })
 
-            // The user is already back on the form with every value intact, because the modal
-            // closes before the mutation runs. Put the Submit button back in view so retrying does
-            // not start with a scroll.
+            // The confirmation modal closes as the mutation settles, leaving the user back on the
+            // form with every value intact. Put the Submit button back in view so retrying does not
+            // start with a scroll.
             window.scrollTo?.({ top: document.body.scrollHeight, behavior: 'smooth' })
         },
     })

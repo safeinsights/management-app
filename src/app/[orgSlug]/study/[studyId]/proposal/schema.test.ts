@@ -399,6 +399,38 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
     })
 
     describe('character limits', () => {
+        // Pinned to literals, not to CHARACTER_LIMITS. Every other assertion in this block derives
+        // its expectation from the constant, so a typo in the constant would move the test with it
+        // and the four numbers the card specifies would go unguarded.
+        it('caps each field at the number the card specifies', () => {
+            expect(CHARACTER_LIMITS).toEqual({
+                researchQuestions: 3000,
+                projectSummary: 6000,
+                impact: 3000,
+                additionalNotes: 1800,
+            })
+        })
+
+        it.each([
+            ['researchQuestions', 3000],
+            ['projectSummary', 6000],
+            ['impact', 3000],
+            ['additionalNotes', 1800],
+        ] as const)('accepts %s at %i characters and rejects one more', (field, limit) => {
+            expect(
+                draftProposalFormSchema.safeParse({ ...validProposalData, [field]: lexicalText('x'.repeat(limit)) })
+                    .success,
+            ).toBe(true)
+
+            const tooLong = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                [field]: lexicalText('x'.repeat(limit + 1)),
+            })
+            expect(messagesFor(tooLong, field)).toContain(
+                `${FIELD_TITLES[field]} exceeds the ${limit} character limit. Shorten it to continue.`,
+            )
+        })
+
         it('accepts a field exactly at its limit', () => {
             const result = draftProposalFormSchema.safeParse({
                 ...validProposalData,

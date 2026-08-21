@@ -41,17 +41,13 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
     // for the reviewer preview. Sending it back would let a stale value overwrite the Step 1 one.
     const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omit' })
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
-    const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt(form)
+    const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt(form, isSubmitting)
 
     const isBusy = isSubmitting || isSaving
     // lexical fields store JSON even when empty, so extract the text to detect real content.
     const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
-    const handleConfirmSubmit = () => {
-        closeConfirm()
-        submitProposal()
-    }
 
     const handlePrevious = async () => {
         // Flush Step 2 fields to the study row so draftHasStep2Progress resolves
@@ -100,7 +96,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
             <SubmitConfirmationModal
                 isOpen={isConfirmOpen}
                 onClose={closeConfirm}
-                onConfirm={handleConfirmSubmit}
+                onConfirm={submitProposal}
                 isSubmitting={isSubmitting}
                 title="Submit your proposal?"
                 body={CONFIRM_BODY(orgName)}
