@@ -10,9 +10,9 @@ import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { countWordsFromLexical } from '@/lib/lexical'
 import { type EditableTextField } from './field-config'
+import { textFieldInputId } from './field-ids'
 
 const contentStyle = {
-    minHeight: 200,
     padding: '8px 16px',
     outline: 'none',
     fontSize: '1rem',
@@ -27,6 +27,12 @@ type Props = {
     onChange: (val: string) => void
     onBlur: () => void
     websocketProvider: HocuspocusProviderWebsocket | null
+    /**
+     * Opt-in, because Step 2 renders no placeholders (OTTER-691) while the resubmit page still
+     * does. Reading `field.placeholder` here instead would tie the two pages together, and the
+     * card's scope is Step 2.
+     */
+    placeholder?: string
 }
 
 export function CollaborativeProposalTextField({
@@ -37,11 +43,12 @@ export function CollaborativeProposalTextField({
     onChange,
     onBlur,
     websocketProvider,
+    placeholder,
 }: Props) {
     const [wordCount, setWordCount] = useState(() => countWordsFromLexical(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
     // The editor surface needs its own DOM id: `docName` is the Yjs document key.
-    const inputId = `proposal-field-${field.id}`
+    const inputId = textFieldInputId(field.id)
 
     const onTextChange = (json: string) => {
         onChange(json)
@@ -66,7 +73,8 @@ export function CollaborativeProposalTextField({
                         initialValue={initialValue}
                         websocketProvider={websocketProvider}
                         contentStyle={contentStyle}
-                        placeholder={field.placeholder}
+                        contentHeight={field.contentHeight}
+                        placeholder={placeholder}
                         ariaLabel={field.label}
                         onChange={onTextChange}
                         onBlur={onBlur}

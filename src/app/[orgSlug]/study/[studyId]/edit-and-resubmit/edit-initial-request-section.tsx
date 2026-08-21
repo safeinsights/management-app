@@ -48,6 +48,7 @@ const EditableTextFieldEntry: FC<{
             onChange={onChange}
             onBlur={onBlur}
             websocketProvider={websocketProvider}
+            placeholder={field.placeholder}
         />
     )
 }
