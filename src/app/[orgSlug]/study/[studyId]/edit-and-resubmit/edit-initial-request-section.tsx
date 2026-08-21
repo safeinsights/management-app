@@ -3,18 +3,15 @@
 import { FC } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
-import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
-import type { UseFormReturnType } from '@mantine/form'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { WORD_LIMITS } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
-import { editableTextFields, type EditableTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
-import { CollaborativeProposalTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
-import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
+import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
+import { ProposalTextFieldEntry } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
 
 export interface MemberOption {
     value: string
@@ -26,30 +23,6 @@ interface EditInitialRequestSectionProps {
     members: MemberOption[]
     researcherName: string
     enclaveOrgSlug?: string
-}
-
-const EditableTextFieldEntry: FC<{
-    field: EditableTextField
-    form: UseFormReturnType<ProposalFormValues>
-    studyId: string
-    websocketProvider: HocuspocusProviderWebsocket | null
-}> = ({ field, form, studyId, websocketProvider }) => {
-    const value = form.values[field.id] as string
-    const error = form.errors[field.id] as string | undefined
-    const onChange = (val: string) => form.setFieldValue(field.id, val)
-    const onBlur = () => form.validateField(field.id)
-
-    return (
-        <CollaborativeProposalTextField
-            studyId={studyId}
-            field={field as typeof field & { id: ProposalTextFieldKey }}
-            initialValue={value}
-            error={error}
-            onChange={onChange}
-            onBlur={onBlur}
-            websocketProvider={websocketProvider}
-        />
-    )
 }
 
 export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
@@ -145,12 +118,13 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
             </Paper>
 
             {editableTextFields.map((field) => (
-                <EditableTextFieldEntry
+                <ProposalTextFieldEntry
                     key={field.id}
                     field={field}
                     form={form}
                     studyId={studyId}
                     websocketProvider={websocketProvider}
+                    placeholder={field.placeholder}
                 />
             ))}
 

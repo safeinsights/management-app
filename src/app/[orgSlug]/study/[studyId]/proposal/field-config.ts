@@ -1,4 +1,4 @@
-import { type ProposalFormValues, WORD_LIMITS } from './schema'
+import { CHARACTER_LIMITS, FIELD_TITLES, type ProposalFormValues, WORD_LIMITS } from './schema'
 
 export interface EditableTextField {
     label: string
@@ -6,13 +6,28 @@ export interface EditableTextField {
     description: string
     placeholder: string
     maxWords: number
+    /**
+     * Step 2's cap, in characters. `maxWords` stays alongside it because the CHANGE-REQUESTED
+     * resubmit page shares this config and still counts words (OTTER-691).
+     */
+    maxCharacters: number
+    /**
+     * Height of the editable area before any typing or dragging, in px.
+     *
+     * Figma gives each field its own box height rather than one shared value (OTTER-691). These are
+     * the box heights from `403:20575` / `403:20588` / `403:20601` / `403:20614` less the toolbar
+     * row, which sits inside the box.
+     */
+    contentHeight: number
     required?: boolean
 }
 
 export const editableTextFields: EditableTextField[] = [
     {
-        label: 'Research question(s)',
+        label: FIELD_TITLES.researchQuestions,
         id: 'researchQuestions',
+        maxCharacters: CHARACTER_LIMITS.researchQuestions,
+        contentHeight: 205,
         maxWords: WORD_LIMITS.researchQuestions,
         description:
             'Describe the primary research question(s) your study aims to answer. Be as specific as possible to support review and alignment with available data.',
@@ -21,8 +36,10 @@ export const editableTextFields: EditableTextField[] = [
         required: true,
     },
     {
-        label: 'Project summary',
+        label: FIELD_TITLES.projectSummary,
         id: 'projectSummary',
+        maxCharacters: CHARACTER_LIMITS.projectSummary,
+        contentHeight: 505,
         maxWords: WORD_LIMITS.projectSummary,
         description:
             'Briefly explain your planned study, including the target population, research design, methods, and any interventions or comparisons.',
@@ -31,8 +48,10 @@ export const editableTextFields: EditableTextField[] = [
         required: true,
     },
     {
-        label: 'Impact',
+        label: FIELD_TITLES.impact,
         id: 'impact',
+        maxCharacters: CHARACTER_LIMITS.impact,
+        contentHeight: 205,
         maxWords: WORD_LIMITS.impact,
         description:
             'What are the potential outcomes of this study? Describe how your findings could improve learning experiences, teaching practices, educational policy, etc.',
@@ -41,8 +60,10 @@ export const editableTextFields: EditableTextField[] = [
         required: true,
     },
     {
-        label: 'Additional notes or requests',
+        label: FIELD_TITLES.additionalNotes,
         id: 'additionalNotes',
+        maxCharacters: CHARACTER_LIMITS.additionalNotes,
+        contentHeight: 105,
         maxWords: WORD_LIMITS.additionalNotes,
         description:
             'Add any other information, constraints, or questions for the Data Partner. This might include timing, special requirements, references, or related work.',

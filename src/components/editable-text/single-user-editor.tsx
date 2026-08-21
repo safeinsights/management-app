@@ -1,12 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Paper, Stack, Text } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
-import { ContentEditable } from '@lexical/react/LexicalContentEditable'
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
-import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
@@ -16,7 +13,7 @@ import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
 import { EditorFooter } from './editor-footer'
-import { Toolbar } from './toolbar'
+import { EditorSurface } from './editor-surface'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
 
@@ -53,6 +50,13 @@ export type SingleUserEditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
+    /**
+     * Height of the editable area before any typing or dragging. Falls back to
+     * `contentStyle.minHeight`, then to the shared default.
+     */
+    contentHeight?: number
+    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
+    isResizable?: boolean
     /** Extra plugins/children rendered inside the Lexical composer context. */
     children?: React.ReactNode
 }
@@ -101,54 +105,27 @@ export function SingleUserEditor({
     ariaDescribedBy,
     ariaRequired,
     onBlur,
+    contentHeight,
+    isResizable,
     children,
 }: SingleUserEditorProps) {
     const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
 
     return (
         <LexicalComposer initialConfig={createInitialConfig(id, initialValue)}>
-            <Paper
-                p={0}
-                className="collaborative-editor-container"
-                style={{
-                    overflow: 'hidden',
-                    position: 'relative',
-                    borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
-                }}
-                {...widgetBlur}
+            <EditorSurface
+                inputId={inputId}
+                contentClassName={contentClassName}
+                contentStyle={contentStyle}
+                placeholder={placeholder}
+                ariaLabel={ariaLabel}
+                ariaDescribedBy={ariaDescribedBy}
+                ariaRequired={ariaRequired}
+                error={error}
+                widgetBlur={widgetBlur}
+                contentHeight={contentHeight}
+                isResizable={isResizable}
             >
-                <RichTextPlugin
-                    contentEditable={
-                        <ContentEditable
-                            id={inputId}
-                            className={contentClassName}
-                            style={contentStyle}
-                            ariaLabel={ariaLabel}
-                            ariaDescribedBy={ariaDescribedBy}
-                            ariaInvalid={error ? true : undefined}
-                            ariaRequired={ariaRequired}
-                        />
-                    }
-                    placeholder={
-                        placeholder ? (
-                            <Text
-                                c="dimmed"
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    padding: contentStyle?.padding,
-                                    fontSize: contentStyle?.fontSize,
-                                    lineHeight: contentStyle?.lineHeight,
-                                    pointerEvents: 'none',
-                                }}
-                            >
-                                {placeholder}
-                            </Text>
-                        ) : null
-                    }
-                    ErrorBoundary={LexicalErrorBoundary}
-                />
                 <HistoryPlugin />
                 <ListPlugin />
                 {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
@@ -156,8 +133,7 @@ export function SingleUserEditor({
                 <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}
                 {children}
-                <Toolbar />
-            </Paper>
+            </EditorSurface>
             {(footerLeft || footerRight) && (
                 <Stack gap={4} mt={4}>
                     <EditorFooter left={footerLeft} right={footerRight} />

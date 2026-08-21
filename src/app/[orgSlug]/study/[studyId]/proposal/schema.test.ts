@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { proposalFormSchema, initialProposalValues, WORD_LIMITS } from './schema'
+import {
+    CHARACTER_LIMITS,
+    DRAFT_REQUIRED_ERRORS,
+    draftProposalFormSchema,
+    FIELD_TITLES,
+    proposalFormSchema,
+    initialProposalValues,
+    WORD_LIMITS,
+} from './schema'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 
 function lexicalText(text: string): string {
@@ -344,5 +352,141 @@ describe('proposalFormSchema', () => {
             const result = proposalFormSchema.safeParse(validProposalData)
             expect(result.success).toBe(true)
         })
+    })
+})
+
+const messagesFor = (result: ReturnType<typeof draftProposalFormSchema.safeParse>, path: string) =>
+    result.success ? [] : result.error.issues.filter((i) => i.path[0] === path).map((i) => i.message)
+
+// Step 2 on a DRAFT. Everything here is deliberately absent from `proposalFormSchema`, which the
+// CHANGE-REQUESTED resubmit page still uses.
+describe('draftProposalFormSchema (OTTER-691)', () => {
+    // The title lives on Step 1 now, so this schema must not carry a rule for a field the page
+    // does not render: that is a submit blocker the user cannot clear (OTTER-647).
+    it('accepts a payload with no title at all', () => {
+        const { title: _title, ...withoutTitle } = validProposalData
+        expect(draftProposalFormSchema.safeParse(withoutTitle).success).toBe(true)
+    })
+
+    describe('empty-field messages', () => {
+        it('names the dataset field', () => {
+            const result = draftProposalFormSchema.safeParse({ ...validProposalData, datasets: [] })
+            expect(messagesFor(result, 'datasets')).toContain(DRAFT_REQUIRED_ERRORS.datasets)
+        })
+
+        it('names each empty rich-text field', () => {
+            const result = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                researchQuestions: lexicalText('   '),
+                projectSummary: lexicalText(''),
+                impact: lexicalText(''),
+            })
+            expect(messagesFor(result, 'researchQuestions')).toContain(DRAFT_REQUIRED_ERRORS.researchQuestions)
+            expect(messagesFor(result, 'projectSummary')).toContain(DRAFT_REQUIRED_ERRORS.projectSummary)
+            expect(messagesFor(result, 'impact')).toContain(DRAFT_REQUIRED_ERRORS.impact)
+        })
+
+        it('names the Principal Investigator field', () => {
+            const result = draftProposalFormSchema.safeParse({ ...validProposalData, piName: '' })
+            expect(messagesFor(result, 'piName')).toContain(DRAFT_REQUIRED_ERRORS.piName)
+        })
+
+        // One control, one message: a blank field is empty, not also over-limit.
+        it('reports only the empty message for a blank field', () => {
+            const result = draftProposalFormSchema.safeParse({ ...validProposalData, impact: lexicalText('') })
+            expect(messagesFor(result, 'impact')).toEqual([DRAFT_REQUIRED_ERRORS.impact])
+        })
+    })
+
+    describe('character limits', () => {
+        // Pinned to literals, not to CHARACTER_LIMITS. Every other assertion in this block derives
+        // its expectation from the constant, so a typo in the constant would move the test with it
+        // and the four numbers the card specifies would go unguarded.
+        it('caps each field at the number the card specifies', () => {
+            expect(CHARACTER_LIMITS).toEqual({
+                researchQuestions: 3000,
+                projectSummary: 6000,
+                impact: 3000,
+                additionalNotes: 1800,
+            })
+        })
+
+        it.each([
+            ['researchQuestions', 3000],
+            ['projectSummary', 6000],
+            ['impact', 3000],
+            ['additionalNotes', 1800],
+        ] as const)('accepts %s at %i characters and rejects one more', (field, limit) => {
+            expect(
+                draftProposalFormSchema.safeParse({ ...validProposalData, [field]: lexicalText('x'.repeat(limit)) })
+                    .success,
+            ).toBe(true)
+
+            const tooLong = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                [field]: lexicalText('x'.repeat(limit + 1)),
+            })
+            expect(messagesFor(tooLong, field)).toContain(
+                `${FIELD_TITLES[field]} exceeds the ${limit} character limit. Shorten it to continue.`,
+            )
+        })
+
+        it('accepts a field exactly at its limit', () => {
+            const result = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                impact: lexicalText('x'.repeat(CHARACTER_LIMITS.impact)),
+            })
+            expect(result.success).toBe(true)
+        })
+
+        it('rejects one character past the limit, naming the field and the cap', () => {
+            const result = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                impact: lexicalText('x'.repeat(CHARACTER_LIMITS.impact + 1)),
+            })
+            expect(messagesFor(result, 'impact')).toContain(
+                `${FIELD_TITLES.impact} exceeds the ${CHARACTER_LIMITS.impact} character limit. Shorten it to continue.`,
+            )
+        })
+
+        // Characters, not words: 3000 short words is far past a 500-word cap but well inside the
+        // character cap, so this fails if word counting survived anywhere.
+        it('measures characters rather than words', () => {
+            const result = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                impact: lexicalText(words(600)),
+            })
+            expect(result.success).toBe(true)
+        })
+
+        it('caps the optional notes field without requiring it', () => {
+            expect(draftProposalFormSchema.safeParse({ ...validProposalData, additionalNotes: '' }).success).toBe(true)
+
+            const tooLong = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                additionalNotes: lexicalText('x'.repeat(CHARACTER_LIMITS.additionalNotes + 1)),
+            })
+            expect(messagesFor(tooLong, 'additionalNotes')).toContain(
+                `${FIELD_TITLES.additionalNotes} exceeds the ${CHARACTER_LIMITS.additionalNotes} character limit. Shorten it to continue.`,
+            )
+        })
+    })
+})
+
+// Containment guard. The resubmit page shares this module, and swapping its rules is a bigger
+// product change than OTTER-691 covers. If this ever fails, the character switch has leaked.
+describe('proposalFormSchema still counts words (OTTER-691 containment)', () => {
+    it('rejects a field over the WORD limit even though it is inside the character limit', () => {
+        const result = proposalFormSchema.safeParse({
+            ...validProposalData,
+            impact: lexicalText(words(WORD_LIMITS.impact + 1)),
+        })
+        expect(result.success).toBe(false)
+    })
+
+    it('keeps its generic required message rather than the Step 2 wording', () => {
+        const result = proposalFormSchema.safeParse({ ...validProposalData, datasets: [] })
+        const messages = result.success ? [] : result.error.issues.map((i) => i.message)
+        expect(messages).not.toContain(DRAFT_REQUIRED_ERRORS.datasets)
     })
 })

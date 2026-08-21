@@ -61,6 +61,13 @@ export type EditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
     onBlur?: () => void
+    /**
+     * Height of the editable area before any typing or dragging. Falls back to
+     * `contentStyle.minHeight`, then to the shared default.
+     */
+    contentHeight?: number
+    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
+    isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void
     /** Height of the skeleton shown while the collaborative chunk loads / before the websocket connects. */
     skeletonHeight?: number

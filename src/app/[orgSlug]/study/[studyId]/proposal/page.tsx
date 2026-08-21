@@ -1,6 +1,7 @@
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
+import { sessionFromClerk } from '@/server/clerk'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { ProposalForm } from './form'
@@ -40,6 +41,12 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
+    // Resolved here rather than on the client: the Researcher row keys off the study's creator,
+    // and the browser only knows the viewer's Clerk id, not the database user id `researcherId`
+    // records. Same approach the edit-and-resubmit page already takes.
+    const session = await sessionFromClerk()
+    const isDraftCreator = !!session && session.user.id === result.researcherId
+
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
@@ -66,6 +73,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     researcherId={result.researcherId}
                     enclaveOrgSlug={result.orgSlug}
                     studyTitle={result.title}
+                    isDraftCreator={isDraftCreator}
                 />
             </ProposalProvider>
         </Stack>
