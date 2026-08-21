@@ -134,7 +134,12 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
     // starting the mutation made the spinner, the "Submitting" label and the disabled Cancel dead
     // code. STUDY_ID has no row, so this submission fails, which is also the only path that has to
     // hand the form back rather than navigate.
-    it('holds the modal open through the submission and closes it when that fails', async () => {
+    // Only the settled outcome is asserted here. An earlier version also asserted the "Submitting"
+    // label mid-flight, which raced the mutation: against a warm test database the submission fails
+    // and the modal closes before the query runs, so the test passed or failed on timing. The
+    // loading presentation is covered deterministically in submit-confirmation-modal.test.tsx,
+    // which renders that state directly instead of trying to catch it.
+    it('closes the modal when the submission fails, leaving the user on the form', async () => {
         const user = userEvent.setup()
         renderFooter()
 
@@ -142,9 +147,9 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
         const dialog = await screen.findByRole('dialog')
         await user.click(within(dialog).getByRole('button', { name: 'Submit proposal' }))
 
-        expect(await screen.findByRole('button', { name: 'Submitting' })).toBeInTheDocument()
-
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        // The form is still there to retry from, with its button live.
+        expect(submitButton()).toBeEnabled()
     })
 })
 
