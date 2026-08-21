@@ -17,7 +17,7 @@ import {
 } from '@/components/save-status'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { type CollabFieldKey, type ProposalFormValues } from './schema'
+import { overCharacterLimitError, type CollabFieldKey, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { ResearcherField } from './researcher-field'
@@ -25,6 +25,7 @@ import { DATASETS_FIELD_ID, PI_SELECT_ID } from './field-ids'
 import { editableTextFields, type EditableTextField } from './field-config'
 import { CollaborativeProposalTextField } from './collaborative-proposal-text-field'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
+import { countCharactersFromLexical } from '@/lib/lexical'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 
@@ -63,7 +64,18 @@ const EditableTextFieldEntry: FC<{
 }> = ({ field, form, studyId, websocketProvider }) => {
     const value = form.values[field.id] as string
     const error = form.errors[field.id] as string | undefined
-    const onChange = (val: string) => form.setFieldValue(field.id, val)
+
+    // Only the over-limit half of the rule is live. The required half belongs to blur and to the
+    // Submit click: running it on change would flash "Enter your project summary before
+    // continuing." the moment the user clears the box, which the card forbids. Mantine's
+    // clearInputErrorOnChange has already dropped any previous message by the time this runs, so
+    // the within-limit case needs no branch of its own.
+    const onChange = (val: string) => {
+        form.setFieldValue(field.id, val)
+        if (countCharactersFromLexical(val) > field.maxCharacters) {
+            form.setFieldError(field.id, overCharacterLimitError(field.label, field.maxCharacters))
+        }
+    }
     const onBlur = () => form.validateField(field.id)
 
     return (
@@ -75,6 +87,7 @@ const EditableTextFieldEntry: FC<{
             onChange={onChange}
             onBlur={onBlur}
             websocketProvider={websocketProvider}
+            countMode="characters"
         />
     )
 }

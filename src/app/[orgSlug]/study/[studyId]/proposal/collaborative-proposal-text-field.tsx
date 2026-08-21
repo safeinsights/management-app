@@ -6,9 +6,10 @@ import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 
 import { FormField, fieldDescribedBy } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
+import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { countWordsFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, countWordsFromLexical } from '@/lib/lexical'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
 
@@ -33,6 +34,11 @@ type Props = {
      * card's scope is Step 2.
      */
     placeholder?: string
+    /**
+     * How this field's cap is measured. Step 2 counts characters (OTTER-691); the resubmit page
+     * still counts words, and shares this component.
+     */
+    countMode?: 'words' | 'characters'
 }
 
 export function CollaborativeProposalTextField({
@@ -44,15 +50,18 @@ export function CollaborativeProposalTextField({
     onBlur,
     websocketProvider,
     placeholder,
+    countMode = 'words',
 }: Props) {
-    const [wordCount, setWordCount] = useState(() => countWordsFromLexical(initialValue))
+    const countsCharacters = countMode === 'characters'
+    const count = countsCharacters ? countCharactersFromLexical : countWordsFromLexical
+    const [textCount, setTextCount] = useState(() => count(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
     // The editor surface needs its own DOM id: `docName` is the Yjs document key.
     const inputId = textFieldInputId(field.id)
 
     const onTextChange = (json: string) => {
         onChange(json)
-        setWordCount(countWordsFromLexical(json))
+        setTextCount(count(json))
     }
 
     return (
@@ -64,7 +73,17 @@ export function CollaborativeProposalTextField({
                     required={field.required}
                     description={field.description}
                     error={error}
-                    footer={<WordCounter wordCount={wordCount} maxWords={field.maxWords} />}
+                    footer={
+                        countsCharacters ? (
+                            <CharacterCounter count={textCount} maxCharacters={field.maxCharacters} />
+                        ) : (
+                            <WordCounter wordCount={textCount} maxWords={field.maxWords} />
+                        )
+                    }
+                    // The character-limit error can appear while the user is still typing, before
+                    // any blur or click moves focus, so it has to announce itself (OTTER-690's
+                    // errorLive, built for the Step 1 title's identical case).
+                    errorLive={countsCharacters}
                 >
                     <Editor
                         id={docName}
