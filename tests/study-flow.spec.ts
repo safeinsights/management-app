@@ -109,11 +109,15 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
     await piSelect.click()
     await page.getByRole('option').first().click()
 
-    const submitButton = page.getByRole('button', { name: /Submit initial request/i })
+    // OTTER-691: the button is never disabled on validity, and the modal's confirm carries the
+    // same label as the button that opened it.
+    const submitButton = page.getByRole('button', { name: 'Submit proposal' })
     await expect(submitButton).toBeEnabled()
     await submitButton.click()
 
-    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
+    const confirmDialog = page.getByRole('dialog')
+    await expect(confirmDialog.getByText('Submit your proposal?')).toBeVisible()
+    await confirmDialog.getByRole('button', { name: 'Submit proposal' }).click()
 
     await expect(page.getByText(/successfully submitted/i)).toBeVisible()
 
@@ -552,7 +556,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
 
         // Navigate back, which triggers save-on-navigate and flushes Step 2 fields
         // to the study row so draftHasStep2Progress resolves correctly.
-        await page.getByRole('button', { name: /Previous/i }).click()
+        await page.getByRole('button', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit$/)
 
         // Revisiting Step 1 keeps the title editable and shows it as saved, while the Data
@@ -1021,12 +1025,28 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         await page.waitForURL(/\/proposal$/)
         await expect(page.getByText('STEP 2')).toBeVisible()
 
-        // Step 2 no longer owns the title, but its own required fields still flag on blur.
+        // Step 2 no longer owns the title, and OTTER-691 removed its placeholders.
         await expect(page.getByLabel('Study Title')).toHaveCount(0)
-        await expect(page.getByText('This field is required.')).toBeHidden()
-        await page.getByPlaceholder('Select dataset(s) of interest').click()
+        await expect(page.getByPlaceholder('Select dataset(s) of interest')).toHaveCount(0)
+
+        // Its own required fields still flag on blur (OTTER-647), now with per-field wording.
+        await page.locator('#datasets').click()
         await page.keyboard.press('Escape')
         await page.getByRole('textbox', { name: 'Principal Investigator' }).click()
-        await expect(page.getByText('Select at least one dataset.').first()).toBeVisible()
+        await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
+        await page.keyboard.press('Escape')
+
+        // Submit is live from load, and clicking it with an empty form flags every required field
+        // at once rather than disabling itself.
+        const submit = page.getByRole('button', { name: 'Submit proposal' })
+        await expect(submit).toBeEnabled()
+        await submit.click()
+        await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
+        await expect(page.getByText('Enter your research questions before continuing.')).toBeVisible()
+        await expect(page.getByText('Enter your project summary before continuing.')).toBeVisible()
+        await expect(page.getByText('Enter your proposal impact before continuing.')).toBeVisible()
+        await expect(page.getByText('Select a Principal Investigator before continuing.')).toBeVisible()
+        await expect(submit).toBeEnabled()
+        await expect(page.getByRole('dialog')).toBeHidden()
     })
 })
