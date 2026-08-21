@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
 
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
@@ -11,6 +11,32 @@ export const WORD_LIMITS = {
     impact: 500,
     additionalNotes: 300,
 } as const
+
+/**
+ * Step 2's per-field caps, in characters (OTTER-691). Figma shows these as the counters beside each
+ * field: 3000 / 6000 / 3000 / 1800.
+ *
+ * Deliberately separate from {@link WORD_LIMITS}, which stays in force on the CHANGE-REQUESTED
+ * resubmit page. The two flows now measure the same four fields differently; that divergence is
+ * intended for this card and is worth a follow-up to harmonize.
+ */
+export const CHARACTER_LIMITS = {
+    researchQuestions: 3000,
+    projectSummary: 6000,
+    impact: 3000,
+    additionalNotes: 1800,
+} as const
+
+/** Field titles, kept here so the schema's messages and the rendered labels cannot drift. */
+export const FIELD_TITLES = {
+    researchQuestions: 'Research question(s)',
+    projectSummary: 'Project summary',
+    impact: 'Impact',
+    additionalNotes: 'Additional notes or requests',
+} as const
+
+export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number) =>
+    `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
 
 export function maxWordsRefine(maxWords: number) {
     return {
@@ -113,11 +139,30 @@ export const DRAFT_REQUIRED_ERRORS = {
     piName: 'Select a Principal Investigator before continuing.',
 } as const
 
-const draftLexicalField = (requiredError: string, maxWords: number) =>
-    z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, { message: requiredError })
-        .refine(maxWordsLexicalRefine(maxWords).check, { message: maxWordsLexicalRefine(maxWords).message })
+/**
+ * A Step 2 rich-text field: required (unless `requiredError` is null) and capped in characters.
+ *
+ * `superRefine` rather than chained `refine`s so an empty field reports only that it is empty. The
+ * two rules can both fail at once on a blank field with a huge limit, and stacking two messages
+ * under one control reads as a defect.
+ *
+ * Emptiness is measured trimmed, the cap is measured raw, matching the counter beside the field
+ * and the same split OTTER-690 applied to the Step 1 title. Mixing them would let a field read
+ * 3000/3000 while validating as 3001.
+ */
+const draftLexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
+    z.string().superRefine((val, ctx) => {
+        if (requiredError && extractTextFromLexical(val).trim().length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
+            return
+        }
+        if (countCharactersFromLexical(val) > maxCharacters) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: overCharacterLimitError(fieldTitle, maxCharacters),
+            })
+        }
+    })
 
 /**
  * Step 2's resolver on a DRAFT, where the title lives on Step 1 (OTTER-690) and this page does
@@ -135,9 +180,22 @@ export const draftProposalFormSchema = proposalFieldsSchema
     // shape, and re-declaring every field would let the two drift on everything else.
     .extend({
         datasets: z.array(z.string()).min(1, { message: DRAFT_REQUIRED_ERRORS.datasets }),
-        researchQuestions: draftLexicalField(DRAFT_REQUIRED_ERRORS.researchQuestions, WORD_LIMITS.researchQuestions),
-        projectSummary: draftLexicalField(DRAFT_REQUIRED_ERRORS.projectSummary, WORD_LIMITS.projectSummary),
-        impact: draftLexicalField(DRAFT_REQUIRED_ERRORS.impact, WORD_LIMITS.impact),
+        researchQuestions: draftLexicalField(
+            FIELD_TITLES.researchQuestions,
+            DRAFT_REQUIRED_ERRORS.researchQuestions,
+            CHARACTER_LIMITS.researchQuestions,
+        ),
+        projectSummary: draftLexicalField(
+            FIELD_TITLES.projectSummary,
+            DRAFT_REQUIRED_ERRORS.projectSummary,
+            CHARACTER_LIMITS.projectSummary,
+        ),
+        impact: draftLexicalField(FIELD_TITLES.impact, DRAFT_REQUIRED_ERRORS.impact, CHARACTER_LIMITS.impact),
+        // Optional, but still capped: an over-long note must block Submit even though a blank one
+        // does not.
+        additionalNotes: draftLexicalField(FIELD_TITLES.additionalNotes, null, CHARACTER_LIMITS.additionalNotes)
+            .optional()
+            .default(''),
         piName: z.string().min(1, { message: DRAFT_REQUIRED_ERRORS.piName }),
     })
     .superRefine(validateLinkedPi)
