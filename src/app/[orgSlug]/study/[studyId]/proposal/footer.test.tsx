@@ -55,27 +55,79 @@ const TitleInputProbe = () => {
 const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle, studyTitle?: string | null) =>
     renderWithProviders(
         <ProposalProvider studyId={STUDY_ID} draftData={draftData}>
-            <ProposalFooter researcherName="Researcher" researcherId="researcher-1" studyTitle={studyTitle} />
+            <ProposalFooter
+                researcherName="Researcher"
+                researcherId="researcher-1"
+                studyTitle={studyTitle}
+                orgName="Test Data Partner"
+            />
         </ProposalProvider>,
     )
 
-// Replaces the OTTER-557 gating suite. That suite asserted a blank title blocks Submit here,
-// which OTTER-690 deliberately ends: Step 2 no longer renders a title field, and a required rule
-// on an unrendered field is a submit blocker the user has no way to clear (OTTER-647).
-describe('ProposalFooter submit gating', () => {
-    it('enables Submit with a blank title, which Step 1 now owns', () => {
+const submitButton = () => screen.getByRole('button', { name: 'Submit proposal' })
+
+// Replaces the OTTER-557 gating suite twice over. That suite asserted a blank title blocks Submit,
+// which OTTER-690 ended when the title moved to Step 1. OTTER-691 then removed validity gating
+// altogether: the button is always live, and clicking it is what raises the errors.
+describe('ProposalFooter submit button (OTTER-691)', () => {
+    it('is enabled with a blank title, which Step 1 now owns', () => {
         renderFooter()
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeEnabled()
+        expect(submitButton()).toBeEnabled()
     })
 
-    it('enables Submit with a whitespace-only title', () => {
+    it('is enabled with a whitespace-only title', () => {
         renderFooter({ ...fullyValidExceptTitle, title: '   ' })
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeEnabled()
+        expect(submitButton()).toBeEnabled()
     })
 
-    it('still gates Submit on the fields this page does own', () => {
+    it('stays enabled when the fields this page owns are empty', () => {
         renderFooter({ ...fullyValidExceptTitle, datasets: [] })
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
+        expect(submitButton()).toBeEnabled()
+    })
+
+    it('does not open the confirmation modal while a required field is empty', async () => {
+        const user = userEvent.setup()
+        renderFooter({ ...fullyValidExceptTitle, datasets: [] })
+
+        await user.click(submitButton())
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        // The failed click must not disable the control the user needs to retry with.
+        expect(submitButton()).toBeEnabled()
+    })
+
+    it('opens the confirmation modal once every field is valid', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(submitButton())
+
+        const dialog = await screen.findByRole('dialog')
+        expect(within(dialog).getByText('Submit your proposal?')).toBeInTheDocument()
+        expect(
+            within(dialog).getByText(
+                'Your proposal will be sent to Test Data Partner for review. You will not be able to make changes once submitted.',
+            ),
+        ).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    })
+
+    it('keeps the entered values when the modal is cancelled', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(submitButton())
+        await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        // Re-opening proves nothing was reset: a cleared form would fail validation instead.
+        await user.click(submitButton())
+        expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('renders no reference to the old copy', () => {
+        renderFooter()
+        expect(screen.queryByRole('button', { name: /Submit initial request/i })).not.toBeInTheDocument()
     })
 })
 
@@ -104,7 +156,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         renderWithProviders(
             <ProposalProvider studyId={studyId} draftData={{ ...fullyValidExceptTitle, piUserId }}>
                 <TitleInputProbe />
-                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
+                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" orgName="Test Data Partner" />
             </ProposalProvider>,
         )
 

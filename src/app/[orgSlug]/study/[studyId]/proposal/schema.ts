@@ -98,6 +98,28 @@ const proposalFieldsSchema = z.object({
 export const proposalFormSchema = proposalFieldsSchema.superRefine(validateLinkedPi)
 
 /**
+ * Step 2's empty-field messages (OTTER-691). Each one names the field and the action, because they
+ * are raised together when Submit is clicked: five copies of "This field is required." stacked down
+ * the page tell the user nothing about which is which.
+ *
+ * Scoped to the DRAFT resolver below. `proposalFormSchema` keeps the generic wording because the
+ * CHANGE-REQUESTED resubmit page shares it and this card does not cover that page.
+ */
+export const DRAFT_REQUIRED_ERRORS = {
+    datasets: 'Select a dataset of interest before continuing.',
+    researchQuestions: 'Enter your research questions before continuing.',
+    projectSummary: 'Enter your project summary before continuing.',
+    impact: 'Enter your proposal impact before continuing.',
+    piName: 'Select a Principal Investigator before continuing.',
+} as const
+
+const draftLexicalField = (requiredError: string, maxWords: number) =>
+    z
+        .string()
+        .refine((val) => extractTextFromLexical(val).trim().length > 0, { message: requiredError })
+        .refine(maxWordsLexicalRefine(maxWords).check, { message: maxWordsLexicalRefine(maxWords).message })
+
+/**
  * Step 2's resolver on a DRAFT, where the title lives on Step 1 (OTTER-690) and this page does
  * not render it. A required rule on an unrendered field is a submit blocker nothing can clear
  * (OTTER-647), so the rule is dropped rather than the field: `title` stays in
@@ -107,7 +129,18 @@ export const proposalFormSchema = proposalFieldsSchema.superRefine(validateLinke
  * Derived by omitting from the bare object, not from `proposalFormSchema`: zod refuses `.omit()`
  * on an object carrying refinements, and that failure is at module load, not at runtime.
  */
-export const draftProposalFormSchema = proposalFieldsSchema.omit({ title: true }).superRefine(validateLinkedPi)
+export const draftProposalFormSchema = proposalFieldsSchema
+    .omit({ title: true })
+    // Overridden rather than redefined from scratch: only the messages differ from the shared
+    // shape, and re-declaring every field would let the two drift on everything else.
+    .extend({
+        datasets: z.array(z.string()).min(1, { message: DRAFT_REQUIRED_ERRORS.datasets }),
+        researchQuestions: draftLexicalField(DRAFT_REQUIRED_ERRORS.researchQuestions, WORD_LIMITS.researchQuestions),
+        projectSummary: draftLexicalField(DRAFT_REQUIRED_ERRORS.projectSummary, WORD_LIMITS.projectSummary),
+        impact: draftLexicalField(DRAFT_REQUIRED_ERRORS.impact, WORD_LIMITS.impact),
+        piName: z.string().min(1, { message: DRAFT_REQUIRED_ERRORS.piName }),
+    })
+    .superRefine(validateLinkedPi)
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 

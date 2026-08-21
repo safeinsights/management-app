@@ -240,6 +240,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     researcherId={researcherId}
                     enclaveOrgSlug={enclaveOrgSlug}
                     studyTitle={studyTitle}
+                    orgName={orgName}
                 />
             </Stack>
         </StudyKickOutProvider>
