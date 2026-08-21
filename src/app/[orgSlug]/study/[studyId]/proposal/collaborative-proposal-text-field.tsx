@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type FC } from 'react'
 import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import type { UseFormReturnType } from '@mantine/form'
 
 import { FormField, fieldDescribedBy } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
@@ -12,6 +13,7 @@ import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/colla
 import { countCharactersFromLexical, countWordsFromLexical } from '@/lib/lexical'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
+import { overCharacterLimitError, type ProposalFormValues } from './schema'
 
 const contentStyle = {
     padding: '8px 16px',
@@ -118,5 +120,71 @@ export function CollaborativeProposalTextField({
                 </FormField>
             </Stack>
         </Paper>
+    )
+}
+
+/**
+ * Binds one `editableTextFields` entry to the Mantine form that owns it.
+ *
+ * Both the Step 2 proposal form and the change-requested resubmit form render the same list of
+ * rich-text fields against the same form shape, and each used to carry its own copy of this
+ * wrapper. The copies only ever differed in props that {@link CollaborativeProposalTextField}
+ * already takes, so the flows stay separated by what they pass rather than by having two
+ * components (OTTER-691).
+ */
+export const ProposalTextFieldEntry: FC<{
+    field: EditableTextField
+    form: UseFormReturnType<ProposalFormValues>
+    studyId: string
+    websocketProvider: HocuspocusProviderWebsocket | null
+    placeholder?: string
+    countMode?: 'words' | 'characters'
+    contentHeight?: number
+    isResizable?: boolean
+    /**
+     * Raises the over-limit error while the user is still typing.
+     *
+     * Only the over-limit half of the rule is live. The required half belongs to blur and to the
+     * Submit click: running it on change would flash "Enter your project summary before
+     * continuing." the moment the user clears the box, which the card forbids. Mantine's
+     * clearInputErrorOnChange has already dropped any previous message by the time this runs, so
+     * the within-limit case needs no branch of its own.
+     */
+    liveCharacterLimit?: boolean
+}> = ({
+    field,
+    form,
+    studyId,
+    websocketProvider,
+    placeholder,
+    countMode,
+    contentHeight,
+    isResizable,
+    liveCharacterLimit = false,
+}) => {
+    const value = form.values[field.id] as string
+    const error = form.errors[field.id] as string | undefined
+
+    const onChange = (val: string) => {
+        form.setFieldValue(field.id, val)
+        if (liveCharacterLimit && countCharactersFromLexical(val) > field.maxCharacters) {
+            form.setFieldError(field.id, overCharacterLimitError(field.label, field.maxCharacters))
+        }
+    }
+
+    return (
+        <CollaborativeProposalTextField
+            studyId={studyId}
+            field={field as typeof field & { id: ProposalTextFieldKey }}
+            initialValue={value}
+            error={error}
+            onChange={onChange}
+            onBlur={() => form.validateField(field.id)}
+            websocketProvider={websocketProvider}
+            placeholder={placeholder}
+            countMode={countMode}
+            contentHeight={contentHeight}
+            isResizable={isResizable}
+        />
     )
 }
