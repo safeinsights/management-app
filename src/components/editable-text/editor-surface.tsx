@@ -51,11 +51,13 @@ const PLACEHOLDER_BASE_STYLE: CSSProperties = {
  * `minHeight: startingHeight`, so what this measures is `max(default, actual content)` and the
  * floor is that plus the toolbar.
  *
- * `min-height` rather than `height` is deliberate. Chrome does not reliably write an inline
- * `height` when a native resize handle is dragged, so reading the dragged size back is not
- * portable, but both Blink and Gecko honor `min-height` as a lower bound the user cannot drag
- * past. That makes one declaration do the whole job, and it keeps auto-growth working after a
- * manual resize: typing raises the floor, which pushes the box back open.
+ * `min-height` rather than `height` is deliberate, and the two coexist rather than compete.
+ * Dragging the native handle writes an inline `height` on this element (verified in Chromium),
+ * which is the user's manual size; `min-height` is the floor the drag cannot cross. Because React
+ * only ever writes `minHeight` here, re-rendering does not clobber the height the browser wrote,
+ * so a manual size survives every subsequent render. That is also what keeps auto-growth working
+ * after a manual resize: typing raises the floor above the dragged height and pushes the box back
+ * open, and deleting that text lowers the floor again, leaving the manual height in charge.
  *
  * What is measured matters. `contentRef` wraps the editable surface but is never stretched (the
  * scroll container is the flex child that absorbs slack), so its height is the content's own
