@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { useParams } from 'next/navigation'
-import { Anchor, Box, Group, Paper, Select, Stack, Text, TextInput } from '@mantine/core'
+import { Anchor, Box, Group, Paper, Select, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
@@ -16,7 +16,7 @@ import {
     type SaveStatusValue,
 } from '@/components/save-status'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
-import { Routes, ExternalLinks } from '@/lib/routes'
+import { ExternalLinks } from '@/lib/routes'
 import { overCharacterLimitError, type CollabFieldKey, type ProposalFormValues } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
@@ -120,6 +120,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     // their own regions.
     const fieldsAnnouncedStatus = announcedSaveStatus([datasetsSaveStatus, piSaveStatus])
 
+    const intro = introText(orgName)
+    const datasetsHelp = datasetsDescription(orgName)
+
     useSubmissionRedirectListener({
         provider: yjsForm.provider,
         orgSlug,
@@ -144,7 +147,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     token is 24px. Once the theme scale is aligned these can switch to the token. */}
                 <ProposalStepHeader stepLabel="STEP 2" heading="Study proposal">
                     <Stack gap={24}>
-                        <Text>{introText(orgName)}</Text>
+                        <Text>{intro}</Text>
 
                         {/* No Study title field: it moved to Step 1 with OTTER-690, which owns
                             study.title for drafts. */}
@@ -152,7 +155,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                             inputId={DATASETS_FIELD_ID}
                             label="Dataset(s) of interest"
                             required
-                            description={datasetsDescription(orgName)}
+                            description={datasetsHelp}
                             error={form.errors.datasets}
                         >
                             <Group align="center" gap="xxl">
