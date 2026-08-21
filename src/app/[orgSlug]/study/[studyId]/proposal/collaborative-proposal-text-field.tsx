@@ -59,6 +59,12 @@ export function CollaborativeProposalTextField({
     // The editor surface needs its own DOM id: `docName` is the Yjs document key.
     const inputId = textFieldInputId(field.id)
 
+    const counter = countsCharacters ? (
+        <CharacterCounter count={textCount} maxCharacters={field.maxCharacters} />
+    ) : (
+        <WordCounter wordCount={textCount} maxWords={field.maxWords} />
+    )
+
     const onTextChange = (json: string) => {
         onChange(json)
         setTextCount(count(json))
@@ -73,13 +79,7 @@ export function CollaborativeProposalTextField({
                     required={field.required}
                     description={field.description}
                     error={error}
-                    footer={
-                        countsCharacters ? (
-                            <CharacterCounter count={textCount} maxCharacters={field.maxCharacters} />
-                        ) : (
-                            <WordCounter wordCount={textCount} maxWords={field.maxWords} />
-                        )
-                    }
+                    footer={counter}
                     // The character-limit error can appear while the user is still typing, before
                     // any blur or click moves focus, so it has to announce itself (OTTER-690's
                     // errorLive, built for the Step 1 title's identical case).

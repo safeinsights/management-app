@@ -171,7 +171,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         renderFooterForStudy(studyId, researcher.id)
         await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
 
-        await user.click(screen.getByRole('button', { name: 'Previous' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
             timeout: 5000,
@@ -198,7 +198,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         renderFooterForStudy(studyId, researcher.id)
         await user.type(screen.getByLabelText('Study Title Probe'), 'Edited so the form is dirty')
 
-        await user.click(screen.getByRole('button', { name: 'Previous' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
         const errorCall = (notifications.show as Mock).mock.calls.find(
@@ -245,7 +245,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
 
         renderFooterForStudy(studyId, researcher.id)
 
-        await user.click(screen.getByRole('button', { name: 'Previous' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
             timeout: 5000,

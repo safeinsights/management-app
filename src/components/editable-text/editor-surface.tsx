@@ -11,6 +11,16 @@ import type { WidgetBlurProps } from '@/components/form-field'
 /** Content-area height used by any caller that does not specify one. */
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
+/** Absorbs the slack when the box is dragged taller, so the measured content stays its own size. */
+const SCROLL_AREA_STYLE: CSSProperties = { position: 'relative', flex: 1, overflow: 'auto' }
+
+const PLACEHOLDER_BASE_STYLE: CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    pointerEvents: 'none',
+}
+
 /**
  * Tracks the height the editor would take with no manual sizing, so it can be applied as the
  * resize floor (OTTER-691).
@@ -113,28 +123,26 @@ export function EditorSurface({
         [contentRef],
     )
 
+    const surfaceStyle: CSSProperties = {
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minHeight: floor,
+        resize: isResizable ? 'vertical' : 'none',
+        borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
+    }
+    const editableStyle: CSSProperties = { ...contentStyle, minHeight: contentHeight }
+
     return (
-        <Paper
-            p={0}
-            className="collaborative-editor-container"
-            style={{
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                minHeight: floor,
-                resize: isResizable ? 'vertical' : 'none',
-                borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
-            }}
-            {...widgetBlur}
-        >
-            <div style={{ position: 'relative', flex: 1, overflow: 'auto' }} onMouseDown={focusFromSlack}>
+        <Paper p={0} className="collaborative-editor-container" style={surfaceStyle} {...widgetBlur}>
+            <div style={SCROLL_AREA_STYLE} onMouseDown={focusFromSlack}>
                 <div ref={contentRef}>
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
                                 id={inputId}
                                 className={contentClassName}
-                                style={{ ...contentStyle, minHeight: contentHeight }}
+                                style={editableStyle}
                                 // Lexical sets no tabindex of its own. A browser still focuses a
                                 // contenteditable, but happy-dom does not, so `focusFirstInvalid`
                                 // would silently no-op in tests and the "jump to the first
@@ -162,19 +170,16 @@ export function EditorSurface({
 const EditorPlaceholder = ({ text, contentStyle }: { text?: string; contentStyle?: CSSProperties }) => {
     if (!text) return null
 
+    // Mirrors the editable surface's own text metrics so the two sit exactly on top of each other.
+    const style: CSSProperties = {
+        ...PLACEHOLDER_BASE_STYLE,
+        padding: contentStyle?.padding,
+        fontSize: contentStyle?.fontSize,
+        lineHeight: contentStyle?.lineHeight,
+    }
+
     return (
-        <Text
-            c="dimmed"
-            style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                padding: contentStyle?.padding,
-                fontSize: contentStyle?.fontSize,
-                lineHeight: contentStyle?.lineHeight,
-                pointerEvents: 'none',
-            }}
-        >
+        <Text c="dimmed" style={style}>
             {text}
         </Text>
     )
