@@ -6,6 +6,14 @@ export interface EditableTextField {
     description: string
     placeholder: string
     maxWords: number
+    /**
+     * Height of the editable area before any typing or dragging, in px.
+     *
+     * Figma gives each field its own box height rather than one shared value (OTTER-691). These are
+     * the box heights from `403:20575` / `403:20588` / `403:20601` / `403:20614` less the toolbar
+     * row, which sits inside the box.
+     */
+    contentHeight: number
     required?: boolean
 }
 
@@ -13,6 +21,7 @@ export const editableTextFields: EditableTextField[] = [
     {
         label: 'Research question(s)',
         id: 'researchQuestions',
+        contentHeight: 205,
         maxWords: WORD_LIMITS.researchQuestions,
         description:
             'Describe the primary research question(s) your study aims to answer. Be as specific as possible to support review and alignment with available data.',
@@ -23,6 +32,7 @@ export const editableTextFields: EditableTextField[] = [
     {
         label: 'Project summary',
         id: 'projectSummary',
+        contentHeight: 505,
         maxWords: WORD_LIMITS.projectSummary,
         description:
             'Briefly explain your planned study, including the target population, research design, methods, and any interventions or comparisons.',
@@ -33,6 +43,7 @@ export const editableTextFields: EditableTextField[] = [
     {
         label: 'Impact',
         id: 'impact',
+        contentHeight: 205,
         maxWords: WORD_LIMITS.impact,
         description:
             'What are the potential outcomes of this study? Describe how your findings could improve learning experiences, teaching practices, educational policy, etc.',
@@ -43,6 +54,7 @@ export const editableTextFields: EditableTextField[] = [
     {
         label: 'Additional notes or requests',
         id: 'additionalNotes',
+        contentHeight: 105,
         maxWords: WORD_LIMITS.additionalNotes,
         description:
             'Add any other information, constraints, or questions for the Data Partner. This might include timing, special requirements, references, or related work.',
