@@ -20,6 +20,18 @@ export function countWordsFromLexical(json: string | undefined): number {
 }
 
 /**
+ * Extract plain text from Lexical JSON state and count characters.
+ *
+ * Counted RAW, not trimmed, unlike {@link countWordsFromLexical}. The counter shown beside the
+ * field and the validator that gates it must agree, and the counter counts what the user typed:
+ * trimming here would let a field read 3000/3000 while the validator saw 3001 (OTTER-690 applied
+ * the same rule to the Step 1 title).
+ */
+export function countCharactersFromLexical(json: string | undefined): number {
+    return extractTextFromLexical(json).length
+}
+
+/**
  * Extract plain text from Lexical JSON (for validation)
  */
 export function extractTextFromLexical(json: string | undefined): string {

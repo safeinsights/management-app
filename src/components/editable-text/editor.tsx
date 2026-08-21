@@ -61,6 +61,13 @@ export type EditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
     onBlur?: () => void
+    /** Height of the editable area before any typing or dragging. */
+    contentHeight?: number
+    /**
+     * False once the field is read-only. Removes the resize handle rather than leaving a grip that
+     * cannot do anything (OTTER-691).
+     */
+    isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void
     /** Height of the skeleton shown while the collaborative chunk loads / before the websocket connects. */
     skeletonHeight?: number

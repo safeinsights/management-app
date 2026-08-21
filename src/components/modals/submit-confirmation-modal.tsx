@@ -10,6 +10,11 @@ interface SubmitConfirmationModalProps {
     title: string
     body: string
     confirmLabel: string
+    /**
+     * Replaces `confirmLabel` while the submission is in flight. Mantine keeps the label under its
+     * spinner, so without this the button reads as though nothing has happened yet.
+     */
+    confirmLoadingLabel?: string
 }
 
 export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
@@ -20,6 +25,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     title,
     body,
     confirmLabel,
+    confirmLoadingLabel,
 }) => (
     // Every dismissal route closes with Cancel, not just the button: leaving the X, Escape and
     // outside-click live while Cancel is disabled lets the user dismiss a submission that is still
@@ -40,7 +46,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
                     Cancel
                 </Button>
                 <Button variant="primary" onClick={onConfirm} loading={isSubmitting}>
-                    {confirmLabel}
+                    {isSubmitting && confirmLoadingLabel ? confirmLoadingLabel : confirmLabel}
                 </Button>
             </Group>
         </Stack>
