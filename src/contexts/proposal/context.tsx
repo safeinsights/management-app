@@ -57,7 +57,10 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
     const form = useForm<ProposalFormValues>({
         validate: zodResolver(draftProposalFormSchema),
         initialValues: { ...initialProposalValues, ...draftData },
-        validateInputOnChange: true,
+        // No validateInputOnChange: the card requires that an error clears while the user is
+        // editing and does not come back until the next blur or Submit click. Mantine's
+        // clearInputErrorOnChange (on by default) does the clearing; re-validating on every
+        // keystroke would put the message straight back (OTTER-691).
     })
 
     const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({
