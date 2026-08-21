@@ -11,7 +11,7 @@ import {
 import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal-document.actions'
 import { Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { formatInstant } from '../dates'
+import { formatInstant } from '@/lib/dates'
 
 type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledgementsAction>['users'][number]
 

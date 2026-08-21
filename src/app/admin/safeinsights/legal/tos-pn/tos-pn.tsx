@@ -16,7 +16,7 @@ import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert, reportMutationError } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
-import { formatInstant } from '../dates'
+import { formatInstant } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>

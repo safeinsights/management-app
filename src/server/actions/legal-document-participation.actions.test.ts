@@ -53,7 +53,12 @@ describe('fetchParticipationAgreementsAction', () => {
         expect(row?.versionNumber).toBe(1)
         // Read back as text, so the day entered survives whatever zone the reader is in.
         expect(row?.signedAt).toBe('2026-07-27')
-        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath)
+        // Carries the type and name the browser needs to show the PDF rather than download a
+        // nameless blob.
+        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath, {
+            ResponseContentType: 'application/pdf',
+            ResponseContentDisposition: `inline; filename="${row!.fileName}"`,
+        })
     })
 
     // The table is a list of the agreements we hold; orgs that owe us one are reached through the
