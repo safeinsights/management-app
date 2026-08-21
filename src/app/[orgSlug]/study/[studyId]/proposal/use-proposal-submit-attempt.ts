@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { type UseFormReturnType } from '@mantine/form'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
@@ -13,8 +13,18 @@ import { type ProposalFormValues } from './schema'
  * The button is never disabled on validity, so clicking it is what surfaces the errors. That makes
  * this the only place the page validates as a whole.
  */
-export function useProposalSubmitAttempt(form: UseFormReturnType<ProposalFormValues>) {
+export function useProposalSubmitAttempt(form: UseFormReturnType<ProposalFormValues>, isSubmitting: boolean) {
     const [isConfirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+
+    // The modal stays mounted for the whole mutation, which is what lets it render its loading
+    // state (spinner, "Submitting", disabled Cancel). Closing it up front would make that state
+    // unreachable. A success navigates away, so this only fires on failure: it hands the form back
+    // with the values intact rather than leaving a dead modal over the toast.
+    const wasSubmitting = useRef(false)
+    useEffect(() => {
+        if (wasSubmitting.current && !isSubmitting) closeConfirm()
+        wasSubmitting.current = isSubmitting
+    }, [isSubmitting, closeConfirm])
 
     // Flags every problem at once rather than stopping at the first: the user should see the full
     // set on one click, even though focus can only land on one of them. The errors object read here

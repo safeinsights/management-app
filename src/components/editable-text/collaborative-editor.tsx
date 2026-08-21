@@ -19,7 +19,7 @@ import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { EditorFooter } from './editor-footer'
-import { EditorSurface, DEFAULT_EDITOR_CONTENT_HEIGHT } from './editor-surface'
+import { EditorSurface, resolveContentHeight } from './editor-surface'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
@@ -195,9 +195,12 @@ export type CollaborativeEditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
-    /** Height of the editable area before any typing or dragging. */
+    /**
+     * Height of the editable area before any typing or dragging. Falls back to
+     * `contentStyle.minHeight`, then to the shared default.
+     */
     contentHeight?: number
-    /** False once the field is read-only, which removes the resize handle. */
+    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
     isResizable?: boolean
     /**
      * Called once Lexical's CollaborationPlugin instantiates the provider, and
@@ -260,7 +263,7 @@ export function CollaborativeEditor({
     ariaDescribedBy,
     ariaRequired,
     onBlur,
-    contentHeight = DEFAULT_EDITOR_CONTENT_HEIGHT,
+    contentHeight,
     isResizable,
     onProviderReady,
 }: CollaborativeEditorProps) {
@@ -362,7 +365,9 @@ export function CollaborativeEditor({
 
     if (phase === 'failed') return <EditorUnavailable />
 
-    if (phase === 'initial') return <Skeleton h={contentHeight} radius={4} />
+    // Same resolution the surface uses, so the pre-connect skeleton is the height the editor
+    // mounts at and the page does not jump.
+    if (phase === 'initial') return <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
 
     return (
         <LexicalComposer initialConfig={initialConfig}>

@@ -1,6 +1,8 @@
 import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent, within } from '@/tests/unit.helpers'
 import { ProposalProvider, type ProposalDraftData } from '@/contexts/proposal'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { ProposalForm } from './form'
+import { PI_SELECT_ID, textFieldInputId } from './field-ids'
 import { type ProposalFormValues } from './schema'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
@@ -193,5 +195,85 @@ describe('ProposalForm submit-click validation (OTTER-691)', () => {
 
         expect(await screen.findByText('Select a Principal Investigator before continuing.')).toBeInTheDocument()
         expect(screen.queryByText('Select a dataset of interest before continuing.')).not.toBeInTheDocument()
+    })
+
+    // A persisted NULL column reaches the provider as `undefined`, and an explicit `undefined` wins
+    // in an object spread. Left unfiltered it blanks out the matching initial value, and validation
+    // answers with a zod type message instead of the card's copy on exactly the untouched draft
+    // that needs the copy most.
+    it('still uses the card wording when the draft has never been filled in', async () => {
+        const user = userEvent.setup()
+        renderForm({
+            title: 'A study title',
+            datasets: undefined,
+            researchQuestions: undefined,
+            projectSummary: undefined,
+            impact: undefined,
+            additionalNotes: undefined,
+            piName: undefined,
+            piUserId: undefined,
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
+
+        expect(await screen.findByText('Select a dataset of interest before continuing.')).toBeInTheDocument()
+        expect(screen.getByText('Enter your research questions before continuing.')).toBeInTheDocument()
+        expect(screen.getByText('Enter your project summary before continuing.')).toBeInTheDocument()
+        expect(screen.getByText('Enter your proposal impact before continuing.')).toBeInTheDocument()
+        expect(screen.getByText('Select a Principal Investigator before continuing.')).toBeInTheDocument()
+    })
+})
+
+// Focus is the half of the rule the block above cannot reach: behind a null websocket the editors
+// render as skeletons, so every jump stops at the dataset field and a wrong editor id, a wrong PI
+// mapping or an unfocusable contenteditable would all still pass. Single-user mode renders the real
+// surfaces.
+describe('ProposalForm first-invalid focus (OTTER-691)', () => {
+    const filled = {
+        researchQuestions: JSON.stringify({ root: { type: 'text', text: 'A question?' } }),
+        projectSummary: JSON.stringify({ root: { type: 'text', text: 'A summary.' } }),
+        impact: JSON.stringify({ root: { type: 'text', text: 'An impact.' } }),
+    }
+
+    const renderWithEditors = (data: ProposalDraftData) =>
+        renderWithProviders(
+            <YjsWebsocketProvider singleUserEditing>
+                <ProposalProvider studyId={STUDY_ID} draftData={data}>
+                    <ProposalForm
+                        members={[{ value: BLANK_UUID, label: 'Jane Smith' }]}
+                        orgName="Rice University"
+                        researcherName="Ada Lovelace"
+                    />
+                </ProposalProvider>
+            </YjsWebsocketProvider>,
+        )
+
+    const submit = async () => {
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
+    }
+
+    it('lands on the first flagged editor when the fields above it are filled', async () => {
+        renderWithEditors({ ...draftData, piName: 'Jane Smith', piUserId: BLANK_UUID })
+
+        await submit()
+
+        expect(document.activeElement?.id).toBe(textFieldInputId('researchQuestions'))
+    })
+
+    it('skips filled editors and lands on the flagged one below them', async () => {
+        renderWithEditors({ ...draftData, ...filled, impact: '', piName: 'Jane Smith', piUserId: BLANK_UUID })
+
+        await submit()
+
+        expect(document.activeElement?.id).toBe(textFieldInputId('impact'))
+    })
+
+    it('lands on the PI select when it is the only flagged field', async () => {
+        renderWithEditors({ ...draftData, ...filled, piName: '', piUserId: '' })
+
+        await submit()
+
+        expect(document.activeElement?.id).toBe(PI_SELECT_ID)
     })
 })

@@ -50,9 +50,12 @@ export type SingleUserEditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
-    /** Height of the editable area before any typing or dragging. */
+    /**
+     * Height of the editable area before any typing or dragging. Falls back to
+     * `contentStyle.minHeight`, then to the shared default.
+     */
     contentHeight?: number
-    /** False once the field is read-only, which removes the resize handle. */
+    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
     isResizable?: boolean
     /** Extra plugins/children rendered inside the Lexical composer context. */
     children?: React.ReactNode

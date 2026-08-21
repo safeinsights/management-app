@@ -8,16 +8,24 @@ const surface = () => document.querySelector('.collaborative-editor-container') 
 const editable = () => screen.getByRole('textbox')
 
 describe('EditorSurface', () => {
-    it('renders a resize handle by default', () => {
-        renderWithProviders(<SingleUserEditor id="doc-resizable" ariaLabel="Impact" />)
+    it('renders a resize handle when the caller opts in', () => {
+        renderWithProviders(<SingleUserEditor id="doc-resizable" ariaLabel="Impact" isResizable />)
 
         expect(surface().style.resize).toBe('vertical')
+    })
+
+    // The surface is shared with the reviewer-feedback, code-review and outputs-decision editors,
+    // which never had a handle. Opting in is what keeps OTTER-691's handle on Step 2 only.
+    it('renders no resize handle unless the caller opts in', () => {
+        renderWithProviders(<SingleUserEditor id="doc-default-resize" ariaLabel="Impact" />)
+
+        // 'none' rather than absent: the handle has to be unusable, not merely unstyled.
+        expect(surface().style.resize).toBe('none')
     })
 
     it('removes the resize handle when the field is not resizable', () => {
         renderWithProviders(<SingleUserEditor id="doc-locked" ariaLabel="Impact" isResizable={false} />)
 
-        // 'none' rather than absent: the handle has to be unusable, not merely unstyled.
         expect(surface().style.resize).toBe('none')
     })
 
@@ -31,6 +39,29 @@ describe('EditorSurface', () => {
         renderWithProviders(<SingleUserEditor id="doc-default-height" ariaLabel="Impact" />)
 
         expect(editable().style.minHeight).toBe('200px')
+    })
+
+    // Callers that predate `contentHeight` size themselves through contentStyle. Letting the
+    // default overwrite that silently resized every such editor in the app.
+    it('keeps a caller-supplied minHeight when no content height is given', () => {
+        renderWithProviders(
+            <SingleUserEditor id="doc-style-height" ariaLabel="Feedback" contentStyle={{ minHeight: 600 }} />,
+        )
+
+        expect(editable().style.minHeight).toBe('600px')
+    })
+
+    it('prefers an explicit content height over a caller-supplied minHeight', () => {
+        renderWithProviders(
+            <SingleUserEditor
+                id="doc-both-heights"
+                ariaLabel="Feedback"
+                contentStyle={{ minHeight: 600 }}
+                contentHeight={105}
+            />,
+        )
+
+        expect(editable().style.minHeight).toBe('105px')
     })
 
     // Without this the editable surface is unfocusable in the test environment, so

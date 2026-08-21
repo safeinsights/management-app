@@ -31,6 +31,7 @@ import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import {
     SUBMIT_FAILURE_MESSAGE,
     SUBMIT_FAILURE_TITLE,
+    SUBMIT_FAILURE_UNSAVED_MESSAGE,
     SUBMIT_SUCCESS_TITLE,
     useSubmitProposal,
 } from './use-submit-proposal'
@@ -210,6 +211,43 @@ describe('useSubmitProposal', () => {
         expect(sendStateless).not.toHaveBeenCalled()
         // The user stays on the form, which is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    // The reassurance has to be earned. A dirty form on a study that is no longer editable fails the
+    // recovery save for the same reason it failed the submit, and saying "your work is saved" there
+    // is the one wrong answer this path can give.
+    it('says the work was not saved when the recovery save fails too', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-unsaved' })
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        const { yjsForm } = buildStubYjsForm()
+        const { result } = renderHook(
+            () => {
+                const form = useForm<ProposalFormValues>({
+                    mode: 'controlled',
+                    initialValues: buildValidProposalValues(user.id),
+                })
+                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                return { form, ...submit }
+            },
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        // Dirty, so the recovery save actually runs rather than short-circuiting on a pristine form.
+        act(() => {
+            result.current.form.setFieldValue('impact', lexicalJson('Revised impact statement.'))
+        })
+
+        await act(async () => {
+            result.current.submitProposal()
+        })
+
+        await waitFor(() => {
+            const errorCall = (notifications.show as Mock).mock.calls.find(
+                ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
+            )
+            expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        })
     })
 
     it('puts the submit button back in view after a failure (OTTER-691)', async () => {

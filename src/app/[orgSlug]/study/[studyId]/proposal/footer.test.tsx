@@ -129,6 +129,23 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
         renderFooter()
         expect(screen.queryByRole('button', { name: /Submit initial request/i })).not.toBeInTheDocument()
     })
+
+    // The modal's loading state is only reachable while it is still mounted, so closing it before
+    // starting the mutation made the spinner, the "Submitting" label and the disabled Cancel dead
+    // code. STUDY_ID has no row, so this submission fails, which is also the only path that has to
+    // hand the form back rather than navigate.
+    it('holds the modal open through the submission and closes it when that fails', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(submitButton())
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Submit proposal' }))
+
+        expect(await screen.findByRole('button', { name: 'Submitting' })).toBeInTheDocument()
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    })
 })
 
 describe('ProposalFooter reviewer preview title (OTTER-690)', () => {

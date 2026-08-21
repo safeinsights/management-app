@@ -88,6 +88,8 @@ const EditableTextFieldEntry: FC<{
             onBlur={onBlur}
             websocketProvider={websocketProvider}
             countMode="characters"
+            contentHeight={field.contentHeight}
+            isResizable
         />
     )
 }
@@ -225,7 +227,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                 <Select
                                     id={PI_SELECT_ID}
                                     aria-label="Principal Investigator"
-                                    placeholder="Choose a PI"
+                                    // Placeholder-free for the same reason the dataset field is:
+                                    // the card removes placeholder text from every input on this
+                                    // page.
+                                    placeholder=""
                                     searchable
                                     data={members}
                                     value={form.values.piUserId || null}
