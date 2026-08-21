@@ -32,7 +32,14 @@ import { errorToString } from '@/lib/errors'
  */
 const formFieldLabelStyles = {
     labelProps: { fw: 600, fz: 'sm' },
-    styles: { description: { marginBottom: 'var(--mantine-spacing-xs)' } },
+    styles: {
+        // OTTER-691 asks for white space between a field's title and its guidance text, on every
+        // input field. Mantine adds none of its own: `getInputOffsets` only reacts to a description
+        // or an error sitting above the input, and ignores the label entirely, so the two lines
+        // render flush. 4px is Spacing/xxs in the design system.
+        label: { marginBottom: 4 },
+        description: { marginBottom: 'var(--mantine-spacing-xs)' },
+    },
 } as const
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`

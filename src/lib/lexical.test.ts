@@ -6,6 +6,7 @@ import {
     hasLexicalContent,
     isValidLexicalState,
     lexicalJson,
+    countCharactersFromLexical,
 } from './lexical'
 
 describe('countWords', () => {
@@ -281,5 +282,22 @@ describe('hasLexicalContent', () => {
 
     it('returns false with no arguments', () => {
         expect(hasLexicalContent()).toBe(false)
+    })
+})
+
+describe('countCharactersFromLexical', () => {
+    it('counts characters, not words', () => {
+        expect(countCharactersFromLexical(lexicalJson('hello world'))).toBe(11)
+    })
+
+    // Raw, not trimmed: the counter beside the field shows what the user typed, and the validator
+    // has to agree with it or a field can read 10/10 while validating as 11.
+    it('counts surrounding whitespace', () => {
+        expect(countCharactersFromLexical(lexicalJson('  hi  '))).toBe(6)
+    })
+
+    it('returns 0 for undefined or unparseable input', () => {
+        expect(countCharactersFromLexical(undefined)).toBe(0)
+        expect(countCharactersFromLexical('not json')).toBe(0)
     })
 })
