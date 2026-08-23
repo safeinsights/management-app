@@ -73,6 +73,7 @@ async function seedArtifact(
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
 const NO_FILES_ERROR = 'No encrypted outputs available to decrypt.'
+const INTEGRITY_ERROR = 'These outputs could not be verified. Do not approve them — contact your administrator.'
 
 const enterKey = (value: string) => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value } })
@@ -243,6 +244,32 @@ describe('SecurityKeyForm', () => {
         clickView()
 
         expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+        expect(onDecrypted).not.toHaveBeenCalled()
+    })
+
+    it('presents an integrity failure off the key field and does not send focus back to it', async () => {
+        // Truncate the archive so a genuine recipient key fails for a reason the key cannot
+        // explain. Re-entering the key cannot fix that, so nothing may frame it as a key mistake.
+        const artifact = await seedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'log output' }],
+        })
+        const bytes = new Uint8Array(artifact.encryptedBody)
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            { ...artifact, encryptedBody: bytes.slice(0, bytes.byteLength - 64).buffer },
+        ])
+
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey(await readTestSupportFile('private_key.pem'))
+        blurInput()
+        clickView()
+
+        expect(await screen.findByText(INTEGRITY_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(INVALID_ERROR)).toBeNull()
+        expect(screen.getByRole('textbox')).not.toHaveAttribute('aria-invalid', 'true')
+        expect(screen.getByRole('textbox')).not.toHaveFocus()
         expect(onDecrypted).not.toHaveBeenCalled()
     })
 

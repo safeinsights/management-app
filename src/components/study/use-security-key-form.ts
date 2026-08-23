@@ -33,6 +33,9 @@ type UseSecurityKeyFormOptions = {
 export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFormOptions) {
     const [value, setValue] = useState('')
     const [error, setError] = useState<string>()
+    // Kept apart from `error`: that state renders on the key input and pulls focus back to it,
+    // both of which frame the failure as a typo to fix. A failed verification is not.
+    const [integrityError, setIntegrityError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
     const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
@@ -51,10 +54,13 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
     const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
-    const handleDecryptError = useCallback(
-        (err: Error) => setError(err instanceof ResultsIntegrityFailure ? ERRORS.integrity : ERRORS.invalid),
-        [],
-    )
+    const handleDecryptError = useCallback((err: Error) => {
+        if (err instanceof ResultsIntegrityFailure) {
+            setIntegrityError(ERRORS.integrity)
+            return
+        }
+        setError(ERRORS.invalid)
+    }, [])
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
@@ -73,6 +79,8 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         onError: handleDecryptError,
     })
 
+    // Only key mistakes send focus back to the key input; an integrity failure must not invite
+    // re-entering a key that was never the problem.
     useEffect(() => {
         if (error && !isPending) {
             inputRef.current?.focus()
@@ -101,6 +109,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         }
 
         setError(undefined)
+        setIntegrityError(undefined)
         decrypt(trimmed)
     }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
 
@@ -108,6 +117,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         value,
         setValue,
         error,
+        integrityError,
         isDecrypting: isPending,
         isLoadingFiles,
         inputRef,
