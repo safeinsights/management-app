@@ -4,7 +4,7 @@ import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/lega
 import { Anchor, Checkbox, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, ReactNode } from 'react'
-import { LegalDocumentSections } from './document-sections'
+import { LegalDocumentSections } from '../document-sections'
 
 // Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
 // they exist the real documents render below and the acknowledgement is recorded against them.
@@ -31,7 +31,7 @@ const PopoverLink: FC<{ label: string; content: string }> = ({ label, content })
     )
 }
 
-export const TosPnCheckboxLabel: FC = () => (
+const TosPnCheckboxLabel: FC = () => (
     <Text component="span" fz="sm">
         I agree to the <PopoverLink label="Terms of Service" content={TOS_TEXT} /> and{' '}
         <PopoverLink label="Privacy Notice" content={PRIVACY_TEXT} />

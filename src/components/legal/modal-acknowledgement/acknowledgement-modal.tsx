@@ -2,7 +2,7 @@
 
 import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { LegalDocumentSection } from './document-sections'
+import { LegalDocumentSection } from '../document-sections'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
