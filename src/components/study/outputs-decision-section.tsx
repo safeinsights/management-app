@@ -5,11 +5,11 @@ import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } 
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { WordCounter } from '@/components/word-counter'
+import { CharacterCounter } from '@/components/character-counter'
 import { fieldDescribedBy, fieldDescriptionId, fieldErrorId } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import type { OutputsDecision } from '@/lib/outputs-review'
+import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
@@ -162,9 +162,9 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
 // the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
 // second SaveStatusIndicator here would show the user two "All changes saved" messages in
 // collaborative mode, and could contradict the error below when validation fails.
-const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCount, maxWords }) => (
+const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
     <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
-        <WordCounter wordCount={wordCount} maxWords={maxWords} unit="words" />
+        <CharacterCounter count={characterCount} maxCharacters={OUTPUTS_FEEDBACK_MAX_CHARACTERS} />
     </Box>
 )
 
@@ -180,8 +180,7 @@ export type OutputsDecisionSectionProps = {
     jobId: string
     studyId: string
     labName: string
-    maxWords: number
-    wordCount: number
+    characterCount: number
     feedbackError: string | undefined
     onFeedbackChange: (json: string) => void
     selected: OutputsDecision | null
@@ -195,8 +194,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     jobId,
     studyId,
     labName,
-    maxWords,
-    wordCount,
+    characterCount,
     feedbackError,
     onFeedbackChange,
     selected,
@@ -232,7 +230,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasDescription: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
-                    footerRight={<FeedbackCounter wordCount={wordCount} maxWords={maxWords} />}
+                    footerRight={<FeedbackCounter characterCount={characterCount} />}
                 />
                 <FeedbackError error={feedbackError} />
                 <DecisionRadioGroup

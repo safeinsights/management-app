@@ -3,7 +3,6 @@ import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/component
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
-import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
@@ -54,7 +53,6 @@ export async function ReviewerOutputsErroredScreen({
             studyTitle={study.title ?? ''}
             job={job}
             labName={labName}
-            maxWords={ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

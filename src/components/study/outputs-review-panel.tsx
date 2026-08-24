@@ -25,7 +25,6 @@ type OutputsReviewPanelProps = {
     studyTitle: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    maxWords: number
     /** Shown while the outputs are still encrypted (OTTER-667 / OTTER-668 copy). */
     lockedBanner: ReactNode
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
@@ -59,7 +58,6 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     studyTitle,
     job,
     labName,
-    maxWords,
     lockedBanner,
     unlockedBanner,
     previousHref,
@@ -110,7 +108,6 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     studyId={studyId}
                     job={job}
                     labName={labName}
-                    maxWords={maxWords}
                     previousHref={previousHref}
                 />
             </Stack>
@@ -149,7 +146,6 @@ type UnlockedPhaseProps = {
     studyId: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    maxWords: number
     previousHref: Route
 }
 
@@ -162,7 +158,6 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     studyId,
     job,
     labName,
-    maxWords,
     previousHref,
 }) => {
     if (decryptedFiles === null) return null
@@ -174,7 +169,6 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
             studyId={studyId}
             job={job}
             labName={labName}
-            maxWords={maxWords}
             previousHref={previousHref}
         />
     )
@@ -200,10 +194,9 @@ const ReviewBody: FC<ReviewBodyProps> = ({
     studyId,
     job,
     labName,
-    maxWords,
     previousHref,
 }) => {
-    const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, maxWords, decryptedFiles })
+    const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, decryptedFiles })
 
     return (
         <>
@@ -212,8 +205,7 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 jobId={job.id}
                 studyId={studyId}
                 labName={labName}
-                maxWords={maxWords}
-                wordCount={decision.wordCount}
+                characterCount={decision.characterCount}
                 feedbackError={decision.feedbackError}
                 onFeedbackChange={decision.onFeedbackChange}
                 selected={decision.selected}
