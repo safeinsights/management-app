@@ -1,31 +1,10 @@
-export function countWords(text: string): number {
-    const trimmed = text.trim()
-    if (!trimmed) return 0
-    return trimmed.split(/\s+/).length
-}
-
-/**
- * Extract plain text from Lexical JSON state and count words
- */
-export function countWordsFromLexical(json: string | undefined): number {
-    if (!json) return 0
-
-    try {
-        const state = JSON.parse(json)
-        const text = extractTextFromLexicalNode(state.root)
-        return countWords(text)
-    } catch {
-        return 0
-    }
-}
-
 /**
  * Extract plain text from Lexical JSON state and count characters.
  *
- * Counted RAW, not trimmed, unlike {@link countWordsFromLexical}. The counter shown beside the
- * field and the validator that gates it must agree, and the counter counts what the user typed:
- * trimming here would let a field read 3000/3000 while the validator saw 3001 (OTTER-690 applied
- * the same rule to the Step 1 title).
+ * Counted RAW, not trimmed. The counter shown beside the field and the validator that gates it
+ * must agree, and the counter counts what the user typed: trimming here would let a field read
+ * 3000/3000 while the validator saw 3001. Callers pair this with a trimmed emptiness check for
+ * the required rule (OTTER-690, OTTER-737).
  */
 export function countCharactersFromLexical(json: string | undefined): number {
     return extractTextFromLexical(json).length
