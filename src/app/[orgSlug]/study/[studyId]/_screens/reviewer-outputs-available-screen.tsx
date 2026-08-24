@@ -19,10 +19,9 @@ const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string 
     )
 }
 
-// OTTER-676: same two-phase panel as the errored screen (OTTER-675), with the security key gate,
-// then the decrypted outputs table, feedback and sharing decision. Only the locked banner copy
-// differs now. The decision cap used to differ too, with a completed run getting the longer limit,
-// until OTTER-737 gave both run outcomes the same 1800 characters.
+// OTTER-676: same two-phase panel as the errored screen (OTTER-675), the security key gate, then
+// the decrypted outputs table, feedback and sharing decision. Only the locked banner copy differs.
+// The feedback cap used to differ too, until OTTER-737 put both run outcomes on one number.
 export async function ReviewerOutputsAvailableScreen({
     study,
     raw,
