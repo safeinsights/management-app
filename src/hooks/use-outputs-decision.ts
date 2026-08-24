@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from '@/components/study/outputs-decision-section'
-import { countCharactersFromLexical, extractTextFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
 import { Routes } from '@/lib/routes'
@@ -50,7 +50,7 @@ export function useOutputsDecision({ orgSlug, studyId, jobId, labName, decrypted
     // Both measured trimmed, through the shared counter, so the count beside the field and the rule
     // that gates it can never disagree (OTTER-737).
     const characterCount = countCharactersFromLexical(feedback)
-    const isEmpty = extractTextFromLexical(feedback).trim().length === 0
+    const isEmpty = !hasLexicalContent(feedback)
     const isOverLimit = characterCount > OUTPUTS_FEEDBACK_MAX_CHARACTERS
 
     // Over-limit is reported the moment it happens (the counter is already live, so a silent

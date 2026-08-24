@@ -1,9 +1,8 @@
 'use server'
 
 import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
-import { overCharacterLimitError } from '@/lib/field-limits'
+import { assertDecisionFeedback } from './decision-feedback'
 import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { countCharactersFromLexical, extractTextFromLexical, normalizeFeedbackToLexical } from '@/lib/lexical'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
     hasOutputsDecision,
@@ -216,15 +215,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             })
         }
 
-        const json = normalizeFeedbackToLexical(feedback)
-        if (extractTextFromLexical(json).trim().length === 0) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (countCharactersFromLexical(json) > OUTPUTS_FEEDBACK_MAX_CHARACTERS) {
-            throw new ActionFailure({
-                feedback: overCharacterLimitError(OUTPUTS_FEEDBACK_FIELD_TITLE, OUTPUTS_FEEDBACK_MAX_CHARACTERS),
-            })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: OUTPUTS_FEEDBACK_FIELD_TITLE,
+            maxCharacters: OUTPUTS_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const shareOutputs = decision === 'share-outputs'
 

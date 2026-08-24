@@ -3,11 +3,8 @@
 import { Divider, Group, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
-import { CharacterCounter } from '@/components/character-counter'
-import { Editor } from '@/components/editable-text/editor'
+import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 
 const EDITOR_SKELETON_HEIGHT = 600
@@ -42,38 +39,18 @@ function FeedbackEditor({
     studyId: string
     reviewVersion: number
 }) {
-    const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishReviewFeedbackProvider()
     return (
-        <Editor
-            id={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
-            inputId="review-feedback"
+        <DecisionFeedbackEditor
+            feedback={feedback}
             studyId={studyId}
-            websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
-            onChange={feedback.onChange}
-            onBlur={feedback.onBlur}
-            error={feedback.error}
+            docName={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
+            inputId="review-feedback"
             ariaLabel="Initial request review feedback"
-            ariaRequired
-            ariaDescribedBy={fieldDescribedBy('review-feedback', {
-                hasError: !!feedback.error,
-                hasDescription: false,
-                hasCounter: true,
-            })}
             placeholder={PLACEHOLDER_TEXT}
-            // The error takes exactly the slot the save indicator vacates, so it sits directly
-            // under the input instead of a row below the character counter (OTTER-674).
-            footerLeft={<FieldErrorBox fieldId="review-feedback" error={feedback.error} isLive />}
-            footerRight={
-                <CharacterCounter
-                    id={fieldCounterId('review-feedback')}
-                    count={feedback.characterCount}
-                    maxCharacters={feedback.maxCharacters}
-                />
-            }
-            onProviderReady={publishProvider}
+            contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            onProviderReady={publishProvider}
         />
     )
 }

@@ -1,6 +1,6 @@
 import { useField } from '@mantine/form'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
-import { countCharactersFromLexical, extractTextFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 
 const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS)
@@ -54,4 +54,4 @@ export function useReviewFeedback() {
     }
 }
 
-const isBlank = (value: string) => extractTextFromLexical(value).trim().length === 0
+const isBlank = (value: string) => !hasLexicalContent(value)

@@ -5,9 +5,8 @@ import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyReviewCommentKind, StudyStatus } from '@/database/types'
-import { countCharactersFromLexical, extractTextFromLexical, normalizeFeedbackToLexical } from '@/lib/lexical'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
-import { overCharacterLimitError } from '@/lib/field-limits'
+import { assertDecisionFeedback } from './decision-feedback'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
@@ -609,17 +608,10 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
     .requireAbilityTo('review', 'Study')
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
         const userId = session.user.id
-        const json = normalizeFeedbackToLexical(feedback)
-        const characterCount = countCharactersFromLexical(json)
-
-        if (extractTextFromLexical(json).trim().length === 0) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (characterCount > REVIEW_FEEDBACK_MAX_CHARACTERS) {
-            throw new ActionFailure({
-                feedback: overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
-            })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: REVIEW_FEEDBACK_FIELD_TITLE,
+            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const expectedVersion = await currentReviewVersion(studyId)
         if (reviewVersion !== expectedVersion) {
@@ -758,17 +750,10 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
         const userId = session.user.id
 
-        const json = normalizeFeedbackToLexical(feedback)
-        const characterCount = countCharactersFromLexical(json)
-
-        if (extractTextFromLexical(json).trim().length === 0) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (characterCount > REVIEW_FEEDBACK_MAX_CHARACTERS) {
-            throw new ActionFailure({
-                feedback: overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
-            })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: REVIEW_FEEDBACK_FIELD_TITLE,
+            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const claimedJob = await claimInitialCodeReviewJob({ studyId })
 

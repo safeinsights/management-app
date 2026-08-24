@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { countCharactersFromLexical, extractTextFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { studyTitleField } from '@/app/[orgSlug]/study/request/form-schemas'
 
@@ -42,7 +42,7 @@ export const FIELD_TITLES = {
  */
 const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
     z.string().superRefine((val, ctx) => {
-        if (requiredError && extractTextFromLexical(val).trim().length === 0) {
+        if (requiredError && !hasLexicalContent(val)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
             return
         }
