@@ -5,8 +5,9 @@ import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyReviewCommentKind, StudyStatus } from '@/database/types'
-import { countWordsFromLexical, normalizeFeedbackToLexical } from '@/lib/lexical'
-import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { countCharactersFromLexical, extractTextFromLexical, normalizeFeedbackToLexical } from '@/lib/lexical'
+import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
@@ -609,14 +610,14 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
         const userId = session.user.id
         const json = normalizeFeedbackToLexical(feedback)
-        const wordCount = countWordsFromLexical(json)
+        const characterCount = countCharactersFromLexical(json)
 
-        if (wordCount < FEEDBACK_MIN_WORDS) {
+        if (extractTextFromLexical(json).trim().length === 0) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
         }
-        if (wordCount > FEEDBACK_MAX_WORDS) {
+        if (characterCount > REVIEW_FEEDBACK_MAX_CHARACTERS) {
             throw new ActionFailure({
-                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
+                feedback: overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
             })
         }
 
@@ -758,13 +759,14 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         const userId = session.user.id
 
         const json = normalizeFeedbackToLexical(feedback)
-        const wordCount = countWordsFromLexical(json)
-        if (wordCount < FEEDBACK_MIN_WORDS) {
+        const characterCount = countCharactersFromLexical(json)
+
+        if (extractTextFromLexical(json).trim().length === 0) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
         }
-        if (wordCount > CODE_REVIEW_FEEDBACK_MAX_WORDS) {
+        if (characterCount > REVIEW_FEEDBACK_MAX_CHARACTERS) {
             throw new ActionFailure({
-                feedback: `Feedback must be ${CODE_REVIEW_FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
+                feedback: overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
             })
         }
 

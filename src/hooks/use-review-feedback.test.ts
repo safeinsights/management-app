@@ -1,78 +1,100 @@
 import { describe, expect, it, act, renderHook } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { useReviewFeedback } from './use-review-feedback'
 
-const repeatWords = (count: number) => Array.from({ length: count }, (_, i) => `word${i + 1}`).join(' ')
+const repeat = (count: number) => 'x'.repeat(count)
 
 describe('useReviewFeedback', () => {
-    describe('word count', () => {
+    describe('character count', () => {
         it('returns 0 for an empty string', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
-            expect(result.current.wordCount).toBe(0)
+            expect(result.current.characterCount).toBe(0)
 
             act(() => {
                 result.current.onChange(lexicalJson(''))
             })
 
-            expect(result.current.wordCount).toBe(0)
+            expect(result.current.characterCount).toBe(0)
         })
 
-        it('correctly counts words with multiple spaces and newlines', () => {
+        it('counts whitespace and newlines, because the counter counts what the user typed', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
             act(() => {
-                result.current.onChange(lexicalJson('  hello   world\nfoo\n\n bar   baz  '))
+                result.current.onChange(lexicalJson('a b\nc'))
             })
 
-            expect(result.current.wordCount).toBe(5)
+            expect(result.current.characterCount).toBe(5)
         })
     })
 
     describe('isValid', () => {
-        it('is false below the minimum word count', () => {
+        it('is false while the field is empty', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
             act(() => {
                 result.current.onChange(lexicalJson(''))
             })
 
-            expect(result.current.wordCount).toBe(0)
+            expect(result.current.characterCount).toBe(0)
             expect(result.current.isValid).toBe(false)
         })
 
-        it('is true at exactly the minimum word count', () => {
+        it('is false for whitespace-only feedback', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
             act(() => {
-                result.current.onChange(lexicalJson(repeatWords(FEEDBACK_MIN_WORDS)))
+                result.current.onChange(lexicalJson('   '))
             })
 
-            expect(result.current.wordCount).toBe(FEEDBACK_MIN_WORDS)
-            expect(result.current.isValid).toBe(true)
-        })
-
-        it('is true at exactly the maximum word count (500)', () => {
-            const { result } = renderHook(() => useReviewFeedback())
-
-            act(() => {
-                result.current.onChange(lexicalJson(repeatWords(FEEDBACK_MAX_WORDS)))
-            })
-
-            expect(result.current.wordCount).toBe(FEEDBACK_MAX_WORDS)
-            expect(result.current.isValid).toBe(true)
-        })
-
-        it('is false above the maximum word count', () => {
-            const { result } = renderHook(() => useReviewFeedback())
-
-            act(() => {
-                result.current.onChange(lexicalJson(repeatWords(FEEDBACK_MAX_WORDS + 1)))
-            })
-
-            expect(result.current.wordCount).toBe(FEEDBACK_MAX_WORDS + 1)
             expect(result.current.isValid).toBe(false)
+        })
+
+        it('is true for a single character', () => {
+            const { result } = renderHook(() => useReviewFeedback())
+
+            act(() => {
+                result.current.onChange(lexicalJson('x'))
+            })
+
+            expect(result.current.isValid).toBe(true)
+        })
+
+        it('is true at exactly the maximum character count (1800)', () => {
+            const { result } = renderHook(() => useReviewFeedback())
+
+            act(() => {
+                result.current.onChange(lexicalJson(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS)))
+            })
+
+            expect(result.current.characterCount).toBe(REVIEW_FEEDBACK_MAX_CHARACTERS)
+            expect(result.current.isValid).toBe(true)
+        })
+
+        it('is false above the maximum character count', () => {
+            const { result } = renderHook(() => useReviewFeedback())
+
+            act(() => {
+                result.current.onChange(lexicalJson(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1)))
+            })
+
+            expect(result.current.characterCount).toBe(REVIEW_FEEDBACK_MAX_CHARACTERS + 1)
+            expect(result.current.isValid).toBe(false)
+        })
+
+        // Characters, not words: 400 short words is past the old 300-word code-review cap and
+        // inside 1800 characters, so this fails if word counting survived.
+        it('measures characters rather than words', () => {
+            const { result } = renderHook(() => useReviewFeedback())
+
+            act(() => {
+                result.current.onChange(lexicalJson(Array.from({ length: 400 }, () => 'ab').join(' ')))
+            })
+
+            expect(result.current.isValid).toBe(true)
         })
     })
 })
@@ -135,23 +157,33 @@ describe('useReviewFeedback', () => {
         expect(result.current.isValid).toBe(true)
     })
 
-    it('flags feedback over the word limit', async () => {
-        const { result } = renderHook(() => useReviewFeedback({ maxWords: 3 }))
+    it('flags feedback over the character limit, naming the field and the cap', async () => {
+        const { result } = renderHook(() => useReviewFeedback({ maxCharacters: 3 }))
 
-        act(() => result.current.onChange(lexicalText('one two three four')))
+        act(() => result.current.onChange(lexicalText('four')))
         await act(async () => {
             await result.current.onBlur()
         })
 
-        expect(result.current.error).toBe('Feedback must be 3 words or fewer.')
+        expect(result.current.error).toBe(overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, 3))
         expect(result.current.isValid).toBe(false)
     })
 
-    it('reports the live word count for the counter', () => {
+    it('reports only the required message for an empty field, never both rules at once', async () => {
+        const { result } = renderHook(() => useReviewFeedback({ maxCharacters: 3 }))
+
+        await act(async () => {
+            await result.current.onBlur()
+        })
+
+        expect(result.current.error).toBe('Feedback is required.')
+    })
+
+    it('reports the live character count for the counter', () => {
         const { result } = renderHook(() => useReviewFeedback())
 
         act(() => result.current.onChange(lexicalText('one two three')))
 
-        expect(result.current.wordCount).toBe(3)
+        expect(result.current.characterCount).toBe(13)
     })
 })

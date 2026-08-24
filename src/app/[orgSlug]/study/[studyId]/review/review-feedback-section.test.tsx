@@ -3,6 +3,7 @@ import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
 import { fieldErrorId } from '@/components/form-field'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { ReviewFeedbackSection } from './review-feedback-section'
 
@@ -49,20 +50,20 @@ describe('ReviewFeedbackSection', () => {
         )
     })
 
-    it('displays the word counter and updates it as the feedback changes', async () => {
+    it('displays the character counter and updates it as the feedback changes', async () => {
         const user = userEvent.setup()
         renderWithProviders(<FeedbackTestWrapper />)
 
-        expect(screen.getByText('0/500')).toBeInTheDocument()
+        expect(screen.getByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
 
         await user.click(screen.getByTestId('simulate-input'))
 
         await waitFor(() => {
-            expect(screen.getByText('5/500')).toBeInTheDocument()
+            expect(screen.getByText(`23/${REVIEW_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
         })
     })
 
-    it('renders the empty-field error in the same footer row as the word counter (OTTER-674)', async () => {
+    it('renders the empty-field error in the same footer row as the character counter (OTTER-674)', async () => {
         const user = userEvent.setup()
         renderWithProviders(<FeedbackTestWrapper />)
 
@@ -75,6 +76,6 @@ describe('ReviewFeedbackSection', () => {
             expect(box).toHaveTextContent('Feedback is required.')
             return box
         })
-        expect(errorBox?.parentElement).toContainElement(screen.getByText('0/500'))
+        expect(errorBox?.parentElement).toContainElement(screen.getByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`))
     })
 })
