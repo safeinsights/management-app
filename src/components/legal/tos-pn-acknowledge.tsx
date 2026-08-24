@@ -31,7 +31,7 @@ const PopoverLink: FC<{ label: string; content: string }> = ({ label, content })
     )
 }
 
-export const TermsCheckboxLabel: FC = () => (
+export const TosPnCheckboxLabel: FC = () => (
     <Text component="span" fz="sm">
         I agree to the <PopoverLink label="Terms of Service" content={TOS_TEXT} /> and{' '}
         <PopoverLink label="Privacy Notice" content={PRIVACY_TEXT} />
@@ -41,7 +41,7 @@ export const TermsCheckboxLabel: FC = () => (
 const agreementLabel = (documents: GlobalLegalDocument[]) =>
     `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}`
 
-type TermsCheckboxProps = {
+type AcknowledgeProps = {
     checked: boolean
     onChange: (checked: boolean) => void
     /** Fires when the box loses focus, so leaving it unchecked can be flagged (OTTER-647). */
@@ -60,14 +60,14 @@ const TERMS_ERROR_ID = 'terms-accepted-error'
 // A standalone Mantine `Checkbox` uses `error` for styling only: it renders the message but adds
 // neither `aria-invalid` nor `aria-describedby`, unlike the inputs built on `Input.Wrapper`. Both
 // are wired by hand here so the requirement is not conveyed by red text alone.
-export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, onBlur, error, documents = [] }) => (
+export const TosPnAcknowledgeForm: FC<AcknowledgeProps> = ({ checked, onChange, onBlur, error, documents = [] }) => (
     <Stack gap="sm" mt="md">
         <LegalDocumentSections documents={documents} labelSize="sm" />
         <Checkbox
             checked={checked}
             onChange={(event) => onChange(event.currentTarget.checked)}
             onBlur={onBlur}
-            label={documents.length ? agreementLabel(documents) : <TermsCheckboxLabel />}
+            label={documents.length ? agreementLabel(documents) : <TosPnCheckboxLabel />}
             // The id rides on this span rather than an `errorProps`, which a standalone Checkbox does
             // not accept. A span, because Mantine renders the error inside a `<p>`.
             error={error ? <span id={TERMS_ERROR_ID}>{error}</span> : undefined}

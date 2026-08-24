@@ -6,7 +6,7 @@ import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
-import { TermsCheckbox } from '@/components/legal/terms-checkbox'
+import { TosPnAcknowledgeForm } from '@/components/legal/tos-pn-acknowledge'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
@@ -84,7 +84,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
     // Public: the form has to show these before an account exists. Empty until the first Terms of
-    // Service and Privacy Notice are published, which TermsCheckbox renders as placeholder copy.
+    // Service and Privacy Notice are published, which TosPnAcknowledgeForm renders as placeholder copy.
     const {
         data: legalDocuments = [],
         isPending: isLoadingLegalDocuments,
@@ -247,7 +247,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
 
                     <LegalDocumentsUnavailable isVisible={legalDocumentsUnavailable} />
 
-                    <TermsCheckbox
+                    <TosPnAcknowledgeForm
                         documents={legalDocuments}
                         checked={form.values.termsAccepted}
                         onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}

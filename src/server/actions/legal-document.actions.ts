@@ -70,9 +70,6 @@ const legalDocumentDownloadUrl = ({
         ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
     })
 
-const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
-    (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
-
 const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
     (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
 
