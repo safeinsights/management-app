@@ -4,6 +4,7 @@ import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName, sleep } from '@/lib/utils'
@@ -34,10 +35,11 @@ import {
     draftStudyApiSchema,
 } from '@/app/[orgSlug]/study/request/form-schemas'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
-    RESUBMIT_NOTE_MIN_WORDS,
+    RESUBMIT_NOTE_FIELD_TITLE,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteToLexicalJson,
-    resubmissionNoteWordCount,
+    resubmissionNoteCharacterCount,
+    resubmissionNoteIsBlank,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 
@@ -657,14 +659,15 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// The proposal flow submits Lexical JSON; the code flow still submits plain text.
+// Mirrors resubmitNoteSchema, the resolver the two note forms use. The proposal flow submits
+// Lexical JSON; the code flow still submits plain text.
 const resubmissionNoteParam = z
     .string()
-    .refine((val) => resubmissionNoteWordCount(val) >= RESUBMIT_NOTE_MIN_WORDS, {
+    .refine((val) => !resubmissionNoteIsBlank(val), {
         message: 'A resubmission note is required.',
     })
-    .refine((val) => resubmissionNoteWordCount(val) <= RESUBMIT_NOTE_MAX_WORDS, {
-        message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
+    .refine((val) => resubmissionNoteCharacterCount(val) <= RESUBMIT_NOTE_MAX_CHARACTERS, {
+        message: overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
     })
 
 // Final resubmission: writes the latest proposal edits, records the

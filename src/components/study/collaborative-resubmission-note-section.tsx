@@ -6,15 +6,15 @@ import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
+import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
+    resubmissionNoteCharacterCount,
     resubmissionNoteToLexicalJson,
-    resubmissionNoteWordCount,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { noteSaveStatus, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
@@ -72,7 +72,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const singleUserEditing = useSingleUserEditing()
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
-    const wordCount = resubmissionNoteWordCount(value)
+    const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
@@ -115,7 +115,9 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                             hasDescription: false,
                         })}
                         footerLeft={footerLeft}
-                        footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
+                        footerRight={
+                            <CharacterCounter count={characterCount} maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS} />
+                        }
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
                 </Box>

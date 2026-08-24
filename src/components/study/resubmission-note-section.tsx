@@ -6,11 +6,10 @@ import { type UseFormReturnType } from '@mantine/form'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
 import { fieldErrorId, nativeFieldProps } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
+import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
-import { countWords } from '@/lib/lexical'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 
@@ -34,7 +33,7 @@ export function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveSta
 export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ noteForm, orgName, autosaveStatus }) => {
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
-    const wordCount = countWords(value)
+    const characterCount = value.length
     const saveStatus = noteSaveStatus(autosaveStatus)
 
     return (
@@ -75,7 +74,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                             </Box>
                             <SaveStatusIndicator status={saveStatus} isVisible={!error} />
                         </Box>
-                        <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />
+                        <CharacterCounter count={characterCount} maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS} />
                     </Group>
                 </Box>
             </Stack>

@@ -7,6 +7,7 @@ import { fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { useForm, zodResolver } from '@/common'
 import {
+    RESUBMIT_NOTE_MAX_CHARACTERS,
     initialResubmitNoteValue,
     resubmissionNoteToLexicalJson,
     resubmitNoteSchema,
@@ -90,18 +91,18 @@ describe('CollaborativeResubmissionNoteSection', () => {
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
 
-    it('renders the error in the same footer row as the word counter (OTTER-674)', () => {
+    it('renders the error in the same footer row as the character counter (OTTER-674)', () => {
         renderSingleUserSection({ initialError: 'A resubmission note is required.' })
         const errorBox = document.getElementById(fieldErrorId('resubmissionNote'))
         expect(errorBox).toHaveTextContent('A resubmission note is required.')
-        expect(errorBox?.parentElement).toContainElement(screen.getByText('0/300'))
+        expect(errorBox?.parentElement).toContainElement(screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`))
     })
 
-    it('renders the single-user autosave indicator in the same footer row as the word counter', () => {
+    it('renders the single-user autosave indicator in the same footer row as the character counter', () => {
         renderSingleUserSection()
         const region = screen.getByTestId('autosave-live-region')
         expect(region).toContainElement(screen.getByTestId('autosave-status'))
-        expect(region.parentElement).toContainElement(screen.getByText('0/300'))
+        expect(region.parentElement).toContainElement(screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`))
     })
 
     it('keeps the live region mounted through a validation error, so a later save is announced (OTTER-675)', () => {

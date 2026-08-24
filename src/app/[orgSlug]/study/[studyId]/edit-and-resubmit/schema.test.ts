@@ -1,49 +1,66 @@
 import { describe, it, expect } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
-    RESUBMIT_NOTE_MIN_WORDS,
+    RESUBMIT_NOTE_FIELD_TITLE,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
+    resubmissionNoteCharacterCount,
     resubmissionNoteToLexicalJson,
     resubmitNoteSchema,
 } from './schema'
+import { overCharacterLimitError } from '@/lib/field-limits'
 
-const buildNote = (wordCount: number) => Array.from({ length: wordCount }, (_, i) => `word${i}`).join(' ')
+const buildNote = (characterCount: number) => 'x'.repeat(characterCount)
+
+const messagesFor = (value: string) => {
+    const result = resubmitNoteSchema.safeParse({ resubmissionNote: value })
+    return result.success ? [] : result.error.issues.map((issue) => issue.message)
+}
 
 describe('resubmitNoteSchema', () => {
-    // The MIN-1 boundary case (one word below the minimum) collapses to the
-    // empty-note case while RESUBMIT_NOTE_MIN_WORDS is 1; if MIN ever rises
-    // above 1, restore an explicit `buildNote(RESUBMIT_NOTE_MIN_WORDS - 1)`
-    // assertion here so the lower bound stays covered.
     it('rejects an empty note', () => {
-        const result = resubmitNoteSchema.safeParse({ resubmissionNote: '' })
-        expect(result.success).toBe(false)
+        expect(messagesFor('')).toEqual(['A resubmission note is required.'])
     })
 
-    it('accepts a note at the minimum word count', () => {
-        const result = resubmitNoteSchema.safeParse({ resubmissionNote: buildNote(RESUBMIT_NOTE_MIN_WORDS) })
+    it('rejects a whitespace-only note', () => {
+        expect(messagesFor('   ')).toEqual(['A resubmission note is required.'])
+    })
+
+    it('accepts a single character', () => {
+        expect(resubmitNoteSchema.safeParse({ resubmissionNote: 'x' }).success).toBe(true)
+    })
+
+    it('accepts a note at exactly the character limit', () => {
+        const result = resubmitNoteSchema.safeParse({ resubmissionNote: buildNote(RESUBMIT_NOTE_MAX_CHARACTERS) })
         expect(result.success).toBe(true)
     })
 
-    it('accepts a note at the maximum word count', () => {
-        const result = resubmitNoteSchema.safeParse({ resubmissionNote: buildNote(RESUBMIT_NOTE_MAX_WORDS) })
-        expect(result.success).toBe(true)
+    it('rejects one character past the limit, naming the field and the cap', () => {
+        expect(messagesFor(buildNote(RESUBMIT_NOTE_MAX_CHARACTERS + 1))).toEqual([
+            overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
+        ])
     })
 
-    it('rejects a note above the maximum word count', () => {
-        const result = resubmitNoteSchema.safeParse({ resubmissionNote: buildNote(RESUBMIT_NOTE_MAX_WORDS + 1) })
-        expect(result.success).toBe(false)
+    // Characters, not words: 400 short words is past the old 300-word cap and well inside 1800
+    // characters, so this fails if word counting survived.
+    it('measures characters rather than words', () => {
+        const manyShortWords = Array.from({ length: 400 }, () => 'ab').join(' ')
+        expect(resubmitNoteSchema.safeParse({ resubmissionNote: manyShortWords }).success).toBe(true)
     })
 
-    it('accepts a Lexical JSON note within the word bounds', () => {
+    it('reports only the blank message for an empty note, never both rules at once', () => {
+        expect(messagesFor('')).toHaveLength(1)
+    })
+
+    it('accepts a Lexical JSON note at the character limit', () => {
         const result = resubmitNoteSchema.safeParse({
-            resubmissionNote: lexicalJson(buildNote(RESUBMIT_NOTE_MAX_WORDS)),
+            resubmissionNote: lexicalJson(buildNote(RESUBMIT_NOTE_MAX_CHARACTERS)),
         })
         expect(result.success).toBe(true)
     })
 
-    it('rejects a Lexical JSON note above the maximum word count', () => {
+    it('rejects a Lexical JSON note above the character limit', () => {
         const result = resubmitNoteSchema.safeParse({
-            resubmissionNote: lexicalJson(buildNote(RESUBMIT_NOTE_MAX_WORDS + 1)),
+            resubmissionNote: lexicalJson(buildNote(RESUBMIT_NOTE_MAX_CHARACTERS + 1)),
         })
         expect(result.success).toBe(false)
     })
@@ -51,6 +68,18 @@ describe('resubmitNoteSchema', () => {
     it('rejects a Lexical JSON note whose text is only whitespace', () => {
         const result = resubmitNoteSchema.safeParse({ resubmissionNote: lexicalJson('   ') })
         expect(result.success).toBe(false)
+    })
+})
+
+describe('resubmissionNoteCharacterCount', () => {
+    it('counts a plain-text note and the same text as Lexical JSON identically', () => {
+        expect(resubmissionNoteCharacterCount('hello there')).toBe(11)
+        expect(resubmissionNoteCharacterCount(lexicalJson('hello there'))).toBe(11)
+    })
+
+    // Raw, so the counter beside the field and the rule that gates it agree.
+    it('counts trailing whitespace toward the total', () => {
+        expect(resubmissionNoteCharacterCount('hi   ')).toBe(5)
     })
 })
 
