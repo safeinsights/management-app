@@ -1,6 +1,6 @@
 'use client'
 
-import { Alert, Paper, Stack } from '@mantine/core'
+import { Paper, Stack } from '@mantine/core'
 import { FC } from 'react'
 import { FormSectionHeader } from '@/components/study/form-section-header'
 import { LostKeyPopover } from '@/components/study/lost-key-popover'
@@ -11,17 +11,6 @@ import type { JobFileInfo } from '@/lib/types'
 
 const DEFAULT_TITLE = 'Security key'
 const DEFAULT_DESCRIPTION = 'This key is required to access the outputs. It was issued to you during sign-up.'
-
-// Deliberately not rendered through the key input's error slot: a failed verification is not a
-// key mistake, and presenting it there invited re-entering the key against a tampered archive.
-const IntegrityFailureAlert: FC<{ message: string | undefined }> = ({ message }) => {
-    if (!message) return null
-    return (
-        <Alert variant="light" color="red" title="Outputs could not be verified" role="alert">
-            {message}
-        </Alert>
-    )
-}
 
 interface SecurityKeyFormProps {
     /** Only the id is read; see useSecurityKeyForm. */
@@ -41,18 +30,16 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
     title = DEFAULT_TITLE,
     description = DEFAULT_DESCRIPTION,
 }) => {
-    const { value, setValue, error, integrityError, isDecrypting, isLoadingFiles, inputRef, handleSubmit } =
-        useSecurityKeyForm({
-            job,
-            type,
-            onDecrypted,
-        })
+    const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
+        job,
+        type,
+        onDecrypted,
+    })
 
     return (
         <Paper p="xxl" data-testid="security-key-form">
             <Stack gap={24}>
                 <FormSectionHeader title={title} description={description} required />
-                <IntegrityFailureAlert message={integrityError} />
                 <SecurityKeyInput
                     ref={inputRef}
                     autoFocus
