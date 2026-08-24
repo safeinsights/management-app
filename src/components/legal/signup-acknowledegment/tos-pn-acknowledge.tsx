@@ -4,7 +4,7 @@ import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/lega
 import { Anchor, Checkbox, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, ReactNode } from 'react'
-import { LegalDocumentSections } from '../document-sections'
+import { LegalMarkdownSections } from '../markdown-sections'
 
 // Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
 // they exist the real documents render below and the acknowledgement is recorded against them.
@@ -62,7 +62,7 @@ const TERMS_ERROR_ID = 'terms-accepted-error'
 // are wired by hand here so the requirement is not conveyed by red text alone.
 export const TosPnAcknowledgeForm: FC<AcknowledgeProps> = ({ checked, onChange, onBlur, error, documents = [] }) => (
     <Stack gap="sm" mt="md">
-        <LegalDocumentSections documents={documents} labelSize="sm" />
+        <LegalMarkdownSections documents={documents} labelSize="sm" />
         <Checkbox
             checked={checked}
             onChange={(event) => onChange(event.currentTarget.checked)}

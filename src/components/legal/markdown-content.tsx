@@ -32,7 +32,7 @@ export const LEGAL_DOCUMENT_MAX_HEIGHT = 280
  * rather than rendered. Presentational only — callers supply the markdown, which keeps the login
  * modal, the signup form and the admin version viewer on one renderer.
  */
-export const LegalDocumentContent: FC<Props> = ({ content, maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT, label }) => (
+export const LegalMarkdownContent: FC<Props> = ({ content, maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT, label }) => (
     <Paper withBorder p="md">
         <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
             <Typography fz="sm">

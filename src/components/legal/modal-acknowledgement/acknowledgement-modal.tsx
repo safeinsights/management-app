@@ -2,7 +2,7 @@
 
 import { Alert, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { LegalDocumentSection } from '../document-sections'
+import { LegalMarkdownSection } from '../markdown-sections'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
@@ -64,7 +64,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
             <Stack>
                 <Text>{legalAcknowledgementBody(document)}</Text>
 
-                <LegalDocumentSection document={document} />
+                <LegalMarkdownSection document={document} />
 
                 <Checkbox
                     checked={isChecked}

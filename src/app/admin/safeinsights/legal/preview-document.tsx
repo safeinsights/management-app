@@ -2,7 +2,7 @@
 
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
-import { LegalDocumentContent } from '@/components/legal/document-content'
+import { LegalMarkdownContent } from '@/components/legal/markdown-content'
 import { LoadingMessage } from '@/components/loading'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 
@@ -25,5 +25,5 @@ export function PreviewDocument({ versionId, url, label }: { versionId: string; 
 
     if (isLoading) return <LoadingMessage message="Loading..." />
     if (isError || !data) return <ErrorAlert error={error ?? 'The document could not be loaded'} color="red" />
-    return <LegalDocumentContent content={data} label={label} />
+    return <LegalMarkdownContent content={data} label={label} />
 }
