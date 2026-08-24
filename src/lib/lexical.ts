@@ -90,13 +90,13 @@ export function isValidLexicalState(json: string | undefined): boolean {
 }
 
 /**
- * Create Lexical JSON from plain text (for testing)
+ * Accepts either a serialized Lexical state or raw text and returns Lexical JSON.
+ * Editor-backed fields post Lexical JSON; plain-text callers (and tests) post a string.
+ *
+ * Normalizing only. It used to report a word count as well, which tied it to one unit; each
+ * caller now measures the returned JSON in the unit its own field is capped in (OTTER-737).
  */
-/**
- * Accepts either a serialized Lexical state or raw text and returns Lexical JSON plus its word
- * count. Editor-backed fields post Lexical JSON; plain-text callers (and tests) post a string.
- */
-export function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: number } {
+export function normalizeFeedbackToLexical(raw: string): string {
     let parsed: unknown
     try {
         parsed = JSON.parse(raw)
@@ -104,16 +104,20 @@ export function normalizeFeedbackToLexical(raw: string): { json: string; wordCou
         parsed = null
     }
 
-    // Loose check: non-Lexical JSON that passes will yield 0 words and fail min-word validation.
+    // Loose check: non-Lexical JSON that passes yields no text, and so fails the caller's
+    // required-field rule.
     const looksLikeLexicalRoot =
         parsed != null &&
         typeof parsed === 'object' &&
         'root' in (parsed as Record<string, unknown>) &&
         typeof (parsed as { root: unknown }).root === 'object'
 
-    const json = looksLikeLexicalRoot ? raw : lexicalJson(raw)
-    return { json, wordCount: countWordsFromLexical(json) }
+    return looksLikeLexicalRoot ? raw : lexicalJson(raw)
 }
+
+/**
+ * Create Lexical JSON from plain text (for testing)
+ */
 
 export function lexicalJson(text: string): string {
     return JSON.stringify({

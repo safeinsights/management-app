@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { countCharactersFromLexical, extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
+import { overCharacterLimitError } from '@/lib/field-limits'
 
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
@@ -34,9 +35,6 @@ export const FIELD_TITLES = {
     impact: 'Impact',
     additionalNotes: 'Additional notes or requests',
 } as const
-
-export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number) =>
-    `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
 
 export function maxWordsRefine(maxWords: number) {
     return {

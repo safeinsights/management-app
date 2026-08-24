@@ -5,7 +5,7 @@ import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyReviewCommentKind, StudyStatus } from '@/database/types'
-import { normalizeFeedbackToLexical } from '@/lib/lexical'
+import { countWordsFromLexical, normalizeFeedbackToLexical } from '@/lib/lexical'
 import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
@@ -608,7 +608,8 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
     .requireAbilityTo('review', 'Study')
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
         const userId = session.user.id
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+        const json = normalizeFeedbackToLexical(feedback)
+        const wordCount = countWordsFromLexical(json)
 
         if (wordCount < FEEDBACK_MIN_WORDS) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
@@ -756,7 +757,8 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
         const userId = session.user.id
 
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+        const json = normalizeFeedbackToLexical(feedback)
+        const wordCount = countWordsFromLexical(json)
         if (wordCount < FEEDBACK_MIN_WORDS) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
         }

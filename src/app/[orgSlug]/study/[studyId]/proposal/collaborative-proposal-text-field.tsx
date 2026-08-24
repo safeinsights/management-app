@@ -11,9 +11,10 @@ import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { countCharactersFromLexical, countWordsFromLexical } from '@/lib/lexical'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
-import { overCharacterLimitError, type ProposalFormValues } from './schema'
+import { type ProposalFormValues } from './schema'
 
 const contentStyle = {
     padding: '8px 16px',

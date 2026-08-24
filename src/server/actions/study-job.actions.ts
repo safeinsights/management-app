@@ -2,7 +2,7 @@
 
 import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
 import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { normalizeFeedbackToLexical } from '@/lib/lexical'
+import { countWordsFromLexical, normalizeFeedbackToLexical } from '@/lib/lexical'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
     hasOutputsDecision,
@@ -219,7 +219,8 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         // client would let a caller raise its own limit to anything.
         const maxWords = outputsFeedbackMaxWords(jobStatuses)
 
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
+        const json = normalizeFeedbackToLexical(feedback)
+        const wordCount = countWordsFromLexical(json)
         if (wordCount < OUTPUTS_FEEDBACK_MIN_WORDS) {
             throw new ActionFailure({ feedback: 'Feedback is required' })
         }
