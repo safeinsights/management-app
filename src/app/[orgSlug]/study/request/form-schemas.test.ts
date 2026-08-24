@@ -5,7 +5,7 @@ import {
     STUDY_TITLE_BLANK_ERROR,
     STUDY_TITLE_MAX_CHARACTERS,
     STUDY_TITLE_OVER_LIMIT_ERROR,
-    step1DraftStudyApiSchema,
+    draftStudyApiSchema,
     step1FieldsSchema,
     studyProposalFormSchema,
     studyProposalApiSchema,
@@ -112,30 +112,21 @@ describe('studyProposalFormSchema', () => {
     })
 })
 
-describe('step1DraftStudyApiSchema', () => {
+// One schema for every draft entry point: Step 1 creation, Step 1 updates, and the
+// CHANGE-REQUESTED resubmit autosave. They all cap the title at 60 characters (OTTER-737).
+describe('draftStudyApiSchema', () => {
     it('rejects a title over the character limit', () => {
-        const result = step1DraftStudyApiSchema.safeParse({ title: 'a'.repeat(61) })
+        const result = draftStudyApiSchema.safeParse({ title: 'a'.repeat(61) })
 
         expect(result.success).toBe(false)
         if (result.success) return
         expect(result.error.issues[0].message).toBe(STUDY_TITLE_OVER_LIMIT_ERROR)
     })
 
-    it('accepts a title at the limit', () => {
-        expect(step1DraftStudyApiSchema.safeParse({ title: 'a'.repeat(60) }).success).toBe(true)
-    })
-
-    // Creation is the only entry point that mints a study row, so it is the one place that can
-    // stop an untitled row existing at all. The parent schema stays permissive for the update and
-    // resubmit paths, which must not clear a title they do not own.
-    it('rejects a create payload with no usable title', () => {
-        expect(step1DraftStudyApiSchema.safeParse({}).success).toBe(false)
-        expect(step1DraftStudyApiSchema.safeParse({ title: null }).success).toBe(false)
-
-        const blank = step1DraftStudyApiSchema.safeParse({ title: '   ' })
-        expect(blank.success).toBe(false)
-        if (blank.success) return
-        expect(blank.error.issues[0].message).toBe(STUDY_TITLE_BLANK_ERROR)
+    it('accepts a title at the limit, and a null one for an untitled draft', () => {
+        expect(draftStudyApiSchema.safeParse({ title: 'a'.repeat(60) }).success).toBe(true)
+        expect(draftStudyApiSchema.safeParse({ title: null }).success).toBe(true)
+        expect(draftStudyApiSchema.safeParse({}).success).toBe(true)
     })
 })
 

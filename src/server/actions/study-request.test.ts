@@ -676,7 +676,7 @@ describe('Request Study Actions', () => {
     // Every server entry point except onSaveDraftStudyAction is shared with the CHANGE-REQUESTED
     // resubmit flow, which still enforces its own 20-word rule, so a cap applied by action name
     // would reject resubmit titles the resubmit form itself accepted.
-    describe('study title length rules (OTTER-690)', () => {
+    describe('study title length rules (OTTER-690, OTTER-737)', () => {
         const OVER_LIMIT = 'a'.repeat(61)
 
         it('onSaveDraftStudyAction rejects a title over 60 characters', async () => {
@@ -780,32 +780,49 @@ describe('Request Study Actions', () => {
             expect(study.title).toBe('Test draft')
         })
 
-        // The resubmit autosave writes through this same action. Its rule is 20 words, so a long
-        // title is legitimate there and must survive both the params schema and the handler.
-        it('onUpdateDraftStudyAction accepts an over-limit title on a CHANGE-REQUESTED row', async () => {
+        // The resubmit autosave writes through this same action. It used to run under a 20-word
+        // title rule, where a 61-character title was legitimate; OTTER-737 put both flows on the
+        // same 60-character cap, so the payload is now rejected here too.
+        it('onUpdateDraftStudyAction rejects an over-limit title on a CHANGE-REQUESTED row', async () => {
             const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-update-cr' })
             await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } }))
+            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
 
+            expect('error' in result).toBe(true)
             const study = await db
                 .selectFrom('study')
                 .select('title')
                 .where('id', '=', studyId)
                 .executeTakeFirstOrThrow()
-            expect(study.title).toBe(OVER_LIMIT)
+            expect(study.title).toBe('Test draft')
         })
 
-        it('resubmitProposalAction accepts an over-limit title', async () => {
+        it('resubmitProposalAction rejects an over-limit title', async () => {
             const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-resubmit' })
             await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
             const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
+            const result = await resubmitProposalAction({
+                studyId,
+                studyInfo: { title: OVER_LIMIT, piName: 'PI', piUserId: user.id },
+                resubmissionNote: buildFeedback(20),
+            })
+
+            expect('error' in result).toBe(true)
+        })
+
+        it('resubmitProposalAction accepts a title at exactly 60 characters', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-resubmit-ok' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const atLimit = 'c'.repeat(60)
+
             actionResult(
                 await resubmitProposalAction({
                     studyId,
-                    studyInfo: { title: OVER_LIMIT, piName: 'PI', piUserId: user.id },
+                    studyInfo: { title: atLimit, piName: 'PI', piUserId: user.id },
                     resubmissionNote: buildFeedback(20),
                 }),
             )
@@ -815,7 +832,7 @@ describe('Request Study Actions', () => {
                 .select('title')
                 .where('id', '=', studyId)
                 .executeTakeFirstOrThrow()
-            expect(study.title).toBe(OVER_LIMIT)
+            expect(study.title).toBe(atLimit)
         })
     })
 

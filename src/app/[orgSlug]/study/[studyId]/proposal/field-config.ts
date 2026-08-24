@@ -1,15 +1,11 @@
-import { CHARACTER_LIMITS, FIELD_TITLES, type ProposalFormValues, WORD_LIMITS } from './schema'
+import { CHARACTER_LIMITS, FIELD_TITLES, type ProposalFormValues } from './schema'
 
 export interface EditableTextField {
     label: string
     id: keyof ProposalFormValues
     description: string
     placeholder: string
-    maxWords: number
-    /**
-     * Step 2's cap, in characters. `maxWords` stays alongside it because the CHANGE-REQUESTED
-     * resubmit page shares this config and still counts words (OTTER-691).
-     */
+    /** The field's cap, in characters. Every page that renders these fields uses it (OTTER-737). */
     maxCharacters: number
     /**
      * Height of the editable area before any typing or dragging, in px.
@@ -28,7 +24,6 @@ export const editableTextFields: EditableTextField[] = [
         id: 'researchQuestions',
         maxCharacters: CHARACTER_LIMITS.researchQuestions,
         contentHeight: 205,
-        maxWords: WORD_LIMITS.researchQuestions,
         description:
             'Describe the primary research question(s) your study aims to answer. Be as specific as possible to support review and alignment with available data.',
         placeholder:
@@ -40,7 +35,6 @@ export const editableTextFields: EditableTextField[] = [
         id: 'projectSummary',
         maxCharacters: CHARACTER_LIMITS.projectSummary,
         contentHeight: 505,
-        maxWords: WORD_LIMITS.projectSummary,
         description:
             'Briefly explain your planned study, including the target population, research design, methods, and any interventions or comparisons.',
         placeholder:
@@ -52,7 +46,6 @@ export const editableTextFields: EditableTextField[] = [
         id: 'impact',
         maxCharacters: CHARACTER_LIMITS.impact,
         contentHeight: 205,
-        maxWords: WORD_LIMITS.impact,
         description:
             'What are the potential outcomes of this study? Describe how your findings could improve learning experiences, teaching practices, educational policy, etc.',
         placeholder:
@@ -64,7 +57,6 @@ export const editableTextFields: EditableTextField[] = [
         id: 'additionalNotes',
         maxCharacters: CHARACTER_LIMITS.additionalNotes,
         contentHeight: 105,
-        maxWords: WORD_LIMITS.additionalNotes,
         description:
             'Add any other information, constraints, or questions for the Data Partner. This might include timing, special requirements, references, or related work.',
         placeholder:

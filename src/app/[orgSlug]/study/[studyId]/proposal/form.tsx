@@ -166,7 +166,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                         form={form}
                         studyId={studyId}
                         websocketProvider={websocketProvider}
-                        countMode="characters"
                         contentHeight={field.contentHeight}
                         isResizable
                         liveCharacterLimit

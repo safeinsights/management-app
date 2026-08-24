@@ -1,34 +1,43 @@
 import { z } from 'zod'
-import { WORD_LIMITS, maxWordsRefine } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { overCharacterLimitError } from '@/lib/field-limits'
 
 /**
- * OTTER-690: Step 1 owns `study.title` for DRAFT studies, capped at characters rather than
- * words. The CHANGE-REQUESTED resubmit flow keeps its own 20-word rule (`WORD_LIMITS.title`);
- * the two are deliberately different and harmonizing them is a separate card.
+ * Step 1 owns `study.title` for DRAFT studies (OTTER-690). The CHANGE-REQUESTED resubmit page
+ * renders a title too and now shares this cap (OTTER-737), so the constant lives here, beside the
+ * form that creates the study, and both flows import it.
  */
 export const STUDY_TITLE_MAX_CHARACTERS = 60
 
 export const STUDY_TITLE_BLANK_ERROR = 'Enter a study title before continuing.'
-export const STUDY_TITLE_OVER_LIMIT_ERROR = `Study title exceeds the ${STUDY_TITLE_MAX_CHARACTERS} character limit. Shorten it to continue.`
+export const STUDY_TITLE_OVER_LIMIT_ERROR = overCharacterLimitError('Study title', STUDY_TITLE_MAX_CHARACTERS)
 export const DATA_PARTNER_REQUIRED_ERROR = 'Select a Data Partner before continuing.'
 export const PROGRAMMING_LANGUAGE_REQUIRED_ERROR = 'Select a programming language before continuing.'
 
-// Emptiness is measured trimmed, the cap is measured RAW. Mixing them lets "60 characters plus
-// a trailing space" show 61/60 in the counter while still validating, because the counter counts
-// what the user typed. Trimming happens once, when the draft is persisted (use-save-draft).
-const studyTitleField = z.string().superRefine((val, ctx) => {
-    if (val.trim().length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_BLANK_ERROR })
-    } else if (val.length > STUDY_TITLE_MAX_CHARACTERS) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
-    }
-})
+/**
+ * The study title rule, shared by Step 1 and the CHANGE-REQUESTED resubmit page (OTTER-737).
+ *
+ * Emptiness is measured trimmed, the cap is measured RAW. Mixing them lets "60 characters plus
+ * a trailing space" show 61/60 in the counter while still validating, because the counter counts
+ * what the user typed. Trimming happens once, when the draft is persisted (use-save-draft).
+ *
+ * The blank message is a parameter because the two pages word it differently. Step 1 names the
+ * action, since it raises every empty-field message at once; the resubmit page keeps the generic
+ * wording it shares with its other fields. The over-limit message is the same on both.
+ */
+export const studyTitleField = (blankError: string) =>
+    z.string().superRefine((val, ctx) => {
+        if (val.trim().length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: blankError })
+        } else if (val.length > STUDY_TITLE_MAX_CHARACTERS) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+    })
 
 // The fields Step 1 actually collects. This is the resolver for the Step 1 form, so it
 // must stay in lockstep with what `SetupForm` renders: anything required here
 // but not rendered produces an error the user can never see or clear (OTTER-647).
 const step1FieldsObject = z.object({
-    title: studyTitleField,
+    title: studyTitleField(STUDY_TITLE_BLANK_ERROR),
     orgSlug: z.string().min(1, { message: DATA_PARTNER_REQUIRED_ERROR }),
     language: z.enum(['R', 'PYTHON']).nullable(),
 })
@@ -111,7 +120,7 @@ export const studyProposalApiSchema = z.object({
     title: z
         .string()
         .min(1, { message: 'Title is required' })
-        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+        .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR }),
     piName: z.string().max(100).trim(),
     piUserId: z.string().uuid(),
     language: z.enum(['R', 'PYTHON']),
@@ -133,31 +142,18 @@ export const step2ProposalApiSchema = z.object({
 // Drafts allow `title: null` so a researcher can save without filling it in;
 // the DB enforces non-null only when status leaves DRAFT.
 //
-// Deliberately permissive about title length. This schema is shared by three server entry
-// points, and only one of them is a Step 1 owner: `onUpdateDraftStudyAction` also serves the
-// resubmit autosave and `resubmitProposalAction` serves resubmission itself, both on
-// CHANGE-REQUESTED rows where the 20-word rule still applies. A character cap here would
-// reject titles the resubmit UI accepted. Step 1's cap lives in `step1DraftStudyApiSchema`.
+// The cap applies to every entry point this schema serves. It used to be deliberately absent,
+// because `onUpdateDraftStudyAction` also serves the resubmit autosave and `resubmitProposalAction`
+// serves resubmission itself, and those ran on CHANGE-REQUESTED rows under a 20-word title rule
+// that a character cap could have rejected. Both flows are on the same 60 characters now
+// (OTTER-737), so there is nothing left to reject.
 export const draftStudyApiSchema = studyProposalApiSchema
     .extend(step2ProposalApiSchema.shape)
     .partial()
-    .extend({ title: z.string().nullable().optional() })
-
-// Step 1 study creation only. `draftStudyApiSchema` replaces `title` outright, so tightening
-// its parent would silently be a no-op; the rule has to be applied to the override.
-//
-// Required and non-blank, unlike the parent's nullable/optional title: this is the one entry point
-// that mints a study row, and every untitled row it creates is one the recovery guards in
-// /proposal and `finalizeStudySubmissionAction` then have to rescue. Step 1's Save & continue gate
-// already makes a blank create unreachable through the UI; requiring it here means a future caller
-// cannot reintroduce the case by forgetting. Rows predating OTTER-690 still need those guards.
-//
-// Cap before blank, so the message matches what the user did: 61 characters reports the limit,
-// while whitespace-only reports the blank rule. Emptiness is measured trimmed, matching
-// `studyTitleField`; the client trims before sending.
-export const step1DraftStudyApiSchema = draftStudyApiSchema.extend({
-    title: z
-        .string()
-        .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR })
-        .refine((val) => val.trim().length > 0, { message: STUDY_TITLE_BLANK_ERROR }),
-})
+    .extend({
+        title: z
+            .string()
+            .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR })
+            .nullable()
+            .optional(),
+    })

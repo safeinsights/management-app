@@ -6,11 +6,10 @@ import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 
 import { FormField, fieldDescribedBy } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { countCharactersFromLexical, countWordsFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
@@ -38,11 +37,6 @@ type Props = {
      */
     placeholder?: string
     /**
-     * How this field's cap is measured. Step 2 counts characters (OTTER-691); the resubmit page
-     * still counts words, and shares this component.
-     */
-    countMode?: 'words' | 'characters'
-    /**
      * Opt-in for the same reason `placeholder` is: Figma gives Step 2 a per-field box height
      * (OTTER-691) while the resubmit page shares this component and keeps one uniform height.
      * Reading `field.contentHeight` here would resize the resubmit page too.
@@ -61,26 +55,17 @@ export function CollaborativeProposalTextField({
     onBlur,
     websocketProvider,
     placeholder,
-    countMode = 'words',
     contentHeight,
     isResizable,
 }: Props) {
-    const countsCharacters = countMode === 'characters'
-    const count = countsCharacters ? countCharactersFromLexical : countWordsFromLexical
-    const [textCount, setTextCount] = useState(() => count(initialValue))
+    const [characterCount, setCharacterCount] = useState(() => countCharactersFromLexical(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
     // The editor surface needs its own DOM id: `docName` is the Yjs document key.
     const inputId = textFieldInputId(field.id)
 
-    const counter = countsCharacters ? (
-        <CharacterCounter count={textCount} maxCharacters={field.maxCharacters} />
-    ) : (
-        <WordCounter wordCount={textCount} maxWords={field.maxWords} />
-    )
-
     const onTextChange = (json: string) => {
         onChange(json)
-        setTextCount(count(json))
+        setCharacterCount(countCharactersFromLexical(json))
     }
 
     return (
@@ -92,11 +77,11 @@ export function CollaborativeProposalTextField({
                     required={field.required}
                     description={field.description}
                     error={error}
-                    footer={counter}
+                    footer={<CharacterCounter count={characterCount} maxCharacters={field.maxCharacters} />}
                     // The character-limit error can appear while the user is still typing, before
                     // any blur or click moves focus, so it has to announce itself (OTTER-690's
                     // errorLive, built for the Step 1 title's identical case).
-                    errorLive={countsCharacters}
+                    errorLive
                 >
                     <Editor
                         id={docName}
@@ -139,7 +124,6 @@ export const ProposalTextFieldEntry: FC<{
     studyId: string
     websocketProvider: HocuspocusProviderWebsocket | null
     placeholder?: string
-    countMode?: 'words' | 'characters'
     contentHeight?: number
     isResizable?: boolean
     /**
@@ -158,7 +142,6 @@ export const ProposalTextFieldEntry: FC<{
     studyId,
     websocketProvider,
     placeholder,
-    countMode,
     contentHeight,
     isResizable,
     liveCharacterLimit = false,
@@ -183,7 +166,6 @@ export const ProposalTextFieldEntry: FC<{
             onBlur={() => form.validateField(field.id)}
             websocketProvider={websocketProvider}
             placeholder={placeholder}
-            countMode={countMode}
             contentHeight={contentHeight}
             isResizable={isResizable}
         />

@@ -6,8 +6,9 @@ import {
     FIELD_TITLES,
     proposalFormSchema,
     initialProposalValues,
-    WORD_LIMITS,
 } from './schema'
+import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 
 function lexicalText(text: string): string {
@@ -62,24 +63,31 @@ describe('proposalFormSchema', () => {
             }
         })
 
-        it('rejects title exceeding word limit', () => {
+        it('rejects title exceeding the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                title: words(WORD_LIMITS.title + 1),
+                title: 'x'.repeat(STUDY_TITLE_MAX_CHARACTERS + 1),
             })
 
             expect(result.success).toBe(false)
             if (!result.success) {
                 const error = result.error.issues.find((e) => e.path.includes('title'))
-                expect(error?.message).toBe('Word limit exceeded. Please shorten your text.')
+                expect(error?.message).toBe(STUDY_TITLE_OVER_LIMIT_ERROR)
             }
         })
 
-        it('accepts title at exactly word limit', () => {
+        it('accepts title at exactly the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                title: words(WORD_LIMITS.title),
+                title: 'x'.repeat(STUDY_TITLE_MAX_CHARACTERS),
             })
+            expect(result.success).toBe(true)
+        })
+
+        // Characters, not words: 30 short words is past the old 20-word cap and inside 60
+        // characters, so this fails if the word rule survived.
+        it('measures the title in characters rather than words', () => {
+            const result = proposalFormSchema.safeParse({ ...validProposalData, title: 'ab '.repeat(20).trim() })
             expect(result.success).toBe(true)
         })
     })
@@ -107,28 +115,30 @@ describe('proposalFormSchema', () => {
             expect(result.success).toBe(false)
         })
 
-        it('rejects content exceeding word limit', () => {
+        it('rejects content exceeding the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                researchQuestions: lexicalText(words(WORD_LIMITS.researchQuestions + 1)),
+                researchQuestions: lexicalText('x'.repeat(CHARACTER_LIMITS.researchQuestions + 1)),
             })
 
             expect(result.success).toBe(false)
             if (!result.success) {
                 const error = result.error.issues.find((e) => e.path.includes('researchQuestions'))
-                expect(error?.message).toBe('Word limit exceeded. Please shorten your text.')
+                expect(error?.message).toBe(
+                    overCharacterLimitError(FIELD_TITLES.researchQuestions, CHARACTER_LIMITS.researchQuestions),
+                )
             }
         })
 
-        it('accepts content at exactly word limit', () => {
+        it('accepts content at exactly the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                researchQuestions: lexicalText(words(WORD_LIMITS.researchQuestions)),
+                researchQuestions: lexicalText('x'.repeat(CHARACTER_LIMITS.researchQuestions)),
             })
             expect(result.success).toBe(true)
         })
 
-        it('counts formatted text within a word as one word', () => {
+        it('counts formatted runs as one continuous string', () => {
             const formattedJson = JSON.stringify({
                 root: {
                     type: 'root',
@@ -166,19 +176,19 @@ describe('proposalFormSchema', () => {
             }
         })
 
-        it('rejects content exceeding word limit', () => {
+        it('rejects content exceeding the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                projectSummary: lexicalText(words(WORD_LIMITS.projectSummary + 1)),
+                projectSummary: lexicalText('x'.repeat(CHARACTER_LIMITS.projectSummary + 1)),
             })
 
             expect(result.success).toBe(false)
         })
 
-        it('accepts content at word limit', () => {
+        it('accepts content at the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                projectSummary: lexicalText(words(WORD_LIMITS.projectSummary)),
+                projectSummary: lexicalText('x'.repeat(CHARACTER_LIMITS.projectSummary)),
             })
             expect(result.success).toBe(true)
         })
@@ -194,10 +204,10 @@ describe('proposalFormSchema', () => {
             expect(result.success).toBe(false)
         })
 
-        it('rejects content exceeding word limit', () => {
+        it('rejects content exceeding the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                impact: lexicalText(words(WORD_LIMITS.impact + 1)),
+                impact: lexicalText('x'.repeat(CHARACTER_LIMITS.impact + 1)),
             })
 
             expect(result.success).toBe(false)
@@ -222,23 +232,25 @@ describe('proposalFormSchema', () => {
             }
         })
 
-        it('rejects content exceeding word limit', () => {
+        it('rejects content exceeding the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                additionalNotes: lexicalText(words(WORD_LIMITS.additionalNotes + 1)),
+                additionalNotes: lexicalText('x'.repeat(CHARACTER_LIMITS.additionalNotes + 1)),
             })
 
             expect(result.success).toBe(false)
             if (!result.success) {
                 const error = result.error.issues.find((e) => e.path.includes('additionalNotes'))
-                expect(error?.message).toBe('Word limit exceeded. Please shorten your text.')
+                expect(error?.message).toBe(
+                    overCharacterLimitError(FIELD_TITLES.additionalNotes, CHARACTER_LIMITS.additionalNotes),
+                )
             }
         })
 
-        it('accepts content at word limit', () => {
+        it('accepts content at the character limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
-                additionalNotes: lexicalText(words(WORD_LIMITS.additionalNotes)),
+                additionalNotes: lexicalText('x'.repeat(CHARACTER_LIMITS.additionalNotes)),
             })
             expect(result.success).toBe(true)
         })
@@ -473,15 +485,24 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
     })
 })
 
-// Containment guard. The resubmit page shares this module, and swapping its rules is a bigger
-// product change than OTTER-691 covers. If this ever fails, the character switch has leaked.
-describe('proposalFormSchema still counts words (OTTER-691 containment)', () => {
-    it('rejects a field over the WORD limit even though it is inside the character limit', () => {
+// The resubmit page shares this module and now measures the same fields in the same unit as Step 2
+// (OTTER-737). Only the empty-field wording still differs between the two.
+describe('proposalFormSchema counts characters (OTTER-737)', () => {
+    it('accepts a field over the old 500-word cap that is inside the character limit', () => {
         const result = proposalFormSchema.safeParse({
             ...validProposalData,
-            impact: lexicalText(words(WORD_LIMITS.impact + 1)),
+            impact: lexicalText(words(600)),
         })
-        expect(result.success).toBe(false)
+        expect(result.success).toBe(true)
+    })
+
+    it('caps each field at the same value the DRAFT resolver uses', () => {
+        const result = proposalFormSchema.safeParse({
+            ...validProposalData,
+            impact: lexicalText('x'.repeat(CHARACTER_LIMITS.impact + 1)),
+        })
+        const messages = result.success ? [] : result.error.issues.map((i) => i.message)
+        expect(messages).toContain(overCharacterLimitError(FIELD_TITLES.impact, CHARACTER_LIMITS.impact))
     })
 
     it('keeps its generic required message rather than the Step 2 wording', () => {

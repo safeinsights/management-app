@@ -32,7 +32,6 @@ import {
     STUDY_TITLE_MAX_CHARACTERS,
     STUDY_TITLE_OVER_LIMIT_ERROR,
     draftStudyApiSchema,
-    step1DraftStudyApiSchema,
 } from '@/app/[orgSlug]/study/request/form-schemas'
 import {
     RESUBMIT_NOTE_MAX_WORDS,
@@ -160,12 +159,12 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
-// Schema for creating a new draft. Step 1 is the only caller, so this one may enforce the
-// 60-character title cap; the update schema below deliberately may not (see there).
+// Schema for creating a new draft. Every entry point enforces the same 60-character title cap
+// now that the resubmit flow measures the title in characters too (OTTER-737).
 const onSaveDraftStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     submittingOrgSlug: z.string(),
-    studyInfo: step1DraftStudyApiSchema,
+    studyInfo: draftStudyApiSchema,
 })
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
@@ -219,12 +218,10 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         }
     })
 
-// Schema for updating an existing draft. Declared standalone rather than derived from the
-// create schema on purpose: this action serves Step 1 updates AND the CHANGE-REQUESTED resubmit
-// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft), where the title rule is
-// still 20 words and a title over 60 characters is legitimate. Inheriting the create schema's
-// cap would reject that payload inside `.params()`, before the handler could look at the
-// persisted status, and no status-aware handler logic can rescue input that never parses.
+// Schema for updating an existing draft. Serves Step 1 updates AND the CHANGE-REQUESTED resubmit
+// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft). Both pages cap the title at
+// the same 60 characters now (OTTER-737), so one schema covers both; before that the resubmit
+// autosave could legitimately carry a longer title and this schema had to stay permissive.
 const onUpdateDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     studyInfo: draftStudyApiSchema,

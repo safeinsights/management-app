@@ -4,11 +4,10 @@ import { FC } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormField, nativeFieldProps } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
+import { CharacterCounter } from '@/components/character-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { countWords } from '@/lib/lexical'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
 import { ProposalTextFieldEntry } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
@@ -32,7 +31,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     enclaveOrgSlug,
 }) => {
     const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
-    const titleWordCount = countWords(form.values.title)
+    const titleCharacterCount = form.values.title.length
     const titleInputProps = form.getInputProps('title')
 
     return (
@@ -60,7 +59,9 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         required
                         description="Give your study a short, clear title. This will help identify and reference your project on SafeInsights."
                         error={form.errors.title}
-                        footer={<WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />}
+                        footer={
+                            <CharacterCounter count={titleCharacterCount} maxCharacters={STUDY_TITLE_MAX_CHARACTERS} />
+                        }
                     >
                         <TextInput
                             id="title"
@@ -125,6 +126,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     studyId={studyId}
                     websocketProvider={websocketProvider}
                     placeholder={field.placeholder}
+                    liveCharacterLimit
                 />
             ))}
 

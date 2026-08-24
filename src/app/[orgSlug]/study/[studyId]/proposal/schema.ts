@@ -1,25 +1,18 @@
 import { z } from 'zod'
-import { countCharactersFromLexical, extractTextFromLexical, countWordsFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, extractTextFromLexical } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
+import { studyTitleField } from '@/app/[orgSlug]/study/request/form-schemas'
 
-const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
-export const WORD_LIMITS = {
-    title: 20,
-    researchQuestions: 500,
-    projectSummary: 1000,
-    impact: 500,
-    additionalNotes: 300,
-} as const
-
 /**
- * Step 2's per-field caps, in characters (OTTER-691). Figma shows these as the counters beside each
- * field: 3000 / 6000 / 3000 / 1800.
+ * Per-field caps, in characters. Figma shows these as the counters beside each field:
+ * 3000 / 6000 / 3000 / 1800.
  *
- * Deliberately separate from {@link WORD_LIMITS}, which stays in force on the CHANGE-REQUESTED
- * resubmit page. The two flows now measure the same four fields differently; that divergence is
- * intended for this card and is worth a follow-up to harmonize.
+ * Both flows that render these fields use them. Step 2 moved off word counts in OTTER-691 and the
+ * CHANGE-REQUESTED resubmit page followed in OTTER-737, so there is no second unit left to drift
+ * against. The study title has its own cap next to the Step 1 form that owns it
+ * (STUDY_TITLE_MAX_CHARACTERS).
  */
 export const CHARACTER_LIMITS = {
     researchQuestions: 3000,
@@ -36,19 +29,30 @@ export const FIELD_TITLES = {
     additionalNotes: 'Additional notes or requests',
 } as const
 
-export function maxWordsRefine(maxWords: number) {
-    return {
-        check: (val: string) => val.trim().split(/\s+/).filter(Boolean).length <= maxWords,
-        message: WORD_LIMIT_ERROR,
-    }
-}
-
-function maxWordsLexicalRefine(maxWords: number) {
-    return {
-        check: (val: string) => countWordsFromLexical(val) <= maxWords,
-        message: WORD_LIMIT_ERROR,
-    }
-}
+/**
+ * A proposal rich-text field: required (unless `requiredError` is null) and capped in characters.
+ *
+ * `superRefine` rather than chained `refine`s so an empty field reports only that it is empty. The
+ * two rules can both fail at once on a blank field with a huge limit, and stacking two messages
+ * under one control reads as a defect.
+ *
+ * Emptiness is measured trimmed, the cap is measured raw, matching the counter beside the field
+ * and the same split OTTER-690 applied to the Step 1 title. Mixing them would let a field read
+ * 3000/3000 while validating as 3001.
+ */
+const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
+    z.string().superRefine((val, ctx) => {
+        if (requiredError && extractTextFromLexical(val).trim().length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
+            return
+        }
+        if (countCharactersFromLexical(val) > maxCharacters) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: overCharacterLimitError(fieldTitle, maxCharacters),
+            })
+        }
+    })
 
 const PI_UNLINKED_ERROR = 'Select a Principal Investigator from the list.'
 
@@ -73,43 +77,21 @@ const validateLinkedPi = (data: { piName: string; piUserId: string }, ctx: z.Ref
 }
 
 const proposalFieldsSchema = z.object({
-    // trim() before min(1) so a whitespace-only title fails here rather than passing schema
-    // validation while a separate trimmed check silently disables submit (OTTER-647).
-    title: z
-        .string()
-        .trim()
-        .min(1, { message: REQUIRED_FIELD_ERROR })
-        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+    // Shared with the Step 1 form that owns the title on a DRAFT, so both pages cap it at the same
+    // 60 characters and word the over-limit message the same way (OTTER-737). Only the blank
+    // message differs, which is why it is a parameter.
+    title: studyTitleField(REQUIRED_FIELD_ERROR),
     datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
-    researchQuestions: z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: REQUIRED_FIELD_ERROR,
-        })
-        .refine(maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).check, {
-            message: maxWordsLexicalRefine(WORD_LIMITS.researchQuestions).message,
-        }),
-    projectSummary: z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: REQUIRED_FIELD_ERROR,
-        })
-        .refine(maxWordsLexicalRefine(WORD_LIMITS.projectSummary).check, {
-            message: maxWordsLexicalRefine(WORD_LIMITS.projectSummary).message,
-        }),
-    impact: z
-        .string()
-        .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: REQUIRED_FIELD_ERROR,
-        })
-        .refine(maxWordsLexicalRefine(WORD_LIMITS.impact).check, {
-            message: maxWordsLexicalRefine(WORD_LIMITS.impact).message,
-        }),
-    additionalNotes: z
-        .string()
-        .refine((val) => !val || countWordsFromLexical(val) <= WORD_LIMITS.additionalNotes, {
-            message: WORD_LIMIT_ERROR,
-        })
+    researchQuestions: lexicalField(
+        FIELD_TITLES.researchQuestions,
+        REQUIRED_FIELD_ERROR,
+        CHARACTER_LIMITS.researchQuestions,
+    ),
+    projectSummary: lexicalField(FIELD_TITLES.projectSummary, REQUIRED_FIELD_ERROR, CHARACTER_LIMITS.projectSummary),
+    impact: lexicalField(FIELD_TITLES.impact, REQUIRED_FIELD_ERROR, CHARACTER_LIMITS.impact),
+    // Optional, but still capped: an over-long note must block Submit even though a blank one does
+    // not.
+    additionalNotes: lexicalField(FIELD_TITLES.additionalNotes, null, CHARACTER_LIMITS.additionalNotes)
         .optional()
         .default(''),
     piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
@@ -126,8 +108,8 @@ export const proposalFormSchema = proposalFieldsSchema.superRefine(validateLinke
  * are raised together when Submit is clicked: five copies of "This field is required." stacked down
  * the page tell the user nothing about which is which.
  *
- * Scoped to the DRAFT resolver below. `proposalFormSchema` keeps the generic wording because the
- * CHANGE-REQUESTED resubmit page shares it and this card does not cover that page.
+ * Scoped to the DRAFT resolver below. `proposalFormSchema` keeps the generic wording, which is what
+ * the CHANGE-REQUESTED resubmit page that shares it already showed.
  */
 export const DRAFT_REQUIRED_ERRORS = {
     datasets: 'Select a dataset of interest before continuing.',
@@ -136,31 +118,6 @@ export const DRAFT_REQUIRED_ERRORS = {
     impact: 'Enter your proposal impact before continuing.',
     piName: 'Select a Principal Investigator before continuing.',
 } as const
-
-/**
- * A Step 2 rich-text field: required (unless `requiredError` is null) and capped in characters.
- *
- * `superRefine` rather than chained `refine`s so an empty field reports only that it is empty. The
- * two rules can both fail at once on a blank field with a huge limit, and stacking two messages
- * under one control reads as a defect.
- *
- * Emptiness is measured trimmed, the cap is measured raw, matching the counter beside the field
- * and the same split OTTER-690 applied to the Step 1 title. Mixing them would let a field read
- * 3000/3000 while validating as 3001.
- */
-const draftLexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
-    z.string().superRefine((val, ctx) => {
-        if (requiredError && extractTextFromLexical(val).trim().length === 0) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
-            return
-        }
-        if (countCharactersFromLexical(val) > maxCharacters) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: overCharacterLimitError(fieldTitle, maxCharacters),
-            })
-        }
-    })
 
 /**
  * Step 2's resolver on a DRAFT, where the title lives on Step 1 (OTTER-690) and this page does
@@ -174,24 +131,22 @@ const draftLexicalField = (fieldTitle: string, requiredError: string | null, max
  */
 export const draftProposalFormSchema = proposalFieldsSchema
     .omit({ title: true })
-    // Overridden rather than redefined from scratch: only the messages differ from the shared
-    // shape, and re-declaring every field would let the two drift on everything else.
+    // Overridden rather than redefined from scratch: only the empty-field messages differ from the
+    // shared shape, and re-declaring every field would let the two drift on everything else.
     .extend({
         datasets: z.array(z.string()).min(1, { message: DRAFT_REQUIRED_ERRORS.datasets }),
-        researchQuestions: draftLexicalField(
+        researchQuestions: lexicalField(
             FIELD_TITLES.researchQuestions,
             DRAFT_REQUIRED_ERRORS.researchQuestions,
             CHARACTER_LIMITS.researchQuestions,
         ),
-        projectSummary: draftLexicalField(
+        projectSummary: lexicalField(
             FIELD_TITLES.projectSummary,
             DRAFT_REQUIRED_ERRORS.projectSummary,
             CHARACTER_LIMITS.projectSummary,
         ),
-        impact: draftLexicalField(FIELD_TITLES.impact, DRAFT_REQUIRED_ERRORS.impact, CHARACTER_LIMITS.impact),
-        // Optional, but still capped: an over-long note must block Submit even though a blank one
-        // does not.
-        additionalNotes: draftLexicalField(FIELD_TITLES.additionalNotes, null, CHARACTER_LIMITS.additionalNotes)
+        impact: lexicalField(FIELD_TITLES.impact, DRAFT_REQUIRED_ERRORS.impact, CHARACTER_LIMITS.impact),
+        additionalNotes: lexicalField(FIELD_TITLES.additionalNotes, null, CHARACTER_LIMITS.additionalNotes)
             .optional()
             .default(''),
         piName: z.string().min(1, { message: DRAFT_REQUIRED_ERRORS.piName }),
