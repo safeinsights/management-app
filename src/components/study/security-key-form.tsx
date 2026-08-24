@@ -8,7 +8,6 @@ import { SecurityKeyInput } from '@/components/study/security-key-input'
 import { SecurityKeyViewButton } from '@/components/study/security-key-view-button'
 import { useSecurityKeyForm } from '@/components/study/use-security-key-form'
 import type { JobFileInfo } from '@/lib/types'
-import type { LatestJobForStudy } from '@/server/db/queries'
 
 const DEFAULT_TITLE = 'Security key'
 const DEFAULT_DESCRIPTION = 'This key is required to access the outputs. It was issued to you during sign-up.'
@@ -25,7 +24,8 @@ const IntegrityFailureAlert: FC<{ message: string | undefined }> = ({ message })
 }
 
 interface SecurityKeyFormProps {
-    job: LatestJobForStudy
+    /** Only the id is read; see useSecurityKeyForm. */
+    job: { id: string }
     /** Which role's key set to decrypt against; see useSecurityKeyForm. */
     type: 'researcher' | 'reviewer'
     /** Fires once the key decrypts the job's artifacts; the caller swaps in the review view. */
