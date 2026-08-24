@@ -146,6 +146,10 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
 
+    // main file must be picked explicitly when multiple files are present.
+    await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
+    await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+
     const submitButton = page.getByRole('button', { name: /Submit code/i })
     await expect(submitButton).toBeEnabled()
     // The fixed AppShell footer intercepts pointer events on Submit; scroll it clear.

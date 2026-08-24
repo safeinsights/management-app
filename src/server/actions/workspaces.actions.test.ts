@@ -80,7 +80,6 @@ describe('Workspace Actions', () => {
         // Should return empty list, not throw
         expect(result).toMatchObject({
             files: [],
-            suggestedMain: undefined,
         })
     })
 
