@@ -3,8 +3,9 @@
 import { FC, type ChangeEvent } from 'react'
 import { TextInput } from '@mantine/core'
 import { CharacterCounter } from '@/components/character-counter'
-import { FormField, nativeFieldProps } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
+import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '../form-schemas'
 import { TITLE_INPUT_ID } from './field-ids'
 
@@ -33,7 +34,13 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
             // The character-limit message appears while the user is still typing, before any blur
             // or click moves focus, so this is the one field whose error has to announce itself.
             errorLive
-            footer={<CharacterCounter count={value.length} maxCharacters={STUDY_TITLE_MAX_CHARACTERS} />}
+            footer={
+                <CharacterCounter
+                    id={fieldCounterId(TITLE_INPUT_ID)}
+                    count={countCharacters(value)}
+                    maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
+                />
+            }
         >
             <TextInput
                 id={TITLE_INPUT_ID}
@@ -44,7 +51,14 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
                 value={value}
                 onChange={onChange}
                 onBlur={onBlur}
-                {...nativeFieldProps(error, { required: true, description: DESCRIPTION })}
+                {...nativeFieldProps(error, {
+                    required: true,
+                    describedBy: fieldDescribedBy(TITLE_INPUT_ID, {
+                        hasError: false,
+                        hasDescription: true,
+                        hasCounter: true,
+                    }),
+                })}
             />
         </FormField>
     )

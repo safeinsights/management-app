@@ -14,6 +14,7 @@ import {
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { CollaborativeResubmissionNoteSection } from './collaborative-resubmission-note-section'
+import { overCharacterLimitError } from '@/lib/field-limits'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -115,5 +116,29 @@ describe('CollaborativeResubmissionNoteSection', () => {
     it('mounts no live region at all in collaborative mode, where the editor owns one', () => {
         renderSection()
         expect(screen.queryByTestId('autosave-live-region')).not.toBeInTheDocument()
+    })
+})
+
+// OTTER-737: this note is one of the ten capped fields, so the count has to be reachable from the
+// editor and the over-limit message has to announce itself.
+describe('CollaborativeResubmissionNoteSection character limit', () => {
+    const OVER_LIMIT_ERROR = overCharacterLimitError('Resubmission note', RESUBMIT_NOTE_MAX_CHARACTERS)
+
+    it('seeds the counter from the draft, excluding whitespace at its ends', () => {
+        renderSingleUserSection({ initialNote: '  hello  ' })
+        expect(screen.getByText(`5/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
+    })
+
+    it('names the counter in the editor aria-describedby', async () => {
+        renderSingleUserSection()
+        const editor = await screen.findByLabelText('Resubmission Note')
+        const counter = screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
+        expect(editor.getAttribute('aria-describedby')).toContain(counter.id)
+    })
+
+    it('announces the over-limit message politely', () => {
+        renderSingleUserSection({ initialError: OVER_LIMIT_ERROR })
+        const message = screen.getByText(OVER_LIMIT_ERROR)
+        expect(message.closest('[aria-live="polite"]')).not.toBeNull()
     })
 })

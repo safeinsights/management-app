@@ -36,9 +36,9 @@ export const FIELD_TITLES = {
  * two rules can both fail at once on a blank field with a huge limit, and stacking two messages
  * under one control reads as a defect.
  *
- * Emptiness is measured trimmed, the cap is measured raw, matching the counter beside the field
- * and the same split OTTER-690 applied to the Step 1 title. Mixing them would let a field read
- * 3000/3000 while validating as 3001.
+ * Both halves are measured trimmed, through `countCharactersFromLexical`: the card excludes
+ * surrounding whitespace from the count, and one way of measuring is what keeps the counter beside
+ * the field and this rule from ever disagreeing.
  */
 const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
     z.string().superRefine((val, ctx) => {

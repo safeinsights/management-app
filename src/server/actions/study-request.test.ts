@@ -16,6 +16,7 @@ import {
     setTestStudyStatus,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -672,10 +673,10 @@ describe('Request Study Actions', () => {
         })
     })
 
-    // OTTER-690: the 60-character cap belongs to the Step 1 DRAFT workflow, not to an action.
-    // Every server entry point except onSaveDraftStudyAction is shared with the CHANGE-REQUESTED
-    // resubmit flow, which still enforces its own 20-word rule, so a cap applied by action name
-    // would reject resubmit titles the resubmit form itself accepted.
+    // OTTER-690, OTTER-737: the cap belongs to the actions that submit, not to `draftStudyApiSchema`.
+    // A study created before the cap existed can hold a longer title, and the resubmit autosave runs
+    // through onUpdateDraftStudyAction: rejecting that payload in `.params()` would fail every
+    // autosave on a page the researcher opened to edit something else entirely.
     describe('study title length rules (OTTER-690, OTTER-737)', () => {
         const OVER_LIMIT = 'a'.repeat(61)
 
@@ -780,23 +781,46 @@ describe('Request Study Actions', () => {
             expect(study.title).toBe('Test draft')
         })
 
-        // The resubmit autosave writes through this same action. It used to run under a 20-word
-        // title rule, where a 61-character title was legitimate; OTTER-737 put both flows on the
-        // same 60-character cap, so the payload is now rejected here too.
-        it('onUpdateDraftStudyAction rejects an over-limit title on a CHANGE-REQUESTED row', async () => {
+        // The resubmit autosave writes through this same action, and the row it saves can predate
+        // the cap. Blocking it here would strand the whole page: `saveDraft()` returning false is
+        // what makes the resubmit footer's Back and "View as reviewer" buttons no-ops.
+        it('onUpdateDraftStudyAction accepts an over-limit title on a CHANGE-REQUESTED row', async () => {
             const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-update-cr' })
             await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } }))
 
-            expect('error' in result).toBe(true)
             const study = await db
                 .selectFrom('study')
                 .select('title')
                 .where('id', '=', studyId)
                 .executeTakeFirstOrThrow()
-            expect(study.title).toBe('Test draft')
+            expect(study.title).toBe(OVER_LIMIT)
+        })
+
+        // The regression this split exists to prevent: a pre-cap title must not block a save of the
+        // fields the researcher actually came to edit.
+        it('onUpdateDraftStudyAction saves other fields on a row whose stored title predates the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-legacy-row' })
+            await db.updateTable('study').set({ title: OVER_LIMIT }).where('id', '=', studyId).execute()
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await onUpdateDraftStudyAction({
+                    studyId,
+                    studyInfo: { title: OVER_LIMIT, projectSummary: lexicalJson('Revised summary') },
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select(['title', 'projectSummary'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.projectSummary).toEqual(JSON.parse(lexicalJson('Revised summary')))
+            expect(study.title).toBe(OVER_LIMIT)
         })
 
         it('resubmitProposalAction rejects an over-limit title', async () => {
@@ -811,6 +835,76 @@ describe('Request Study Actions', () => {
             })
 
             expect('error' in result).toBe(true)
+        })
+
+        it('finalizeStudySubmissionAction rejects an over-limit title', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-finalize' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await finalizeStudySubmissionAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        it('accepts a title only pushed over the cap by whitespace at its ends', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-whitespace' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: `  ${'d'.repeat(60)}  ` } }))
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('d'.repeat(60))
+        })
+
+        it('resubmitProposalAction rejects a resubmission note over the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'note-cap-resubmit' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await resubmitProposalAction({
+                studyId,
+                studyInfo: { title: 'Fine title', piName: 'PI', piUserId: user.id },
+                resubmissionNote: 'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1),
+            })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('resubmitProposalAction accepts a resubmission note at exactly the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'note-cap-resubmit-ok' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: { title: 'Fine title', piName: 'PI', piUserId: user.id },
+                    resubmissionNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `,
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('PENDING-REVIEW')
         })
 
         it('resubmitProposalAction accepts a title at exactly 60 characters', async () => {
@@ -1468,6 +1562,38 @@ describe('Request Study Actions', () => {
                 resubmissionNote: '',
             })
             expect(result).toHaveProperty('error')
+        })
+
+        it('rejects a note one character over the cap and accepts one at exactly the cap', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+
+            const root = await createWorkspaceDir('resubmit-note-cap')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const over = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1),
+            })
+            expect(over).toHaveProperty('error')
+
+            // Whitespace at the ends is excluded, so this is exactly at the cap, not one over.
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `,
+                }),
+            )
         })
 
         it('rejects when latest job status is not in the allowed set', async () => {

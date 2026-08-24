@@ -44,15 +44,26 @@ const formFieldLabelStyles = {
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
+export const fieldCounterId = (inputId: string) => `${inputId}-counter`
 
 interface FieldState {
     hasError: boolean
     hasDescription: boolean
+    /**
+     * Whether a {@link CharacterCounter} carrying {@link fieldCounterId} sits under the field. The
+     * card requires the count to be reachable from the control it belongs to, not merely visible
+     * beside it (OTTER-737).
+     */
+    hasCounter?: boolean
 }
 
 /** Space-joined ids of the nodes describing a field, for `aria-describedby`. */
-export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: FieldState) =>
-    [hasError ? fieldErrorId(inputId) : null, hasDescription ? fieldDescriptionId(inputId) : null]
+export const fieldDescribedBy = (inputId: string, { hasError, hasDescription, hasCounter }: FieldState) =>
+    [
+        hasError ? fieldErrorId(inputId) : null,
+        hasDescription ? fieldDescriptionId(inputId) : null,
+        hasCounter ? fieldCounterId(inputId) : null,
+    ]
         .filter(Boolean)
         .join(' ') || undefined
 
@@ -61,14 +72,30 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
  * points at. Null when clean, so whatever shares the slot (an editor footer's save indicator)
  * keeps the row's left edge. `error` is `unknown` because call sites hold anything from a
  * form-validation string to a thrown server error; `errorToString` normalizes it.
+ *
+ * `isLive` is for a field whose error can appear while the user is still typing in it, which is
+ * otherwise silent: the character-limit message on every capped field (OTTER-737). The box then
+ * stays mounted and empty rather than arriving with its content, because a live region inserted at
+ * the same moment as its text is unreliably announced. Polite, never assertive: the message can
+ * re-fire on every keystroke past the cap, and an assertive region would interrupt mid-word.
  */
-export const FieldErrorBox: FC<{ fieldId: string; error?: unknown }> = ({ fieldId, error }) => {
-    if (!error) return null
-    return (
-        <Box id={fieldErrorId(fieldId)}>
-            <InputError error={errorToString(error)} />
-        </Box>
-    )
+export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: boolean }> = ({
+    fieldId,
+    error,
+    isLive,
+}) => {
+    const message = error ? <InputError error={errorToString(error)} /> : null
+
+    if (isLive) {
+        return (
+            <Box id={fieldErrorId(fieldId)} aria-live="polite">
+                {message}
+            </Box>
+        )
+    }
+
+    if (!message) return null
+    return <Box id={fieldErrorId(fieldId)}>{message}</Box>
 }
 
 /**
@@ -83,17 +110,31 @@ export const FieldErrorBox: FC<{ fieldId: string; error?: unknown }> = ({ fieldI
  *
  * The ids line up because the inner wrapper derives its error id from the same `id`:
  * `${inputId}-error`, which is what `FormField` labels its message with.
+ *
+ * `describedBy` is how anything beyond the description reaches a native input, the character
+ * counter above all (OTTER-737). The wrapper folds exactly one description id into its
+ * `describedBy`, taken from `descriptionProps.id`, and renders no description element of its own
+ * (see `inputWrapperOrder`), so that id is only ever referenced, never applied to a node: a
+ * space-separated list passes straight through and no element ends up holding an id with a space in
+ * it. Build it with {@link fieldDescribedBy} and `hasError: false`, since Mantine contributes the
+ * error id itself.
  */
 export const nativeFieldProps = (
     error: ReactNode,
-    { required = false, description }: { required?: boolean; description?: ReactNode } = {},
+    {
+        required = false,
+        description,
+        describedBy,
+    }: { required?: boolean; description?: ReactNode; describedBy?: string } = {},
 ) => ({
     error,
     // Passed only so the inner wrapper folds the description id into `describedBy`; it is not
     // rendered (see inputWrapperOrder), and its generated id matches FormField's own because
     // both derive from the same `id`. Without it the input announces the error but not the
-    // guidance text sitting right above it.
-    description,
+    // guidance text sitting right above it. A supplied `describedBy` implies it: the wrapper
+    // ignores the description slot entirely unless this prop is truthy.
+    description: describedBy || description,
+    ...(describedBy ? { descriptionProps: { id: describedBy } } : {}),
     // `withAsterisk` on FormField is visual only, so the required state has to reach the
     // control itself. `aria-required` rather than `required`, to avoid native browser
     // validation UI competing with Mantine's messages.

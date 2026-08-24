@@ -1,13 +1,14 @@
+import { countCharacters } from '@/lib/field-limits'
+
 /**
  * Extract plain text from Lexical JSON state and count characters.
  *
- * Counted RAW, not trimmed. The counter shown beside the field and the validator that gates it
- * must agree, and the counter counts what the user typed: trimming here would let a field read
- * 3000/3000 while the validator saw 3001. Callers pair this with a trimmed emptiness check for
- * the required rule (OTTER-690, OTTER-737).
+ * Counted through {@link countCharacters}, so surrounding whitespace is excluded and the counter
+ * beside the field, the client rule and the server rule all measure the same thing. Callers pair
+ * this with a trimmed emptiness check for the required rule (OTTER-690, OTTER-737).
  */
 export function countCharactersFromLexical(json: string | undefined): number {
-    return extractTextFromLexical(json).length
+    return countCharacters(extractTextFromLexical(json))
 }
 
 /**
@@ -94,10 +95,7 @@ export function normalizeFeedbackToLexical(raw: string): string {
     return looksLikeLexicalRoot ? raw : lexicalJson(raw)
 }
 
-/**
- * Create Lexical JSON from plain text (for testing)
- */
-
+/** Wrap plain text in a minimal Lexical root state. */
 export function lexicalJson(text: string): string {
     return JSON.stringify({
         root: {

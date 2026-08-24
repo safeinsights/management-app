@@ -4,7 +4,7 @@ import { type ReactNode } from 'react'
 import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldDescribedBy, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -78,12 +78,19 @@ function FeedbackEditor({
             ariaDescribedBy={fieldDescribedBy('code-review-feedback', {
                 hasError: !!feedback.error,
                 hasDescription: false,
+                hasCounter: true,
             })}
             placeholder={FEEDBACK_PLACEHOLDER}
             // The error takes exactly the slot the save indicator vacates, so it sits directly
             // under the input instead of a row below the character counter (OTTER-674).
-            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} />}
-            footerRight={<CharacterCounter count={feedback.characterCount} maxCharacters={feedback.maxCharacters} />}
+            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} isLive />}
+            footerRight={
+                <CharacterCounter
+                    id={fieldCounterId('code-review-feedback')}
+                    count={feedback.characterCount}
+                    maxCharacters={feedback.maxCharacters}
+                />
+            }
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
         />

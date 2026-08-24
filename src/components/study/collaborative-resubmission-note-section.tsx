@@ -5,7 +5,7 @@ import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
@@ -80,7 +80,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
     const footerLeft = (
         <>
-            <FieldErrorBox fieldId="resubmissionNote" error={error} />
+            <FieldErrorBox fieldId="resubmissionNote" error={error} isLive />
             <SingleUserSaveStatus isVisible={singleUserEditing} hasError={!!error} autosaveStatus={autosaveStatus} />
         </>
     )
@@ -113,10 +113,15 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         ariaDescribedBy={fieldDescribedBy('resubmissionNote', {
                             hasError: !!error,
                             hasDescription: false,
+                            hasCounter: true,
                         })}
                         footerLeft={footerLeft}
                         footerRight={
-                            <CharacterCounter count={characterCount} maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS} />
+                            <CharacterCounter
+                                id={fieldCounterId('resubmissionNote')}
+                                count={characterCount}
+                                maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS}
+                            />
                         }
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />

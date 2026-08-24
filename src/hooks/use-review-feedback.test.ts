@@ -20,11 +20,17 @@ describe('useReviewFeedback', () => {
             expect(result.current.characterCount).toBe(0)
         })
 
-        it('counts whitespace and newlines, because the counter counts what the user typed', () => {
+        it('counts interior whitespace and newlines, but not whitespace at either end', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
             act(() => {
                 result.current.onChange(lexicalJson('a b\nc'))
+            })
+
+            expect(result.current.characterCount).toBe(5)
+
+            act(() => {
+                result.current.onChange(lexicalJson('  a b\nc  '))
             })
 
             expect(result.current.characterCount).toBe(5)
@@ -157,20 +163,78 @@ describe('useReviewFeedback', () => {
         expect(result.current.isValid).toBe(true)
     })
 
-    it('flags feedback over the character limit, naming the field and the cap', async () => {
-        const { result } = renderHook(() => useReviewFeedback({ maxCharacters: 3 }))
+    it('accepts feedback at exactly the cap and flags one character past it', () => {
+        const { result } = renderHook(() => useReviewFeedback())
 
-        act(() => result.current.onChange(lexicalText('four')))
-        await act(async () => {
-            await result.current.onBlur()
-        })
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS))))
 
-        expect(result.current.error).toBe(overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, 3))
+        expect(result.current.error).toBeNull()
+        expect(result.current.isValid).toBe(true)
+
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1))))
+
+        expect(result.current.error).toBe(
+            overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
+        )
         expect(result.current.isValid).toBe(false)
     })
 
+    // The card asks for the error the moment the limit is passed. `useField` neither validates on
+    // change nor keeps an error across one, so a rule living in `validate` would be silent here.
+    it('raises the over-limit error on the keystroke that crosses the cap, with no blur', () => {
+        const { result } = renderHook(() => useReviewFeedback())
+
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1))))
+
+        expect(result.current.error).toBe(
+            overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
+        )
+    })
+
+    it('clears the over-limit error as soon as the value is back within the cap', () => {
+        const { result } = renderHook(() => useReviewFeedback())
+
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1))))
+        expect(result.current.error).not.toBeNull()
+
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS))))
+
+        expect(result.current.error).toBeNull()
+        expect(result.current.isValid).toBe(true)
+    })
+
+    // Editing an over-limit value must not silence the message: Mantine's clearErrorOnChange would
+    // have dropped it on the next keystroke if the cap lived in `validate`.
+    it('keeps the over-limit error while the value stays over the cap', async () => {
+        const { result } = renderHook(() => useReviewFeedback())
+
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 10))))
+        await act(async () => {
+            await result.current.onBlur()
+        })
+        act(() => result.current.onChange(lexicalText(repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 9))))
+
+        expect(result.current.error).toBe(
+            overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
+        )
+    })
+
+    it('excludes whitespace at either end from the cap', () => {
+        const { result } = renderHook(() => useReviewFeedback())
+
+        act(() => result.current.onChange(lexicalText(`  ${repeat(REVIEW_FEEDBACK_MAX_CHARACTERS)}  `)))
+
+        expect(result.current.characterCount).toBe(REVIEW_FEEDBACK_MAX_CHARACTERS)
+        expect(result.current.error).toBeNull()
+    })
+
+    it('names the field "Decision", the name the card and the page give it', () => {
+        expect(REVIEW_FEEDBACK_FIELD_TITLE).toBe('Decision')
+        expect(REVIEW_FEEDBACK_MAX_CHARACTERS).toBe(1800)
+    })
+
     it('reports only the required message for an empty field, never both rules at once', async () => {
-        const { result } = renderHook(() => useReviewFeedback({ maxCharacters: 3 }))
+        const { result } = renderHook(() => useReviewFeedback())
 
         await act(async () => {
             await result.current.onBlur()

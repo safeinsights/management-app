@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { overCharacterLimitError } from '@/lib/field-limits'
+import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 
 /**
  * Step 1 owns `study.title` for DRAFT studies (OTTER-690). The CHANGE-REQUESTED resubmit page
@@ -16,9 +16,10 @@ export const PROGRAMMING_LANGUAGE_REQUIRED_ERROR = 'Select a programming languag
 /**
  * The study title rule, shared by Step 1 and the CHANGE-REQUESTED resubmit page (OTTER-737).
  *
- * Emptiness is measured trimmed, the cap is measured RAW. Mixing them lets "60 characters plus
- * a trailing space" show 61/60 in the counter while still validating, because the counter counts
- * what the user typed. Trimming happens once, when the draft is persisted (use-save-draft).
+ * Both halves are measured trimmed, through {@link countCharacters}: the card excludes
+ * surrounding whitespace from the count, so "60 characters plus a trailing space" reads 60/60 in
+ * the counter and validates. Trimming happens once more, when the draft is persisted
+ * (use-save-draft).
  *
  * The blank message is a parameter because the two pages word it differently. Step 1 names the
  * action, since it raises every empty-field message at once; the resubmit page keeps the generic
@@ -28,7 +29,7 @@ export const studyTitleField = (blankError: string) =>
     z.string().superRefine((val, ctx) => {
         if (val.trim().length === 0) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: blankError })
-        } else if (val.length > STUDY_TITLE_MAX_CHARACTERS) {
+        } else if (countCharacters(val) > STUDY_TITLE_MAX_CHARACTERS) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
     })
@@ -117,8 +118,11 @@ export type ResubmitProposalFormValues = Omit<
 >
 
 export const studyProposalApiSchema = z.object({
+    // `.trim()` before the length rules, not `.max()` on the raw value: the cap excludes
+    // surrounding whitespace (OTTER-737), and trimming here also normalizes what gets persisted.
     title: z
         .string()
+        .trim()
         .min(1, { message: 'Title is required' })
         .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR }),
     piName: z.string().max(100).trim(),
@@ -142,18 +146,16 @@ export const step2ProposalApiSchema = z.object({
 // Drafts allow `title: null` so a researcher can save without filling it in;
 // the DB enforces non-null only when status leaves DRAFT.
 //
-// The cap applies to every entry point this schema serves. It used to be deliberately absent,
-// because `onUpdateDraftStudyAction` also serves the resubmit autosave and `resubmitProposalAction`
-// serves resubmission itself, and those ran on CHANGE-REQUESTED rows under a 20-word title rule
-// that a character cap could have rejected. Both flows are on the same 60 characters now
-// (OTTER-737), so there is nothing left to reject.
+// Deliberately uncapped, and it has to stay that way. This schema serves the autosave on both the
+// Step 1 form and the CHANGE-REQUESTED resubmit page, and a study created before OTTER-690 can
+// hold a title longer than 60 characters that its owner never chose to edit. A cap here rejects
+// that payload inside `.params()`, before any handler can look at the row, which fails the whole
+// autosave and takes the resubmit page's Back and "View as reviewer" buttons down with it. The cap
+// belongs on the paths that submit: `onUpdateDraftStudyAction` for a DRAFT, `resubmitProposalAction`
+// and `finalizeStudySubmissionAction` on the way out of it (OTTER-737).
 export const draftStudyApiSchema = studyProposalApiSchema
     .extend(step2ProposalApiSchema.shape)
     .partial()
-    .extend({
-        title: z
-            .string()
-            .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR })
-            .nullable()
-            .optional(),
-    })
+    // `.trim()` so the row stores what the counter measured: the cap ignores whitespace at the
+    // ends, and persisting it would leave a title that reads 60/60 sitting in the DB at 62.
+    .extend({ title: z.string().trim().nullable().optional() })

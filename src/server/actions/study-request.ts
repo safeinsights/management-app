@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
-import { overCharacterLimitError } from '@/lib/field-limits'
+import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName, sleep } from '@/lib/utils'
@@ -161,8 +161,9 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
-// Schema for creating a new draft. Every entry point enforces the same 60-character title cap
-// now that the resubmit flow measures the title in characters too (OTTER-737).
+// Schema for creating a new draft. The cap is applied in the handler rather than here, for the
+// reason `draftStudyApiSchema` gives, even though a brand-new study has no stored title to spare:
+// one enforcement point per action keeps the failure a message on the field (OTTER-737).
 const onSaveDraftStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     submittingOrgSlug: z.string(),
@@ -182,6 +183,12 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     }))
     .requireAbilityTo('create', 'Study')
     .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
+        // A new study's title is whatever Step 1 just typed, so there is no pre-cap value to spare
+        // here and the cap applies unconditionally.
+        if (countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+
         const userId = session.user.id
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
@@ -221,9 +228,10 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     })
 
 // Schema for updating an existing draft. Serves Step 1 updates AND the CHANGE-REQUESTED resubmit
-// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft). Both pages cap the title at
-// the same 60 characters now (OTTER-737), so one schema covers both; before that the resubmit
-// autosave could legitimately carry a longer title and this schema had to stay permissive.
+// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft), so it stays permissive on the
+// title: a study created before OTTER-690 can hold a title longer than 60 characters, and rejecting
+// that inside `.params()` would fail every autosave on a page the researcher only opened to edit
+// something else. The handler below applies the cap where the status makes it meaningful.
 const onUpdateDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     studyInfo: draftStudyApiSchema,
@@ -245,9 +253,11 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // The title rule is selected by workflow, not by action: a DRAFT row's title is owned by
-        // Step 1 and capped at 60 characters, while a CHANGE-REQUESTED row's is owned by the
-        // resubmit form and still governed by its 20-word rule.
+        // The title rule is selected by workflow, not by action. A DRAFT row's title is owned by
+        // Step 1, where the researcher is looking at the field and can shorten it. A
+        // CHANGE-REQUESTED row's may predate the cap entirely, and this action is its autosave:
+        // blocking that would strand the resubmit page rather than flag the field. The cap reaches
+        // that flow at `resubmitProposalAction`, where the researcher is submitting (OTTER-737).
         //
         // Gated on lab membership so the message cannot be used as an oracle: answering "title too
         // long" would otherwise tell the caller that a guessed id exists and is currently a DRAFT.
@@ -259,7 +269,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         if (
             userLabOrgIds.includes(submittedByOrgId) &&
             status === 'DRAFT' &&
-            (studyInfo.title?.length ?? 0) > STUDY_TITLE_MAX_CHARACTERS
+            countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS
         ) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
@@ -440,6 +450,13 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         if (!submittedTitle?.trim()) {
             throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
+        }
+
+        // Submitting is the gate, so the cap is checked here rather than in the params schema: this
+        // action also carries drafts whose stored title predates the cap, and a schema rejection
+        // would surface as a generic failure instead of a message on the field (OTTER-737).
+        if (countCharacters(submittedTitle) > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
         const submittedAt = new Date()
@@ -720,6 +737,13 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
         if (study.status !== 'CHANGE-REQUESTED') {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
+        }
+
+        // The resubmit form renders the title and caps it, so resubmission is where a title that
+        // predates the cap has to be shortened. Reported on the field, not as a params rejection,
+        // for the reason `draftStudyApiSchema` stays permissive (OTTER-737).
+        if (countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
         const updateValues = Object.fromEntries(

@@ -3,7 +3,8 @@ import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
 import { fieldErrorId } from '@/components/form-field'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
-import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { ReviewFeedbackSection } from './review-feedback-section'
 
@@ -12,6 +13,7 @@ vi.mock('@/server/actions/editor.actions', () => ({
 }))
 
 const PLACEHOLDER_TEXT = 'This study is feasible with our current data.'
+const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS)
 
 function FeedbackTestWrapper() {
     const feedback = useReviewFeedback()
@@ -27,6 +29,13 @@ function FeedbackTestWrapper() {
             </button>
             <button type="button" data-testid="simulate-blur" onClick={() => feedback.onBlur()}>
                 simulate blur
+            </button>
+            <button
+                type="button"
+                data-testid="simulate-over-limit"
+                onClick={() => feedback.onChange(lexicalJson('x'.repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1)))}
+            >
+                simulate over limit
             </button>
             <ReviewFeedbackSection
                 feedback={feedback}
@@ -67,7 +76,7 @@ describe('ReviewFeedbackSection', () => {
         const user = userEvent.setup()
         renderWithProviders(<FeedbackTestWrapper />)
 
-        expect(document.getElementById(fieldErrorId('review-feedback'))).toBeNull()
+        expect(document.getElementById(fieldErrorId('review-feedback'))).toBeEmptyDOMElement()
 
         await user.click(screen.getByTestId('simulate-blur'))
 
@@ -77,5 +86,39 @@ describe('ReviewFeedbackSection', () => {
             return box
         })
         expect(errorBox?.parentElement).toContainElement(screen.getByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`))
+    })
+})
+
+// OTTER-737: the counter has to be reachable from the editor, and the over-limit message has to
+// appear on the keystroke that crosses the cap rather than waiting for a blur.
+describe('ReviewFeedbackSection character limit', () => {
+    it('names the counter in the editor aria-describedby', async () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        const editor = await screen.findByLabelText('Initial request review feedback')
+        const counter = screen.getByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`)
+        expect(editor.getAttribute('aria-describedby')).toContain(counter.id)
+    })
+
+    it('shows the over-limit message without a blur, and announces it politely', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        await user.click(screen.getByTestId('simulate-over-limit'))
+
+        const message = await screen.findByText(OVER_LIMIT_ERROR)
+        expect(message.closest('[aria-live="polite"]')).not.toBeNull()
+    })
+
+    it('clears the over-limit message as soon as the feedback is back within the cap', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        await user.click(screen.getByTestId('simulate-over-limit'))
+        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await user.click(screen.getByTestId('simulate-input'))
+
+        await waitFor(() => expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument())
     })
 })

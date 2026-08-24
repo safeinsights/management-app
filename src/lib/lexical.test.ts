@@ -186,10 +186,11 @@ describe('countCharactersFromLexical', () => {
         expect(countCharactersFromLexical(lexicalJson('hello world'))).toBe(11)
     })
 
-    // Raw, not trimmed: the counter beside the field shows what the user typed, and the validator
-    // has to agree with it or a field can read 10/10 while validating as 11.
-    it('counts surrounding whitespace', () => {
-        expect(countCharactersFromLexical(lexicalJson('  hi  '))).toBe(6)
+    // The card excludes whitespace at either end of the content and counts everything between.
+    it('excludes surrounding whitespace and counts interior whitespace', () => {
+        expect(countCharactersFromLexical(lexicalJson('  hi  '))).toBe(2)
+        expect(countCharactersFromLexical(lexicalJson('a b'))).toBe(3)
+        expect(countCharactersFromLexical(lexicalJson('  a  b  '))).toBe(4)
     })
 
     it('returns 0 for undefined or unparseable input', () => {

@@ -47,8 +47,8 @@ export function useOutputsDecision({ orgSlug, studyId, jobId, labName, decrypted
     // represented and needs no guard.
     const [confirming, setConfirming] = useState<OutputsDecision | null>(null)
 
-    // Emptiness is measured trimmed, the cap is measured raw, so the counter beside the field and
-    // the rule that gates it agree (OTTER-737).
+    // Both measured trimmed, through the shared counter, so the count beside the field and the rule
+    // that gates it can never disagree (OTTER-737).
     const characterCount = countCharactersFromLexical(feedback)
     const isEmpty = extractTextFromLexical(feedback).trim().length === 0
     const isOverLimit = characterCount > OUTPUTS_FEEDBACK_MAX_CHARACTERS

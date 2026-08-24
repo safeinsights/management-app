@@ -439,7 +439,7 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
                 [field]: lexicalText('x'.repeat(limit + 1)),
             })
             expect(messagesFor(tooLong, field)).toContain(
-                `${FIELD_TITLES[field]} exceeds the ${limit} character limit. Shorten it to continue.`,
+                `${FIELD_TITLES[field]} exceeds the ${limit} limit. Shorten it to continue.`,
             )
         })
 
@@ -457,7 +457,7 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
                 impact: lexicalText('x'.repeat(CHARACTER_LIMITS.impact + 1)),
             })
             expect(messagesFor(result, 'impact')).toContain(
-                `${FIELD_TITLES.impact} exceeds the ${CHARACTER_LIMITS.impact} character limit. Shorten it to continue.`,
+                `${FIELD_TITLES.impact} exceeds the ${CHARACTER_LIMITS.impact} limit. Shorten it to continue.`,
             )
         })
 
@@ -471,6 +471,23 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
             expect(result.success).toBe(true)
         })
 
+        // The card excludes whitespace at either end of the content from the count, and counts
+        // everything between, so "a b" is three characters.
+        it('excludes surrounding whitespace from the cap and counts interior whitespace', () => {
+            const padded = draftProposalFormSchema.safeParse({
+                ...validProposalData,
+                impact: lexicalText(`  ${'x'.repeat(CHARACTER_LIMITS.impact)}  `),
+            })
+            expect(padded.success).toBe(true)
+
+            const spaced = `${'x'.repeat(CHARACTER_LIMITS.impact / 2)} ${'y'.repeat(CHARACTER_LIMITS.impact / 2)}`
+            expect(spaced).toHaveLength(CHARACTER_LIMITS.impact + 1)
+            const overBySpace = draftProposalFormSchema.safeParse({ ...validProposalData, impact: lexicalText(spaced) })
+            expect(messagesFor(overBySpace, 'impact')).toContain(
+                `${FIELD_TITLES.impact} exceeds the ${CHARACTER_LIMITS.impact} limit. Shorten it to continue.`,
+            )
+        })
+
         it('caps the optional notes field without requiring it', () => {
             expect(draftProposalFormSchema.safeParse({ ...validProposalData, additionalNotes: '' }).success).toBe(true)
 
@@ -479,7 +496,7 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
                 additionalNotes: lexicalText('x'.repeat(CHARACTER_LIMITS.additionalNotes + 1)),
             })
             expect(messagesFor(tooLong, 'additionalNotes')).toContain(
-                `${FIELD_TITLES.additionalNotes} exceeds the ${CHARACTER_LIMITS.additionalNotes} character limit. Shorten it to continue.`,
+                `${FIELD_TITLES.additionalNotes} exceeds the ${CHARACTER_LIMITS.additionalNotes} limit. Shorten it to continue.`,
             )
         })
     })

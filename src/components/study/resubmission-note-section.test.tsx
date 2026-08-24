@@ -8,6 +8,9 @@ import {
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { ResubmissionNoteSection, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
+import { overCharacterLimitError } from '@/lib/field-limits'
+
+const OVER_LIMIT_ERROR = overCharacterLimitError('Resubmission note', RESUBMIT_NOTE_MAX_CHARACTERS)
 
 function Harness({
     initialNote = '',
@@ -105,11 +108,53 @@ describe('ResubmissionNoteSection', () => {
         await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
         await user.tab()
 
-        expect(
-            screen.getByText(
-                `Resubmission note exceeds the ${RESUBMIT_NOTE_MAX_CHARACTERS} character limit. Shorten it to continue.`,
-            ),
-        ).toBeInTheDocument()
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+    })
+
+    // OTTER-737: the form validates on change, so the message arrives with the caret still in the
+    // field and nothing else would say so.
+    it('raises the over-limit error while typing and announces it politely', async () => {
+        const user = userEvent.setup()
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        await user.click(textarea)
+        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
+
+        const message = screen.getByText(OVER_LIMIT_ERROR)
+        expect(message.closest('[aria-live="polite"]')).not.toBeNull()
+    })
+
+    it('clears the over-limit error as soon as the note is back within the cap', async () => {
+        const user = userEvent.setup()
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        await user.click(textarea)
+        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await user.type(textarea, '{backspace}')
+
+        expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
+        expect(screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
+    })
+
+    it('excludes whitespace at either end from the counter and from validation', async () => {
+        const user = userEvent.setup()
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        await user.click(textarea)
+        await user.paste(`  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `)
+
+        expect(screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
+        expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
+    })
+
+    it('names the counter in the textarea aria-describedby', () => {
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        const counter = screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
+
+        expect(textarea.getAttribute('aria-describedby')).toContain(counter.id)
     })
 
     it('initialises the textarea with the supplied initial note', () => {

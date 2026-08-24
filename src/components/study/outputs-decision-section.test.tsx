@@ -2,7 +2,7 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { describe, expect, faker, it, render, screen, userEvent, vi, within } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
-import { fieldDescriptionId, fieldErrorId } from '@/components/form-field'
+import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID, OutputsDecisionSection } from './outputs-decision-section'
@@ -75,8 +75,8 @@ describe('OutputsDecisionSection feedback field', () => {
         renderSection({ characterCount: 12 })
 
         const editor = await screen.findByLabelText('Decision feedback')
-        expect(editor.getAttribute('aria-describedby')).toContain(fieldDescriptionId(FEEDBACK_INPUT_ID))
-        expect(document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))).toHaveTextContent(
+        expect(editor.getAttribute('aria-describedby')).toContain(fieldCounterId(FEEDBACK_INPUT_ID))
+        expect(document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID))).toHaveTextContent(
             `12/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`,
         )
     })
@@ -111,7 +111,7 @@ describe('OutputsDecisionSection feedback field', () => {
         renderSection({ characterCount: 7 })
 
         await screen.findByLabelText('Decision feedback')
-        const counter = document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))!
+        const counter = document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID))!
         expect(counter).toHaveTextContent(`7/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`)
         expect(counter.querySelector('[data-testid="autosave-status"]')).toBeNull()
 

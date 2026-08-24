@@ -5,7 +5,7 @@ import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 
-import { FormField, fieldDescribedBy } from '@/components/form-field'
+import { fieldCounterId, FormField, fieldDescribedBy } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
@@ -77,7 +77,13 @@ export function CollaborativeProposalTextField({
                     required={field.required}
                     description={field.description}
                     error={error}
-                    footer={<CharacterCounter count={characterCount} maxCharacters={field.maxCharacters} />}
+                    footer={
+                        <CharacterCounter
+                            id={fieldCounterId(inputId)}
+                            count={characterCount}
+                            maxCharacters={field.maxCharacters}
+                        />
+                    }
                     // The character-limit error can appear while the user is still typing, before
                     // any blur or click moves focus, so it has to announce itself (OTTER-690's
                     // errorLive, built for the Step 1 title's identical case).
@@ -101,6 +107,7 @@ export function CollaborativeProposalTextField({
                         ariaDescribedBy={fieldDescribedBy(inputId, {
                             hasError: !!error,
                             hasDescription: !!field.description,
+                            hasCounter: true,
                         })}
                     />
                 </FormField>

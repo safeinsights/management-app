@@ -1,5 +1,6 @@
 'use client'
 
+import { countCharacters } from '@/lib/field-limits'
 import { useCallback, useState, type ChangeEvent } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { UseFormReturnType } from '@mantine/form'
@@ -35,7 +36,7 @@ export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocke
         (event: ChangeEvent<HTMLInputElement>) => {
             const raw = event.currentTarget.value
             form.setFieldValue('title', raw)
-            if (raw.length > STUDY_TITLE_MAX_CHARACTERS) {
+            if (countCharacters(raw) > STUDY_TITLE_MAX_CHARACTERS) {
                 form.setFieldError('title', STUDY_TITLE_OVER_LIMIT_ERROR)
             }
         },

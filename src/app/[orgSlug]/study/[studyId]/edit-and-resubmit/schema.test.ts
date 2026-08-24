@@ -65,6 +65,12 @@ describe('resubmitNoteSchema', () => {
         expect(result.success).toBe(false)
     })
 
+    it('accepts a note whose only excess is whitespace at the ends', () => {
+        const padded = `  ${buildNote(RESUBMIT_NOTE_MAX_CHARACTERS)}  `
+        expect(resubmitNoteSchema.safeParse({ resubmissionNote: padded }).success).toBe(true)
+        expect(resubmitNoteSchema.safeParse({ resubmissionNote: lexicalJson(padded) }).success).toBe(true)
+    })
+
     it('rejects a Lexical JSON note whose text is only whitespace', () => {
         const result = resubmitNoteSchema.safeParse({ resubmissionNote: lexicalJson('   ') })
         expect(result.success).toBe(false)
@@ -77,9 +83,11 @@ describe('resubmissionNoteCharacterCount', () => {
         expect(resubmissionNoteCharacterCount(lexicalJson('hello there'))).toBe(11)
     })
 
-    // Raw, so the counter beside the field and the rule that gates it agree.
-    it('counts trailing whitespace toward the total', () => {
-        expect(resubmissionNoteCharacterCount('hi   ')).toBe(5)
+    it('excludes surrounding whitespace and counts interior whitespace, in both shapes', () => {
+        expect(resubmissionNoteCharacterCount('  hi   ')).toBe(2)
+        expect(resubmissionNoteCharacterCount(lexicalJson('  hi   '))).toBe(2)
+        expect(resubmissionNoteCharacterCount('a b')).toBe(3)
+        expect(resubmissionNoteCharacterCount(lexicalJson('a b'))).toBe(3)
     })
 })
 

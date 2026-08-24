@@ -1014,11 +1014,9 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // Past the character limit the error appears live, before any blur or click, and clears
         // again as soon as the value comes back under.
         await title.fill('x'.repeat(61))
-        await expect(
-            page.getByText('Study title exceeds the 60 character limit. Shorten it to continue.'),
-        ).toBeVisible()
+        await expect(page.getByText('Study title exceeds the 60 limit. Shorten it to continue.')).toBeVisible()
         await title.fill('x'.repeat(60))
-        await expect(page.getByText('Study title exceeds the 60 character limit. Shorten it to continue.')).toBeHidden()
+        await expect(page.getByText('Study title exceeds the 60 limit. Shorten it to continue.')).toBeHidden()
 
         // Resolving everything lets the same button through to the confirmation modal. Cancel
         // returns to the page with the entered values intact.

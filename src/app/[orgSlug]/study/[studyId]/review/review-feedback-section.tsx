@@ -3,7 +3,7 @@
 import { Divider, Group, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
@@ -59,12 +59,19 @@ function FeedbackEditor({
             ariaDescribedBy={fieldDescribedBy('review-feedback', {
                 hasError: !!feedback.error,
                 hasDescription: false,
+                hasCounter: true,
             })}
             placeholder={PLACEHOLDER_TEXT}
             // The error takes exactly the slot the save indicator vacates, so it sits directly
             // under the input instead of a row below the character counter (OTTER-674).
-            footerLeft={<FieldErrorBox fieldId="review-feedback" error={feedback.error} />}
-            footerRight={<CharacterCounter count={feedback.characterCount} maxCharacters={feedback.maxCharacters} />}
+            footerLeft={<FieldErrorBox fieldId="review-feedback" error={feedback.error} isLive />}
+            footerRight={
+                <CharacterCounter
+                    id={fieldCounterId('review-feedback')}
+                    count={feedback.characterCount}
+                    maxCharacters={feedback.maxCharacters}
+                />
+            }
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
         />

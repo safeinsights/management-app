@@ -28,7 +28,7 @@ const INTRO = 'Name your study and select a Data Partner so your proposal goes t
 const TITLE_DESCRIPTION = 'Give your study a short, clear title to identify it on SafeInsights.'
 const PARTNER_DESCRIPTION = 'Select a Data Partner to see the programming languages they support.'
 const BLANK_TITLE_ERROR = 'Enter a study title before continuing.'
-const OVER_LIMIT_ERROR = 'Study title exceeds the 60 character limit. Shorten it to continue.'
+const OVER_LIMIT_ERROR = 'Study title exceeds the 60 limit. Shorten it to continue.'
 const PARTNER_ERROR = 'Select a Data Partner before continuing.'
 const LANGUAGE_ERROR = 'Select a programming language before continuing.'
 
@@ -228,17 +228,40 @@ describe('Study title character limit', () => {
         expect(titleInput()).toHaveValue('a'.repeat(60))
     })
 
-    // The counter shows the raw length, so the validator measures the raw length too. Otherwise a
-    // title reading 61/60 would pass validation and the two would contradict each other on screen.
-    it('counts a trailing space against the limit, in the counter and in validation', async () => {
+    // Whitespace at either end is excluded from the count, and the counter and the validator read
+    // the same number, so a 60-character title plus a trailing space shows 60/60 and validates.
+    it('excludes a trailing space from the counter and from validation', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
 
         await typeTitle(user, `${'a'.repeat(60)} `)
 
-        expect(screen.getByText('61/60')).toBeInTheDocument()
-        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+        expect(screen.getByText('60/60')).toBeInTheDocument()
+        expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
+    })
+
+    // Interior whitespace is content, so a space between words does count.
+    it('counts a space between words toward the limit', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'a b')
+
+        expect(screen.getByText('3/60')).toBeInTheDocument()
+    })
+
+    // The count is what the field announces, so it has to be reachable from the input itself.
+    it('names the counter in the title input aria-describedby', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'A')
+
+        const counter = screen.getByText('1/60')
+        expect(titleInput().getAttribute('aria-describedby')).toContain(counter.id)
     })
 
     // The form runs uncontrolled, so a counter reading form.values directly would sit frozen.

@@ -9,8 +9,14 @@ import type { StudyStatus } from '@/database/types'
  */
 export const REVIEW_FEEDBACK_MAX_CHARACTERS = 1800
 
-/** The name this field goes by in its own error message. It is labelled "Feedback" on both pages. */
-export const REVIEW_FEEDBACK_FIELD_TITLE = 'Feedback'
+/**
+ * The name this field goes by in its own error message.
+ *
+ * "Decision" is what the card calls it on both review pages, and it is the name the reviewer sees:
+ * the proposal page heads the section with the review round and the code page with "Code review",
+ * so neither has a field labeled "Feedback" for an error to point at.
+ */
+export const REVIEW_FEEDBACK_FIELD_TITLE = 'Decision'
 
 export const SUBMITTED_PROPOSAL_REVIEW_STATUSES = [
     'APPROVED',

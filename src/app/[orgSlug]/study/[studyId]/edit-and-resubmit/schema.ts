@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { countCharactersFromLexical, extractTextFromLexical, isValidLexicalState, lexicalJson } from '@/lib/lexical'
-import { overCharacterLimitError } from '@/lib/field-limits'
+import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 
 export const RESUBMIT_NOTE_FIELD_TITLE = 'Resubmission note'
 export const RESUBMIT_NOTE_MAX_CHARACTERS = 1800
@@ -11,11 +11,11 @@ const NOTE_MAX_ERROR = overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBM
 /**
  * The proposal flow submits Lexical JSON; the code flow still submits plain text.
  *
- * Counted RAW, so the counter beside the field and the rule that gates it agree. Emptiness is
- * measured trimmed by the required rule below, which is the same split the proposal fields use.
+ * Both branches count through {@link countCharacters}, so the two note fields, their counters and
+ * the server rule all measure a note the same way whichever shape it arrives in.
  */
 export function resubmissionNoteCharacterCount(value: string): number {
-    return isValidLexicalState(value) ? countCharactersFromLexical(value) : value.length
+    return isValidLexicalState(value) ? countCharactersFromLexical(value) : countCharacters(value)
 }
 
 /** Whether the note has any content at all, ignoring surrounding whitespace. */

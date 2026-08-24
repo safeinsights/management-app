@@ -6,7 +6,7 @@ import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { CharacterCounter } from '@/components/character-counter'
-import { fieldDescribedBy, fieldDescriptionId, fieldErrorId } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, fieldErrorId } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
@@ -158,14 +158,16 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
     )
 }
 
-// Carries the description id so the count reaches the editor's aria-describedby. Rendered through
+// Carries the counter id so the count reaches the editor's aria-describedby. Rendered through
 // the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
 // second SaveStatusIndicator here would show the user two "All changes saved" messages in
 // collaborative mode, and could contradict the error below when validation fails.
 const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
-    <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
-        <CharacterCounter count={characterCount} maxCharacters={OUTPUTS_FEEDBACK_MAX_CHARACTERS} />
-    </Box>
+    <CharacterCounter
+        id={fieldCounterId(FEEDBACK_INPUT_ID)}
+        count={characterCount}
+        maxCharacters={OUTPUTS_FEEDBACK_MAX_CHARACTERS}
+    />
 )
 
 // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
@@ -227,7 +229,8 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     ariaRequired
                     ariaDescribedBy={fieldDescribedBy(FEEDBACK_INPUT_ID, {
                         hasError: !!feedbackError,
-                        hasDescription: true,
+                        hasDescription: false,
+                        hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
                     footerRight={<FeedbackCounter characterCount={characterCount} />}

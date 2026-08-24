@@ -3,10 +3,11 @@
 import { FC } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
-import { FormField, nativeFieldProps } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { Routes, ExternalLinks } from '@/lib/routes'
+import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
@@ -31,7 +32,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     enclaveOrgSlug,
 }) => {
     const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
-    const titleCharacterCount = form.values.title.length
+    const titleCharacterCount = countCharacters(form.values.title)
     const titleInputProps = form.getInputProps('title')
 
     return (
@@ -60,8 +61,15 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         description="Give your study a short, clear title. This will help identify and reference your project on SafeInsights."
                         error={form.errors.title}
                         footer={
-                            <CharacterCounter count={titleCharacterCount} maxCharacters={STUDY_TITLE_MAX_CHARACTERS} />
+                            <CharacterCounter
+                                id={fieldCounterId('title')}
+                                count={titleCharacterCount}
+                                maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
+                            />
                         }
+                        // This form validates on change, so the over-limit message can appear with
+                        // the caret still in the field and nothing to announce it (OTTER-737).
+                        errorLive
                     >
                         <TextInput
                             id="title"
@@ -73,7 +81,14 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 yjsForm.pushField('title', event.currentTarget.value)
                             }}
                             value={form.values.title ?? ''}
-                            {...nativeFieldProps(form.errors.title, { required: true, description: true })}
+                            {...nativeFieldProps(form.errors.title, {
+                                required: true,
+                                describedBy: fieldDescribedBy('title', {
+                                    hasError: false,
+                                    hasDescription: true,
+                                    hasCounter: true,
+                                }),
+                            })}
                         />
                     </FormField>
 

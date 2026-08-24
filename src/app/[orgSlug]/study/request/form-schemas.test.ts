@@ -60,17 +60,21 @@ describe('step1FieldsSchema', () => {
             expect(messagesFor({ ...VALID_STEP_1, title: 'a'.repeat(61) }, 'title')).toEqual([
                 STUDY_TITLE_OVER_LIMIT_ERROR,
             ])
-            expect(STUDY_TITLE_OVER_LIMIT_ERROR).toBe(
-                'Study title exceeds the 60 character limit. Shorten it to continue.',
-            )
+            expect(STUDY_TITLE_OVER_LIMIT_ERROR).toBe('Study title exceeds the 60 limit. Shorten it to continue.')
             expect(STUDY_TITLE_MAX_CHARACTERS).toBe(60)
         })
 
-        // The cap is measured raw so the validator and the character counter can never disagree.
-        it('measures the limit on the raw value, not the trimmed one', () => {
-            expect(messagesFor({ ...VALID_STEP_1, title: `${'a'.repeat(60)} ` }, 'title')).toEqual([
-                STUDY_TITLE_OVER_LIMIT_ERROR,
-            ])
+        // The card excludes whitespace at either end from the count, so a title only pushed over by
+        // a trailing space still validates and its counter still reads 60/60.
+        it('excludes surrounding whitespace from the limit', () => {
+            expect(messagesFor({ ...VALID_STEP_1, title: `  ${'a'.repeat(60)}  ` }, 'title')).toEqual([])
+        })
+
+        // Interior whitespace is content, so "a b" is three characters and 61 of them still fail.
+        it('counts interior whitespace toward the limit', () => {
+            const spaced = `${'a'.repeat(30)} ${'b'.repeat(30)}`
+            expect(spaced).toHaveLength(61)
+            expect(messagesFor({ ...VALID_STEP_1, title: spaced }, 'title')).toEqual([STUDY_TITLE_OVER_LIMIT_ERROR])
         })
     })
 
@@ -113,14 +117,11 @@ describe('studyProposalFormSchema', () => {
 })
 
 // One schema for every draft entry point: Step 1 creation, Step 1 updates, and the
-// CHANGE-REQUESTED resubmit autosave. They all cap the title at 60 characters (OTTER-737).
+// CHANGE-REQUESTED resubmit autosave. The title cap is deliberately NOT here; the actions that
+// submit apply it, so an autosave can still carry a title that predates the cap (OTTER-737).
 describe('draftStudyApiSchema', () => {
-    it('rejects a title over the character limit', () => {
-        const result = draftStudyApiSchema.safeParse({ title: 'a'.repeat(61) })
-
-        expect(result.success).toBe(false)
-        if (result.success) return
-        expect(result.error.issues[0].message).toBe(STUDY_TITLE_OVER_LIMIT_ERROR)
+    it('accepts a title longer than the cap, so a pre-cap row can still autosave', () => {
+        expect(draftStudyApiSchema.safeParse({ title: 'a'.repeat(200) }).success).toBe(true)
     })
 
     it('accepts a title at the limit, and a null one for an untitled draft', () => {

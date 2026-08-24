@@ -29,8 +29,8 @@ export const toOutputsReviewDecision = (decision: OutputsDecision): ReviewDecisi
  */
 export const OUTPUTS_FEEDBACK_MAX_CHARACTERS = 1800
 
-/** The name this field goes by in its own error message, matching its label on the page. */
-export const OUTPUTS_FEEDBACK_FIELD_TITLE = 'Feedback'
+/** The name this field goes by in its own error message, matching the "Decision" heading above it. */
+export const OUTPUTS_FEEDBACK_FIELD_TITLE = 'Decision'
 
 /**
  * Job statuses whose outputs a reviewer may decide on: the run reached a terminal result but no
