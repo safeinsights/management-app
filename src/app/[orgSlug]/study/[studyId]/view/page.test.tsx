@@ -693,7 +693,7 @@ describe('StudyViewPage', () => {
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })
 
-        it('threads returnTo=org to the results screen via dashboardHref', async () => {
+        it('threads returnTo=org to the results screen', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -708,11 +708,14 @@ describe('StudyViewPage', () => {
                 searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
-            // returnTo=org is baked into dashboardHref by the page dispatch before the screen
-            // is called (ResearcherBreadcrumbs is mocked to null in tests, so we verify via props).
-            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
             renderWithProviders(page!)
             expect(screen.getByText('Study Status')).toBeInTheDocument()
+            // returnTo=org survives the page dispatch: the "Previous" link back to the code
+            // step carries it so org scope survives the hop.
+            expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
+            )
         })
 
         // /view resolves purely on state — query params are ignored. A CODE-APPROVED study (no

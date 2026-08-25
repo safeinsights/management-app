@@ -6,7 +6,6 @@ import { ArrowSquareOutIcon, CaretRightIcon, CaretLeftIcon } from '@phosphor-ico
 import dayjs from 'dayjs'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
@@ -184,17 +183,10 @@ export function CodePostSubmissionView({
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
     const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
 
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboard],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
-
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
         <Stack p="xl" gap="xxl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
             <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">

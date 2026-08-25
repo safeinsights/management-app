@@ -1,7 +1,6 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
@@ -19,7 +18,7 @@ export default async function ResearcherAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
     searchParams: Promise<Record<string, string | undefined>>
 }) {
-    const { orgSlug, studyId } = await props.params
+    const { studyId } = await props.params
     const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
@@ -56,7 +55,6 @@ export default async function ResearcherAgreementsRoute(props: {
 
     return (
         <Stack p="xl" gap="xxl">
-            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
             <StudyPageHeader>Study request</StudyPageHeader>
             <AgreementsPage
                 isReviewer={false}

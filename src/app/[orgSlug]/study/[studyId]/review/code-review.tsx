@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { AlertNotFound } from '@/components/errors'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
@@ -79,7 +78,6 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     }
 
     const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
-    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const previousHref = Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
@@ -92,13 +90,6 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <PageBreadcrumbs
-                    crumbs={[
-                        ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                        ['Study proposal', proposalHref],
-                        ['Study code'],
-                    ]}
-                />
                 <StudyPageHeader>Study proposal</StudyPageHeader>
                 <CollapsibleSubmittedCodeSection
                     orgSlug={orgSlug}

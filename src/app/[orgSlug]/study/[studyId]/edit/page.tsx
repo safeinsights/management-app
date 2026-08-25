@@ -44,7 +44,6 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     // decides the canonical screen, so this page no longer self-redirects to resume on Step 2.
     return (
         <StudyProposal
-            studyId={studyId}
             draftData={{
                 id: studyId,
                 title: study.title ?? '',
