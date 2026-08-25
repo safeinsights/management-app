@@ -7,6 +7,7 @@ import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocu
 
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { SingleUserEditor } from './single-user-editor'
+import { resolveContentHeight } from './editor-surface'
 
 const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then((mod) => mod.CollaborativeEditor), {
     ssr: false,
@@ -69,11 +70,15 @@ export type EditorProps = {
     /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
     isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void
-    /** Height of the skeleton shown while the collaborative chunk loads / before the websocket connects. */
+    /**
+     * Height of the skeleton shown while the collaborative chunk loads / before the websocket
+     * connects. Defaults to the height the editor mounts at, so the swap is not a jump; pass it
+     * only to override that.
+     */
     skeletonHeight?: number
 }
 
-export function Editor({ websocketProvider, skeletonHeight = 240, ...props }: EditorProps) {
+export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorProps) {
     const singleUserEditing = useSingleUserEditing()
     // The collaborative editor is a `ssr: false` dynamic import, so the server
     // never renders it. Gate the whole collaborative branch behind a post-mount
@@ -85,13 +90,18 @@ export function Editor({ websocketProvider, skeletonHeight = 240, ...props }: Ed
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration flip
     useEffect(() => setMounted(true), [])
 
+    // Sized like the editor it stands in for. `CollaborativeEditor` resolves its own pre-connect
+    // skeleton the same way, but this outer one renders first, so a flat default here is what the
+    // user actually sees jump. Single-user mode skips both, so no test covers this.
+    const placeholderHeight = skeletonHeight ?? resolveContentHeight(props.contentHeight, props.contentStyle)
+
     if (singleUserEditing) {
         return <SingleUserEditor {...props} />
     }
 
     // Hold the skeleton until we're mounted on the client AND the tab-singleton
     // websocket exists (callers pass null during SSR / pre-hydration).
-    if (!mounted || !websocketProvider) return <Skeleton h={skeletonHeight} radius={4} />
+    if (!mounted || !websocketProvider) return <Skeleton h={placeholderHeight} radius={4} />
 
     return <CollaborativeEditor websocketProvider={websocketProvider} {...props} />
 }

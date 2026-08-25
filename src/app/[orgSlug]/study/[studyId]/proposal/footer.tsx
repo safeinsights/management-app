@@ -13,6 +13,7 @@ import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { ReviewerPreview } from './reviewer-preview'
 import { useProposalSubmitAttempt } from './use-proposal-submit-attempt'
+import { SUBMIT_BUTTON_ID } from './field-ids'
 
 const CONFIRM_BODY = (orgName: string) =>
     `Your proposal will be sent to ${orgName} for review. You will not be able to make changes once submitted.`
@@ -87,7 +88,14 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
                     </Button>
                     {/* Never disabled on validity. Clicking it is what surfaces the errors, and a
                         disabled button explains nothing (OTTER-691). */}
-                    <Button size="md" variant="filled" disabled={isBusy} loading={isSubmitting} onClick={attemptSubmit}>
+                    <Button
+                        id={SUBMIT_BUTTON_ID}
+                        size="md"
+                        variant="filled"
+                        disabled={isBusy}
+                        loading={isSubmitting}
+                        onClick={attemptSubmit}
+                    >
                         Submit proposal
                     </Button>
                 </Group>

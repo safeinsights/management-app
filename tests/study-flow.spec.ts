@@ -86,12 +86,11 @@ async function navigateToProposeStudy(page: Page, studyTitle: string) {
     await expect(page.getByText('STEP 2')).toBeVisible()
 }
 
-// Step 2 renders no placeholders (OTTER-691), which puts Mantine's non-searchable MultiSelect into
-// its standard mode: `#datasets` is a 1x1 `pointer-events: none` input, and the pills box around it
-// carries the handler that opens the dropdown. So the input is no longer a click target. The label
-// is: activating it forwards a click to the input, which bubbles to the box. That keeps the locator
-// on plain HTML rather than on a Mantine class, and exercises the label association at the same
-// time.
+// Not `getByPlaceholder`: Step 2 renders no placeholder text (OTTER-691), so the locator this
+// replaced no longer resolves. The label is the plain-HTML stand-in, and clicking it forwards to
+// the input and bubbles to the pills box that owns the dropdown handler, so it exercises the label
+// association at the same time. Mantine also puts `id` on both the wrapper and the inner field,
+// which makes a bare `#datasets` two matches and a strict-mode failure.
 function datasetsField(page: Page) {
     return page.locator('label[for="datasets"]')
 }

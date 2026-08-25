@@ -10,6 +10,7 @@ import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from './build-study-info'
@@ -99,7 +100,12 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
             // The confirmation modal closes as the mutation settles, leaving the user back on the
             // form with every value intact. Put the Submit button back in view so retrying does not
             // start with a scroll.
-            window.scrollTo?.({ top: document.body.scrollHeight, behavior: 'smooth' })
+            //
+            // The button itself, not `document.body.scrollHeight`: the card asks for the bottom of
+            // the page, but only ever to explain "so user can click the submit button again
+            // easily". The two coincide only while the footer happens to be the last thing on the
+            // page, and anything added below it would move the target with nothing failing.
+            document.getElementById(SUBMIT_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
         },
     })
 

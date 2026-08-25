@@ -27,6 +27,7 @@ import {
     proposalFormSchema,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import {
     SUBMIT_FAILURE_MESSAGE,
@@ -254,8 +255,13 @@ describe('useSubmitProposal', () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-scroll' })
         actionResult(await finalizeStudySubmissionAction({ studyId }))
 
-        const scrollTo = vi.fn()
-        vi.stubGlobal('scrollTo', scrollTo)
+        // A real node under the real id, so the assertion is "the Submit button was scrolled to"
+        // rather than "some scroll happened". The previous version stubbed window.scrollTo and
+        // checked only `behavior`, which stayed green no matter where the page ended up.
+        const submitButton = document.createElement('button')
+        submitButton.id = SUBMIT_BUTTON_ID
+        submitButton.scrollIntoView = vi.fn()
+        document.body.appendChild(submitButton)
 
         const { yjsForm } = buildStubYjsForm()
         const { result } = renderHook(
@@ -273,8 +279,8 @@ describe('useSubmitProposal', () => {
             result.current.submitProposal()
         })
 
-        await waitFor(() => expect(scrollTo).toHaveBeenCalled())
-        expect(scrollTo.mock.calls[0][0]).toMatchObject({ behavior: 'smooth' })
+        await waitFor(() => expect(submitButton.scrollIntoView).toHaveBeenCalled())
+        expect(submitButton.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
     })
 
     it('announces a successful submission before navigating away (OTTER-691)', async () => {

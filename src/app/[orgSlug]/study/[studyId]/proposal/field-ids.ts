@@ -11,6 +11,13 @@ import type { ProposalFormValues } from './schema'
 export const DATASETS_FIELD_ID = 'datasets'
 export const PI_SELECT_ID = 'piName'
 
+/**
+ * The Submit button, which the failed-submit path scrolls back into view. Not a field, so it is
+ * deliberately outside {@link ORDERED_FIELD_IDS}: it is a scroll target, never a focus target for
+ * the "jump to the first flagged field" rule.
+ */
+export const SUBMIT_BUTTON_ID = 'submit-proposal'
+
 /** Matches the id `CollaborativeProposalTextField` puts on the editable surface. */
 export const textFieldInputId = (id: keyof ProposalFormValues) => `proposal-field-${id}`
 
