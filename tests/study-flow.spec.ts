@@ -87,12 +87,11 @@ async function navigateToProposeStudy(page: Page, studyTitle: string) {
 }
 
 // Not `getByPlaceholder`: Step 2 renders no placeholder text (OTTER-691), so the locator this
-// replaced no longer resolves. The label is the plain-HTML stand-in, and clicking it forwards to
-// the input and bubbles to the pills box that owns the dropdown handler, so it exercises the label
-// association at the same time. Mantine also puts `id` on both the wrapper and the inner field,
-// which makes a bare `#datasets` two matches and a strict-mode failure.
+// replaced no longer resolves. The id is the plain-HTML stand-in and clicking it bubbles to the
+// pills box that owns the dropdown handler. This only works while the field stays visible, which
+// the assertions in the required-fields test pin down.
 function datasetsField(page: Page) {
-    return page.locator('label[for="datasets"]')
+    return page.locator('#datasets')
 }
 
 async function chooseFirstDataset(page: Page) {
@@ -1040,7 +1039,12 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // controls themselves: `getByPlaceholder(...).toHaveCount(0)` also passes when the field is
         // gone, so it would keep passing if the whole page regressed.
         await expect(page.getByLabel('Study Title')).toHaveCount(0)
-        await expect(page.locator('#datasets')).toHaveAttribute('placeholder', '')
+        // Blank, not absent: Mantine collapses a non-searchable MultiSelect whose placeholder is
+        // falsy to a 1px hidden field, so the datasets control carries a single space to stay
+        // visible. The regex covers either spelling, and `data-type` is what proves the control
+        // is still a real target for the click and the focus jump below.
+        await expect(datasetsField(page)).toHaveAttribute('placeholder', /^\s*$/)
+        await expect(datasetsField(page)).toHaveAttribute('data-type', 'visible')
         await expect(page.getByRole('textbox', { name: 'Principal Investigator' })).toHaveAttribute('placeholder', '')
 
         // Its own required fields still flag on blur (OTTER-647), now with per-field wording.
