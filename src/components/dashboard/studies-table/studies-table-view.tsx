@@ -61,6 +61,8 @@ export function StudiesTableView({
         )
     }
 
+    const hasRefresher = refresher !== undefined
+
     // The header always renders so dual-role users keep their audience toggle even when the
     // selected role has no studies; only the body reflects error / empty / populated state.
     const content = (
@@ -78,7 +80,7 @@ export function StudiesTableView({
             </Group>
             <Divider c="charcoal.1" />
             {description && <Text mb="md">{description}</Text>}
-            <RefresherSlot refresher={refresher} />
+            <RefresherSlot isVisible={hasRefresher}>{refresher}</RefresherSlot>
             {body}
         </Stack>
     )

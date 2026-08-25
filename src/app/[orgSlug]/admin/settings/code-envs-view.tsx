@@ -120,6 +120,8 @@ export type CodeEnvsViewProps = {
 }
 
 export function CodeEnvsView({ onAdd, refresher, children }: CodeEnvsViewProps) {
+    const hasRefresher = refresher !== undefined
+
     return (
         <Paper bg="white" p="xxl">
             <Stack>
@@ -132,7 +134,7 @@ export function CodeEnvsView({ onAdd, refresher, children }: CodeEnvsViewProps) 
                     </Button>
                 </Group>
                 <Divider c="dimmed" />
-                <RefresherSlot refresher={refresher} />
+                <RefresherSlot isVisible={hasRefresher}>{refresher}</RefresherSlot>
                 {children}
             </Stack>
         </Paper>
