@@ -59,16 +59,23 @@ export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocke
     // set on one click, even though focus can only land on one of them. The errors object read
     // here is the one `validate()` returns, not `form.errors`, so the decision cannot race the
     // state update that populates it.
+    //
+    // The gate is "did a field the user can act on fail", not `validate()`'s schema-wide
+    // `hasErrors`. The resolver covers locked fields too, and a locked field renders read-only
+    // text with no error slot and nothing focusable. Gating on the schema-wide flag would let a
+    // locked failure stop the click with no message anywhere and no field to correct, which is the
+    // OTTER-647 dead-button shape the rest of this hook avoids. A locked value is the persisted
+    // server one and authoritative, so it is not the user's to fix; `focusFirstInvalid` returning
+    // null is exactly "nothing on this page is failing".
     const attemptContinue = useCallback(() => {
-        const { hasErrors, errors } = form.validate()
+        const { errors } = form.validate()
 
-        if (hasErrors) {
-            focusFirstInvalid(visibleFieldIds(), (fieldId) => {
-                const path = FIELD_ID_TO_FORM_PATH[fieldId as keyof typeof FIELD_ID_TO_FORM_PATH]
-                return !!errors[path]
-            })
-            return
-        }
+        const invalidFieldId = focusFirstInvalid(visibleFieldIds(), (fieldId) => {
+            const path = FIELD_ID_TO_FORM_PATH[fieldId as keyof typeof FIELD_ID_TO_FORM_PATH]
+            return !!errors[path]
+        })
+
+        if (invalidFieldId) return
 
         openConfirm()
     }, [form, visibleFieldIds, openConfirm])

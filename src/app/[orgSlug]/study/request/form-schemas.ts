@@ -145,6 +145,19 @@ export const draftStudyApiSchema = studyProposalApiSchema
 
 // Step 1 study creation only. `draftStudyApiSchema` replaces `title` outright, so tightening
 // its parent would silently be a no-op; the rule has to be applied to the override.
+//
+// Required and non-blank, unlike the parent's nullable/optional title: this is the one entry point
+// that mints a study row, and every untitled row it creates is one the recovery guards in
+// /proposal and `finalizeStudySubmissionAction` then have to rescue. Step 1's Save & continue gate
+// already makes a blank create unreachable through the UI; requiring it here means a future caller
+// cannot reintroduce the case by forgetting. Rows predating OTTER-690 still need those guards.
+//
+// Cap before blank, so the message matches what the user did: 61 characters reports the limit,
+// while whitespace-only reports the blank rule. Emptiness is measured trimmed, matching
+// `studyTitleField`; the client trims before sending.
 export const step1DraftStudyApiSchema = draftStudyApiSchema.extend({
-    title: z.string().max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR }).nullable().optional(),
+    title: z
+        .string()
+        .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR })
+        .refine((val) => val.trim().length > 0, { message: STUDY_TITLE_BLANK_ERROR }),
 })

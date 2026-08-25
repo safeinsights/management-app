@@ -234,11 +234,31 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .params(onUpdateDraftStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, submittedByOrgId }) => {
+        // Allow co-authoring within the submitting lab while the proposal is editable.
+        // CASL `update Study` is org-type-scoped (any lab member); the row filter below
+        // scopes to the submitting lab + editable status set, and we throw on a 0-row
+        // result so a user outside the lab or operating on a post-submit study gets a
+        // hard rejection instead of a misleading success with signed upload URLs.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
         // The title rule is selected by workflow, not by action: a DRAFT row's title is owned by
         // Step 1 and capped at 60 characters, while a CHANGE-REQUESTED row's is owned by the
         // resubmit form and still governed by its 20-word rule.
-        if (status === 'DRAFT' && (studyInfo.title?.length ?? 0) > STUDY_TITLE_MAX_CHARACTERS) {
+        //
+        // Gated on lab membership so the message cannot be used as an oracle: answering "title too
+        // long" would otherwise tell any lab member that a guessed id exists and is currently a
+        // DRAFT. `submittedByOrgId` comes from the middleware's read, so the gate costs no extra
+        // query, and the length check still runs before the UPDATE rather than after it, which is
+        // what keeps an over-long title from being written and only then complained about. A caller
+        // outside the lab falls through to the generic rejection below.
+        if (
+            userLabOrgIds.includes(submittedByOrgId) &&
+            status === 'DRAFT' &&
+            (studyInfo.title?.length ?? 0) > STUDY_TITLE_MAX_CHARACTERS
+        ) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
@@ -260,15 +280,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         const updateValues = Object.fromEntries(
             updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
-
-        // Allow co-authoring within the submitting lab while the proposal is editable.
-        // CASL `update Study` is org-type-scoped (any lab member); the row filter below
-        // scopes to the submitting lab + editable status set, and we throw on a 0-row
-        // result so a user outside the lab or operating on a post-submit study gets a
-        // hard rejection instead of a misleading success with signed upload URLs.
-        const userLabOrgIds = Object.values(session.orgs)
-            .filter((org) => org.type === 'lab')
-            .map((org) => org.id)
 
         const verified =
             Object.keys(updateValues).length > 0
@@ -379,7 +390,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, title: persistedTitle }) => {
         const userId = session.user.id
 
         // CASL `update Study` is org-type-scoped (any lab member), so we additionally
@@ -412,11 +423,12 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         // none, and `study_title_required_when_not_draft` rejects that the moment status leaves
         // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error;
         // /proposal redirects such a draft to Step 1 before it can reach this point.
-        const submittedTitle =
-            'title' in snapshotFields
-                ? (snapshotFields.title as string | null)
-                : ((await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirst())?.title ??
-                  null)
+        //
+        // The persisted title comes from the middleware's read of this same row, so the common
+        // omitted-title path costs no extra query. It cannot be deferred to the UPDATE's
+        // `returning` instead: by then the status has already left DRAFT and the check constraint
+        // has fired, which is the raw error this guard exists to replace.
+        const submittedTitle = 'title' in snapshotFields ? (snapshotFields.title as string | null) : persistedTitle
 
         if (!submittedTitle?.trim()) {
             throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })

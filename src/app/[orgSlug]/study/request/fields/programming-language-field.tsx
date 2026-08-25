@@ -86,7 +86,11 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
             form.setFieldValue('language', null)
             form.clearFieldError('language')
         }
-    }, [selectedOrgSlug, form, data, isLocked])
+        // form intentionally excluded: Mantine rebuilds it every render, so listing it would re-run
+        // this every render, with only setFieldValue's no-op-on-unchanged-value standing between
+        // that and a loop. Stable via Mantine ref semantics, as in use-yjs-form-map.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedOrgSlug, data, isLocked])
 
     const widgetBlur = useWidgetBlur(() => form.validateField('language'))
 

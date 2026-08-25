@@ -395,7 +395,17 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status', 'study.submittedByOrgId'])
+        .select([
+            'orgId',
+            'org.slug as orgSlug',
+            'study.researcherId',
+            'study.status',
+            'study.submittedByOrgId',
+            // OTTER-690: finalizeStudySubmissionAction needs the persisted title on the common
+            // submit path, where the caller omits it. Selected here so that path reuses this read
+            // instead of issuing a second lookup of the same row.
+            'study.title',
+        ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }

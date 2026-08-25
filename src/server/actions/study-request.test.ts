@@ -337,11 +337,13 @@ describe('Request Study Actions', () => {
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-            // Step 1: Create draft with org and language only (OpenStax step 1)
+            // Step 1: create the draft. OTTER-690 made the title part of this step, so creation
+            // carries one from the start rather than acquiring it later in Step 2.
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
                     studyInfo: {
+                        title: 'Set on Step 1',
                         language: 'PYTHON' as const,
                     },
                     submittingOrgSlug: lab.slug,
@@ -350,7 +352,6 @@ describe('Request Study Actions', () => {
 
             expect(draftResult.studyId).toBeDefined()
 
-            // Drafts persist a NULL title until the researcher fills one in.
             let study = await db
                 .selectFrom('study')
                 .selectAll('study')
@@ -358,7 +359,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
-            expect(study?.title).toBeNull()
+            expect(study?.title).toEqual('Set on Step 1')
 
             // Step 2: Update with proposal fields
             const proposalFields = {
@@ -690,6 +691,53 @@ describe('Request Study Actions', () => {
             })
 
             expect('error' in result).toBe(true)
+        })
+
+        // Creation is the only entry point that mints a row, so it is the only one that can stop an
+        // untitled study existing. Rows predating OTTER-690 still need the /proposal and finalize
+        // guards; this stops new ones joining them.
+        it('onSaveDraftStudyAction rejects a create with no usable title', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-required-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-required-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const blank = await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                submittingOrgSlug: lab.slug,
+                studyInfo: { title: '   ', language: 'R' as const },
+            })
+            expect('error' in blank).toBe(true)
+
+            const untitled = await db
+                .selectFrom('study')
+                .select('id')
+                .where('submittedByOrgId', '=', lab.id)
+                .executeTakeFirst()
+            expect(untitled).toBeUndefined()
+        })
+
+        // The title rule must not answer before the ownership filter does: a distinct
+        // "title too long" would tell any lab member that a guessed id is a real, currently-DRAFT
+        // study. A caller outside the lab gets the same generic rejection either way.
+        it('onUpdateDraftStudyAction does not leak DRAFT status to a cross-lab caller via the title rule', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'title-cap-cross-lab',
+                studyInfo: { title: 'LabA Draft' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+
+            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect(result).toHaveProperty('error')
+            expect(result).not.toMatchObject({ error: expect.objectContaining({ title: expect.any(String) }) })
+
+            const after = await db
+                .selectFrom('study')
+                .select(['title'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(after.title).toBe('LabA Draft')
         })
 
         it('onSaveDraftStudyAction accepts a title at exactly 60 characters', async () => {

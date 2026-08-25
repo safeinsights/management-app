@@ -121,10 +121,21 @@ describe('step1DraftStudyApiSchema', () => {
         expect(result.error.issues[0].message).toBe(STUDY_TITLE_OVER_LIMIT_ERROR)
     })
 
-    it('accepts a title at the limit, and a null one for an untitled draft', () => {
+    it('accepts a title at the limit', () => {
         expect(step1DraftStudyApiSchema.safeParse({ title: 'a'.repeat(60) }).success).toBe(true)
-        expect(step1DraftStudyApiSchema.safeParse({ title: null }).success).toBe(true)
-        expect(step1DraftStudyApiSchema.safeParse({}).success).toBe(true)
+    })
+
+    // Creation is the only entry point that mints a study row, so it is the one place that can
+    // stop an untitled row existing at all. The parent schema stays permissive for the update and
+    // resubmit paths, which must not clear a title they do not own.
+    it('rejects a create payload with no usable title', () => {
+        expect(step1DraftStudyApiSchema.safeParse({}).success).toBe(false)
+        expect(step1DraftStudyApiSchema.safeParse({ title: null }).success).toBe(false)
+
+        const blank = step1DraftStudyApiSchema.safeParse({ title: '   ' })
+        expect(blank.success).toBe(false)
+        if (blank.success) return
+        expect(blank.error.issues[0].message).toBe(STUDY_TITLE_BLANK_ERROR)
     })
 })
 

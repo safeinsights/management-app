@@ -764,6 +764,28 @@ describe('Locked fields', () => {
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
         expect(document.activeElement).toBe(titleInput())
     })
+
+    // The resolver validates locked fields as well, but a locked field is server state rendered as
+    // read-only text: no error slot to show a message in, and no id in the list a failed click
+    // searches for something to focus. Gating Continue on the schema-wide error flag would
+    // therefore stop the click with nothing on screen and nothing the researcher could fix, which
+    // is the OTTER-647 dead button. An existing title over the cap is the reachable shape of that,
+    // because a stored title is never truncated.
+    it('still continues when the only failing field is locked', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const overLimitTitle = 'a'.repeat(61)
+        const draftData = draftFor(fixtures, { status: 'PENDING-REVIEW', title: overLimitTitle })
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        expect(await screen.findByText(overLimitTitle)).toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+
+        await user.click(continueButton())
+
+        expect(await screen.findByText('Continue to the next step?')).toBeInTheDocument()
+        expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
+    })
 })
 
 beforeEach(() => {
