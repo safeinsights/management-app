@@ -185,8 +185,20 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
         // A new study's title is whatever Step 1 just typed, so there is no pre-cap value to spare
         // here and the cap applies unconditionally.
-        if (countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS) {
+        const titleLength = countCharacters(studyInfo.title ?? '')
+
+        if (titleLength > STUDY_TITLE_MAX_CHARACTERS) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+
+        // Creation is the only entry point that mints a row, so it is the only one that can stop an
+        // untitled study existing at all (OTTER-690). Rows predating that card still need the
+        // /proposal and finalizeStudySubmissionAction guards; this keeps new ones from joining
+        // them. The rule sits here rather than in the params schema because `draftStudyApiSchema`
+        // is shared with the update and resubmit paths, whose titles are owned elsewhere and must
+        // not be cleared. `countCharacters` trims, so a whitespace-only title counts as blank.
+        if (titleLength === 0) {
+            throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
         }
 
         const userId = session.user.id

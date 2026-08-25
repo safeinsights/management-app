@@ -50,8 +50,8 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
                     throw new Error('Data Partner is required to create a study')
                 }
                 // Creation cannot fall back to omitting the title: an untitled row is what the
-                // /proposal and finalize guards exist to rescue, so `step1DraftStudyApiSchema`
-                // requires one. The Save & continue gate means this is unreachable in practice.
+                // /proposal and finalize guards exist to rescue, so `onSaveDraftStudyAction`
+                // rejects a blank one. The Save & continue gate means this is unreachable here.
                 if (!title) {
                     throw new Error('Study title is required to create a study')
                 }
