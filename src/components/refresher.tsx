@@ -5,8 +5,8 @@ import { Text, Flex, Loader } from '@mantine/core'
 // The refresher's width varies by state; a dedicated right-aligned row with a fixed
 // minimum height keeps it at the table's top-right corner without shifting other
 // header controls as it changes.
-export const RefresherSlot: React.FC<{ isVisible: boolean; children: ReactNode }> = ({ isVisible, children }) => {
-    if (!isVisible) return null
+export const RefresherSlot: React.FC<{ children: ReactNode }> = ({ children }) => {
+    if (!children) return null
     return (
         <Flex justify="flex-end" align="center" mih={24} data-testid="refresher-slot">
             {children}

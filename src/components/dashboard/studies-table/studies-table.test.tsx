@@ -255,10 +255,11 @@ describe('Studies Table', () => {
         const slot = await screen.findByTestId('refresher-slot')
         expect(within(slot).getByText(/seconds until refresh/i)).toBeDefined()
         const toggle = screen.getByText('Toggle Placeholder')
-        // Both directions: the slot must not swallow the toggle, and the toggle's
-        // flex row must not regain the slot as a sibling (the original bug).
-        expect(slot.contains(toggle)).toBe(false)
-        expect(toggle.parentElement?.contains(slot)).toBe(false)
+        // Guard the original bug at the header-row level: the row holding the title,
+        // toggle, and CTA must not contain the slot anywhere inside it.
+        const headerRow = screen.getByText('Review Studies').parentElement as HTMLElement
+        expect(headerRow.contains(toggle)).toBe(true)
+        expect(headerRow.contains(slot)).toBe(false)
     })
 
     it('keeps auto-refresh active for a researcher PENDING-REVIEW proposal with no jobs', async () => {
