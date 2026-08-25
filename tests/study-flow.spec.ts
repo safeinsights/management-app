@@ -147,8 +147,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
 
     // main file must be picked explicitly when multiple files are present.
-    await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
-    await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+    // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
+    await expect(async () => {
+        await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
+        await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+    }).toPass()
 
     const submitButton = page.getByRole('button', { name: /Submit code/i })
     await expect(submitButton).toBeEnabled()
@@ -165,6 +168,18 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
 
     return mainFileName
+}
+
+// Resubmit upload: two files, no star click. insertSubmittedJob seeds main.r as MAIN-CODE;
+// asserting that star is already selected is what proves inheritance. Clicking it would
+// set an override and hide a broken inheritance rule.
+async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+
+    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'main.r is the main file' })).toBeVisible()
 }
 
 // ============================================================================
@@ -800,8 +815,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
-        const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+        await uploadResubmitFilesExpectingInheritedMain(page)
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
@@ -828,8 +842,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
-        const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+        await uploadResubmitFilesExpectingInheritedMain(page)
 
         // Filling the note fires the debounced autosave against the real action: the "All changes
         // saved" indicator must appear and no "not editable" error toast. This guards the page +
