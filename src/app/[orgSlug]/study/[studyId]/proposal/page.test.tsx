@@ -10,6 +10,7 @@ import {
     vi,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 import StudyProposalRoute from './page'
 
 const mockRedirect = vi.mocked(redirect)
@@ -58,6 +59,35 @@ describe('StudyProposalRoute status routing', () => {
         await expect(renderRoute(lab.slug, studyId)).rejects.toThrow('NEXT_REDIRECT')
 
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyEdit({ orgSlug: lab.slug, studyId }))
+    })
+
+    // Same dead end as a NULL title, and the one the OTTER-737 cap introduced: a draft created
+    // before the cap can hold a 70-character title that Step 2 cannot show, let alone shorten, so
+    // finalizeStudySubmissionAction would reject the submit against a field that is not on the page.
+    it('sends a DRAFT whose stored title is over the cap back to Step 1', async () => {
+        const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-long-title' })
+        await db
+            .updateTable('study')
+            .set({ title: 'x'.repeat(STUDY_TITLE_MAX_CHARACTERS + 10) })
+            .where('id', '=', studyId)
+            .execute()
+
+        await expect(renderRoute(lab.slug, studyId)).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyEdit({ orgSlug: lab.slug, studyId }))
+    })
+
+    it('renders the Step 2 editor for a title exactly at the cap', async () => {
+        const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-cap-title' })
+        await db
+            .updateTable('study')
+            .set({ title: 'x'.repeat(STUDY_TITLE_MAX_CHARACTERS) })
+            .where('id', '=', studyId)
+            .execute()
+
+        await renderRoute(lab.slug, studyId)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
     })
 
     it('sends a submitted study to the review screen', async () => {

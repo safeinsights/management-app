@@ -1,7 +1,53 @@
 import { countCharacters } from '@/lib/field-limits'
 
+/** A parsed Lexical document envelope. `root` stays `unknown`: only the walker below inspects it. */
+type LexicalEnvelope = { root: unknown }
+
 /**
- * Extract plain text from Lexical JSON state and count characters.
+ * The one place the app decides "is this value a Lexical document, or plain text?".
+ *
+ * That question used to be answered separately by {@link isValidLexicalState} and by an inline
+ * check inside {@link normalizeFeedbackToLexical}, and the two had already drifted: given
+ * `{"root":{"children":[]}}` the first said plain text and the second said Lexical, so an
+ * empty-root state was wrapped on one path and passed through on the other. Two normalizers for one
+ * concept is what a third caller would have inherited, so everything below now shares this one
+ * (OTTER-737).
+ */
+function asLexicalEnvelope(value: string | undefined): LexicalEnvelope | null {
+    if (!value) return null
+
+    try {
+        const parsed: unknown = JSON.parse(value)
+        if (!parsed || typeof parsed !== 'object' || !('root' in parsed)) return null
+
+        const { root } = parsed as LexicalEnvelope
+        return typeof root === 'object' ? { root } : null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Any note or feedback value, whichever shape it arrived in, as plain text.
+ *
+ * The editor-backed fields post Lexical JSON and the older plain-text callers post a bare string.
+ * Resolving that here is what lets the callers measure, test for emptiness and normalize without
+ * re-deciding the shape each time.
+ */
+export function lexicalToText(value: string | undefined): string {
+    if (!value) return ''
+
+    const envelope = asLexicalEnvelope(value)
+    return envelope ? extractTextFromLexicalNode(envelope.root) : value
+}
+
+/**
+ * Extract plain text from Lexical JSON and count characters.
+ *
+ * Lexical only, like {@link extractTextFromLexical}: the editor-backed fields that call this have
+ * no plain-text path, so a value that is not Lexical is bad input rather than prose and must not
+ * measure as its own JSON. A field that accepts either shape counts
+ * `countCharacters(lexicalToText(value))` instead.
  *
  * Counted through {@link countCharacters}, so surrounding whitespace is excluded and the counter
  * beside the field, the client rule and the server rule all measure the same thing. Callers pair
@@ -12,17 +58,14 @@ export function countCharactersFromLexical(json: string | undefined): number {
 }
 
 /**
- * Extract plain text from Lexical JSON (for validation)
+ * Extract plain text from Lexical JSON (for validation).
+ *
+ * Yields '' for a value that is not Lexical. Callers that also accept plain text want
+ * {@link lexicalToText} instead.
  */
 export function extractTextFromLexical(json: string | undefined): string {
-    if (!json) return ''
-
-    try {
-        const state = JSON.parse(json)
-        return extractTextFromLexicalNode(state.root)
-    } catch {
-        return ''
-    }
+    const envelope = asLexicalEnvelope(json)
+    return envelope ? extractTextFromLexicalNode(envelope.root) : ''
 }
 
 function extractTextFromLexicalNode(node: unknown): string {
@@ -47,7 +90,12 @@ function extractTextFromLexicalNode(node: unknown): string {
 }
 
 /**
- * Check if any of the fields have non-empty lexical content
+ * Check if any of the fields have non-empty Lexical content.
+ *
+ * Lexical only, deliberately. Every caller holds an editor value or a value already put through
+ * {@link normalizeFeedbackToLexical}, and the four proposal rich-text fields rely on a non-Lexical
+ * value reading as empty so that garbage fails their required rule rather than passing it as prose.
+ * A field that accepts plain text as well tests `lexicalToText(value).trim()` instead.
  */
 export function hasLexicalContent(...fields: (string | undefined)[]): boolean {
     return fields.some((field) => !!extractTextFromLexical(field).trim())
@@ -57,16 +105,14 @@ export function hasLexicalContent(...fields: (string | undefined)[]): boolean {
  * Validates that a Lexical JSON string represents a non-empty editor state
  * (root node has at least one child). Lexical throws if initialized with an
  * empty root, so callers should fall back to a default state when this returns false.
+ *
+ * A narrower question than "is this Lexical?" and not a substitute for it: an empty-root document
+ * is Lexical but is not a usable initial state. Use {@link lexicalToText} to read a value whose
+ * shape is unknown.
  */
 export function isValidLexicalState(json: string | undefined): boolean {
-    if (!json) return false
-    try {
-        const state = JSON.parse(json)
-        const root = state?.root
-        return !!(root && Array.isArray(root.children) && root.children.length > 0)
-    } catch {
-        return false
-    }
+    const root = asLexicalEnvelope(json)?.root as { children?: unknown } | null | undefined
+    return !!(root && Array.isArray(root.children) && root.children.length > 0)
 }
 
 /**
@@ -77,22 +123,9 @@ export function isValidLexicalState(json: string | undefined): boolean {
  * caller now measures the returned JSON in the unit its own field is capped in (OTTER-737).
  */
 export function normalizeFeedbackToLexical(raw: string): string {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(raw)
-    } catch {
-        parsed = null
-    }
-
-    // Loose check: non-Lexical JSON that passes yields no text, and so fails the caller's
+    // Non-Lexical JSON that reaches the pass-through yields no text, and so fails the caller's
     // required-field rule.
-    const looksLikeLexicalRoot =
-        parsed != null &&
-        typeof parsed === 'object' &&
-        'root' in (parsed as Record<string, unknown>) &&
-        typeof (parsed as { root: unknown }).root === 'object'
-
-    return looksLikeLexicalRoot ? raw : lexicalJson(raw)
+    return asLexicalEnvelope(raw) ? raw : lexicalJson(raw)
 }
 
 /** Wrap plain text in a minimal Lexical root state. */

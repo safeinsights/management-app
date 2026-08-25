@@ -46,6 +46,12 @@ export function DecisionFeedbackEditor({
 }: DecisionFeedbackEditorProps) {
     const websocketProvider = useYjsWebsocket()
 
+    const describedBy = fieldDescribedBy(inputId, {
+        hasError: !!feedback.error,
+        hasDescription: false,
+        hasCounter: true,
+    })
+
     return (
         <Editor
             id={docName}
@@ -58,11 +64,7 @@ export function DecisionFeedbackEditor({
             error={feedback.error}
             ariaLabel={ariaLabel}
             ariaRequired
-            ariaDescribedBy={fieldDescribedBy(inputId, {
-                hasError: !!feedback.error,
-                hasDescription: false,
-                hasCounter: true,
-            })}
+            ariaDescribedBy={describedBy}
             placeholder={placeholder}
             // The error takes exactly the slot the save indicator vacates, so it sits directly
             // under the input instead of a row below the character counter (OTTER-674).

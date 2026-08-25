@@ -8,6 +8,8 @@ import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { displayOrgName } from '@/lib/string'
+import { countCharacters } from '@/lib/field-limits'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 
 export default async function StudyProposalRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -32,12 +34,16 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
     }
 
-    // A DRAFT predating OTTER-690 can have no title: the migration that made the column nullable
-    // cleared every 'Untitled Draft' placeholder, and this page no longer carries a title field to
-    // put one back. Submitting from here would violate the study_title_required_when_not_draft
-    // check constraint, and the dashboard routes any draft with Step 2 progress straight here, so
-    // Step 1 (which owns the title and is revisitable) is the only way out.
-    if (!result.title?.trim()) {
+    // A DRAFT predating OTTER-690 can carry a title this page cannot fix: it may have none (the
+    // migration that made the column nullable cleared every 'Untitled Draft' placeholder) or one
+    // longer than the OTTER-737 cap, and Step 2 has no title field to put either right. Submitting
+    // would then fail on the far side - the check constraint study_title_required_when_not_draft for
+    // a blank title, finalizeStudySubmissionAction's cap for a long one - and report it against a
+    // field that is not on the screen, which is a dead end rather than a message. The dashboard
+    // routes any draft with Step 2 progress straight here, so Step 1, which owns the title and is
+    // revisitable, is the only way out. Its counter and its error then show the researcher the
+    // problem on the field itself.
+    if (!result.title?.trim() || countCharacters(result.title) > STUDY_TITLE_MAX_CHARACTERS) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 

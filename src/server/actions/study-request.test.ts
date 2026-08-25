@@ -32,7 +32,7 @@ import {
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
-import { STUDY_TITLE_BLANK_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -844,6 +844,28 @@ describe('Request Study Actions', () => {
             const result = await finalizeStudySubmissionAction({ studyId, studyInfo: { title: OVER_LIMIT } })
 
             expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        // The omit path, which the test above does not reach: Step 2 submits with `titleMode: 'omit'`,
+        // so the cap is applied to the stored column. A draft created before the cap can hold an
+        // over-limit title, and Step 2 renders no title field to fix it on, so /proposal redirects
+        // such a draft to Step 1 (see proposal/page.test.tsx). This asserts the backstop underneath
+        // that redirect: reaching the action anyway leaves the study in DRAFT rather than letting an
+        // over-limit title through to PENDING-REVIEW.
+        it('finalizeStudySubmissionAction rejects an over-limit stored title when none is submitted', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-finalize-omit' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await db.updateTable('study').set({ title: OVER_LIMIT }).where('id', '=', studyId).execute()
+
+            const result = await finalizeStudySubmissionAction({ studyId })
+
+            expect(result).toEqual({ error: { title: STUDY_TITLE_OVER_LIMIT_ERROR } })
             const study = await db
                 .selectFrom('study')
                 .select('status')

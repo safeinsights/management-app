@@ -433,8 +433,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         // Most callers pass titleMode 'omit', because Step 1 owns study.title on a DRAFT, so the
         // title being submitted is usually the persisted one. A draft predating OTTER-690 can have
         // none, and `study_title_required_when_not_draft` rejects that the moment status leaves
-        // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error;
-        // /proposal redirects such a draft to Step 1 before it can reach this point.
+        // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error.
         //
         // Read here rather than folded into the middleware's read of this same row: middleware
         // output becomes the ability subject, and requireAbilityTo serializes that subject into the
@@ -455,6 +454,12 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         // Submitting is the gate, so the cap is checked here rather than in the params schema: this
         // action also carries drafts whose stored title predates the cap, and a schema rejection
         // would surface as a generic failure instead of a message on the field (OTTER-737).
+        //
+        // Both checks above are a backstop, not the message the researcher is meant to read. Step 2
+        // renders no title field, so a failure keyed to `title` has nothing to attach to on the page
+        // the submit came from. /proposal is what keeps that from happening: it sends a draft whose
+        // stored title is blank or over the cap to Step 1, which owns the field, before Step 2 can
+        // be reached. These throws cover the paths that do send a title of their own.
         if (countCharacters(submittedTitle) > STUDY_TITLE_MAX_CHARACTERS) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
