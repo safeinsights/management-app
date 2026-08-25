@@ -125,7 +125,7 @@ describe('useIDEFiles mainFile (OTTER-729)', () => {
         await waitFor(() => expect(result.current.mainFile).toBe('task_plot.r'))
     })
 
-    it('leaves the main file unset when multiple files exist and none was submitted before', async () => {
+    it('leaves the main file unset when multiple files exist and the previous submission recorded no main file', async () => {
         const study = await setupResubmittableStudy()
         const root = await createWorkspaceDir('use-ide-files-no-autostar')
         workspaceRoots.push(root)
@@ -145,6 +145,50 @@ describe('useIDEFiles mainFile (OTTER-729)', () => {
 
         const { result } = renderIDEFiles(study.id)
         await waitFor(() => expect(result.current.mainFile).toBe('analysis.r'))
+    })
+
+    it('leaves the main file unset when the previous main file is no longer in the workspace', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-CHANGES-REQUESTED',
+        })
+        await submitCodeFiles(job.id, 'task_plot.r', ['helper.r'])
+
+        const root = await createWorkspaceDir('use-ide-files-missing-previous-main')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, { 'analysis.r': 'print(1)', 'main.r': 'print(2)' })
+
+        const { result } = renderIDEFiles(study.id)
+        await waitFor(() => {
+            expect(result.current.files).toHaveLength(2)
+            expect(result.current.filesChanged).toBe(true)
+        })
+        expect(result.current.mainFile).toBe('')
+        expect(result.current.canSubmit).toBe(false)
+    })
+
+    it('lets an explicit star selection override an inherited main file', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-CHANGES-REQUESTED',
+        })
+        await submitCodeFiles(job.id, 'task_plot.r', ['main.r'])
+
+        const root = await createWorkspaceDir('use-ide-files-override-inherited')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, { 'task_plot.r': 'plot()', 'main.r': 'print(1)' })
+
+        const { result } = renderIDEFiles(study.id)
+        await waitFor(() => expect(result.current.mainFile).toBe('task_plot.r'))
+
+        act(() => result.current.setMainFile('main.r'))
+        expect(result.current.mainFile).toBe('main.r')
     })
 })
 
