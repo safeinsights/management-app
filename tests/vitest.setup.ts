@@ -105,6 +105,9 @@ vi.mock('next/navigation', () => {
     }
 })
 vi.mock('next/cache')
+vi.mock('next/font/google', () => ({
+    Open_Sans: () => ({ className: '' }),
+}))
 vi.mock('next/headers', async () => ({ headers: async () => mockState.headers }))
 
 // Clerk SDK mocks - configured via mockClerkSession() in unit.helpers.tsx
