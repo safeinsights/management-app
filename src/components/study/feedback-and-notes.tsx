@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Anchor, Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
-import { CaretRightIcon } from '@phosphor-icons/react'
+import { useEffect, useRef, useState, type FC } from 'react'
+import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import type { Json } from '@/database/types'
+import { CollapseToggleLink } from './collapse-toggle-link'
 
 type FeedbackEntryShape = {
     id: string
@@ -35,6 +35,27 @@ function entryTitle(entry: FeedbackEntryShape): string {
 }
 
 const COLLAPSED_LINE_CLAMP = 3
+
+const FeedbackToggle: FC<{ isVisible: boolean; isExpanded: boolean; onToggle: () => void; entryId: string }> = ({
+    isVisible,
+    isExpanded,
+    onToggle,
+    entryId,
+}) => {
+    if (!isVisible) return null
+
+    const label = isExpanded ? 'View less' : 'View more'
+
+    return (
+        <CollapseToggleLink
+            label={label}
+            isExpanded={isExpanded}
+            onClick={onToggle}
+            mt="xs"
+            testId={`feedback-toggle-${entryId}`}
+        />
+    )
+}
 
 type FeedbackEntryProps = {
     entry: FeedbackEntryShape
@@ -69,8 +90,6 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
         return () => observer.disconnect()
     }, [isExpanded])
 
-    const showToggle = isTruncated
-
     return (
         <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`}>
             <Text fw={700} fz={14}>
@@ -96,29 +115,12 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                 >
                     <ReadOnlyLexicalContent value={entry.body} />
                 </Text>
-                {showToggle && (
-                    <Anchor
-                        component="button"
-                        onClick={onToggle}
-                        size="sm"
-                        fw={700}
-                        mt="xs"
-                        display="inline-flex"
-                        style={{ alignItems: 'center', gap: 4 }}
-                        aria-expanded={isExpanded}
-                        data-testid={`feedback-toggle-${entry.id}`}
-                    >
-                        {isExpanded ? 'View less' : 'View more'}
-                        <CaretRightIcon
-                            size={12}
-                            weight="bold"
-                            style={{
-                                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
-                                transition: 'transform 200ms ease',
-                            }}
-                        />
-                    </Anchor>
-                )}
+                <FeedbackToggle
+                    isVisible={isTruncated}
+                    isExpanded={isExpanded}
+                    onToggle={onToggle}
+                    entryId={entry.id}
+                />
             </Box>
         </Stack>
     )
