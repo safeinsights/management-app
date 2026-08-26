@@ -7,7 +7,7 @@ import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
-import { jobHasEncryptedArtifacts } from '@/lib/file-type-helpers'
+import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState } from '@/lib/study-screen'
@@ -45,11 +45,12 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
 
     // A run closed out with nothing to decrypt must not come back here asking for a key that cannot
-    // work (OTTER-524). Deliberately a wider question than the errored screen's gate: that screen
-    // asks what it may promise about THIS run's outcome, while all this one asks is whether a key
-    // opens anything at all, so a decided job whose only encrypted artifact is a scan log keeps its
-    // re-decrypt instead of losing it to a predicate written for a different question.
-    const hasDecryptableOutputs = jobHasEncryptedArtifacts(job.files ?? [])
+    // work (OTTER-524). The same question the errored screen asks, and for the same reason: this form
+    // promises the reviewer their outputs, so a job whose only encrypted artifact is a scan log must
+    // not satisfy it either. That log is written by the code scanner at submission, says nothing about
+    // the run, and is already on the code review step, so returning it under "View outputs again"
+    // would rebuild on this screen exactly the conflation the errored screen now refuses to make.
+    const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
 
     return (
         <Box bg="grey.10">

@@ -75,6 +75,11 @@ const ENCRYPTED_ERROR_LOG_TYPES: FileType[] = ['ENCRYPTED-CODE-RUN-LOG', 'ENCRYP
 // This set therefore OVERLAPS the encrypted one on an ordinary packaging failure, which holds both
 // halves of the same log. Only errorLogSentence's ordering resolves that, by asking the decryptable
 // question first; a caller that asks this one alone will call a readable log undisplayable.
+//
+// APPROVED-SECURITY-SCAN-LOG is absent on purpose, matching ENCRYPTED-SECURITY-SCAN-LOG's absence
+// from the set above: a scan log is not a log about a failed run in either form. Do not complete the
+// APPROVED-* trio here. That absence is what keeps "any log" and "a log about a failed run" as two
+// separate questions, which is the reason both sets exist.
 const UNDECRYPTABLE_ERROR_LOG_TYPES: FileType[] = [
     'PACKAGING-ERROR-LOG',
     'APPROVED-CODE-RUN-LOG',

@@ -89,6 +89,14 @@ function errorLogSentence(files: ReadonlyArray<{ fileType: FileType }>): string 
  * A stable code, never prose. The management app owns every user-facing sentence, which means copy
  * changes without an infra deploy, and no text written by a build script can reach a reviewer's
  * screen. Adding a code here is what makes it renderable; until then it is dropped.
+ *
+ * TODO(OTTER-524): this list is trusted by VALUE, not by source. `PUT /api/job/[jobId]` takes a
+ * free-form `message` from whichever org owns the study and writes it to the same
+ * jobStatusChange.message column that latestRecordedJobFailureReason reads, so any producer that
+ * knows a code below can have it read back as a containerizer classification. Harmless while the
+ * sentences are advisory, as they are today. Before adding a code whose sentence a reviewer would act
+ * on, give the classification its own column or a source marker so the reader can tell who wrote it.
+ * That needs a migration, so it wants its own card.
  */
 export const JOB_FAILURE_REASONS = ['BASE_IMAGE_UNAVAILABLE'] as const
 export type JobFailureReason = (typeof JOB_FAILURE_REASONS)[number]

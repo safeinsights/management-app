@@ -86,6 +86,11 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     // Stays on the errored banner when there is nothing to decrypt: the unlocked banner warns about
     // sharing outputs, and there are none.
     const banner = requiresKey && !isLocked ? unlockedBanner : lockedBanner
+    // The same value as requiresKey, named for the different question it answers: with no key step
+    // nothing is ever decrypted, so there is nothing to share. Said here rather than left for the
+    // reader to derive from UnlockedPhase's null guard two components away, so that a later change to
+    // that guard cannot quietly turn "has a key step" into a sharing permission.
+    const canShareOutputs = requiresKey
 
     return (
         <Box bg="grey.10">
@@ -100,7 +105,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                 <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
                 <UnlockedPhase
                     decryptedFiles={reviewableFiles}
-                    canShareOutputs={requiresKey}
+                    canShareOutputs={canShareOutputs}
                     orgSlug={orgSlug}
                     studyId={studyId}
                     job={job}

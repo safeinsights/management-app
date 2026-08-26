@@ -238,14 +238,15 @@ describe('ReviewerOutputsDecided', () => {
         ).toBeInTheDocument()
     })
 
-    // The gate here is wider than the errored screen's: this screen only asks whether a key opens
-    // anything, so an artifact that screen excludes from its own question is still re-openable.
-    it('keeps the security-key section when the only encrypted artifact is a scan log', async () => {
+    // The same gate as the errored screen. A submission-time scan log is not this run's outputs, and
+    // it is already on the code review step, so this form must not offer it back as one.
+    it('omits the security-key section when the only encrypted artifact is a scan log', async () => {
         const { org, study, job, raw } = await setupDecided()
         await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
     // OTTER-524: an errored run can be closed out with nothing to decrypt, and coming back here would

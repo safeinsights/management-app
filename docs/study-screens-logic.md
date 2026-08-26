@@ -211,11 +211,11 @@ cannot mask one, and anything unrecognized still falls back to the stage sentenc
 text is never echoed, which keeps AWS and deployment detail off a screen another organization reads.
 
 `reviewer-outputs-decided` (#3) hides its post-decision `View outputs again` key form when the job
-holds no encrypted artifact, for the same reason: an errored run can now be closed out having
-produced nothing, and returning here would ask for a key no key holder could satisfy. That gate is
-deliberately wider than the errored screen's. This screen asks only whether a key opens anything at
-all, not what may be promised about the run's outcome, so a decided job whose sole encrypted artifact
-is a scan log keeps its re-decrypt.
+holds no encrypted artifact describing the run's outcome, for the same reason: an errored run can now
+be closed out having produced nothing, and returning here would ask for a key no key holder could
+satisfy. It is the same gate as the errored screen, on the same predicate. A decided job whose sole
+encrypted artifact is a scan log therefore loses the re-decrypt too, because that form promises the
+run's outputs and a submission-time scan log is not one.
 
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state

@@ -155,12 +155,18 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
  * display rule holds even if this query is ever loosened.
  */
 export async function latestRecordedJobFailureReason(studyJobId: string): Promise<string | null> {
+    // Retiring the last code before a replacement lands would render `message in ()`, which Postgres
+    // rejects as a syntax error, so the reviewer's errored screen would 500 rather than fall back to
+    // the stage sentence. Degrade to "no reason recorded" instead.
+    const knownReasons: string[] = [...JOB_FAILURE_REASONS]
+    if (knownReasons.length === 0) return null
+
     const row = await Action.db
         .selectFrom('jobStatusChange')
         .select('message')
         .where('studyJobId', '=', studyJobId)
         .where('status', '=', 'JOB-ERRORED')
-        .where('message', 'in', [...JOB_FAILURE_REASONS])
+        .where('message', 'in', knownReasons)
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
         .limit(1)

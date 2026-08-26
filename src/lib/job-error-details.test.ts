@@ -182,6 +182,9 @@ describe('banner and key gate agree', () => {
         'ENCRYPTED-SECURITY-SCAN-LOG',
         'PACKAGING-ERROR-LOG',
         'SECURITY-SCAN-LOG',
+        // Excluded from both error-log sets, the same as its encrypted counterpart. Swept here so
+        // that exclusion is pinned by a test rather than only stated in a comment.
+        'APPROVED-SECURITY-SCAN-LOG',
         'MAIN-CODE',
     ]
 
