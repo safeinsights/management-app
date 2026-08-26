@@ -146,6 +146,13 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
 
+    // main file must be picked explicitly when multiple files are present.
+    // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
+    await expect(async () => {
+        await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
+        await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+    }).toPass()
+
     const submitButton = page.getByRole('button', { name: /Submit code/i })
     await expect(submitButton).toBeEnabled()
     // The fixed AppShell footer intercepts pointer events on Submit; scroll it clear.
@@ -161,6 +168,18 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
 
     return mainFileName
+}
+
+// Resubmit upload: two files, no star click. insertSubmittedJob seeds main.r as MAIN-CODE;
+// asserting that star is already selected is what proves inheritance. Clicking it would
+// set an override and hide a broken inheritance rule.
+async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+
+    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'main.r is the main file' })).toBeVisible()
 }
 
 // ============================================================================
@@ -434,7 +453,12 @@ async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
 
 // The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
 // so this runs only after reviewerSharesOutputs (OTTER-675).
-async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+// OTTER-696: sharing the outputs on an errored run records FILES-APPROVED alongside JOB-ERRORED,
+// which now routes the researcher to the errored-outputs step instead of the old inline error
+// panel — they decrypt with their own key to diagnose the failure, then edit and resubmit.
+// Asserts the pre-decryption landing only: the decrypt phase needs researcher-wrapped keys that
+// this seed does not provision, and is covered by shared-outputs-panel.test.tsx.
+async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -442,10 +466,14 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
 
     await viewStudyDetails(page, studyTitle)
 
-    await expect(page.getByText(/The code errored/i)).toBeVisible()
-    await expect(page.getByText(/Job ID/i)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
+    await expect(page.getByText(/Decrypt outputs to view code error/i)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
 
-    await expect(page.getByText('Code Run Log')).toBeVisible()
+    // Both post-decryption actions stay out of the DOM until a key has been validated.
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 }
 
 // ============================================================================
@@ -595,7 +623,7 @@ test('Error log review', async ({ browser, studyFeatures }) => {
     })
 
     await withRole(browser, 'researcher', async (page) => {
-        await verifyFailedStatusDisplay(page, studyTitle)
+        await verifyErroredOutputsSharedDisplay(page, studyTitle)
     })
 })
 
@@ -787,8 +815,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
-        const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+        await uploadResubmitFilesExpectingInheritedMain(page)
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
@@ -815,8 +842,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
-        const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+        await uploadResubmitFilesExpectingInheritedMain(page)
 
         // Filling the note fires the debounced autosave against the real action: the "All changes
         // saved" indicator must appear and no "not editable" error toast. This guards the page +

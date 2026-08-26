@@ -1,19 +1,23 @@
 'use client'
 
-import { FC, ReactNode, useState } from 'react'
+import { FC, ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { ButtonLink } from '@/components/links'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
+import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
+import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
+
+// Module-level so the no-key path hands the same array identity down on every render.
+const NO_FILES: JobFileInfo[] = []
 
 type OutputsReviewPanelProps = {
     orgSlug: string
@@ -27,6 +31,15 @@ type OutputsReviewPanelProps = {
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
     previousHref: Route
+    /**
+     * Opt in to letting the reviewer decide when the job carries no encrypted artifact (OTTER-524).
+     *
+     * Only the errored screen sets this. For a completed run, no artifacts is not an expected
+     * outcome but a sign that delivery went wrong, and skipping the key step there would quietly
+     * present a broken hand-off as a reviewable one. For an errored run it is routine: a packaging
+     * failure produces nothing, and AWS emits no container log when a task never starts.
+     */
+    allowDecisionWithoutArtifacts?: boolean
 }
 
 /**
@@ -50,10 +63,34 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     lockedBanner,
     unlockedBanner,
     previousHref,
+    allowDecisionWithoutArtifacts = false,
 }) => {
-    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
-    const isLocked = decryptedFiles === null
-    const banner = isLocked ? lockedBanner : unlockedBanner
+    const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+
+    // OTTER-524: a run can fail without producing anything about its own outcome, and there is then
+    // nothing for a key to open. The old flow left the reviewer stuck at the key form with no way to
+    // record a decision, which in turn left the researcher on "code is running" forever.
+    //
+    // Read from the job's own files, NEVER from an empty result out of fetchEncryptedJobFilesAction:
+    // that action also returns [] when the caller has no registered public key or when the fetch
+    // failed, and treating those as "nothing to decrypt" would let a reviewer without a key skip
+    // decryption entirely and decide on outputs they never saw. That is exactly the hole OTTER-675
+    // closed. The predicate still covers every ENCRYPTED-RESULT, so no run's outputs can be decided
+    // on unseen; it excludes only the submission-time security scan log, which no run produced.
+    const requiresKey = !allowDecisionWithoutArtifacts || jobHasDecryptableRunOutcome(job.files ?? [])
+
+    const isLocked = requiresKey && isUndecrypted
+    // Non-null with no key step, which is what flips UnlockedPhase on: with nothing to decrypt the
+    // reviewer goes straight to the decision, and there are no files to list.
+    const reviewableFiles = requiresKey ? decryptedFiles : NO_FILES
+    // Stays on the errored banner when there is nothing to decrypt: the unlocked banner warns about
+    // sharing outputs, and there are none.
+    const banner = requiresKey && !isLocked ? unlockedBanner : lockedBanner
+    // The same value as requiresKey, named for the different question it answers: with no key step
+    // nothing is ever decrypted, so there is nothing to share. Said here rather than left for the
+    // reader to derive from UnlockedPhase's null guard two components away, so that a later change to
+    // that guard cannot quietly turn "has a key step" into a sharing permission.
+    const canShareOutputs = requiresKey
 
     return (
         <Box bg="grey.10">
@@ -65,14 +102,10 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     studyTitle={studyTitle}
                     banner={banner}
                 />
-                <LockedPhase
-                    isVisible={isLocked}
-                    job={job}
-                    previousHref={previousHref}
-                    onDecrypted={setDecryptedFiles}
-                />
+                <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
                 <UnlockedPhase
-                    decryptedFiles={decryptedFiles}
+                    decryptedFiles={reviewableFiles}
+                    canShareOutputs={canShareOutputs}
                     orgSlug={orgSlug}
                     studyId={studyId}
                     job={job}
@@ -107,15 +140,11 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     )
 }
 
-const PreviousStepLink: FC<{ previousHref: Route }> = ({ previousHref }) => (
-    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
-
 type UnlockedPhaseProps = {
     /** null until a key has successfully decrypted; the whole review view is gated on it. */
     decryptedFiles: JobFileInfo[] | null
+    /** False when the job has no artifacts, so there is no key step and nothing to share. */
+    canShareOutputs: boolean
     orgSlug: string
     studyId: string
     job: NonNullable<LatestJobForStudy>
@@ -128,6 +157,7 @@ type UnlockedPhaseProps = {
 // collaborative editor (and its websocket) behind a still-locked key would be wasted work.
 const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     decryptedFiles,
+    canShareOutputs,
     orgSlug,
     studyId,
     job,
@@ -139,6 +169,7 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     return (
         <ReviewBody
             decryptedFiles={decryptedFiles}
+            canShareOutputs={canShareOutputs}
             orgSlug={orgSlug}
             studyId={studyId}
             job={job}
@@ -151,8 +182,20 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
 
 type ReviewBodyProps = Omit<UnlockedPhaseProps, 'decryptedFiles'> & { decryptedFiles: JobFileInfo[] }
 
+// No artifacts means no table to draw. Rendering an empty "Outputs files" section would imply the
+// reviewer is looking at a complete listing of what the run produced.
+const OutputsSection: FC<{ isVisible: boolean; jobId: string; decryptedFiles: JobFileInfo[] }> = ({
+    isVisible,
+    jobId,
+    decryptedFiles,
+}) => {
+    if (!isVisible) return null
+    return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
+}
+
 const ReviewBody: FC<ReviewBodyProps> = ({
     decryptedFiles,
+    canShareOutputs,
     orgSlug,
     studyId,
     job,
@@ -164,7 +207,7 @@ const ReviewBody: FC<ReviewBodyProps> = ({
 
     return (
         <>
-            <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} />
+            <OutputsSection isVisible={canShareOutputs} jobId={job.id} decryptedFiles={decryptedFiles} />
             <OutputsDecisionSection
                 jobId={job.id}
                 studyId={studyId}
@@ -176,6 +219,7 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 selected={decision.selected}
                 onSelect={decision.onSelect}
                 decisionError={decision.decisionError}
+                canShareOutputs={canShareOutputs}
             />
             <Group justify="space-between">
                 <PreviousStepLink previousHref={previousHref} />

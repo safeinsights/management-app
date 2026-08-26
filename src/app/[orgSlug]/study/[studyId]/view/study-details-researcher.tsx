@@ -1,4 +1,3 @@
-import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { JobResultsStatusMessage } from './job-results-status-message'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
@@ -13,18 +12,14 @@ type StudyDetailsResearcherProps = {
     orgSlug: string
     study: SelectedStudy
     job: LatestJobForStudy
-    dashboardHref?: Route
     returnTo?: 'org'
 }
 
-export function StudyDetailsResearcher({ orgSlug, study, job, dashboardHref, returnTo }: StudyDetailsResearcherProps) {
+export function StudyDetailsResearcher({ orgSlug, study, job, returnTo }: StudyDetailsResearcherProps) {
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
     return (
         <StudyDetailsResearcherView
-            studyId={study.id}
-            orgSlug={orgSlug}
             previousHref={previousHref}
-            dashboardHref={dashboardHref}
             statusMessage={<JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />}
         />
     )

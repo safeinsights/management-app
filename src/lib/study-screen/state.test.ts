@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RawStudyState, RawJob } from './state.types'
-import { projectStudyState } from './state'
+import { projectStudyState, runErrored } from './state'
 
 const job = (id: string, statuses: string[]): RawJob => ({
     id,
@@ -231,5 +231,16 @@ describe('projectStudyState', () => {
             expect(projectStudyState(raw({ status, piUserId: 'pi-1' })).hasStep2Progress).toBe(false)
             expect(projectStudyState(raw({ status, hasStep2CollabDoc: true })).hasStep2Progress).toBe(false)
         }
+    })
+})
+
+describe('runErrored', () => {
+    // Narrower than resultsErrored on purpose: a packaging JOB-ERRORED before a good run must not
+    // read as a failed run.
+    it('separates a failed run from a packaging error that a RUN-COMPLETE followed', () => {
+        expect(runErrored(job(ID1, ['JOB-ERRORED']).statusChanges)).toBe(true)
+        expect(runErrored(job(ID1, ['JOB-ERRORED', 'RUN-COMPLETE']).statusChanges)).toBe(false)
+        expect(runErrored(job(ID1, ['RUN-COMPLETE']).statusChanges)).toBe(false)
+        expect(runErrored(job(ID1, ['CODE-SUBMITTED']).statusChanges)).toBe(false)
     })
 })

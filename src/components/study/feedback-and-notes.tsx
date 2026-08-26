@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Anchor, Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
+import { AlertNotFound } from '@/components/errors'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import type { Json } from '@/database/types'
 
@@ -154,12 +155,19 @@ function useExpandedEntries(entries: FeedbackEntryShape[], alwaysExpandLatest: b
 export function FeedbackAndNotesSection({
     entries,
     alwaysExpandLatest = false,
+    loadError = false,
 }: {
     entries: FeedbackEntryShape[]
     alwaysExpandLatest?: boolean
+    /**
+     * The fetch failed. Swaps in the shared notice rather than hiding the section, so a reader
+     * never takes "no feedback" from what was only a failed query.
+     */
+    loadError?: boolean
 }) {
     const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest)
 
+    if (loadError) return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
     if (entries.length === 0) return null
 
     return (

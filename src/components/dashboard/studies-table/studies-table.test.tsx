@@ -1,6 +1,6 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudiesTable } from './index'
 
@@ -235,6 +235,31 @@ describe('Studies Table', () => {
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()
         })
+    })
+
+    it('renders the refresher in its own slot, outside the header actions row', async () => {
+        // The refresher's width changes between states; sharing a flex row
+        // with the audience toggle pushed the toggle sideways on every state change.
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+                headerActions={<button type="button">Toggle Placeholder</button>}
+            />,
+        )
+
+        const slot = await screen.findByTestId('refresher-slot')
+        expect(within(slot).getByText(/seconds until refresh/i)).toBeDefined()
+        const toggle = screen.getByText('Toggle Placeholder')
+        // Guard the original bug at the header-row level: the row holding the title,
+        // toggle, and CTA must not contain the slot anywhere inside it.
+        const headerRow = screen.getByText('Review Studies').parentElement as HTMLElement
+        expect(headerRow.contains(toggle)).toBe(true)
+        expect(headerRow.contains(slot)).toBe(false)
     })
 
     it('keeps auto-refresh active for a researcher PENDING-REVIEW proposal with no jobs', async () => {

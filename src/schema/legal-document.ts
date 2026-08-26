@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { OrgType } from '@/database/types'
+import type { LegalDocumentFormat, OrgType } from '@/database/types'
 
 export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
 
@@ -52,8 +52,10 @@ export type PendingLegalDocument = ResolvedLegalDocument & {
     orgName: string | null
 }
 
-export const legalDocumentFormatSchema = z.enum(['markdown', 'pdf'])
-export type LegalDocumentFormat = z.infer<typeof legalDocumentFormatSchema>
+// Restate literals for runtime validation, using `satisfies` to enforce parity with the DB
+const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
+
+export const legalDocumentFormatSchema = z.enum(legalDocumentFormatValues)
 
 // Fixed per type rather than chosen per upload, so a document can never be stored in a format its
 // viewer cannot render.

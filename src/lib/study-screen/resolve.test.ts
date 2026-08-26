@@ -21,13 +21,20 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-pending')
     })
-    it('errored job after a reviewer files decision → study-results (error no longer hidden)', () => {
+    it('OTTER-697: feedback-only decision on an errored run → outputs-feedback', () => {
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
             ).screen,
-        ).toBe('study-results')
+        ).toBe('outputs-feedback')
+    })
+    it('errored and clean feedback-only decisions both resolve to the same outputs-feedback screen', () => {
+        const decided = { hasResults: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' } as const
+        expect(resolveScreen('researcher', state({ ...decided, resultsErrored: true })).screen).toBe('outputs-feedback')
+        expect(resolveScreen('researcher', state({ ...decided, resultsErrored: false })).screen).toBe(
+            'outputs-feedback',
+        )
     })
     it('OTTER-695: feedback-only decision on a clean run → outputs-feedback (out-ranks study-results)', () => {
         expect(
@@ -44,6 +51,35 @@ describe('resolveScreen (researcher)', () => {
                 state({ hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }),
             ).screen,
         ).toBe('study-results')
+    })
+    it('OTTER-696: errored run whose outputs were shared → outputs-errored-shared (out-ranks study-results)', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({
+                    hasResults: true,
+                    resultsErrored: true,
+                    resultsApproved: true,
+                    codeDecision: 'CODE-APPROVED',
+                }),
+            ).screen,
+        ).toBe('outputs-errored-shared')
+    })
+    it('OTTER-697: errored run decided feedback-only → outputs-feedback, not the shared-outputs screen', () => {
+        const screen = resolveScreen(
+            'researcher',
+            state({ hasResults: true, resultsErrored: true, resultsRejected: true, codeDecision: 'CODE-APPROVED' }),
+        ).screen
+        expect(screen).toBe('outputs-feedback')
+        expect(screen).not.toBe('outputs-errored-shared')
+    })
+    it('OTTER-696: an errored run still awaiting a files decision does not reach the shared-outputs screen', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsErrored: true, codeDecision: 'CODE-APPROVED', isExecuting: true }),
+            ).screen,
+        ).toBe('outputs-pending')
     })
     it('OTTER-695: clean run with no files decision yet (RUN-COMPLETE) still → study-results, not outputs-feedback', () => {
         expect(
@@ -144,6 +180,19 @@ describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
             codeDecision: 'CODE-APPROVED',
             hasResults: true,
             resultsRejected: true,
+        })
+        expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
+    })
+
+    it('OTTER-697: errored feedback-only study → approved-code screen (Previous step target)', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            hasResults: true,
+            resultsRejected: true,
+            resultsErrored: true,
         })
         expect(resolveResearcherCodeScreen(s)).toEqual({ screen: 'code-approved' })
     })

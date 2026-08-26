@@ -11,11 +11,10 @@ import { StudyRequestPageHeader } from './page-header'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
-    studyId?: string
     draftData?: DraftStudyData | null
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({ draftData }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
@@ -50,7 +49,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader orgSlug={submittingOrgSlug} studyId={studyId} studyTitle={draftData?.title} />
+            <StudyRequestPageHeader />
             <StudyProposalForm studyProposalForm={form} />
 
             <ProposalFooterActions

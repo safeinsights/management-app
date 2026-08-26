@@ -17,6 +17,7 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import type { RawStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { setupStudyAction } from '@/tests/db-action.helpers'
+import { seedJobFileRow } from '@/tests/artifact.helpers'
 import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 
 const setupDecided = async ({
@@ -227,13 +228,35 @@ describe('ReviewerOutputsDecided', () => {
     })
 
     it('renders the View outputs again security-key section', async () => {
-        const { org, study, raw } = await setupDecided()
+        const { org, study, job, raw } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, raw, org.slug)
 
         expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
+    })
+
+    // The same gate as the errored screen. A submission-time scan log is not this run's outputs, and
+    // it is already on the code review step, so this form must not offer it back as one.
+    it('omits the security-key section when the only encrypted artifact is a scan log', async () => {
+        const { org, study, job, raw } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
+    })
+
+    // OTTER-524: an errored run can be closed out with nothing to decrypt, and coming back here would
+    // otherwise ask the reviewer for a key against files that do not exist, which no key can satisfy.
+    it('omits the security-key section when the decided run left nothing to decrypt', async () => {
+        const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
     it('renders Previous step as a subtle-variant link', async () => {

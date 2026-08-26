@@ -78,7 +78,7 @@ const sortAgreements = (rows: StudyAgreement[], { columnAccessor, direction }: D
             const byColumn = valueOf(a).localeCompare(valueOf(b)) * flip
             if (byColumn !== 0) return byColumn
         }
-        return studyAgreementDisplayTitle(a).localeCompare(studyAgreementDisplayTitle(b))
+        return studyAgreementDisplayTitle(a).localeCompare(studyAgreementDisplayTitle(b)) * flip
     })
 }
 
