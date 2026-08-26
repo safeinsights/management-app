@@ -52,7 +52,7 @@ async function acknowledgeLegalDocument(userId: string, publisherId: string) {
             legalDocumentId: documentId,
             fileName: 'terms.md',
             filePath: `legal/${faker.string.uuid()}/terms.md`,
-            format: 'md',
+            format: 'markdown',
             publishedAt: new Date(),
             publishedBy: publisherId,
             versionNumber: faker.number.int({ min: 1, max: 1_000_000 }),
