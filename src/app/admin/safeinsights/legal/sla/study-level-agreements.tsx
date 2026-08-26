@@ -9,7 +9,7 @@ import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { UploadSlaForm } from './upload-sla-form'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
-import { formatDayString } from '../dates'
+import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
@@ -57,13 +57,13 @@ export const StudyLevelAgreements: FC = () => {
     return (
         <Stack>
             <Flex justify="space-between" align="center">
-                <Title order={2}>Study Level Agreements</Title>
-                <Button onClick={openUpload}>Upload signed SLA</Button>
+                <Title order={2}>Study Agreements</Title>
+                <Button onClick={openUpload}>Upload signed study agreement</Button>
             </Flex>
             <AppModal
                 isOpen={uploadOpened}
                 onClose={closeUpload}
-                title="Upload a signed SLA"
+                title="Upload a signed study agreement"
                 closeOnClickOutside={false}
             >
                 <UploadSlaForm onCompleteAction={closeUpload} />
@@ -93,7 +93,7 @@ export const StudyLevelAgreements: FC = () => {
                 verticalSpacing="sm"
                 fetching={isLoading}
                 idAccessor="legalDocumentId"
-                noRecordsText="No signed SLAs have been uploaded yet"
+                noRecordsText="No study agreements have been uploaded yet"
                 records={agreements}
                 columns={columns}
             />

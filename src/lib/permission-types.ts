@@ -72,16 +72,19 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
-    // orgId/studyId carry the document's scope, so a future rule can scope an org admin to their own
-    // org's agreements. view/create/publish are SI-admin only, via ('manage','all').
-    // isGlobal and audienceOrgIds are derived per request by the actions' middleware and answer the
-    // only question 'acknowledge' asks: who does this document bind? Both must appear on the arm for
-    // the CASL subject union to accept them as conditions.
+    // orgId/studyId carry the DOCUMENT's scope. view/create/publish are SI-admin only, via
+    // ('manage','all'). isGlobal and audienceOrgIds are derived per request by the actions'
+    // middleware and answer the only question 'acknowledge' asks: who does this document bind? Both
+    // must appear on the arm for the CASL subject union to accept them as conditions.
     | Ability<
           'LegalDocument',
           'view' | 'create' | 'publish' | 'acknowledge',
           { orgId?: UUID; studyId?: UUID; isGlobal?: boolean; audienceOrgIds?: UUID[] }
       >
+    // orgId here is the VIEWING org, not the document's scope. Separate from LegalDocument's own
+    // 'view' because view-gated actions take their scope from client params, so widening that verb
+    // would also expose unpublished drafts and version history.
+    | Ability<'OrgLegalDocuments', 'view', { orgId?: UUID }>
     // Both fields optional: `load IDE` is granted by two OR-combined rules — the study's own
     // researcher (researcherId) and any member of the submitting lab (submittedByOrgId, OTTER-719).
     // Every field used in a condition must appear on the arm for the CASL subject union to accept it.

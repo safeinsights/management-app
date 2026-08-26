@@ -109,7 +109,7 @@ describe('StudyLevelAgreements', () => {
         // The study is fixed, so there is nothing to pick.
         expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
         expect(screen.getByText(/This study is on version 1\./)).toBeDefined()
-        expect(screen.getByText('Signed Study Level Agreement')).toBeDefined()
+        expect(screen.getByText('Signed Study Agreement')).toBeDefined()
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
 
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
@@ -145,7 +145,7 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
         // Says what publishing does — files the agreement — and nothing about acknowledgement, which
         // an sla does not trigger: only tos/pn are in enforcedLegalDocumentTypes.
-        expect(within(confirmation).getByText(/becomes the current Study Level Agreement on record/)).toBeDefined()
+        expect(within(confirmation).getByText(/becomes the current Study Agreement on record/)).toBeDefined()
         expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
 
@@ -184,12 +184,12 @@ describe('StudyLevelAgreements', () => {
 
         renderWithProviders(<StudyLevelAgreements />)
 
-        fireEvent.click(screen.getByRole('button', { name: 'Upload signed SLA' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Upload signed study agreement' }))
 
-        await waitFor(() => expect(screen.getByText('Upload a signed SLA')).toBeDefined())
+        await waitFor(() => expect(screen.getByText('Upload a signed study agreement')).toBeDefined())
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
         expect(screen.getByLabelText('Signed on')).toBeDefined()
-        expect(screen.getByText('Signed Study Level Agreement')).toBeDefined()
+        expect(screen.getByText('Signed Study Agreement')).toBeDefined()
         // Queried by placeholder because "Research Lab" also names a column in the table behind.
         expect(screen.getByPlaceholderText('Select a Research Lab')).toBeDisabled()
     })

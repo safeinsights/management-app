@@ -24,6 +24,7 @@ const WARMUP_ROUTES = [
     '/openstax/dashboard',
     '/reviewer-is-org-admin/admin/settings',
     '/reviewer-is-org-admin/admin/team',
+    '/reviewer-is-org-admin/admin/legal',
     '/account/signin',
     '/account/mfa',
     '/dashboard',

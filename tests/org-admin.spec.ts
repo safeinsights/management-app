@@ -186,4 +186,19 @@ test.describe('Organization Admin', () => {
         await expect(codeViewerDialog).toBeVisible()
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
     })
+
+    // Asserts no row content: other specs approve studies against this org in parallel, so counting
+    // rows (or asserting none) would depend on which spec ran first.
+    test('org admin can open the legal center', async ({ page }) => {
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+
+        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/legal/)
+        await expect(page.getByRole('heading', { name: 'Legal center' })).toBeVisible()
+        await expect(page.getByRole('tab', { name: 'Study Agreement' })).toBeVisible()
+
+        const participationTab = page.getByRole('tab', { name: 'Data Organization Participation Agreement' })
+        await expect(participationTab).toBeVisible()
+        await participationTab.click()
+        await expect(page.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeVisible()
+    })
 })
