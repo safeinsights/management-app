@@ -3,8 +3,6 @@ import { useParams } from 'next/navigation'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import dayjs from 'dayjs'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import {
     actionResult,
     createTestQueryClient,
@@ -23,7 +21,8 @@ import {
 } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { theme } from '@/theme'
-import type { FileType, StudyJobStatus } from '@/database/types'
+import type { StudyJobStatus } from '@/database/types'
+import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -36,43 +35,6 @@ vi.mock('@/server/actions/study-job.actions', async () => {
     )
     return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
 })
-
-const toArrayBuffer = (str: string): ArrayBuffer => {
-    const buf = Buffer.from(str, 'utf-8')
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-}
-
-// Encrypt an artifact the way the enclave would (whole-zip + embedded manifest) so the reviewer's
-// real key decrypts it — the phase flip is driven by genuine decryption, not a stubbed callback.
-// Results use ENCRYPTED-RESULT (not the errored screen's log type): this suite is also the proof
-// that a completed run's artifacts flow through the same panel.
-async function seedArtifact(jobId: string, files: { name: string; content: string }[]) {
-    const fileType: FileType = 'ENCRYPTED-RESULT'
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
-    for (const file of files) await writer.addFile(file.name, toArrayBuffer(file.content))
-    const zip = await writer.generate()
-
-    const row = await db
-        .insertInto('studyJobFile')
-        .values({
-            studyJobId: jobId,
-            name: 'encrypted-results.zip',
-            path: `test-org/${jobId}/results/encrypted-results.zip`,
-            fileType,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    return {
-        studyJobFileId: row.id,
-        fileType,
-        name: 'encrypted-results.zip',
-        encryptedBody: await zip.arrayBuffer(),
-        recipientKeys: {} as Record<string, string>,
-    }
-}
 
 const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
@@ -154,7 +116,10 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     it('keeps the outputs hidden when the key is wrong', async () => {
         const { org, study, job, raw } = await setupAvailable()
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedArtifact(job.id, [{ name: 'results.csv', content: 'a,b\n1,2' }]),
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-RESULT',
+                files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+            }),
         ])
         await renderScreen({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
@@ -216,7 +181,9 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         doRender: typeof renderScreen = renderScreen,
     ) => {
         const { org, study, job, raw } = await setupAvailable()
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([await seedArtifact(job.id, files)])
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files }),
+        ])
         await doRender({ study, raw }, org.slug)
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
         await unlock()

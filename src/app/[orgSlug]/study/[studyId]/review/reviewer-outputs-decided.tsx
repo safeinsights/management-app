@@ -7,6 +7,7 @@ import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
+import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState } from '@/lib/study-screen'
@@ -43,6 +44,14 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
 
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
 
+    // A run closed out with nothing to decrypt must not come back here asking for a key that cannot
+    // work (OTTER-524). The same question the errored screen asks, and for the same reason: this form
+    // promises the reviewer their outputs, so a job whose only encrypted artifact is a scan log must
+    // not satisfy it either. That log is written by the code scanner at submission, says nothing about
+    // the run, and is already on the code review step, so returning it under "View outputs again"
+    // would rebuild on this screen exactly the conflation the errored screen now refuses to make.
+    const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
+
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
@@ -61,7 +70,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
                     }
                 />
                 <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <DecryptAndViewOutputs job={job} />
+                <DecryptAndViewOutputs job={job} isVisible={hasDecryptableOutputs} />
                 <Group justify="space-between">
                     <PreviousStepLink previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })} />
                     <ButtonLink href={Routes.dashboard} variant="filled" size="md">
