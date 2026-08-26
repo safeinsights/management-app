@@ -236,10 +236,12 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, submittedByOrgId }) => {
         // Allow co-authoring within the submitting lab while the proposal is editable.
-        // CASL `update Study` is org-type-scoped (any lab member); the row filter below
-        // scopes to the submitting lab + editable status set, and we throw on a 0-row
-        // result so a user outside the lab or operating on a post-submit study gets a
-        // hard rejection instead of a misleading success with signed upload URLs.
+        // CASL `update Study` is already scoped to the caller's own labs, so a lab member outside
+        // this study's lab never reaches here. The row filter below repeats that scope alongside
+        // the editable status set and throws on a 0-row result, so a caller who passed the ability
+        // check on a broader grant (an SI admin holds `manage all`), or one operating on a
+        // post-submit study, gets a hard rejection instead of a misleading success with signed
+        // upload URLs.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
@@ -249,11 +251,12 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         // resubmit form and still governed by its 20-word rule.
         //
         // Gated on lab membership so the message cannot be used as an oracle: answering "title too
-        // long" would otherwise tell any lab member that a guessed id exists and is currently a
-        // DRAFT. `submittedByOrgId` comes from the middleware's read, so the gate costs no extra
-        // query, and the length check still runs before the UPDATE rather than after it, which is
-        // what keeps an over-long title from being written and only then complained about. A caller
-        // outside the lab falls through to the generic rejection below.
+        // long" would otherwise tell the caller that a guessed id exists and is currently a DRAFT.
+        // CASL already denies a lab member outside this study's lab, so the gate is defense in
+        // depth there and only bites on a caller who passed on a broader grant. `submittedByOrgId`
+        // comes from the middleware's read, so it costs no extra query, and the length check still
+        // runs before the UPDATE rather than after it, which is what keeps an over-long title from
+        // being written and only then complained about.
         if (
             userLabOrgIds.includes(submittedByOrgId) &&
             status === 'DRAFT' &&
@@ -390,13 +393,13 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, title: persistedTitle }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // CASL `update Study` is org-type-scoped (any lab member), so we additionally
-        // require the caller to belong to the study's submitting lab. Without this,
-        // a user in a different lab could finalize someone else's draft just by
-        // knowing the studyId.
+        // CASL `update Study` is already scoped to the caller's own labs, so a lab member outside
+        // this study's lab never reaches here. Repeated on the claiming UPDATE below so a caller
+        // who passed the ability check on a broader grant (an SI admin holds `manage all`) cannot
+        // finalize someone else's draft just by knowing the studyId.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
@@ -424,11 +427,17 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error;
         // /proposal redirects such a draft to Step 1 before it can reach this point.
         //
-        // The persisted title comes from the middleware's read of this same row, so the common
-        // omitted-title path costs no extra query. It cannot be deferred to the UPDATE's
-        // `returning` instead: by then the status has already left DRAFT and the check constraint
-        // has fired, which is the raw error this guard exists to replace.
-        const submittedTitle = 'title' in snapshotFields ? (snapshotFields.title as string | null) : persistedTitle
+        // Read here rather than folded into the middleware's read of this same row: middleware
+        // output becomes the ability subject, and requireAbilityTo serializes that subject into the
+        // permission_denied it returns to a caller it just refused, so a title carried that far
+        // would travel back to anyone who guessed a study id (OTTER-724 / MA-6). It cannot be
+        // deferred to the UPDATE's `returning` either: by then the status has already left DRAFT
+        // and the check constraint has fired, which is the raw error this guard exists to replace.
+        const submittedTitle =
+            'title' in snapshotFields
+                ? (snapshotFields.title as string | null)
+                : ((await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirst())?.title ??
+                  null)
 
         if (!submittedTitle?.trim()) {
             throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })

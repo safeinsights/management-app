@@ -401,10 +401,11 @@ export const getInfoForStudyId = async (studyId: string) => {
             'study.researcherId',
             'study.status',
             'study.submittedByOrgId',
-            // OTTER-690: finalizeStudySubmissionAction needs the persisted title on the common
-            // submit path, where the caller omits it. Selected here so that path reuses this read
-            // instead of issuing a second lookup of the same row.
-            'study.title',
+            // No row content here, however convenient it would be for a handler: this is middleware
+            // for many actions, its output becomes their ability subject, and requireAbilityTo
+            // serializes that subject into the permission_denied it returns to a caller it just
+            // refused (OTTER-724 / MA-6). A title selected here would travel back to anyone who
+            // guessed a study id. Read content in the handler, which only runs after the check.
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()

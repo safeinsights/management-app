@@ -716,10 +716,13 @@ describe('Request Study Actions', () => {
             expect(untitled).toBeUndefined()
         })
 
-        // The title rule must not answer before the ownership filter does: a distinct
-        // "title too long" would tell any lab member that a guessed id is a real, currently-DRAFT
-        // study. A caller outside the lab gets the same generic rejection either way.
-        it('onUpdateDraftStudyAction does not leak DRAFT status to a cross-lab caller via the title rule', async () => {
+        // CASL denies a cross-lab caller before the handler runs, so what this pins is the
+        // CASL-level outcome rather than the handler's check ordering: the refusal carries no
+        // title-specific message, tells the caller nothing about the stored title, and writes
+        // nothing. The last assertion matters because requireAbilityTo serializes the ability
+        // subject into the message it returns, so anything the middleware reads goes back to a
+        // caller who was just refused.
+        it('onUpdateDraftStudyAction rejects a cross-lab update without disclosing the stored title', async () => {
             const { enclave, studyId } = await createTestProposalDraft({
                 enclaveSlug: 'title-cap-cross-lab',
                 studyInfo: { title: 'LabA Draft' },
@@ -731,6 +734,7 @@ describe('Request Study Actions', () => {
 
             expect(result).toHaveProperty('error')
             expect(result).not.toMatchObject({ error: expect.objectContaining({ title: expect.any(String) }) })
+            expect(JSON.stringify(result)).not.toContain('LabA Draft')
 
             const after = await db
                 .selectFrom('study')
