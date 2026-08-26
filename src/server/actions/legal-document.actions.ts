@@ -2,7 +2,7 @@
 
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentType, OrgType } from '@/database/types'
+import type { LegalDocumentFormat, LegalDocumentType, OrgType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
@@ -15,7 +15,6 @@ import {
     participationAgreementTypeParams,
     participationAgreementTypeForOrgType,
     legalDocumentFormats,
-    type LegalDocumentFormat,
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
@@ -55,10 +54,10 @@ const legalDocumentDownloadUrl = ({
 }: {
     filePath: string
     fileName: string
-    format: string
+    format: LegalDocumentFormat
 }) =>
     signedUrlForFile(filePath, {
-        ResponseContentType: legalDocumentMimeTypes[format as LegalDocumentFormat] ?? 'application/octet-stream',
+        ResponseContentType: legalDocumentMimeTypes[format],
         // S3 echoes this straight into the response header, and the name is whatever the admin's file
         // was called.
         ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
@@ -616,8 +615,8 @@ const withAgreementDownloadUrl = async ({
 // An unknown slug leaves both ABSENT, which the `$in` rule denies — but ('manage','all') passes it,
 // so an SI admin would reach the handler and index a Record with undefined. TypeScript cannot see
 // it: the action builder types a middleware return as non-optional.
-const requireResolvedOrg: (ctx: { orgId?: string; orgType?: OrgType }) => void = ({ orgId, orgType }) => {
-    if (!orgId || !orgType) throw new ActionFailure({ org: 'was not found' })
+function requireResolvedOrg(ctx: { orgId?: string; orgType?: OrgType }): asserts ctx is { orgId: string; orgType: OrgType } {
+    if (!ctx.orgId || !ctx.orgType) throw new ActionFailure({ org: 'was not found' })
 }
 
 // Scoped to the org in the route, so an admin of two orgs gets each org's own rows.
