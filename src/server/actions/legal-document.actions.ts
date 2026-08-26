@@ -615,7 +615,10 @@ const withAgreementDownloadUrl = async ({
 // An unknown slug leaves both ABSENT, which the `$in` rule denies — but ('manage','all') passes it,
 // so an SI admin would reach the handler and index a Record with undefined. TypeScript cannot see
 // it: the action builder types a middleware return as non-optional.
-function requireResolvedOrg(ctx: { orgId?: string; orgType?: OrgType }): asserts ctx is { orgId: string; orgType: OrgType } {
+function requireResolvedOrg(ctx: {
+    orgId?: string
+    orgType?: OrgType
+}): asserts ctx is { orgId: string; orgType: OrgType } {
     if (!ctx.orgId || !ctx.orgType) throw new ActionFailure({ org: 'was not found' })
 }
 
