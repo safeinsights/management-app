@@ -313,4 +313,21 @@ describe('DELETE /api/qa/users/[userId]', () => {
 
         expect(response.status).toBe(404)
     })
+
+    // The QA guard now lives in findQaUser, one layer above the delete itself, so that the
+    // SI-admin route can reach deleteUserCompletely without it. This pins that the QA route
+    // did not follow it out: /api/qa/* must still refuse a real account.
+    it('refuses a non-QA account and leaves it intact', async () => {
+        await authenticateAsSiAdmin()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: 'real.person@corp.com' })
+
+        const response = await DELETE(new Request('http://localhost', { method: 'DELETE' }), {
+            params: Promise.resolve({ userId: user.id }),
+        })
+
+        expect(response.status).toBe(403)
+        const stillThere = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+        expect(stillThere).toBeDefined()
+    })
 })
