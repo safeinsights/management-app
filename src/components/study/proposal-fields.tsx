@@ -1,8 +1,9 @@
 'use client'
 
+import type { FC } from 'react'
 import { Box, Divider, Group, Stack, Text } from '@mantine/core'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
-import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
+import { ProfessionalProfileLink } from '@/components/professional-profile-link'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
 export function LexicalProposalField({
@@ -64,15 +65,28 @@ export function DatasetsField({
     )
 }
 
-interface PopoverFieldProps {
+interface ProfileFieldProps {
     study: SelectedStudy
     orgSlug: string
-    opened: boolean
-    onOpenChange: (opened: boolean) => void
     size?: 'sm' | 'md'
 }
 
-export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverFieldProps) {
+const ProfileRow: FC<{
+    name: string
+    userId?: string | null
+    studyId: string
+    orgSlug: string
+    size?: 'sm' | 'md'
+}> = ({ name, userId, studyId, orgSlug, size = 'md' }) => (
+    <Group gap="md" align="center">
+        <Text size={size} c="charcoal.7">
+            {name}
+        </Text>
+        <ProfessionalProfileLink userId={userId} studyId={studyId} orgSlug={orgSlug} />
+    </Group>
+)
+
+export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
     if (!study.piName) return null
 
     return (
@@ -82,47 +96,30 @@ export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverF
                 <Text fw={600} size="sm">
                     Principal Investigator
                 </Text>
-                <ResearcherProfilePopover
-                    userId={study.piUserId ?? ''}
+                <ProfileRow
+                    name={study.piName}
+                    userId={study.piUserId}
                     studyId={study.id}
                     orgSlug={orgSlug}
-                    name={study.piName}
                     size={size}
-                    position="right"
-                    offset={8}
-                    arrowSize={12}
-                    opened={opened}
-                    onOpenChange={onOpenChange}
                 />
             </Stack>
         </>
     )
 }
 
-export function ResearcherField({
-    study,
-    orgSlug,
-    opened,
-    onOpenChange,
-    size,
-    mt,
-}: PopoverFieldProps & { mt?: string }) {
+export function ResearcherField({ study, orgSlug, size, mt }: ProfileFieldProps & { mt?: string }) {
     return (
         <Stack gap={4} mt={mt}>
             <Text fw={600} size="sm">
                 Researcher
             </Text>
-            <ResearcherProfilePopover
+            <ProfileRow
+                name={study.createdBy}
                 userId={study.researcherId}
                 studyId={study.id}
                 orgSlug={orgSlug}
-                name={study.createdBy}
                 size={size}
-                position="right"
-                offset={8}
-                arrowSize={12}
-                opened={opened}
-                onOpenChange={onOpenChange}
             />
         </Stack>
     )

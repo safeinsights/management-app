@@ -10,6 +10,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -126,62 +127,121 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         expect(screen.getByTestId('proposal-body')).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
-        expect(screen.getByTestId('proposal-toggle-body')).toHaveTextContent('Hide full initial request')
+        expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
+        expect(screen.getByTestId('proposal-toggle-bottom')).toHaveTextContent('Hide full proposal')
     })
 
     it('is collapsed by default on resubmission', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
-        expect(screen.getByTestId('proposal-body')).not.toBeVisible()
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
+        expect(screen.queryByTestId('proposal-body')).not.toBeInTheDocument()
     })
 
-    it('collapses the proposal body when the header toggle is clicked', () => {
+    it('keeps the proposal toggle out of the status card', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        fireEvent.click(screen.getByTestId('proposal-toggle-header'))
-
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        const header = screen.getByTestId('proposal-section-header')
+        expect(header).toHaveTextContent('STEP 1')
+        expect(within(header).queryByRole('button', { name: /full proposal/i })).not.toBeInTheDocument()
+        expect(within(screen.getByTestId('proposal-card')).getByTestId('proposal-toggle-top')).toBeInTheDocument()
     })
 
-    it('toggles between hide and show text on repeated clicks', async () => {
+    it('collapses to the snippet when the top toggle is clicked', () => {
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+        fireEvent.click(screen.getByTestId('proposal-toggle-top'))
+
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
+        expect(screen.queryByTestId('proposal-body')).not.toBeInTheDocument()
+    })
+
+    it('collapses to the snippet when the bottom toggle is clicked', () => {
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+        fireEvent.click(screen.getByTestId('proposal-toggle-bottom'))
+
+        expect(screen.getByTestId('proposal-snippet')).toBeInTheDocument()
+        expect(screen.queryByTestId('proposal-body')).not.toBeInTheDocument()
+    })
+
+    it('toggles between the snippet and the full proposal on repeated clicks', async () => {
         const user = userEvent.setup()
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        const headerToggle = screen.getByTestId('proposal-toggle-header')
-        expect(headerToggle).toHaveTextContent('Hide full initial request')
+        await user.click(screen.getByTestId('proposal-toggle-top'))
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveAttribute('aria-expanded', 'false')
 
-        await user.click(headerToggle)
-        expect(headerToggle).toHaveTextContent('View full initial request')
-
-        await user.click(headerToggle)
-        expect(headerToggle).toHaveTextContent('Hide full initial request')
+        await user.click(screen.getByTestId('proposal-toggle-snippet'))
+        expect(screen.getByTestId('proposal-toggle-top')).toHaveAttribute('aria-expanded', 'true')
     })
 
-    it('opens the PI popover when the info icon is hovered', async () => {
-        const user = userEvent.setup()
-        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+    describe('collapsed snippet', () => {
+        it('previews the datasets and the research question only', () => {
+            renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
-        expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
-        await user.hover(screen.getByText('Dr. Smith'))
+            const snippet = screen.getByTestId('proposal-snippet')
+            expect(within(snippet).getByText('Dataset(s) of interest')).toBeInTheDocument()
+            expect(within(snippet).getByText('Dataset A')).toBeInTheDocument()
+            expect(within(snippet).getByTestId('proposal-snippet-question')).toHaveTextContent(
+                'What is the effect of X on Y?',
+            )
 
-        // The PI in this fixture has no linked userId, so the popover shows the not-available state.
-        await waitFor(() => {
-            expect(screen.getByText('Profile not available')).toBeInTheDocument()
+            expect(screen.queryByText('Project summary')).not.toBeInTheDocument()
+            expect(screen.queryByText('Impact')).not.toBeInTheDocument()
+            expect(screen.queryByText('Principal Investigator')).not.toBeInTheDocument()
+            expect(screen.queryByText('Additional notes or requests')).not.toBeInTheDocument()
+        })
+
+        it('clamps the research question preview to two lines', () => {
+            renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
+
+            // Mantine drives the clamp from a CSS variable plus a data attribute, so assert those
+            // rather than a -webkit-line-clamp declaration jsdom never sees.
+            const preview = screen.getByTestId('proposal-snippet-question')
+            expect(preview).toHaveAttribute('data-line-clamp', 'true')
+            expect(preview.style.getPropertyValue('--text-line-clamp')).toBe('2')
+        })
+
+        it('leaves no divider behind when the research question is absent', () => {
+            const withoutQuestion = { ...study, researchQuestions: null }
+
+            renderWithProviders(<ProposalSection study={withoutQuestion} orgSlug="test-org" reviewVersion={2} />)
+
+            const snippet = screen.getByTestId('proposal-snippet')
+            expect(within(snippet).queryByTestId('proposal-snippet-question')).not.toBeInTheDocument()
+            expect(within(snippet).queryAllByRole('separator')).toHaveLength(0)
+            expect(within(snippet).getByTestId('proposal-toggle-snippet')).toBeInTheDocument()
         })
     })
 
-    it('opens the Researcher popover when the info icon is hovered', async () => {
-        const user = userEvent.setup()
-        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+    describe('professional profile links', () => {
+        it('links the researcher to their profile in a new tab', () => {
+            renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        expect(screen.getByText('Researcher')).toBeInTheDocument()
-        await user.hover(screen.getByText(study.createdBy))
+            const researcherRow = screen.getByText(study.createdBy).parentElement as HTMLElement
+            const link = within(researcherRow).getByRole('link', { name: /Professional profile/ })
 
-        // Researcher has no detailed profile inserted, so popover shows the minimal-profile state.
-        await waitFor(() => {
-            expect(screen.getByText('This user has no detailed profile information')).toBeInTheDocument()
+            expect(link).toHaveAttribute(
+                'href',
+                `/test-org/study/${study.id}/researcher-profile?userId=${study.researcherId}`,
+            )
+            expect(link).toHaveAttribute('target', '_blank')
+            expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+        })
+
+        it('shows the PI name without a link when no PI user is recorded', () => {
+            renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+            const piRow = screen.getByText('Dr. Smith').parentElement as HTMLElement
+            expect(within(piRow).queryByRole('link')).not.toBeInTheDocument()
+        })
+
+        it('replaces the info icon popover on the profile rows', () => {
+            renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+            expect(screen.queryByLabelText('More information')).not.toBeInTheDocument()
+            expect(screen.getAllByRole('link', { name: /Professional profile/ })).toHaveLength(1)
         })
     })
 
