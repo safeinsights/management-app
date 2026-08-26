@@ -11,8 +11,12 @@
  * it. Every invocation is written to the audit table.
  *
  * Deletion order is FK-safe: relations without ON DELETE CASCADE are removed
- * manually before their parent row. All row deletes for a cleanup run in a
- * single transaction so a failure can never leave a partially deleted graph.
+ * manually before their parent row. That list is maintained by hand, so a new
+ * table referencing user.id without a cascade breaks deletion at runtime with an
+ * opaque 500 — see the legal_document_acknowledgement delete below. When adding
+ * such a table, either give the FK ON DELETE CASCADE or add it here. All row
+ * deletes for a cleanup run in a single transaction so a failure can never
+ * leave a partially deleted graph.
  * External cleanup (S3, Clerk) runs only after the transaction commits, and
  * its failures propagate so the caller never sees success for an incomplete
  * cleanup.
@@ -211,6 +215,10 @@ export async function deleteUserById(db: Kysely<DB>, idOrEmail: string) {
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('jobStatusChange').where('userId', '=', userId).execute()
+        // Written by the signup flow, one row per enforced published document, so every
+        // fully-signed-up account has these — which is why the QA signup suite's teardown
+        // was the thing that found them missing here.
+        await trx.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', userId).execute()
         await trx.deleteFrom('orgUser').where('userId', '=', userId).execute()
         await trx.deleteFrom('userPublicKey').where('userId', '=', userId).execute()
         // researcher_profile (and its researcher_position rows) cascade from user.
