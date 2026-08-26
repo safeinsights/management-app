@@ -5,11 +5,11 @@ import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } 
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { WordCounter } from '@/components/word-counter'
-import { fieldDescribedBy, fieldDescriptionId, fieldErrorId } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
+import { fieldCounterId, fieldDescribedBy, fieldErrorId } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import type { OutputsDecision } from '@/lib/outputs-review'
+import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
@@ -158,14 +158,16 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
     )
 }
 
-// Carries the description id so the count reaches the editor's aria-describedby. Rendered through
+// Carries the counter id so the count reaches the editor's aria-describedby. Rendered through
 // the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
 // second SaveStatusIndicator here would show the user two "All changes saved" messages in
 // collaborative mode, and could contradict the error below when validation fails.
-const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCount, maxWords }) => (
-    <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
-        <WordCounter wordCount={wordCount} maxWords={maxWords} unit="words" />
-    </Box>
+const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
+    <CharacterCounter
+        id={fieldCounterId(FEEDBACK_INPUT_ID)}
+        count={characterCount}
+        maxCharacters={OUTPUTS_FEEDBACK_MAX_CHARACTERS}
+    />
 )
 
 // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
@@ -180,8 +182,7 @@ export type OutputsDecisionSectionProps = {
     jobId: string
     studyId: string
     labName: string
-    maxWords: number
-    wordCount: number
+    characterCount: number
     feedbackError: string | undefined
     onFeedbackChange: (json: string) => void
     selected: OutputsDecision | null
@@ -195,8 +196,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     jobId,
     studyId,
     labName,
-    maxWords,
-    wordCount,
+    characterCount,
     feedbackError,
     onFeedbackChange,
     selected,
@@ -229,10 +229,11 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     ariaRequired
                     ariaDescribedBy={fieldDescribedBy(FEEDBACK_INPUT_ID, {
                         hasError: !!feedbackError,
-                        hasDescription: true,
+                        hasDescription: false,
+                        hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
-                    footerRight={<FeedbackCounter wordCount={wordCount} maxWords={maxWords} />}
+                    footerRight={<FeedbackCounter characterCount={characterCount} />}
                 />
                 <FeedbackError error={feedbackError} />
                 <DecisionRadioGroup

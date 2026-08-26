@@ -227,9 +227,22 @@ test('containerizer records a reason against an errored row holding unclassified
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
+    // createdAt is set rather than defaulted, so this row is unambiguously the job's latest status.
+    // Every row a test writes otherwise carries the same created_at: the suite runs each test inside
+    // one transaction (tests/vitest.setup.ts) and the column defaults to now(), which is that
+    // transaction's start time, not the moment of the insert. The route picks the last status by
+    // created_at then id, so with the timestamps tied the winner is decided by two v7uuid() values,
+    // and their order below a millisecond is random. Left to the default, the route intermittently
+    // read INITIATED as the last status and inserted a second JOB-ERRORED row instead of
+    // backfilling this one.
     await db
         .insertInto('jobStatusChange')
-        .values({ studyJobId: jobId, status: 'JOB-ERRORED', message: 'Task stopped: exit code 137' })
+        .values({
+            studyJobId: jobId,
+            status: 'JOB-ERRORED',
+            message: 'Task stopped: exit code 137',
+            createdAt: new Date(Date.now() + 1_000),
+        })
         .execute()
 
     const resp = await apiHandler.POST(

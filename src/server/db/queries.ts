@@ -395,7 +395,18 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status', 'study.submittedByOrgId'])
+        .select([
+            'orgId',
+            'org.slug as orgSlug',
+            'study.researcherId',
+            'study.status',
+            'study.submittedByOrgId',
+            // No row content here, however convenient it would be for a handler: this is middleware
+            // for many actions, its output becomes their ability subject, and requireAbilityTo
+            // serializes that subject into the permission_denied it returns to a caller it just
+            // refused (OTTER-724 / MA-6). A title selected here would travel back to anyone who
+            // guessed a study id. Read content in the handler, which only runs after the check.
+        ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }

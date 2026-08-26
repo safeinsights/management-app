@@ -27,8 +27,15 @@ import {
     proposalFormSchema,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
-import { useSubmitProposal } from './use-submit-proposal'
+import {
+    SUBMIT_FAILURE_MESSAGE,
+    SUBMIT_FAILURE_TITLE,
+    SUBMIT_FAILURE_UNSAVED_MESSAGE,
+    SUBMIT_SUCCESS_TITLE,
+    useSubmitProposal,
+} from './use-submit-proposal'
 
 const buildValidProposalValues = (piUserId: string): ProposalFormValues => ({
     title: 'Collaboration Title',
@@ -107,6 +114,43 @@ describe('useSubmitProposal', () => {
         })
     })
 
+    // OTTER-690: Step 1 owns study.title on a DRAFT. The Step 2 form still carries a seeded copy
+    // for the reviewer preview, and submit is the moment the column becomes immutable, so a stale
+    // copy landing here would be permanent.
+    it('leaves the Step 1 title untouched on submit', async () => {
+        const { studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'submit-title-owner',
+            studyInfo: { title: 'Chosen on Step 1' },
+        })
+        const { yjsForm, sendStateless } = buildStubYjsForm()
+
+        const { result } = renderHook(
+            () => {
+                const form = useForm<ProposalFormValues>({
+                    mode: 'controlled',
+                    initialValues: { ...buildValidProposalValues(user.id), title: 'stale Step 2 copy' },
+                })
+                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                return { form, ...submit }
+            },
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await act(async () => {
+            result.current.submitProposal()
+        })
+
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+
+        const study = await db
+            .selectFrom('study')
+            .select(['title', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.status).toBe('PENDING-REVIEW')
+        expect(study.title).toBe('Chosen on Step 1')
+    })
+
     it('does not call the action or navigate when validation fails', async () => {
         const { studyId } = await createTestProposalDraft({ enclaveSlug: 'submit-invalid' })
         const { yjsForm, sendStateless } = buildStubYjsForm()
@@ -160,11 +204,109 @@ describe('useSubmitProposal', () => {
 
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit proposal',
+            ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
         )
         expect(errorCall).toBeDefined()
+        // The copy is specified verbatim by the card, so it is asserted verbatim.
+        expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_MESSAGE })
         expect(sendStateless).not.toHaveBeenCalled()
-        // Navigation only happens onSuccess; ensure URL didn't change.
+        // The user stays on the form, which is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    // The reassurance has to be earned. A dirty form on a study that is no longer editable fails the
+    // recovery save for the same reason it failed the submit, and saying "your work is saved" there
+    // is the one wrong answer this path can give.
+    it('says the work was not saved when the recovery save fails too', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-unsaved' })
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        const { yjsForm } = buildStubYjsForm()
+        const { result } = renderHook(
+            () => {
+                const form = useForm<ProposalFormValues>({
+                    mode: 'controlled',
+                    initialValues: buildValidProposalValues(user.id),
+                })
+                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                return { form, ...submit }
+            },
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        // Dirty, so the recovery save actually runs rather than short-circuiting on a pristine form.
+        act(() => {
+            result.current.form.setFieldValue('impact', lexicalJson('Revised impact statement.'))
+        })
+
+        await act(async () => {
+            result.current.submitProposal()
+        })
+
+        await waitFor(() => {
+            const errorCall = (notifications.show as Mock).mock.calls.find(
+                ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
+            )
+            expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        })
+    })
+
+    it('puts the submit button back in view after a failure (OTTER-691)', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-scroll' })
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        // A real node under the real id, so the assertion is "the Submit button was scrolled to"
+        // rather than "some scroll happened". The previous version stubbed window.scrollTo and
+        // checked only `behavior`, which stayed green no matter where the page ended up.
+        const submitButton = document.createElement('button')
+        submitButton.id = SUBMIT_BUTTON_ID
+        submitButton.scrollIntoView = vi.fn()
+        document.body.appendChild(submitButton)
+
+        const { yjsForm } = buildStubYjsForm()
+        const { result } = renderHook(
+            () => {
+                const form = useForm<ProposalFormValues>({
+                    mode: 'controlled',
+                    initialValues: buildValidProposalValues(user.id),
+                })
+                return useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+            },
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await act(async () => {
+            result.current.submitProposal()
+        })
+
+        await waitFor(() => expect(submitButton.scrollIntoView).toHaveBeenCalled())
+        expect(submitButton.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
+    })
+
+    it('announces a successful submission before navigating away (OTTER-691)', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-success-toast' })
+        const { yjsForm } = buildStubYjsForm()
+
+        const { result } = renderHook(
+            () => {
+                const form = useForm<ProposalFormValues>({
+                    mode: 'controlled',
+                    initialValues: buildValidProposalValues(user.id),
+                })
+                return useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+            },
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await act(async () => {
+            result.current.submitProposal()
+        })
+
+        await waitFor(() => expect(memoryRouter.asPath).toContain('/submitted'))
+        const successCall = (notifications.show as Mock).mock.calls.find(
+            ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_SUCCESS_TITLE,
+        )
+        expect(successCall).toBeDefined()
+        expect(successCall?.[0]).toMatchObject({ color: 'green' })
     })
 })

@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from '@/components/study/outputs-decision-section'
-import { countWordsFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
-import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MIN_WORDS, type OutputsDecision } from '@/lib/outputs-review'
+import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { submitOutputsDecisionAction } from '@/server/actions/study-job.actions'
 
@@ -19,7 +19,6 @@ type UseOutputsDecisionOptions = {
     studyId: string
     jobId: string
     labName: string
-    maxWords: number
     decryptedFiles: JobFileInfo[]
 }
 
@@ -27,14 +26,7 @@ type UseOutputsDecisionOptions = {
 // flagged field, reading top to bottom"), so it lives next to the validation that consumes it.
 const FIELD_ORDER = [FEEDBACK_INPUT_ID, DECISION_GROUP_ID]
 
-export function useOutputsDecision({
-    orgSlug,
-    studyId,
-    jobId,
-    labName,
-    maxWords,
-    decryptedFiles,
-}: UseOutputsDecisionOptions) {
+export function useOutputsDecision({ orgSlug, studyId, jobId, labName, decryptedFiles }: UseOutputsDecisionOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
 
@@ -55,15 +47,17 @@ export function useOutputsDecision({
     // represented and needs no guard.
     const [confirming, setConfirming] = useState<OutputsDecision | null>(null)
 
-    const wordCount = countWordsFromLexical(feedback)
-    const isEmpty = wordCount < OUTPUTS_FEEDBACK_MIN_WORDS
-    const isOverLimit = wordCount > maxWords
+    // Both measured trimmed, through the shared counter, so the count beside the field and the rule
+    // that gates it can never disagree (OTTER-737).
+    const characterCount = countCharactersFromLexical(feedback)
+    const isEmpty = !hasLexicalContent(feedback)
+    const isOverLimit = characterCount > OUTPUTS_FEEDBACK_MAX_CHARACTERS
 
     // Over-limit is reported the moment it happens (the counter is already live, so a silent
     // field would contradict it), and it appears while the user types, well before any click.
     // Emptiness waits for a submit attempt.
     const resolveFeedbackError = () => {
-        if (isOverLimit) return OUTPUTS_DECISION_ERRORS.feedbackTooLong(maxWords)
+        if (isOverLimit) return OUTPUTS_DECISION_ERRORS.feedbackTooLong
         if (hasAttemptedSubmit && isEmpty) return OUTPUTS_DECISION_ERRORS.feedbackEmpty(labName)
         return undefined
     }
@@ -129,7 +123,7 @@ export function useOutputsDecision({
         feedback,
         onFeedbackChange: setFeedback,
         feedbackError,
-        wordCount,
+        characterCount,
         selected,
         onSelect,
         decisionError,

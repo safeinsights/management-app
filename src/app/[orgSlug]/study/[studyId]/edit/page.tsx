@@ -29,6 +29,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
             'study.containerLocation',
             'study.outputMimeType',
             'org.slug as orgSlug',
+            'org.name as orgName',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -44,12 +45,15 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     // decides the canonical screen, so this page no longer self-redirects to resume on Step 2.
     return (
         <StudyProposal
+            studyId={studyId}
             draftData={{
                 id: studyId,
                 title: study.title ?? '',
                 piName: study.piName,
                 language: study.language,
+                status: study.status,
                 orgSlug: study.orgSlug,
+                orgName: study.orgName,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,
                 agreementDocPath: study.agreementDocPath,

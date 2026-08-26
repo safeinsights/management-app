@@ -1,7 +1,7 @@
 import type { UseFormReturnType } from '@mantine/form'
 import type { DocumentFileState } from '@/contexts/shared/file-types'
 import type { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
-import type { Language } from '@/database/types'
+import type { Language, StudyStatus } from '@/database/types'
 
 export type { StudyProposalFormValues }
 
@@ -9,6 +9,13 @@ export interface DraftStudyData {
     id: string
     orgSlug: string
     language: Language | null
+    /**
+     * Persisted status. Drives the post-submission read-only title on the Set Up page, so it must
+     * come from the study row rather than from anything client-side (OTTER-690).
+     */
+    status?: StudyStatus
+    /** Display name of the Data Partner, shown once the selection is locked. */
+    orgName?: string
     title?: string
     piName?: string
     descriptionDocPath?: string | null
@@ -35,7 +42,6 @@ export interface StudyRequestContextValue {
     submittingOrgSlug: string
     form: UseFormReturnType<StudyProposalFormValues>
     existingFiles: ExistingFiles | undefined
-    isStep1Valid: boolean
     documentFiles: DocumentFileState
     setStudyId: (id: string) => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void

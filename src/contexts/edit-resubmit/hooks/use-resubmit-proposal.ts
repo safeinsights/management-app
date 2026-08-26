@@ -29,7 +29,8 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
             actionResult(
                 await resubmitProposalAction({
                     studyId,
-                    studyInfo: buildStudyInfo(form.getValues()),
+                    // titleMode 'send': the resubmit form owns the title on a CHANGE-REQUESTED row.
+                    studyInfo: buildStudyInfo(form.getValues(), 'send'),
                     resubmissionNote: noteForm.values.resubmissionNote,
                 }),
             ),
