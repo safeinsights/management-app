@@ -532,9 +532,9 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
         await page.waitForURL(/\/submitted(\?.*)?$/)
 
-        // This view mounts the proposal collapsed (initialExpanded={false}), so the body is
-        // display:none until the toggle is clicked.
-        await page.getByTestId('proposal-toggle-header').click()
+        // This view mounts the proposal collapsed (initialExpanded={false}), so the card shows a
+        // snippet and the full body is not rendered until the toggle is clicked.
+        await page.getByRole('button', { name: 'View full proposal' }).click()
         const proposalBody = page.getByTestId('proposal-body')
         await expect(proposalBody).toBeVisible()
 
