@@ -20,7 +20,7 @@ export const ProfessionalProfileLink: FC<ProfessionalProfileLinkProps> = ({ user
 
     return (
         <LinkWithIcon
-            href={`${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`}
+            href={Routes.researcherProfileView({ orgSlug, studyId, userId })}
             target="_blank"
             rel="noopener noreferrer"
             icon={<ArrowSquareOutIcon size={14} />}

@@ -132,12 +132,7 @@ const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string
     if (count <= 1) return null
 
     return (
-        <Anchor
-            href={`${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`}
-            target="_blank"
-            size="sm"
-            fw={600}
-        >
+        <Anchor href={Routes.researcherProfileView({ orgSlug, studyId, userId })} target="_blank" size="sm" fw={600}>
             + {count - 1} more current affiliation
         </Anchor>
     )
@@ -223,7 +218,7 @@ const PopoverContent: FC<{
         return <MinimalPopoverContent fullName={fullName} email={data.user.email ?? ''} onClose={onClose} />
     }
 
-    const profileUrl = `${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`
+    const profileUrl = Routes.researcherProfileView({ orgSlug, studyId, userId })
 
     const viewFullProfileButton = (
         <Button component="a" href={profileUrl} target="_blank" variant="filled" size="md" fullWidth radius="sm">
