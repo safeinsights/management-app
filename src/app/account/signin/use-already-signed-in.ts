@@ -85,7 +85,10 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         // Hard navigation, not router.replace: when Clerk's client session has outlived the real one,
         // the proxy bounces a soft navigation straight back to this same URL, the route never remounts,
         // and the button looks dead (OTTER-745). A full load makes Clerk re-initialize from cookies, so
-        // the user either lands on the target or gets the sign-in form. Never nothing.
+        // the user either lands on the target or gets the sign-in form. Never nothing. The status
+        // downgrade above does not cover this on its own: Clerk only learns the session is gone on its
+        // next token refresh, and a throttled or offline tab can defer that indefinitely. A tab left
+        // asleep for hours is exactly how this starts.
         // location.replace, not assign: keeps this page out of history, matching the router.replace it
         // supersedes. Otherwise Back would land here and auto-redirect forward again.
         window.location.replace(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
