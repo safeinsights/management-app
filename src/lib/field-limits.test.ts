@@ -44,10 +44,10 @@ describe('countCharacters', () => {
 })
 
 describe('overCharacterLimitError', () => {
-    // The card's wording, which omits "character" before "limit".
+    // The card's wording, including the literal "character" before "limit".
     it('names the field and its cap', () => {
         expect(overCharacterLimitError('Study title', 60)).toBe(
-            'Study title exceeds the 60 limit. Shorten it to continue.',
+            'Study title exceeds the 60 character limit. Shorten it to continue.',
         )
     })
 })

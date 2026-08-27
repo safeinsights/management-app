@@ -28,7 +28,7 @@ const INTRO = 'Name your study and select a Data Partner so your proposal goes t
 const TITLE_DESCRIPTION = 'Give your study a short, clear title to identify it on SafeInsights.'
 const PARTNER_DESCRIPTION = 'Select a Data Partner to see the programming languages they support.'
 const BLANK_TITLE_ERROR = 'Enter a study title before continuing.'
-const OVER_LIMIT_ERROR = 'Study title exceeds the 60 limit. Shorten it to continue.'
+const OVER_LIMIT_ERROR = 'Study title exceeds the 60 character limit. Shorten it to continue.'
 const PARTNER_ERROR = 'Select a Data Partner before continuing.'
 const LANGUAGE_ERROR = 'Select a programming language before continuing.'
 
