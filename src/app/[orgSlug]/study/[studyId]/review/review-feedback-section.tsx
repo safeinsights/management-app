@@ -24,8 +24,6 @@ type ReviewFeedbackSectionProps = {
     reviewVersion: number
 }
 
-const PLACEHOLDER_TEXT = `For e.g., "This study is feasible with our current data. We can provide the requested variables for the specified time period. Question: Will you need student demographic data beyond what is listed?"`
-
 const SECTION_TITLE = 'Decision'
 
 const EVALUATION_CRITERIA = [
@@ -74,9 +72,9 @@ function FeedbackEditor({
             docName={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
             inputId="review-feedback"
             ariaLabel="Initial request review feedback"
-            placeholder={PLACEHOLDER_TEXT}
             contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            isResizable
             onProviderReady={publishProvider}
         />
     )

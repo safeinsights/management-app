@@ -84,15 +84,19 @@ describe('ReviewFeedbackSection', () => {
         ).toBeInTheDocument()
     })
 
-    it('renders the editor placeholder text', async () => {
+    it('renders no placeholder text in the editor', async () => {
         renderWithProviders(<FeedbackTestWrapper />)
 
-        await waitFor(
-            () => {
-                expect(screen.getByText(new RegExp(PLACEHOLDER_TEXT))).toBeInTheDocument()
-            },
-            { timeout: 5000 },
-        )
+        await screen.findByRole('textbox')
+        expect(screen.queryByText(new RegExp(PLACEHOLDER_TEXT))).not.toBeInTheDocument()
+    })
+
+    it('renders a vertical resize handle on the editor', async () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        await screen.findByRole('textbox')
+        const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
+        expect(surface.style.resize).toBe('vertical')
     })
 
     it('displays the character counter and updates it as the feedback changes', async () => {
