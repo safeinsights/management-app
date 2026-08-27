@@ -48,10 +48,10 @@ describe('ProposalReviewView', () => {
         expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
     })
 
-    it('renders the study title in proposal section', () => {
+    it('does not render the study title in the proposal section header', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByText(/Test Study Title/)).toBeInTheDocument()
+        expect(screen.queryByText(/Test Study Title/)).not.toBeInTheDocument()
     })
 
     it('renders the back button', () => {

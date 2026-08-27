@@ -107,13 +107,28 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
         })
 
-        it('renders the page title and study title', () => {
+        it('renders the page title and the "Review proposal" section heading', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
-            expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
+        })
+
+        it('does not render the study title in the proposal header', () => {
+            const entries = [buildEntry()]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+
+            expect(screen.queryByText(/Effect of Reading Comprehension Tools/)).not.toBeInTheDocument()
+        })
+
+        it('renders the versioned heading on a resubmission (reviewVersion > 1)', () => {
+            const entries = [buildEntry()]
+            renderWithProviders(
+                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} reviewVersion={3} />,
+            )
+
+            expect(screen.getByRole('heading', { name: 'Review proposal v3.0', level: 2 })).toBeInTheDocument()
         })
     })
 

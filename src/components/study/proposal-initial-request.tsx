@@ -20,6 +20,7 @@ type ProposalRequestProps = {
     initialExpanded?: boolean
     statusBadge?: string
     entries?: ProposalFeedbackEntry[]
+    showStudyTitle?: boolean
 }
 
 function useProposalRequest(initialExpanded: boolean) {
@@ -63,6 +64,7 @@ export function ProposalRequest({
     initialExpanded = true,
     statusBadge = 'Submitted on',
     entries = [],
+    showStudyTitle = true,
 }: ProposalRequestProps) {
     const { expanded, toggle, collapse, getPopoverProps } = useProposalRequest(initialExpanded)
     const timestampDate = decisionTimestampForProposalHeader(study, entries)
@@ -72,7 +74,7 @@ export function ProposalRequest({
             <ProposalStepHeader
                 stepLabel={stepLabel}
                 heading={heading}
-                studyTitle={study.title}
+                studyTitle={showStudyTitle ? study.title : undefined}
                 timestampDate={timestampDate}
                 timestampLabel={statusBadge}
                 banner={banner}

@@ -679,7 +679,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByText(studyTitle)).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
@@ -943,8 +943,8 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        // "Review initial request" is both the h1 and a section h4 — pin to h1.
         await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
         await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
