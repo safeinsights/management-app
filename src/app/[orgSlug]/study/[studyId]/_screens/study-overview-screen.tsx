@@ -1,11 +1,21 @@
+import type { Route } from 'next'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { StepNavigation } from '@/components/study/step-navigation'
+import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyDetails } from '@/components/study/study-details'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
 
 // study-overview: the generic Study Details layout — a draft-no-job study, or any unmapped state.
-export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenComponentProps) {
+export function StudyOverviewScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
+    const nav = resolveStepNav('study-overview', projectStudyState(raw), {
+        orgSlug,
+        studyId: study.id,
+        dashboardHref: dashboardHref as Route,
+        returnTo,
+    })
+
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
@@ -52,6 +62,8 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
                     <Text c="dimmed">Status will be available after code is uploaded.</Text>
                 </Stack>
             </Paper>
+
+            <StepNavigation nav={nav} />
         </Stack>
     )
 }

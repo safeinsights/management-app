@@ -73,7 +73,7 @@ describe('ResearcherAgreementsRoute', () => {
         expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 
-    // Previous → /submitted (the approved-proposal page with a working "Proceed to step 3"), NOT
+    // Previous → /submitted (the approved-proposal page with a working "Next step"), NOT
     // /view — /view resolves to proposal-feedback, which has no forward path and would dead-end an
     // approved-no-code researcher.
     it('Previous button targets /submitted (not /view), no ?from=', async () => {
@@ -154,7 +154,7 @@ describe('ResearcherAgreementsRoute', () => {
     })
 
     // Dual-role regression: a user who is both reviewer (enclave) and researcher (their own lab)
-    // reaches this researcher route via their lab's slug after clicking "Proceed to step 3" on the
+    // reaches this researcher route via their lab's slug after clicking "Next step" on the
     // approved proposal. Even though they CAN review, this route keeps them in the researcher flow —
     // it must NOT bounce them into the reviewer agreement → /review loop.
     it('keeps a dual-role user in the researcher flow (does not treat them as a reviewer)', async () => {

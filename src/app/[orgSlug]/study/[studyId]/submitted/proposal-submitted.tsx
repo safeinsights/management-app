@@ -1,8 +1,6 @@
 'use client'
 
-import type { FC } from 'react'
-import { Alert, Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
+import { Alert, Stack } from '@mantine/core'
 import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
@@ -11,8 +9,8 @@ import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/stud
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
 import { ProposalHeader } from '../../request/page-header'
-import { Routes } from '@/lib/routes'
-import { Link } from '@/components/links'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 import { effectiveProposalStatus } from '@/lib/review-decision'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 
@@ -23,7 +21,7 @@ interface ProposalSubmittedProps {
     entries: ProposalFeedbackEntry[]
     studyVersion: number
     feedbackError?: boolean
-    returnTo?: 'org'
+    nav: StepNav
 }
 
 function proposalHeading(studyVersion: number): string {
@@ -92,65 +90,6 @@ function StatusBanner({
     )
 }
 
-const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?: 'org' }> = ({
-    orgSlug,
-    study,
-    returnTo,
-}) => {
-    const studyParams = { orgSlug, studyId: study.id }
-    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
-    const proposalStatus = effectiveProposalStatus(study)
-
-    switch (proposalStatus) {
-        case 'CHANGE-REQUESTED':
-            return (
-                <Group justify="space-between">
-                    <Button
-                        component={Link}
-                        href={dashboardHref}
-                        variant="subtle"
-                        size="md"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Back
-                    </Button>
-                    <Button component={Link} href={Routes.studyEditAndResubmit(studyParams)} size="md">
-                        Edit and resubmit
-                    </Button>
-                </Group>
-            )
-        case 'APPROVED':
-            return (
-                <Group justify="space-between">
-                    <Button
-                        component={Link}
-                        href={dashboardHref}
-                        variant="subtle"
-                        size="md"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Back
-                    </Button>
-                    <Button
-                        component={Link}
-                        href={Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })}
-                        size="md"
-                    >
-                        Proceed to step 3
-                    </Button>
-                </Group>
-            )
-        default:
-            return (
-                <Group justify="flex-end">
-                    <Button component={Link} href={dashboardHref} size="md">
-                        Go to dashboard
-                    </Button>
-                </Group>
-            )
-    }
-}
-
 const STATUSES_EXPECTING_FEEDBACK: StudyStatus[] = ['APPROVED', 'REJECTED', 'CHANGE-REQUESTED']
 
 function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; feedbackError?: boolean }) {
@@ -171,7 +110,7 @@ export function ProposalSubmitted({
     entries,
     studyVersion,
     feedbackError,
-    returnTo,
+    nav,
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
     const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
@@ -193,7 +132,7 @@ export function ProposalSubmitted({
                 />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
-                <ProposalNavigation orgSlug={orgSlug} study={study} returnTo={returnTo} />
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

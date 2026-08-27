@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Route } from 'next'
-import { Routes } from '@/lib/routes'
-import { projectStudyState, isErroredResultHiddenFromResearcher } from '@/lib/study-screen'
+import { projectStudyState, isErroredResultHiddenFromResearcher, resolveStepNav } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
@@ -40,12 +39,14 @@ export async function CodeDecisionScreen({
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
-    // OTTER-614: once results exist, the code page forwards to Step 5 (plain /view resolves to the
-    // results screen) instead of ending at the dashboard.
-    const resultsHref =
-        state.hasResults && !hiddenErroredResult
-            ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
-            : undefined
+    // Mirrors decisionStatus above rather than reading descriptor.screen, so the nav can't disagree
+    // with the decision the page actually renders (and no ScreenId narrowing cast is needed).
+    const nav = resolveStepNav(decisionStatus === 'CODE-APPROVED' ? 'code-approved' : 'code-feedback', state, {
+        orgSlug,
+        studyId: study.id,
+        dashboardHref: dashboardHref as Route,
+        returnTo,
+    })
 
     return (
         <CodePostDecisionView
@@ -57,7 +58,7 @@ export async function CodeDecisionScreen({
             dashboardHref={dashboardHref as Route}
             returnTo={returnTo}
             latestJobStatus={decisionStatus}
-            resultsHref={resultsHref}
+            nav={nav}
             feedbackLoadError={feedbackLoadError}
             showStudyCode={!hideStudyCode}
         />

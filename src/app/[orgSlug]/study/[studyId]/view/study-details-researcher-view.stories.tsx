@@ -4,6 +4,7 @@ import { Group, Stack, Text } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import { type FileType, type StudyJobStatus } from '@/database/types'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
+import type { StepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import { JobResultsStatusMessageView } from './job-results-status-message-view'
 
@@ -18,7 +19,27 @@ const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 const JOB_ID = '22222222-2222-4222-8222-222222222222'
 const ORG_SLUG = 'mars-university-lab'
 
-const previousHref = Routes.studyView({ orgSlug: ORG_SLUG, studyId: STUDY_ID })
+// The real screen builds this with resolveStepNav; a story only needs a representative shape.
+const NAV: StepNav = {
+    back: {
+        label: 'Previous step',
+        href: Routes.studyViewCode({ orgSlug: ORG_SLUG, studyId: STUDY_ID }),
+        variant: 'subtle',
+        testId: 'nav-previous-step',
+    },
+    secondary: {
+        label: 'Edit code',
+        href: Routes.studyResubmit({ orgSlug: ORG_SLUG, studyId: STUDY_ID }),
+        variant: 'outline',
+        testId: 'nav-edit-code',
+    },
+    forward: {
+        label: 'Back to my studies',
+        href: Routes.dashboard,
+        variant: 'solid',
+        testId: 'nav-back-to-my-studies',
+    },
+}
 
 const statusChanges = (statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
 
@@ -50,8 +71,6 @@ function StatusBody({ statuses, fileTypes }: { statuses: StudyJobStatus[]; fileT
             statusChanges={statusChanges(statuses)}
             files={files(fileTypes)}
             jobId={JOB_ID}
-            studyId={STUDY_ID}
-            submittingOrgSlug={ORG_SLUG}
             results={ResultsPlaceholder}
         />
     )
@@ -63,7 +82,7 @@ export const AwaitingResults: Story = () => (
         <StudyDetailsResearcherView
             studyId={STUDY_ID}
             orgSlug={ORG_SLUG}
-            previousHref={previousHref}
+            nav={NAV}
             statusMessage={<StatusBody statuses={['CODE-SUBMITTED']} fileTypes={[]} />}
         />
     </div>
@@ -75,7 +94,7 @@ export const ResultsReady: Story = () => (
         <StudyDetailsResearcherView
             studyId={STUDY_ID}
             orgSlug={ORG_SLUG}
-            previousHref={previousHref}
+            nav={NAV}
             statusMessage={<StatusBody statuses={['FILES-APPROVED']} fileTypes={['APPROVED-RESULT']} />}
         />
     </div>
@@ -87,7 +106,7 @@ export const CodeErrored: Story = () => (
         <StudyDetailsResearcherView
             studyId={STUDY_ID}
             orgSlug={ORG_SLUG}
-            previousHref={previousHref}
+            nav={NAV}
             statusMessage={
                 <StatusBody statuses={['FILES-APPROVED', 'JOB-ERRORED']} fileTypes={['APPROVED-CODE-RUN-LOG']} />
             }

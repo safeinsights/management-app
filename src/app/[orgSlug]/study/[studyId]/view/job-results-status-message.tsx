@@ -11,17 +11,14 @@ import { JobResultsStatusMessageView } from './job-results-status-message-view'
 export type JobResultsStatusMessageProps = {
     job: LatestJobForStudy
     files: { fileType: FileType }[]
-    submittingOrgSlug: string
 }
 
-export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, files, submittingOrgSlug }) => {
+export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, files }) => {
     return (
         <JobResultsStatusMessageView
             statusChanges={job.statusChanges}
             files={files}
             jobId={job.id}
-            studyId={job.studyId}
-            submittingOrgSlug={submittingOrgSlug}
             results={<JobResults job={job} />}
         />
     )

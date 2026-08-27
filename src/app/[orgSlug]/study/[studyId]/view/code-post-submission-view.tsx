@@ -2,13 +2,14 @@
 
 import { type FC } from 'react'
 import { Alert, Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -24,8 +25,7 @@ interface CodePostSubmissionViewProps {
     job: LatestJobForStudy
     reviewingOrgName: string
     dashboardHref?: Route
-    /** Org-scoped entry: threaded onto the "Previous" → researcher agreements link so org scope survives the hop. */
-    returnTo?: 'org'
+    nav: StepNav
     /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
     /** Reviewer feedback + resubmission notes for v2+. */
@@ -159,7 +159,7 @@ export function CodePostSubmissionView({
     job,
     reviewingOrgName,
     dashboardHref,
-    returnTo,
+    nav,
     submissionVersion = 1,
     feedbackEntries = [],
     isUnderReview = true,
@@ -173,7 +173,6 @@ export function CodePostSubmissionView({
 
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
 
     const breadcrumbs: Array<[string, string?]> = [
         ['Dashboard', dashboard],
@@ -224,14 +223,7 @@ export function CodePostSubmissionView({
 
                 <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />
 
-                <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Back
-                    </ButtonLink>
-                    <ButtonLink href={dashboard} size="md">
-                        Go to dashboard
-                    </ButtonLink>
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

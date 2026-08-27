@@ -46,7 +46,7 @@ const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
 const seedResultsStudy = () => seedCodeStudy(['FILES-APPROVED'])
 
 describe('StudyViewCode (/view/code)', () => {
-    it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
+    it('shows the approved-code page with a "Next step" forward for a results study', async () => {
         const { org, study } = await seedResultsStudy()
 
         const page = await StudyViewCode({
@@ -59,8 +59,8 @@ describe('StudyViewCode (/view/code)', () => {
         expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('cta-proceed-to-results')).toHaveTextContent('Proceed to step 5')
-        expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        expect(screen.getByTestId('nav-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('nav-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     it('threads returnTo=org onto the forward link and dashboardHref', async () => {

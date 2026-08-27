@@ -44,7 +44,7 @@ describe('StudyViewPage', () => {
 
         expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
-        expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /next step/i })).toBeInTheDocument()
     })
 
     it('renders the ProposalSubmitted page for a REJECTED study', async () => {
@@ -74,7 +74,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('status-banner-CHANGE-REQUESTED')).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: /edit and resubmit/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /edit proposal/i })).toBeInTheDocument()
     })
 
     it('renders generic layout for DRAFT study without job', async () => {
@@ -470,7 +470,7 @@ describe('StudyViewPage', () => {
             expect(page?.props.latestJobStatus).toBe('CODE-CHANGES-REQUESTED')
 
             renderWithProviders(page!)
-            expect(screen.getByTestId('cta-edit-and-resubmit')).toHaveTextContent('Edit and resubmit')
+            expect(screen.getByTestId('nav-edit-code')).toHaveTextContent('Edit code')
         })
 
         it('returns to CodePostSubmissionView when the round is resubmitted after changes requested', async () => {

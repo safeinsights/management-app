@@ -18,7 +18,19 @@ import { Routes } from '@/lib/routes'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import type { StepNav } from '@/lib/study-screen'
 import { CodePostDecisionView } from './code-post-decision-view'
+// Which buttons a decision/state earns is resolveStepNav's job (see lib/study-screen/nav.test.ts);
+// these views only have to render the nav they are handed.
+const NAV: StepNav = {
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'nav-previous-step' },
+    forward: {
+        label: 'Back to my studies',
+        href: '/dashboard' as Route,
+        variant: 'solid',
+        testId: 'nav-back-to-my-studies',
+    },
+}
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -104,6 +116,7 @@ function renderView(
         reviewingOrgName?: string
         feedbackLoadError?: boolean
         showStudyCode?: boolean
+        nav?: StepNav
     } = {},
 ) {
     renderWithProviders(
@@ -115,6 +128,7 @@ function renderView(
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
+            nav={overrides.nav ?? NAV}
             feedbackLoadError={overrides.feedbackLoadError}
             showStudyCode={overrides.showStudyCode}
         />,
@@ -287,44 +301,19 @@ describe('CodePostDecisionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders a "Previous step" link to studyResearcherAgreements (no ?from=) in all decisions', async () => {
+        it('renders the step nav it is handed, and nothing of its own', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            const previous = screen.getByRole('link', { name: /previous step/i })
-            const href = previous.getAttribute('href') ?? ''
-            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
-            expect(href).not.toContain('from=')
+            expect(screen.getByTestId('nav-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('nav-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
         })
 
-        it('renders "Go to dashboard" for CODE-APPROVED', async () => {
+        it('renders no step nav at all when the nav is empty', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { nav: {} })
 
-            const dashboard = screen.getByTestId('cta-go-to-dashboard')
-            expect(dashboard).toHaveTextContent('Go to dashboard')
-            expect(dashboard).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-            expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
-        })
-
-        it('renders "Go to dashboard" for CODE-REJECTED', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
-            renderView(study, job, [buildEntry({ decision: 'REJECT' })], latestJobStatus)
-
-            const dashboard = screen.getByTestId('cta-go-to-dashboard')
-            expect(dashboard).toHaveTextContent('Go to dashboard')
-            expect(dashboard).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-            expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
-        })
-
-        it('renders "Edit and resubmit" pointing at the resubmit route for CODE-CHANGES-REQUESTED', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
-            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
-
-            const resubmit = screen.getByTestId('cta-edit-and-resubmit')
-            expect(resubmit).toHaveTextContent('Edit and resubmit')
-            expect(resubmit).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/resubmit`)
-            expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('step-navigation')).not.toBeInTheDocument()
         })
     })
 

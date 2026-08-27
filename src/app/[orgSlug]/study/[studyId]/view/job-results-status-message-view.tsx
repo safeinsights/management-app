@@ -5,7 +5,6 @@ import { Group, Stack, Text } from '@mantine/core'
 import { CopyingInput } from '@/components/copying-input'
 import { useJobStatus, type StatusChange } from '@/hooks/use-job-results-status'
 import { isLogType } from '@/lib/file-type-helpers'
-import { ResubmitButton } from '@/components/study/resubmit-button'
 import { type FileType } from '@/database/types'
 
 // Presentational researcher status message. It owns the status copy + resubmit row, but
@@ -73,8 +72,6 @@ export type JobResultsStatusMessageViewProps = {
     statusChanges: StatusChange[]
     files: { fileType: FileType }[]
     jobId: string
-    studyId: string
-    submittingOrgSlug: string
     /** Approved-results listing (View/Download links). Injected by the container because it fetches; in isolation a story passes a placeholder. */
     results: ReactNode
 }
@@ -83,8 +80,6 @@ export const JobResultsStatusMessageView: FC<JobResultsStatusMessageViewProps> =
     statusChanges,
     files,
     jobId,
-    studyId,
-    submittingOrgSlug,
     results,
 }) => {
     const flags = useJobStatus(statusChanges)
@@ -99,9 +94,6 @@ export const JobResultsStatusMessageView: FC<JobResultsStatusMessageViewProps> =
             <Text>{body.message}</Text>
             {body.additionalContent}
             {!body.hideResults && results}
-            <Group>
-                <ResubmitButton studyId={studyId} orgSlug={submittingOrgSlug} />
-            </Group>
         </Stack>
     )
 }

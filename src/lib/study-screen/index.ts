@@ -8,4 +8,6 @@ export {
     resolveDashboardAction,
 } from './resolve'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
+export { resolveStepNav, proposalStatusScreen, RESEARCHER_STEP_NAV } from './nav'
+export type { StepNav, NavAction, NavCtx, NavVariant } from './nav'
 export { canResearcherResubmitCode } from './eligibility'
