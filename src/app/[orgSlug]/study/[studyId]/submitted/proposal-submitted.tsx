@@ -14,7 +14,7 @@ import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
-import { studyHasJobStatus } from '@/lib/studies'
+import { researcherCodeStepHref } from '@/lib/studies'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 
 interface ProposalSubmittedProps {
@@ -98,17 +98,12 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
     study,
     returnTo,
 }) => {
-    const studyParams = { orgSlug, studyId: study.id }
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+    const editAndResubmitHref = Routes.studyEditAndResubmit({ orgSlug, studyId: study.id })
     const proposalStatus = effectiveProposalStatus(study)
 
-    // OTTER-727 hid the Agreements step this used to lead to, so proceed straight to the code step,
-    // inheriting the destination agreements' own Proceed computed: once code is submitted, the
-    // read-only code step — NOT plain /view, which would jump an advanced study to results.
-    const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-    const proceedHref = codeSubmitted
-        ? Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
-        : Routes.studyCode(studyParams)
+    // OTTER-727 hid the Agreements step this used to lead to, so proceed straight to the code step.
+    const proceedHref = researcherCodeStepHref(study, { orgSlug, returnTo })
 
     switch (proposalStatus) {
         case 'CHANGE-REQUESTED':
@@ -123,7 +118,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
                     >
                         Back
                     </Button>
-                    <Button component={Link} href={Routes.studyEditAndResubmit(studyParams)} size="md">
+                    <Button component={Link} href={editAndResubmitHref} size="md">
                         Edit and resubmit
                     </Button>
                 </Group>

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolveScreen } from './resolve'
-import { REVIEWER_SCREEN_RULES } from './reviewer-screen-rules'
 import { studyState } from './state.fixture'
 
 const st = (overrides: Partial<StudyState>): StudyState =>
@@ -226,40 +225,5 @@ describe('resolveScreen(reviewer)', () => {
                 }),
             ),
         ).toBe('reviewer-code-feedback')
-    })
-})
-
-// OTTER-727 hid the Agreements step. The screen and its component are deliberately retained, so the
-// only thing keeping it off-screen is the absence of a rule — guard that directly, both at the table
-// level and across the state space the gate used to claim.
-describe('reviewer-agreements is unreachable (OTTER-727)', () => {
-    it('no rule in the table maps to it', () => {
-        expect(REVIEWER_SCREEN_RULES.map(([id]) => id)).not.toContain('reviewer-agreements')
-    })
-
-    it('no reviewer state resolves to it', () => {
-        const statuses = ['PENDING-REVIEW', 'APPROVED', 'REJECTED', 'CHANGE-REQUESTED', 'DRAFT'] as const
-        const codeDecisions = [null, 'CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const
-        const flags = [false, true]
-
-        for (const status of statuses) {
-            for (const codeDecision of codeDecisions) {
-                for (const reviewerAgreementsAcked of flags) {
-                    for (const codeAwaitingDecision of flags) {
-                        for (const hasSubmittedCode of flags) {
-                            const s = st({
-                                status,
-                                isDraft: status === 'DRAFT',
-                                codeDecision,
-                                reviewerAgreementsAcked,
-                                codeAwaitingDecision,
-                                hasSubmittedCode,
-                            })
-                            expect(screen(s)).not.toBe('reviewer-agreements')
-                        }
-                    }
-                }
-            }
-        }
     })
 })

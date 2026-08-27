@@ -3,8 +3,7 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
-import { Routes } from '@/lib/routes'
-import { studyHasJobStatus } from '@/lib/studies'
+import { researcherCodeStepHref } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
@@ -36,12 +35,5 @@ export default async function ResearcherAgreementsRoute(props: {
 
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
-    // Inherits what the Agreements page's own Proceed computed: once code is submitted, land on the
-    // read-only code step — NOT plain /view, which would jump an advanced study straight to results.
-    const codeSubmitted = studyHasJobStatus(study, 'CODE-SUBMITTED')
-    redirect(
-        codeSubmitted
-            ? Routes.studyViewCode({ orgSlug: study.submittedByOrgSlug, studyId, returnTo })
-            : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId }),
-    )
+    redirect(researcherCodeStepHref(study, { orgSlug: study.submittedByOrgSlug, returnTo }))
 }

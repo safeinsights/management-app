@@ -229,9 +229,8 @@ the review page rendered. It was removed when the Agreements page was hidden: #6
 `codeAwaitingDecision` state (its predicate is the same one minus the ack clause). The `ScreenId`,
 its `SCREEN_COMPONENTS` entry and `_screens/reviewer-agreements-screen.tsx` are deliberately
 **retained but unreachable** — restoring the gate means re-adding that one rule entry (plus the
-back-edges that were re-pointed). `reviewer-screen-rules.test.ts` guards the unreachability. The gate
-was always intended to give way to `legal_document` SLA acknowledgements (SHRMP-273); OTTER-727 hides
-the placeholder ahead of that ack frontend shipping.
+back-edges that were re-pointed). The gate was always intended to give way to `legal_document` SLA
+acknowledgements (SHRMP-273); OTTER-727 hides the placeholder ahead of that ack frontend shipping.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
