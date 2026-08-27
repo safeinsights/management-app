@@ -309,6 +309,21 @@ describe('ProposalSubmitted', () => {
             expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
+        it('leaves no rule behind for a status with no banner copy', () => {
+            const archivedStudy = { ...study, status: 'ARCHIVED' as const, approvedAt: null, rejectedAt: null }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={archivedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
+        })
+
         it('renders only one banner at a time', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
