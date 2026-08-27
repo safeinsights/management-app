@@ -80,6 +80,22 @@ const purple: MantineColorsTuple = [
     '#100A4C',
     '#070524',
 ]
+// SI UI Component Library → color primitive / navy. This is the library's brand ramp: the semantic
+// tokens brand/Default, brand/Hover and brand/Light resolve to navy 5, 6 and 0 respectively, which is
+// what makes Mantine's own filled/hover shade arithmetic (primaryShade, then +1 on hover) land exactly
+// on the spec without per-variant overrides.
+const navy: MantineColorsTuple = [
+    '#E6E9EF',
+    '#CCD3DF',
+    '#99A6BF',
+    '#677A9E',
+    '#344D7E',
+    '#01215E',
+    '#011A4B',
+    '#011438',
+    '#000D26',
+    '#000713',
+]
 const blue: MantineColorsTuple = [
     '#D6E9FF',
     '#BDDCFF',
@@ -93,7 +109,16 @@ const blue: MantineColorsTuple = [
     '#00326B',
 ]
 
-type ExtendedCustomColors = 'purple' | 'blue' | 'charcoal' | 'grey' | 'red' | 'green' | 'yellow' | DefaultMantineColor
+type ExtendedCustomColors =
+    | 'navy'
+    | 'purple'
+    | 'blue'
+    | 'charcoal'
+    | 'grey'
+    | 'red'
+    | 'green'
+    | 'yellow'
+    | DefaultMantineColor
 
 type ExtendedCustomSpacing = 'xxl' | DefaultMantineSize
 
@@ -114,6 +139,7 @@ export const theme = createTheme({
         fontWeight: '700',
     },
     colors: {
+        navy,
         charcoal,
         grey,
         red,
@@ -132,6 +158,27 @@ export const theme = createTheme({
             styles: () => ({
                 th: {
                     backgroundColor: grey[10],
+                },
+            }),
+        },
+        Button: {
+            defaultProps: {
+                color: 'navy',
+                radius: 2, // Corner-radius-xs
+            },
+            // Mantine derives outline/subtle hover from its own light-hover alpha, which is not the
+            // library's brand/Light. Only those two variants need correcting; filled already resolves
+            // to brand/Default → brand/Hover via primaryShade.
+            vars: (_theme: unknown, props: { variant?: string }) => ({
+                root: props.variant === 'outline' || props.variant === 'subtle' ? { '--button-hover': navy[0] } : {},
+            }),
+            styles: () => ({
+                root: {
+                    '&:disabled, &[data-disabled]': {
+                        backgroundColor: grey[1],
+                        color: charcoal[6],
+                        borderColor: 'transparent',
+                    },
                 },
             }),
         },
