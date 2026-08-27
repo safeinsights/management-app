@@ -76,10 +76,11 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
 
     // Reveal the form when Clerk drops the session after the latch. The latch above is one-shot for
     // false -> true on purpose; true -> false is the opposite case and is never ambiguous: the prompt
-    // is stale (OTTER-745). This is the tidy recovery, not the guarantee. Clerk only learns a session
-    // is gone at its next token refresh, and its docs are explicit that a backgrounded, throttled or
-    // offline tab defers that without a bound, which is the state of a tab waking from hours asleep.
-    // leaveForApp is what guarantees neither exit can strand the page while Clerk is still stale.
+    // is stale (OTTER-745). This is the tidy recovery, not the guarantee: it depends on Clerk having
+    // noticed. Clerk documents 60s tokens, a ~50s background refresh, stale resources in between, and
+    // getToken({ skipCache: true }) to force a sync. What it does not promise is any upper bound on how
+    // long client state stays stale, and backgrounding or lost connectivity delay the sync that would
+    // end it. So leaveForApp, below, is the guarantee: it never depends on Clerk's sync timing.
     if (isLoaded && !isSignedIn && (status === 'signed-in' || status === 'redirecting')) {
         setStatus('signed-out')
     }
