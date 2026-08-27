@@ -4,10 +4,8 @@ import { type ReactNode } from 'react'
 import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldDescribedBy, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
-import { Editor } from '@/components/editable-text/editor'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { useWidgetBlur } from '@/components/form-field'
+import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { Decision } from '@/lib/review-decision'
@@ -61,31 +59,18 @@ function FeedbackEditor({
     studyId: string
     jobId: string
 }) {
-    const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishCodeReviewFeedbackProvider()
     return (
-        <Editor
-            id={codeReviewFeedbackDocName(jobId)}
-            inputId="code-review-feedback"
+        <DecisionFeedbackEditor
+            feedback={feedback}
             studyId={studyId}
-            websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
-            onChange={feedback.onChange}
-            onBlur={feedback.onBlur}
-            error={feedback.error}
+            docName={codeReviewFeedbackDocName(jobId)}
+            inputId="code-review-feedback"
             ariaLabel="Code review feedback"
-            ariaRequired
-            ariaDescribedBy={fieldDescribedBy('code-review-feedback', {
-                hasError: !!feedback.error,
-                hasDescription: false,
-            })}
             placeholder={FEEDBACK_PLACEHOLDER}
-            // The error takes exactly the slot the save indicator vacates, so it sits directly
-            // under the input instead of a row below the word counter (OTTER-674).
-            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} />}
-            footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
-            onProviderReady={publishProvider}
+            contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            onProviderReady={publishProvider}
         />
     )
 }

@@ -2,7 +2,6 @@ import { AlertNotFound } from '@/components/errors'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
-import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
 import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { projectStudyState } from '@/lib/study-screen'
@@ -20,10 +19,9 @@ const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string 
     )
 }
 
-// OTTER-676: same two-phase panel as the errored screen (OTTER-675) — the security key gate,
-// then the decrypted outputs table, feedback and sharing decision. Only the locked banner copy
-// and the feedback cap differ: a completed run gets the longer limit (see outputsFeedbackMaxWords,
-// which the server derives independently from the job's own status history).
+// OTTER-676: same two-phase panel as the errored screen (OTTER-675), the security key gate, then
+// the decrypted outputs table, feedback and sharing decision. Only the locked banner copy differs.
+// The feedback cap used to differ too, until OTTER-737 put both run outcomes on one number.
 export async function ReviewerOutputsAvailableScreen({
     study,
     raw,
@@ -57,7 +55,6 @@ export async function ReviewerOutputsAvailableScreen({
             studyTitle={study.title ?? ''}
             job={job}
             labName={labName}
-            maxWords={COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS}
             lockedBanner={<AvailableBanner availableAt={availableAt} labName={labName} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

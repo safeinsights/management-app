@@ -2,7 +2,6 @@ import { describe, expect, test, vi, type Mock } from 'vitest'
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
-    buildFeedback,
     db,
     insertTestOrg,
     insertTestStudyJobData,
@@ -14,7 +13,7 @@ import {
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS, ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
+import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
@@ -492,17 +491,17 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        // The cap is derived from the job's own status, never from the request, so a caller cannot
-        // raise its own limit. These two tests are the pair that proves it: the same word count is
-        // rejected for an errored run and accepted for a completed one.
-        test('applies the 300-word errored cap regardless of what the caller asks for', async () => {
+        // One cap for both run outcomes (OTTER-737). It used to be derived from the job's own
+        // status, 300 words for an errored run against 1500 for a completed one; these two tests
+        // are the pair that proves the same length is now treated identically on both.
+        test('rejects feedback over 1800 characters on an errored run', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: enclave.slug,
                 studyJobId: job.id,
                 decision: 'share-feedback-only',
-                feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                feedback: 'x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1),
                 sharedFiles: [],
             })
 
@@ -511,7 +510,22 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        test('allows the same length on a completed run, which carries the higher cap', async () => {
+        test('rejects the same length on a completed run', async () => {
+            const { enclave, job } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-feedback-only',
+                feedback: 'x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1),
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
+        })
+
+        test('accepts feedback at exactly 1800 characters', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
 
             actionResult(
@@ -519,7 +533,7 @@ describe('Study Job Actions', () => {
                     orgSlug: enclave.slug,
                     studyJobId: job.id,
                     decision: 'share-feedback-only',
-                    feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                    feedback: 'x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS),
                     sharedFiles: [],
                 }),
             )
@@ -528,19 +542,18 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeDefined()
         })
 
-        test('rejects feedback over the completed cap', async () => {
+        test('rejects whitespace-only feedback', async () => {
             const { enclave, job } = await setupResultApprovalFixture()
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: enclave.slug,
                 studyJobId: job.id,
                 decision: 'share-feedback-only',
-                feedback: buildFeedback(COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                feedback: '   ',
                 sharedFiles: [],
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
-            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
         })
 
         // The study is derived from the job, so naming a job in an org the caller cannot review is

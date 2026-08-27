@@ -3,6 +3,7 @@ import { useParams } from 'next/navigation'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import dayjs from 'dayjs'
+import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     actionResult,
     createTestQueryClient,
@@ -265,11 +266,14 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         expect(screen.queryByText('Submit your decision?')).toBeNull()
     })
 
-    // OTTER-676: a completed run gets the 1500 cap, not the errored screen's 300. Rendered in
-    // single-user mode so the editor footer (where the counter lives) exists synchronously.
-    it('caps feedback at 1500 for a completed run', async () => {
+    // OTTER-737: one cap for both run outcomes. This used to be 1500 words on a completed run
+    // against 300 on an errored one. Rendered in single-user mode so the editor footer (where the
+    // counter lives) exists synchronously.
+    it('caps feedback at 1800 characters', async () => {
         await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }], renderScreenSingleUser)
 
-        await waitFor(() => expect(screen.getByText(textIncludes('0/1500'))).toBeInTheDocument())
+        await waitFor(() =>
+            expect(screen.getByText(textIncludes(`0/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`))).toBeInTheDocument(),
+        )
     })
 })

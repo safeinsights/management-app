@@ -23,9 +23,9 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
-    // omitBlankTitle: nulling the title column on a CHANGE-REQUESTED row would
-    // violate the study_title_required_when_not_draft check constraint.
-    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { omitBlankTitle: true })
+    // titleMode 'omitIfBlank': this flow owns its own title, but nulling the column on a
+    // CHANGE-REQUESTED row would violate the study_title_required_when_not_draft constraint.
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omitIfBlank' })
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
@@ -93,6 +93,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
+                    studyTitle={form.values.title}
                     values={form.values}
                     researcherName={researcherName}
                     researcherId={researcherId}

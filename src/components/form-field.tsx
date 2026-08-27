@@ -32,20 +32,38 @@ import { errorToString } from '@/lib/errors'
  */
 const formFieldLabelStyles = {
     labelProps: { fw: 600, fz: 'sm' },
-    styles: { description: { marginBottom: 'var(--mantine-spacing-xs)' } },
+    styles: {
+        // OTTER-691 asks for white space between a field's title and its guidance text, on every
+        // input field. Mantine adds none of its own: `getInputOffsets` only reacts to a description
+        // or an error sitting above the input, and ignores the label entirely, so the two lines
+        // render flush. 4px is Spacing/xxs in the design system.
+        label: { marginBottom: 4 },
+        description: { marginBottom: 'var(--mantine-spacing-xs)' },
+    },
 } as const
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
+export const fieldCounterId = (inputId: string) => `${inputId}-counter`
 
 interface FieldState {
     hasError: boolean
     hasDescription: boolean
+    /**
+     * Whether a {@link CharacterCounter} carrying {@link fieldCounterId} sits under the field. The
+     * card requires the count to be reachable from the control it belongs to, not merely visible
+     * beside it (OTTER-737).
+     */
+    hasCounter?: boolean
 }
 
 /** Space-joined ids of the nodes describing a field, for `aria-describedby`. */
-export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: FieldState) =>
-    [hasError ? fieldErrorId(inputId) : null, hasDescription ? fieldDescriptionId(inputId) : null]
+export const fieldDescribedBy = (inputId: string, { hasError, hasDescription, hasCounter }: FieldState) =>
+    [
+        hasError ? fieldErrorId(inputId) : null,
+        hasDescription ? fieldDescriptionId(inputId) : null,
+        hasCounter ? fieldCounterId(inputId) : null,
+    ]
         .filter(Boolean)
         .join(' ') || undefined
 
@@ -54,14 +72,30 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription }: 
  * points at. Null when clean, so whatever shares the slot (an editor footer's save indicator)
  * keeps the row's left edge. `error` is `unknown` because call sites hold anything from a
  * form-validation string to a thrown server error; `errorToString` normalizes it.
+ *
+ * `isLive` is for a field whose error can appear while the user is still typing in it, which is
+ * otherwise silent: the character-limit message on every capped field (OTTER-737). The box then
+ * stays mounted and empty rather than arriving with its content, because a live region inserted at
+ * the same moment as its text is unreliably announced. Polite, never assertive: the message can
+ * re-fire on every keystroke past the cap, and an assertive region would interrupt mid-word.
  */
-export const FieldErrorBox: FC<{ fieldId: string; error?: unknown }> = ({ fieldId, error }) => {
-    if (!error) return null
-    return (
-        <Box id={fieldErrorId(fieldId)}>
-            <InputError error={errorToString(error)} />
-        </Box>
-    )
+export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: boolean }> = ({
+    fieldId,
+    error,
+    isLive,
+}) => {
+    const message = error ? <InputError error={errorToString(error)} /> : null
+
+    if (isLive) {
+        return (
+            <Box id={fieldErrorId(fieldId)} aria-live="polite">
+                {message}
+            </Box>
+        )
+    }
+
+    if (!message) return null
+    return <Box id={fieldErrorId(fieldId)}>{message}</Box>
 }
 
 /**
@@ -76,17 +110,31 @@ export const FieldErrorBox: FC<{ fieldId: string; error?: unknown }> = ({ fieldI
  *
  * The ids line up because the inner wrapper derives its error id from the same `id`:
  * `${inputId}-error`, which is what `FormField` labels its message with.
+ *
+ * `describedBy` is how anything beyond the description reaches a native input, the character
+ * counter above all (OTTER-737). The wrapper folds exactly one description id into its
+ * `describedBy`, taken from `descriptionProps.id`, and renders no description element of its own
+ * (see `inputWrapperOrder`), so that id is only ever referenced, never applied to a node: a
+ * space-separated list passes straight through and no element ends up holding an id with a space in
+ * it. Build it with {@link fieldDescribedBy} and `hasError: false`, since Mantine contributes the
+ * error id itself.
  */
 export const nativeFieldProps = (
     error: ReactNode,
-    { required = false, description }: { required?: boolean; description?: ReactNode } = {},
+    {
+        required = false,
+        description,
+        describedBy,
+    }: { required?: boolean; description?: ReactNode; describedBy?: string } = {},
 ) => ({
     error,
     // Passed only so the inner wrapper folds the description id into `describedBy`; it is not
     // rendered (see inputWrapperOrder), and its generated id matches FormField's own because
     // both derive from the same `id`. Without it the input announces the error but not the
-    // guidance text sitting right above it.
-    description,
+    // guidance text sitting right above it. A supplied `describedBy` implies it: the wrapper
+    // ignores the description slot entirely unless this prop is truthy.
+    description: describedBy || description,
+    ...(describedBy ? { descriptionProps: { id: describedBy } } : {}),
     // `withAsterisk` on FormField is visual only, so the required state has to reach the
     // control itself. `aria-required` rather than `required`, to avoid native browser
     // validation UI competing with Mantine's messages.
@@ -200,15 +248,51 @@ export interface FormFieldProps {
      * Shares a row with the error so a long message and the counter never collide.
      */
     footer?: ReactNode
+    /**
+     * Announce the message whenever it appears, not only when focus reaches the control.
+     *
+     * Off by default, deliberately: most fields here raise their error on blur or on submit,
+     * where the user is already being moved to the control, and a live region on every field
+     * would have a screen reader read messages the user is about to hear anyway. Turn it on for
+     * a field whose error can appear while the user is still typing in it, which is otherwise
+     * silent (the Step 1 study title's character-limit error, OTTER-690).
+     */
+    errorLive?: boolean
     children: ReactNode
 }
 
-const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode }> = ({ inputId, error, footer }) => {
-    if (!error && !footer) return null
+/**
+ * The message itself. Kept in a container that is always mounted when `errorLive` is set:
+ * a live region inserted at the same moment as its content is unreliably announced, so the
+ * region has to exist before the error does.
+ */
+const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boolean }> = ({
+    inputId,
+    error,
+    errorLive,
+}) => {
+    const message = error ? <Input.Error id={fieldErrorId(inputId)}>{error}</Input.Error> : null
+
+    // Polite, never assertive: a character-limit message can re-fire on every keystroke past the
+    // cap, and an assertive region would interrupt the user mid-word.
+    if (errorLive) return <Box aria-live="polite">{message}</Box>
+
+    return message
+}
+
+const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode; errorLive?: boolean }> = ({
+    inputId,
+    error,
+    footer,
+    errorLive,
+}) => {
+    // `errorLive` keeps the row mounted on its own: FieldErrorSlot's live region has to exist
+    // before the message does, and a row that appears with the error would defeat that.
+    if (!error && !footer && !errorLive) return null
 
     return (
         <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt={4} wrap="nowrap">
-            {error && <Input.Error id={fieldErrorId(inputId)}>{error}</Input.Error>}
+            <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
         </Group>
     )
@@ -221,6 +305,7 @@ export const FormField: FC<FormFieldProps> = ({
     description,
     error,
     footer,
+    errorLive,
     children,
 }) => {
     return (
@@ -244,7 +329,7 @@ export const FormField: FC<FormFieldProps> = ({
             >
                 {children}
             </Input.Wrapper>
-            <FieldFooterRow inputId={inputId} error={error} footer={footer} />
+            <FieldFooterRow inputId={inputId} error={error} footer={footer} errorLive={errorLive} />
         </Box>
     )
 }

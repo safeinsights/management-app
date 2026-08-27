@@ -36,6 +36,8 @@ import {
 import { finalizeStudySubmissionAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
+import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { projectStudyState } from '@/lib/study-screen'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
@@ -994,7 +996,7 @@ describe('submitProposalReviewAction', () => {
         expect(unchanged.status).toBe('PENDING-REVIEW')
     })
 
-    it('rejects feedback above maximum word count', async () => {
+    it('rejects feedback one character over the cap, naming the field and the cap', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
@@ -1002,14 +1004,56 @@ describe('submitProposalReviewAction', () => {
             studyId: study.id,
             orgSlug: org.slug,
             decision: 'approve',
-            feedback: buildFeedback(501),
+            feedback: 'x'.repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1),
             reviewVersion: 1,
         })
 
-        expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+        expect(result).toMatchObject({
+            error: {
+                feedback: overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
+            },
+        })
 
         const rows = await loadCommentRows(study.id)
         expect(rows).toHaveLength(0)
+    })
+
+    it('accepts feedback at exactly the cap, and ignores whitespace at its ends', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        actionResult(
+            await submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: `  ${'x'.repeat(REVIEW_FEEDBACK_MAX_CHARACTERS)}  `,
+                reviewVersion: 1,
+            }),
+        )
+
+        const rows = await loadCommentRows(study.id)
+        expect(rows).toHaveLength(1)
+    })
+
+    // Characters, not words: 600 short words is past the old 500-word cap and well inside 1800
+    // characters, so this fails if word counting survived anywhere on the server.
+    it('accepts many short words that the old 500-word cap would have rejected', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        actionResult(
+            await submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: Array.from({ length: 600 }, () => 'ab').join(' '),
+                reviewVersion: 1,
+            }),
+        )
+
+        const rows = await loadCommentRows(study.id)
+        expect(rows).toHaveLength(1)
     })
 
     it('normalizes plain-text feedback into Lexical JSON on ingest', async () => {
@@ -1492,6 +1536,41 @@ describe('submitCodeReviewDecisionAction', () => {
     // a single-session unit test (the researcher's resubmit action is covered in study-request.test.ts).
     const simulateResubmitOnSameJob = (jobId: string, userId: string) =>
         db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId }).execute()
+
+    it('rejects feedback one character over the cap and writes nothing', async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: 'x'.repeat(REVIEW_FEEDBACK_MAX_CHARACTERS + 1),
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({
+            error: {
+                feedback: overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS),
+            },
+        })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('accepts feedback at exactly the cap, and ignores whitespace at its ends', async () => {
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        actionResult(
+            await submitCodeReviewDecisionAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'approve',
+                feedback: `  ${'x'.repeat(REVIEW_FEEDBACK_MAX_CHARACTERS)}  `,
+                criteria: validCriteria,
+            }),
+        )
+
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
+    })
 
     it('approve writes a code-review row, advances the job, and approves the study', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
