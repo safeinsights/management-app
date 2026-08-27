@@ -173,6 +173,11 @@ export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })
 
+// For invitation-screen stuff
+export const inviteParams = z.object({
+    inviteId: z.string(),
+})
+
 // Params for both participation reads — the agreements table and the signatory picker — so it is
 // named for what it carries rather than for one of its callers.
 export const participationAgreementTypeParams = z.object({

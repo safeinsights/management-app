@@ -1,17 +1,17 @@
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import { TosPnAcknowledgeForm } from './tos-pn-acknowledge'
+import { AcknowledgementCheckbox } from './tos-pn-acknowledge'
 
-describe('TosPnAcknowledgeForm', () => {
+describe('AcknowledgementCheckbox', () => {
     it('renders unchecked by default', () => {
-        renderWithProviders(<TosPnAcknowledgeForm checked={false} onChange={vi.fn()} />)
+        renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={vi.fn()} />)
         expect(screen.getByRole('checkbox')).not.toBeChecked()
     })
 
     it('calls onChange when clicked', async () => {
         const onChange = vi.fn()
         const user = userEvent.setup()
-        renderWithProviders(<TosPnAcknowledgeForm checked={false} onChange={onChange} />)
+        renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={onChange} />)
 
         await user.click(screen.getByRole('checkbox'))
         expect(onChange).toHaveBeenCalledWith(true)
@@ -19,7 +19,7 @@ describe('TosPnAcknowledgeForm', () => {
 
     it('shows Terms of Service popover when clicked', async () => {
         const user = userEvent.setup()
-        renderWithProviders(<TosPnAcknowledgeForm checked={false} onChange={vi.fn()} />)
+        renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={vi.fn()} />)
 
         await user.click(screen.getByText('Terms of Service'))
         expect(
@@ -29,7 +29,7 @@ describe('TosPnAcknowledgeForm', () => {
 
     it('shows Privacy Notice popover when clicked', async () => {
         const user = userEvent.setup()
-        renderWithProviders(<TosPnAcknowledgeForm checked={false} onChange={vi.fn()} />)
+        renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={vi.fn()} />)
 
         await user.click(screen.getByText('Privacy Notice'))
         expect(
@@ -54,7 +54,7 @@ describe('TosPnAcknowledgeForm', () => {
         ]
 
         it('renders the documents instead of the placeholder copy', () => {
-            renderWithProviders(<TosPnAcknowledgeForm checked={false} onChange={vi.fn()} documents={documents} />)
+            renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={vi.fn()} />)
 
             expect(screen.getByText('The real terms.')).toBeInTheDocument()
             expect(screen.getByText('The real notice.')).toBeInTheDocument()
@@ -62,7 +62,7 @@ describe('TosPnAcknowledgeForm', () => {
         })
 
         it('names both documents in the agreement label', () => {
-            renderWithProviders(<TosPnAcknowledgeForm checked={false} onChange={vi.fn()} documents={documents} />)
+            renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={vi.fn()} />)
 
             expect(screen.getByLabelText('I agree to the Terms of Service and Privacy Notice')).toBeInTheDocument()
         })

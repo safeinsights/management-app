@@ -24,6 +24,7 @@ import {
     type PendingLegalDocument,
     type LegalDocumentBody,
     type LegalDocumentTypeValue,
+    inviteParams,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
 import {
@@ -705,5 +706,46 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
                 signedAt: agreement.signedAt,
                 downloadUrl: await legalDocumentDownloadUrl(agreement),
             },
+        }
+    })
+
+export type ParticipationData = {
+    versionId: string
+    type: 'ROPA' | 'DOPA'
+    url: string | null
+}
+
+/**
+ * The ropa/dopa for org, readable with an orgId.
+ *
+ * Used in the invitation signup form.
+ */
+export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchParticipationAgreementFromInviteIdAction')
+    .params(inviteParams)
+    .middleware(orgIdFromSlug)
+    // .requireAbilityTo('view', 'OrgLegalDocuments') // todo: let me iiiin
+    .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData> => {
+        const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } = await db
+            .selectFrom('pendingUser')
+            .innerJoin('org', 'org.id', 'pendingUser.org_id')
+            .select(['pendingUser.id as inviteId', 'org.type', 'org.id as orgId'])
+            .where('pendingUser.id', '=', inviteId)
+            .executeTakeFirstOrThrow()
+
+        const doctype = participationAgreementTypeForOrgType[inviteOrgDetails.type]
+
+        const agreement = await orgParticipationAgreement(db, { orgId: inviteOrgDetails.orgId, type: doctype })
+
+        if (!agreement) {
+            return { versionId: '', type: doctype, url: null }
+        }
+
+        const body = await bodyForVersion(doctype, agreement.filePath) // todo: better type narrowing here
+        if (body.format === 'markdown') return { versionId: '', type: doctype, url: null }
+
+        return {
+            versionId: agreement.versionId,
+            type: doctype,
+            url: body.url,
         }
     })

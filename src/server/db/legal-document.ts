@@ -97,6 +97,7 @@ export const orgParticipationAgreement = (
         .selectFrom('legalDocument')
         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
         .select([
+            'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
             'legalDocumentVersion.fileName as fileName',
             'legalDocumentVersion.format as format',

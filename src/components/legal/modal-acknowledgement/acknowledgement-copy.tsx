@@ -1,6 +1,5 @@
 import { legalDocumentTypeLabels, type PendingLegalDocument } from '@/schema/legal-document'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react'
-import { LinkWithIcon } from '@/components/links'
+import { PdfLink } from '../pdf-link'
 
 export const legalAcknowledgementTitle = (document: PendingLegalDocument) => legalDocumentTypeLabels[document.type]
 
@@ -9,12 +8,8 @@ const documentName = (document: PendingLegalDocument) => {
     const label = legalDocumentTypeLabels[document.type]
     if (document.format !== 'pdf') return label
 
-    // For pdfs, link instead of DocumentSections and DocumentContent
-    return (
-        <LinkWithIcon href={document.url} target="_blank" rel="noreferrer" icon={<ArrowSquareOutIcon size={14} />}>
-            {label}
-        </LinkWithIcon>
-    )
+    // For pdfs, link instead of MarkdownSections and MarkdownContent
+    return <PdfLink url={document.url} label={label} />
 }
 
 // Wording follows what UX established for the participation-agreement modals. One document per modal,

@@ -1,16 +1,36 @@
 'use client'
 
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
-import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
+import { ActionResponse, useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs'
-import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
-import { TosPnAcknowledgeForm } from '@/components/legal/signup-acknowledegment/tos-pn-acknowledge'
+import {
+    Alert,
+    Button,
+    Flex,
+    Paper,
+    PasswordInput,
+    Text,
+    TextInput,
+    Title,
+    useMantineTheme,
+    Stack,
+} from '@mantine/core'
+import {
+    AcknowledgementCheckbox,
+    globalDocAgreementLabel,
+    participationAgreementLabel,
+    TosPnPreview,
+} from '@/components/legal/signup-acknowledegment/tos-pn-acknowledge'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchGlobalLegalDocumentsAction } from '@/server/actions/legal-document.actions'
+import {
+    fetchGlobalLegalDocumentsAction,
+    fetchParticipationAgreementFromInviteIdAction,
+    ParticipationData,
+} from '@/server/actions/legal-document.actions'
 import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
@@ -31,6 +51,7 @@ const formSchema = z
         // disabling the button (OTTER-647). Stripped before the action, whose schema
         // has no such field.
         termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
+        participationAccepted: z.literal(true, { message: 'You must accept the participation agreement to continue' }),
     })
     .superRefine(({ confirmPassword, password }, ctx) => {
         if (confirmPassword !== password) {
@@ -46,11 +67,11 @@ type FormValues = z.infer<typeof formSchema>
 
 // Account creation is held until the documents load: the checkbox falls back to placeholder copy
 // when they are missing, and a tick against that is not evidence of agreeing to anything published.
-const LegalDocumentsUnavailable: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+const LegalDocumentsError: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Alert color="red" title="Could not load the Terms of Service and Privacy Notice">
+        <Alert color="red" title="There was an error loading the document">
             Reload the page to try again. Your invitation is still valid.
         </Alert>
     )
@@ -77,6 +98,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
             password: '',
             confirmPassword: '',
             termsAccepted: false as true,
+            participationAccepted: false as true,
         },
     })
 
@@ -84,19 +106,36 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
     // Public: the form has to show these before an account exists. Empty until the first Terms of
-    // Service and Privacy Notice are published, which TosPnAcknowledgeForm renders as placeholder copy.
+    // Service and Privacy Notice are published, which AcknowledgementCheckbox renders as placeholder copy.
     const {
-        data: legalDocuments = [],
-        isPending: isLoadingLegalDocuments,
-        isError: legalDocumentsUnavailable,
+        data: tosPn = [],
+        isPending: isLoadingTosPn,
+        isError: tosPnError,
     } = useQuery({
         queryKey: legalDocumentQueryKeys.globalDocuments(),
         queryFn: () => fetchGlobalLegalDocumentsAction(),
     })
 
+    // Semi-public: ROPA or DOPA must also be shown before account exists.
+    // Empty until published. Gated by org.
+    const emptyData: ParticipationData = { versionId: '', type: 'ROPA', url: null } // todo: guard against null by setting initial value
+    const {
+        data: participationAgreement = emptyData,
+        isPending: isPendingParticipationAgreement,
+        isError: participationAgreementError,
+    } = useQuery({
+        queryKey: ['participationAgreement', inviteId],
+        queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
+    })
+
     // Submitting before the documents arrive, or after they failed to, falls back to the "Once
     // implemented" placeholder — copy that contradicts what is published, under a ticked box.
-    const canSubmit = form.isValid() && !isLoadingLegalDocuments && !legalDocumentsUnavailable
+    const canSubmit =
+        form.isValid() &&
+        !isLoadingTosPn &&
+        !tosPnError &&
+        !isPendingParticipationAgreement &&
+        !participationAgreementError
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         // confirmPassword and termsAccepted are client-side concerns; the action's schema has
@@ -105,7 +144,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
             onCreateAccountAction({
                 inviteId,
                 form: { firstName, lastName, password },
-                acknowledgedVersionIds: legalDocuments.map((document) => document.versionId),
+                acknowledgedVersionIds: [...tosPn, participationAgreement].map((document) => document.versionId),
             }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
@@ -245,15 +284,25 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         </Alert>
                     )}
 
-                    <LegalDocumentsUnavailable isVisible={legalDocumentsUnavailable} />
-
-                    <TosPnAcknowledgeForm
-                        documents={legalDocuments}
-                        checked={form.values.termsAccepted}
-                        onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
-                        onBlur={() => form.validateField('termsAccepted')}
-                        error={form.errors.termsAccepted}
-                    />
+                    <Stack>
+                        <LegalDocumentsError isVisible={tosPnError} />
+                        <TosPnPreview documents={tosPn} />
+                        <AcknowledgementCheckbox
+                            label={globalDocAgreementLabel(tosPn)}
+                            checked={form.values.termsAccepted}
+                            onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
+                            onBlur={() => form.validateField('termsAccepted')}
+                            error={form.errors.termsAccepted}
+                        />
+                        <LegalDocumentsError isVisible={participationAgreementError} />
+                        <AcknowledgementCheckbox
+                            label={participationAgreementLabel(participationAgreement)}
+                            checked={form.values.participationAccepted}
+                            onChange={(checked) => form.setFieldValue('participationAccepted', checked as true)}
+                            onBlur={() => form.validateField('participationAccepted')}
+                            error={form.errors.participationAccepted}
+                        />
+                    </Stack>
 
                     <Flex mt="sm">
                         <Button
