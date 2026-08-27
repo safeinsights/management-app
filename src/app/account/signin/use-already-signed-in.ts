@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
+import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
@@ -29,12 +29,24 @@ function trustedRedirectTarget(searchParams: ReadonlyURLSearchParams): Route | n
     return sanitized
 }
 
+// Both exits from this page leave the SPA instead of soft-navigating. A soft navigation to a
+// protected route gets bounced by the proxy back to this same URL whenever the session is alive only
+// on the client; the URL and route segment are unchanged, so Next keeps this component mounted with
+// its state, and the page sticks: a Continue button that does nothing, or a permanent loader if the
+// automatic redirect was mid-flight. A full load re-reads cookies, so the user lands either on the
+// target or on the sign-in form (OTTER-745).
+//
+// replace, not assign: keeps signin out of history, matching the router.replace this supersedes.
+// Otherwise Back would land here and redirect forward again for a live session.
+function leaveForApp(target: Route) {
+    window.location.replace(target)
+}
+
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
 // latch is one-directional: losing the session afterward always drops back to the form.
 export function useAlreadySignedIn(): UseAlreadySignedIn {
     const { isLoaded, isSignedIn, user } = useUser()
     const { signOut } = useClerk()
-    const router = useRouter()
     const searchParams = useSearchParams()
 
     const [status, setStatus] = useState<AlreadySignedInStatus>('loading')
@@ -62,36 +74,27 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         }
     }
 
-    // Reveal the form when Clerk drops the session after the latch. The latch above is one-shot
-    // for false -> true on purpose; true -> false is the opposite case and is never ambiguous:
-    // the prompt is stale, and its Continue button could only bounce off the proxy and look dead
-    // (OTTER-745). Also covers 'redirecting', where a dead session would otherwise strand the
-    // page on a permanent loader.
+    // Reveal the form when Clerk drops the session after the latch. The latch above is one-shot for
+    // false -> true on purpose; true -> false is the opposite case and is never ambiguous: the prompt
+    // is stale (OTTER-745). This is the tidy recovery, not the guarantee. Clerk only learns a session
+    // is gone at its next token refresh, and its docs are explicit that a backgrounded, throttled or
+    // offline tab defers that without a bound, which is the state of a tab waking from hours asleep.
+    // leaveForApp is what guarantees neither exit can strand the page while Clerk is still stale.
     if (isLoaded && !isSignedIn && (status === 'signed-in' || status === 'redirecting')) {
         setStatus('signed-out')
     }
 
-    // Perform the actual navigation once we've latched into the redirecting state.
-    // The ref makes this fire exactly once: the effect can re-run on unrelated
-    // re-renders (e.g. an unstable router reference), and repeatedly calling
-    // router.replace while status stays 'redirecting' would loop.
+    // Perform the actual navigation once we've latched into the redirecting state. The ref makes this
+    // fire exactly once: the effect can re-run on unrelated re-renders, and navigating again while
+    // status stays 'redirecting' would loop.
     useEffect(() => {
         if (status !== 'redirecting' || !redirectTarget || hasRedirectedRef.current) return
         hasRedirectedRef.current = true
-        router.replace(redirectTarget)
-    }, [status, redirectTarget, router])
+        leaveForApp(redirectTarget)
+    }, [status, redirectTarget])
 
     const continueToApp = useCallback(() => {
-        // Hard navigation, not router.replace: when Clerk's client session has outlived the real one,
-        // the proxy bounces a soft navigation straight back to this same URL, the route never remounts,
-        // and the button looks dead (OTTER-745). A full load makes Clerk re-initialize from cookies, so
-        // the user either lands on the target or gets the sign-in form. Never nothing. The status
-        // downgrade above does not cover this on its own: Clerk only learns the session is gone on its
-        // next token refresh, and a throttled or offline tab can defer that indefinitely. A tab left
-        // asleep for hours is exactly how this starts.
-        // location.replace, not assign: keeps this page out of history, matching the router.replace it
-        // supersedes. Otherwise Back would land here and auto-redirect forward again.
-        window.location.replace(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
+        leaveForApp(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
     }, [searchParams])
 
     const switchAccount = useCallback(async () => {
