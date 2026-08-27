@@ -193,6 +193,31 @@ describe('ProposalSection', () => {
             expect(screen.queryByText('Additional notes or requests')).not.toBeInTheDocument()
         })
 
+        it('keeps a list-formatted research question readable in the preview', () => {
+            const listQuestions = {
+                root: {
+                    type: 'root',
+                    children: [
+                        {
+                            type: 'list',
+                            listType: 'bullet',
+                            children: [
+                                { type: 'listitem', children: [{ type: 'text', text: 'First question?' }] },
+                                { type: 'listitem', children: [{ type: 'text', text: 'Second question?' }] },
+                            ],
+                        },
+                    ],
+                },
+            }
+            const withListQuestions = { ...study, researchQuestions: listQuestions }
+
+            renderWithProviders(<ProposalSection study={withListQuestions} orgSlug="test-org" reviewVersion={2} />)
+
+            expect(screen.getByTestId('proposal-snippet-question')).toHaveTextContent(
+                'First question? Second question?',
+            )
+        })
+
         it('clamps the research question preview to two lines', () => {
             renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
