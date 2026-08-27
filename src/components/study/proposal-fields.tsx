@@ -6,9 +6,10 @@ import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { ProfessionalProfileLink } from '@/components/professional-profile-link'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
-type FieldDividerVariant = 'subtle' | 'default' | 'none'
+export type FieldDividerVariant = 'subtle' | 'default' | 'none'
 
-const FieldDivider: FC<{ variant: FieldDividerVariant }> = ({ variant }) => {
+/** The one divider between proposal sections: a `variant` of `none` renders nothing. */
+export const FieldDivider: FC<{ variant: FieldDividerVariant }> = ({ variant }) => {
     if (variant === 'none') return null
 
     // A default Divider between two fields, a lighter one where the field leads a group.

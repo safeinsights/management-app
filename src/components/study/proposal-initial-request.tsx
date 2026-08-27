@@ -9,7 +9,7 @@ import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/stud
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { type Submitted } from '@/schema/study'
 import { CollapseToggleLink } from './collapse-toggle-link'
-import { DatasetsField, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
+import { DatasetsField, FieldDivider, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
 import { ProposalStepHeader } from './proposal-step-header'
 
 const EXPAND_LABEL = 'View full proposal'
@@ -37,11 +37,6 @@ function researchQuestionPreview(researchQuestions: SelectedStudy['researchQuest
     return extractTextFromLexical(stringifyJson(researchQuestions) ?? undefined)
         .replace(/\s+/g, ' ')
         .trim()
-}
-
-const ConditionalDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
-    if (!isVisible) return null
-    return <Divider />
 }
 
 const ResearchQuestionSnippet: FC<{ preview: string }> = ({ preview }) => {
@@ -72,11 +67,12 @@ const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand,
     const datasets = study.datasets ?? []
     const preview = researchQuestionPreview(study.researchQuestions)
     const hasBothSections = datasets.length > 0 && preview !== ''
+    const dividerVariant = hasBothSections ? 'default' : 'none'
 
     return (
         <Stack gap={CARD_SECTION_GAP} data-testid="proposal-snippet">
             <DatasetsField datasets={datasets} orgDataSources={study.orgDataSources} size="sm" />
-            <ConditionalDivider isVisible={hasBothSections} />
+            <FieldDivider variant={dividerVariant} />
             <ResearchQuestionSnippet preview={preview} />
             <CollapseToggleLink
                 label={EXPAND_LABEL}
