@@ -22,8 +22,8 @@ export function LexicalProposalField({
     return (
         <>
             {divider !== 'none' && <Divider color={divider === 'subtle' ? 'gray.1' : undefined} />}
-            <Stack gap={4}>
-                <Text fw={600} size="sm">
+            <Stack gap="xs">
+                <Text fw={700} size="sm">
                     {label}
                 </Text>
                 <Text size={size} component="div">
@@ -48,13 +48,13 @@ export function DatasetsField({
     const nameMap = Object.fromEntries(orgDataSources.map((ds) => [ds.id, ds.name]))
 
     return (
-        <Stack gap={4}>
-            <Text fw={600} size="sm">
+        <Stack gap="xs">
+            <Text fw={700} size="sm">
                 Dataset(s) of interest
             </Text>
             <Group gap="md">
                 {datasets.map((id) => (
-                    <Box key={id} bg="grey.10" px="sm" py={4} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
+                    <Box key={id} bg="grey.10" px="xs" py={2} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
                         <Text size={size} c="charcoal.9">
                             {nameMap[id] || id}
                         </Text>
@@ -92,8 +92,8 @@ export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
         <>
             <Divider />
-            <Stack gap={4}>
-                <Text fw={600} size="sm">
+            <Stack gap="xs">
+                <Text fw={700} size="sm">
                     Principal Investigator
                 </Text>
                 <ProfileRow
@@ -108,10 +108,10 @@ export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
     )
 }
 
-export function ResearcherField({ study, orgSlug, size, mt }: ProfileFieldProps & { mt?: string }) {
+export function ResearcherField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
-        <Stack gap={4} mt={mt}>
-            <Text fw={600} size="sm">
+        <Stack gap="xs">
+            <Text fw={700} size="sm">
                 Researcher
             </Text>
             <ProfileRow

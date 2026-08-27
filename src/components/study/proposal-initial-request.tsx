@@ -15,6 +15,8 @@ import { ProposalStepHeader } from './proposal-step-header'
 const EXPAND_LABEL = 'View full proposal'
 const COLLAPSE_LABEL = 'Hide full proposal'
 const SNIPPET_LINE_CLAMP = 2
+/** `Spacing/lg` in the Figma frames this card is drawn from; the Mantine scale has no 24px step. */
+const CARD_SECTION_GAP = 24
 
 type ProposalRequestProps = {
     study: Submitted<SelectedStudy>
@@ -46,8 +48,8 @@ const ResearchQuestionSnippet: FC<{ preview: string }> = ({ preview }) => {
     if (!preview) return null
 
     return (
-        <Stack gap={4}>
-            <Text fw={600} size="sm">
+        <Stack gap="xs">
+            <Text fw={700} size="sm">
                 Research question(s)
             </Text>
             <Text size="md" lineClamp={SNIPPET_LINE_CLAMP} data-testid="proposal-snippet-question">
@@ -72,7 +74,7 @@ const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand,
     const hasBothSections = datasets.length > 0 && preview !== ''
 
     return (
-        <Stack gap="md" data-testid="proposal-snippet">
+        <Stack gap={CARD_SECTION_GAP} data-testid="proposal-snippet">
             <DatasetsField datasets={datasets} orgDataSources={study.orgDataSources} size="sm" />
             <ConditionalDivider isVisible={hasBothSections} />
             <ResearchQuestionSnippet preview={preview} />
@@ -107,7 +109,7 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
     const datasets = study.datasets ?? []
 
     return (
-        <Stack gap="md" data-testid="proposal-body">
+        <Stack gap={CARD_SECTION_GAP} data-testid="proposal-body">
             <CollapseToggleLink
                 label={COLLAPSE_LABEL}
                 isExpanded
@@ -142,7 +144,7 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
             />
 
             <PIField study={study} orgSlug={orgSlug} />
-            <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
+            <ResearcherField study={study} orgSlug={orgSlug} />
             <Divider />
             <CollapseToggleLink
                 label={COLLAPSE_LABEL}
