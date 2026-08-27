@@ -1,7 +1,7 @@
 'use client'
 
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
-import { ActionResponse, useForm, useMutation, useQuery, z, zodResolver } from '@/common'
+import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs'
@@ -22,7 +22,7 @@ import {
     globalDocAgreementLabel,
     participationAgreementLabel,
     TosPnPreview,
-} from '@/components/legal/signup-acknowledegment/tos-pn-acknowledge'
+} from '@/components/legal/signup-acknowledegment/acknowledgement-checkbox'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
