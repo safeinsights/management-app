@@ -7,6 +7,7 @@ type CollapseToggleLinkProps = {
     label: string
     isExpanded: boolean
     onClick: () => void
+    isVisible?: boolean
     testId?: string
     mt?: MantineSpacing
 }
@@ -15,7 +16,16 @@ type CollapseToggleLinkProps = {
  * The expand/collapse control shared by the proposal cards and the feedback entries. Both read
  * `brand/default` (#01215E = blue.10) rather than the purple Anchor default (OTTER-755).
  */
-export function CollapseToggleLink({ label, isExpanded, onClick, testId, mt }: CollapseToggleLinkProps) {
+export function CollapseToggleLink({
+    label,
+    isExpanded,
+    onClick,
+    isVisible = true,
+    testId,
+    mt,
+}: CollapseToggleLinkProps) {
+    if (!isVisible) return null
+
     return (
         <Anchor
             component="button"

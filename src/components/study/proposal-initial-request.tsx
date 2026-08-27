@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, type FC, type ReactNode } from 'react'
+import { type FC, type ReactNode } from 'react'
 import { Divider, Paper, Stack, Text } from '@mantine/core'
 import { stringifyJson } from '@/lib/string'
 import { extractTextFromLexical } from '@/lib/lexical'
+import { useExpandable } from '@/hooks/use-expandable'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { type Submitted } from '@/schema/study'
@@ -24,13 +25,6 @@ type ProposalRequestProps = {
     initialExpanded?: boolean
     statusBadge?: string
     entries?: ProposalFeedbackEntry[]
-}
-
-function useProposalRequest(initialExpanded: boolean) {
-    const [expanded, setExpanded] = useState(initialExpanded)
-    const toggle = () => setExpanded((prev) => !prev)
-    const collapse = () => setExpanded(false)
-    return { expanded, toggle, collapse }
 }
 
 /**
@@ -102,39 +96,33 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({ isVisible, study,
     if (!isVisible) return null
 
     const datasets = study.datasets ?? []
-    const hasAdditionalNotes = Boolean(study.additionalNotes)
 
     return (
         <Stack gap="md" data-testid="proposal-body">
             <CollapseToggleLink label={COLLAPSE_LABEL} isExpanded onClick={onCollapse} testId="proposal-toggle-top" />
 
             <DatasetsField datasets={datasets} orgDataSources={study.orgDataSources} size="sm" />
-            <Divider />
 
+            {/* `divider="default"` rather than a divider of our own between each pair: the field
+                draws its own leading rule and skips it when it has nothing to show, which is what
+                keeps a stray rule from appearing above an empty Additional notes. */}
             <LexicalProposalField
                 label="Research question(s)"
                 value={stringifyJson(study.researchQuestions)}
-                divider="none"
+                divider="default"
                 size="md"
             />
-            <Divider />
-
             <LexicalProposalField
                 label="Project summary"
                 value={stringifyJson(study.projectSummary)}
-                divider="none"
+                divider="default"
                 size="md"
             />
-            <Divider />
-
-            <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} divider="none" size="md" />
-
-            <ConditionalDivider isVisible={hasAdditionalNotes} />
-
+            <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} divider="default" size="md" />
             <LexicalProposalField
                 label="Additional notes or requests"
                 value={stringifyJson(study.additionalNotes)}
-                divider="none"
+                divider="default"
                 size="md"
             />
 
@@ -161,7 +149,7 @@ export function ProposalRequest({
     statusBadge = 'Submitted on',
     entries = [],
 }: ProposalRequestProps) {
-    const { expanded, toggle, collapse } = useProposalRequest(initialExpanded)
+    const { expanded, toggle, collapse } = useExpandable(initialExpanded)
     const timestampDate = decisionTimestampForProposalHeader(study, entries)
 
     return (

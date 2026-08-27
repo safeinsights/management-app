@@ -1,8 +1,8 @@
 'use client'
 
 import type { FC } from 'react'
-import { Anchor } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import { LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 
 type ProfessionalProfileLinkProps = {
@@ -19,20 +19,14 @@ export const ProfessionalProfileLink: FC<ProfessionalProfileLinkProps> = ({ user
     if (!userId) return null
 
     return (
-        <Anchor
+        <LinkWithIcon
             href={`${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`}
             target="_blank"
             rel="noopener noreferrer"
-            size="sm"
-            fw={600}
-            c="blue.7"
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+            icon={<ArrowSquareOutIcon size={14} />}
             data-testid="professional-profile-link"
         >
             Professional profile
-            <ArrowSquareOutIcon size={14} />
-        </Anchor>
+        </LinkWithIcon>
     )
 }

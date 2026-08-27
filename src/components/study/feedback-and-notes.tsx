@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type FC } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
@@ -36,27 +36,6 @@ function entryTitle(entry: FeedbackEntryShape): string {
 
 const COLLAPSED_LINE_CLAMP = 3
 
-const FeedbackToggle: FC<{ isVisible: boolean; isExpanded: boolean; onToggle: () => void; entryId: string }> = ({
-    isVisible,
-    isExpanded,
-    onToggle,
-    entryId,
-}) => {
-    if (!isVisible) return null
-
-    const label = isExpanded ? 'View less' : 'View more'
-
-    return (
-        <CollapseToggleLink
-            label={label}
-            isExpanded={isExpanded}
-            onClick={onToggle}
-            mt="xs"
-            testId={`feedback-toggle-${entryId}`}
-        />
-    )
-}
-
 type FeedbackEntryProps = {
     entry: FeedbackEntryShape
     isExpanded: boolean
@@ -66,6 +45,7 @@ type FeedbackEntryProps = {
 function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     const title = entryTitle(entry)
     const date = formatDate(entry.createdAt)
+    const toggleLabel = isExpanded ? 'View less' : 'View more'
     const bodyRef = useRef<HTMLDivElement>(null)
     const [isTruncated, setIsTruncated] = useState(false)
 
@@ -115,11 +95,13 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                 >
                     <ReadOnlyLexicalContent value={entry.body} />
                 </Text>
-                <FeedbackToggle
+                <CollapseToggleLink
                     isVisible={isTruncated}
+                    label={toggleLabel}
                     isExpanded={isExpanded}
-                    onToggle={onToggle}
-                    entryId={entry.id}
+                    onClick={onToggle}
+                    mt="xs"
+                    testId={`feedback-toggle-${entry.id}`}
                 />
             </Box>
         </Stack>

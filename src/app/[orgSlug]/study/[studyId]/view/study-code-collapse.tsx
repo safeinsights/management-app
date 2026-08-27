@@ -1,15 +1,8 @@
 'use client'
 
-import { forwardRef, useCallback, useState } from 'react'
+import { forwardRef } from 'react'
 import { Anchor, type MantineSpacing } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
-
-export function useExpandable(initial = false) {
-    const [expanded, setExpanded] = useState(initial)
-    const toggle = useCallback(() => setExpanded((prev) => !prev), [])
-    const collapse = useCallback(() => setExpanded(false), [])
-    return { expanded, toggle, collapse }
-}
 
 export type StudyCodeToggleLabels = { expand: string; collapse: string }
 
