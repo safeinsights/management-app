@@ -85,9 +85,9 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         setStatus('signed-out')
     }
 
-    // Perform the actual navigation once we've latched into the redirecting state. The ref makes this
-    // fire exactly once: the effect can re-run on unrelated re-renders, and navigating again while
-    // status stays 'redirecting' would loop.
+    // Perform the actual navigation once we've latched into the redirecting state. The status guard
+    // covers every real dep change (the only one is the signed-out downgrade); the ref only stops
+    // StrictMode's dev-only effect re-invocation from navigating twice.
     useEffect(() => {
         if (status !== 'redirecting' || !redirectTarget || hasRedirectedRef.current) return
         hasRedirectedRef.current = true

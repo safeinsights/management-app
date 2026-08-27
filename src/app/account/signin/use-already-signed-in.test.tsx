@@ -42,6 +42,10 @@ describe('useAlreadySignedIn', () => {
         expect(memoryRouter.asPath).toBe('/account/signin')
     })
 
+    // OTTER-745: a soft auto-redirect was bounced back to this same URL by the proxy whenever the
+    // session was alive only on the client. Next preserves the component across that bounce, so
+    // hasRedirectedRef blocked a retry and the page held its loader for as long as Clerk stayed stale.
+    // The asPath assertion pins the redirect to a full load: the in-memory router must not move.
     it('auto-redirects when a session is active and a safe redirect_url is present', () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
         mockSignedInUser()
@@ -51,20 +55,7 @@ describe('useAlreadySignedIn', () => {
 
         expect(result.current.status).toBe('redirecting')
         expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
-    })
-
-    // OTTER-745: a soft auto-redirect was bounced back to this same URL by the proxy whenever the
-    // session was alive only on the client. Next preserves the component across that bounce, so
-    // hasRedirectedRef blocked a retry and the page held its loader for as long as Clerk stayed stale.
-    it('auto-redirects with a full load so a bounced redirect cannot strand the loader', () => {
-        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
-        mockSignedInUser()
-        const navigate = spyOnHardNavigation()
-
-        renderHook(() => useAlreadySignedIn())
-
-        expect(navigate).toHaveBeenCalledWith('/dashboard')
-        expect(memoryRouter.asPath).toBe('/account/signin?redirect_url=%2Fdashboard')
+        expect(memoryRouter.asPath).toBe('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
     })
 
     it('shows the prompt instead of auto-redirecting when redirect_url is unsafe', () => {
@@ -113,6 +104,7 @@ describe('useAlreadySignedIn', () => {
     it('reveals the form when the session is lost while redirecting', () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
         mockSignedInUser()
+        spyOnHardNavigation()
 
         const { result, rerender } = renderHook(() => useAlreadySignedIn())
         expect(result.current.status).toBe('redirecting')

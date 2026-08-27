@@ -1,4 +1,3 @@
-import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { authFileFor, e2eSignOut, expect, goto, test } from './e2e.helpers'
 
 // Opening the sign-in page with an active session should offer continue/switch, not error.
@@ -39,8 +38,7 @@ test.describe('sign in while already signed in', () => {
         await goto(page, '/account/signin')
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
-        await e2eSignOut(page)
-        await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
+        await e2eSignOut(page, { notifyClient: true })
 
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeHidden()
         await expect(page.getByLabel('email')).toBeVisible()
