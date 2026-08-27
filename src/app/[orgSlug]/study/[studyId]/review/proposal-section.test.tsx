@@ -281,10 +281,16 @@ describe('ProposalSection', () => {
             expect(within(piRow).queryByRole('link')).not.toBeInTheDocument()
         })
 
-        it('replaces the info icon popover on the profile rows', () => {
+        it('replaces the hover popover on the profile rows', async () => {
+            const user = userEvent.setup()
             renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-            expect(screen.queryByLabelText('More information')).not.toBeInTheDocument()
+            await user.hover(screen.getByText(study.createdBy))
+
+            // The popover it replaced hung off an unlabeled icon and rendered `withRoles={false}`,
+            // so neither the trigger nor the dropdown had an accessible name to query: the Mantine
+            // class is what shows that hovering the name no longer opens anything.
+            expect(document.querySelector('.mantine-Popover-dropdown')).toBeNull()
             expect(screen.getAllByRole('link', { name: /Professional profile/ })).toHaveLength(1)
         })
     })

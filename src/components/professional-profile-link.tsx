@@ -24,7 +24,6 @@ export const ProfessionalProfileLink: FC<ProfessionalProfileLinkProps> = ({ user
             target="_blank"
             rel="noopener noreferrer"
             icon={<ArrowSquareOutIcon size={14} />}
-            data-testid="professional-profile-link"
         >
             Professional profile
         </LinkWithIcon>
