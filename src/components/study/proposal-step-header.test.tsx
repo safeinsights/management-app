@@ -7,7 +7,20 @@ describe('ProposalStepHeader', () => {
 
         expect(screen.getByText('STEP 1')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Set up study', level: 2 })).toBeInTheDocument()
+    })
+
+    it('rules off the header when something follows it in the card', () => {
+        renderWithProviders(
+            <ProposalStepHeader stepLabel="STEP 1" heading="Set up study" banner={<p>Banner copy</p>} />,
+        )
+
         expect(screen.getByTestId('proposal-header-divider')).toBeInTheDocument()
+    })
+
+    it('leaves no rule behind when the banner renders nothing', () => {
+        renderWithProviders(<ProposalStepHeader stepLabel="STEP 2" heading="Initial request" banner={null} />)
+
+        expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
     })
 
     it('omits the title line when no studyTitle is passed', () => {
