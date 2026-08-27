@@ -12,6 +12,10 @@ type ProposalStepHeaderProps = {
     studyTitle?: string | null
     timestampDate?: Date | string | null
     timestampLabel?: string
+    /**
+     * Pass `null` rather than an element that renders nothing: the header cannot tell the two
+     * apart, and it draws its rule only when a banner or children come after it.
+     */
     banner?: ReactNode
     children?: ReactNode
 }
@@ -70,9 +74,8 @@ export function ProposalStepHeader({
     children,
 }: ProposalStepHeaderProps) {
     // The rule separates the header from what follows it inside the same card, so a header with
-    // nothing below must not end in one. Callers pass `null` rather than a banner that renders
-    // nothing: the proposal now lives in its own card, which left the header ending in a stray
-    // rule for a status with no banner copy (OTTER-755).
+    // nothing below must not end in one. The proposal now lives in its own card, which left the
+    // header ending in a stray rule for a status with no banner copy (OTTER-755).
     const hasContentBelowRule = Boolean(banner) || Boolean(children)
 
     return (
