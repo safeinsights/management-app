@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, type ReactNode } from 'react'
+import { useCallback, useState, type FC, type ReactNode } from 'react'
 import { Divider, Paper, Stack, Text } from '@mantine/core'
 import { stringifyJson } from '@/lib/string'
 import { extractTextFromLexical } from '@/lib/lexical'
@@ -61,9 +61,10 @@ type ProposalSnippetProps = {
     isVisible: boolean
     study: Submitted<SelectedStudy>
     onExpand: () => void
+    focusToggle: boolean
 }
 
-const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand }) => {
+const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand, focusToggle }) => {
     if (!isVisible) return null
 
     const datasets = study.datasets ?? []
@@ -80,6 +81,7 @@ const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand 
                 isExpanded={false}
                 onClick={onExpand}
                 testId="proposal-toggle-snippet"
+                autoFocus={focusToggle}
             />
         </Stack>
     )
@@ -90,16 +92,29 @@ type ProposalExpandedBodyProps = {
     study: Submitted<SelectedStudy>
     orgSlug: string
     onCollapse: () => void
+    focusToggle: boolean
 }
 
-const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({ isVisible, study, orgSlug, onCollapse }) => {
+const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
+    isVisible,
+    study,
+    orgSlug,
+    onCollapse,
+    focusToggle,
+}) => {
     if (!isVisible) return null
 
     const datasets = study.datasets ?? []
 
     return (
         <Stack gap="md" data-testid="proposal-body">
-            <CollapseToggleLink label={COLLAPSE_LABEL} isExpanded onClick={onCollapse} testId="proposal-toggle-top" />
+            <CollapseToggleLink
+                label={COLLAPSE_LABEL}
+                isExpanded
+                onClick={onCollapse}
+                testId="proposal-toggle-top"
+                autoFocus={focusToggle}
+            />
 
             <DatasetsField datasets={datasets} orgDataSources={study.orgDataSources} size="sm" />
 
@@ -139,6 +154,29 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({ isVisible, study,
     )
 }
 
+/**
+ * Expand/collapse for the proposal card, plus the focus hand-off the swap needs. Collapsing does
+ * not hide the card, it replaces its content, so the toggle that was clicked is gone by the next
+ * render and its replacement has to claim the focus. `focusToggle` stays false until the reader
+ * uses a toggle, which keeps the card from stealing focus on page load.
+ */
+function useProposalCard(initialExpanded: boolean) {
+    const { expanded, toggle, collapse } = useExpandable(initialExpanded)
+    const [focusToggle, setFocusToggle] = useState(false)
+
+    const expand = useCallback(() => {
+        setFocusToggle(true)
+        toggle()
+    }, [toggle])
+
+    const collapseCard = useCallback(() => {
+        setFocusToggle(true)
+        collapse()
+    }, [collapse])
+
+    return { expanded, expand, collapse: collapseCard, focusToggle }
+}
+
 export function ProposalRequest({
     study,
     orgSlug,
@@ -149,7 +187,7 @@ export function ProposalRequest({
     statusBadge = 'Submitted on',
     entries = [],
 }: ProposalRequestProps) {
-    const { expanded, toggle, collapse } = useExpandable(initialExpanded)
+    const { expanded, expand, collapse, focusToggle } = useProposalCard(initialExpanded)
     const timestampDate = decisionTimestampForProposalHeader(study, entries)
 
     return (
@@ -167,8 +205,14 @@ export function ProposalRequest({
                 step, title and banner only. Collapsing swaps the card's content for a snippet
                 rather than hiding it, which is why there is no Mantine Collapse here. */}
             <Paper p="xxl" data-testid="proposal-card">
-                <ProposalSnippet isVisible={!expanded} study={study} onExpand={toggle} />
-                <ProposalExpandedBody isVisible={expanded} study={study} orgSlug={orgSlug} onCollapse={collapse} />
+                <ProposalSnippet isVisible={!expanded} study={study} onExpand={expand} focusToggle={focusToggle} />
+                <ProposalExpandedBody
+                    isVisible={expanded}
+                    study={study}
+                    orgSlug={orgSlug}
+                    onCollapse={collapse}
+                    focusToggle={focusToggle}
+                />
             </Paper>
         </Stack>
     )

@@ -10,6 +10,12 @@ type CollapseToggleLinkProps = {
     isVisible?: boolean
     testId?: string
     mt?: MantineSpacing
+    /**
+     * Take focus when this control mounts. A section that swaps its content rather than hiding it
+     * unmounts the toggle that was just clicked, which would drop keyboard and screen-reader users
+     * on the document body; the equivalent toggle in the other state claims the focus instead.
+     */
+    autoFocus?: boolean
 }
 
 /**
@@ -23,6 +29,7 @@ export function CollapseToggleLink({
     isVisible = true,
     testId,
     mt,
+    autoFocus,
 }: CollapseToggleLinkProps) {
     if (!isVisible) return null
 
@@ -36,6 +43,7 @@ export function CollapseToggleLink({
             fw={700}
             c="blue.10"
             mt={mt}
+            autoFocus={autoFocus}
             onClick={onClick}
             display="inline-flex"
             w="fit-content"

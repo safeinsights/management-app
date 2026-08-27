@@ -176,6 +176,25 @@ describe('ProposalSection', () => {
         expect(screen.getByTestId('proposal-toggle-top')).toHaveAttribute('aria-expanded', 'true')
     })
 
+    // The card swaps its content instead of hiding it, so the clicked toggle is unmounted by the
+    // time the next render lands. Without the hand-off, keyboard users end up on the document body.
+    it('hands focus to the toggle that replaces the one just clicked', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+        await user.click(screen.getByTestId('proposal-toggle-top'))
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveFocus()
+
+        await user.click(screen.getByTestId('proposal-toggle-snippet'))
+        expect(screen.getByTestId('proposal-toggle-top')).toHaveFocus()
+    })
+
+    it('leaves focus alone until a toggle is used', () => {
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+        expect(screen.getByTestId('proposal-toggle-top')).not.toHaveFocus()
+    })
+
     describe('collapsed snippet', () => {
         it('previews the datasets and the research question only', () => {
             renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
