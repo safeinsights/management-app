@@ -48,8 +48,8 @@ const ResearchQuestionSnippet: FC<{ preview: string }> = ({ preview }) => {
     if (!preview) return null
 
     return (
-        <Stack gap="xs">
-            <Text fw={700} size="sm">
+        <Stack gap={4}>
+            <Text fw={600} size="sm">
                 Research question(s)
             </Text>
             <Text size="md" lineClamp={SNIPPET_LINE_CLAMP} data-testid="proposal-snippet-question">

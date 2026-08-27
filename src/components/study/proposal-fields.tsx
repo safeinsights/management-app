@@ -32,8 +32,8 @@ export function LexicalProposalField({
     return (
         <>
             <FieldDivider variant={divider} />
-            <Stack gap="xs">
-                <Text fw={700} size="sm">
+            <Stack gap={4}>
+                <Text fw={600} size="sm">
                     {label}
                 </Text>
                 <Text size={size} component="div">
@@ -68,8 +68,8 @@ export function DatasetsField({
     const named = datasets.map((id) => ({ id, name: nameMap[id] || id }))
 
     return (
-        <Stack gap="xs">
-            <Text fw={700} size="sm">
+        <Stack gap={4}>
+            <Text fw={600} size="sm">
                 Dataset(s) of interest
             </Text>
             <Group gap="md">
@@ -108,8 +108,8 @@ export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
         <>
             <Divider />
-            <Stack gap="xs">
-                <Text fw={700} size="sm">
+            <Stack gap={4}>
+                <Text fw={600} size="sm">
                     Principal Investigator
                 </Text>
                 <ProfileRow
@@ -126,8 +126,8 @@ export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
 
 export function ResearcherField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
-        <Stack gap="xs">
-            <Text fw={700} size="sm">
+        <Stack gap={4}>
+            <Text fw={600} size="sm">
                 Researcher
             </Text>
             <ProfileRow
