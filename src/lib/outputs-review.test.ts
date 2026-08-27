@@ -35,7 +35,9 @@ describe('outputs review decisions', () => {
         expect(OUTPUTS_DECISION_ERRORS.feedbackEmpty('Rice Lab')).toBe(
             'Enter your feedback for Rice Lab before submitting.',
         )
-        expect(OUTPUTS_DECISION_ERRORS.feedbackTooLong).toBe('Decision exceeds the 1800 limit. Shorten it to continue.')
+        expect(OUTPUTS_DECISION_ERRORS.feedbackTooLong).toBe(
+            'Decision exceeds the 1800 character limit. Shorten it to continue.',
+        )
         expect(OUTPUTS_DECISION_ERRORS.decisionMissing).toBe('Select an option before submitting')
     })
 })
