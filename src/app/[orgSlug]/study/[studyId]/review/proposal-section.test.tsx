@@ -189,6 +189,16 @@ describe('ProposalSection', () => {
         expect(screen.getByTestId('proposal-toggle-top')).toHaveFocus()
     })
 
+    // The bottom toggle has no replacement below it, so the hand-off goes up to the snippet toggle.
+    it('hands focus up to the snippet toggle when the card is collapsed from the bottom', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
+
+        await user.click(screen.getByTestId('proposal-toggle-bottom'))
+
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveFocus()
+    })
+
     it('leaves focus alone until a toggle is used', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 

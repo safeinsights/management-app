@@ -157,6 +157,10 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
  * not hide the card, it replaces its content, so the toggle that was clicked is gone by the next
  * render and its replacement has to claim the focus. `focusToggle` stays false until the reader
  * uses a toggle, which keeps the card from stealing focus on page load.
+ *
+ * The toggle at the end of the card hands the focus upward to the snippet toggle. That is on
+ * purpose: after the collapse the card is short and nothing follows it, thus the control at the
+ * top of the card is the only place left to go.
  */
 function useProposalCard(initialExpanded: boolean) {
     const { expanded, toggle, collapse } = useExpandable(initialExpanded)
