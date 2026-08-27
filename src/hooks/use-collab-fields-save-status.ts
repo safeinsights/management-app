@@ -13,7 +13,7 @@ import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
  * saved"), and stands down while that field's validation error owns the row (OTTER-674).
  *
  * Pure so the rule can be tested without React or a live websocket, which is the half
- * {@link useCollabFieldsSaveStatus} cannot demonstrate in jsdom: with no socket the provider is
+ * {@link useCollabFieldsSaveStatus} cannot demonstrate in happy-dom: with no socket the provider is
  * null and every status collapses to idle.
  */
 export const collabFieldSaveStatus = (

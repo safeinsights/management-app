@@ -5,13 +5,14 @@ import { BLANK_UUID, describe, expect, fireEvent, it, renderWithProviders, scree
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { type CollabFieldKey, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import { fieldTestId } from '@/components/form-field'
 import { type SaveStatusValue } from '@/components/save-status'
 import { EditInitialRequestSection } from './edit-initial-request-section'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 /**
- * Drives the save status this page derives, which jsdom cannot produce on its own.
+ * Drives the save status this page derives, which happy-dom cannot produce on its own.
  *
  * Without a websocket the Yjs provider is null AND the fields map is null, so `pushField` returns
  * before it can mark a key edited (`use-yjs-form-map.ts`). Every field's status is therefore
@@ -59,17 +60,23 @@ const renderSection = (byKey: Partial<Record<CollabFieldKey, SaveStatusValue>> =
 
 // OTTER-748: these three share the proposal-fields Yjs document, so unlike the rich-text editors
 // on this page they cannot report a save from inside the control. The page has to render one
-// indicator each, keyed to the right field. Asserting one key at a time makes the count itself the
-// assertion: it fails if an indicator is missing and it fails if a call site names the wrong key.
+// indicator each, keyed to the right field.
+//
+// Each case drives one key and asserts both halves: exactly one indicator exists on the page, and
+// it sits under the field that key belongs to. The count alone is not enough. It catches a missing
+// indicator and a call site pointing at another field's status, but two call sites with their keys
+// exchanged still render one indicator per case, so the placement assertion is what separates
+// correct wiring from a swap. The field key doubles as the `inputId` of its control.
 describe('EditInitialRequestSection autosave indicators (OTTER-748)', () => {
     it.each([['title'], ['datasets'], ['piName']] as const)(
-        'renders the saved indicator for %s, and only for that field',
+        'renders the saved indicator under %s, and only there',
         (key) => {
             renderSection({ [key]: 'saved' })
 
             const indicators = screen.getAllByTestId('autosave-status')
             expect(indicators).toHaveLength(1)
             expect(indicators[0]).toHaveTextContent('All changes saved')
+            expect(screen.getByTestId(fieldTestId(key))).toContainElement(indicators[0])
         },
     )
 

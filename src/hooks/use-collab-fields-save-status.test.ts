@@ -3,7 +3,7 @@ import { type CollabFieldKey } from '@/app/[orgSlug]/study/[studyId]/proposal/sc
 import { collabFieldSaveStatus } from './use-collab-fields-save-status'
 
 // The rule the two collaborative proposal surfaces share. Tested here rather than through either
-// page: with no websocket in jsdom the provider is null and every rendered status collapses to
+// page: with no websocket in happy-dom the provider is null and every rendered status collapses to
 // idle, so a page-level test cannot exercise these branches at all.
 describe('collabFieldSaveStatus', () => {
     const edited = (...keys: CollabFieldKey[]) => new Set<CollabFieldKey>(keys)

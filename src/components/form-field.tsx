@@ -45,6 +45,15 @@ const formFieldLabelStyles = {
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
 export const fieldCounterId = (inputId: string) => `${inputId}-counter`
+/**
+ * Names the field's root so a test can say which field a node belongs to.
+ *
+ * Several fields on one page render identical-looking nodes: a save indicator, a character
+ * counter, a required message. Counting them proves only that the right number exist, which a
+ * pair of cross-wired call sites satisfies just as well as correct ones (OTTER-748). Scoping the
+ * query to this root is what tells the two apart.
+ */
+export const fieldTestId = (inputId: string) => `form-field-${inputId}`
 
 interface FieldState {
     hasError: boolean
@@ -309,7 +318,7 @@ export const FormField: FC<FormFieldProps> = ({
     children,
 }) => {
     return (
-        <Box>
+        <Box data-testid={fieldTestId(inputId)}>
             <Input.Wrapper
                 id={inputId}
                 label={label}
