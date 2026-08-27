@@ -6,6 +6,16 @@ import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { ProfessionalProfileLink } from '@/components/professional-profile-link'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 
+type FieldDividerVariant = 'subtle' | 'default' | 'none'
+
+const FieldDivider: FC<{ variant: FieldDividerVariant }> = ({ variant }) => {
+    if (variant === 'none') return null
+
+    // A default Divider between two fields, a lighter one where the field leads a group.
+    const color = variant === 'subtle' ? 'gray.1' : undefined
+    return <Divider color={color} />
+}
+
 export function LexicalProposalField({
     label,
     value,
@@ -14,14 +24,14 @@ export function LexicalProposalField({
 }: {
     label: string
     value?: string | null
-    divider?: 'subtle' | 'default' | 'none'
+    divider?: FieldDividerVariant
     size?: 'sm' | 'md'
 }) {
     if (!value) return null
 
     return (
         <>
-            {divider !== 'none' && <Divider color={divider === 'subtle' ? 'gray.1' : undefined} />}
+            <FieldDivider variant={divider} />
             <Stack gap="xs">
                 <Text fw={700} size="sm">
                     {label}
@@ -33,6 +43,14 @@ export function LexicalProposalField({
         </>
     )
 }
+
+const DatasetPill: FC<{ name: string; size: 'sm' | 'md' }> = ({ name, size }) => (
+    <Box bg="grey.10" px="xs" py={2} bdrs="sm">
+        <Text size={size} c="charcoal.9">
+            {name}
+        </Text>
+    </Box>
+)
 
 export function DatasetsField({
     datasets,
@@ -46,6 +64,8 @@ export function DatasetsField({
     if (!datasets.length) return null
 
     const nameMap = Object.fromEntries(orgDataSources.map((ds) => [ds.id, ds.name]))
+    // The id stands in for a data source the org no longer lists, which is still worth showing.
+    const named = datasets.map((id) => ({ id, name: nameMap[id] || id }))
 
     return (
         <Stack gap="xs">
@@ -53,12 +73,8 @@ export function DatasetsField({
                 Dataset(s) of interest
             </Text>
             <Group gap="md">
-                {datasets.map((id) => (
-                    <Box key={id} bg="grey.10" px="xs" py={2} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
-                        <Text size={size} c="charcoal.9">
-                            {nameMap[id] || id}
-                        </Text>
-                    </Box>
+                {named.map(({ id, name }) => (
+                    <DatasetPill key={id} name={name} size={size} />
                 ))}
             </Group>
         </Stack>
