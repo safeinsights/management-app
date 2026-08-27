@@ -54,7 +54,7 @@ The output must be a single JSON object that conforms to the AnalysisReport inte
 **Task:**
 Generate the JSON 'AnalysisReport'.
 - **proposalSummary**: Briefly summarize the researcher's stated goals.
-- **codeExplanation**: Explain what the code actually does, referencing file paths.
+- **codeExplanation**: Explain what the code actually does for a reader with beginner programming skills, in titled sections.
 - **resultsSummary**: If test results were provided above, summarize what the results show — key outputs, patterns, and whether they appear reasonable given the proposal and code. If no test results were provided, omit this field from the JSON.
 - **alignmentCheck**: Determine if the code faithfully implements the proposal. List specific discrepancies as findings.
 - **complianceCheck**: Determine if the proposal or code violates any requirements or guidelines from the reference documents. List specific violations as findings.

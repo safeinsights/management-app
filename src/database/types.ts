@@ -37,6 +37,8 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
 
+export type LegalDocumentFormat = 'markdown' | 'pdf'
+
 export type LegalDocumentType = 'DOPA' | 'PN' | 'ROPA' | 'SLA' | 'TOS'
 
 export type OrgType = 'enclave' | 'lab'
@@ -144,7 +146,7 @@ export interface LegalDocumentVersion {
     createdAt: Generated<Timestamp>
     fileName: string
     filePath: string
-    format: string
+    format: LegalDocumentFormat
     id: Generated<string>
     legalDocumentId: string
     publishedAt: Timestamp | null

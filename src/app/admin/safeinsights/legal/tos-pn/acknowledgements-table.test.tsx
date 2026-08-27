@@ -43,12 +43,25 @@ const insertNamedUser = async (firstName: string) => {
     return email
 }
 
-const rowIndexOf = (text: string) =>
-    screen.getAllByRole('row').findIndex((row) => (row.textContent ?? '').includes(text))
+// The audience is every user in the database, not just the ones a test inserts, so any run whose
+// database already holds a page of users leaves the ascending-last name off page one entirely.
+// Reading the top row of the sorted page keeps the assertion about the sort direction rather than
+// about how many rows happen to exist. Index 0 is the header row.
+const topRowText = () => screen.getAllByRole('row')[1]?.textContent ?? ''
+
+// Same hazard, for the two tests that look up one specific row: a faker name sorts anywhere, so
+// once the shared database holds 25 users ahead of it the row is on page two and the lookup fails
+// for reasons that have nothing to do with acknowledgements. Renaming to sort near the front keeps
+// the row on page one without asserting anything about how many users exist. Not `topRowText`:
+// these tests may run with each other's sort-first users already inserted, so they must find their
+// own row rather than assume it is on top.
+const sortNearFront = (userId: string) =>
+    db.updateTable('user').set({ firstName: 'Aaa', lastName: 'Sorter' }).where('id', '=', userId).execute()
 
 describe('AcknowledgementsTable', () => {
     it('lists a user who has agreed to nothing', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
         await publishTos()
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
@@ -59,6 +72,7 @@ describe('AcknowledgementsTable', () => {
 
     it('reports the version a user agreed to and when', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
         const published = await publishTos()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
 
@@ -76,13 +90,15 @@ describe('AcknowledgementsTable', () => {
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
 
+        // 'Aaa'/'Zzz' bracket any real name, so each is the top row in one direction. The table
+        // opens on fullName ascending (DEFAULT_SORT).
         await screen.findByText(first)
-        expect(rowIndexOf(first)).toBeLessThan(rowIndexOf(last))
+        expect(topRowText()).toContain(first)
 
         // mantine-datatable puts the sort handler on the header cell itself, tagged with its accessor.
         fireEvent.click(document.querySelector('th[data-accessor="fullName"]') as HTMLElement)
 
-        await waitFor(() => expect(rowIndexOf(last)).toBeLessThan(rowIndexOf(first)))
+        await waitFor(() => expect(topRowText()).toContain(last))
     })
 
     it('shows one page of users at a time', async () => {

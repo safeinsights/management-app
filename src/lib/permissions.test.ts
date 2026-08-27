@@ -244,6 +244,30 @@ test('acknowledging a legal document is bounded by the audience it binds', () =>
     expect(ability.can('acknowledge', toRecord('LegalDocument', { isGlobal: false, audienceOrgIds: [] }))).toBe(false)
 })
 
+test('an org admin may read their own legal center, and only their own', () => {
+    const { ability, session } = createAbilty({ isAdmin: true }, 'enclave')
+    const orgId = session.orgs.test.id
+    const otherOrgId = faker.string.uuid()
+
+    expect(ability.can('view', toRecord('OrgLegalDocuments', { orgId }))).toBe(true)
+    expect(ability.can('view', toRecord('OrgLegalDocuments', { orgId: otherOrgId }))).toBe(false)
+
+    // An unknown org slug leaves orgId absent from the subject, and the `$in` fails closed.
+    expect(ability.can('view', toRecord('OrgLegalDocuments', {}))).toBe(false)
+
+    // The org-admin subject must not drag the SI-admin reads along: those expose unpublished drafts
+    // and version history, which is the whole reason it is separate.
+    expect(ability.can('view', toRecord('LegalDocument', { orgId }))).toBe(false)
+    expect(ability.can('create', toRecord('LegalDocument', { orgId }))).toBe(false)
+    expect(ability.can('publish', toRecord('LegalDocument', { orgId }))).toBe(false)
+})
+
+test('a plain org member may not read the legal center', () => {
+    const { ability, session } = createAbilty({}, 'enclave')
+
+    expect(ability.can('view', toRecord('OrgLegalDocuments', { orgId: session.orgs.test.id }))).toBe(false)
+})
+
 test('non-SI-admin is still bounded (manage/all does not leak to regular users)', () => {
     // Guards the wildcard: a plain enclave reviewer must NOT gain blanket permission.
     const { ability } = createAbilty({}, 'enclave', { isSiAdmin: false })

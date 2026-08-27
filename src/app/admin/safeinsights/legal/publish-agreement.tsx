@@ -13,7 +13,7 @@ import {
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
-import { formatDayString } from './dates'
+import { formatDayString } from '@/lib/dates'
 import { ReadOnlyField } from './read-only-field'
 
 // Which document the new version belongs to. tos/pn leave both scope fields off.

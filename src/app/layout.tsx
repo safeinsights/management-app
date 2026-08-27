@@ -19,7 +19,7 @@ import { connection } from 'next/server'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
-        title: 'SafeInsights Management Application',
+        title: 'SafeInsights',
         description: 'Manages studies, members, and data',
         icons: {
             icon: '/icon.png',

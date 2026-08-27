@@ -184,7 +184,7 @@ export function ProposalSubmitted({
 
     return (
         <Stack p="xl" gap="xl">
-            <ProposalHeader orgSlug={orgSlug} title="Study proposal" studyId={study.id} studyTitle={study.title} />
+            <ProposalHeader title="Study proposal" />
             <Stack gap="xxl">
                 <ProposalRequest
                     study={study}

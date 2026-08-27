@@ -5,8 +5,9 @@ import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, zodResolver } from '@/common'
 import {
-    proposalFormSchema,
+    draftProposalFormSchema,
     initialProposalValues,
+    type CollabFieldKey,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
@@ -42,14 +43,46 @@ interface ProposalProviderProps {
     draftData?: DraftStudyData
 }
 
+// Everything below is unconditional because this provider only ever serves a DRAFT: the route
+// redirects CHANGE-REQUESTED to /edit-and-resubmit (see proposal/page.tsx). Do not reintroduce a
+// `status` prop and half-branch these; if that redirect is ever reverted, all of them have to
+// branch together.
+//
+// `title` is excluded: Step 1 owns study.title on a DRAFT (OTTER-690). Leaving it in would let a
+// cold fields-doc seed a blank title, or a stale persisted one, over the Step 1 value via the
+// server-side mirror.
+const DRAFT_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
+
+/**
+ * Drops the keys a persisted NULL column arrives as.
+ *
+ * An explicit `undefined` wins in an object spread, so passing one through would blank out the
+ * matching entry in `initialProposalValues` and leave the form holding `undefined` where the
+ * schema expects an array or a string. Validation would then answer with a zod type message
+ * ("expected array, received undefined") instead of the field's own required copy, on exactly the
+ * untouched draft that needs the required copy most.
+ */
+function definedDraftFields(draftData?: DraftStudyData): DraftStudyData {
+    if (!draftData) return {}
+    const entries = Object.entries(draftData).filter(([, value]) => value !== undefined && value !== null)
+    return Object.fromEntries(entries) as DraftStudyData
+}
+
 export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
     const form = useForm<ProposalFormValues>({
-        validate: zodResolver(proposalFormSchema),
-        initialValues: { ...initialProposalValues, ...draftData },
-        validateInputOnChange: true,
+        validate: zodResolver(draftProposalFormSchema),
+        initialValues: { ...initialProposalValues, ...definedDraftFields(draftData) },
+        // No validateInputOnChange: the card requires that an error clears while the user is
+        // editing and does not come back until the next blur or Submit click. Mantine's
+        // clearInputErrorOnChange (on by default) does the clearing; re-validating on every
+        // keystroke would put the message straight back (OTTER-691).
     })
 
-    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({
+        studyId,
+        form,
+        collabKeys: DRAFT_COLLAB_KEYS,
+    })
 
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 

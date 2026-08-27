@@ -39,13 +39,15 @@ export function StudyRequestProvider({
     const [orgSlug, setOrgSlug] = useState(initialDraft?.orgSlug ?? '')
     const [submittingOrgSlug, setSubmittingOrgSlug] = useState(initialSubmittingOrgSlug)
 
-    // Resolver is scoped to the fields Step 1 renders; `title` and `piName` belong to the
-    // Step 2 editor and would otherwise fail validation with no field to show the error on.
+    // Resolver is scoped to the fields Step 1 renders; `piName` belongs to the Step 2 editor
+    // and would otherwise fail validation with no field to show the error on. `title` moved
+    // onto Step 1 with OTTER-690, so it is in scope here.
     //
-    // validateInputOnChange is retained on top of the blur default: this form is
-    // uncontrolled, so a value change alone does not re-render the provider and
-    // `isStep1Valid` below would go stale, leaving Proceed disabled after a valid
-    // selection. Validating on change updates the errors state, which does re-render.
+    // `title` is deliberately NOT in validateInputOnChange. Mantine runs a field's whole
+    // validator on change, so the blank rule would fire on every keystroke and flash "Enter a
+    // study title before continuing." the moment the user clears the box, which the spec
+    // forbids: blank is a blur/click error. Only the over-limit half is live, and the Step 1
+    // title field raises that itself (see use-setup-form).
     const form = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(step1FieldsSchema),
@@ -54,8 +56,6 @@ export function StudyRequestProvider({
     })
 
     const { initDocumentFilesFromPaths, resetDocumentFiles, ...documentFiles } = useDocumentFiles()
-
-    const isStep1Valid = form.isValid()
 
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
@@ -121,7 +121,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
 
             ...documentFiles,
 
@@ -138,7 +137,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
             documentFiles.documentFiles,
             documentFiles.existingFiles,
             documentFiles.setDocumentFile,

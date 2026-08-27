@@ -62,6 +62,10 @@ export function defineAbilityFor(session: UserSession) {
     permit('acknowledge', 'LegalDocument', { isGlobal: true })
     permit('acknowledge', 'LegalDocument', { audienceOrgIds: { $in: usersOrgIds } })
 
+    // Org admins read their own org's Legal center. Not a widened ('view','LegalDocument'): those
+    // actions take their scope from client params, so it would expose drafts and version history.
+    permit('view', 'OrgLegalDocuments', { orgId: { $in: usersAdminOrgIds } })
+
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
 

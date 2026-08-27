@@ -28,18 +28,6 @@ vi.mock('@/server/storage', async () => {
     }
 })
 
-// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
-// inspect the crumbs prop without depending on the DOM render.
-const mockPageBreadcrumbs = vi.fn()
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
-        mockPageBreadcrumbs(props)
-        return null
-    },
-}))
-
 const ORG_SLUG = 'openstax'
 const REVIEWING_ORG_NAME = 'OpenStax Reviewers'
 const DECISION_DATE = new Date('2026-04-02T10:00:00Z')
@@ -122,23 +110,6 @@ function renderView(
 }
 
 describe('CodePostDecisionView', () => {
-    describe('breadcrumbs', () => {
-        it('renders Dashboard / Study proposal (linked) / Study code (linkless)', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
-
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            const expectedProposalHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
-            expect(crumbs).toEqual([
-                ['Dashboard', expect.any(String)],
-                ['Study proposal', expectedProposalHref],
-                ['Study code'],
-            ])
-        })
-    })
-
     describe('header', () => {
         it('renders the page title, STEP 4 eyebrow, "Study code" section, and study title', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')

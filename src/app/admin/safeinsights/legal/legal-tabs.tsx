@@ -17,7 +17,7 @@ export const LegalTabs: FC = () => (
                 strip survives. Each panel's own heading carries the full name. */}
             <Tabs.Tab value="DOPA">DOPA</Tabs.Tab>
             <Tabs.Tab value="ROPA">ROPA</Tabs.Tab>
-            <Tabs.Tab value="SLA">Study Level Agreements</Tabs.Tab>
+            <Tabs.Tab value="SLA">Study Agreements</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="TOS" pt="md">
             <TosPnPanel doctype="TOS" />

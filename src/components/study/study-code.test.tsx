@@ -94,7 +94,7 @@ describe('StudyCode component', () => {
         })
     })
 
-    it('auto-selects a file named main as the main file', async () => {
+    it('does not auto-select a main file when multiple files exist', async () => {
         await renderIDE('openstax-lab', {
             'main.r': 'print("main")',
             'helper.r': 'print("helper")',
@@ -103,42 +103,21 @@ describe('StudyCode component', () => {
         await waitFor(() => {
             expect(screen.getByText('main.r')).toBeInTheDocument()
             expect(screen.getByText('helper.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
 
-        expect(screen.getByRole('button', { name: /main\.r is the main file/i })).toHaveAttribute(
+        expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
             'aria-pressed',
-            'true',
+            'false',
         )
         expect(screen.getByRole('button', { name: /set helper\.r as main file/i })).toHaveAttribute(
             'aria-pressed',
             'false',
         )
+        expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
     })
 
-    it('leaves no main file selected when there is no main.* and more than one file', async () => {
-        await renderIDE('openstax-lab', {
-            'alpha.r': 'print("a")',
-            'beta.r': 'print("b")',
-        })
-
-        await waitFor(() => {
-            expect(screen.getByText('alpha.r')).toBeInTheDocument()
-            expect(screen.getByText('beta.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
-        })
-
-        expect(screen.getByRole('button', { name: /set alpha\.r as main file/i })).toHaveAttribute(
-            'aria-pressed',
-            'false',
-        )
-        expect(screen.getByRole('button', { name: /set beta\.r as main file/i })).toHaveAttribute(
-            'aria-pressed',
-            'false',
-        )
-    })
-
-    it('overrides the auto-selected main file when a different star is clicked', async () => {
+    it('selects the main file when a star is clicked', async () => {
         const user = userEvent.setup()
         await renderIDE('openstax-lab', {
             'main.r': 'print("main")',
@@ -208,11 +187,11 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
-            // main.R is auto-selected as the main file based on filename
-            expect(screen.getByRole('button', { name: /main\.R is the main file/i })).toHaveAttribute(
-                'aria-pressed',
-                'true',
-            )
+        })
+
+        await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+
+        await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
@@ -234,7 +213,7 @@ describe('StudyCode component', () => {
         )
     })
 
-    it.skipIf(!s3Available)('auto-selects the only file as main and submits', async () => {
+    it.skipIf(!s3Available)('auto-selects the main file when it is the only file, and submits', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {
             'analysis.r': 'print("only")',
@@ -330,6 +309,7 @@ describe('StudyCode component', () => {
         })
 
         it('enables submit when files are newer than baseline job', async () => {
+            const user = userEvent.setup()
             await renderWithCodeEnv({
                 'main.R': 'print("starter")',
                 'helper.R': 'print("helper")',
@@ -338,6 +318,11 @@ describe('StudyCode component', () => {
             await waitFor(() => {
                 expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
                 expect(screen.getByText('helper.R')).toBeInTheDocument()
+            })
+
+            await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+
+            await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
         })
@@ -370,10 +355,15 @@ describe('StudyCode component', () => {
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
             })
 
             const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+            })
+
             await user.click(screen.getByRole('button', { name: /submit code/i }))
             const dialog = screen.getByRole('dialog')
             await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))

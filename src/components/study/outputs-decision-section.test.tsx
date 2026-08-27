@@ -2,9 +2,9 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { describe, expect, faker, it, render, screen, userEvent, vi, within } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
-import { fieldDescriptionId, fieldErrorId } from '@/components/form-field'
+import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
-import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
+import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID, OutputsDecisionSection } from './outputs-decision-section'
 
 const LAB = 'Rice Lab'
@@ -16,8 +16,7 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
         jobId: faker.string.uuid(),
         studyId: faker.string.uuid(),
         labName: LAB,
-        maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
-        wordCount: 0,
+        characterCount: 0,
         feedbackError: undefined,
         onFeedbackChange: vi.fn(),
         selected: null,
@@ -65,38 +64,39 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(await screen.findByLabelText('Decision feedback')).toHaveAttribute('aria-required', 'true')
     })
 
-    // Figma renders the unit alongside the count ("0/300 words"), which is also the evidence the
-    // cap is counted in words rather than characters.
-    it('renders the word counter with its unit against the errored-run cap of 300', () => {
-        renderSection({ wordCount: 12 })
+    // No unit beside the count, matching every other capped field in the app (OTTER-737).
+    it('renders the character counter against the 1800 cap', () => {
+        renderSection({ characterCount: 12 })
 
-        expect(screen.getByText('12/300 words')).toBeInTheDocument()
+        expect(screen.getByText(`12/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
     })
 
     it('associates the counter with the editor via aria-describedby', async () => {
-        renderSection({ wordCount: 12 })
+        renderSection({ characterCount: 12 })
 
         const editor = await screen.findByLabelText('Decision feedback')
-        expect(editor.getAttribute('aria-describedby')).toContain(fieldDescriptionId(FEEDBACK_INPUT_ID))
-        expect(document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))).toHaveTextContent('12/300 words')
+        expect(editor.getAttribute('aria-describedby')).toContain(fieldCounterId(FEEDBACK_INPUT_ID))
+        expect(document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID))).toHaveTextContent(
+            `12/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`,
+        )
     })
 
     it('marks the editor invalid and describes the error when over the limit', async () => {
         renderSection({
-            wordCount: 301,
-            feedbackError: 'Feedback exceeds the 300 word limit. Shorten it to continue.',
+            characterCount: OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1,
+            feedbackError: OUTPUTS_DECISION_ERRORS.feedbackTooLong,
         })
 
         const editor = await screen.findByLabelText('Decision feedback')
         expect(editor).toHaveAttribute('aria-invalid', 'true')
         expect(editor.getAttribute('aria-describedby')).toContain(fieldErrorId(FEEDBACK_INPUT_ID))
-        expect(screen.getByText('Feedback exceeds the 300 word limit. Shorten it to continue.')).toBeInTheDocument()
+        expect(screen.getByText(OUTPUTS_DECISION_ERRORS.feedbackTooLong)).toBeInTheDocument()
     })
 
     // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and
     // an assertive region would interrupt the user mid-sentence.
     it('announces field messages politely', () => {
-        renderSection({ feedbackError: 'Feedback exceeds the 300 word limit. Shorten it to continue.' })
+        renderSection({ feedbackError: OUTPUTS_DECISION_ERRORS.feedbackTooLong })
 
         const region = document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))!
         expect(region).toHaveAttribute('aria-live', 'polite')
@@ -108,11 +108,11 @@ describe('OutputsDecisionSection feedback field', () => {
     // slot rather than a global count, because a global "at most one" also passes when there are
     // none and would prove nothing.
     it('puts the counter in the editor footer and adds no autosave indicator of its own', async () => {
-        renderSection({ wordCount: 7 })
+        renderSection({ characterCount: 7 })
 
         await screen.findByLabelText('Decision feedback')
-        const counter = document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))!
-        expect(counter).toHaveTextContent('7/300 words')
+        const counter = document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID))!
+        expect(counter).toHaveTextContent(`7/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`)
         expect(counter.querySelector('[data-testid="autosave-status"]')).toBeNull()
 
         const section = screen.getByTestId('outputs-decision-section')

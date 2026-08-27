@@ -45,3 +45,6 @@ tests/.auth/
 .claude/scheduled_tasks.lock
 CLAUDE.local.md
 .mcp.json
+
+_to_delete/
+_claude_tmp/

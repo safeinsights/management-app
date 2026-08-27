@@ -59,6 +59,30 @@ describe('OrgAdminDashboardLink', () => {
         await userEvent.click(adminButton)
         expect(screen.getByRole('link', { name: 'Team' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
+        // The slug comes from the mocked route params rather than the org prop, so the assertion is
+        // on the route's shape.
+        expect(screen.getByRole('link', { name: 'Legal center' }).getAttribute('href')).toMatch(/\/admin\/legal$/)
+    })
+
+    // Settings is enclave-only; the Legal center is not, since a lab reads its ROPA and its study
+    // agreements there.
+    it('shows the legal center to a lab admin, which has no Settings link', async () => {
+        const orgSlug = faker.lorem.slug()
+        const org = {
+            type: 'lab' as const,
+            name: faker.company.name(),
+            id: faker.string.uuid(),
+            slug: orgSlug,
+        }
+        await mockSessionWithTestData({ orgSlug, orgType: 'lab', isAdmin: true })
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
+        await userEvent.click(screen.getByRole('button', { name: /Admin/i }))
+
+        expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
+        // The slug comes from the mocked route params rather than the org prop, so the assertion is
+        // on the route's shape.
+        expect(screen.getByRole('link', { name: 'Legal center' }).getAttribute('href')).toMatch(/\/admin\/legal$/)
     })
 
     it('is open by default when on an admin page', async () => {
@@ -70,7 +94,7 @@ describe('OrgAdminDashboardLink', () => {
             slug: orgSlug,
         }
         await mockSessionWithTestData()
-        mockPathname(`/admin/team/${orgSlug}`)
+        mockPathname(`/${orgSlug}/admin/team`)
 
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
         expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
@@ -95,7 +119,7 @@ describe('OrgAdminDashboardLink', () => {
 
         // Navigating into an admin route opens the submenu
         await act(async () => {
-            mockPathname(`/admin/team/${orgSlug}`)
+            mockPathname(`/${orgSlug}/admin/team`)
         })
         expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
 
@@ -104,6 +128,56 @@ describe('OrgAdminDashboardLink', () => {
             mockPathname('/')
         })
         expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
+    })
+
+    it('marks the Admin link active when on an org admin page', async () => {
+        const orgSlug = faker.lorem.slug()
+        const org = {
+            type: 'enclave' as const,
+            name: faker.company.name(),
+            id: faker.string.uuid(),
+            slug: orgSlug,
+        }
+        await mockSessionWithTestData()
+        mockPathname(`/${orgSlug}/admin/legal`)
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
+        expect(screen.getByRole('link', { name: 'Legal center' })).toBeVisible()
+        expect(screen.getByRole('button', { name: /Admin/i })).toHaveAttribute('data-active', 'true')
+    })
+
+    // Defensive coverage, not a live path: AppNav only renders this component when the route
+    // resolves to an org, and `admin` is a NON_ORG_PREFIX, so /admin/safeinsights never mounts it.
+    it('is open by default on a top-level admin path too', async () => {
+        const orgSlug = faker.lorem.slug()
+        const org = {
+            type: 'enclave' as const,
+            name: faker.company.name(),
+            id: faker.string.uuid(),
+            slug: orgSlug,
+        }
+        await mockSessionWithTestData()
+        mockPathname('/admin/safeinsights')
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
+        expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
+        expect(screen.getByRole('button', { name: /Admin/i })).toHaveAttribute('data-active', 'true')
+    })
+
+    it('leaves the submenu closed on a non-admin org page', async () => {
+        const orgSlug = faker.lorem.slug()
+        const org = {
+            type: 'enclave' as const,
+            name: faker.company.name(),
+            id: faker.string.uuid(),
+            slug: orgSlug,
+        }
+        await mockSessionWithTestData()
+        mockPathname(`/${orgSlug}/dashboard`)
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
+        expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Admin/i })).not.toHaveAttribute('data-active')
     })
 
     it('toggles the submenu on click', async () => {

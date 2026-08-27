@@ -1,5 +1,4 @@
 import { Stack } from '@mantine/core'
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { AgreementsPage } from '../agreements/agreements-page'
@@ -20,7 +19,6 @@ export function ReviewerAgreementsScreen({ study, orgSlug }: ScreenComponentProp
     const previousHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     return (
         <Stack p="xl" gap="xxl">
-            <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
             <StudyPageHeader>Study request</StudyPageHeader>
             <AgreementsPage
                 isReviewer

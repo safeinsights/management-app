@@ -5,11 +5,11 @@ import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } 
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { WordCounter } from '@/components/word-counter'
-import { fieldDescribedBy, fieldDescriptionId, fieldErrorId } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
+import { fieldCounterId, fieldDescribedBy, fieldErrorId } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import type { OutputsDecision } from '@/lib/outputs-review'
+import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
@@ -24,34 +24,66 @@ const contentStyle = {
     lineHeight: 1.6,
 } as const
 
+// OTTER-524: a run can fail before producing anything a reviewer can open, and the reviewer still has
+// to close the round out. The decision therefore stands, but sharing is impossible. Everything below
+// that reads `canShareOutputs` exists to say that plainly instead of offering a choice that cannot be
+// honored.
+//
+// Worded as "nothing here that can be shared" rather than "there are no output files": the branch is
+// also reached by a job holding files this screen cannot offer, and claiming they do not exist would
+// contradict the banner above, which says an error log was recorded. Three shapes reach it: a
+// submission-time scan log, an error log stored in a form no key opens, and a pre-#764 job whose
+// results are plaintext APPROVED-* rows the reviewer flow has never been able to share.
+const noOutputsShareHint = (labName: string) => `There is nothing from this run that can be shared with ${labName}.`
+
 // A real <ul>, not "<br />•": the two clauses are a list, and a screen reader should announce them
 // as one ("list, 2 items") rather than as a single run-on sentence with stray bullet characters.
-const DecisionIntro: FC<{ labName: string }> = ({ labName }) => (
-    <Text component="div" fz={16} c="charcoal.9">
-        Based on your review:
-        <List spacing={4} size="md" pt={4}>
-            <List.Item>
-                If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
-                your feedback so {labName} can revise the code.
-            </List.Item>
-            <List.Item>If they do not, share the outputs along with your feedback.</List.Item>
-        </List>
-    </Text>
-)
+const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labName, canShareOutputs }) => {
+    // With nothing shareable there is no judgment to make about contents, so the two-branch guidance
+    // would be describing a choice the reviewer does not have. States what this screen can do rather
+    // than what the run produced, which is the one thing that is true for every shape reaching here.
+    if (!canShareOutputs) {
+        return (
+            <Text component="div" fz={16} c="charcoal.9">
+                Sharing outputs is not available for this run. Describe what happened in your feedback so {labName} can
+                revise the code.
+            </Text>
+        )
+    }
+    return (
+        <Text component="div" fz={16} c="charcoal.9">
+            Based on your review:
+            <List spacing={4} size="md" pt={4}>
+                <List.Item>
+                    If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
+                    your feedback so {labName} can revise the code.
+                </List.Item>
+                <List.Item>If they do not, share the outputs along with your feedback.</List.Item>
+            </List>
+        </Text>
+    )
+}
 
-type DecisionOption = { value: OutputsDecision; title: string; description: string }
+type DecisionOption = { value: OutputsDecision; title: string; description: string; disabled: boolean }
 
-const buildDecisionOptions = (labName: string): DecisionOption[] => [
+// Disabled rather than removed: keeping both options visible is what lets the reviewer see why only
+// one is selectable. Dropping the row would read as the option having silently disappeared.
+const buildDecisionOptions = (labName: string, canShareOutputs: boolean): DecisionOption[] => [
     {
         value: 'share-outputs',
         title: 'Share outputs and feedback',
-        description: `Share the output files and your feedback with ${labName}.`,
+        description: canShareOutputs
+            ? `Share the output files and your feedback with ${labName}.`
+            : noOutputsShareHint(labName),
+        disabled: !canShareOutputs,
     },
     {
         value: 'share-feedback-only',
         title: 'Share feedback only',
-        description:
-            'Share your feedback without sharing the output files. Choose this if the outputs contain sensitive or restricted information.',
+        description: canShareOutputs
+            ? 'Share your feedback without sharing the output files. Choose this if the outputs contain sensitive or restricted information.'
+            : `Share your feedback with ${labName} so they can revise the code.`,
+        disabled: false,
     },
 ]
 
@@ -62,11 +94,12 @@ type DecisionRadioGroupProps = {
     onChange: (next: OutputsDecision) => void
     error: string | undefined
     labName: string
+    canShareOutputs: boolean
 }
 
 const descriptionId = (value: OutputsDecision) => `outputs-decision-${value}-description`
 
-const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, error, labName }) => {
+const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, error, labName, canShareOutputs }) => {
     // Mantine's Radio renders a native <input type="radio">; Radio.Group gives them a shared
     // `name`, so mutual exclusivity and arrow-key navigation are the browser's, not simulated.
     //
@@ -80,7 +113,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
     // Radio.Group, and passes nothing through to it, so the inputs are the only reachable target.
     // Without it the group was flagged visually and via `aria-describedby` but never announced as
     // invalid, unlike the feedback editor right above it (OTTER-675).
-    const options = buildDecisionOptions(labName).map((option) => (
+    const options = buildDecisionOptions(labName, canShareOutputs).map((option) => (
         <Radio
             key={option.value}
             value={option.value}
@@ -88,6 +121,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
             description={<span id={descriptionId(option.value)}>{option.description}</span>}
             aria-describedby={descriptionId(option.value)}
             aria-invalid={error ? true : undefined}
+            disabled={option.disabled}
             styles={RADIO_STYLES}
             data-testid={`outputs-decision-${option.value}`}
         />
@@ -124,14 +158,16 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
     )
 }
 
-// Carries the description id so the count reaches the editor's aria-describedby. Rendered through
+// Carries the counter id so the count reaches the editor's aria-describedby. Rendered through
 // the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
 // second SaveStatusIndicator here would show the user two "All changes saved" messages in
 // collaborative mode, and could contradict the error below when validation fails.
-const FeedbackCounter: FC<{ wordCount: number; maxWords: number }> = ({ wordCount, maxWords }) => (
-    <Box id={fieldDescriptionId(FEEDBACK_INPUT_ID)}>
-        <WordCounter wordCount={wordCount} maxWords={maxWords} unit="words" />
-    </Box>
+const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
+    <CharacterCounter
+        id={fieldCounterId(FEEDBACK_INPUT_ID)}
+        count={characterCount}
+        maxCharacters={OUTPUTS_FEEDBACK_MAX_CHARACTERS}
+    />
 )
 
 // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
@@ -146,26 +182,27 @@ export type OutputsDecisionSectionProps = {
     jobId: string
     studyId: string
     labName: string
-    maxWords: number
-    wordCount: number
+    characterCount: number
     feedbackError: string | undefined
     onFeedbackChange: (json: string) => void
     selected: OutputsDecision | null
     onSelect: (next: OutputsDecision) => void
     decisionError: string | undefined
+    /** False when the run produced no artifacts, so sharing them is not an option (OTTER-524). */
+    canShareOutputs?: boolean
 }
 
 export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     jobId,
     studyId,
     labName,
-    maxWords,
-    wordCount,
+    characterCount,
     feedbackError,
     onFeedbackChange,
     selected,
     onSelect,
     decisionError,
+    canShareOutputs = true,
 }) => {
     const websocketProvider = useYjsWebsocket()
 
@@ -179,7 +216,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     <RequiredIndicator fz={20} fw={700} />
                 </Group>
                 <Divider color="charcoal.1" />
-                <DecisionIntro labName={labName} />
+                <DecisionIntro labName={labName} canShareOutputs={canShareOutputs} />
                 <Editor
                     id={outputsReviewFeedbackDocName(jobId)}
                     inputId={FEEDBACK_INPUT_ID}
@@ -192,13 +229,20 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     ariaRequired
                     ariaDescribedBy={fieldDescribedBy(FEEDBACK_INPUT_ID, {
                         hasError: !!feedbackError,
-                        hasDescription: true,
+                        hasDescription: false,
+                        hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
-                    footerRight={<FeedbackCounter wordCount={wordCount} maxWords={maxWords} />}
+                    footerRight={<FeedbackCounter characterCount={characterCount} />}
                 />
                 <FeedbackError error={feedbackError} />
-                <DecisionRadioGroup value={selected} onChange={onSelect} error={decisionError} labName={labName} />
+                <DecisionRadioGroup
+                    value={selected}
+                    onChange={onSelect}
+                    error={decisionError}
+                    labName={labName}
+                    canShareOutputs={canShareOutputs}
+                />
             </Stack>
         </Paper>
     )

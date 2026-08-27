@@ -1,7 +1,6 @@
 'use server'
 
 import { Stack } from '@mantine/core'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
@@ -25,14 +24,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    orgSlug,
-                    studyId,
-                    studyTitle: result.title,
-                    current: 'Provide code',
-                }}
-            />
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}

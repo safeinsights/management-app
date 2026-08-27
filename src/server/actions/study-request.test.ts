@@ -16,6 +16,7 @@ import {
     setTestStudyStatus,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -26,10 +27,12 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+    resubmitProposalAction,
     resubmitStudyCodeAction,
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
+import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -310,17 +313,38 @@ describe('Request Study Actions', () => {
         expect(unchanged.status).toBe('APPROVED')
     })
 
+    // Step 1 owns study.title on a DRAFT, so submit sends no title at all and a draft predating
+    // OTTER-690 can have none. `study_title_required_when_not_draft` would reject the status flip
+    // as a raw DB error, so the blank has to be caught before the UPDATE runs.
+    it('finalizeStudySubmissionAction rejects a DRAFT whose title was never set', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-untitled' })
+        await db.updateTable('study').set({ title: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { title: STUDY_TITLE_BLANK_ERROR } })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
+    })
+
     describe('OpenStax Proposal Flow (Step 2)', () => {
         it('creates draft with step 1 fields, updates with proposal fields, and submits', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-openstax-flow' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-            // Step 1: Create draft with org and language only (OpenStax step 1)
+            // Step 1: create the draft. OTTER-690 made the title part of this step, so creation
+            // carries one from the start rather than acquiring it later in Step 2.
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
                     studyInfo: {
+                        title: 'Set on Step 1',
                         language: 'PYTHON' as const,
                     },
                     submittingOrgSlug: lab.slug,
@@ -329,7 +353,6 @@ describe('Request Study Actions', () => {
 
             expect(draftResult.studyId).toBeDefined()
 
-            // Drafts persist a NULL title until the researcher fills one in.
             let study = await db
                 .selectFrom('study')
                 .selectAll('study')
@@ -337,7 +360,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
-            expect(study?.title).toBeNull()
+            expect(study?.title).toEqual('Set on Step 1')
 
             // Step 2: Update with proposal fields
             const proposalFields = {
@@ -647,6 +670,285 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(after.title).toBe('LabA Draft')
             expect(after.status).toBe('CHANGE-REQUESTED')
+        })
+    })
+
+    // OTTER-690, OTTER-737: the cap belongs to the actions that submit, not to `draftStudyApiSchema`.
+    // A study created before the cap existed can hold a longer title, and the resubmit autosave runs
+    // through onUpdateDraftStudyAction: rejecting that payload in `.params()` would fail every
+    // autosave on a page the researcher opened to edit something else entirely.
+    describe('study title length rules (OTTER-690, OTTER-737)', () => {
+        const OVER_LIMIT = 'a'.repeat(61)
+
+        it('onSaveDraftStudyAction rejects a title over 60 characters', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-cap-create-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-cap-create-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                submittingOrgSlug: lab.slug,
+                studyInfo: { title: OVER_LIMIT, language: 'R' as const },
+            })
+
+            expect('error' in result).toBe(true)
+        })
+
+        // Creation is the only entry point that mints a row, so it is the only one that can stop an
+        // untitled study existing. Rows predating OTTER-690 still need the /proposal and finalize
+        // guards; this stops new ones joining them.
+        it('onSaveDraftStudyAction rejects a create with no usable title', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-required-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-required-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const blank = await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                submittingOrgSlug: lab.slug,
+                studyInfo: { title: '   ', language: 'R' as const },
+            })
+            expect('error' in blank).toBe(true)
+
+            const untitled = await db
+                .selectFrom('study')
+                .select('id')
+                .where('submittedByOrgId', '=', lab.id)
+                .executeTakeFirst()
+            expect(untitled).toBeUndefined()
+        })
+
+        // CASL denies a cross-lab caller before the handler runs, so what this pins is the
+        // CASL-level outcome rather than the handler's check ordering: the refusal carries no
+        // title-specific message, tells the caller nothing about the stored title, and writes
+        // nothing. The last assertion matters because requireAbilityTo serializes the ability
+        // subject into the message it returns, so anything the middleware reads goes back to a
+        // caller who was just refused.
+        it('onUpdateDraftStudyAction rejects a cross-lab update without disclosing the stored title', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'title-cap-cross-lab',
+                studyInfo: { title: 'LabA Draft' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+
+            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect(result).toHaveProperty('error')
+            expect(result).not.toMatchObject({ error: expect.objectContaining({ title: expect.any(String) }) })
+            expect(JSON.stringify(result)).not.toContain('LabA Draft')
+
+            const after = await db
+                .selectFrom('study')
+                .select(['title'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(after.title).toBe('LabA Draft')
+        })
+
+        it('onSaveDraftStudyAction accepts a title at exactly 60 characters', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-cap-ok-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-cap-ok-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const { studyId } = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    submittingOrgSlug: lab.slug,
+                    studyInfo: { title: 'b'.repeat(60), language: 'R' as const },
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('b'.repeat(60))
+        })
+
+        it('onUpdateDraftStudyAction rejects an over-limit title on a DRAFT row', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-update-draft' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('Test draft')
+        })
+
+        // The resubmit autosave writes through this same action, and the row it saves can predate
+        // the cap. Blocking it here would strand the whole page: `saveDraft()` returning false is
+        // what makes the resubmit footer's Back and "View as reviewer" buttons no-ops.
+        it('onUpdateDraftStudyAction accepts an over-limit title on a CHANGE-REQUESTED row', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-update-cr' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } }))
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe(OVER_LIMIT)
+        })
+
+        // The regression this split exists to prevent: a pre-cap title must not block a save of the
+        // fields the researcher actually came to edit.
+        it('onUpdateDraftStudyAction saves other fields on a row whose stored title predates the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-legacy-row' })
+            await db.updateTable('study').set({ title: OVER_LIMIT }).where('id', '=', studyId).execute()
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await onUpdateDraftStudyAction({
+                    studyId,
+                    studyInfo: { title: OVER_LIMIT, projectSummary: lexicalJson('Revised summary') },
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select(['title', 'projectSummary'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.projectSummary).toEqual(JSON.parse(lexicalJson('Revised summary')))
+            expect(study.title).toBe(OVER_LIMIT)
+        })
+
+        it('resubmitProposalAction rejects an over-limit title', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-resubmit' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await resubmitProposalAction({
+                studyId,
+                studyInfo: { title: OVER_LIMIT, piName: 'PI', piUserId: user.id },
+                resubmissionNote: buildFeedback(20),
+            })
+
+            expect('error' in result).toBe(true)
+        })
+
+        it('finalizeStudySubmissionAction rejects an over-limit title', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-finalize' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await finalizeStudySubmissionAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        // The omit path, which the test above does not reach: Step 2 submits with `titleMode: 'omit'`,
+        // so the cap is applied to the stored column. A draft created before the cap can hold an
+        // over-limit title, and Step 2 renders no title field to fix it on, so /proposal redirects
+        // such a draft to Step 1 (see proposal/page.test.tsx). This asserts the backstop underneath
+        // that redirect: reaching the action anyway leaves the study in DRAFT rather than letting an
+        // over-limit title through to PENDING-REVIEW.
+        it('finalizeStudySubmissionAction rejects an over-limit stored title when none is submitted', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-finalize-omit' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await db.updateTable('study').set({ title: OVER_LIMIT }).where('id', '=', studyId).execute()
+
+            const result = await finalizeStudySubmissionAction({ studyId })
+
+            expect(result).toEqual({ error: { title: STUDY_TITLE_OVER_LIMIT_ERROR } })
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        it('accepts a title only pushed over the cap by whitespace at its ends', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-whitespace' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: `  ${'d'.repeat(60)}  ` } }))
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('d'.repeat(60))
+        })
+
+        it('resubmitProposalAction rejects a resubmission note over the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'note-cap-resubmit' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await resubmitProposalAction({
+                studyId,
+                studyInfo: { title: 'Fine title', piName: 'PI', piUserId: user.id },
+                resubmissionNote: 'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1),
+            })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('resubmitProposalAction accepts a resubmission note at exactly the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'note-cap-resubmit-ok' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: { title: 'Fine title', piName: 'PI', piUserId: user.id },
+                    resubmissionNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `,
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('PENDING-REVIEW')
+        })
+
+        it('resubmitProposalAction accepts a title at exactly 60 characters', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-resubmit-ok' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const atLimit = 'c'.repeat(60)
+
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: { title: atLimit, piName: 'PI', piUserId: user.id },
+                    resubmissionNote: buildFeedback(20),
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe(atLimit)
         })
     })
 
@@ -1282,6 +1584,38 @@ describe('Request Study Actions', () => {
                 resubmissionNote: '',
             })
             expect(result).toHaveProperty('error')
+        })
+
+        it('rejects a note one character over the cap and accepts one at exactly the cap', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+
+            const root = await createWorkspaceDir('resubmit-note-cap')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const over = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1),
+            })
+            expect(over).toHaveProperty('error')
+
+            // Whitespace at the ends is excluded, so this is exactly at the cap, not one over.
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `,
+                }),
+            )
         })
 
         it('rejects when latest job status is not in the allowed set', async () => {

@@ -58,6 +58,57 @@ export function isLogType(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || isApprovedLogType(fileType) || isPlaintextLogType(fileType)
 }
 
+// Logs that say something about a FAILED run, as opposed to any log at all. Three unrelated
+// services write into the ENCRYPTED-* set: the code scanner (on submission), the containerizer (on
+// a packaging failure), and the enclave (when a container exits non-zero). Asking "does this job
+// have any log?" therefore answers a different question from "can this reviewer find out why the
+// run failed?", and conflating the two is how an errored job with nothing but a security scan log
+// came to promise error logs it did not have (OTTER-524).
+const ENCRYPTED_ERROR_LOG_TYPES: FileType[] = ['ENCRYPTED-CODE-RUN-LOG', 'ENCRYPTED-PACKAGING-ERROR-LOG']
+
+// The same logs in a form no security key opens. PACKAGING-ERROR-LOG is the plaintext twin the
+// containerizer writes beside the encrypted one whenever that one stored (and alone when the org has
+// no key holders, so encryptAndStoreLog produced nothing to pair it with); the APPROVED-* pair are
+// pre-#764 legacy rows. Kept separate from the encrypted set because the reviewer's screen must
+// promise a key form only for logs a key can actually open.
+//
+// This set therefore OVERLAPS the encrypted one on an ordinary packaging failure, which holds both
+// halves of the same log. Only errorLogSentence's ordering resolves that, by asking the decryptable
+// question first; a caller that asks this one alone will call a readable log undisplayable.
+//
+// APPROVED-SECURITY-SCAN-LOG is absent on purpose, matching ENCRYPTED-SECURITY-SCAN-LOG's absence
+// from the set above: a scan log is not a log about a failed run in either form. Do not complete the
+// APPROVED-* trio here. That absence is what keeps "any log" and "a log about a failed run" as two
+// separate questions, which is the reason both sets exist.
+const UNDECRYPTABLE_ERROR_LOG_TYPES: FileType[] = [
+    'PACKAGING-ERROR-LOG',
+    'APPROVED-CODE-RUN-LOG',
+    'APPROVED-PACKAGING-ERROR-LOG',
+]
+
+export function filesIncludeDecryptableErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => ENCRYPTED_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
+export function filesIncludeUndecryptableErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => UNDECRYPTABLE_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
+/**
+ * The encrypted artifacts that describe THIS run's outcome: what it produced, and the log saying why
+ * it failed. The single gate the reviewer's errored screen turns on, so that what the banner promises
+ * and what the screen renders cannot disagree (OTTER-524).
+ *
+ * ENCRYPTED-SECURITY-SCAN-LOG is deliberately excluded. It is written by the code scanner at
+ * submission, is already surfaced on the code review step, and says nothing about a run, so an
+ * errored job carrying only that log has genuinely nothing for a key to open here. Including it is
+ * what produced a key form under a banner reading "there is no error log for this run", and an
+ * enabled "share outputs" that would have shared a submission-time scan log as the run's outputs.
+ */
+export function jobHasDecryptableRunOutcome(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => f.fileType === 'ENCRYPTED-RESULT' || ENCRYPTED_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
 export function logLabel(fileType: FileType): string {
     return LOG_LABELS[fileType] ?? 'Results'
 }

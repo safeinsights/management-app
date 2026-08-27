@@ -384,7 +384,7 @@ export const storeS3File = async (
 
 export async function signedUrlForFile(
     Key: string,
-    commandOverrides: Partial<{ ResponseContentDisposition: string }> = {},
+    commandOverrides: Partial<{ ResponseContentDisposition: string; ResponseContentType: string }> = {},
 ) {
     return await getSignedUrl(
         getS3BrowserClient(),

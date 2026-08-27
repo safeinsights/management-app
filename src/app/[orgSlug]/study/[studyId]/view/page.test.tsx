@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
+import { Routes } from '@/lib/routes'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
@@ -640,7 +641,59 @@ describe('StudyViewPage', () => {
             )
         })
 
-        it('threads returnTo=org to the results screen via dashboardHref', async () => {
+        it('renders the outputs-feedback screen with errored banner when the run errored and feedback only was shared (OTTER-697)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'JOB-ERRORED')
+            await addJobStatus(study.id, 'FILES-REJECTED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
+            expect(screen.getByText('Verify outputs')).toBeInTheDocument()
+            expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
+            )
+            expect(screen.getByRole('link', { name: /edit code/i })).toHaveAttribute(
+                'href',
+                Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }),
+            )
+        })
+
+        it('renders outputs-errored-shared when the run errored and the reviewer shared the outputs (OTTER-696)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'JOB-ERRORED')
+            await addJobStatus(study.id, 'FILES-APPROVED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Decrypt outputs to view code error/)).toBeInTheDocument()
+            expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
+            expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
+        })
+
+        it('threads returnTo=org to the results screen', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -655,11 +708,14 @@ describe('StudyViewPage', () => {
                 searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
-            // returnTo=org is baked into dashboardHref by the page dispatch before the screen
-            // is called (ResearcherBreadcrumbs is mocked to null in tests, so we verify via props).
-            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
             renderWithProviders(page!)
             expect(screen.getByText('Study Status')).toBeInTheDocument()
+            // returnTo=org survives the page dispatch: the "Previous" link back to the code
+            // step carries it so org scope survives the hop.
+            expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
+            )
         })
 
         // /view resolves purely on state — query params are ignored. A CODE-APPROVED study (no

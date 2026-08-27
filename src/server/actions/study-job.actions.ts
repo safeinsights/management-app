@@ -1,14 +1,14 @@
 'use server'
 
 import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
+import { assertDecisionFeedback } from './decision-feedback'
 import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
     hasOutputsDecision,
     hasReviewableOutputs,
-    OUTPUTS_FEEDBACK_MIN_WORDS,
-    outputsFeedbackMaxWords,
+    OUTPUTS_FEEDBACK_FIELD_TITLE,
+    OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
 import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
@@ -215,17 +215,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             })
         }
 
-        // The cap is a property of the run being reviewed, not of the request. Taking it from the
-        // client would let a caller raise its own limit to anything.
-        const maxWords = outputsFeedbackMaxWords(jobStatuses)
-
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
-        if (wordCount < OUTPUTS_FEEDBACK_MIN_WORDS) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (wordCount > maxWords) {
-            throw new ActionFailure({ feedback: `Feedback must be ${maxWords} words or fewer (got ${wordCount})` })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: OUTPUTS_FEEDBACK_FIELD_TITLE,
+            maxCharacters: OUTPUTS_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const shareOutputs = decision === 'share-outputs'
 
