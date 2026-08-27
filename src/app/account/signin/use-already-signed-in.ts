@@ -29,7 +29,8 @@ function trustedRedirectTarget(searchParams: ReadonlyURLSearchParams): Route | n
     return sanitized
 }
 
-// Latched on first load so a sign-in completed through the form doesn't re-open the prompt.
+// Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
+// latch is one-directional: losing the session afterward always drops back to the form.
 export function useAlreadySignedIn(): UseAlreadySignedIn {
     const { isLoaded, isSignedIn, user } = useUser()
     const { signOut } = useClerk()
@@ -61,6 +62,15 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         }
     }
 
+    // Reveal the form when Clerk drops the session after the latch. The latch above is one-shot
+    // for false -> true on purpose; true -> false is the opposite case and is never ambiguous:
+    // the prompt is stale, and its Continue button could only bounce off the proxy and look dead
+    // (OTTER-745). Also covers 'redirecting', where a dead session would otherwise strand the
+    // page on a permanent loader.
+    if (isLoaded && !isSignedIn && (status === 'signed-in' || status === 'redirecting')) {
+        setStatus('signed-out')
+    }
+
     // Perform the actual navigation once we've latched into the redirecting state.
     // The ref makes this fire exactly once: the effect can re-run on unrelated
     // re-renders (e.g. an unstable router reference), and repeatedly calling
@@ -72,8 +82,14 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     }, [status, redirectTarget, router])
 
     const continueToApp = useCallback(() => {
-        router.replace(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
-    }, [router, searchParams])
+        // Hard navigation, not router.replace: when Clerk's client session has outlived the real one,
+        // the proxy bounces a soft navigation straight back to this same URL, the route never remounts,
+        // and the button looks dead (OTTER-745). A full load makes Clerk re-initialize from cookies, so
+        // the user either lands on the target or gets the sign-in form. Never nothing.
+        // location.replace, not assign: keeps this page out of history, matching the router.replace it
+        // supersedes. Otherwise Back would land here and auto-redirect forward again.
+        window.location.replace(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
+    }, [searchParams])
 
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
