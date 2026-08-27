@@ -48,6 +48,42 @@ function FeedbackTestWrapper() {
 }
 
 describe('ReviewFeedbackSection', () => {
+    it('renders the static section title "Decision"', () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        expect(screen.getByText('Decision')).toBeInTheDocument()
+    })
+
+    it('renders the new secondary intro copy with the interpolated lab name', () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        expect(
+            screen.getByText(
+                'Share your decision and feedback on this proposal with Test Lab. Consider evaluating the proposal on these criteria:',
+            ),
+        ).toBeInTheDocument()
+    })
+
+    it('renders the three evaluation criteria with only the label bolded', () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        expect(screen.getByText('Feasibility:')).toHaveStyle({ fontWeight: 600 })
+        expect(screen.getByText('Impact:')).toHaveStyle({ fontWeight: 600 })
+        expect(screen.getByText('Researcher background:')).toHaveStyle({ fontWeight: 600 })
+
+        expect(
+            screen.getByText(/Can this study be supported with your available data and infrastructure\?/),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByText(/Could the results advance the understanding of teaching and learning\?/),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                /Does the researcher have relevant expertise, or appropriate faculty\/PI supervision if they are a student or post-doc\?/,
+            ),
+        ).toBeInTheDocument()
+    })
+
     it('renders the editor placeholder text', async () => {
         renderWithProviders(<FeedbackTestWrapper />)
 
