@@ -62,6 +62,10 @@ export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code
 
 export const scanLogDownloadURL = (jobId: string) => `/dl/scan-log/${jobId}`
 
+// Stored objects carry an opaque S3 key, so the name the reviewer sees — in the download's
+// Content-Disposition and as the in-app viewer's title — is supplied here rather than by storage.
+export const SCAN_LOG_FILE_NAME = 'security-scan-log.txt'
+
 export const coderUserInfoPath = (username: CoderUsername) => `/api/v2/users/${username}`
 export const coderUsersPath = () => `/api/v2/users`
 export const coderOrgsPath = () => `/api/v2/organizations`

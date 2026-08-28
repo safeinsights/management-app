@@ -14,17 +14,19 @@ import {
     Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, DownloadSimpleIcon, EyeIcon } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
+import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
-import { studyCodeURL } from '@/lib/paths'
+import { SCAN_LOG_FILE_NAME, scanLogDownloadURL, studyCodeURL } from '@/lib/paths'
 import {
+    fetchScanLogAction,
     fetchStudyJobCodeFileAction,
     getStudyReviewAction,
     regenerateStudyReviewAction,
@@ -566,5 +568,66 @@ export function StudyCodeViewer({
                 testId={toggleTestId}
             />
         </Stack>
+    )
+}
+
+// The log is only fetched once View is clicked; a reviewer who only downloads never pays for
+// pulling it through the app. A failed fetch surfaces in the modal rather than as a blank viewer.
+function useScanLogViewer(studyJobId: string) {
+    const [isOpen, setIsOpen] = useState(false)
+    const { data, isError } = useQuery({
+        queryKey: ['study-job-scan-log', studyJobId],
+        queryFn: () => fetchScanLogAction({ studyJobId }),
+        enabled: isOpen,
+        staleTime: Infinity,
+    })
+    return {
+        isOpen,
+        open: () => setIsOpen(true),
+        close: () => setIsOpen(false),
+        contents: isError ? SCAN_LOG_UNAVAILABLE : (data?.contents ?? null),
+    }
+}
+
+const SCAN_LOG_UNAVAILABLE = 'Unable to load the security scan log.'
+
+const SCAN_LOG_LINK_PROPS = {
+    size: 'sm',
+    fw: 600,
+    display: 'inline-flex',
+    style: { alignItems: 'center', gap: 4, width: 'fit-content' },
+} as const
+
+// View opens the shared file viewer modal; Download goes straight to the signed S3 URL, so the
+// two paths stay independent — the log stays downloadable even when the in-app fetch fails.
+export function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisible: boolean }) {
+    const viewer = useScanLogViewer(studyJobId)
+    if (!isVisible) return null
+
+    const file = viewer.isOpen ? { name: SCAN_LOG_FILE_NAME, contents: viewer.contents } : null
+
+    return (
+        <Group gap="lg">
+            <Anchor
+                component="button"
+                type="button"
+                onClick={viewer.open}
+                data-testid="security-scan-log-view"
+                {...SCAN_LOG_LINK_PROPS}
+            >
+                <EyeIcon size={16} />
+                View
+            </Anchor>
+            <Anchor
+                href={scanLogDownloadURL(studyJobId)}
+                download
+                data-testid="security-scan-log-download"
+                {...SCAN_LOG_LINK_PROPS}
+            >
+                <DownloadSimpleIcon size={16} />
+                Download
+            </Anchor>
+            <FilePreviewModal file={file} onClose={viewer.close} />
+        </Group>
     )
 }
