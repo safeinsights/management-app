@@ -544,6 +544,22 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
         expect(rows[0]!.orgs.map((org) => org.name).sort()).toEqual([firstOrg.name, secondOrg.name].sort())
     })
 
+    it('keeps both affiliations when two orgs share a name', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const name = faker.company.name()
+        const firstOrg = await insertTestOrg({ slug: faker.string.alpha(10), name, type: 'lab' })
+        const secondOrg = await insertTestOrg({ slug: faker.string.alpha(10), name, type: 'enclave' })
+        const { user } = await insertTestUser({
+            org: { id: firstOrg.id, slug: firstOrg.slug, type: firstOrg.type },
+        })
+        await db.insertInto('orgUser').values({ orgId: secondOrg.id, userId: user.id, isAdmin: false }).execute()
+
+        const { users } = actionResult(await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' }))
+        const row = users.find((candidate) => candidate.userId === user.id)
+
+        expect(row?.orgs.map((org) => org.id).sort()).toEqual([firstOrg.id, secondOrg.id].sort())
+    })
+
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 

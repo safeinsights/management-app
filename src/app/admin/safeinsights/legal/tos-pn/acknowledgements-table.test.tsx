@@ -83,6 +83,17 @@ describe('AcknowledgementsTable', () => {
         expect(row?.textContent).not.toContain('None')
     })
 
+    it('names every org the user belongs to', async () => {
+        const { user, org } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
+        await publishTos()
+
+        renderWithProviders(<AcknowledgementsTable type="TOS" />)
+
+        const row = (await screen.findByText(user.email!)).closest('tr')
+        expect(row?.textContent).toContain(org.name)
+    })
+
     it('re-reads the audience in the other direction when a sortable column is clicked', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const first = await insertNamedUser('Aaa')

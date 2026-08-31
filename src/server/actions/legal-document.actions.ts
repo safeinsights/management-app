@@ -382,7 +382,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
             .selectFrom('user')
             .leftJoin('orgUser', 'orgUser.userId', 'user.id')
             .leftJoin('org', 'org.id', 'orgUser.orgId')
-            .select(['user.id', 'user.fullName', 'user.email', 'org.name as orgName', 'org.type as orgType'])
+            .select(['user.id', 'user.fullName', 'user.email', 'org.id as orgId', 'org.name as orgName'])
             .execute()
 
         const acknowledgements = legalDocument
@@ -418,7 +418,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                 userId: row.id,
                 fullName: row.fullName,
                 email: row.email,
-                orgs: [] as { name: string; type: string }[],
+                orgs: [] as { id: string; name: string }[],
                 acknowledgedVersionNumber: ack?.versionNumber ?? null,
                 ackedAt: ack?.ackedAt ?? null,
             }
@@ -426,8 +426,9 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 
         for (const row of memberships) {
             const existing = byUser.get(row.id) ?? buildRow(row)
-            if (row.orgName && row.orgType && !existing.orgs.some((org) => org.name === row.orgName)) {
-                existing.orgs.push({ name: row.orgName, type: row.orgType })
+            // Deduped on id: org names carry no unique constraint.
+            if (row.orgId && row.orgName && !existing.orgs.some((org) => org.id === row.orgId)) {
+                existing.orgs.push({ id: row.orgId, name: row.orgName })
             }
             byUser.set(row.id, existing)
         }
