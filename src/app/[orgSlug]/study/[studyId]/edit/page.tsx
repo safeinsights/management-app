@@ -1,48 +1,31 @@
-import { db } from '@/database'
 import { AlertNotFound } from '@/components/errors'
+import { isActionError } from '@/lib/errors'
+import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyProposal } from '../../request/proposal'
 
 export default async function StudyEditPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const params = await props.params
     const { studyId } = params
 
-    // TODO: validate that member from clerk session matches memberId from url
-    const study = await db
-        .selectFrom('study')
-        .innerJoin('org', 'org.id', 'study.orgId')
-        .select([
-            'study.id',
-            'study.status',
-            'study.title',
-            'study.piName',
-            'study.piUserId',
-            'study.language',
-            'study.descriptionDocPath',
-            'study.irbDocPath',
-            'study.agreementDocPath',
-            'study.dataSources',
-            'study.datasets',
-            'study.researchQuestions',
-            'study.projectSummary',
-            'study.impact',
-            'study.additionalNotes',
-            'study.containerLocation',
-            'study.outputMimeType',
-            'org.slug as orgSlug',
-            'org.name as orgName',
-        ])
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
+    // getStudyAction rather than a query of our own: it carries the `view Study` ability check, so a
+    // study the session cannot see is not served here, and it filters soft-deleted rows.
+    const study = await getStudyAction({ studyId })
 
-    if (!study || study.status !== 'DRAFT') {
-        return (
-            <AlertNotFound title="Study was not found" message="Only studies that are in DRAFT status can be edited." />
-        )
+    if (isActionError(study) || !study) {
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // /edit is a revisitable step: an authorized DRAFT researcher can open it directly, forward or
-    // back, regardless of how far the draft has progressed. The screen authority (resolveScreen)
-    // decides the canonical screen, so this page no longer self-redirects to resume on Step 2.
+    // Step 1 serves two personas (OTTER-764): a DRAFT is the editable wizard, and a submitted study
+    // is the same page as a read-only record, which is what the submitted proposal steps back to.
+    // No status is turned away, so every study the researcher may see has a Step 1 to return to, and
+    // the "Next step" a submitted one offers always lands on a /submitted page that accepts it.
+    //
+    // The read-only view needs a title to display, and it always has one: the
+    // study_title_required_when_not_draft constraint permits a null title on a DRAFT only.
+    //
+    // /edit is a revisitable step: an authorized researcher can open it directly, forward or back,
+    // regardless of how far the study has progressed. The screen authority (resolveScreen) decides
+    // the canonical screen, so this page no longer self-redirects to resume on Step 2.
     return (
         <StudyProposal
             studyId={studyId}

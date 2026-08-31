@@ -36,35 +36,81 @@ const setupDraft = async () => {
 
 const LEXICAL_BODY = JSON.stringify({ root: { children: [{ type: 'paragraph', children: [] }] } })
 
+// <StudyProposal /> calls useStudyRequest(); production wires the provider in
+// /[orgSlug]/study/layout.tsx (which the test render does not exercise).
+const renderPage = async (orgSlug: string, studyId: string) => {
+    const page = await renderRoute(orgSlug, studyId)
+    renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page!}</StudyRequestProvider>)
+}
+
 describe('StudyEditPage', () => {
     it('renders the Step 1 form when the draft has no Step 2 fields populated', async () => {
         const { org, study } = await setupDraft()
-        // <StudyProposal /> calls useStudyRequest(); production wires the provider in
-        // /[orgSlug]/study/layout.tsx (which the test render does not exercise).
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
+        await renderPage(org.slug, study.id)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        // The Step 1 form's "Save & continue" footer button is the cheapest, most stable proof
-        // that we rendered <StudyProposal /> (Step 1) rather than redirecting away.
-        expect(screen.getByRole('button', { name: /Save & continue/i })).toBeInTheDocument()
+        // The footer CTA is the cheapest, most stable proof that we rendered <StudyProposal /> in its
+        // editable revisit state rather than redirecting away.
+        expect(screen.getByRole('button', { name: 'Save and continue' })).toBeInTheDocument()
     })
 
-    it('shows the not-found message for non-DRAFT studies', async () => {
+    // OTTER-764: a submitted study renders the same page as a read-only record, which is what gives
+    // the researcher somewhere to step back to from the submitted proposal.
+    it('renders Step 1 read-only for a submitted study', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            title: 'A submitted study',
+        })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderPage(org.slug, study.id)
+
+        expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
+        expect(screen.getByText('A submitted study')).toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
+    })
+
+    it('renders Step 1 read-only for a decided study', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
             studyStatus: 'APPROVED',
         })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderPage(org.slug, study.id)
+
+        expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    it('shows the not-found message for a study that does not exist', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        const page = await renderRoute(org.slug, crypto.randomUUID())
+        renderWithProviders(page!)
+
+        expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    // The page reads through getStudyAction now, so the soft-delete filter and the ability check it
+    // carries apply here too.
+    it('shows the not-found message for a soft-deleted study', async () => {
+        const { org, study } = await setupDraft()
+        await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', study.id).execute()
 
         const page = await renderRoute(org.slug, study.id)
         renderWithProviders(page!)
 
-        expect(screen.getByText(/Only studies that are in DRAFT status can be edited/i)).toBeInTheDocument()
-        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()
     })
 
     // /edit is a revisitable step: it always renders Step 1 for an authorized DRAFT researcher and
@@ -80,10 +126,9 @@ describe('StudyEditPage', () => {
             .execute()
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
+        await renderPage(org.slug, study.id)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: /Save & continue/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Save and continue' })).toBeInTheDocument()
     })
 })
