@@ -17,6 +17,8 @@ interface StudyProposalProps {
     /** Present once the draft has a persisted row. Drives the locks and the navigation state. */
     studyId?: string
     draftData?: DraftStudyData | null
+    /** Set when the researcher entered from an org dashboard, so the step forward can hand it back. */
+    returnTo?: 'org'
 }
 
 const MODAL_BODY =
@@ -70,7 +72,7 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, returnTo }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
@@ -92,11 +94,14 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     }, [saveDraft, form, router, submittingOrgSlug])
 
     // Once the proposal is submitted there is nothing to validate and nothing to save, so the CTA is
-    // a plain step forward to the submitted record (OTTER-764).
+    // a plain step forward to the submitted record (OTTER-764). It still sets `isProceeding`: the
+    // target re-runs its own server reads, so without it the button looks dead for the whole
+    // navigation and repeated clicks stack pushes. Nothing resets it, because the page is leaving.
     const goToSubmitted = useCallback(() => {
         if (!studyId) return
-        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
-    }, [router, submittingOrgSlug, studyId])
+        setIsProceeding(true)
+        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId, returnTo }))
+    }, [router, submittingOrgSlug, studyId, returnTo])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({

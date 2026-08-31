@@ -129,7 +129,7 @@ const submittedDraft = (fixtures: Fixtures, overrides: Partial<DraftStudyData> =
 
 const renderSetup = (
     fixtures: Fixtures,
-    props: { studyId?: string; draftData?: DraftStudyData | null } = {},
+    props: { studyId?: string; draftData?: DraftStudyData | null; returnTo?: 'org' } = {},
     queryClient?: ReturnType<typeof createTestQueryClient>,
 ) =>
     renderWithProviders(
@@ -930,6 +930,11 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         const { study, draftData } = await insertRevisitableDraft(fixtures)
+        // The row is seeded apart from the draft the page renders, so the write is observable. The
+        // click sends the form's title whether or not it was edited, so asserting the row still
+        // holds the draft's title would otherwise pass with the save removed entirely, and the
+        // no-op save is the whole contract here.
+        await db.updateTable('study').set({ title: 'A title only the row has' }).where('id', '=', study.id).execute()
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
         await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
@@ -1026,6 +1031,25 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+    })
+
+    // An org-scoped entry has to survive the round trip. /submitted hands returnTo down to Step 1
+    // and Step 1 hands it back, so the exit there still points at the dashboard the researcher
+    // actually came from rather than the personal one.
+    it('carries an org-scoped entry back to the submitted record', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData, returnTo: 'org' })
+
+        expect(await screen.findByText('A previously saved title')).toBeInTheDocument()
+        await user.click(nextStepButton())
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id, returnTo: 'org' }),
+            ),
+        )
     })
 
     it('reaches the submitted record for a decided proposal too', async () => {

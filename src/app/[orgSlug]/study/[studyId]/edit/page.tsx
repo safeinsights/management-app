@@ -3,9 +3,15 @@ import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyProposal } from '../../request/proposal'
 
-export default async function StudyEditPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
+export default async function StudyEditPage(props: {
+    params: Promise<{ studyId: string; orgSlug: string }>
+    searchParams: Promise<Record<string, string | undefined>>
+}) {
     const params = await props.params
     const { studyId } = params
+    const searchParams = await props.searchParams
+    // Read exactly as /submitted reads it, so a step back and forward preserves the org-scoped entry.
+    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     // getStudyAction rather than a query of our own: it carries the `view Study` ability check, so a
     // study the session cannot see is not served here, and it filters soft-deleted rows.
@@ -29,6 +35,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     return (
         <StudyProposal
             studyId={studyId}
+            returnTo={returnTo}
             draftData={{
                 id: studyId,
                 title: study.title ?? '',

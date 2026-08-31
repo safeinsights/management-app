@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { redirect, useParams } from 'next/navigation'
 import { StudyRequestProvider } from '@/contexts/study-request'
+import logger from '@/lib/logger'
 import {
     db,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
     mockSessionWithTestData,
@@ -20,8 +22,8 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string) =>
-    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }) })
+const renderRoute = (orgSlug: string, studyId: string, searchParams: Record<string, string | undefined> = {}) =>
+    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }), searchParams: Promise.resolve(searchParams) })
 
 const setupDraft = async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -38,8 +40,8 @@ const LEXICAL_BODY = JSON.stringify({ root: { children: [{ type: 'paragraph', ch
 
 // <StudyProposal /> calls useStudyRequest(); production wires the provider in
 // /[orgSlug]/study/layout.tsx (which the test render does not exercise).
-const renderPage = async (orgSlug: string, studyId: string) => {
-    const page = await renderRoute(orgSlug, studyId)
+const renderPage = async (orgSlug: string, studyId: string, searchParams: Record<string, string | undefined> = {}) => {
+    const page = await renderRoute(orgSlug, studyId, searchParams)
     renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page!}</StudyRequestProvider>)
 }
 
@@ -111,6 +113,31 @@ describe('StudyEditPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()
+    })
+
+    // The other half of what getStudyAction brings, and the half that closes this page's
+    // long-standing access TODO: a study submitted by a lab the session user does not belong to
+    // fails `view Study` and is refused, where the page's own query used to render it.
+    it('shows the not-found message for a study the session user has no ability to view', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+        // getStudyAction logs the denial before returning it, and the denial is the expected result
+        // here rather than a fault, so keep it out of the run's error output.
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
+        const { user: otherResearcher } = await insertTestUser({ org: otherLab })
+        const { study } = await insertTestStudyJobData({
+            org: otherLab,
+            researcherId: otherResearcher.id,
+            studyStatus: 'PENDING-REVIEW',
+            title: 'A study belonging to another lab',
+        })
+
+        const page = await renderRoute(otherLab.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()
+        expect(screen.queryByText('A study belonging to another lab')).not.toBeInTheDocument()
     })
 
     // /edit is a revisitable step: it always renders Step 1 for an authorized DRAFT researcher and

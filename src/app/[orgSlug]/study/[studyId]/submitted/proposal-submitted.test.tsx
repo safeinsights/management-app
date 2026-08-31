@@ -525,6 +525,27 @@ describe('ProposalSubmitted', () => {
             expect(screen.getByRole('link', { name: /go to dashboard/i })).toBeInTheDocument()
         })
 
+        // Step 1 is a leaf the researcher steps back to and forward from, so the org-scoped entry
+        // has to ride along or the round trip strands them on the personal dashboard.
+        it('keeps an org-scoped entry on the "Previous step" link', () => {
+            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={pendingStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                    returnTo="org"
+                />,
+            )
+
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id, returnTo: 'org' }),
+            )
+        })
+
         it('shows a "Previous step" link to Step 1 when status is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(

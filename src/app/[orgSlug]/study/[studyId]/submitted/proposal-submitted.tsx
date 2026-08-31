@@ -101,8 +101,10 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
 }) => {
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
     const editAndResubmitHref = Routes.studyEditAndResubmit({ orgSlug, studyId: study.id })
-    // Step 1, which serves the submitted study as a read-only record (OTTER-764).
-    const setupHref = Routes.studyEdit({ orgSlug, studyId: study.id })
+    // Step 1, which serves the submitted study as a read-only record (OTTER-764). returnTo rides
+    // along so the round trip back here lands on the same page the researcher came from, exit
+    // included, rather than silently switching to the personal dashboard.
+    const setupHref = Routes.studyEdit({ orgSlug, studyId: study.id, returnTo })
     const proposalStatus = effectiveProposalStatus(study)
 
     // OTTER-727 hid the Agreements step this used to lead to, so proceed straight to the code step.

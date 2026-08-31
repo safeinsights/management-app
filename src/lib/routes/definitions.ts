@@ -123,7 +123,19 @@ export const Routes = {
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
-    studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
+    // Carries returnTo because Step 1 is a leaf the researcher steps back to and forward from
+    // (OTTER-764): without it, a round trip through here strands an org-scoped entry on the
+    // personal dashboard.
+    studyEdit: makeRoute(
+        ({ orgSlug, studyId, returnTo }) => {
+            const base = `/${orgSlug}/study/${studyId}/edit`
+            const params = new URLSearchParams()
+            if (returnTo) params.set('returnTo', returnTo)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ returnTo: z.string().optional() }),
+    ),
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
