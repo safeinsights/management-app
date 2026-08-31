@@ -18,10 +18,12 @@ import {
     getLabPublicKeysForStudy,
     getUserPublicKey,
     getSharedFileIdsForJob,
+    getStudyJobFileOfType,
     getStudyJobInfo,
     getStudyReviewForJob,
     latestJobForStudy,
 } from '@/server/db/queries'
+import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
@@ -386,6 +388,23 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
         const blob = await fetchFileContents(file.path)
         const contents = await blob.arrayBuffer()
         return { fileName: file.name, contents }
+    })
+
+export const fetchScanLogAction = new Action('fetchScanLogAction')
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId } }) => {
+        // Newest row of the type, so the viewer shows the same log the displayed
+        // scan statuses were parsed from and the download link serves.
+        const file = await getStudyJobFileOfType(studyJobId, 'SECURITY-SCAN-LOG', false)
+        if (!file) throw new ActionFailure({ file: 'No security scan log found for this job' })
+
+        const blob = await fetchFileContents(file.path)
+        return { fileName: SCAN_LOG_FILE_NAME, contents: await blob.text() }
     })
 
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { urlForFile } from '@/server/storage'
 import { getStudyJobFileOfType, jobInfoForJobId } from '@/server/db/queries'
 import { canViewStudyJob } from '@/server/auth'
+import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 
 // Serves the plaintext SECURITY-SCAN-LOG .txt for a job. The encrypted zip is
 // intentionally not downloadable here (OTTER-649: ZIPs are not offered).
@@ -31,7 +32,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
     // redirect to S3, so force a Content-Disposition rather than relying on the stored
     // object's content type (uploads set none today, but that could change).
     const url = await urlForFile(file.path, {
-        ResponseContentDisposition: 'attachment; filename="security-scan-log.txt"',
+        ResponseContentDisposition: `attachment; filename="${SCAN_LOG_FILE_NAME}"`,
     })
     return NextResponse.redirect(url)
 }
