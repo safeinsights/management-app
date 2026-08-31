@@ -91,6 +91,18 @@ describe('useAlreadySignedIn', () => {
         expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
     })
 
+    it('auto-redirects when the last exit note is dated in the future', () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
+        noteExitAttempt(Date.now() + 60_000)
+        mockSignedInUser()
+        const navigate = spyOnHardNavigation()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+
+        expect(result.current.status).toBe('redirecting')
+        expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
+    })
+
     it('notes the exit it makes so the next mount can recognize a bounce', () => {
         mockSignedInUser()
         spyOnHardNavigation()

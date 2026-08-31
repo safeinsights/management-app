@@ -78,7 +78,11 @@ function hasRecentExitAttempt(): boolean {
         const note = sessionStorage.getItem(EXIT_ATTEMPT_KEY)
         if (!note) return false
         // A non-numeric note yields NaN, and every NaN comparison is false, so it reads as no bounce.
-        return Date.now() - Number(note) < EXIT_BOUNCE_WINDOW_MS
+        // A note from the future means the clock moved backwards, and reading that as a warm note would
+        // suppress the redirect for the life of the tab, so it reads as no bounce too. The next exit
+        // writes a note against the new clock, which heals it.
+        const age = Date.now() - Number(note)
+        return age >= 0 && age < EXIT_BOUNCE_WINDOW_MS
     } catch {
         return false
     }
