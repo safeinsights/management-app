@@ -1,4 +1,5 @@
 import {
+    type ButtonProps,
     createTheme,
     CSSVariablesResolver,
     DefaultMantineColor,
@@ -82,13 +83,15 @@ const purple: MantineColorsTuple = [
     '#100A4C',
     '#070524',
 ]
+const BRAND_DEFAULT = '#01215E'
+
 const navy: MantineColorsTuple = [
     '#E6E9EF',
     '#CCD3DF',
     '#99A6BF',
     '#677A9E',
     '#344D7E',
-    '#01215E',
+    BRAND_DEFAULT,
     '#011A4B',
     '#011438',
     '#000D26',
@@ -105,7 +108,7 @@ const blue: MantineColorsTuple = [
     '#0058BD',
     '#004594',
     '#00326B',
-    '#01215E',
+    BRAND_DEFAULT,
 ]
 
 type ExtendedCustomColors =
@@ -130,6 +133,10 @@ declare module '@mantine/core' {
         spacing: Record<ExtendedCustomSpacing, string>
     }
 }
+
+// Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
+// itself, so each needs brand/Light supplied explicitly.
+const LIGHT_HOVER_VARIANTS: string[] = ['outline', 'subtle', 'light']
 
 export const theme = createTheme({
     fontFamily: 'Open Sans',
@@ -163,10 +170,9 @@ export const theme = createTheme({
         Button: {
             defaultProps: {
                 color: 'navy',
-                radius: 2,
             },
-            vars: (_theme: unknown, props: { variant?: string }) => ({
-                root: props.variant === 'outline' || props.variant === 'subtle' ? { '--button-hover': navy[0] } : {},
+            vars: (_theme: unknown, props: ButtonProps) => ({
+                root: LIGHT_HOVER_VARIANTS.includes(props.variant ?? '') ? { '--button-hover': navy[0] } : {},
             }),
             styles: () => ({
                 root: {

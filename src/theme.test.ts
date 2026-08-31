@@ -4,6 +4,10 @@ import { theme } from './theme'
 // Hex values are hand-copied from Figma, so drift would otherwise be invisible in review.
 describe('button colors', () => {
     const navy = theme.colors?.navy ?? []
+    const buttonVars = theme.components?.Button?.vars as (
+        t: unknown,
+        p: { variant?: string },
+    ) => { root: Record<string, string> }
 
     it('carries the library brand ramp', () => {
         expect(navy[5]).toBe('#01215E')
@@ -12,7 +16,7 @@ describe('button colors', () => {
     })
 
     it('makes every button navy without repainting the rest of the app', () => {
-        expect(theme.components?.Button?.defaultProps).toMatchObject({ color: 'navy', radius: 2 })
+        expect(theme.components?.Button?.defaultProps).toEqual({ color: 'navy' })
         expect(theme.primaryColor).toBe('purple')
     })
 
@@ -21,13 +25,13 @@ describe('button colors', () => {
         expect(navy[(theme.primaryShade as number) + 1]).toBe('#011A4B')
     })
 
-    it('overrides hover only for the variants Mantine would otherwise get wrong', () => {
-        const vars = theme.components?.Button?.vars as
-            | ((t: unknown, p: { variant?: string }) => { root: Record<string, string> })
-            | undefined
+    // light resolves its hover from the same alpha as outline and subtle, so it needs the override
+    // too — missing it was the gap review caught.
+    it.each(['outline', 'subtle', 'light'])('supplies brand/Light as the %s hover', (variant) => {
+        expect(buttonVars({}, { variant }).root).toEqual({ '--button-hover': '#E6E9EF' })
+    })
 
-        expect(vars?.({}, { variant: 'outline' }).root).toEqual({ '--button-hover': '#E6E9EF' })
-        expect(vars?.({}, { variant: 'subtle' }).root).toEqual({ '--button-hover': '#E6E9EF' })
-        expect(vars?.({}, { variant: 'filled' }).root).toEqual({})
+    it.each(['filled', 'default', 'gradient', 'transparent', 'white'])('leaves the %s hover to Mantine', (variant) => {
+        expect(buttonVars({}, { variant }).root).toEqual({})
     })
 })
