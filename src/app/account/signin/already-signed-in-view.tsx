@@ -24,7 +24,7 @@ export const AlreadySignedInView: FC<AlreadySignedInViewProps> = ({
         <Paper bg="white" p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="xl">
                 <Title order={3} ta="center">
-                    You&apos;re already signed in
+                    You’re already signed in
                 </Title>
                 <Text size="md" ta="center" c="grey.7">
                     {describeSession(email)} Continue to where you were headed, or sign in with a different account.
