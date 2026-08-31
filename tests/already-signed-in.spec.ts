@@ -1,3 +1,4 @@
+import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { authFileFor, e2eSignOut, expect, goto, test } from './e2e.helpers'
 
 // Opening the sign-in page with an active session should offer continue/switch, not error.
@@ -57,5 +58,34 @@ test.describe('sign in while already signed in', () => {
         await expect(page).toHaveURL(/redirect_url=%2Fdashboard/)
         await expect(page.getByLabel('email')).toBeVisible()
         await expect(page.getByLabel('password')).toBeVisible()
+    })
+
+    // OTTER-745: the other way this page used to stick. The automatic move leaves through a full
+    // page load, so the bounced document arrives as a fresh mount and would move again, holding a
+    // loading indicator and reloading itself once per pass. The mark on the URL the proxy sends
+    // back is what ends that, and the count below is the assertion that matters: one refusal, not
+    // a stream of them.
+    //
+    // The refusal is served from the test rather than by the proxy on purpose. In the fake, client
+    // and server both read the role cookie, so they agree at every page load and the divergence
+    // cannot be made by signing out; keeping the cookie and answering the target the way
+    // src/proxy.ts does when it sees no session reproduces it exactly.
+    test('the automatic redirect stops after the proxy refuses it once', async ({ page }) => {
+        const refusedTo = `/account/signin?redirect_url=%2Fdashboard&${BOUNCE_PARAM}=${BOUNCE_VALUE}`
+        let refusals = 0
+
+        await page.route('**/dashboard', async (route) => {
+            if (route.request().resourceType() !== 'document') return route.continue()
+            refusals += 1
+            await route.fulfill({ status: 307, headers: { location: refusedTo } })
+        })
+
+        await goto(page, '/account/signin?redirect_url=%2Fdashboard')
+
+        await expect(page.getByLabel('email')).toBeVisible()
+        await expect(page.getByLabel('password')).toBeVisible()
+        await expect(page.getByRole('heading', { name: /already signed in/i })).toBeHidden()
+        await expect(page).toHaveURL(new RegExp(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`))
+        expect(refusals).toBe(1)
     })
 })
