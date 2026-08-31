@@ -1,13 +1,11 @@
+import type { ButtonVariant } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
-import { theme } from './theme'
+import { buttonVars, theme } from './theme'
 
-// Hex values are hand-copied from Figma, so drift would otherwise be invisible in review.
+// Locks the values transcribed from the SI UI Component Library (OTTER-761). Hex values are
+// hand-copied from Figma, so drift would otherwise be invisible in review.
 describe('button colors', () => {
     const navy = theme.colors?.navy ?? []
-    const buttonVars = theme.components?.Button?.vars as (
-        t: unknown,
-        p: { variant?: string },
-    ) => { root: Record<string, string> }
 
     it('carries the library brand ramp', () => {
         expect(navy[5]).toBe('#01215E')
@@ -17,6 +15,7 @@ describe('button colors', () => {
 
     it('makes every button navy without repainting the rest of the app', () => {
         expect(theme.components?.Button?.defaultProps).toEqual({ color: 'navy' })
+        expect(theme.components?.Button?.vars).toBe(buttonVars)
         expect(theme.primaryColor).toBe('purple')
     })
 
@@ -27,11 +26,14 @@ describe('button colors', () => {
 
     // light resolves its hover from the same alpha as outline and subtle, so it needs the override
     // too — missing it was the gap review caught.
-    it.each(['outline', 'subtle', 'light'])('supplies brand/Light as the %s hover', (variant) => {
+    it.each<ButtonVariant>(['outline', 'subtle', 'light'])('supplies brand/Light as the %s hover', (variant) => {
         expect(buttonVars({}, { variant }).root).toEqual({ '--button-hover': '#E6E9EF' })
     })
 
-    it.each(['filled', 'default', 'gradient', 'transparent', 'white'])('leaves the %s hover to Mantine', (variant) => {
-        expect(buttonVars({}, { variant }).root).toEqual({})
-    })
+    it.each<ButtonVariant>(['filled', 'default', 'gradient', 'transparent', 'white'])(
+        'leaves the %s hover to Mantine',
+        (variant) => {
+            expect(buttonVars({}, { variant }).root).toEqual({})
+        },
+    )
 })
