@@ -338,6 +338,7 @@ describe('ProposalSubmitted', () => {
             const archivedStudy = { ...study, status: 'ARCHIVED' as const, approvedAt: null, rejectedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={archivedStudy}
                     orgName={ORG_NAME}
@@ -415,7 +416,14 @@ describe('ProposalSubmitted', () => {
     describe('view full proposal dropdown', () => {
         it('is collapsed to the snippet by default on page load', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
@@ -426,7 +434,14 @@ describe('ProposalSubmitted', () => {
         it('expands to display the study proposal when clicked', async () => {
             const user = userEvent.setup()
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             await user.click(screen.getByTestId('proposal-toggle-snippet'))
@@ -440,7 +455,14 @@ describe('ProposalSubmitted', () => {
         it('displays study proposal content as read-only with no editable fields', async () => {
             const user = userEvent.setup()
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             await user.click(screen.getByTestId('proposal-toggle-snippet'))
@@ -487,7 +509,14 @@ describe('ProposalSubmitted', () => {
     describe('section heading iteration label', () => {
         it('displays "Initial request" on first submission', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
@@ -495,7 +524,14 @@ describe('ProposalSubmitted', () => {
 
         it('displays "Initial request 2.0" after the first resubmission', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={2} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={2}
+                />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 2.0')
@@ -503,7 +539,14 @@ describe('ProposalSubmitted', () => {
 
         it('displays "Initial request 3.0" after the second resubmission', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={3} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={3}
+                />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 3.0')

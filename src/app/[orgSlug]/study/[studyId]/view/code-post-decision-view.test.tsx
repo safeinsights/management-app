@@ -93,7 +93,6 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
     return { org, study, job: latestJob, latestJobStatus: decisionStatus }
 }
 
-const DEFAULT_DASHBOARD_HREF = Routes.orgDashboard({ orgSlug: ORG_SLUG })
 
 function renderView(
     study: Submitted<SelectedStudy>,
@@ -101,7 +100,6 @@ function renderView(
     entries: CodeReviewFeedbackEntry[],
     latestJobStatus: DecisionStatus,
     overrides: {
-        dashboardHref?: Route
         reviewingOrgName?: string
         feedbackLoadError?: boolean
         nav?: StepNav
@@ -114,7 +112,6 @@ function renderView(
             job={job}
             entries={entries}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
-            dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
             nav={overrides.nav ?? NAV}
             feedbackLoadError={overrides.feedbackLoadError}

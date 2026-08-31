@@ -70,7 +70,6 @@ function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
     overrides: {
-        dashboardHref?: Route
         reviewingOrgName?: string
         nav?: StepNav
         submissionVersion?: number
@@ -84,7 +83,6 @@ function renderView(
             study={study}
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
-            dashboardHref={overrides.dashboardHref}
             nav={overrides.nav ?? NAV}
             submissionVersion={overrides.submissionVersion ?? 1}
             feedbackEntries={overrides.feedbackEntries ?? []}
