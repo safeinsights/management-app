@@ -67,17 +67,17 @@ describe('ProposalReviewView', () => {
     })
 
     describe('needs-clarification', () => {
-        it('renders the needs-clarification option as selectable', async () => {
+        it('renders the request revision option as selectable', async () => {
             const user = userEvent.setup()
             renderWithProviders(
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
             )
 
-            const needsClarification = screen.getByRole('radio', { name: /Needs clarification/ })
-            expect(needsClarification).not.toBeDisabled()
+            const requestRevision = screen.getByRole('radio', { name: /Request revision/ })
+            expect(requestRevision).not.toBeDisabled()
 
-            await user.click(needsClarification)
-            expect(needsClarification).toBeChecked()
+            await user.click(requestRevision)
+            expect(requestRevision).toBeChecked()
         })
 
         it('keeps submit disabled when needs-clarification is selected without valid feedback', async () => {
@@ -86,7 +86,7 @@ describe('ProposalReviewView', () => {
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
             )
 
-            await user.click(screen.getByRole('radio', { name: /Needs clarification/ }))
+            await user.click(screen.getByRole('radio', { name: /Request revision/ }))
 
             expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
         })
@@ -136,8 +136,8 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
-            // Round-aware heading on the editable section
-            expect(screen.getByText('Round 2 review')).toBeInTheDocument()
+            expect(screen.getByTestId('review-feedback-section')).toHaveTextContent('Decision')
+            expect(screen.queryByText('Round 2 review')).not.toBeInTheDocument()
         })
     })
 

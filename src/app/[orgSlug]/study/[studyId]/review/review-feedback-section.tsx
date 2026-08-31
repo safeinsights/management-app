@@ -1,6 +1,6 @@
 'use client'
 
-import { Divider, Group, List, Paper, Stack, Text } from '@mantine/core'
+import { Divider, Group, List, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
@@ -87,32 +87,30 @@ export function ReviewFeedbackSection({
     reviewVersion,
 }: ReviewFeedbackSectionProps) {
     return (
-        <Paper p="xxl" data-testid="review-feedback-section">
-            <Stack gap="lg">
-                <Group gap={4} align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
-                        {SECTION_TITLE}
-                    </Text>
-                    <RequiredIndicator fz={20} fw={700} />
-                </Group>
-                <Divider />
-                <Stack gap="md">
-                    <Text fz={16} c="charcoal.9">
-                        Share your decision and feedback on this proposal with {submittingLabName}. Consider evaluating
-                        the proposal on these criteria:
-                    </Text>
-                    <List spacing={4} fz={16} data-testid="evaluation-criteria">
-                        {EVALUATION_CRITERIA.map((criterion) => (
-                            <CriterionLine
-                                key={criterion.label}
-                                label={criterion.label}
-                                description={criterion.description}
-                            />
-                        ))}
-                    </List>
-                    <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
-                </Stack>
+        <Stack gap="lg" data-testid="review-feedback-section">
+            <Group gap={4} align="center">
+                <Text fz={20} fw={700} c="charcoal.9">
+                    {SECTION_TITLE}
+                </Text>
+                <RequiredIndicator fz={20} fw={700} />
+            </Group>
+            <Divider />
+            <Stack gap="md">
+                <Text fz={16} c="charcoal.9">
+                    Share your decision and feedback on this proposal with {submittingLabName}. Consider evaluating the
+                    proposal on these criteria:
+                </Text>
+                <List spacing={4} fz={16} data-testid="evaluation-criteria">
+                    {EVALUATION_CRITERIA.map((criterion) => (
+                        <CriterionLine
+                            key={criterion.label}
+                            label={criterion.label}
+                            description={criterion.description}
+                        />
+                    ))}
+                </List>
+                <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
             </Stack>
-        </Paper>
+        </Stack>
     )
 }

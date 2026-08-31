@@ -747,7 +747,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         await page
             .getByTestId('review-decision-section')
-            .getByRole('radio', { name: /Needs clarification/i })
+            .getByRole('radio', { name: /Request revision/i })
             .check()
 
         await page.getByRole('button', { name: /^Submit review$/i }).click()

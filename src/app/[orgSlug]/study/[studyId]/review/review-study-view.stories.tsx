@@ -92,16 +92,17 @@ function ProposalBodyFixture() {
 }
 
 const DECISION_OPTIONS = [
-    { value: 'approve', label: 'Approve', description: 'Approve this initial request and share your feedback.' },
+    { value: 'approve', label: 'Approve', description: 'Approve the proposal to begin the code submission phase.' },
     {
         value: 'needs-clarification',
-        label: 'Needs clarification',
-        description: 'Request clarifications or specific revisions to this initial request.',
+        label: 'Request revision',
+        description: 'Send the proposal back to OPE-Research Lab for changes or additional information.',
     },
     {
         value: 'reject',
-        label: 'Reject',
-        description: 'Reject this initial request and share your reasoning with the researcher.',
+        label: 'Decline and end study',
+        description:
+            'Permanently close this study. Use only for major issues that cannot be resolved. This action cannot be undone.',
     },
 ]
 
@@ -116,17 +117,11 @@ function DecisionFixture() {
         />
     ))
     return (
-        <Paper p="xl" data-testid="review-decision-section">
-            <Text size="md" mb="md">
-                Select a decision for this initial request. Your feedback and decision will be shared with the
-                researcher.
-            </Text>
-            <Radio.Group name="review-decision-fixture" defaultValue="approve">
-                <Stack gap="md" mt="xs">
-                    {radios}
-                </Stack>
+        <Box data-testid="review-decision-section">
+            <Radio.Group name="review-decision-fixture" defaultValue="approve" label="Decision">
+                <Stack gap="md">{radios}</Stack>
             </Radio.Group>
-        </Paper>
+        </Box>
     )
 }
 
@@ -146,12 +141,12 @@ export const ReviewProposal: Story = () => (
         proposal={<ProposalBodyFixture />}
         feedbackAndNotes={null}
         feedback={
-            <Paper p="xl">
+            <Box>
                 <Text fw={600} mb="sm">
                     Reviewer feedback
                 </Text>
                 <Textarea placeholder="Share feedback with the researcher." autosize minRows={4} />
-            </Paper>
+            </Box>
         }
         decision={<DecisionFixture />}
         actions={<ProposalActionsFixture />}

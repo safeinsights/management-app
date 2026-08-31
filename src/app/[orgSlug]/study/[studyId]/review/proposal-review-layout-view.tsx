@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Box, Stack } from '@mantine/core'
+import { Box, Paper, Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 
 // Presentational chrome for the "Review initial request" (proposal review) page. It owns the
@@ -37,8 +37,12 @@ export function ProposalReviewLayoutView({
 
                 {proposal}
                 {feedbackAndNotes}
-                {feedback}
-                {decision}
+                <Paper p="xxl">
+                    <Stack gap={24} data-testid="decision-card-body">
+                        {feedback}
+                        {decision}
+                    </Stack>
+                </Paper>
                 {actions}
             </Stack>
             {modals}

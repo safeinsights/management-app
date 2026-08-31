@@ -1,36 +1,17 @@
 'use client'
 
-import { Paper, Radio, Stack, Text } from '@mantine/core'
-import type { ReactNode } from 'react'
+import { Box, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { useWidgetBlur } from '@/components/form-field'
-import type { DecisionOption, StudyForReview } from './review-types'
-import { DECISION_OPTIONS } from './review-types'
+import type { StudyForReview } from './review-types'
+import { buildDecisionOptions } from './review-types'
 
 type ReviewDecisionSectionProps = {
     decision: ReturnType<typeof useReviewDecision>
     study: StudyForReview
     labName: string
-}
-
-function OptionDescription({ option }: { option: DecisionOption }): ReactNode {
-    if (!option.warning) {
-        return (
-            <Text component="span" size="sm" c="grey.7">
-                {option.description}
-            </Text>
-        )
-    }
-    return (
-        <Text component="span" size="sm" c="grey.7">
-            {option.description}{' '}
-            <Text component="span" size="sm" c="grey.7" fw={600}>
-                {option.warning}
-            </Text>
-        </Text>
-    )
 }
 
 const RADIO_STYLES = {
@@ -62,48 +43,39 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
     // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
     // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
     // applies Mantine's error styling without adding a second message (OTTER-647).
-    const radioOptions = DECISION_OPTIONS.map((option) => (
+    const radioOptions = buildDecisionOptions(labName).map((option) => (
         <Radio
             key={option.value}
             value={option.value}
             label={option.label}
-            description={<OptionDescription option={option} />}
-            disabled={option.disabled}
+            description={
+                <Text component="span" size="sm" c="grey.7">
+                    {option.description}
+                </Text>
+            }
             styles={RADIO_STYLES}
             error={!!decision.error}
         />
     ))
 
     return (
-        <Paper p="xl" data-testid="review-decision-section">
-            <Text size="md" mb="md">
-                Select a decision for this initial request. Your feedback and decision will be shared with the{' '}
-                <Text component="span" fw={600}>
-                    {labName}
-                </Text>
-                . If approved, the researcher will proceed to sign legal agreements and submit their code for your
-                review.
-            </Text>
+        <Box data-testid="review-decision-section">
             {/* Blur is a bubbled focusout, so moving between radios would validate a still
                 empty group; useWidgetBlur waits for the user to leave it (OTTER-647). */}
-            {/* A real `label`, not `aria-label`: Radio.Group names the element carrying
-                role="radiogroup" from its rendered label, and strands a hand-passed `aria-label`
-                on the roleless outer wrapper. Using the prop also makes `withAsterisk` render,
-                which is the group's only visible required marker. */}
+            {/* The group's name is required by AT but is not drawn in the design, so the label is
+                visually hidden rather than dropped. A real `label`, not `aria-label`: Radio.Group
+                names the element carrying role="radiogroup" from its rendered label, and strands a
+                hand-passed `aria-label` on the roleless outer wrapper. */}
             <Radio.Group
                 value={decision.selected ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
                 name="review-decision"
-                label="Initial request decision"
-                labelProps={{ fw: 600 }}
-                withAsterisk
+                label={<VisuallyHidden>Decision</VisuallyHidden>}
                 error={decision.error}
             >
-                <Stack gap="md" mt="xs">
-                    {radioOptions}
-                </Stack>
+                <Stack gap="md">{radioOptions}</Stack>
             </Radio.Group>
-        </Paper>
+        </Box>
     )
 }
