@@ -18,7 +18,10 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
         full({ status: 'APPROVED', isDraft: false, codeAwaitingDecision: true, hasSubmittedCode: true }),
         full({ status: 'REJECTED', isDraft: false }),
         full({ status: 'CHANGE-REQUESTED', isDraft: false }),
+        // Clean run whose outputs the reviewer shared → outputs-shared screen (OTTER-688).
         full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true }),
+        // Undecided completed run → the results screen, the one state it still serves.
+        full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsDisplayStatus: 'RUN-COMPLETE' }),
 
         // Errored run whose outputs the reviewer shared → outputs-errored-shared screen (OTTER-696).
         full({ status: 'APPROVED', isDraft: false, hasResults: true, resultsErrored: true, resultsApproved: true }),

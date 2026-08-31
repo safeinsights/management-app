@@ -14,7 +14,8 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -181,7 +182,8 @@ export function CodePostSubmissionView({
 
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
+    // OTTER-727 hid Agreements; Back now walks straight to the approved proposal it sat between.
+    const previousHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
     const codeFiles = filterAndOrderCodeFiles(job.files)
 

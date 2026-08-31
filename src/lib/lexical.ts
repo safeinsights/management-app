@@ -68,6 +68,20 @@ export function extractTextFromLexical(json: string | undefined): string {
     return envelope ? extractTextFromLexicalNode(envelope.root) : ''
 }
 
+/**
+ * How a node's children are joined. Only block containers separate their children: a paragraph, a
+ * format mark and a single list item all read as one run of text, so they join with nothing.
+ *
+ * `list` earns an entry because the editor offers bulleted and numbered lists, and a list is a
+ * single root-level node. Without a separator its items concatenate, so a research question written
+ * as a list read as "First question?Second question?" everywhere the plain text is shown or
+ * measured (OTTER-755).
+ */
+const CHILD_SEPARATORS: Record<string, string> = {
+    root: '\n\n',
+    list: '\n',
+}
+
 function extractTextFromLexicalNode(node: unknown): string {
     if (!node || typeof node !== 'object') return ''
 
@@ -82,8 +96,8 @@ function extractTextFromLexicalNode(node: unknown): string {
     }
 
     if (Array.isArray(n.children)) {
-        const texts = n.children.map((child) => extractTextFromLexicalNode(child))
-        return n.type === 'root' ? texts.join('\n\n') : texts.join('')
+        const separator = typeof n.type === 'string' ? (CHILD_SEPARATORS[n.type] ?? '') : ''
+        return n.children.map((child) => extractTextFromLexicalNode(child)).join(separator)
     }
 
     return ''

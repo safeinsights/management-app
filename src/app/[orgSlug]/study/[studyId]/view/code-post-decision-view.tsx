@@ -11,7 +11,8 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
@@ -228,7 +229,8 @@ export function CodePostDecisionView({
     const { expanded, toggle, collapse } = useExpandable()
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
+    // OTTER-727 hid Agreements; "Previous step" now walks straight to the approved proposal.
+    const previousHref = proposalHref
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />

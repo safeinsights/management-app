@@ -12,6 +12,10 @@ type ProposalStepHeaderProps = {
     studyTitle?: string | null
     timestampDate?: Date | string | null
     timestampLabel?: string
+    /**
+     * Pass `null` rather than an element that renders nothing: the header cannot tell the two
+     * apart, and it draws its rule only when a banner or children come after it.
+     */
     banner?: ReactNode
     children?: ReactNode
 }
@@ -54,6 +58,12 @@ const HeaderMetaRow: FC<Pick<ProposalStepHeaderProps, 'studyTitle' | 'timestampD
     )
 }
 
+const HeaderDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return <Divider my={24} color="charcoal.1" data-testid="proposal-header-divider" />
+}
+
 export function ProposalStepHeader({
     stepLabel,
     heading,
@@ -63,6 +73,11 @@ export function ProposalStepHeader({
     banner,
     children,
 }: ProposalStepHeaderProps) {
+    // The rule separates the header from what follows it inside the same card, so a header with
+    // nothing below must not end in one. The proposal now lives in its own card, which left the
+    // header ending in a stray rule for a status with no banner copy (OTTER-755).
+    const hasContentBelowRule = Boolean(banner) || Boolean(children)
+
     return (
         <Paper p="xxl" data-testid="proposal-section-header">
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
@@ -72,7 +87,7 @@ export function ProposalStepHeader({
                 {heading}
             </Title>
             <HeaderMetaRow studyTitle={studyTitle} timestampDate={timestampDate} timestampLabel={timestampLabel} />
-            <Divider my={24} color="charcoal.1" data-testid="proposal-header-divider" />
+            <HeaderDivider isVisible={hasContentBelowRule} />
             {banner}
             {children}
         </Paper>

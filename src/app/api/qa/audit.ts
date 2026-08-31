@@ -8,6 +8,13 @@ import type { AuditEventType, AuditRecordType } from '@/database/types'
  */
 type QaAuditOutcome = 'attempted' | 'succeeded' | 'failed'
 
+/**
+ * Which route surface made the call. Recorded as `via` so QA fixture churn can be told
+ * apart from an SI admin deleting a real account — the two have very different weight
+ * when reading the trail back.
+ */
+export type QaAuditVia = 'qa-api' | 'admin-api'
+
 type QaAuditEntry = {
     /** The SI admin who invoked the route, not the account being acted on. */
     actorUserId: string
@@ -15,13 +22,14 @@ type QaAuditEntry = {
     recordType: AuditRecordType
     recordId: string
     outcome: QaAuditOutcome
+    via?: QaAuditVia
     metadata?: Record<string, unknown>
 }
 
 /**
- * Record a QA route invocation. These routes run against production data, so every
- * call is written to the audit trail attributed to the SI admin who made it, tagged
- * with `via: 'qa-api'` so QA activity can be told apart from ordinary app mutations.
+ * Record a QA or admin route invocation. These routes run against production data, so
+ * every call is written to the audit trail attributed to the SI admin who made it,
+ * tagged with `via` so the activity can be told apart from ordinary app mutations.
  *
  * Awaited rather than deferred: the audit row is the record that this happened, so it
  * must be durable before the response goes out.
@@ -32,6 +40,7 @@ export async function auditQaInvocation({
     recordType,
     recordId,
     outcome,
+    via = 'qa-api',
     metadata,
 }: QaAuditEntry) {
     await audit({
@@ -39,7 +48,7 @@ export async function auditQaInvocation({
         eventType,
         recordType,
         recordId,
-        metadata: { ...metadata, outcome, via: 'qa-api', environment: ENVIRONMENT_ID },
+        metadata: { ...metadata, outcome, via, environment: ENVIRONMENT_ID },
     })
 }
 

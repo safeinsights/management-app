@@ -246,13 +246,14 @@ describe('CodePostDecisionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders a "Previous step" link to studyResearcherAgreements (no ?from=) in all decisions', async () => {
+        // OTTER-727 hid Agreements, so "Previous step" walks straight to the approved proposal.
+        it('renders a "Previous step" link to the submitted proposal (no ?from=) in all decisions', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
             const href = previous.getAttribute('href') ?? ''
-            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
             expect(href).not.toContain('from=')
         })
 
