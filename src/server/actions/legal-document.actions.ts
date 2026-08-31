@@ -740,13 +740,16 @@ export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchPa
     .params(inviteParams)
     // Unauthenticated by necessity: read by the signup form before the invitee has an account, the
     // same as getOrgInfoForInviteAction. The invite id is the bearer credential, and the org is
-    // resolved from it below rather than from the caller.
+    // resolved from it below rather than from the caller. Only an unclaimed invite resolves, matching
+    // getOrgInfoForInviteAction: once the invite is redeemed the signup form no longer reads this, so a
+    // spent id stops disclosing the org's participation agreement.
     .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData | null> => {
         const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } = await db
             .selectFrom('pendingUser')
             .innerJoin('org', 'org.id', 'pendingUser.orgId')
             .select(['pendingUser.id as inviteId', 'org.type', 'org.id as orgId'])
             .where('pendingUser.id', '=', inviteId)
+            .where('pendingUser.claimedByUserId', 'is', null)
             .executeTakeFirstOrThrow()
 
         const doctype = participationAgreementTypeForOrgType[inviteOrgDetails.type]

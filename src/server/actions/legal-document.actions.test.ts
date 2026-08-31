@@ -640,7 +640,7 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
 // Read by the signup form before the invitee has an account, so no session is required: it resolves
 // the participation agreement (ropa for a lab, dopa for an enclave) the invite's org owes.
 describe('fetchParticipationAgreementFromInviteIdAction', () => {
-    const createInvite = async (orgId: string, invitedByUserId: string) =>
+    const createInvite = async (orgId: string, invitedByUserId: string, claimedByUserId: string | null = null) =>
         await db
             .insertInto('pendingUser')
             .values({
@@ -648,6 +648,7 @@ describe('fetchParticipationAgreementFromInviteIdAction', () => {
                 email: faker.internet.email({ provider: 'test.com' }),
                 isAdmin: false,
                 invitedByUserId,
+                claimedByUserId,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
@@ -704,5 +705,18 @@ describe('fetchParticipationAgreementFromInviteIdAction', () => {
         const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
 
         expect(result).toBeNull()
+    })
+
+    // A claimed invite is spent: the account exists, so the signup form no longer reads this. A used
+    // link must stop disclosing the org's agreement, the same way getOrgInfoForInviteAction goes dark.
+    it('discloses nothing for an already-claimed invite', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        await publish(version.id, '2026-07-27')
+        const invite = await createInvite(org.id, user.id, user.id)
+
+        const result = await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id })
+
+        expect(result).toHaveProperty('error')
     })
 })
