@@ -32,7 +32,11 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
-    const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
+    const {
+        data: encryptedFiles,
+        isLoading: isLoadingFiles,
+        isSuccess: isFileListLoaded,
+    } = useQuery({
         // The role is part of the key: the action returns a different key set per role, so a
         // dual-role user switching views must not be served the other's cache.
         queryKey: ['encrypted-files', job.id, type],
@@ -104,5 +108,20 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         isLoadingFiles,
         inputRef,
         handleSubmit,
+        /**
+         * The server answered, and nothing on this job is decryptable by this caller (OTTER-688).
+         *
+         * Gated on isSuccess, not on a falsy length: queryFn re-throws after the Sentry capture, so a
+         * FAILED fetch leaves data undefined — and reporting that as "you hold no key" would blame the
+         * user's key for an outage. This is the distinction fetchEncryptedJobFilesAction's empty
+         * return conflates (no artifacts / no wrapped key for the caller / fetch failed), and the one
+         * the legacy gate in use-encrypted-files-panel misses with `encryptedFiles?.length ?? 0`.
+         *
+         * What remains true when this is set depends on the role, so callers must interpret it: on the
+         * researcher path the action filters to artifacts wrapped for THEIR fingerprint, so it means
+         * they hold no key; on the reviewer path it returns every encrypted artifact regardless of
+         * keys, so it means the job produced nothing to decrypt.
+         */
+        hasNoDecryptableFiles: isFileListLoaded && encryptedFiles?.length === 0,
     }
 }
