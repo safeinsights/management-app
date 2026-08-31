@@ -73,19 +73,41 @@ function recordExitAttempt() {
     }
 }
 
-function hasRecentExitAttempt(): boolean {
+function readExitNote(): string | null {
     try {
-        const note = sessionStorage.getItem(EXIT_ATTEMPT_KEY)
-        if (!note) return false
-        // A non-numeric note yields NaN, and every NaN comparison is false, so it reads as no bounce.
-        // A note from the future means the clock moved backwards, and reading that as a warm note would
-        // suppress the redirect for the life of the tab, so it reads as no bounce too. The next exit
-        // writes a note against the new clock, which heals it.
-        const age = Date.now() - Number(note)
-        return age >= 0 && age < EXIT_BOUNCE_WINDOW_MS
+        return sessionStorage.getItem(EXIT_ATTEMPT_KEY)
     } catch {
-        return false
+        return null
     }
+}
+
+function isWarm(note: string): boolean {
+    // A non-numeric note yields NaN, and every NaN comparison is false, so it reads as no bounce.
+    // A note from the future means the clock moved backwards, and reading that as a warm note would
+    // suppress the redirect for the life of the tab, so it reads as no bounce too. The next exit
+    // writes a note against the new clock, which heals it.
+    const age = Date.now() - Number(note)
+    return age >= 0 && age < EXIT_BOUNCE_WINDOW_MS
+}
+
+// Each note is judged once, and the verdict stands until a different note replaces it. Two reasons, and
+// the first is a bug this closes rather than a nicety. React holds the latch below shut until Clerk
+// loads, and Clerk loading slowly is one of the cases this guard exists for: judging on every render
+// would let the verdict go cold in the wait, so the redirect would fire and the loop would resume, in
+// the very scenario the note was written for. The second is React's contract for useSyncExternalStore,
+// which is that repeated calls return the same value while the store has not changed. A verdict that
+// turns over on the clock alone breaks that, and under concurrent rendering two calls inside one render
+// pass could disagree across the boundary.
+let judgedNote: string | null | undefined
+let verdict = false
+
+function hasRecentExitAttempt(): boolean {
+    const note = readExitNote()
+    if (note !== judgedNote) {
+        judgedNote = note
+        verdict = note !== null && isWarm(note)
+    }
+    return verdict
 }
 
 // The note is external mutable state, and useSyncExternalStore is what React provides for sampling that

@@ -22,6 +22,7 @@ const spyOnHardNavigation = () => vi.spyOn(window.location, 'replace').mockImple
 // Mirrors the key leaveForApp writes: each exit leaves a note so the next mount can tell a proxy
 // bounce from a first arrival (OTTER-745). Every hard navigation writes one, so seed it per test.
 const EXIT_ATTEMPT_KEY = 'already-signed-in-exit-attempt'
+const EXIT_BOUNCE_WINDOW_MS = 15_000
 const noteExitAttempt = (at = Date.now()) => sessionStorage.setItem(EXIT_ATTEMPT_KEY, String(at))
 
 describe('useAlreadySignedIn', () => {
@@ -101,6 +102,27 @@ describe('useAlreadySignedIn', () => {
 
         expect(result.current.status).toBe('redirecting')
         expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
+    })
+
+    // OTTER-745: the note answers a question about this document's arrival, but its freshness test runs
+    // against the clock. Clerk holds the latch closed until it loads, and loading is slow in exactly the
+    // case the guard exists for, so the note must not be allowed to go cold while we wait for it.
+    it('keeps the bounce guard when Clerk takes longer than the window to load', () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
+        noteExitAttempt()
+        ;(useUser as Mock).mockReturnValue({ isLoaded: false, isSignedIn: undefined, user: undefined })
+        const navigate = spyOnHardNavigation()
+
+        const { result, rerender } = renderHook(() => useAlreadySignedIn())
+        expect(result.current.status).toBe('loading')
+
+        const slowClerk = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + EXIT_BOUNCE_WINDOW_MS * 2)
+        mockSignedInUser()
+        rerender()
+        slowClerk.mockRestore()
+
+        expect(result.current.status).toBe('signed-out')
+        expect(navigate).not.toHaveBeenCalled()
     })
 
     it('notes the exit it makes so the next mount can recognize a bounce', () => {
