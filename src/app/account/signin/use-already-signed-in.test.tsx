@@ -19,9 +19,15 @@ const mockSignedOutUser = () => (useUser as Mock).mockReturnValue({ isLoaded: tr
 // navigation call rather than the in-memory router.
 const spyOnHardNavigation = () => vi.spyOn(window.location, 'replace').mockImplementation(() => {})
 
+// Mirrors the key leaveForApp writes: each exit leaves a note so the next mount can tell a proxy
+// bounce from a first arrival (OTTER-745). Every hard navigation writes one, so seed it per test.
+const EXIT_ATTEMPT_KEY = 'already-signed-in-exit-attempt'
+const noteExitAttempt = (target: string, at = Date.now()) => sessionStorage.setItem(EXIT_ATTEMPT_KEY, `${at}:${target}`)
+
 describe('useAlreadySignedIn', () => {
     beforeEach(() => {
         memoryRouter.setCurrentUrl('/account/signin')
+        sessionStorage.clear()
     })
 
     it('reports loading until Clerk has loaded', () => {
@@ -56,6 +62,55 @@ describe('useAlreadySignedIn', () => {
         expect(result.current.status).toBe('redirecting')
         expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
         expect(memoryRouter.asPath).toBe('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
+    })
+
+    // OTTER-745: the automatic redirect exits through a full page load, so hasRedirectedRef is reset by
+    // the bounce it is meant to survive. Without a note left behind, a client that keeps claiming a
+    // session the proxy refuses would spin one document load per pass instead of sticking on one page.
+    it('shows the form instead of auto-redirecting again when the proxy bounced the last exit back', () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
+        noteExitAttempt('/openstax/dashboard')
+        mockSignedInUser()
+        const navigate = spyOnHardNavigation()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+
+        expect(result.current.status).toBe('signed-out')
+        expect(navigate).not.toHaveBeenCalled()
+    })
+
+    it('auto-redirects when the last exit note is too old to be a bounce', () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
+        noteExitAttempt('/openstax/dashboard', Date.now() - 60_000)
+        mockSignedInUser()
+        const navigate = spyOnHardNavigation()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+
+        expect(result.current.status).toBe('redirecting')
+        expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
+    })
+
+    it('auto-redirects when the last exit note is for a different target', () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
+        noteExitAttempt('/openstax/study/42')
+        mockSignedInUser()
+        const navigate = spyOnHardNavigation()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+
+        expect(result.current.status).toBe('redirecting')
+        expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
+    })
+
+    it('notes the target it leaves for so the next mount can recognize a bounce', () => {
+        mockSignedInUser()
+        spyOnHardNavigation()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+        act(() => result.current.continueToApp())
+
+        expect(sessionStorage.getItem(EXIT_ATTEMPT_KEY)).toContain(`:${Routes.dashboard}`)
     })
 
     it('shows the prompt instead of auto-redirecting when redirect_url is unsafe', () => {

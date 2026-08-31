@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
@@ -39,8 +39,55 @@ function trustedRedirectTarget(searchParams: ReadonlyURLSearchParams): Route | n
 // replace, not assign: keeps signin out of history, matching the router.replace this supersedes.
 // Otherwise Back would land here and redirect forward again for a live session.
 function leaveForApp(target: Route) {
+    recordExitAttempt(target)
     window.location.replace(target)
 }
+
+// Leaving through a full load is what makes this page recoverable, but it also means hasRedirectedRef
+// cannot bound the automatic redirect: a proxy bounce arrives as a fresh mount with the ref reset, so
+// the redirect fires again. Clerk documents that its SDK revalidates auth state against its API after a
+// page load, which is why that second pass normally sees the dead session and reaches the form by
+// itself. What is not documented is what the client reports when the revalidation cannot finish
+// (offline, or a handshake that fails), and a client that keeps claiming a session the proxy refuses
+// would spin one document load per pass. So each exit leaves a note behind, and finding our own recent
+// note on arrival means the proxy refused that target: the session is gone, show the form. Same
+// conclusion as the downgrade below, drawn from the proxy's answer rather than from Clerk's.
+const EXIT_ATTEMPT_KEY = 'already-signed-in-exit-attempt'
+
+// One bounce is a single redirect round trip, so a short window separates it from an unrelated later
+// visit to this page in the same tab, which should still auto-redirect normally.
+const EXIT_BOUNCE_WINDOW_MS = 15_000
+
+// sessionStorage throws rather than returning null where storage is blocked, and is absent server-side.
+// Losing the guard there is better than losing the navigation, so both helpers fall back to the
+// unguarded behavior.
+function recordExitAttempt(target: Route) {
+    try {
+        sessionStorage.setItem(EXIT_ATTEMPT_KEY, `${Date.now()}:${target}`)
+    } catch {
+        // Nothing to do: the note is a safeguard, and the navigation still has to happen without it.
+    }
+}
+
+function readBouncedExitTarget(): string | null {
+    try {
+        const note = sessionStorage.getItem(EXIT_ATTEMPT_KEY)
+        if (!note) return null
+        const separator = note.indexOf(':')
+        if (separator < 0) return null
+        // A non-numeric timestamp yields NaN, and every NaN comparison is false, so it reads as no bounce.
+        const isRecent = Date.now() - Number(note.slice(0, separator)) < EXIT_BOUNCE_WINDOW_MS
+        return isRecent ? note.slice(separator + 1) : null
+    } catch {
+        return null
+    }
+}
+
+// The note is external mutable state, and useSyncExternalStore is what React provides for sampling that
+// during render without breaking purity. Nothing to subscribe to: the only writer is leaveForApp, which
+// leaves the document in the same breath, and the server has no storage to read.
+const subscribeToNothing = () => () => {}
+const noBounceOnServer = () => null
 
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
 // latch is one-directional: losing the session afterward always drops back to the form.
@@ -48,6 +95,8 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     const { isLoaded, isSignedIn, user } = useUser()
     const { signOut } = useClerk()
     const searchParams = useSearchParams()
+
+    const bouncedExitTarget = useSyncExternalStore(subscribeToNothing, readBouncedExitTarget, noBounceOnServer)
 
     const [status, setStatus] = useState<AlreadySignedInStatus>('loading')
     const [isSwitching, setIsSwitching] = useState(false)
@@ -65,11 +114,13 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
             setStatus('signed-out')
         } else {
             const target = trustedRedirectTarget(searchParams)
-            if (target) {
+            if (!target) {
+                setStatus('signed-in')
+            } else if (target === bouncedExitTarget) {
+                setStatus('signed-out')
+            } else {
                 setRedirectTarget(target)
                 setStatus('redirecting')
-            } else {
-                setStatus('signed-in')
             }
         }
     }
@@ -98,6 +149,11 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         leaveForApp(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
     }, [searchParams])
 
+    // Two places write 'signed-out' after the latch, and they cover different cases: the downgrade above
+    // needs Clerk to have flipped isSignedIn, while this one runs even when signOut rejects or Clerk holds
+    // on to the session, because a user who asked to switch accounts should reach the form either way.
+    // What keeps them from diverging is that every post-latch write moves status the same direction:
+    // toward 'signed-out'. Nothing re-opens the prompt.
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
         try {
