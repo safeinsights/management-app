@@ -4,9 +4,8 @@ import { type ReactNode } from 'react'
 import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { WordCounter } from '@/components/word-counter'
-import { Editor } from '@/components/editable-text/editor'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { useWidgetBlur } from '@/components/form-field'
+import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { Decision } from '@/lib/review-decision'
@@ -34,6 +33,8 @@ type CodeReviewFeedbackSectionProps = {
     jobId: string
     decisionValue: Decision | null
     onDecisionChange: (next: Decision) => void
+    onDecisionBlur: () => void
+    decisionError: ReactNode
     labName: string
 }
 
@@ -58,19 +59,18 @@ function FeedbackEditor({
     studyId: string
     jobId: string
 }) {
-    const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishCodeReviewFeedbackProvider()
     return (
-        <Editor
-            id={codeReviewFeedbackDocName(jobId)}
+        <DecisionFeedbackEditor
+            feedback={feedback}
             studyId={studyId}
-            websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
-            onChange={feedback.onChange}
+            docName={codeReviewFeedbackDocName(jobId)}
+            inputId="code-review-feedback"
+            ariaLabel="Code review feedback"
             placeholder={FEEDBACK_PLACEHOLDER}
-            footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
-            onProviderReady={publishProvider}
+            contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            onProviderReady={publishProvider}
         />
     )
 }
@@ -115,15 +115,23 @@ const RADIO_STYLES = {
 function DecisionRadioGroup({
     value,
     onChange,
+    onBlur,
+    error,
     labName,
 }: {
     value: Decision | null
     onChange: (next: Decision) => void
+    onBlur: () => void
+    error: ReactNode
     labName: string
 }) {
     const options = buildDecisionOptions(labName)
     const handleChange = (next: string) => onChange(next as Decision)
+    const widgetBlur = useWidgetBlur(onBlur)
 
+    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
+    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
+    // applies Mantine's error styling without adding a second message (OTTER-647).
     const radioOptions = options.map((option) => (
         <Radio
             key={option.value}
@@ -131,12 +139,26 @@ function DecisionRadioGroup({
             label={option.title}
             description={option.description}
             styles={RADIO_STYLES}
+            error={!!error}
             data-testid={option.testId}
         />
     ))
 
     return (
-        <Radio.Group value={value ?? ''} onChange={handleChange} name="code-review-decision">
+        // Blur is a bubbled focusout, so moving between radios would validate a still-empty
+        // group; useWidgetBlur waits for the user to leave it (OTTER-647).
+        // A real `label`, not `aria-label`: see the note in review-decision-section. It names the
+        // role="radiogroup" element and makes `withAsterisk` render a visible required marker.
+        <Radio.Group
+            value={value ?? ''}
+            onChange={handleChange}
+            {...widgetBlur}
+            name="code-review-decision"
+            label="Code review decision"
+            labelProps={{ fw: 600 }}
+            withAsterisk
+            error={error}
+        >
             <Stack gap="md">{radioOptions}</Stack>
         </Radio.Group>
     )
@@ -148,6 +170,8 @@ export function CodeReviewFeedbackSection({
     jobId,
     decisionValue,
     onDecisionChange,
+    onDecisionBlur,
+    decisionError,
     labName,
 }: CodeReviewFeedbackSectionProps) {
     return (
@@ -163,7 +187,13 @@ export function CodeReviewFeedbackSection({
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
                 <Divider />
-                <DecisionRadioGroup value={decisionValue} onChange={onDecisionChange} labName={labName} />
+                <DecisionRadioGroup
+                    value={decisionValue}
+                    onChange={onDecisionChange}
+                    onBlur={onDecisionBlur}
+                    error={decisionError}
+                    labName={labName}
+                />
             </Stack>
         </Paper>
     )

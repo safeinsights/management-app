@@ -7,8 +7,9 @@ import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
-import { Anchor, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
+import { Anchor, Box, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
+import { useForm } from '@/common'
+import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
@@ -36,9 +37,24 @@ export function AddSMSMFA() {
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
     const createBackupCode = useReverification(() => user?.createBackupCode())
 
+    // Previously had no validator at all, so an empty or malformed number only errored once
+    // Clerk rejected the submission (OTTER-647). Uses the phone library rather than a
+    // character/length regex, so it covers every country the input can produce.
+    //
+    // isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks the number against real
+    // numbering plans, which rejects Clerk's reserved test range (+1 555 555 0100-0199) that
+    // the MFA e2e depends on. "Possible" still catches the actual defect here (too short, too
+    // long, wrong shape) and is the strongest claim a client can honestly make anyway.
     const phoneForm = useForm({
         initialValues: {
             phoneNumber: user?.phoneNumbers[0]?.toString() || '',
+        },
+        validate: {
+            phoneNumber: (value: string) => {
+                const phone = value.trim()
+                if (!phone) return 'Phone number is required'
+                return isPossiblePhoneNumber(phone) ? null : 'Enter a valid phone number'
+            },
         },
     })
 
@@ -94,7 +110,7 @@ export function AddSMSMFA() {
             const errorMessage = errorToString(error)
 
             if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
-                phoneForm.setFieldError('phoneNumber', 'Please enter a valid US phone number.')
+                phoneForm.setFieldError('phoneNumber', 'Please enter a valid phone number.')
             } else {
                 phoneForm.setFieldError('phoneNumber', errorMessage)
             }
@@ -195,8 +211,10 @@ export function AddSMSMFA() {
                                         <Title order={4} ta="center" mt="xs">
                                             Enter your code
                                         </Title>
-                                        <OtpInput form={otpForm} />
-                                        {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
+                                        <OtpInput form={otpForm} errorId="add-sms-mfa-code-error" />
+                                        <Box id="add-sms-mfa-code-error">
+                                            {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
+                                        </Box>
                                         <Button
                                             type="submit"
                                             w="100%"

@@ -14,6 +14,8 @@ import {
     createAthenaTablesAction,
 } from './code-envs.actions'
 import {
+    ENV_VAR_KEY_ERROR,
+    envVarKeyRegex,
     createOrgCodeEnvSchema,
     editOrgCodeEnvSchema,
     createOrgCodeEnvFormSchema,
@@ -61,7 +63,10 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             language: (image?.language || 'R') as Language,
             url: image?.url || '',
             isTesting: image?.isTesting || false,
-            starterCodes: undefined,
+            // `[]`, not undefined: the create schema's array type check fails before `.min(1)`
+            // runs, so an untouched dropzone reported Zod's "expected array, received undefined"
+            // instead of "At least one starter code file is required" (OTTER-647).
+            starterCodes: [],
             sampleDataPath: image?.sampleDataPath || '',
             dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
             dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
@@ -87,7 +92,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
     }
 
     const addCommandLine = (ext: string, cmd: string) => {
-        if (!ext || !cmd) return
+        if (!ext || !cmd) {
+            if (!ext) form.setFieldError('newCmdExt', 'File extension is required')
+            if (!cmd) form.setFieldError('newCmdValue', 'Command is required')
+            return
+        }
         form.setFieldValue('commandLines', { ...form.values.commandLines, [ext]: cmd })
         form.setFieldValue('newCmdExt', '')
         form.setFieldValue('newCmdValue', '')
@@ -102,17 +111,26 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         form.setFieldValue('commandLines', rest)
     }
 
+    // Both halves are required. Flagging the empty one beats returning silently, which left
+    // the user clicking "+" with nothing happening and no reason given (OTTER-647).
     const addEnvVar = () => {
-        if (!form.values.newEnvKey || !form.values.newEnvValue) return
+        const key = form.values.newEnvKey.trim()
+        const value = form.values.newEnvValue.trim()
+        if (!key || !value) {
+            if (!key) form.setFieldError('newEnvKey', 'Variable name is required')
+            if (!value) form.setFieldError('newEnvValue', 'Value is required')
+            return
+        }
+        if (!envVarKeyRegex.test(key)) {
+            form.setFieldError('newEnvKey', ENV_VAR_KEY_ERROR)
+            return
+        }
 
         form.setValues({
             ...form.values,
             settings: {
                 ...form.values.settings,
-                environment: [
-                    ...form.values.settings.environment,
-                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
-                ],
+                environment: [...form.values.settings.environment, { name: key, value }],
             },
             newEnvKey: '',
             newEnvValue: '',
@@ -161,7 +179,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const handleEdit = async (values: EditFormValues) => {
         const { starterCodes, ...rest } = values
-        const starterCodeUploaded = !!starterCodes?.length
+        const newStarterCodes = starterCodes?.length ? starterCodes : null
 
         const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
 
@@ -169,8 +187,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             orgSlug,
             codeEnvId: image!.id,
             ...rest,
-            starterCodeFileNames: starterCodes?.map((f) => f.name),
-            starterCodeUploaded,
+            // Omitted rather than sent empty. The form seeds `starterCodes` as `[]` so the
+            // create schema can report its own requirement, and on edit an empty array would
+            // read as "the admin cleared the list" instead of "left the existing files alone".
+            starterCodeFileNames: newStarterCodes?.map((f) => f.name),
+            starterCodeUploaded: !!newStarterCodes,
             sampleDataUploaded,
         })
         if (isActionError(result)) throw result
@@ -179,8 +200,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             await createAthenaTablesAction({ codeEnvId: image!.id })
         }
 
-        if (starterCodes?.length) {
-            await uploadStarterCodes(orgSlug, image!.id, starterCodes)
+        if (newStarterCodes) {
+            await uploadStarterCodes(orgSlug, image!.id, newStarterCodes)
         }
 
         return result
@@ -208,14 +229,41 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const onSubmit = form.onSubmit(
         ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
-            if (newEnvKey && newEnvValue) {
+            // Trim here rather than relying on the schema's transforms: Mantine's resolver
+            // validates transformed data, but this handler receives the raw form values, so
+            // 'FOO' paired with '   ' would otherwise read as complete and save the whitespace.
+            const envKey = newEnvKey.trim()
+            const envValue = newEnvValue.trim()
+            const cmdExt = newCmdExt.trim().toLowerCase().replace(/^\./, '')
+            const cmdValue = newCmdValue.trim()
+
+            // A draft pair with only one half filled would otherwise be discarded here, so
+            // the save appeared to succeed while losing the user's input (OTTER-647).
+            const halfEnvVar = Boolean(envKey) !== Boolean(envValue)
+            const halfCommand = Boolean(cmdExt) !== Boolean(cmdValue)
+            if (halfEnvVar || halfCommand) {
+                if (halfEnvVar) {
+                    form.setFieldError(envKey ? 'newEnvValue' : 'newEnvKey', 'Complete both fields or clear them')
+                }
+                if (halfCommand) {
+                    form.setFieldError(cmdExt ? 'newCmdValue' : 'newCmdExt', 'Complete both fields or clear them')
+                }
+                return
+            }
+
+            if (envKey && !envVarKeyRegex.test(envKey)) {
+                form.setFieldError('newEnvKey', ENV_VAR_KEY_ERROR)
+                return
+            }
+
+            if (envKey && envValue) {
                 values.settings = {
                     ...values.settings,
-                    environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+                    environment: [...values.settings.environment, { name: envKey, value: envValue }],
                 }
             }
-            if (newCmdExt && newCmdValue) {
-                values.commandLines = { ...values.commandLines, [newCmdExt]: newCmdValue }
+            if (cmdExt && cmdValue) {
+                values.commandLines = { ...values.commandLines, [cmdExt]: cmdValue }
             }
             saveCodeEnv(values as CreateFormValues | EditFormValues)
         },

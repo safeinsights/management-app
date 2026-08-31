@@ -83,7 +83,7 @@ export const StudyCodePanel = ({
                     w={320}
                 >
                     <LaunchIdeButton
-                        onClick={(event) => ide.launchWorkspace({ sameWindow: event.ctrlKey })}
+                        onClick={(event) => ide.launchWorkspace({ sameWindow: event.shiftKey })}
                         isLaunching={ide.isLaunching}
                         launchError={ide.launchError}
                         variant="outline"
@@ -103,7 +103,9 @@ export const StudyCodePanel = ({
                             {stepLabel}
                         </Text>
                     )}
-                    <Title order={4}>{heading}</Title>
+                    <Title order={2} size="h4">
+                        {heading}
+                    </Title>
                     <Group justify="space-between" wrap="nowrap" align="baseline">
                         {/* 65ch ≈ 75 rendered chars in Open Sans */}
                         <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>

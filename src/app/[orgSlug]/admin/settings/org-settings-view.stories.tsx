@@ -9,8 +9,8 @@ import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
 
-// The org-admin Settings page-view — the same layout settings/page.tsx renders (breadcrumbs +
-// title + the four stacked sections). The About card is the real OrganizationSettingsDisplay
+// The org-admin Settings page-view — the same layout settings/page.tsx renders (title +
+// the four stacked sections). The About card is the real OrganizationSettingsDisplay
 // wrapped like OrganizationSettingsManager does; ApiKeySettingsDisplay renders nothing today
 // (under design); the Code Environments / Data Sources shells are fed inline fixtures. Action
 // controls (edit / delete) are plain stand-ins since the live mutations live in the containers.

@@ -1,17 +1,14 @@
 import type { ReactNode } from 'react'
-import { Box, Stack, Title } from '@mantine/core'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { Routes } from '@/lib/routes'
+import { Box, Stack } from '@mantine/core'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 
 // Presentational chrome for the "Review initial request" (proposal review) page. It owns the
-// page background, breadcrumbs, title, and the vertical layout of the review sections — but
+// page background, title, and the vertical layout of the review sections — but
 // NOT the realtime/session plumbing (Yjs feedback provider, review mutation, kick-out guard)
 // or the data those sections need. Each section is supplied as a slot so the hook-driven
 // pieces stay in the container, which lets this render in isolation (e.g. Ladle). The
 // ProposalReviewView container (./proposal-review-view) provides the real slots and listener.
 export type ProposalReviewLayoutViewProps = {
-    orgSlug: string
-    studyId: string
     /** Realtime kick-out listener, injected by the container (no-op markup in isolation). */
     listener?: ReactNode
     proposal: ReactNode
@@ -24,8 +21,6 @@ export type ProposalReviewLayoutViewProps = {
 }
 
 export function ProposalReviewLayoutView({
-    orgSlug,
-    studyId,
     listener,
     proposal,
     feedbackAndNotes,
@@ -37,18 +32,8 @@ export function ProposalReviewLayoutView({
     return (
         <Box bg="grey.10">
             {listener}
-            <Stack px="xl" gap="xl" py="xl">
-                <PageBreadcrumbs
-                    crumbs={[
-                        ['Dashboard', Routes.orgDashboard({ orgSlug })],
-                        ['Data use request', Routes.studyReview({ orgSlug, studyId })],
-                        ['Review initial request'],
-                    ]}
-                />
-
-                <Title order={1} fz={40} fw={700}>
-                    Review initial request
-                </Title>
+            <Stack px="xl" gap="xxl" py="xl">
+                <StudyPageHeader>Review initial request</StudyPageHeader>
 
                 {proposal}
                 {feedbackAndNotes}

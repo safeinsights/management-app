@@ -384,7 +384,7 @@ export const storeS3File = async (
 
 export async function signedUrlForFile(
     Key: string,
-    commandOverrides: Partial<{ ResponseContentDisposition: string }> = {},
+    commandOverrides: Partial<{ ResponseContentDisposition: string; ResponseContentType: string }> = {},
 ) {
     return await getSignedUrl(
         getS3BrowserClient(),
@@ -400,6 +400,19 @@ export const createSignedUploadUrl = async (path: string) => {
         Expires: 3600,
         Conditions: [['starts-with', '$key', prefixedPath]],
         Key: prefixedPath + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+}
+
+// As above but for a caller that already knows the whole key. `eq` rather than `starts-with`, so the
+// browser cannot land the object anywhere but where the server recorded it — which matters when the
+// stored path is itself the record of what was filed.
+export const createSignedUploadUrlForKey = async (path: string) => {
+    const prefixedPath = withS3Prefix(path)
+    return await createPresignedPost(getS3BrowserClient(), {
+        Bucket: s3BucketName(),
+        Expires: 3600,
+        Conditions: [['eq', '$key', prefixedPath]],
+        Key: prefixedPath,
     })
 }
 

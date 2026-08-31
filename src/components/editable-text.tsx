@@ -7,18 +7,17 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
-import { FC, ReactNode, useEffect, useState } from 'react'
+import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin'
+import { EditorState, SerializedEditorState } from 'lexical'
+import { FC, ReactNode, useState } from 'react'
 import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
-import { countWords, isValidLexicalState } from '@/lib/lexical'
+import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
 import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
-import { lexicalTheme, lexicalNodes, isValidUrl } from './editable-text/config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './editable-text/config'
 
 export interface EditableTextProps {
     /** Serialized Lexical JSON state */
@@ -49,8 +48,6 @@ export interface EditableTextProps {
     id?: string
     /** Accessible label for the editor */
     'aria-label'?: string
-    /** Callback fired when word count changes */
-    onWordCount?: (count: number) => void
 }
 
 function createInitialConfig(value: string | undefined, disabled: boolean, readOnly: boolean): InitialConfigType {
@@ -74,24 +71,6 @@ function createInitialConfig(value: string | undefined, disabled: boolean, readO
     }
 }
 
-function WordCountPlugin({ onWordCount }: { onWordCount: (count: number) => void }) {
-    const [editor] = useLexicalComposerContext()
-
-    useEffect(() => {
-        // Get initial word count on mount
-        editor.getEditorState().read(() => {
-            onWordCount(countWords($getRoot().getTextContent()))
-        })
-
-        // Update word count on content change
-        return editor.registerTextContentListener((textContent) => {
-            onWordCount(countWords(textContent))
-        })
-    }, [editor, onWordCount])
-
-    return null
-}
-
 export const EditableText: FC<EditableTextProps> = ({
     value,
     onChange,
@@ -107,7 +86,6 @@ export const EditableText: FC<EditableTextProps> = ({
     resizable = true,
     id,
     'aria-label': ariaLabel,
-    onWordCount,
 }) => {
     // Use useState with lazy initializer - computed once on mount
     // Lexical manages its own state after initialization
@@ -186,11 +164,13 @@ export const EditableText: FC<EditableTextProps> = ({
                         />
                         <HistoryPlugin />
                         <ListPlugin />
-                        <TabIndentationPlugin />
+                        {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                         <EscapeFocusPlugin />
-                        <LinkPlugin validateUrl={isValidUrl} />
+                        <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
+                        {/* While editing, a click should land the caret in the link text rather
+                            than launch a tab. Read-only renders open the URL in a new tab. */}
+                        <ClickableLinkPlugin newTab disabled={isEditable} />
                         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
-                        {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     </Box>
                     {isEditable && <Toolbar />}
                 </Box>

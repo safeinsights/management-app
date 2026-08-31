@@ -23,6 +23,7 @@ describe('JobResultsStatusMessage', () => {
         id: 'job-123',
         studyId: 'study-456',
         orgId: 'org-789',
+        status: 'APPROVED',
         language: 'PYTHON',
         statusChanges: statuses.map((status) => ({
             status,

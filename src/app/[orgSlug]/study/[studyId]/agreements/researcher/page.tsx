@@ -1,14 +1,14 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
 import { studyHasJobStatus } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { AgreementsPage } from '../agreements-page'
 
 // Researcher agreements step. A dual-role user (reviewer via the enclave, researcher via their own
@@ -18,7 +18,7 @@ export default async function ResearcherAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
     searchParams: Promise<Record<string, string | undefined>>
 }) {
-    const { orgSlug, studyId } = await props.params
+    const { studyId } = await props.params
     const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
@@ -54,9 +54,8 @@ export default async function ResearcherAgreementsRoute(props: {
         : Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
 
     return (
-        <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
-            <Title order={1}>Study request</Title>
+        <Stack p="xl" gap="xxl">
+            <StudyPageHeader>Study request</StudyPageHeader>
             <AgreementsPage
                 isReviewer={false}
                 studyId={studyId}

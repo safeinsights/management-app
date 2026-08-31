@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect, RedirectType } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
+import { InvalidInvitePanel } from './invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
@@ -9,12 +10,8 @@ import { Flex, Paper, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
-    const session = await sessionFromClerk()
-    if (session) {
-        return <SignOutPanel />
-    }
-
     const { inviteId } = await params
+    const session = await sessionFromClerk()
 
     const pendingInvite = await db
         .selectFrom('pendingUser')
@@ -46,7 +43,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         .executeTakeFirst()
 
     if (claimedInvite || !pendingInvite) {
-        // redirect to the signin page with a flag, shows error message
+        if (session) return <InvalidInvitePanel />
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
@@ -70,9 +67,19 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         }
     }
 
+    const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
+
+    if (session) {
+        // The invitee is already signed in — accept directly, no need to sign out and back in.
+        if (matchingUser && session.user.id === matchingUser) {
+            redirect(joinTeamUrl, RedirectType.replace)
+        }
+        // Signed in as another user: must sign out before accepting.
+        return <SignOutPanel />
+    }
+
     if (matchingUser) {
         // redirect to the join team page after signing in
-        const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
         redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     }
 

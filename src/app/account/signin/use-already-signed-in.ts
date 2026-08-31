@@ -6,6 +6,7 @@ import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
+import posthog from 'posthog-js'
 
 export type AlreadySignedInStatus = 'loading' | 'redirecting' | 'signed-in' | 'signed-out'
 
@@ -77,6 +78,7 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
         try {
+            posthog.reset()
             await signOut()
         } finally {
             setIsSwitching(false)

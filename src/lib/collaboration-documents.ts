@@ -9,6 +9,7 @@ const PROPOSAL_TEXT_FIELD_KEYS: ProposalTextFieldKey[] = [
 
 export const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
 export const CODE_REVIEW_FEEDBACK_PREFIX = 'code-review-feedback-'
+export const OUTPUTS_REVIEW_FEEDBACK_PREFIX = 'outputs-review-feedback-'
 export const PROPOSAL_PREFIX = 'proposal-'
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -26,14 +27,23 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
     Object.entries(FIELD_TO_SLUG).map(([key, slug]) => [slug, key as ProposalTextFieldKey]),
 )
 
-export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}-fields`
+// Exported so SQL that builds the name from a study id column (see hasStep2CollabDocSql) reuses
+// this convention instead of re-spelling it.
+export const PROPOSAL_FIELDS_SUFFIX = '-fields'
+
+export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}${PROPOSAL_FIELDS_SUFFIX}`
+
+// The part of a lexical field's document name that follows the study id. Exported for the same
+// reason as PROPOSAL_FIELDS_SUFFIX: hasStep2CollabDocSql builds these names from a column and would
+// otherwise re-spell the separator, so a change here would leave that fragment matching nothing.
+export const proposalTextFieldSuffix = (slug: ProposalTextSlug) => `-${slug}`
 
 // Y.Map name for the collab fields inside the proposal-fields doc. Shared so
 // the client hook and editor service agree on the key.
 export const PROPOSAL_FIELDS_MAP_NAME = 'fields'
 
 export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalTextFieldKey) =>
-    `${PROPOSAL_PREFIX}${studyId}-${FIELD_TO_SLUG[fieldKey]}`
+    `${PROPOSAL_PREFIX}${studyId}${proposalTextFieldSuffix(FIELD_TO_SLUG[fieldKey])}`
 
 /**
  * Versioned review-feedback document name. A round-boundary identifier: the
@@ -57,14 +67,28 @@ export const RESUBMISSION_NOTE_SUFFIX_RE = /^resubmission-note-v([1-9]\d*)$/
 
 export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${jobId}`
 
+/**
+ * The DO's outputs-review feedback for one job (OTTER-675). Job-keyed like code-review
+ * feedback rather than study-keyed: a study's outputs are reviewed once per job, and keying
+ * on the job keeps a later round's editor in a different Yjs room from this one's.
+ */
+export const outputsReviewFeedbackDocName = (jobId: string) => `${OUTPUTS_REVIEW_FEEDBACK_PREFIX}${jobId}`
+
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
     | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
     | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'code-review-feedback'; jobId: string }
+    | { kind: 'outputs-review-feedback'; jobId: string }
 
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
+    if (name.startsWith(OUTPUTS_REVIEW_FEEDBACK_PREFIX)) {
+        const jobId = name.slice(OUTPUTS_REVIEW_FEEDBACK_PREFIX.length)
+        if (!UUID_RE.test(jobId)) return null
+        return { kind: 'outputs-review-feedback', jobId }
+    }
+
     // The longer prefix must be checked first; otherwise the review-feedback
     // branch would match a `code-review-feedback-<uuid>` doc and mis-parse it.
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {

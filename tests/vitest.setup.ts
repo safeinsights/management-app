@@ -105,6 +105,9 @@ vi.mock('next/navigation', () => {
     }
 })
 vi.mock('next/cache')
+vi.mock('next/font/google', () => ({
+    Open_Sans: () => ({ className: '' }),
+}))
 vi.mock('next/headers', async () => ({ headers: async () => mockState.headers }))
 
 // Clerk SDK mocks - configured via mockClerkSession() in unit.helpers.tsx
@@ -117,12 +120,6 @@ vi.mock('@/server/clerk', async (importOriginal) => ({
     updateClerkUserName: vi.fn(),
     updateClerkUserMetadata: vi.fn(),
     findOrCreateClerkOrganization: vi.fn(),
-}))
-
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: () => null,
 }))
 
 vi.mock('@mantine/notifications', () => ({

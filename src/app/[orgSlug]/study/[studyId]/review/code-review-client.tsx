@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Alert, Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { useForm } from '@mantine/form'
+import { useForm } from '@/common'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
@@ -15,7 +15,6 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
-import { CODE_REVIEW_FEEDBACK_MAX_WORDS } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -60,11 +59,13 @@ function useCodeReview({
     tabSessionId: string
     previousHref: Route
 }) {
-    const feedback = useReviewFeedback({ maxWords: CODE_REVIEW_FEEDBACK_MAX_WORDS })
+    const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
+    // Each criterion is required. Without a validator the form could never produce an error,
+    // so an unanswered row only disabled Submit with no indication of which one (OTTER-647).
     const evaluationForm = useForm<{ criteria: CodeReviewCriteriaDraft }>({
         initialValues: {
             criteria: {
@@ -73,6 +74,14 @@ function useCodeReview({
                 securityChecks: null,
                 privacyProtection: null,
             },
+        },
+        validate: {
+            criteria: Object.fromEntries(
+                CODE_REVIEW_CRITERIA_KEYS.map((key) => [
+                    key,
+                    (value: CodeReviewCriteriaDraft[typeof key]) => (value === null ? 'Select an option.' : null),
+                ]),
+            ),
         },
     })
 
@@ -154,6 +163,8 @@ function EditableBody({
                 jobId={job.id}
                 decisionValue={decision.selected}
                 onDecisionChange={onDecisionChange}
+                onDecisionBlur={decision.onBlur}
+                decisionError={decision.error}
                 labName={labName}
             />
             <Group justify="space-between">

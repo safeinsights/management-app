@@ -12,7 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { readRoleCookieFromHeaders } from './cookie.server'
 import { isFakeRole } from './fixtures'
-import { buildV3Metadata, defaultOrgSlug, fixtureForRole, type FakeFixture } from './fixtures'
+import { buildV3Metadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole, type FakeFixture } from './fixtures'
 import { buildFakeUser, type FakeUser } from './user-resource'
 import { resolveClerkId } from './resolve-clerk-id.server'
 import { buildRouteMatcher } from './route-matcher'
@@ -81,7 +81,8 @@ export async function verifyToken(_token: string, _options: unknown): Promise<{ 
 // All reads resolve from fixtures; all writes are no-ops. This keeps the forceUpdate
 // paths (onUserSignInAction/syncUserMetadataAction) network-free.
 
-const ALL_FIXTURES = (['admin', 'researcher', 'reviewer'] as const).map((r) => fixtureForRole(r)!)
+// Derived from FAKE_ROLES so a fixture added to the table is resolvable here without a second edit.
+const ALL_FIXTURES = FAKE_ROLES.map((role) => fixtureForRole(role)!)
 
 // Resolve a fixture from a clerkId, matching either the deterministic fixture id or the
 // real DB clerk_id (which forceUpdate paths pass in, sourced from auth().userId).

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest'
 import { currentUser } from '@clerk/nextjs/server'
-import { db, insertTestOrg, insertTestUser, faker } from '@/tests/unit.helpers'
+import { db, insertTestOrg, insertTestUser, faker, mockClerkSession } from '@/tests/unit.helpers'
 
 vi.mock('./config', () => ({
     PROD_ENV: false,
@@ -11,6 +11,10 @@ const currentUserMock = currentUser as unknown as Mock
 
 // Import after mocking
 const { syncCurrentClerkUser } = await import('./clerk')
+
+// vitest.setup.ts stubs updateClerkUserMetadata for every other suite; this one exercises the real
+// implementation, so reach past the stub.
+const { updateClerkUserMetadata } = await vi.importActual<typeof import('./clerk')>('./clerk')
 
 describe('syncCurrentClerkUser', () => {
     const ORIGINAL_ENV = process.env
@@ -160,4 +164,47 @@ describe('syncCurrentClerkUser', () => {
     // Note: Org membership sync from Clerk metadata has been removed.
     // App DB is now the source of truth for org memberships.
     // syncCurrentClerkUser only syncs user profile data (name, email).
+})
+
+describe('updateClerkUserMetadata', () => {
+    // Regression: this used to call users.updateUserMetadata, which PATCHes /users/:id/metadata and
+    // deep-merges. orgs is keyed by slug, so a revoked membership's key survived every rewrite and
+    // kept granting access through the JWT claim. updateUser replaces the object outright.
+    it('replaces publicMetadata rather than merging it', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org })
+
+        const { client } = mockClerkSession({
+            clerkUserId: user.clerkId,
+            userId: user.id,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: 'lab',
+        })!
+
+        const metadata = await updateClerkUserMetadata(user.id)
+
+        expect(client.users.updateUser).toHaveBeenCalledWith(user.clerkId, { publicMetadata: metadata })
+        expect(client.users.updateUserMetadata).not.toHaveBeenCalled()
+    })
+
+    it('omits orgs the user is no longer a member of', async () => {
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org: lab })
+        await db.insertInto('orgUser').values({ userId: user.id, orgId: enclave.id, isAdmin: false }).execute()
+
+        mockClerkSession({
+            clerkUserId: user.clerkId,
+            userId: user.id,
+            orgSlug: lab.slug,
+            orgId: lab.id,
+            orgType: 'lab',
+        })
+
+        await db.deleteFrom('orgUser').where('userId', '=', user.id).where('orgId', '=', enclave.id).execute()
+        const metadata = await updateClerkUserMetadata(user.id)
+
+        expect(Object.keys(metadata.orgs)).toEqual([lab.slug])
+    })
 })

@@ -6,9 +6,12 @@ import { FileViewer } from '@/components/file-viewers'
 export function FilePreviewModal({
     file,
     onClose,
+    onDownload,
 }: {
     file: { name: string; contents: string | null } | null
     onClose: () => void
+    /** Notified when the in-modal download link is used, so callers can log the download. */
+    onDownload?: () => void
 }) {
     if (!file) return null
     const isLoading = file.contents === null
@@ -16,7 +19,13 @@ export function FilePreviewModal({
         <Group gap="md" align="baseline">
             <span>{file.name}</span>
             {!isLoading && (
-                <DownloadBlobLink filename={file.name} fileContent={file.contents ?? ''} size="sm" fw={400} />
+                <DownloadBlobLink
+                    filename={file.name}
+                    fileContent={file.contents ?? ''}
+                    size="sm"
+                    fw={400}
+                    onClick={onDownload}
+                />
             )}
         </Group>
     )

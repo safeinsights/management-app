@@ -1,7 +1,6 @@
-import { Box, Stack, Title } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { Routes } from '@/lib/routes'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
@@ -12,7 +11,7 @@ import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
 
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId, orgSlug } = await props.params
+    const { studyId } = await props.params
     const study = await getStudyAction({ studyId })
 
     if ('error' in study || !study.submittedByOrgSlug || study.title === null) {
@@ -36,16 +35,8 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
 
     return (
         <Box bg="grey.10">
-            <Stack px="xl" gap="xl" py="xl">
-                <PageBreadcrumbs
-                    crumbs={[
-                        ['Dashboard', Routes.dashboard],
-                        ['Study proposal', Routes.studySubmitted({ orgSlug, studyId })],
-                        ['Study code', Routes.studyView({ orgSlug, studyId })],
-                        ['Edit study code'],
-                    ]}
-                />
-                <Title order={1}>Study proposal</Title>
+            <Stack px="xl" gap="xxl" py="xl">
+                <StudyPageHeader>Study proposal</StudyPageHeader>
                 <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
                     <EditStudyCodeView
                         studyId={studyId}

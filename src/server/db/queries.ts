@@ -4,7 +4,8 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType } from '@/database/types'
+import { FileType, StudyJobFileAction } from '@/database/types'
+import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -41,6 +42,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
+            'study.status',
             'org.id as orgId',
             'org.slug as orgSlug',
             'study.submittedByOrgId',
@@ -82,7 +84,7 @@ function latestJobForStudyQuery(studyId: string) {
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId', 'study.language'])
+        .select(['study.orgId', 'study.language', 'study.status'])
         .select((eb) => [
             jsonArrayFrom(
                 eb
@@ -134,6 +136,45 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
+/**
+ * The classified failure class a service recorded against the job's JOB-ERRORED, or null (OTTER-524).
+ *
+ * A separate narrow query on purpose: `jobStatusChange.message` must NOT be selected in
+ * `latestJobForStudyQuery` or `getStudyJobInfo`, because both feed actions the submitting researcher
+ * is allowed to call, and this column can hold text written by a build service or a raw AWS error
+ * from the enclave. Read it only where the audience is a reviewer.
+ *
+ * Restricted to the known code set in SQL rather than "whatever the newest row holds", because a
+ * second JOB-ERRORED row is routine and would otherwise mask a classified one: the enclave and
+ * `/api/job/[jobId]` both append their own JOB-ERRORED with an arbitrary message, and the
+ * containerizer's read-then-write dedup can lose a race and let a code-less duplicate land last.
+ * Filtering here means the answer no longer depends on which row happens to sort first, and raw
+ * service text never leaves the database at all.
+ *
+ * Callers still classify what they get back (`jobErrorDetails` is the only intended consumer), so the
+ * display rule holds even if this query is ever loosened.
+ */
+export async function latestRecordedJobFailureReason(studyJobId: string): Promise<string | null> {
+    // Retiring the last code before a replacement lands would render `message in ()`, which Postgres
+    // rejects as a syntax error, so the reviewer's errored screen would 500 rather than fall back to
+    // the stage sentence. Degrade to "no reason recorded" instead.
+    const knownReasons: string[] = [...JOB_FAILURE_REASONS]
+    if (knownReasons.length === 0) return null
+
+    const row = await Action.db
+        .selectFrom('jobStatusChange')
+        .select('message')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .where('message', 'in', knownReasons)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return row?.message ?? null
+}
+
 // Submission version = 1 + the number of times a NEW submission round was opened across the whole
 // study. A new round opens for one of two reasons, each recorded once in the status history:
 //   - CODE-CHANGES-REQUESTED — the reviewer asked for changes (same-job resubmit, OTTER-316).
@@ -168,6 +209,7 @@ export const jobInfoForJobId = async (jobId: string) => {
             'org.slug as orgSlug',
             'org.id as orgId',
             'study.submittedByOrgId',
+            'study.status',
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
@@ -207,7 +249,7 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
         Action.db
             .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId'])
+            .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study')),
         Action.db
@@ -242,6 +284,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
             'org.slug as orgSlug',
             'study.submittedByOrgId',
             'study.language',
+            'study.status',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -309,6 +352,10 @@ export const getUserById = async (userId: string) => {
     return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
+// executeTakeFirst, NOT ...OrThrow, on purpose: an unknown slug must leave `orgId` ABSENT from the
+// CASL subject so the mongo `$in` conditions fail CLOSED (deny). Throwing here would instead
+// distinguish "no such org" from "not yours" for the caller, and switching to OrThrow would make
+// every rule built on this middleware depend on an exception for its safety.
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
@@ -333,7 +380,13 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId', 'study.submittedByOrgId'])
+        .select([
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.id as studyId',
+            'study.submittedByOrgId',
+            'study.status',
+        ])
         .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
@@ -342,7 +395,18 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId', 'study.status', 'study.submittedByOrgId'])
+        .select([
+            'orgId',
+            'org.slug as orgSlug',
+            'study.researcherId',
+            'study.status',
+            'study.submittedByOrgId',
+            // No row content here, however convenient it would be for a handler: this is middleware
+            // for many actions, its output becomes their ability subject, and requireAbilityTo
+            // serializes that subject into the permission_denied it returns to a caller it just
+            // refused (OTTER-724 / MA-6). A title selected here would travel back to anyone who
+            // guessed a study id. Read content in the handler, which only runs after the check.
+        ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }
@@ -491,9 +555,42 @@ export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicK
     return getOrgPublicKeys(submittedByOrgId)
 }
 
+// OTTER-675: the most recent view/download per output file, for the outputs table's
+// "Last activity" column. One row per file at most, because the column reports the latest
+// action rather than a history, so the DISTINCT ON collapses each file's rows to its newest.
+export type JobFileActivity = {
+    studyJobFileId: string
+    filePath: string
+    action: StudyJobFileAction
+    createdAt: Date
+    actorName: string
+}
+
+export async function latestActivityPerJobFile(jobId: string): Promise<JobFileActivity[]> {
+    return await Action.db
+        .selectFrom('studyJobFileActivity')
+        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
+        .innerJoin('user', 'user.id', 'studyJobFileActivity.userId')
+        .where('studyJobFile.studyJobId', '=', jobId)
+        .select([
+            'studyJobFileActivity.studyJobFileId',
+            'studyJobFileActivity.filePath',
+            'studyJobFileActivity.action',
+            'studyJobFileActivity.createdAt',
+            'user.fullName as actorName',
+        ])
+        .distinctOn(['studyJobFileActivity.studyJobFileId', 'studyJobFileActivity.filePath'])
+        .orderBy('studyJobFileActivity.studyJobFileId')
+        .orderBy('studyJobFileActivity.filePath')
+        .orderBy('studyJobFileActivity.createdAt', 'desc')
+        .orderBy('studyJobFileActivity.id', 'desc')
+        .execute()
+}
+
 // IDs of this job's artifacts with at least one re-wrapped key row — i.e. shared with researchers.
-// Empty before approval (rows only exist post-approval). Removing a researcher from the lab leaves
-// their key rows, so this never retroactively un-shares.
+// "Post-approval" means post-DECISION for results, but a reviewer approving CODE can share too
+// (approveJobCode persists keys alongside CODE-APPROVED), so rows can exist while the round is still
+// open. Removing a researcher from the lab leaves their key rows, so this never retroactively unshares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
     const rows = await Action.db
         .selectFrom('studyJobFileRecipientKey')
@@ -517,7 +614,12 @@ export type StudyReviewWithMeta = {
 // Trivy and SonarQube report independently. Per OTTER-649 we cannot say with
 // confidence that a scan "failed"; we only assert PASSED when the log carries an
 // explicit clean signal and otherwise surface the result for human review.
-export type ScanToolStatus = 'PASSED' | 'FAILED'
+//
+// INDETERMINATE is the third outcome the original two-state model could not express: the scan
+// reported, but not a verdict. Trivy has no analyzer for R, so a successful scan of an R submission
+// examines nothing, and a scan that never ran produces no report at all. Neither clears the code and
+// neither is a finding, so both go to a human instead of being forced into PASSED or FAILED.
+export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE'
 
 export type JobScanResult = {
     // null when the scan hasn't reported yet (no readable plaintext log).
@@ -527,14 +629,45 @@ export type JobScanResult = {
     logFile: { id: string; name: string; path: string } | null
 }
 
-// Trivy passes only on the explicit clean line the scanner emits; anything else
-// (findings, "no results", or an unrecognized log) is flagged for review.
+// The scanner leads its Trivy section with a single status phrase (iac codebuild/scripts/common.ts,
+// trivyPlaintextLog), so we read that rather than inferring a verdict from the shape of the detail
+// lines. Only the two explicit verdicts are honored; "nothing scanned", "scan did not complete", the
+// pre-OTTER-649 "no results", and anything unrecognized are all indeterminate. Treating unrecognized
+// text as FAILED is what surfaced a scan that never ran as a vulnerability finding on QA.
+// A Map, not an object literal: the phrase comes from a file, and an object lookup would resolve
+// inherited keys like "constructor" to a truthy non-status value.
+const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
+    ['no vulnerabilities found', 'PASSED'],
+    ['vulnerabilities found', 'FAILED'],
+])
+
+const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i
+const TRIVY_LEGACY_FINDINGS_HEADER = /^trivy (?:filesystem|image) scan results$/i
+
+// Both patterns are anchored to a whole trimmed line, and the legacy header is only consulted when
+// there is no status line at all. Matching anywhere in the log would let the scan's own detail lines
+// decide the verdict: a scanned file path or a CVE title containing "Trivy Filesystem Scan Results"
+// would turn an indeterminate result into a reported finding.
 export function parseTrivyStatus(log: string): ScanToolStatus {
-    return /trivy (?:filesystem|image) scan:\s*no vulnerabilities found/i.test(log) ? 'PASSED' : 'FAILED'
+    const lines = log.split('\n').map((line) => line.trim())
+
+    const statusLine = lines.find((line) => TRIVY_STATUS_LINE.test(line))
+    if (statusLine) {
+        const phrase = statusLine.replace(TRIVY_STATUS_LINE, '').trim().toLowerCase()
+        return TRIVY_VERDICTS.get(phrase) ?? 'INDETERMINATE'
+    }
+
+    // Logs written before the scanner emitted a status phrase headed their findings with the label
+    // followed by "Results" on a line of its own. Keep reading those as findings so already-stored
+    // logs do not lose their verdict.
+    if (lines.some((line) => TRIVY_LEGACY_FINDINGS_HEADER.test(line))) return 'FAILED'
+    return 'INDETERMINATE'
 }
 
-// SonarQube passes only when its quality gate reports OK. Any other gate status,
-// or a missing SonarQube section (skipped/unavailable), needs human review.
+// SonarQube passes only when its quality gate reports OK. Every other case (a failing gate, a gate
+// we could not resolve for this analysis, a timed-out or absent analysis) means the same thing to a
+// reviewer and to this card: it needs human review. The card is explicit that we can confirm a
+// SonarQube pass but never a SonarQube failure, so there is deliberately no third state here.
 export function parseSonarqubeStatus(log: string): ScanToolStatus {
     const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
     return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'

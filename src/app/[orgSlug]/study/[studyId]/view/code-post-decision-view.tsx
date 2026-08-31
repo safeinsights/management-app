@@ -2,16 +2,17 @@
 
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
+import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
@@ -33,17 +34,13 @@ interface CodePostDecisionViewProps {
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
     /**
-     * Forward link to results (Step 5); set only once results exist. When set, the primary action
-     * reads "Proceed to step 5" instead of "Go to dashboard" (OTTER-614).
+     * Forward link to the next step of the flow; set only when /view resolves past this screen
+     * (OTTER-614, OTTER-687). When set, the primary action reads "Next step" instead of "Go to
+     * dashboard".
      */
-    resultsHref?: Route
+    nextStepHref?: Route
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
-    /**
-     * Hidden during the execution window (approved code running in the enclave) so the page reads as
-     * "running / results pending" with no code listing, per OTTER-598. Shown for plain code decisions.
-     */
-    showStudyCode?: boolean
 }
 
 type DecisionCopy = {
@@ -108,14 +105,8 @@ type DecisionActionsProps = {
     previousHref: Route
     dashboardHref: Route
     resubmitHref: Route
-    resultsHref?: Route
+    nextStepHref?: Route
 }
-
-const PreviousStepLink: FC<{ href: Route }> = ({ href }) => (
-    <ButtonLink href={href} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
 
 const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
     if (!isVisible) return null
@@ -126,11 +117,11 @@ const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, h
     )
 }
 
-const ProceedToResultsAction: FC<{ isVisible: boolean; href?: Route }> = ({ isVisible, href }) => {
+const NextStepAction: FC<{ isVisible: boolean; href?: Route }> = ({ isVisible, href }) => {
     if (!isVisible || !href) return null
     return (
-        <ButtonLink href={href} size="md" data-testid="cta-proceed-to-results">
-            Proceed to step 5
+        <ButtonLink href={href} size="md" data-testid="cta-next-step">
+            Next step
         </ButtonLink>
     )
 }
@@ -144,30 +135,19 @@ const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisi
     )
 }
 
-function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, resultsHref }: DecisionActionsProps) {
+function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, nextStepHref }: DecisionActionsProps) {
     const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
-    // Once results exist, continue forward to Step 5 instead of ending at the dashboard.
-    const showProceedToResults = !showResubmit && !!resultsHref
+    // When the flow continues past this screen, carry the user forward instead of ending at the
+    // dashboard. Resubmit outranks it: a change request is the flow, not a step to skip.
+    const showNextStep = !showResubmit && !!nextStepHref
     return (
         <Group justify="space-between">
-            <PreviousStepLink href={previousHref} />
-            <ProceedToResultsAction isVisible={showProceedToResults} href={resultsHref} />
-            <DashboardAction isVisible={!showResubmit && !showProceedToResults} href={dashboardHref} />
+            <PreviousStepLink previousHref={previousHref} />
+            <NextStepAction isVisible={showNextStep} href={nextStepHref} />
+            <DashboardAction isVisible={!showResubmit && !showNextStep} href={dashboardHref} />
             <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
         </Group>
     )
-}
-
-// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
-// (same as the DO review page) in place of the feedback section, rather than a legacy view.
-const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
-    feedbackLoadError,
-    entries,
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 type StepCardProps = {
@@ -175,12 +155,11 @@ type StepCardProps = {
     copy: DecisionCopy
     timestampDate: Date | string | null
     banner: ReactNode
-    showToggle: boolean
     expanded: boolean
     onToggle: () => void
 }
 
-function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, onToggle }: StepCardProps) {
+function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -190,7 +169,7 @@ function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, on
             timestampDate={timestampDate}
             banner={banner}
         >
-            <StudyCodeToggle isVisible={showToggle} expanded={expanded} onClick={onToggle} />
+            <StudyCodeToggle isVisible={!expanded} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
     )
 }
@@ -198,7 +177,6 @@ function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, on
 // Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
 // this card reveals the proposal link, file table, and the matching "Hide" toggle.
 type SubmittedCodePanelProps = {
-    isVisible: boolean
     expanded: boolean
     jobId: string
     codeFiles: CodeFileList
@@ -206,34 +184,24 @@ type SubmittedCodePanelProps = {
     onCollapse: () => void
 }
 
-const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({
-    isVisible,
-    expanded,
-    jobId,
-    codeFiles,
-    proposalHref,
-    onCollapse,
-}) => {
-    if (!isVisible) return null
+const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({ expanded, jobId, codeFiles, proposalHref, onCollapse }) => {
     return (
         <Collapse in={expanded}>
             <Paper p="xxl">
                 <Stack gap="md">
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={5}>Submitted code</Title>
-                        <Anchor
+                        <Title order={3} size="h5">
+                            Submitted code
+                        </Title>
+                        <LinkWithIcon
                             href={proposalHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            size="sm"
-                            fw={700}
-                            display="inline-flex"
-                            style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
+                            icon={<ArrowSquareOutIcon size={14} />}
                             data-testid="view-approved-initial-request"
                         >
                             View approved initial request
-                            <ArrowSquareOutIcon size={14} />
-                        </Anchor>
+                        </LinkWithIcon>
                     </Group>
                     <Divider />
                     <Text>View the code files that you uploaded to run against the dataset.</Text>
@@ -254,9 +222,8 @@ export function CodePostDecisionView({
     dashboardHref,
     returnTo,
     latestJobStatus,
-    resultsHref,
+    nextStepHref,
     feedbackLoadError = false,
-    showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const { expanded, toggle, collapse } = useExpandable()
@@ -265,18 +232,11 @@ export function CodePostDecisionView({
     const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboardHref],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
-
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
-        <Stack p="xl" gap="xl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
-            <Title order={1}>Study proposal</Title>
+        <Stack p="xl" gap="xxl">
+            <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
                 <StepCard
@@ -284,25 +244,23 @@ export function CodePostDecisionView({
                     copy={copy}
                     timestampDate={timestampDate}
                     banner={banner}
-                    showToggle={showStudyCode && !expanded}
                     expanded={expanded}
                     onToggle={toggle}
                 />
                 <SubmittedCodePanel
-                    isVisible={showStudyCode}
                     expanded={expanded}
                     jobId={job.id}
                     codeFiles={codeFiles}
                     proposalHref={proposalHref}
                     onCollapse={collapse}
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
+                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecisionActions
                     decision={latestJobStatus}
                     previousHref={previousHref}
                     dashboardHref={dashboardHref}
                     resubmitHref={resubmitHref}
-                    resultsHref={resultsHref}
+                    nextStepHref={nextStepHref}
                 />
             </Stack>
         </Stack>

@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { clearRoleCookieFromDocument, writeRoleCookieToDocument } from './cookie'
-import { defaultOrgSlug, type FakeRole } from './fixtures'
+import { defaultOrgSlug, FAKE_ROLES, type FakeRole } from './fixtures'
 import { buildFakeUser } from './user-resource'
 import { createFakeSignIn } from './sign-in-resource'
 import { getFixture, getServerFixture, LOADING, notifyAuthChanged, subscribe, type FixtureState } from './store'
@@ -31,7 +31,7 @@ function doSignOut() {
     notifyAuthChanged()
 }
 
-export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string }) {
+export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string; nonce?: string }) {
     useEffect(() => {
         // After hydration, re-sync the store from the cookie so consumers that rendered
         // signed-out during SSR flip to the real role.
@@ -100,7 +100,9 @@ export function useSignIn() {
         async (params: { session?: unknown } | unknown) => {
             const session = (params as { session?: unknown })?.session ?? params
             const id = typeof session === 'string' ? session : (session as { id?: string })?.id
-            const match = id?.match(/^e2e-session-(admin|researcher|reviewer)$/)
+            // Role names come from the fixture table rather than a literal list, so a new fixture
+            // does not silently fall through to signIn.role here.
+            const match = id?.match(new RegExp(`^e2e-session-(${FAKE_ROLES.join('|')})$`))
             const role = (match?.[1] as FakeRole | undefined) ?? signIn.role
             if (role) {
                 writeRoleCookieToDocument(role)

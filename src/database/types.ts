@@ -18,7 +18,7 @@ export type AuditEventType =
     | 'RESET_PASSWORD'
     | 'UPDATED'
 
-export type AuditRecordType = 'STUDY' | 'USER'
+export type AuditRecordType = 'CODE_ENV' | 'STUDY' | 'USER'
 
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
@@ -37,11 +37,17 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
 
+export type LegalDocumentFormat = 'markdown' | 'pdf'
+
+export type LegalDocumentType = 'DOPA' | 'PN' | 'ROPA' | 'SLA' | 'TOS'
+
 export type OrgType = 'enclave' | 'lab'
 
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
+
+export type StudyJobFileAction = 'DOWNLOADED' | 'VIEWED'
 
 export type StudyJobFileType =
     | 'APPROVED-CODE-RUN-LOG'
@@ -79,7 +85,7 @@ export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEED
 
 export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
 
-export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL'
+export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL' | 'RESULTS'
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
@@ -119,6 +125,34 @@ export interface JobStatusChange {
     status: Generated<StudyJobStatus>
     studyJobId: string
     userId: string | null
+}
+
+export interface LegalDocument {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    orgId: string | null
+    studyId: string | null
+    type: LegalDocumentType
+}
+
+export interface LegalDocumentAcknowledgement {
+    ackedAt: Generated<Timestamp>
+    id: Generated<string>
+    legalDocumentVersionId: string
+    userId: string
+}
+
+export interface LegalDocumentVersion {
+    createdAt: Generated<Timestamp>
+    fileName: string
+    filePath: string
+    format: LegalDocumentFormat
+    id: Generated<string>
+    legalDocumentId: string
+    publishedAt: Timestamp | null
+    publishedBy: string | null
+    signedAt: string | null
+    versionNumber: number | null
 }
 
 export interface Org {
@@ -265,6 +299,15 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface StudyJobFileActivity {
+    action: StudyJobFileAction
+    createdAt: Generated<Timestamp>
+    filePath: string
+    id: Generated<string>
+    studyJobFileId: string
+    userId: string
+}
+
 export interface StudyJobFileRecipientKey {
     createdAt: Generated<Timestamp>
     crypt: string
@@ -340,6 +383,9 @@ export interface DB {
     audit: Audit
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
+    legalDocument: LegalDocument
+    legalDocumentAcknowledgement: LegalDocumentAcknowledgement
+    legalDocumentVersion: LegalDocumentVersion
     org: Org
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource
@@ -352,6 +398,7 @@ export interface DB {
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    studyJobFileActivity: StudyJobFileActivity
     studyJobFileRecipientKey: StudyJobFileRecipientKey
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview

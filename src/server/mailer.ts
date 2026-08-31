@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
+import { pathForInvitation } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { deliver, SI_EMAIL } from './mailgun'
 
@@ -35,7 +36,7 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
         subject: 'Get started with SafeInsights',
         template: 'welcome email',
         vars: {
-            inviteLink: `${APP_BASE_URL}/account/invitation/${inviteId}`,
+            inviteLink: `${APP_BASE_URL}${pathForInvitation(inviteId)}`,
         },
     })
 }
@@ -64,6 +65,9 @@ export const sendStudyProposalEmails = async (studyId: string) => {
         },
     })
 }
+
+// TODO(SHRMP-277, Iris): sendSlaPreparationEmail — SI admin needs the study id and proposal URL to
+// draw the SLA up by hand in Zoho Sign.
 
 // Audience: reviewer, Trigger: Status == Code Needs Review
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {

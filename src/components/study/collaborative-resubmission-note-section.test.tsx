@@ -1,23 +1,32 @@
 import { describe, expect, it } from 'vitest'
-import { renderWithProviders, screen } from '@/tests/unit.helpers'
+import { render, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { fieldErrorId } from '@/components/form-field'
+import { theme } from '@/theme'
 import { useForm, zodResolver } from '@/common'
 import {
+    RESUBMIT_NOTE_MAX_CHARACTERS,
     initialResubmitNoteValue,
     resubmissionNoteToLexicalJson,
     resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { CollaborativeResubmissionNoteSection } from './collaborative-resubmission-note-section'
+import { overCharacterLimitError } from '@/lib/field-limits'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
-function Harness({ initialNote = '' }: { initialNote?: string }) {
+function Harness({ initialNote = '', initialError }: { initialNote?: string; initialError?: string }) {
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: {
             ...initialResubmitNoteValue,
             resubmissionNote: resubmissionNoteToLexicalJson(initialNote),
         },
+        // `initialErrors` rather than assigning to `form.errors`, which Mantine exposes as read-only.
+        initialErrors: initialError ? { resubmissionNote: initialError } : {},
         validateInputOnChange: true,
     })
 
@@ -43,6 +52,18 @@ function Harness({ initialNote = '' }: { initialNote?: string }) {
 const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
     renderWithProviders(<Harness {...props} />)
 
+// renderWithProviders hard-codes collaborative mode; single-user mode needs its own provider tree.
+const renderSingleUserSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
+    render(
+        <MantineProvider theme={theme}>
+            <YjsWebsocketProvider singleUserEditing>
+                <ModalsProvider>
+                    <Harness {...props} />
+                </ModalsProvider>
+            </YjsWebsocketProvider>
+        </MantineProvider>,
+    )
+
 describe('CollaborativeResubmissionNoteSection', () => {
     it('renders the section title with the required indicator', () => {
         renderSection()
@@ -58,5 +79,66 @@ describe('CollaborativeResubmissionNoteSection', () => {
     it('does not render the section-level autosave indicator in collaborative mode', () => {
         renderSection()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    it('renders the section-level autosave indicator in single-user mode once a draft has been saved', () => {
+        renderSingleUserSection()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+    })
+
+    it('hides the autosave indicator while a validation error is showing (OTTER-674)', () => {
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        expect(screen.getByText('A resubmission note is required.')).toBeInTheDocument()
+        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    it('renders the error in the same footer row as the character counter (OTTER-674)', () => {
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        const errorBox = document.getElementById(fieldErrorId('resubmissionNote'))
+        expect(errorBox).toHaveTextContent('A resubmission note is required.')
+        expect(errorBox?.parentElement).toContainElement(screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`))
+    })
+
+    it('renders the single-user autosave indicator in the same footer row as the character counter', () => {
+        renderSingleUserSection()
+        const region = screen.getByTestId('autosave-live-region')
+        expect(region).toContainElement(screen.getByTestId('autosave-status'))
+        expect(region.parentElement).toContainElement(screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`))
+    })
+
+    it('keeps the live region mounted through a validation error, so a later save is announced (OTTER-675)', () => {
+        // The error must empty the region rather than unmount it: a region handed back with its
+        // text already inside is silent in most AT/browser pairs.
+        renderSingleUserSection({ initialError: 'A resubmission note is required.' })
+        expect(screen.getByTestId('autosave-live-region')).toBeEmptyDOMElement()
+    })
+
+    it('mounts no live region at all in collaborative mode, where the editor owns one', () => {
+        renderSection()
+        expect(screen.queryByTestId('autosave-live-region')).not.toBeInTheDocument()
+    })
+})
+
+// OTTER-737: this note is one of the ten capped fields, so the count has to be reachable from the
+// editor and the over-limit message has to announce itself.
+describe('CollaborativeResubmissionNoteSection character limit', () => {
+    const OVER_LIMIT_ERROR = overCharacterLimitError('Resubmission note', RESUBMIT_NOTE_MAX_CHARACTERS)
+
+    it('seeds the counter from the draft, excluding whitespace at its ends', () => {
+        renderSingleUserSection({ initialNote: '  hello  ' })
+        expect(screen.getByText(`5/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
+    })
+
+    it('names the counter in the editor aria-describedby', async () => {
+        renderSingleUserSection()
+        const editor = await screen.findByLabelText('Resubmission Note')
+        const counter = screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
+        expect(editor.getAttribute('aria-describedby')).toContain(counter.id)
+    })
+
+    it('announces the over-limit message politely', () => {
+        renderSingleUserSection({ initialError: OVER_LIMIT_ERROR })
+        const message = screen.getByText(OVER_LIMIT_ERROR)
+        expect(message.closest('[aria-live="polite"]')).not.toBeNull()
     })
 })

@@ -1,5 +1,7 @@
 import { faker } from '@faker-js/faker'
 import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
+import { SEEDED_TOS_V2_BODY } from './e2e.seed'
+import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
 
 // Reviewer is the org admin for `reviewer-is-org-admin`; restore its saved session
@@ -69,7 +71,10 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
-        await page.getByRole('checkbox', { name: /terms of service/i }).check()
+        // The published documents are rendered inline on the form, and the acknowledgement recorded
+        // at signup is against the versions shown here.
+        await expect(page.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
+        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice' }).check()
 
         const submitBtn = page.getByRole('button', { name: /create account/i })
         // Wait for the button to become enabled
@@ -81,6 +86,24 @@ test.describe('Organization Admin', () => {
         // account's sign-in returns `needs_second_factor` rather than completing. The signup page
         // surfaces an actionable error for that case instead of stranding the user (see PR #742).
         await expect(page.getByText(/multi-factor authentication is required before you can sign in/i)).toBeVisible()
+    })
+
+    test('shows a confirmation banner on the dashboard after joining an org', async ({ page }) => {
+        // Invite acceptance sets a sessionStorage flag that the dashboard turns into a one-time
+        // "You have been added to <org>" banner.
+        const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
+
+        await visitAsRole(page, '/dashboard')
+        await page.evaluate(([key, name]) => sessionStorage.setItem(key, name), [JOINED_ORG_STORAGE_KEY, orgName])
+
+        await goto(page, '/dashboard')
+        const banner = page.getByTestId('joined-org-banner')
+        await expect(banner).toBeVisible()
+        await expect(banner).toContainText(`You have been added to ${orgName}.`)
+
+        // The banner clears the flag once shown, so a reload does not repeat it.
+        await goto(page, '/dashboard')
+        await expect(page.getByTestId('joined-org-banner')).toBeHidden()
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {
@@ -162,5 +185,20 @@ test.describe('Organization Admin', () => {
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
         await expect(codeViewerDialog).toBeVisible()
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
+    })
+
+    // Asserts no row content: other specs approve studies against this org in parallel, so counting
+    // rows (or asserting none) would depend on which spec ran first.
+    test('org admin can open the legal center', async ({ page }) => {
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+
+        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/legal/)
+        await expect(page.getByRole('heading', { name: 'Legal center' })).toBeVisible()
+        await expect(page.getByRole('tab', { name: 'Study Agreement' })).toBeVisible()
+
+        const participationTab = page.getByRole('tab', { name: 'Data Organization Participation Agreement' })
+        await expect(participationTab).toBeVisible()
+        await participationTab.click()
+        await expect(page.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeVisible()
     })
 })

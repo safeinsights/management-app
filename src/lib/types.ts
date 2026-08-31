@@ -97,9 +97,9 @@ export type CodeManifest = {
 }
 
 export enum StudyDocumentType {
-    'IRB' = 'IRB',
-    'DESCRIPTION' = 'DESCRIPTION',
-    'AGREEMENT' = 'AGREEMENT',
+    IRB = 'IRB',
+    DESCRIPTION = 'DESCRIPTION',
+    AGREEMENT = 'AGREEMENT',
 }
 export const ACCEPTED_LANGUAGE_FILE_TYPES: Record<Language, Record<string, string[]>> = {
     R: {

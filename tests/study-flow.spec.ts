@@ -4,6 +4,7 @@ import {
     visitAsRole,
     readTestSupportFile,
     fillLexicalField,
+    insertLexicalLink,
     goto,
     withRole,
     type Page,
@@ -31,12 +32,22 @@ import { execSync } from 'child_process'
 const RESEARCHER_DASHBOARD = '/openstax-lab/dashboard'
 const REVIEWER_DASHBOARD = '/openstax/dashboard'
 
+// OTTER-463: rich-text links must carry target="_blank" through submission so
+// neither researcher nor reviewer gets navigated off SafeInsights by a click.
+const PROPOSAL_LINK_TEXT = 'Prior study writeup'
+const PROPOSAL_LINK_URL = 'https://example.com/prior-study'
+
 // ============================================================================
 // Researcher: study creation (Step 1 + Step 2) — driven live by ONE test
 // ============================================================================
 
-async function selectOrgAndLanguage(page: Page, orgNameRegex: RegExp = /openstax/i) {
-    await expect(page.getByText(/^STEP 1A$/i)).toBeVisible()
+// OTTER-690: Step 1 is one card, and the study title is entered here rather than on Step 2.
+async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = /openstax/i) {
+    await expect(page.getByText(/^STEP 1$/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Set up study', level: 2 })).toBeVisible()
+
+    await page.getByLabel(/Study title/).fill(studyTitle)
+
     const orgSelect = page.getByTestId('org-select')
     await expect(orgSelect).toBeEnabled()
     await orgSelect.click()
@@ -48,7 +59,19 @@ async function selectOrgAndLanguage(page: Page, orgNameRegex: RegExp = /openstax
     await radioButton.click()
 }
 
-async function navigateToProposeStudy(page: Page) {
+// Save & continue now opens a confirmation modal before navigating, because the Data Partner and
+// language cannot be changed after this step.
+async function confirmStep1(page: Page) {
+    const proceedButton = page.getByRole('button', { name: 'Save & continue' })
+    await expect(proceedButton).toBeEnabled()
+    await proceedButton.click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('Continue to the next step?')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Continue' }).click()
+}
+
+async function navigateToProposeStudy(page: Page, studyTitle: string) {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 
     const newStudyButton = page.getByTestId('new-study').first()
@@ -56,35 +79,57 @@ async function navigateToProposeStudy(page: Page) {
     await newStudyButton.click()
     await page.waitForURL(/\/study\/request$/)
 
-    await selectOrgAndLanguage(page)
-
-    const proceedButton = page.getByRole('button', { name: /Proceed to Step 2/i })
-    await expect(proceedButton).toBeEnabled()
-    await proceedButton.click()
+    await fillStep1(page, studyTitle)
+    await confirmStep1(page)
 
     await page.waitForURL(/\/proposal$/)
     await expect(page.getByText('STEP 2')).toBeVisible()
 }
 
-async function fillAndSubmitProposal(page: Page, studyTitle: string) {
-    await page.getByLabel('Study Title').fill(studyTitle)
+// Not `getByPlaceholder`: Step 2 renders no placeholder text (OTTER-691), so the locator this
+// replaced no longer resolves. The id is the plain-HTML stand-in and clicking it bubbles to the
+// pills box that owns the dropdown handler. This only works while the field stays visible, which
+// the assertions in the required-fields test pin down.
+function datasetsField(page: Page) {
+    return page.locator('#datasets')
+}
 
-    await page.getByPlaceholder('Select dataset(s) of interest').click()
+async function chooseFirstDataset(page: Page) {
+    await datasetsField(page).click()
     await page.getByRole('option').first().click()
+}
+
+// No title argument: it is supplied on Step 1 now (OTTER-690), and this page no longer renders a
+// title field at all. Callers keep their own copy of the title for later dashboard row lookups.
+async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } = {}) {
+    await expect(page.getByLabel('Study Title')).toHaveCount(0)
+
+    await chooseFirstDataset(page)
 
     await fillLexicalField(page, 'Research question(s)', 'What is the impact of highlighting on student outcomes?')
     await fillLexicalField(page, 'Project summary', 'We analyze archival data to study highlighting behavior.')
     await fillLexicalField(page, 'Impact', 'This research will improve understanding of study habits.')
 
+    if (opts.linkNotes) {
+        await insertLexicalLink(page, 'Additional notes or requests', PROPOSAL_LINK_TEXT, PROPOSAL_LINK_URL)
+        // Confirm before submitting: an unmarked link here would navigate the
+        // researcher out of the app on click.
+        await expect(page.locator(`a[href="${PROPOSAL_LINK_URL}"]`)).toHaveAttribute('target', '_blank')
+    }
+
     const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
     await piSelect.click()
     await page.getByRole('option').first().click()
 
-    const submitButton = page.getByRole('button', { name: /Submit initial request/i })
+    // OTTER-691: the button is never disabled on validity, and the modal's confirm carries the
+    // same label as the button that opened it.
+    const submitButton = page.getByRole('button', { name: 'Submit proposal' })
     await expect(submitButton).toBeEnabled()
     await submitButton.click()
 
-    await page.getByRole('button', { name: /Yes, submit initial request/i }).click()
+    const confirmDialog = page.getByRole('dialog')
+    await expect(confirmDialog.getByText('Submit your proposal?')).toBeVisible()
+    await confirmDialog.getByRole('button', { name: 'Submit proposal' }).click()
 
     await expect(page.getByText(/successfully submitted/i)).toBeVisible()
 
@@ -133,6 +178,13 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
 
+    // main file must be picked explicitly when multiple files are present.
+    // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
+    await expect(async () => {
+        await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
+        await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+    }).toPass()
+
     const submitButton = page.getByRole('button', { name: /Submit code/i })
     await expect(submitButton).toBeEnabled()
     // The fixed AppShell footer intercepts pointer events on Submit; scroll it clear.
@@ -148,6 +200,18 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
 
     return mainFileName
+}
+
+// Resubmit upload: two files, no star click. insertSubmittedJob seeds main.r as MAIN-CODE;
+// asserting that star is already selected is what proves inheritance. Clicking it would
+// set an override and hide a broken inheritance rule.
+async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+
+    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'main.r is the main file' })).toBeVisible()
 }
 
 // ============================================================================
@@ -247,8 +311,11 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
     await expect(dialog).toBeHidden()
 
-    await expect(page.getByText(/Approved on/)).toBeVisible()
-    await page.getByTestId('go-to-dashboard').click()
+    // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
+    // lands on the outputs-pending "Review outputs" screen rather than the approval confirmation.
+    await expect(page.getByTestId('status-alert')).toBeVisible()
+    await expect(page.getByText(/Outputs not ready/)).toBeVisible()
+    await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -278,64 +345,152 @@ function uploadResults(jobId: string): void {
     )
 }
 
-// Reviewer results-review (StudyDetailsReviewer) for a successful run: decrypt then
-// approve. Result files auto-select on decrypt, so the job-level Approve enables
-// without ticking a checkbox.
-async function reviewerApprovesResults(page: Page, studyTitle: string): Promise<void> {
+// OTTER-668 + OTTER-676: the outputs-available screen, both phases. Like the errored screen,
+// a validated key swaps the form for the outputs table and Decision section on the same URL —
+// decryption is client-side, so the swap is a local phase flip, not a navigation.
+async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
+    await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
+
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled()
-    await decryptButton.click()
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
 
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-
-    const approveButton = page.getByRole('button', { name: /^Approve$/i }).last()
-    await expect(approveButton).toBeEnabled()
-    await approveButton.click()
-    await page.waitForURL('**/dashboard')
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
-async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
+// OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
+// the outputs table and Decision section without a navigation, because decryption is client-side, so
+// the swap is a local phase flip on the same URL.
+async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
+    await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
+
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByPlaceholder('Enter your Results Key to access encrypted content.')
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
-    await expect(decryptButton).toBeEnabled()
-    await decryptButton.click()
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
 
-    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-
-    // All-or-nothing: approving shares every decrypted artifact (results + logs) with the
-    // researcher — no per-file selection. Approve directly once decrypted.
-    const approveButton = page.getByRole('button', { name: /approve/i }).last()
-    await expect(approveButton).toBeEnabled()
-    await approveButton.click()
-    await page.waitForURL('**/dashboard')
-
-    // Full reload clears the Router Cache so the details re-fetch from the DB.
-    await goto(page, REVIEWER_DASHBOARD)
-    await viewStudyDetails(page, studyTitle)
-    await page.waitForURL(/\/review$/)
-    await expect(page.getByText(/Approved on/).last()).toBeVisible()
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
-async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+// OTTER-675: submitting the decision from the decrypted view. Shares the outputs so the
+// researcher-side assertions below have something to see.
+async function reviewerSharesOutputs(page: Page, feedback: string): Promise<void> {
+    await expect(page.getByTestId('outputs-decision-section')).toBeVisible()
+
+    const editor = page.getByLabel('Decision feedback')
+    await expect(editor).toBeVisible()
+    await editor.click()
+    await editor.fill(feedback)
+
+    await page.getByTestId('outputs-decision-share-outputs').check()
+
+    const trigger = page.getByTestId('outputs-submit-decision')
+    await trigger.click()
+
+    // Scope to the dialog: the page's own trigger and the modal's confirm share the label
+    // "Submit decision", so an unscoped role query matches both once the modal is open.
+    const modal = page.getByRole('dialog', { name: 'Submit your decision?' })
+    await expect(modal).toBeVisible()
+    // The modal names what is about to be shared before anything is written.
+    await expect(modal.getByText(/You are sharing the output files and your feedback with/)).toBeVisible()
+
+    // Focus must come back to the trigger on every dismissal. The modal stays mounted while
+    // closed so Mantine's own returnFocus can do it; unmounting it would take useFocusReturn
+    // along with it. Checked here rather than in jsdom, where the Lexical editor this flow needs
+    // is not typeable. Escape first, then the X, then reopen for the real submit.
+    await page.keyboard.press('Escape')
+    await expect(modal).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Close' }).click()
+    await expect(modal).toBeHidden()
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Submit decision' }).click()
+
+    // The decision re-resolves the reviewer screen; leaving the errored view is the signal.
+    await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
+}
+
+// OTTER-675: blank submit must flag both fields and open no modal.
+async function reviewerSeesValidationOnBlankSubmit(page: Page): Promise<void> {
+    const editor = page.getByLabel('Decision feedback')
+    const trigger = page.getByTestId('outputs-submit-decision')
+
+    // The caret starts inside the empty editor, which is where this used to break: raising the
+    // "enter your feedback" message as the editor lost focus inserted a line above the navigation
+    // row, so the button moved out from under the pointer between mousedown and mouseup, the click
+    // was never delivered, and only the field the blur had flagged was ever reported.
+    await editor.click()
+    await trigger.click()
+
+    await expect(page.getByText(/Enter your feedback for .* before submitting\./)).toBeVisible()
+    await expect(page.getByText('Select an option before submitting')).toBeVisible()
+    const options = page.locator('input[name="outputs-decision"]')
+    await expect(options.first()).toHaveAttribute('aria-invalid', 'true')
+    await expect(options.last()).toHaveAttribute('aria-invalid', 'true')
+    await expect(editor).toBeFocused()
+    await expect(page.getByRole('dialog', { name: 'Submit your decision?' })).toBeHidden()
+
+    // Tab must move focus on rather than typing a tab character, and must keep going until it
+    // reaches the radios (WCAG 2.1.2). Checked here rather than in jsdom, where Lexical's Tab
+    // handler returns early for want of a range selection and the assertion cannot fail.
+    const typed = 'Checking the keyboard path.'
+    await editor.fill(typed)
+    await page.keyboard.press('Tab')
+    await expect(editor).not.toBeFocused()
+    // textContent(), not toHaveText: the latter normalizes whitespace, so it would pass on the very
+    // tab character this asserts is absent.
+    await expect(async () => {
+        const text = await editor.textContent()
+        expect(text).toContain(typed)
+        expect(text).not.toContain('\t')
+    }).toPass()
+
+    // Tabs until the radio is reached rather than assuming a count: the editor's formatting
+    // toolbar sits between the two and its size is not this test's business.
+    const firstOption = page.getByTestId('outputs-decision-share-outputs')
+    const isFocused = () => firstOption.evaluate((el) => el === document.activeElement)
+    for (let i = 0; i < 12 && !(await isFocused()); i++) {
+        await page.keyboard.press('Tab')
+    }
+    await expect(firstOption).toBeFocused()
+}
+
+// The researcher's errored view is gated on a files decision existing (awaitingFilesDecisionOnError),
+// so this runs only after reviewerSharesOutputs (OTTER-675).
+// OTTER-696: sharing the outputs on an errored run records FILES-APPROVED alongside JOB-ERRORED,
+// which now routes the researcher to the errored-outputs step instead of the old inline error
+// panel — they decrypt with their own key to diagnose the failure, then edit and resubmit.
+// Asserts the pre-decryption landing only: the decrypt phase needs researcher-wrapped keys that
+// this seed does not provision, and is covered by shared-outputs-panel.test.tsx.
+async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
 
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -343,12 +498,14 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
 
     await viewStudyDetails(page, studyTitle)
 
-    await expect(page.getByText(/The code errored/i)).toBeVisible()
-    await expect(page.getByText(/Job ID/i)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
+    await expect(page.getByText(/Decrypt outputs to view code error/i)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
 
-    // Verify logs row exists in the results table (JobResults now renders EncryptedFilesPanel,
-    // which lists the log artifact by its file-type label before decryption).
-    await expect(page.getByText('Code Run Log')).toBeVisible()
+    // Both post-decryption actions stay out of the DOM until a key has been validated.
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 }
 
 // ============================================================================
@@ -365,8 +522,25 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('propose')
 
     await withRole(browser, 'researcher', async (page) => {
-        await navigateToProposeStudy(page)
-        await fillAndSubmitProposal(page, studyTitle)
+        await navigateToProposeStudy(page, studyTitle)
+        await fillAndSubmitProposal(page, { linkNotes: true })
+
+        // The read-only render of a submitted proposal is a separate Lexical mount, so
+        // assert the link survives there too and not just in the editor.
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
+        await clickViewLink(page, studyRow)
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+
+        // This view mounts the proposal collapsed (initialExpanded={false}), so the card shows a
+        // snippet and the full body is not rendered until the toggle is clicked.
+        await page.getByRole('button', { name: 'View full proposal' }).click()
+        const proposalBody = page.getByTestId('proposal-body')
+        await expect(proposalBody).toBeVisible()
+
+        const submittedLink = proposalBody.getByRole('link', { name: PROPOSAL_LINK_TEXT })
+        await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
+        await expect(submittedLink).toHaveAttribute('target', '_blank')
     })
 })
 
@@ -375,22 +549,31 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
 // land on Step 2, fill a field (creating Step 2 progress), navigate back
 // (which flushes fields to the study row via onUpdateDraftStudyAction), then
 // verify the dashboard "Edit draft" link routes to /proposal.
+//
+// OTTER-690 canary: the title now arrives from Step 1, so the dataset selection is the only thing
+// left creating Step 2 progress. draftHasStep2Progress keys on datasets, so it should still
+// resolve, and this test is what proves it.
 test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('resume-step2')
 
     await withRole(browser, 'researcher', async (page) => {
-        await navigateToProposeStudy(page)
+        await navigateToProposeStudy(page, studyTitle)
 
-        await page.getByLabel('Study Title').fill(studyTitle)
-        await page.getByPlaceholder('Select dataset(s) of interest').click()
-        await page.getByRole('option').first().click()
+        await chooseFirstDataset(page)
         // Close the dropdown so it doesn't overlay the footer buttons.
-        await page.getByLabel('Study Title').click()
+        await page.keyboard.press('Escape')
+        await expect(page.getByRole('option')).toHaveCount(0)
 
-        // Navigate back — triggers save-on-navigate, flushing Step 2 fields
+        // Navigate back, which triggers save-on-navigate and flushes Step 2 fields
         // to the study row so draftHasStep2Progress resolves correctly.
-        await page.getByRole('button', { name: /Previous/i }).click()
+        await page.getByRole('button', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit$/)
+
+        // Revisiting Step 1 keeps the title editable and shows it as saved, while the Data
+        // Partner and language are now settled and render as text.
+        await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+        await expect(page.getByRole('radio', { name: 'R', exact: true })).toHaveCount(0)
 
         await visitAsRole(page, RESEARCHER_DASHBOARD)
 
@@ -444,15 +627,20 @@ test('Reviewer approves submitted code', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer results decrypt+approve surface. Seeds a JOB-READY job, uploads
-// an encrypted result via the debug script (no runner), then drives the UI.
+// Owns the outputs-available surface end to end (OTTER-668 + OTTER-676): decrypt, the
+// validation gate, and sharing the outputs through the confirmation modal. Seeds a
+// JOB-READY job, uploads an encrypted result via the debug script (no runner), then
+// drives the UI, then ends on the researcher's side: sharing records FILES-APPROVED, which is
+// what surfaces the approved-results message on their study view.
 test('Successful results review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('results')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadResults(jobId!)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await reviewerApprovesResults(page, studyTitle)
+        await reviewerDecryptsAvailableOutputs(page, studyTitle)
+        await reviewerSeesValidationOnBlankSubmit(page)
+        await reviewerSharesOutputs(page, 'Reviewed the outputs — no sensitive or restricted data present.')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -462,19 +650,21 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
-// Owns the reviewer error-log decrypt+approve surface and the researcher
-// errored-status view. Seeds a JOB-READY job, uploads an encrypted error log.
+// Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
+// validation gate, the confirmation modal, and the researcher's view of the shared logs.
 test('Error log review', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('error-log')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadErrorLogs(jobId!)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await reviewerApprovesErrorLogs(page, studyTitle)
+        await reviewerDecryptsErrorLogs(page, studyTitle)
+        await reviewerSeesValidationOnBlankSubmit(page)
+        await reviewerSharesOutputs(page, 'The run failed on a timeout; the logs contain no PII.')
     })
 
     await withRole(browser, 'researcher', async (page) => {
-        await verifyFailedStatusDisplay(page, studyTitle)
+        await verifyErroredOutputsSharedDisplay(page, studyTitle)
     })
 })
 
@@ -666,8 +856,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
-        const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+        await uploadResubmitFilesExpectingInheritedMain(page)
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
@@ -694,8 +883,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
 
-        const fileInput = page.locator('input[type="file"]')
-        await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
+        await uploadResubmitFilesExpectingInheritedMain(page)
 
         // Filling the note fires the debounced autosave against the real action: the "All changes
         // saved" indicator must appear and no "not editable" error toast. This guards the page +
@@ -767,5 +955,116 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         const decisionSection = page.getByTestId('review-decision-section')
         await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
         await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
+    })
+})
+
+// ============================================================================
+// Required-field blur validation (OTTER-647)
+// ============================================================================
+
+// Owns the blur-validation surface: leaving a required field incomplete must flag it
+// rather than silently disabling submit. Drives Step 1 and Step 2 live because the
+// behavior is the interaction itself and cannot be seeded.
+//
+// OTTER-690 reshaped Step 1: Save & continue is never disabled, because clicking it is what
+// surfaces the errors, and the title is validated here rather than on Step 2.
+test('Incomplete required fields are flagged when the researcher moves on', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('blur-validation')
+
+    await withRole(browser, 'researcher', async (page) => {
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+
+        const newStudyButton = page.getByTestId('new-study').first()
+        await newStudyButton.waitFor({ state: 'visible' })
+        await newStudyButton.click()
+        await page.waitForURL(/\/study\/request$/)
+
+        // Nothing is flagged before the researcher interacts, and the button is live from load.
+        const proceed = page.getByRole('button', { name: 'Save & continue' })
+        await expect(proceed).toBeEnabled()
+        await expect(page.getByText('Select a Data Partner before continuing.')).toBeHidden()
+        await expect(page.getByText('Enter a study title before continuing.')).toBeHidden()
+
+        // Focusing the title and leaving it empty raises its error on blur.
+        const title = page.getByLabel(/Study title/)
+        await title.click()
+        await page.getByTestId('org-select').click()
+        await expect(page.getByText('Enter a study title before continuing.')).toBeVisible()
+        await page.keyboard.press('Escape')
+
+        // Clicking with everything blank flags every visible field at once. Two, not three: the
+        // programming-language field is not on the page until a Data Partner is chosen.
+        await title.fill('')
+        await proceed.click()
+        await expect(page.getByText('Enter a study title before continuing.')).toBeVisible()
+        await expect(page.getByText('Select a Data Partner before continuing.')).toBeVisible()
+        await expect(page.getByText('Select a programming language before continuing.')).toBeHidden()
+        await expect(title).toBeFocused()
+        await expect(proceed).toBeEnabled()
+
+        // Editing clears the error immediately, without waiting for a blur.
+        await title.fill(studyTitle)
+        await expect(page.getByText('Enter a study title before continuing.')).toBeHidden()
+
+        // A whitespace-only title still counts as empty on the next click.
+        await title.fill('   ')
+        await proceed.click()
+        await expect(page.getByText('Enter a study title before continuing.')).toBeVisible()
+
+        // Past the character limit the error appears live, before any blur or click, and clears
+        // again as soon as the value comes back under.
+        await title.fill('x'.repeat(61))
+        await expect(
+            page.getByText('Study title exceeds the 60 character limit. Shorten it to continue.'),
+        ).toBeVisible()
+        await title.fill('x'.repeat(60))
+        await expect(page.getByText('Study title exceeds the 60 character limit. Shorten it to continue.')).toBeHidden()
+
+        // Resolving everything lets the same button through to the confirmation modal. Cancel
+        // returns to the page with the entered values intact.
+        await fillStep1(page, studyTitle)
+        await proceed.click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog.getByText('Continue to the next step?')).toBeVisible()
+        await dialog.getByRole('button', { name: 'Cancel' }).click()
+        await expect(dialog).toBeHidden()
+        await expect(title).toHaveValue(studyTitle)
+
+        // ...and confirming moves on to Step 2.
+        await confirmStep1(page)
+        await page.waitForURL(/\/proposal$/)
+        await expect(page.getByText('STEP 2')).toBeVisible()
+
+        // Step 2 no longer owns the title, and OTTER-691 removed its placeholders. Asserted on the
+        // controls themselves: `getByPlaceholder(...).toHaveCount(0)` also passes when the field is
+        // gone, so it would keep passing if the whole page regressed.
+        await expect(page.getByLabel('Study Title')).toHaveCount(0)
+        // Blank, not absent: Mantine collapses a non-searchable MultiSelect whose placeholder is
+        // falsy to a 1px hidden field, so the datasets control carries a single space to stay
+        // visible. The regex covers either spelling, and `data-type` is what proves the control
+        // is still a real target for the click and the focus jump below.
+        await expect(datasetsField(page)).toHaveAttribute('placeholder', /^\s*$/)
+        await expect(datasetsField(page)).toHaveAttribute('data-type', 'visible')
+        await expect(page.getByRole('textbox', { name: 'Principal Investigator' })).toHaveAttribute('placeholder', '')
+
+        // Its own required fields still flag on blur (OTTER-647), now with per-field wording.
+        await datasetsField(page).click()
+        await page.keyboard.press('Escape')
+        await page.getByRole('textbox', { name: 'Principal Investigator' }).click()
+        await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
+        await page.keyboard.press('Escape')
+
+        // Submit is live from load, and clicking it with an empty form flags every required field
+        // at once rather than disabling itself.
+        const submit = page.getByRole('button', { name: 'Submit proposal' })
+        await expect(submit).toBeEnabled()
+        await submit.click()
+        await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
+        await expect(page.getByText('Enter your research questions before continuing.')).toBeVisible()
+        await expect(page.getByText('Enter your project summary before continuing.')).toBeVisible()
+        await expect(page.getByText('Enter your proposal impact before continuing.')).toBeVisible()
+        await expect(page.getByText('Select a Principal Investigator before continuing.')).toBeVisible()
+        await expect(submit).toBeEnabled()
+        await expect(page.getByRole('dialog')).toBeHidden()
     })
 })

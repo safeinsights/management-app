@@ -1,5 +1,6 @@
 'use client'
 
+import posthog from 'posthog-js'
 import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
@@ -43,9 +44,14 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
-        onSuccess(data) {
+        onSuccess(data, invite) {
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+            posthog.capture('team_member_invited', {
+                org_slug: orgSlug,
+                permission: invite.permission,
+                already_invited: data?.alreadyInvited ?? false,
+            })
             if (data?.alreadyInvited) {
                 notifications.show({
                     color: 'green',
@@ -68,7 +74,15 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             )}
             emailProps={studyProposalForm.getInputProps('email')}
             emailError={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
-            permissionProps={studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
+            // Default 'input' type, not 'checkbox': with 'checkbox' Mantine returns `checked`
+            // instead of `value`, which Radio.Group ignores, leaving the group uncontrolled so it
+            // did not follow form state (a reset after a successful invite left the old choice
+            // selected). `withError` defaults to true either way, so the error itself was never
+            // the problem here (OTTER-647).
+            permissionProps={studyProposalForm.getInputProps('permission')}
+            permissionError={
+                studyProposalForm.errors.permission && <InputError error={studyProposalForm.errors.permission} />
+            }
             isSubmitting={isInviting}
             isSubmitDisabled={!studyProposalForm.isValid() || !isLoaded}
         />

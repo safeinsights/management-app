@@ -1,20 +1,20 @@
 'use client'
 
 import { FC } from 'react'
-import { Box, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { WordCounter } from '@/components/word-counter'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
+    resubmissionNoteCharacterCount,
     resubmissionNoteToLexicalJson,
-    resubmissionNoteWordCount,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { noteSaveStatus, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
@@ -46,12 +46,18 @@ interface CollaborativeResubmissionNoteSectionProps {
 
 // In collaborative mode the editor renders its own provider-driven indicator;
 // showing this one too would double up.
-const SingleUserSaveStatus: FC<{ isVisible: boolean; autosaveStatus: ResubmissionNoteAutosaveStatus }> = ({
-    isVisible,
-    autosaveStatus,
-}) => {
+//
+// The error case goes through the indicator's own `isVisible` rather than unmounting here. A live
+// region is only announced when content it already owns changes, so unmounting on error and
+// mounting again once it clears would hand the region back with "All changes saved" already
+// inside it, and the save would never be announced (OTTER-675).
+const SingleUserSaveStatus: FC<{
+    isVisible: boolean
+    hasError: boolean
+    autosaveStatus: ResubmissionNoteAutosaveStatus
+}> = ({ isVisible, hasError, autosaveStatus }) => {
     if (!isVisible) return null
-    return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} />
+    return <SaveStatusIndicator status={noteSaveStatus(autosaveStatus)} isVisible={!hasError} />
 }
 
 export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionNoteSectionProps> = ({
@@ -66,16 +72,24 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const singleUserEditing = useSingleUserEditing()
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
-    const wordCount = resubmissionNoteWordCount(value)
+    const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
+
+    // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
+    const footerLeft = (
+        <>
+            <FieldErrorBox fieldId="resubmissionNote" error={error} isLive />
+            <SingleUserSaveStatus isVisible={singleUserEditing} hasError={!!error} autosaveStatus={autosaveStatus} />
+        </>
+    )
 
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={4} c="charcoal.9">
+                    <Title order={3} size="h4" c="charcoal.9">
                         Resubmission Note
                         <RequiredIndicator isVisible />
                     </Title>
@@ -85,6 +99,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                     </Text>
                     <Editor
                         id={proposalResubmissionNoteDocNameForVersion(studyId, noteVersion)}
+                        inputId="resubmissionNote"
                         studyId={studyId}
                         initialValue={editorInitialValue}
                         websocketProvider={websocketProvider}
@@ -92,13 +107,24 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         placeholder={PLACEHOLDER_TEXT}
                         ariaLabel="Resubmission Note"
                         onChange={onNoteChange}
-                        footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
+                        onBlur={() => noteForm.validateField('resubmissionNote')}
+                        error={error}
+                        ariaRequired
+                        ariaDescribedBy={fieldDescribedBy('resubmissionNote', {
+                            hasError: !!error,
+                            hasDescription: false,
+                            hasCounter: true,
+                        })}
+                        footerLeft={footerLeft}
+                        footerRight={
+                            <CharacterCounter
+                                id={fieldCounterId('resubmissionNote')}
+                                count={characterCount}
+                                maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS}
+                            />
+                        }
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
-                    <Group justify="space-between" align="center" mt={4}>
-                        <InputError error={error} />
-                        <SingleUserSaveStatus isVisible={singleUserEditing} autosaveStatus={autosaveStatus} />
-                    </Group>
                 </Box>
             </Stack>
         </Paper>

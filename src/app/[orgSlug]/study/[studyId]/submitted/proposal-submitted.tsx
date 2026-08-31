@@ -177,16 +177,20 @@ export function ProposalSubmitted({
     const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
     const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
 
+    // ARCHIVED has no banner copy. Passing the element anyway would leave the header card ending in
+    // its own rule, because the header cannot tell an element that renders nothing from one that does.
+    const banner = bannerConfig ? <StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} /> : null
+
     return (
         <Stack p="xl" gap="xl">
-            <ProposalHeader orgSlug={orgSlug} title="Study proposal" studyId={study.id} studyTitle={study.title} />
+            <ProposalHeader title="Study proposal" />
             <Stack gap="xxl">
                 <ProposalRequest
                     study={study}
                     orgSlug={orgSlug}
                     stepLabel="STEP 2"
                     heading={proposalHeading(studyVersion)}
-                    banner={<StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} />}
+                    banner={banner}
                     statusBadge={statusBadge}
                     entries={entries}
                     initialExpanded={false}

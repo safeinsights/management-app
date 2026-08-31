@@ -26,7 +26,6 @@ const eslintConfig = [
             '!.ladle/**',
             '.ladle/dist/**',
             'CHANGELOG.md',
-            'src/styles/generated/',
             'test-results/**',
             'tests/coverage/**',
             'services/**',
@@ -53,32 +52,6 @@ const eslintConfig = [
             ...reactHooksPlugin.configs.recommended.rules,
             // Disable prop-types for TypeScript projects
             'react/prop-types': 'off',
-            // Ban HTML character entities in JSX text. Our production compiler (SWC)
-            // drops the space between an inline element and adjacent JSX text when that
-            // text contains an entity (swc#11392) — invisible in unit tests (Babel),
-            // broken in prod. Use the literal character instead (e.g. ’ ” &).
-            // Remove this rule once @next/swc ships the fix; see
-            // src/lib/swc-jsx-entity-whitespace.test.ts.
-            // NOTE: extend this array to add more restricted-syntax patterns — do NOT add a
-            // second 'no-restricted-syntax' key in this block, it would silently overwrite
-            // these selectors (object-key collision) and disable the entity guard with no error.
-            'no-restricted-syntax': [
-                'error',
-                {
-                    // typescript-eslint exposes the source text (with entities) on `raw`;
-                    // `value` is already entity-decoded, so it must be `raw` here.
-                    selector: 'JSXText[raw=/&\\w+;/]',
-                    message:
-                        'Do not use HTML character entities (e.g. &apos;, &rsquo;, &amp;) in JSX text — they trigger an SWC whitespace bug (swc#11392). Use the literal character instead (e.g. ’ ” &).',
-                },
-                {
-                    // Numeric refs need their own selector because the named pattern above stops at
-                    // `#` (not a `\w`). `&#\w+;` covers both decimal (&#39;) and hex (&#x27;) forms.
-                    selector: 'JSXText[raw=/&#\\w+;/]',
-                    message:
-                        'Do not use numeric HTML character references (e.g. &#39;) in JSX text — they trigger an SWC whitespace bug (swc#11392). Use the literal character instead.',
-                },
-            ],
         },
         settings: {
             react: {
@@ -149,6 +122,14 @@ const eslintConfig = [
                 {
                     name: '@tanstack/react-query',
                     message: 'Please import tanstack from @/common instead.',
+                },
+                {
+                    // It cancels the Tab keydown, which traps keyboard focus in the editor and
+                    // types a literal tab (WCAG 2.1.2). Lexical's own docs discourage it. Twice
+                    // now it has been copied into a new editor along with the rest of the plugin
+                    // list, so the ban is the guard. Indent / Outdent live on the toolbar.
+                    name: '@lexical/react/LexicalTabIndentationPlugin',
+                    message: 'Tab must move focus out of the editor. Use the toolbar Indent / Outdent buttons instead.',
                 },
             ],
             'no-console': ['error', { allow: ['warn', 'error'] }],

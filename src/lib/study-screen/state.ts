@@ -49,7 +49,9 @@ export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
     'INITIATED',
 ]
 
-function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
+// Exported for consumers that need a display fact (e.g. a status date) from the SAME job the
+// projection decided on, so a separately-queried "latest job" cannot disagree (OTTER-695 review).
+export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
     // max(id): v7 ids are insertion-ordered, so lexical max === most recently created round.
     // Prefer the latest job that has been submitted (has a non-INITIATED status), matching the
@@ -94,12 +96,12 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     // meaning "ever ran" (which kept showing the approved/will-run banner after the run). A bare
     // JOB-ERRORED stays hidden from the researcher (the reviewer triages it), so it must NOT end the
     // window: only a researcher-visible result (RUN-COMPLETE / FILES-APPROVED / FILES-REJECTED) does.
-    const erroredResultHidden = isErroredResultHiddenFromResearcher({
+    const erroredAwaitingDecision = awaitingFilesDecisionOnError({
         resultsErrored,
         resultsApproved,
         resultsRejected,
     })
-    const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredResultHidden)
+    const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
 
     // displayStatus: pick the highest-priority present status, but let a code decision through only when
     // it is the live one (see isStaleCodeDecision), so DISPLAY_STATUS_PRIORITY's ordering never picks
@@ -115,10 +117,16 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     // outside this module/tests — kept as the one deliberate cross-job fact (see state.types.ts).
     const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
 
+    // "Reached Step 2 of the wizard" is only meaningful while the study is still in it. Neither
+    // persistence layer clears itself on submit (the columns are what Submit flushes, and a
+    // CHANGE-REQUESTED round writes the documents again), so a submitted study would otherwise report
+    // progress it can no longer resume. Gate once here rather than leaving each consumer to remember it.
+    const isDraft = raw.status === 'DRAFT'
+
     return {
         status: raw.status,
-        isDraft: raw.status === 'DRAFT',
-        hasStep2Progress: draftHasStep2Progress(raw),
+        isDraft,
+        hasStep2Progress: isDraft && (draftHasStep2Progress(raw) || raw.hasStep2CollabDoc),
         researcherAgreementsAcked: !!raw.researcherAgreementsAckedAt,
         reviewerAgreementsAcked: !!raw.reviewerAgreementsAckedAt,
         hasAnyJob: raw.jobs.length > 0,
@@ -139,11 +147,28 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     }
 }
 
-// OTTER-598 follow-up: a JOB-ERRORED result stays hidden from the RESEARCHER until a reviewer records
-// a FILES-* decision (errored-result triage is the reviewer's). While hidden, the researcher's pill
-// reads "Code approved" (resolvePillStatus's hideErrored) and the /view screen must hold on the
-// code-approved page — NOT jump to the results/Study Details screen. Single source of truth shared by
-// the pill and RESEARCHER_SCREEN_RULES so the two can't drift (the mismatch QA re-reported in 43898).
-export const isErroredResultHiddenFromResearcher = (
+// OTTER-598 follow-up: the job errored but no FILES-* decision has been recorded yet.
+// Both screen-rule tables depend on this predicate: the reviewer table routes to the
+// errored-outputs triage screen, the researcher table holds on the outputs-pending page
+// (hiding the error until the reviewer records a decision). Also used by the pill
+// (resolvePillStatus's hideErrored). Single source of truth so the two roles can't drift.
+export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
+
+// OTTER-695/697: the reviewer withheld outputs and shared feedback only (FILES-REJECTED), on a
+// clean or errored run. Shared by the researcher rule table and the outputs-feedback screen's
+// render guard so the two cannot drift (same pattern as awaitingFilesDecisionOnError above).
+export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected
+
+// OTTER-697: the RUN itself failed — narrower than resultsErrored's bare JOB-ERRORED, which the
+// scanner and containerizer also write, so a packaging error before a good run leaves both that and
+// RUN-COMPLETE on the job. Only the outputs-feedback banner's copy splits on this; routing does not.
+export const runErrored = (statusChanges: RawJob['statusChanges']): boolean =>
+    statusChanges.some((c) => c.status === 'JOB-ERRORED') && !statusChanges.some((c) => c.status === 'RUN-COMPLETE')
+
+// OTTER-696: the run errored AND the reviewer chose "Share outputs and feedback" (JOB-ERRORED plus
+// FILES-APPROVED). Shared by the researcher rule table and the screen's own render guard so routing
+// and rendering cannot disagree (same pattern as awaitingFilesDecisionOnError above).
+export const isErroredOutputsSharedOutcome = (s: Pick<StudyState, 'resultsErrored' | 'resultsApproved'>): boolean =>
+    s.resultsErrored && s.resultsApproved

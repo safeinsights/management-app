@@ -309,6 +309,21 @@ describe('ProposalSubmitted', () => {
             expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
+        it('leaves no rule behind for a status with no banner copy', () => {
+            const archivedStudy = { ...study, status: 'ARCHIVED' as const, approvedAt: null, rejectedAt: null }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={archivedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
+        })
+
         it('renders only one banner at a time', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
@@ -369,14 +384,15 @@ describe('ProposalSubmitted', () => {
         })
     })
 
-    describe('view full initial request dropdown', () => {
-        it('is collapsed by default on page load', () => {
+    describe('view full proposal dropdown', () => {
+        it('is collapsed to the snippet by default on page load', () => {
             renderWithProviders(
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
-            expect(screen.queryByTestId('proposal-body')).not.toBeVisible()
+            expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
+            expect(screen.getByTestId('proposal-snippet')).toBeVisible()
+            expect(screen.queryByTestId('proposal-body')).not.toBeInTheDocument()
         })
 
         it('expands to display the study proposal when clicked', async () => {
@@ -385,10 +401,11 @@ describe('ProposalSubmitted', () => {
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            await user.click(screen.getByTestId('proposal-toggle-header'))
+            await user.click(screen.getByTestId('proposal-toggle-snippet'))
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
+            expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
             expect(screen.getByTestId('proposal-body')).toBeVisible()
+            expect(screen.queryByTestId('proposal-snippet')).not.toBeInTheDocument()
             expect(screen.getByText(`Title: ${study.title}`)).toBeInTheDocument()
         })
 
@@ -398,7 +415,7 @@ describe('ProposalSubmitted', () => {
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            await user.click(screen.getByTestId('proposal-toggle-header'))
+            await user.click(screen.getByTestId('proposal-toggle-snippet'))
 
             const body = screen.getByTestId('proposal-body')
             const inputs = body.querySelectorAll('input, textarea, select, [contenteditable="true"]')

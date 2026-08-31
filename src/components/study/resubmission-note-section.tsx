@@ -4,12 +4,12 @@ import { FC } from 'react'
 import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { WordCounter } from '@/components/word-counter'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox, nativeFieldProps } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
-import { countWords } from '@/lib/lexical'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
+    resubmissionNoteCharacterCount,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 
@@ -33,17 +33,14 @@ export function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveSta
 export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ noteForm, orgName, autosaveStatus }) => {
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
-    const wordCount = countWords(value)
+    const characterCount = resubmissionNoteCharacterCount(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
-
-    // The status indicator and validation error share the footer's left slot; only one is relevant at a time.
-    const footerStatus = error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />
 
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={4} c="charcoal.9">
+                    <Title order={3} size="h4" c="charcoal.9">
                         Resubmission Note
                         <RequiredIndicator isVisible />
                     </Title>
@@ -61,11 +58,32 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         value={value}
                         onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
                         onBlur={() => noteForm.validateField('resubmissionNote')}
-                        error={!!error}
+                        // nativeFieldProps rather than error={!!error} plus a hand-passed
+                        // aria-describedby: Mantine derives describedBy from the input's own
+                        // wrapper and spreads it after the caller's props, so a hand-passed
+                        // value is discarded. Passing the node lets it wire the id itself.
+                        {...nativeFieldProps(error, {
+                            required: true,
+                            describedBy: fieldDescribedBy('resubmissionNote', {
+                                hasError: false,
+                                hasDescription: false,
+                                hasCounter: true,
+                            }),
+                        })}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        {footerStatus}
-                        <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />
+                        {/* The indicator sits beside the error node, not inside it: the textarea's
+                            aria-describedby points at that id, and a live region in its subtree
+                            would fold "All changes saved" into the field's description. */}
+                        <Box>
+                            <FieldErrorBox fieldId="resubmissionNote" error={error} isLive />
+                            <SaveStatusIndicator status={saveStatus} isVisible={!error} />
+                        </Box>
+                        <CharacterCounter
+                            id={fieldCounterId('resubmissionNote')}
+                            count={characterCount}
+                            maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS}
+                        />
                     </Group>
                 </Box>
             </Stack>

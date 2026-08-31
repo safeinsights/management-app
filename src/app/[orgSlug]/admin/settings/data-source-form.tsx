@@ -63,7 +63,12 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <TextInput label="Name" placeholder="e.g., Student Records" {...form.getInputProps('name')} />
+                <TextInput
+                    label="Name"
+                    withAsterisk
+                    placeholder="e.g., Student Records"
+                    {...form.getInputProps('name')}
+                />
                 <Textarea
                     label="Description"
                     placeholder="Brief description of this data source"
@@ -96,10 +101,16 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                         ))}
 
                         <Group gap="xs" align="flex-start">
-                            <TextInput {...form.getInputProps('newUrl')} placeholder="URL" style={{ flex: 1 }} />
+                            <TextInput
+                                {...form.getInputProps('newUrl')}
+                                placeholder="URL"
+                                aria-label="New URL"
+                                style={{ flex: 1 }}
+                            />
                             <TextInput
                                 {...form.getInputProps('newUrlDescription')}
                                 placeholder="URL description"
+                                aria-label="New URL description"
                                 style={{ flex: 1 }}
                             />
                             <ActionIcon color="blue" variant="subtle" aria-label="Add URL" onClick={addUrl} mt={4}>

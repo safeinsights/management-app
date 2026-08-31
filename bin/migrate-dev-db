@@ -6,22 +6,26 @@ TYPES=src/database/types.ts
 
 pnpm exec kysely migrate:latest
 
+# --date-parser string: dialect.ts parses OID 1082 as the raw 'YYYY-MM-DD', so a `date` column is a
+# string at runtime. Without this the generated type claims Date and every read site has to cast.
 pnpm exec kysely-codegen \
   --camel-case \
   --dialect postgres \
+  --date-parser string \
   --out-file $TYPES \
   --overrides='{"columns":{"org_code_env.settings":"Generated<OrgCodeEnvSettings>","org_code_env.command_lines":"CommandLines"}}' \
   --custom-imports='{"OrgCodeEnvSettings":"./types-manual#OrgCodeEnvSettings","CommandLines":"./types-manual#CommandLines"}'
 
-# run seeds after generating types above so the seed files see the updated DB state
-pnpm exec kysely seed:run
+# run seeds after generating types above so the seed files see the updated DB state.
+# ALLOW_TESTING_DATA=TRUE is the seed's opt-in (the literal iac's app-stack.ts also writes):
+# seeds no-op without it, so that a deployed environment that never sets it cannot be seeded
+# with test fixtures. Scoped to this command rather than exported, to keep it off the
+# migration step.
+ALLOW_TESTING_DATA=TRUE pnpm exec kysely seed:run
 
-# Add manual type import (kysely-codegen always regenerates the file, so this must run every time)
-# inspiration from https://github.com/RobinBlomberg/kysely-codegen/issues/273
-# kysely-codegen ovverides and custom-imports used above seem ineffectual even
-# though tho https://github.com/RobinBlomberg/kysely-codegen/pull/274 should have added it
-awk '/import type { ColumnType } from "kysely"/ {print; print "import type { OrgCodeEnvSettings, CommandLines } from \"./types-manual\";"; next}1' $TYPES > ${TYPES}.tmp
-mv ${TYPES}.tmp $TYPES
+# The manual type import used to be injected here by awk, because --custom-imports was ineffectual
+# (https://github.com/RobinBlomberg/kysely-codegen/issues/273). It emits the import itself now, so
+# the injection only produced a second, duplicate one.
 
 # Add FileType alias for backwards compatibility with the renamed study_job_file_type enum
 if ! grep -q "export type FileType" $TYPES; then
@@ -39,9 +43,11 @@ fi
 pnpm exec prettier --write $TYPES
 pnpm exec eslint --fix $TYPES
 
-pnpm exec tsx bin/seed-environment.ts
+ALLOW_TESTING_DATA=TRUE pnpm exec tsx bin/seed-environment.ts
 
-if [ -e "$CI" ]; then
+# -n, not -e: $CI holds a value like "true", never a path, so -e never fired and this drift check
+# has never run.
+if [ -n "$CI" ]; then
     if git diff --name-only | grep -q 'src/database/types.ts'; then
         echo "src/database/types.ts has uncommitted changes."
         git diff 'src/database/types.ts'

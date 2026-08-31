@@ -23,6 +23,13 @@ type Args = {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
     websocketProvider: HocuspocusProviderWebsocket | null
+    /**
+     * Which fields this surface co-edits. Defaults to every collaborative key, which is what the
+     * CHANGE-REQUESTED resubmit flow needs. The DRAFT Step 2 editor passes a reduced set that
+     * leaves `title` out, because Step 1 owns that column now (OTTER-690) and seeding or applying
+     * a Yjs `title` there would let the collaborative copy overwrite the Step 1 one.
+     */
+    collabKeys?: readonly CollabFieldKey[]
 }
 
 type Return = {
@@ -42,7 +49,19 @@ const valuesEqual = (a: unknown, b: unknown) => {
     return a === b
 }
 
-export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Return {
+const DEFAULT_SEEDS: Record<CollabFieldKey, (values: ProposalFormValues) => unknown> = {
+    title: (values) => values.title ?? '',
+    datasets: (values) => values.datasets ?? [],
+    piName: (values) => values.piName ?? '',
+    piUserId: (values) => values.piUserId ?? '',
+}
+
+export function useYjsFormMap({ studyId, form, websocketProvider, collabKeys = COLLAB_FIELD_KEYS }: Args): Return {
+    // The effects below key on the contents rather than on the array identity, so a caller passing
+    // a fresh literal each render does not tear down and rebuild the provider on every render. The
+    // effect bodies still read `collabKeys` itself, which is the value from the render that
+    // scheduled them.
+    const collabKeysKey = collabKeys.join(',')
     const { getToken } = useAuth()
     const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
     const [fieldsMap, setFieldsMap] = useState<Y.Map<unknown> | null>(null)
@@ -102,13 +121,12 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
 
             if (!docExists) {
                 doc.transact(() => {
-                    if (map.get('title') === undefined) map.set('title', form.getValues().title ?? '')
-                    if (map.get('datasets') === undefined) map.set('datasets', form.getValues().datasets ?? [])
-                    if (map.get('piName') === undefined) map.set('piName', form.getValues().piName ?? '')
-                    if (map.get('piUserId') === undefined) map.set('piUserId', form.getValues().piUserId ?? '')
+                    for (const key of collabKeys) {
+                        if (map.get(key) === undefined) map.set(key, DEFAULT_SEEDS[key](form.getValues()))
+                    }
                 }, LOCAL_ORIGIN)
             } else {
-                applyRemoteToForm(map, form, isApplyingRemoteRef)
+                applyRemoteToForm(map, form, isApplyingRemoteRef, collabKeys)
             }
 
             setIsSynced(true)
@@ -132,21 +150,21 @@ export function useYjsFormMap({ studyId, form, websocketProvider }: Args): Retur
             // resurface the indicator without a new local edit.
             setEditedKeys(new Set())
         }
-        // form intentionally excluded — it's recreated each render but stable via Mantine ref semantics.
+        // form intentionally excluded: it's recreated each render but stable via Mantine ref semantics.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [websocketProvider, studyId, getToken])
+    }, [websocketProvider, studyId, getToken, collabKeysKey])
 
     useEffect(() => {
         if (!fieldsMap) return undefined
 
         const onChange = (event: Y.YMapEvent<unknown>, transaction: Y.Transaction) => {
             if (transaction.origin === LOCAL_ORIGIN) return
-            applyRemoteToForm(fieldsMap, form, isApplyingRemoteRef, event.keysChanged)
+            applyRemoteToForm(fieldsMap, form, isApplyingRemoteRef, collabKeys, event.keysChanged)
         }
         fieldsMap.observe(onChange)
         return () => fieldsMap.unobserve(onChange)
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fieldsMap])
+    }, [fieldsMap, collabKeysKey])
 
     return useMemo(
         () => ({
@@ -180,11 +198,12 @@ function applyRemoteToForm(
     map: Y.Map<unknown>,
     form: UseFormReturnType<ProposalFormValues>,
     isApplyingRemoteRef: React.MutableRefObject<boolean>,
+    collabKeys: readonly CollabFieldKey[],
     keysChanged?: Set<string>,
 ) {
     isApplyingRemoteRef.current = true
     try {
-        for (const key of COLLAB_FIELD_KEYS) {
+        for (const key of collabKeys) {
             if (keysChanged && !keysChanged.has(key)) continue
             const value = map.get(key)
             if (value === undefined) continue

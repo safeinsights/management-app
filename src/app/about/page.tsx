@@ -15,6 +15,15 @@ const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     </>
 )
 
+const GithubLink = ({ repo, path, label }: { repo: string; path: string; label: string }) => (
+    <a href={`https://github.com/safeinsights/${repo}/${path}`} target="_blank" rel="noopener noreferrer">
+        <Flex gap="md" align={'center'}>
+            <span>{label}</span>
+            <EyeIcon />
+        </Flex>
+    </a>
+)
+
 const TagLink = () => {
     const tag = process.env.RELEASE_TAG
     const sha = process.env.RELEASE_SHA
@@ -23,14 +32,37 @@ const TagLink = () => {
     }
     const path = tag ? `releases/tag/${tag}` : `commit/${sha}`
 
-    return (
-        <a href={`https://github.com/safeinsights/management-app/${path}`} target="_blank" rel="noopener noreferrer">
-            <Flex gap="md" align={'center'}>
-                <span>{tag || sha}</span>
-                <EyeIcon />
-            </Flex>
-        </a>
-    )
+    return <GithubLink repo="management-app" path={path} label={tag || sha || ''} />
+}
+
+// The commit of the infrastructure repo that deployed this environment. Advances only on an infra
+// deploy, so it intentionally lags the application release above.
+const IacVersionLink = () => {
+    const version = process.env.IAC_VERSION
+    if (!version) {
+        return 'not deployed'
+    }
+    // `git describe --always --dirty` emits a bare short SHA today, but grows a `-N-g<sha>` suffix
+    // once the repo carries tags, a `-dirty` suffix when deployed from a modified working copy, and
+    // the literal 'unknown' when git was unavailable at synth. Link the commit only for a plain
+    // SHA — the decorated forms are not valid refs, so a link would 404.
+    if (!/^[0-9a-f]{7,40}$/.test(version)) {
+        return version
+    }
+
+    return <GithubLink repo="iac" path={`commit/${version}`} label={version} />
+}
+
+// Which release built the editor image this environment is serving. Diverges from the release above
+// whenever the editor was unchanged: its image is tagged by a content hash, so an untouched editor
+// keeps serving the image an earlier release built.
+const EditorReleaseLink = () => {
+    const sha = process.env.EDITOR_RELEASE_SHA
+    if (!sha) {
+        return 'not deployed'
+    }
+
+    return <GithubLink repo="management-app" path={`commit/${sha}`} label={sha} />
 }
 
 export default function AboutPage() {
@@ -38,6 +70,14 @@ export default function AboutPage() {
         <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm" miw={500} maw={800} mx="auto">
             <Card withBorder radius="md" padding="xl" bg="var(--mantine-color-body)">
                 <Stat title="Release" value={<TagLink />} />
+
+                <Divider my="md" />
+
+                <Stat title="Editor Release" value={<EditorReleaseLink />} />
+
+                <Divider my="md" />
+
+                <Stat title="Infrastructure" value={<IacVersionLink />} />
 
                 <Divider my="md" />
 

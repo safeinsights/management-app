@@ -12,7 +12,6 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
-import { hasUserProvidedTitle } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 interface EditResubmitFooterProps {
     researcherName: string
@@ -24,20 +23,20 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
-    // omitBlankTitle: nulling the title column on a CHANGE-REQUESTED row would
-    // violate the study_title_required_when_not_draft check constraint.
-    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { omitBlankTitle: true })
+    // titleMode 'omitIfBlank': this flow owns its own title, but nulling the column on a
+    // CHANGE-REQUESTED row would violate the study_title_required_when_not_draft constraint.
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omitIfBlank' })
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     const isBusy = isSavingNote || isSaving || isSubmitting
 
-    const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
+    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
-    const isFormValid = form.isValid() && noteForm.isValid() && hasUserProvidedTitle(title)
+    const isFormValid = form.isValid() && noteForm.isValid()
 
     const handleBack = async () => {
         // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
@@ -52,9 +51,18 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
         resubmit()
     }
 
+    const handleOpenReviewer = async () => {
+        // Flush the form first: the preview's PI popover fetches the profile server-side, and
+        // the server only serves ids the persisted study row names — an unsaved piUserId would
+        // be denied and render as "Profile not available".
+        const saved = await saveDraft()
+        if (!saved) return
+        openReviewer()
+    }
+
     return (
         <>
-            <Group mt="xs" justify="space-between" w="100%">
+            <Group mt="xs" justify="space-between" align="flex-start" w="100%">
                 <Button
                     type="button"
                     variant="subtle"
@@ -66,8 +74,8 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                 >
                     Back
                 </Button>
-                <Group>
-                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
+                <Group align="flex-start">
+                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
                     <Button
@@ -85,6 +93,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
+                    studyTitle={form.values.title}
                     values={form.values}
                     researcherName={researcherName}
                     researcherId={researcherId}

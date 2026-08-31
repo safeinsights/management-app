@@ -1,6 +1,5 @@
 import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
@@ -12,7 +11,7 @@ import { EditResubmitForm } from './form'
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
 }) {
-    const { studyId, orgSlug } = await props.params
+    const { studyId } = await props.params
 
     const study = await getStudyAction({ studyId })
 
@@ -43,16 +42,13 @@ export default async function StudyEditAndResubmitRoute(props: {
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs
-                crumbs={{ orgSlug, studyId, studyTitle: study.title, current: 'Edit Initial Request' }}
-            />
             <EditResubmitProvider
                 studyId={studyId}
                 initialNote={initialNote}
                 draftData={{
                     title: study.title ?? '',
                     piName: study.piName,
-                    piUserId: study.piUserId ?? undefined,
+                    piUserId: study.piUserId ?? '',
                     datasets: study.datasets ?? undefined,
                     researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
                     projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,

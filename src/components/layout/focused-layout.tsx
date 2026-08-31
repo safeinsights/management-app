@@ -1,6 +1,7 @@
 'use server'
 
 import { ErrorAlert } from '../errors'
+import PostHogUserProvider from '../posthog-user-provider'
 import SentryUserProvider from '../sentry-user-provider'
 import { FocusedLayoutShell } from './focused-layout-shell'
 import { ClerkProvider } from '@clerk/nextjs'
@@ -18,6 +19,7 @@ export async function FocusedLayout({ children }: Props) {
     return (
         <ClerkProvider publishableKey={clerkPublishableKey}>
             <SentryUserProvider />
+            <PostHogUserProvider />
             <FocusedLayoutShell>{children}</FocusedLayoutShell>
         </ClerkProvider>
     )

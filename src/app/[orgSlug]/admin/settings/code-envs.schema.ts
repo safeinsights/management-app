@@ -8,11 +8,12 @@ const MAX_FILE_SIZE_STR = '10MB'
 
 // Valid env var key: starts with letter or underscore, followed by alphanumeric or underscore
 export const envVarKeyRegex = /^[A-Za-z_][A-Za-z0-9_]*$/
+export const ENV_VAR_KEY_ERROR = 'Invalid variable name: must start with letter or underscore'
 
 // Schema for individual environment variable
 const envVarSchema = z.object({
-    name: z.string().regex(envVarKeyRegex, 'Invalid variable name: must start with letter or underscore'),
-    value: z.string().nonempty('Value is required'),
+    name: z.string().regex(envVarKeyRegex, ENV_VAR_KEY_ERROR),
+    value: z.string().trim().nonempty('Value is required'),
 })
 
 const codeEnvSettingsSchema = z.object({
@@ -55,12 +56,14 @@ const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < 
 
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
-    name: z.string().nonempty(),
+    name: z.string().trim().nonempty('Name is required'),
     identifier: z
         .string()
         .nonempty('Identifier is required')
         .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
-    commandLines: z.record(z.string(), z.string().nonempty()),
+    // Trimmed, because the row UI derives "missing" from a trimmed value. Untrimmed, a command
+    // replaced with spaces showed "Command is required" and still saved (OTTER-647).
+    commandLines: z.record(z.string(), z.string().trim().nonempty('Command is required')),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),

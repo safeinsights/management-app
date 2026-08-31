@@ -2,11 +2,12 @@
 
 import { FC } from 'react'
 import { useParams } from 'next/navigation'
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
@@ -58,7 +59,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             redirectTarget="studySubmitted"
         >
             <Stack gap="xxl">
-                <Title order={1}>Edit Initial Request</Title>
+                <StudyPageHeader>Edit Initial Request</StudyPageHeader>
 
                 <EditInitialRequestSection
                     orgName={orgName}

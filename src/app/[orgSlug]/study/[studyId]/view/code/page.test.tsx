@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
@@ -32,21 +33,30 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
 // A CODE-APPROVED study with the given trailing job statuses appended (execution/results substatuses).
 const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-    const { study } = await insertTestStudyJobData({
+    const { study, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
         studyStatus: 'APPROVED',
         jobStatus: 'CODE-SUBMITTED',
     })
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: job.id,
+            name: 'main.R',
+            path: `studies/${study.id}/${job.id}/main.R`,
+            fileType: 'MAIN-CODE',
+        })
+        .execute()
     await addJobStatus(study.id, 'CODE-APPROVED')
     for (const status of statuses) await addJobStatus(study.id, status)
-    return { org, study }
+    return { org, study, job }
 }
 
 const seedResultsStudy = () => seedCodeStudy(['FILES-APPROVED'])
 
 describe('StudyViewCode (/view/code)', () => {
-    it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
+    it('shows the approved-code page with a "Next step" forward for a results study', async () => {
         const { org, study } = await seedResultsStudy()
 
         const page = await StudyViewCode({
@@ -56,10 +66,10 @@ describe('StudyViewCode (/view/code)', () => {
 
         expect(page?.type).toBe(CodePostDecisionView)
         // Forward goes to plain /view, which resolves to the results screen for a results study.
-        expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view`)
+        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('cta-proceed-to-results')).toHaveTextContent('Proceed to step 5')
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
         expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
     })
 
@@ -72,15 +82,51 @@ describe('StudyViewCode (/view/code)', () => {
         })
 
         expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
-        expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
     })
 
-    // OTTER-640: normal /view hides submitted code while execution or an unreviewed error is presented
-    // as "Code approved". The read-only /view/code step must still expose it behind this collapsed control.
-    // The first two shapes keep isExecuting true (a hidden error doesn't close the append-only execution
-    // window); the bare JOB-ERRORED shape (a packaging failure before any JOB-RUNNING substatus) is the
-    // only one where isExecuting is false and the hidden-errored result alone would drive the /view hide.
+    // /view/code keeps landing on this screen while the job runs (resolveResearcherCodeScreen excludes
+    // outputs-pending), but plain /view resolves to OTTER-686's outputs-pending screen, so there is a
+    // step to carry the researcher forward to.
+    it('forwards to /view once the enclave is running the job', async () => {
+        const { org, study } = await seedCodeStudy(['JOB-RUNNING'])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(CodePostDecisionView)
+        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view`)
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+    })
+
+    // Approved but not yet picked up by the enclave: /view still resolves to this very screen, so a
+    // forward link would only point at the page it sits on.
+    it('offers no step forward while /view still resolves to the code step', async () => {
+        const { org, study } = await seedCodeStudy([])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.props.nextStepHref).toBeUndefined()
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('cta-go-to-dashboard')).toBeInTheDocument()
+        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
+    })
+
+    // OTTER-640: submitted code stays accessible behind the collapsed control while execution or an
+    // unreviewed error is presented as "Code approved".
     it.each([
+        ['the code is provisioning', ['JOB-PROVISIONING']],
+        ['the code is packaging', ['JOB-PACKAGING']],
+        ['the code is ready for the enclave', ['JOB-READY']],
         ['the code is running in the enclave', ['JOB-RUNNING']],
         [
             'the run errored after starting, before the reviewer recorded a files decision',
@@ -96,10 +142,29 @@ describe('StudyViewCode (/view/code)', () => {
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
-        expect(page?.props.showStudyCode).toBe(true)
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View submitted study code')
+        const toggle = screen.getByTestId('study-code-toggle')
+        expect(toggle).toHaveTextContent('View submitted study code')
+        await userEvent.setup().click(toggle)
+        expect(await screen.findByTestId('submitted-code-table')).toBeInTheDocument()
+        expect(screen.getByText('main.R')).toBeInTheDocument()
+    })
+
+    it('shows a stable empty state when the submitted job has no code files', async () => {
+        const { org, study, job } = await seedCodeStudy(['JOB-RUNNING'])
+        await db.deleteFrom('studyJobFile').where('studyJobId', '=', job.id).execute()
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        renderWithProviders(page!)
+        await userEvent.setup().click(screen.getByTestId('study-code-toggle'))
+        expect(await screen.findByText('No code files were uploaded.')).toBeInTheDocument()
+        expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
+        expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide submitted study code')
     })
 
     it('404s for an APPROVED study that has not submitted code (cannot jump ahead)', async () => {

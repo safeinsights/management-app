@@ -4,6 +4,7 @@ import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
+import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName, sleep } from '@/lib/utils'
@@ -27,12 +28,18 @@ import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
-    RESUBMIT_NOTE_MIN_WORDS,
+    STUDY_TITLE_BLANK_ERROR,
+    STUDY_TITLE_MAX_CHARACTERS,
+    STUDY_TITLE_OVER_LIMIT_ERROR,
+    draftStudyApiSchema,
+} from '@/app/[orgSlug]/study/request/form-schemas'
+import {
+    RESUBMIT_NOTE_FIELD_TITLE,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteToLexicalJson,
-    resubmissionNoteWordCount,
+    resubmissionNoteCharacterCount,
+    resubmissionNoteIsBlank,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 
@@ -92,6 +99,10 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
+        // The AI review describes the code files just deleted. Drop it too, or
+        // generateAndStoreStudyReview's already-exists short-circuit keeps the
+        // stale summary for the resubmitted code (SHRMP-263).
+        await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
     }
 
     await db
@@ -150,7 +161,9 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
-// Schema for creating a new draft
+// Schema for creating a new draft. The cap is applied in the handler rather than here, for the
+// reason `draftStudyApiSchema` gives, even though a brand-new study has no stored title to spare:
+// one enforcement point per action keeps the failure a message on the field (OTTER-737).
 const onSaveDraftStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     submittingOrgSlug: z.string(),
@@ -159,11 +172,36 @@ const onSaveDraftStudyActionArgsSchema = z.object({
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
     .params(onSaveDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    // OTTER-719: `submittingOrgSlug` is a client param and `getOrgIdFromSlug` resolves any slug, so a
+    // caller could otherwise stamp another lab's id onto a new study and gain IDE access to it under
+    // the submittedByOrgId-scoped `load IDE` rule. Resolving the slug to `submittedByOrgId` here puts
+    // it in the ability subject, so `create Study` enforces lab membership through the same CASL rule
+    // as update/delete rather than a hand-rolled check in the handler that authz review would miss.
+    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await getOrgIdFromSlug({ orgSlug })),
+        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    }))
     .requireAbilityTo('create', 'Study')
-    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+    .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
+        // A new study's title is whatever Step 1 just typed, so there is no pre-cap value to spare
+        // here and the cap applies unconditionally.
+        const titleLength = countCharacters(studyInfo.title ?? '')
+
+        if (titleLength > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+
+        // Creation is the only entry point that mints a row, so it is the only one that can stop an
+        // untitled study existing at all (OTTER-690). Rows predating that card still need the
+        // /proposal and finalizeStudySubmissionAction guards; this keeps new ones from joining
+        // them. The rule sits here rather than in the params schema because `draftStudyApiSchema`
+        // is shared with the update and resubmit paths, whose titles are owned elsewhere and must
+        // not be cleared. `countCharacters` trims, so a whitespace-only title counts as blank.
+        if (titleLength === 0) {
+            throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
+        }
+
         const userId = session.user.id
-        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
@@ -180,7 +218,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 agreementDocPath: studyInfo.agreementDocPath || null,
                 orgId,
                 researcherId: userId,
-                submittedByOrgId: submittingLab.orgId,
+                submittedByOrgId,
                 containerLocation,
                 status: 'DRAFT',
             })
@@ -201,16 +239,53 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         }
     })
 
-// Schema for updating an existing draft
-const onUpdateDraftStudyActionArgsSchema = onSaveDraftStudyActionArgsSchema
-    .omit({ orgSlug: true, submittingOrgSlug: true })
-    .extend({ studyId: z.string() })
+// Schema for updating an existing draft. Serves Step 1 updates AND the CHANGE-REQUESTED resubmit
+// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft), so it stays permissive on the
+// title: a study created before OTTER-690 can hold a title longer than 60 characters, and rejecting
+// that inside `.params()` would fail every autosave on a page the researcher only opened to edit
+// something else. The handler below applies the cap where the status makes it meaningful.
+const onUpdateDraftStudyActionArgsSchema = z.object({
+    studyId: z.string(),
+    studyInfo: draftStudyApiSchema,
+})
 
 export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', { performsMutations: true })
     .params(onUpdateDraftStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, submittedByOrgId }) => {
+        // Allow co-authoring within the submitting lab while the proposal is editable.
+        // CASL `update Study` is already scoped to the caller's own labs, so a lab member outside
+        // this study's lab never reaches here. The row filter below repeats that scope alongside
+        // the editable status set and throws on a 0-row result, so a caller who passed the ability
+        // check on a broader grant (an SI admin holds `manage all`), or one operating on a
+        // post-submit study, gets a hard rejection instead of a misleading success with signed
+        // upload URLs.
+        const userLabOrgIds = Object.values(session.orgs)
+            .filter((org) => org.type === 'lab')
+            .map((org) => org.id)
+
+        // The title rule is selected by workflow, not by action. A DRAFT row's title is owned by
+        // Step 1, where the researcher is looking at the field and can shorten it. A
+        // CHANGE-REQUESTED row's may predate the cap entirely, and this action is its autosave:
+        // blocking that would strand the resubmit page rather than flag the field. The cap reaches
+        // that flow at `resubmitProposalAction`, where the researcher is submitting (OTTER-737).
+        //
+        // Gated on lab membership so the message cannot be used as an oracle: answering "title too
+        // long" would otherwise tell the caller that a guessed id exists and is currently a DRAFT.
+        // CASL already denies a lab member outside this study's lab, so the gate is defense in
+        // depth there and only bites on a caller who passed on a broader grant. `submittedByOrgId`
+        // comes from the middleware's read, so it costs no extra query, and the length check still
+        // runs before the UPDATE rather than after it, which is what keeps an over-long title from
+        // being written and only then complained about.
+        if (
+            userLabOrgIds.includes(submittedByOrgId) &&
+            status === 'DRAFT' &&
+            countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS
+        ) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+
         // Update study fields (only defined values)
         const updatable = [
             'title',
@@ -229,15 +304,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         const updateValues = Object.fromEntries(
             updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
-
-        // Allow co-authoring within the submitting lab while the proposal is editable.
-        // CASL `update Study` is org-type-scoped (any lab member); the row filter below
-        // scopes to the submitting lab + editable status set, and we throw on a 0-row
-        // result so a user outside the lab or operating on a post-submit study gets a
-        // hard rejection instead of a misleading success with signed upload URLs.
-        const userLabOrgIds = Object.values(session.orgs)
-            .filter((org) => org.type === 'lab')
-            .map((org) => org.id)
 
         const verified =
             Object.keys(updateValues).length > 0
@@ -332,7 +398,10 @@ const finalizeStudySubmissionInfoSchema = z
     .object({
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
-        piUserId: z.string().nullable().optional(),
+        // Nullable/optional for drafts, but a supplied value must be a real user id: the
+        // client cannot validate this (no field displays it), so submit is the enforcement
+        // point (OTTER-647).
+        piUserId: z.string().uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
         projectSummary: z.string().optional(),
@@ -348,10 +417,10 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // CASL `update Study` is org-type-scoped (any lab member), so we additionally
-        // require the caller to belong to the study's submitting lab. Without this,
-        // a user in a different lab could finalize someone else's draft just by
-        // knowing the studyId.
+        // CASL `update Study` is already scoped to the caller's own labs, so a lab member outside
+        // this study's lab never reaches here. Repeated on the claiming UPDATE below so a caller
+        // who passed the ability check on a broader grant (an SI admin holds `manage all`) cannot
+        // finalize someone else's draft just by knowing the studyId.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
@@ -371,6 +440,40 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             for (const key of updatable) {
                 if (studyInfo[key] !== undefined) snapshotFields[key] = studyInfo[key]
             }
+        }
+
+        // Most callers pass titleMode 'omit', because Step 1 owns study.title on a DRAFT, so the
+        // title being submitted is usually the persisted one. A draft predating OTTER-690 can have
+        // none, and `study_title_required_when_not_draft` rejects that the moment status leaves
+        // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error.
+        //
+        // Read here rather than folded into the middleware's read of this same row: middleware
+        // output becomes the ability subject, and requireAbilityTo serializes that subject into the
+        // permission_denied it returns to a caller it just refused, so a title carried that far
+        // would travel back to anyone who guessed a study id (OTTER-724 / MA-6). It cannot be
+        // deferred to the UPDATE's `returning` either: by then the status has already left DRAFT
+        // and the check constraint has fired, which is the raw error this guard exists to replace.
+        const submittedTitle =
+            'title' in snapshotFields
+                ? (snapshotFields.title as string | null)
+                : ((await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirst())?.title ??
+                  null)
+
+        if (!submittedTitle?.trim()) {
+            throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
+        }
+
+        // Submitting is the gate, so the cap is checked here rather than in the params schema: this
+        // action also carries drafts whose stored title predates the cap, and a schema rejection
+        // would surface as a generic failure instead of a message on the field (OTTER-737).
+        //
+        // Both checks above are a backstop, not the message the researcher is meant to read. Step 2
+        // renders no title field, so a failure keyed to `title` has nothing to attach to on the page
+        // the submit came from. /proposal is what keeps that from happening: it sends a draft whose
+        // stored title is blank or over the cap to Step 1, which owns the field, before Step 2 can
+        // be reached. These throws cover the paths that do send a title of their own.
+        if (countCharacters(submittedTitle) > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
         const submittedAt = new Date()
@@ -476,7 +579,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             .where('study.id', '=', studyId)
             .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, study }) => {
@@ -590,14 +693,15 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// The proposal flow submits Lexical JSON; the code flow still submits plain text.
+// Mirrors resubmitNoteSchema, the resolver the two note forms use. The proposal flow submits
+// Lexical JSON; the code flow still submits plain text.
 const resubmissionNoteParam = z
     .string()
-    .refine((val) => resubmissionNoteWordCount(val) >= RESUBMIT_NOTE_MIN_WORDS, {
+    .refine((val) => !resubmissionNoteIsBlank(val), {
         message: 'A resubmission note is required.',
     })
-    .refine((val) => resubmissionNoteWordCount(val) <= RESUBMIT_NOTE_MAX_WORDS, {
-        message: `Resubmission note must be ${RESUBMIT_NOTE_MAX_WORDS} words or fewer.`,
+    .refine((val) => resubmissionNoteCharacterCount(val) <= RESUBMIT_NOTE_MAX_CHARACTERS, {
+        message: overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
     })
 
 // Final resubmission: writes the latest proposal edits, records the
@@ -650,6 +754,13 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
         if (study.status !== 'CHANGE-REQUESTED') {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
+        }
+
+        // The resubmit form renders the title and caps it, so resubmission is where a title that
+        // predates the cap has to be shortened. Reported on the field, not as a params rejection,
+        // for the reason `draftStudyApiSchema` stays permissive (OTTER-737).
+        if (countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS) {
+            throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
         const updateValues = Object.fromEntries(

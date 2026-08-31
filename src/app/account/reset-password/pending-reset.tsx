@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
+import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
 
 const verificationFormSchema = z
     .object({
@@ -108,7 +108,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 await onUserResetPWAction()
-                router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.home))
+                router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)
                 setNeedsMFA(state)
@@ -154,7 +154,8 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
         resendCode()
     }
 
-    const { requirements, shouldShowRequirements } = usePasswordRequirements(verificationForm.values.password)
+    const [passwordTouched, setPasswordTouched] = useState(false)
+    const { requirementsDescription } = usePasswordRequirements(verificationForm.values.password, passwordTouched)
 
     if (needsMFA) return <RequestMFA mfa={needsMFA} />
 
@@ -194,14 +195,25 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                     <PasswordInput
                         key={verificationForm.key('password')}
                         {...verificationForm.getInputProps('password')}
+                        onBlur={(event) => {
+                            verificationForm.getInputProps('password').onBlur?.(event)
+                            setPasswordTouched(true)
+                        }}
                         label="Enter new password"
                         placeholder="********"
                         aria-label="New password"
                         mb="xs"
-                        error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
+                        // Error is suppressed in favor of the requirements list below, which
+                        // now also appears when the field is left empty.
+                        error={undefined}
+                        aria-invalid={!!verificationForm.errors.password || undefined}
+                        // Rendered as the input's description so Mantine owns the
+                        // aria-describedby wiring; a hand-passed value is overwritten.
+                        description={requirementsDescription}
+                        // Description below the input, not Mantine's default position above it:
+                        // this is live validation feedback, and it sat under the field before.
+                        inputWrapperOrder={['label', 'input', 'description', 'error']}
                     />
-
-                    {shouldShowRequirements && <Requirements requirements={requirements} />}
 
                     <PasswordInput
                         key={verificationForm.key('confirmPassword')}
@@ -215,6 +227,9 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                                 <InputError error={verificationForm.errors.confirmPassword} />
                             )
                         }
+                        // PasswordInput's inner <input> is rendered with withAria disabled, so
+                        // `error` alone never marks it invalid to assistive tech (OTTER-647).
+                        aria-invalid={!!verificationForm.errors.confirmPassword || undefined}
                     />
                     <ClerkErrorAlert
                         onClose={() => verificationForm.clearFieldError('form')}

@@ -2,19 +2,20 @@
 
 import { type FC } from 'react'
 import { Alert, Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { ButtonLink } from '@/components/links'
+import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -124,10 +125,18 @@ const ExpandedCodePanel: FC<ExpandedCodePanelProps> = ({
             <Paper p="xxl">
                 <Stack gap="md">
                     <Group justify="space-between" align="center">
-                        <Title order={5}>Submitted code</Title>
-                        <Anchor href={proposalHref} target="_blank" rel="noopener noreferrer" fw={700} size="sm">
+                        <Title order={3} size="h5">
+                            Submitted code
+                        </Title>
+                        <LinkWithIcon
+                            href={proposalHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            icon={<ArrowSquareOutIcon size={14} />}
+                            data-testid="view-approved-initial-request"
+                        >
                             View approved initial request
-                        </Anchor>
+                        </LinkWithIcon>
                     </Group>
                     <Divider />
                     <Text>View the code files that you uploaded to run against the dataset.</Text>
@@ -175,25 +184,18 @@ export function CodePostSubmissionView({
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
     const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
 
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboard],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
-
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
-        <Stack p="xl" gap="xl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
-            <Title order={1}>Study proposal</Title>
+        <Stack p="xl" gap="xxl">
+            <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
                 <Paper p="xxl">
                     <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                         STEP 4
                     </Text>
-                    <Title fz={20} order={4} c="charcoal.9" pb={4}>
+                    <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
                     <Group justify="space-between" align="center">

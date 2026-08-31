@@ -4,6 +4,7 @@ import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { actionResult, safeRedirectUrl } from '@/lib/utils'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -54,15 +55,26 @@ export const SignInForm: FC<{
             email: '',
             password: '',
         },
-        validate: zodResolver(signInSchema),
+        // errorPriority: the resolver assigns issues in order, so the LAST one wins by default.
+        // An empty email fails both `min(1)` and `email()`, and reported "Invalid email" when the
+        // field was simply blank. First-issue priority keeps each message on its own case
+        // (blank / malformed / too long) (OTTER-647).
+        //
+        // Scoped here rather than baked into the `@/common` re-export deliberately: any schema
+        // stacking `min(1)` before a format check has the same latent problem, but flipping the
+        // default would rewrite the messages of every other form in the app, none of which this
+        // card covers. Worth its own card, with the messages re-read form by form.
+        validate: zodResolver(signInSchema, { errorPriority: 'first' }),
     })
 
     if (!signIn || mfa) return null
 
+    // Default landing is the dashboard (OTTER-671); redirect_url is present when the
+    // user arrived via a deep link (proxy-captured) or an explicit flow (e.g. invitations).
     const rawRedirect = searchParams.get('redirect_url')
-    const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.home)
+    const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.dashboard)
     const forgotPasswordHref = (
-        rawRedirect && validatedRedirect !== Routes.home
+        rawRedirect && validatedRedirect !== Routes.dashboard
             ? `${Routes.accountResetPassword}?redirect_url=${encodeURIComponent(validatedRedirect)}`
             : Routes.accountResetPassword
     ) as Route
@@ -79,7 +91,9 @@ export const SignInForm: FC<{
                 const result = actionResult(await onUserSignInAction())
                 await getToken({ skipCache: true })
                 if (result?.redirectToKeyGeneration) {
-                    router.push(Routes.accountKeys as Route)
+                    // The validated value, not the raw one: an invalid redirect_url validates to
+                    // the dashboard, which keyGenerationUrl treats as no destination (OTTER-655).
+                    router.push(keyGenerationUrl(validatedRedirect))
                 } else {
                     router.push(validatedRedirect)
                 }

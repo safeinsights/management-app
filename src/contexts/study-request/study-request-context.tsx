@@ -1,13 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from 'react'
-import { useForm } from '@mantine/form'
-import { zodResolver } from '@/common'
-import {
-    studyProposalFormSchema,
-    step1ReadinessSchema,
-    type StudyProposalFormValues,
-} from '@/app/[orgSlug]/study/request/form-schemas'
+import { useForm, zodResolver } from '@/common'
+import { step1FieldsSchema, type StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 import {
     type StudyRequestContextValue,
     type DraftStudyData,
@@ -44,28 +39,23 @@ export function StudyRequestProvider({
     const [orgSlug, setOrgSlug] = useState(initialDraft?.orgSlug ?? '')
     const [submittingOrgSlug, setSubmittingOrgSlug] = useState(initialSubmittingOrgSlug)
 
+    // Resolver is scoped to the fields Step 1 renders; `piName` belongs to the Step 2 editor
+    // and would otherwise fail validation with no field to show the error on. `title` moved
+    // onto Step 1 with OTTER-690, so it is in scope here.
+    //
+    // `title` is deliberately NOT in validateInputOnChange. Mantine runs a field's whole
+    // validator on change, so the blank rule would fire on every keystroke and flash "Enter a
+    // study title before continuing." the moment the user clears the box, which the spec
+    // forbids: blank is a blur/click error. Only the over-limit half is live, and the Step 1
+    // title field raises that itself (see use-setup-form).
     const form = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: zodResolver(studyProposalFormSchema),
+        validate: zodResolver(step1FieldsSchema),
         initialValues: initialFormValues,
-        validateInputOnChange: [
-            'title',
-            'orgSlug',
-            'language',
-            'piName',
-            'descriptionDocument',
-            'irbDocument',
-            'agreementDocument',
-        ],
+        validateInputOnChange: ['orgSlug', 'language'],
     })
 
     const { initDocumentFilesFromPaths, resetDocumentFiles, ...documentFiles } = useDocumentFiles()
-
-    const step1Values = form.getValues()
-    const isStep1Valid = step1ReadinessSchema.safeParse({
-        orgSlug: step1Values.orgSlug,
-        language: step1Values.language,
-    }).success
 
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
@@ -131,7 +121,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
 
             ...documentFiles,
 
@@ -148,7 +137,6 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
             documentFiles.documentFiles,
             documentFiles.existingFiles,
             documentFiles.setDocumentFile,

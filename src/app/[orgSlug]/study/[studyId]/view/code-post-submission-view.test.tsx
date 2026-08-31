@@ -127,14 +127,14 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 })
 
 describe('CodePostSubmissionView', () => {
-    describe('breadcrumbs and header', () => {
+    describe('header', () => {
         it('renders STEP 4, page title "Study proposal", section title "Study code", and study title', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
 
@@ -337,7 +337,7 @@ describe('CodePostSubmissionView', () => {
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code v2.0' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code v2.0' })).toBeInTheDocument()
             expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
                 /^Resubmitted on \w{3} \d{2}, \d{4}$/,
             )
@@ -371,7 +371,7 @@ describe('CodePostSubmissionView', () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { submissionVersion: 1 })
 
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(/^Submitted on /)
             expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()

@@ -9,15 +9,13 @@ import {
     renderWithProviders,
     screen,
     type Mock,
+    userEvent,
+    waitFor,
 } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { CodeReview } from './code-review'
-
-// The global setup mocks @/components/page-breadcrumbs to return null; opt back into
-// the real component here so we can assert the rendered breadcrumb links.
-vi.unmock('@/components/page-breadcrumbs')
 
 const ORG_SLUG = 'test-org'
 
@@ -58,31 +56,17 @@ describe('CodeReview', () => {
     })
 
     describe('first submission (entries empty)', () => {
-        it('renders the H1 page title "Study Proposal"', async () => {
+        it('renders the H1 page title "Study proposal"', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
-            expect(screen.getByRole('heading', { name: 'Study Proposal', level: 1 })).toBeInTheDocument()
-        })
-
-        it('renders all three breadcrumbs with the expected links', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
-
-            const dashboardLink = screen.getByRole('link', { name: 'Dashboard' })
-            expect(dashboardLink).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-
-            const proposalLink = screen.getByRole('link', { name: 'Study proposal' })
-            expect(proposalLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/review/proposal`)
-
-            // "Study code" is the terminal crumb and should not be a link
-            expect(screen.getByText('Study code')).toBeInTheDocument()
-            expect(screen.queryByRole('link', { name: 'Study code' })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
         })
 
         it('renders the STEP 3 sub-label and the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
             expect(screen.getByText('STEP 3')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: 'Review study code', level: 4 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
         })
 
         it('renders the study title in the section header', async () => {
@@ -136,6 +120,32 @@ describe('CodeReview', () => {
 
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
+
+        it('collapses and restores the entire Submitted code section', async () => {
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
+            expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.getByTestId('ai-summary')).toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+
+            const user = userEvent.setup()
+            await user.click(screen.getByTestId('study-code-toggle-collapse'))
+
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
+            expect(screen.getByTestId('submitted-code-datasets')).not.toBeVisible()
+            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
+            const opener = screen.getByTestId('study-code-toggle')
+            expect(opener).toHaveTextContent('View full study code')
+            expect(opener).toHaveFocus()
+
+            await user.click(opener)
+
+            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
+            expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus()
+            expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide full study code')
+        })
     })
 
     describe('resubmission (prior entries present)', () => {
@@ -184,8 +194,8 @@ describe('CodeReview', () => {
         it('reflects the resubmission version in the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
 
-            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 4 })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Review study code', level: 4 })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 2 })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review study code', level: 2 })).not.toBeInTheDocument()
         })
 
         it('renders a Feedback and notes section showing both prior and current entries', async () => {
@@ -208,9 +218,7 @@ describe('CodeReview', () => {
             expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
-        it('collapses the submitted code viewer by default on resubmission', async () => {
-            // Insert a code file so StudyCodeViewer renders the toggle (hidden when files is empty).
-            // The toggle visibility plus its label is what proves the "collapsed by default" AC.
+        it('collapses the entire Submitted code section by default on resubmission', async () => {
             const job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -232,9 +240,9 @@ describe('CodeReview', () => {
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveAttribute('aria-expanded', 'false')
             expect(toggle).toHaveTextContent('View full study code')
-            // Body must remain hidden until the user expands.
-            expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('study-code-body-loading')).not.toBeInTheDocument()
+            expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
+            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
         })
     })
 })

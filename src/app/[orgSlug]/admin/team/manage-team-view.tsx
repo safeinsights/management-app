@@ -7,7 +7,7 @@ import { Flex, Paper, Title } from '@mantine/core'
 // "People" card (heading + "Invite People" action + the users table). The invite control
 // and the table are injected as slots — the real page passes the data containers; a story
 // passes presentational stand-ins. No data fetching or session here, so it renders in
-// isolation (e.g. Ladle). Returns a fragment so the page's own Stack (with breadcrumbs)
+// isolation (e.g. Ladle). Returns a fragment so the page's own Stack
 // stays the single layout wrapper, keeping the rendered structure unchanged.
 export type ManageTeamViewProps = {
     /** "Invite People" control — the container injects the modal-opening button. */
