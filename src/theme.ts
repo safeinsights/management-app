@@ -82,8 +82,6 @@ const purple: MantineColorsTuple = [
     '#100A4C',
     '#070524',
 ]
-// Library brand ramp. brand/Default, brand/Hover and brand/Light are navy 5, 6 and 0, so Mantine's
-// own shade arithmetic (primaryShade, +1 on hover) lands on the spec unaided.
 const navy: MantineColorsTuple = [
     '#E6E9EF',
     '#CCD3DF',
@@ -165,9 +163,8 @@ export const theme = createTheme({
         Button: {
             defaultProps: {
                 color: 'navy',
-                radius: 2, // Corner-radius-xs
+                radius: 2,
             },
-            // Mantine derives outline/subtle hover from its light-hover alpha, not brand/Light.
             vars: (_theme: unknown, props: { variant?: string }) => ({
                 root: props.variant === 'outline' || props.variant === 'subtle' ? { '--button-hover': navy[0] } : {},
             }),

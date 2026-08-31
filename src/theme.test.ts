@@ -1,20 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { theme } from './theme'
 
-// Locks the values transcribed from the SI UI Component Library (OTTER-673). These are hand-copied
-// from Figma, so a silent drift here is invisible in review — hence asserting them directly.
+// Hex values are hand-copied from Figma, so drift would otherwise be invisible in review.
 describe('button colors', () => {
     const navy = theme.colors?.navy ?? []
 
     it('carries the library brand ramp', () => {
-        expect(navy[5]).toBe('#01215E') // brand/Default
-        expect(navy[6]).toBe('#011A4B') // brand/Hover
-        expect(navy[0]).toBe('#E6E9EF') // brand/Light
+        expect(navy[5]).toBe('#01215E')
+        expect(navy[6]).toBe('#011A4B')
+        expect(navy[0]).toBe('#E6E9EF')
     })
 
     it('makes every button navy without repainting the rest of the app', () => {
         expect(theme.components?.Button?.defaultProps).toMatchObject({ color: 'navy', radius: 2 })
-        // primaryColor also drives checkboxes, radios, switches, tabs and focus rings — out of scope.
         expect(theme.primaryColor).toBe('purple')
     })
 
