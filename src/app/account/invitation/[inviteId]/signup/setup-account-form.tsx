@@ -29,7 +29,6 @@ import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     fetchGlobalLegalDocumentsAction,
     fetchParticipationAgreementFromInviteIdAction,
-    ParticipationData,
 } from '@/server/actions/legal-document.actions'
 import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
@@ -65,8 +64,8 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
-// Account creation is held until the documents load: the checkbox falls back to placeholder copy
-// when they are missing, and a tick against that is not evidence of agreeing to anything published.
+// Inline notice shown when a legal document fails to load. Account creation is held separately (see
+// canSubmit), so this only tells the invitee why, and that their invitation still stands.
 const LegalDocumentsError: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -116,15 +115,14 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchGlobalLegalDocumentsAction(),
     })
 
-    // Semi-public: ROPA or DOPA must also be shown before account exists.
-    // Empty until published. Gated by org.
-    const emptyData: ParticipationData = { versionId: '', type: 'ROPA', url: null } // todo: guard against null by setting initial value
+    // Semi-public: the org's ROPA or DOPA must also be shown before the account exists. Null until one
+    // is published, and gated by the invite's org.
     const {
-        data: participationAgreement = emptyData,
+        data: participationAgreement = null,
         isPending: isPendingParticipationAgreement,
         isError: participationAgreementError,
     } = useQuery({
-        queryKey: ['participationAgreement', inviteId],
+        queryKey: legalDocumentQueryKeys.participationAgreementForInvite(inviteId),
         queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
     })
 
@@ -132,7 +130,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     // returns null), so the invitee has nothing to tick. Mark the absent requirement satisfied rather
     // than leaving Create Account disabled against a box that never appears. When an agreement exists
     // the box renders and the tick is required as normal.
-    const hasParticipationAgreement = Boolean(participationAgreement.url)
+    const hasParticipationAgreement = participationAgreement !== null
 
     useEffect(() => {
         if (isPendingParticipationAgreement || hasParticipationAgreement) return
@@ -156,12 +154,11 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
             onCreateAccountAction({
                 inviteId,
                 form: { firstName, lastName, password },
-                // filter(Boolean) drops the empty id the participation placeholder carries when the
-                // org has no published agreement — the action validates each id as a uuid, so '' would
-                // fail the whole submission.
-                acknowledgedVersionIds: [...tosPn, participationAgreement]
-                    .map((document) => document.versionId)
-                    .filter(Boolean),
+                // The participation agreement is absent until the org publishes one; only the ids the
+                // form actually displayed are recorded, and the action re-checks each against its scope.
+                acknowledgedVersionIds: [...tosPn, ...(participationAgreement ? [participationAgreement] : [])].map(
+                    (document) => document.versionId,
+                ),
             }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {

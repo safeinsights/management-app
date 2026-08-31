@@ -30,8 +30,8 @@ export const globalDocAgreementLabel = (documents: GlobalLegalDocument[]) => {
     return `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}`
 }
 
-export const participationAgreementLabel = (document: ParticipationData) => {
-    if (!document.url) return null
+export const participationAgreementLabel = (document: ParticipationData | null) => {
+    if (!document) return null
     return (
         <>
             I agree to the <PdfLink url={document.url} label={legalDocumentTypeLabels[document.type]} />
@@ -45,7 +45,7 @@ const TERMS_ERROR_ID = 'terms-accepted-error'
 // neither `aria-invalid` nor `aria-describedby`, unlike the inputs built on `Input.Wrapper`. Both
 // are wired by hand here so the requirement is not conveyed by red text alone.
 export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, onChange, onBlur, error }) => {
-    if (!label) return <></>
+    if (!label) return null
 
     return (
         <Checkbox

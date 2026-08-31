@@ -73,12 +73,11 @@ describe('AcknowledgementCheckbox', () => {
             expect(link).toHaveAttribute('href', 'https://example.com/agreement.pdf')
         })
 
-        // Nothing published yet: no url, so there is no agreement to link or agree to, and the
-        // checkbox drops out rather than pointing at an empty href.
-        it('renders no checkbox before the agreement has a url', () => {
+        // Nothing published yet: no agreement to link or agree to, so the checkbox drops out.
+        it('renders no checkbox when there is no agreement', () => {
             renderWithProviders(
                 <AcknowledgementCheckbox
-                    label={participationAgreementLabel({ versionId: '', type: 'ROPA', url: null })}
+                    label={participationAgreementLabel(null)}
                     checked={false}
                     onChange={vi.fn()}
                 />,

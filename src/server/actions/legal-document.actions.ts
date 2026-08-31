@@ -712,20 +712,21 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
 export type ParticipationData = {
     versionId: string
     type: 'ROPA' | 'DOPA'
-    url: string | null
+    url: string
 }
 
 /**
- * The ropa/dopa for org, readable with an orgId.
+ * The published ropa/dopa the invite's org owes, or null when none is published yet.
  *
- * Used in the invitation signup form.
+ * Read by the invitation signup form, so null (an ordinary state) stands for "nothing to show or
+ * agree to" rather than a sentinel row the caller has to decode.
  */
 export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchParticipationAgreementFromInviteIdAction')
     .params(inviteParams)
     // Unauthenticated by necessity: read by the signup form before the invitee has an account, the
     // same as getOrgInfoForInviteAction. The invite id is the bearer credential, and the org is
     // resolved from it below rather than from the caller.
-    .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData> => {
+    .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData | null> => {
         const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } = await db
             .selectFrom('pendingUser')
             .innerJoin('org', 'org.id', 'pendingUser.orgId')
@@ -736,13 +737,12 @@ export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchPa
         const doctype = participationAgreementTypeForOrgType[inviteOrgDetails.type]
 
         const agreement = await orgParticipationAgreement(db, { orgId: inviteOrgDetails.orgId, type: doctype })
+        if (!agreement) return null
 
-        if (!agreement) {
-            return { versionId: '', type: doctype, url: null }
-        }
-
-        const body = await bodyForVersion(doctype, agreement.filePath) // todo: better type narrowing here
-        if (body.format === 'markdown') return { versionId: '', type: doctype, url: null }
+        // ropa/dopa are always pdfs (legalDocumentFormats), so a markdown body means a misconfigured
+        // document rather than something to agree to — treated as nothing published.
+        const body = await bodyForVersion(doctype, agreement.filePath)
+        if (body.format !== 'pdf') return null
 
         return {
             versionId: agreement.versionId,

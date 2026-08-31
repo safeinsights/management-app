@@ -217,6 +217,9 @@ export const legalDocumentQueryKeys = {
     nextPendingAcknowledgement: () => ['nextPendingLegalAcknowledgement'] as const,
     // Read by the signup form before an account exists, so there is no session to key it by.
     globalDocuments: () => ['globalLegalDocuments'] as const,
+    // The participation agreement the signup form owes, keyed by invite because the org is resolved
+    // from it — read before an account exists, so likewise no session to key it by.
+    participationAgreementForInvite: (inviteId: string) => ['participationAgreement', inviteId] as const,
     // Keyed by version rather than by the signed URL the reader fetches: a presigned URL is re-minted
     // on every read, so keying on it meant a fresh cache entry each time and never a hit.
     documentContent: (versionId: string) => ['legalDocumentContent', versionId] as const,

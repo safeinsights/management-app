@@ -676,21 +676,23 @@ describe('fetchParticipationAgreementFromInviteIdAction', () => {
 
         const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
 
-        expect(result.type).toBe('DOPA')
-        expect(result.versionId).toBe(published.id)
-        expect(result.url).toBeTruthy()
+        expect(result).toEqual({
+            versionId: published.id,
+            type: 'DOPA',
+            url: 'https://mock-signed-url.example.com/file',
+        })
     })
 
     // Nothing published yet is an ordinary state; the form falls back to a placeholder, so the action
-    // reports no version and a null url rather than failing.
-    it('reports a null url when the org has no published participation agreement', async () => {
+    // reports null rather than failing.
+    it('returns null when the org has no published participation agreement', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const invite = await createInvite(org.id, user.id)
 
         const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
 
-        expect(result).toEqual({ versionId: '', type: 'ROPA', url: null })
+        expect(result).toBeNull()
     })
 
     // A draft was shown to no one, so the signup form must not surface it as something to agree to.
@@ -701,6 +703,6 @@ describe('fetchParticipationAgreementFromInviteIdAction', () => {
 
         const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
 
-        expect(result).toEqual({ versionId: '', type: 'ROPA', url: null })
+        expect(result).toBeNull()
     })
 })
