@@ -569,6 +569,19 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         await expect(page.getByTestId('org-select')).toHaveCount(0)
         await expect(page.getByRole('radio', { name: 'R', exact: true })).toHaveCount(0)
 
+        // Discarding is only offered before the row exists, so the revisit footer has no left action.
+        await expect(page.getByRole('button', { name: 'Discard study' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
+
+        // The revisit CTA saves and moves straight on. Reaching Step 2 is itself the proof that the
+        // confirmation modal was skipped: it belongs to the first visit, where the Data Partner and
+        // the language were still open to change, and an open modal would hold the navigation.
+        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        await expect(saveAndContinue).toBeEnabled()
+        await saveAndContinue.click()
+        await page.waitForURL(/\/proposal$/)
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+
         await visitAsRole(page, RESEARCHER_DASHBOARD)
 
         const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -717,6 +730,21 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
         await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
         await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
+
+        // OTTER-764: a submitted proposal steps back to Step 1 as a read-only record, and forward
+        // again from there. Every field is text by now, so the title has no input to carry a value.
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/edit$/)
+        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expect(page.getByText(studyTitle).first()).toBeVisible()
+        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+
+        const nextStep = page.getByRole('button', { name: 'Next step' })
+        await expect(nextStep).toBeEnabled()
+        await nextStep.click()
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
     })
 })
 
