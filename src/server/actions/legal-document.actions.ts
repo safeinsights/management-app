@@ -278,6 +278,7 @@ type GenericVersion = {
     legalDocumentId: string
     versionId: string
     filePath: string
+    fileName: string // names the download; a pdf key is a bare uuid without it
     orgId: string | null // not null only for ropa/dopa
     studyId: string | null // not null only for sla
 }
@@ -301,6 +302,7 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
             'legalDocument.studyId as studyId',
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
         ])
         .where('legalDocument.type', 'in', [...types])
         .where('legalDocumentVersion.publishedAt', 'is not', null)
@@ -334,10 +336,19 @@ const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise
 
 const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
 
-// Either format == pdf & has `url`, or format == markdown and has `content`
-const bodyForVersion = async (type: LegalDocumentTypeValue, filePath: string): Promise<LegalDocumentBody> =>
+// Either format == pdf & has `url`, or format == markdown and has `content`. fileName only rides the
+// pdf branch, where it names the download (the S3 key is a bare uuid).
+const bodyForVersion = async ({
+    type,
+    filePath,
+    fileName,
+}: {
+    type: LegalDocumentTypeValue
+    filePath: string
+    fileName: string
+}): Promise<LegalDocumentBody> =>
     legalDocumentFormats[type] === 'pdf'
-        ? { format: 'pdf', url: await signedUrlForFile(filePath) } // todo: use `legalDocumentDownloadUrl` when 304 merged
+        ? { format: 'pdf', url: await legalDocumentDownloadUrl({ filePath, fileName, format: 'pdf' }) }
         : { format: 'markdown', content: await contentOf(filePath) }
 
 /**
@@ -395,7 +406,7 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
             versionId: next.versionId,
             isUpdate: acknowledgedDocumentIds.has(next.legalDocumentId),
             orgName,
-            ...(await bodyForVersion(next.type, next.filePath)),
+            ...(await bodyForVersion({ type: next.type, filePath: next.filePath, fileName: next.fileName })),
         }
     })
 
@@ -414,7 +425,11 @@ export const fetchGlobalLegalDocumentsAction = new Action('fetchGlobalLegalDocum
             latest.map(async (version) => ({
                 type: version.type,
                 versionId: version.versionId,
-                ...(await bodyForVersion(version.type, version.filePath)),
+                ...(await bodyForVersion({
+                    type: version.type,
+                    filePath: version.filePath,
+                    fileName: version.fileName,
+                })),
             })),
         )
     },
@@ -741,7 +756,7 @@ export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchPa
 
         // ropa/dopa are always pdfs (legalDocumentFormats), so a markdown body means a misconfigured
         // document rather than something to agree to — treated as nothing published.
-        const body = await bodyForVersion(doctype, agreement.filePath)
+        const body = await bodyForVersion({ type: doctype, filePath: agreement.filePath, fileName: agreement.fileName })
         if (body.format !== 'pdf') return null
 
         return {
