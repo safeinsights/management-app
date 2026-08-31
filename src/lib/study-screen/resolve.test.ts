@@ -295,7 +295,9 @@ describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
         expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-review', readOnlyCodeStep: true })
     })
 
-    it('awaiting decision, agreements NOT acked → reviewer-agreements', () => {
+    // OTTER-727: the agreements gate is no longer a candidate code screen, so the walk-back route
+    // lands on the code-review editor whether or not the reviewer ever acked.
+    it('awaiting decision, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         const s = state({
             status: 'APPROVED',
             isDraft: false,
@@ -303,7 +305,7 @@ describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
             codeAwaitingDecision: true,
             reviewerAgreementsAcked: false,
         })
-        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-agreements', readOnlyCodeStep: true })
+        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-review', readOnlyCodeStep: true })
     })
 
     it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {

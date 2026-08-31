@@ -167,11 +167,10 @@ cascade with the `?from=` cases removed (those became routing, not screen-select
 | 3   | `hasResults`                                                             | `reviewer-outputs-decided`   |
 | 4   | `isExecuting`                                                            | `reviewer-outputs-pending`   |
 | 5   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
-| 6   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
-| 7   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
-| 8   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
-| 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
-| 10  | fallback                                                                 | `study-overview`             |
+| 6   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
+| 7   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
+| 8   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
+| 9   | fallback                                                                 | `study-overview`             |
 
 `reviewer-outputs-errored` (#1) has two shapes, decided by whether the job carries an encrypted
 artifact describing the run's own outcome: an `ENCRYPTED-RESULT`, or an encrypted error log
@@ -220,10 +219,18 @@ run's outputs and a submission-time scan log is not one.
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
 (which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
-present code decision (#5 — `CODE-APPROVED` is always present once execution starts); the agreements
-gate sits **above** active review (#6 > #7 — a reviewer must ack before the review page renders);
-and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once
-code exists.
+present code decision (#5 — `CODE-APPROVED` is always present once execution starts); and the
+proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once code
+exists.
+
+**OTTER-727 — the hidden agreements gate.** A `reviewer-agreements` rule used to sit between #5 and
+#6, claiming `codeAwaitingDecision && !reviewerAgreementsAcked` so a Data Partner had to ack before
+the review page rendered. It was removed when the Agreements page was hidden: #6 now owns the whole
+`codeAwaitingDecision` state (its predicate is the same one minus the ack clause). The `ScreenId`,
+its `SCREEN_COMPONENTS` entry and `_screens/reviewer-agreements-screen.tsx` are deliberately
+**retained but unreachable** — restoring the gate means re-adding that one rule entry (plus the
+back-edges that were re-pointed). The gate was always intended to give way to `legal_document` SLA
+acknowledgements (SHRMP-273); OTTER-727 hides the placeholder ahead of that ack frontend shipping.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
@@ -318,9 +325,9 @@ highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
 
 Both roles are implemented. The resolvers take a `role` (`'researcher' | 'reviewer'`); `resolveScreen`
 picks the matching rule table, and the pill/highlight resolvers already branch on role. The
-**projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts
-(notably `reviewerAgreementsAcked`, previously unused) and inherits all the order-independence
-guarantees for free. Adding the reviewer flow was adding a rule table + adapters, not
+**projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts and
+inherits all the order-independence guarantees for free (`reviewerAgreementsAcked` is the exception:
+it is still projected but, since OTTER-727, read by no rule). Adding the reviewer flow was adding a rule table + adapters, not
 re-architecting — exactly as the design intended.
 
 ### Reviewer routing (`/review`)
@@ -332,11 +339,17 @@ re-architecting — exactly as the design intended.
 - **Shared guard** (`review/reviewer-page-guard.tsx`): both reviewer entry points run the same
   access preamble (session/org → study → lab-org redirect to `/view` → `isSubmittedStudy` →
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
-- **Agreements gate as a screen**: the old redirect-to-`/agreements` is now the `reviewer-agreements`
-  screen (rule #3). The reviewer branch of `agreements/page.tsx` became a plain revisitable step
-  (no `?from=`), like the researcher branch. This gate reads
-  `study.reviewerAgreementsAckedAt`; once study-level-agreement acknowledgement ships on
-  `legal_document`, rule #6 goes with it — two agreement gates on one study would disagree.
+- **Agreements gate — hidden (OTTER-727)**: the old redirect-to-`/agreements` became the
+  `reviewer-agreements` screen, and is now hidden entirely. Its rule is gone from the reviewer table
+  (see the OTTER-727 note above), and both `/agreements/reviewer` and `/agreements/researcher`
+  redirect onward (to `/review` and the code step respectively) so stale bookmarks and history entries
+  can't reach the placeholder or write an ack. Nothing links to either route. The screen component,
+  the shared `agreements-page.tsx`, both `Routes.*Agreements` definitions, `ackAgreementsAction` and
+  the two `*_agreements_acked_at` columns are all retained for a future revival; the ack facts are
+  still projected onto `StudyState` but no screen rule reads them. This gate read
+  `study.reviewerAgreementsAckedAt`, and was already slated to go when study-level-agreement
+  acknowledgement ships on `legal_document` (SHRMP-273) — two agreement gates on one study would
+  disagree. Hiding it now means that landing does not have to remove a live gate.
 - **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
   initial request" link. It always shows the **decided** initial request regardless of code stage,
   and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the

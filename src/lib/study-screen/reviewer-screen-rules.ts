@@ -33,15 +33,15 @@ export const REVIEWER_SCREEN_RULES = [
     //    branches internally on codeDecision (approved / rejected / changes-requested).
     ['reviewer-code-feedback', { when: (s) => s.codeDecision !== null }],
 
-    // 4. Code submitted, awaiting a decision, agreements NOT acked → the gate screen. Above
-    //    code-review: the reviewer must ack before the active review page renders.
-    //    Superseded by legal_document sla acknowledgements once the ack frontend ships; drop then.
-    ['reviewer-agreements', { when: (s) => s.codeAwaitingDecision && !s.reviewerAgreementsAcked }],
-
-    // 5. Code submitted, awaiting a decision, agreements acked → active code review.
+    // 4. Code submitted, awaiting a decision → active code review. OTTER-727 removed the
+    //    `reviewer-agreements` gate that used to sit above this rule (claiming the same state when
+    //    !reviewerAgreementsAcked), so this rule now owns the whole codeAwaitingDecision state. The
+    //    screen and its component are retained but unreachable — see reviewer-agreements-screen.tsx.
+    //    The gate was always meant to be superseded by legal_document SLA acknowledgements
+    //    (SHRMP-273); OTTER-727 just hides the placeholder ahead of that ack frontend shipping.
     ['reviewer-code-review', { when: (s) => s.codeAwaitingDecision }],
 
-    // 6. Proposal decided but no code yet → read-only proposal feedback.
+    // 5. Proposal decided but no code yet → read-only proposal feedback.
     [
         'reviewer-proposal-feedback',
         {
@@ -51,10 +51,10 @@ export const REVIEWER_SCREEN_RULES = [
         },
     ],
 
-    // 7. Proposal under review → editable proposal review.
+    // 6. Proposal under review → editable proposal review.
     ['reviewer-proposal-review', { when: (s) => s.status === 'PENDING-REVIEW' }],
 
-    // 8. Exhaustive fallback. DRAFT shouldn't reach a reviewer (the page's not-found guard handles
+    // 7. Exhaustive fallback. DRAFT shouldn't reach a reviewer (the page's not-found guard handles
     //    it), but the table stays total; study-overview is a safe read-only render.
     ['study-overview', { when: () => true }],
 ] as const satisfies ReadonlyArray<ScreenRuleEntry>

@@ -15,10 +15,11 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
     }
 
     // Only the read-only /review/code walk-back (descriptor.readOnlyCodeStep) shows "Previous" → it
-    // continues back through agreements → proposal (OTTER-643). The live code-decision screen leaves it
-    // unset, matching the live DO design that hides Previous.
+    // continues back to the decided proposal (OTTER-643; one hop since OTTER-727 hid the intervening
+    // agreements step). The live code-decision screen leaves it unset, matching the live DO design
+    // that hides Previous.
     const previousHref = descriptor.readOnlyCodeStep
-        ? Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
+        ? Routes.studyReviewProposal({ orgSlug, studyId: study.id })
         : undefined
 
     // OTTER-687: forward to the DP outputs screen, which lives at bare /review. Suppressed while
