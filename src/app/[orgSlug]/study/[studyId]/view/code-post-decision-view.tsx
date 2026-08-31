@@ -30,7 +30,10 @@ interface CodePostDecisionViewProps {
     job: LatestJobForStudy
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
-    /** Org-scoped entry: threaded onto the "Previous step" → researcher agreements link so org scope survives. */
+    /**
+     * Org-scoped entry: threaded onto the "View approved initial request" link so org scope survives.
+     * The step nav carries its own copy of it through NavCtx.
+     */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
     nav: StepNav

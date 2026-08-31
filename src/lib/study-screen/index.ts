@@ -7,7 +7,9 @@ export {
     runErrored,
     latestJob,
     isErroredOutputsSharedOutcome,
+    codeDecisionForScreen,
 } from './state'
+export type { CodeDecisionScreenId } from './state'
 export {
     resolveScreen,
     resolveResearcherCodeScreen,

@@ -162,6 +162,8 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
     'code-feedback': codeFeedbackNav,
     'outputs-pending': outputsPendingNav,
     'outputs-feedback': outputsFeedbackNav,
+    // Intentionally nav-identical to outputs-feedback: the two screens split only on banner copy, and
+    // the spec gives both the same forward action. A state-dependent branch would need its own rule.
     'outputs-errored-shared': outputsFeedbackNav,
     'study-results': studyResultsNav,
 }

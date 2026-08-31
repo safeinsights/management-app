@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RawStudyState, RawJob } from './state.types'
-import { projectStudyState, runErrored } from './state'
+import { codeDecisionForScreen, projectStudyState, runErrored } from './state'
+import { resolveResearcherCodeScreen, resolveScreen } from './resolve'
 
 const job = (id: string, statuses: string[]): RawJob => ({
     id,
@@ -242,5 +243,45 @@ describe('runErrored', () => {
         expect(runErrored(job(ID1, ['JOB-ERRORED', 'RUN-COMPLETE']).statusChanges)).toBe(false)
         expect(runErrored(job(ID1, ['RUN-COMPLETE']).statusChanges)).toBe(false)
         expect(runErrored(job(ID1, ['CODE-SUBMITTED']).statusChanges)).toBe(false)
+    })
+})
+
+describe('codeDecisionForScreen', () => {
+    // OTTER-673: the decision is read back off the screen the rule table picked, so the screen
+    // component never carries a second derivation that could disagree with the page it renders.
+    it('reads the decision off the screen the table picked', () => {
+        expect(codeDecisionForScreen('code-approved', { codeDecision: 'CODE-APPROVED' })).toEqual({
+            screen: 'code-approved',
+            status: 'CODE-APPROVED',
+        })
+        expect(codeDecisionForScreen('code-feedback', { codeDecision: 'CODE-CHANGES-REQUESTED' })).toEqual({
+            screen: 'code-feedback',
+            status: 'CODE-CHANGES-REQUESTED',
+        })
+        expect(codeDecisionForScreen('code-feedback', { codeDecision: 'CODE-REJECTED' })).toEqual({
+            screen: 'code-feedback',
+            status: 'CODE-REJECTED',
+        })
+    })
+
+    // Why the helper needs no isExecuting term of its own: an approved study running in the enclave
+    // never reaches this pair carrying anything but the approval. /view resolves it to
+    // outputs-pending, and /view/code — which excludes that screen — lands on code-approved by the
+    // live CODE-APPROVED decision.
+    it('needs no executing case: an executing study reaches this pair only as code-approved', () => {
+        const executing = projectStudyState(
+            raw({ status: 'APPROVED', jobs: [job(ID1, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING'])] }),
+        )
+        expect(executing.isExecuting).toBe(true)
+        expect(resolveScreen('researcher', executing).screen).toBe('outputs-pending')
+        expect(resolveResearcherCodeScreen(executing)?.screen).toBe('code-approved')
+        expect(codeDecisionForScreen('code-approved', executing)?.status).toBe('CODE-APPROVED')
+    })
+
+    it('returns null for anything the table did not route here, so the route 404s', () => {
+        expect(codeDecisionForScreen('study-results', { codeDecision: 'CODE-APPROVED' })).toBeNull()
+        expect(codeDecisionForScreen('outputs-pending', { codeDecision: 'CODE-APPROVED' })).toBeNull()
+        // No live decision (mid-resubmission): code-feedback has nothing to display.
+        expect(codeDecisionForScreen('code-feedback', { codeDecision: null })).toBeNull()
     })
 })

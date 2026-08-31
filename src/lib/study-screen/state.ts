@@ -8,6 +8,7 @@ import {
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
 import { draftHasStep2Progress } from '@/lib/studies'
+import type { ResearcherScreenId, ScreenId } from './screens'
 import type { RawJob, RawStudyState, StudyState } from './state.types'
 
 const has = (job: RawJob | undefined, statuses: readonly StudyJobStatus[]): boolean =>
@@ -160,6 +161,26 @@ export const awaitingFilesDecisionOnError = (
 // clean or errored run. Shared by the researcher rule table and the outputs-feedback screen's
 // render guard so the two cannot drift (same pattern as awaitingFilesDecisionOnError above).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected
+
+// OTTER-673: the two screens CodeDecisionScreen serves, and the decision each of them displays. The
+// rule table already chose between the pair — 'code-approved' on the live CODE-APPROVED decision,
+// 'code-feedback' on CHANGES-REQUESTED/REJECTED — so this reads that answer instead of re-deriving it
+// at the call site, where a second derivation would be free to disagree with the page that resolved.
+//
+// Execution needs no case of its own: /view routes an approved+executing study to outputs-pending, and
+// on /view/code, where that screen is not a candidate, 'code-approved' matches on the approval itself
+// (see resolveResearcherCodeScreen). null for any other screen id, so the route 404s rather than
+// guessing a decision the table never made.
+export type CodeDecisionScreenId = Extract<ResearcherScreenId, 'code-approved' | 'code-feedback'>
+
+export const codeDecisionForScreen = (
+    screen: ScreenId,
+    s: Pick<StudyState, 'codeDecision'>,
+): { screen: CodeDecisionScreenId; status: CodeDecisionStatus } | null => {
+    if (screen === 'code-approved') return { screen, status: 'CODE-APPROVED' }
+    if (screen === 'code-feedback' && s.codeDecision !== null) return { screen, status: s.codeDecision }
+    return null
+}
 
 // OTTER-697: the RUN itself failed — narrower than resultsErrored's bare JOB-ERRORED, which the
 // scanner and containerizer also write, so a packaging error before a good run leaves both that and

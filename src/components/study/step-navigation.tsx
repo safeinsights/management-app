@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { Box, Group } from '@mantine/core'
+import { Box, Group, type ButtonVariant } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import type { NavAction, NavVariant, StepNav } from '@/lib/study-screen'
@@ -8,7 +8,7 @@ import type { NavAction, NavVariant, StepNav } from '@/lib/study-screen'
 // it goes and how heavy it looks is decided by resolveStepNav; this component only lays it out.
 
 // Mantine has no "solid" — the spec's three weights map onto filled / outline / subtle.
-const MANTINE_VARIANT: Record<NavVariant, string> = {
+const MANTINE_VARIANT: Record<NavVariant, ButtonVariant> = {
     solid: 'filled',
     outline: 'outline',
     subtle: 'subtle',
