@@ -132,12 +132,7 @@ const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string
     if (count <= 1) return null
 
     return (
-        <Anchor
-            href={`${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`}
-            target="_blank"
-            size="sm"
-            fw={600}
-        >
+        <Anchor href={Routes.researcherProfileView({ orgSlug, studyId, userId })} target="_blank" size="sm" fw={600}>
             + {count - 1} more current affiliation
         </Anchor>
     )
@@ -223,7 +218,7 @@ const PopoverContent: FC<{
         return <MinimalPopoverContent fullName={fullName} email={data.user.email ?? ''} onClose={onClose} />
     }
 
-    const profileUrl = `${Routes.researcherProfileView({ orgSlug, studyId })}?userId=${userId}`
+    const profileUrl = Routes.researcherProfileView({ orgSlug, studyId, userId })
 
     const viewFullProfileButton = (
         <Button component="a" href={profileUrl} target="_blank" variant="filled" size="md" fullWidth radius="sm">
@@ -277,6 +272,12 @@ const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; nam
 )
 PopoverAnchor.displayName = 'PopoverAnchor'
 
+/**
+ * The hover card on a researcher name. `proposal/reviewer-preview.tsx` is the only caller left, and
+ * it keeps the hover card on purpose: OTTER-755 replaces this with `ProfessionalProfileLink` on the
+ * three reviewer pages it names, and the preview of the researcher's own draft is not one of them.
+ * Do not delete this as an orphan.
+ */
 export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     userId,
     studyId,

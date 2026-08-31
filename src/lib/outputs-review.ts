@@ -1,4 +1,5 @@
 import type { ReviewDecision, StudyJobStatus } from '@/database/types'
+import { overCharacterLimitError } from '@/lib/field-limits'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 // OTTER-675: the Data Partner's decision on a job's decrypted outputs.
@@ -17,14 +18,19 @@ const OUTPUTS_DECISION_TO_REVIEW: Record<OutputsDecision, ReviewDecision> = {
 export const toOutputsReviewDecision = (decision: OutputsDecision): ReviewDecision =>
     OUTPUTS_DECISION_TO_REVIEW[decision]
 
-export const OUTPUTS_FEEDBACK_MIN_WORDS = 1
-
 /**
- * Feedback length caps, keyed by the run outcome being reviewed. An errored run gets the shorter
- * cap because the reviewer is explaining a failure, not summarizing results.
+ * The cap on the reviewer's written decision, in characters (OTTER-737).
+ *
+ * One value for both run outcomes. The cap used to depend on what was being reviewed, 300 words
+ * for an errored run and 1500 for a completed one, on the reasoning that explaining a failure
+ * needs less room than summarizing results. The card gives a single 1800 for the field, so the
+ * outcome no longer changes it, and the cap no longer has to be derived from the job's status
+ * history at all.
  */
-export const ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS = 300
-export const COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS = 1500
+export const OUTPUTS_FEEDBACK_MAX_CHARACTERS = 1800
+
+/** The name this field goes by in its own error message, matching the "Decision" heading above it. */
+export const OUTPUTS_FEEDBACK_FIELD_TITLE = 'Decision'
 
 /**
  * Job statuses whose outputs a reviewer may decide on: the run reached a terminal result but no
@@ -50,23 +56,11 @@ export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
 export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, ROUND_CLOSING_JOB_STATUSES)
 
-/**
- * The authoritative cap for a job, derived from its own status history rather than taken from the
- * request. An errored run is capped shorter; a bare JOB-ERRORED wins when RUN-COMPLETE is also
- * present, matching resultsErrored and reviewer routing — deliberately not the narrower
- * runErrored behind the researcher banner's copy.
- */
-export function outputsFeedbackMaxWords(jobStatuses: readonly string[]): number {
-    return jobStatuses.includes('JOB-ERRORED')
-        ? ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS
-        : COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS
-}
-
 // File names are truncated in the table so a long name cannot push the other columns off screen.
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
 
 export const OUTPUTS_DECISION_ERRORS = {
     feedbackEmpty: (labName: string) => `Enter your feedback for ${labName} before submitting.`,
-    feedbackTooLong: (maxWords: number) => `Feedback exceeds the ${maxWords} word limit. Shorten it to continue.`,
+    feedbackTooLong: overCharacterLimitError(OUTPUTS_FEEDBACK_FIELD_TITLE, OUTPUTS_FEEDBACK_MAX_CHARACTERS),
     decisionMissing: 'Select an option before submitting',
 } as const

@@ -1,12 +1,12 @@
 import { notFound } from 'next/navigation'
+import type { Route } from 'next'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcher } from '../view/study-details-researcher'
 import type { ScreenComponentProps } from './types'
-import type { Route } from 'next'
 
-// study-results: results page. "Previous step" walks back to the code step (/view/code) and "Edit code"
-// is offered only when the study is actually resubmittable — both decided by resolveStepNav.
+// study-results: results page. "Previous step" walks back to the code step (/view/code) and "Edit
+// code" is offered only when the study is actually resubmittable — both decided by resolveStepNav.
 export async function StudyResultsScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
@@ -18,13 +18,5 @@ export async function StudyResultsScreen({ study, raw, orgSlug, dashboardHref, r
         returnTo,
     })
 
-    return (
-        <StudyDetailsResearcher
-            orgSlug={orgSlug}
-            study={study}
-            job={job}
-            dashboardHref={dashboardHref as Route}
-            nav={nav}
-        />
-    )
+    return <StudyDetailsResearcher job={job} nav={nav} />
 }

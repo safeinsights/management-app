@@ -1,7 +1,7 @@
 'use client'
 
 import { NavLink } from '@mantine/core'
-import { GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
+import { FileTextIcon, GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
 import { FC, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
@@ -12,6 +12,10 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 type Org = ActionSuccessType<typeof fetchUsersOrgsAction>[number]
 
+// Org admin routes are org-scoped (/{orgSlug}/admin/...) while the SafeInsights
+// admin tree is top-level (/admin/safeinsights), so match the segment anywhere.
+const isAdminPathname = (pathname: string) => /(^|\/)admin(\/|$)/.test(pathname)
+
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
     org: Org
@@ -21,7 +25,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const pathname = usePathname()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
-    const isAdminPage = pathname.startsWith('/admin/')
+    const isAdminPage = isAdminPathname(pathname)
 
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
@@ -63,6 +67,14 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
                     url={Routes.adminSettings({ orgSlug })}
+                    pl="xl"
+                />
+                {/* Both org types: a lab reads its ROPA and study agreements here, an enclave its DOPA. */}
+                <NavbarLink
+                    isVisible
+                    label="Legal center"
+                    icon={<FileTextIcon size={20} />}
+                    url={Routes.adminLegal({ orgSlug })}
                     pl="xl"
                 />
             </NavLink>

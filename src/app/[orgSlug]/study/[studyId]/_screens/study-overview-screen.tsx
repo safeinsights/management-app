@@ -1,8 +1,7 @@
 import type { Route } from 'next'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyDetails } from '@/components/study/study-details'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -19,14 +18,6 @@ export function StudyOverviewScreen({ study, raw, orgSlug, dashboardHref, return
 
     return (
         <Stack p="xl" gap="xxl">
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    studyId: study.id,
-                    orgSlug,
-                    current: 'Study Details',
-                    dashboardHref,
-                }}
-            />
             <StudyPageHeader>Study Details</StudyPageHeader>
             <Paper bg="white" p="xxl">
                 <Stack>

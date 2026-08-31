@@ -80,8 +80,6 @@ function StatusBody({ statuses, fileTypes }: { statuses: StudyJobStatus[]; fileT
 export const AwaitingResults: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
-            studyId={STUDY_ID}
-            orgSlug={ORG_SLUG}
             nav={NAV}
             statusMessage={<StatusBody statuses={['CODE-SUBMITTED']} fileTypes={[]} />}
         />
@@ -92,8 +90,6 @@ export const AwaitingResults: Story = () => (
 export const ResultsReady: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
-            studyId={STUDY_ID}
-            orgSlug={ORG_SLUG}
             nav={NAV}
             statusMessage={<StatusBody statuses={['FILES-APPROVED']} fileTypes={['APPROVED-RESULT']} />}
         />
@@ -104,8 +100,6 @@ export const ResultsReady: Story = () => (
 export const CodeErrored: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
-            studyId={STUDY_ID}
-            orgSlug={ORG_SLUG}
             nav={NAV}
             statusMessage={
                 <StatusBody statuses={['FILES-APPROVED', 'JOB-ERRORED']} fileTypes={['APPROVED-CODE-RUN-LOG']} />

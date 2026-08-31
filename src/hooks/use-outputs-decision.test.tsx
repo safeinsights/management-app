@@ -1,6 +1,6 @@
 import { act, createTestQueryWrapper, describe, expect, faker, it, renderHook } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
-import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS, OUTPUTS_DECISION_ERRORS } from '@/lib/outputs-review'
+import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import { useOutputsDecision } from './use-outputs-decision'
 
 const LAB = 'Rice Lab'
@@ -13,7 +13,6 @@ const renderDecision = () =>
                 studyId: faker.string.uuid(),
                 jobId: faker.string.uuid(),
                 labName: LAB,
-                maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
                 decryptedFiles: [],
             }),
         { wrapper: createTestQueryWrapper() },
@@ -52,18 +51,38 @@ describe('useOutputsDecision', () => {
     it('reports the over-limit error before any submit attempt', () => {
         const { result } = renderDecision()
 
-        act(() =>
-            result.current.onFeedbackChange(
-                lexicalJson(
-                    Array.from({ length: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1 }, (_, i) => `word${i}`).join(' '),
-                ),
-            ),
-        )
+        act(() => result.current.onFeedbackChange(lexicalJson('x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1))))
 
-        expect(result.current.feedbackError).toBe(
-            OUTPUTS_DECISION_ERRORS.feedbackTooLong(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS),
-        )
+        expect(result.current.feedbackError).toBe(OUTPUTS_DECISION_ERRORS.feedbackTooLong)
         expect(result.current.decisionError).toBeUndefined()
+    })
+
+    it('accepts feedback at exactly the character limit', () => {
+        const { result } = renderDecision()
+
+        act(() => result.current.onFeedbackChange(lexicalJson('x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS))))
+
+        expect(result.current.feedbackError).toBeUndefined()
+        expect(result.current.characterCount).toBe(OUTPUTS_FEEDBACK_MAX_CHARACTERS)
+    })
+
+    // Characters, not words: 400 short words is past the old 300-word errored-run cap and inside
+    // 1800 characters, so this fails if word counting survived.
+    it('measures characters rather than words', () => {
+        const { result } = renderDecision()
+
+        act(() => result.current.onFeedbackChange(lexicalJson(Array.from({ length: 400 }, () => 'ab').join(' '))))
+
+        expect(result.current.feedbackError).toBeUndefined()
+    })
+
+    it('treats whitespace-only feedback as empty on submit', () => {
+        const { result } = renderDecision()
+
+        act(() => result.current.onFeedbackChange(lexicalJson('   ')))
+        act(() => result.current.attemptSubmit())
+
+        expect(result.current.feedbackError).toBe(OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB))
     })
 
     it('clears each message as its own field is resolved', () => {

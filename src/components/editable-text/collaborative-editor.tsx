@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Alert, Badge, Group, Skeleton, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
-import { ContentEditable } from '@lexical/react/LexicalContentEditable'
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin'
 import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
-import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
@@ -22,8 +19,8 @@ import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { EditorFooter } from './editor-footer'
+import { EditorSurface, resolveContentHeight } from './editor-surface'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
-import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
 
@@ -199,6 +196,13 @@ export type CollaborativeEditorProps = {
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
     /**
+     * Height of the editable area before any typing or dragging. Falls back to
+     * `contentStyle.minHeight`, then to the shared default.
+     */
+    contentHeight?: number
+    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
+    isResizable?: boolean
+    /**
      * Called once Lexical's CollaborationPlugin instantiates the provider, and
      * again with null on teardown. Consumers (e.g. siblings that need to
      * subscribe to stateless events on the same document) use this to share
@@ -259,6 +263,8 @@ export function CollaborativeEditor({
     ariaDescribedBy,
     ariaRequired,
     onBlur,
+    contentHeight,
+    isResizable,
     onProviderReady,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
@@ -359,54 +365,27 @@ export function CollaborativeEditor({
 
     if (phase === 'failed') return <EditorUnavailable />
 
-    if (phase === 'initial') return <Skeleton h={contentStyle?.minHeight ?? 200} radius={4} />
+    // Same resolution the surface uses, so the pre-connect skeleton is the height the editor
+    // mounts at and the page does not jump.
+    if (phase === 'initial') return <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
                 {(phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE') && <ReconnectingBanner />}
-                <Paper
-                    p={0}
-                    className="collaborative-editor-container"
-                    style={{
-                        overflow: 'hidden',
-                        position: 'relative',
-                        borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
-                    }}
-                    {...widgetBlur}
+                <EditorSurface
+                    inputId={inputId}
+                    contentClassName={contentClassName}
+                    contentStyle={contentStyle}
+                    placeholder={placeholder}
+                    ariaLabel={ariaLabel}
+                    ariaDescribedBy={ariaDescribedBy}
+                    ariaRequired={ariaRequired}
+                    error={error}
+                    widgetBlur={widgetBlur}
+                    contentHeight={contentHeight}
+                    isResizable={isResizable}
                 >
-                    <RichTextPlugin
-                        contentEditable={
-                            <ContentEditable
-                                id={inputId}
-                                className={contentClassName}
-                                style={contentStyle}
-                                ariaLabel={ariaLabel}
-                                ariaDescribedBy={ariaDescribedBy}
-                                ariaInvalid={error ? true : undefined}
-                                ariaRequired={ariaRequired}
-                            />
-                        }
-                        placeholder={
-                            placeholder ? (
-                                <Text
-                                    c="dimmed"
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        padding: contentStyle?.padding,
-                                        fontSize: contentStyle?.fontSize,
-                                        lineHeight: contentStyle?.lineHeight,
-                                        pointerEvents: 'none',
-                                    }}
-                                >
-                                    {placeholder}
-                                </Text>
-                            ) : null
-                        }
-                        ErrorBoundary={LexicalErrorBoundary}
-                    />
                     <CollaborationPlugin
                         id={id}
                         providerFactory={providerFactory}
@@ -420,8 +399,7 @@ export function CollaborativeEditor({
                     {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                     <EscapeFocusPlugin />
                     <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
-                    <Toolbar />
-                </Paper>
+                </EditorSurface>
                 <Stack gap={4} mt={4}>
                     <EditorFooter left={footerLeft} right={footerRight}>
                         <SaveStatus provider={activeProvider} isVisible={!error} />

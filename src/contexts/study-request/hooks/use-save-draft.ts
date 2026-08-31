@@ -22,8 +22,13 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
     const mutation = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // title is omitted: it's owned by the Step 2 editor's autosave mirror and by
-            // submission. Sending Step 1's stale copy would overwrite the mirrored title.
+            // OTTER-690: Step 1 owns `study.title` on a DRAFT, so it is sent from here. The
+            // Step 2 editor no longer renders or mirrors the title for drafts, which is what
+            // makes this the single writer rather than a racing second one.
+            //
+            // This is the one place the title is trimmed; validation measures the raw length so it
+            // agrees with the character counter.
+            const title = formValues.title?.trim() || undefined
             const draftInfo = {
                 piName: formValues.piName || undefined,
                 language: formValues.language || undefined,
@@ -31,20 +36,29 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
             let result
             if (studyId) {
+                // `undefined` rather than `null` on update: an accidental blank save must never
+                // clear a stored title, and this action also serves the resubmit autosave, whose
+                // title is owned elsewhere.
                 result = actionResult(
                     await onUpdateDraftStudyAction({
                         studyId,
-                        studyInfo: draftInfo,
+                        studyInfo: { ...draftInfo, title },
                     }),
                 )
             } else {
                 if (!formValues.orgSlug) {
                     throw new Error('Data Partner is required to create a study')
                 }
+                // Creation cannot fall back to omitting the title: an untitled row is what the
+                // /proposal and finalize guards exist to rescue, so `onSaveDraftStudyAction`
+                // rejects a blank one. The Save & continue gate means this is unreachable here.
+                if (!title) {
+                    throw new Error('Study title is required to create a study')
+                }
                 result = actionResult(
                     await onSaveDraftStudyAction({
                         orgSlug: formValues.orgSlug,
-                        studyInfo: draftInfo,
+                        studyInfo: { ...draftInfo, title },
                         submittingOrgSlug,
                     }),
                 )

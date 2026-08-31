@@ -5,14 +5,14 @@ import type { Route } from 'next'
 import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { LinkWithIcon } from '@/components/links'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
@@ -30,7 +30,6 @@ interface CodePostDecisionViewProps {
     job: LatestJobForStudy
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
-    dashboardHref: Route
     /** Org-scoped entry: threaded onto the "Previous step" → researcher agreements link so org scope survives. */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
@@ -165,7 +164,6 @@ export function CodePostDecisionView({
     job,
     entries,
     reviewingOrgName,
-    dashboardHref,
     returnTo,
     latestJobStatus,
     nav,
@@ -176,17 +174,10 @@ export function CodePostDecisionView({
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboardHref],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
-
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
         <Stack p="xl" gap="xxl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
             <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">

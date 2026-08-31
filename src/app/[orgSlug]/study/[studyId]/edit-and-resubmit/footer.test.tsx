@@ -22,7 +22,6 @@ import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { EditResubmitFooter } from './footer'
-import { RESUBMIT_NOTE_MIN_WORDS } from './schema'
 
 function NoteSection({ orgName }: { orgName: string }) {
     const { noteForm } = useEditResubmit()
@@ -71,7 +70,7 @@ describe('EditResubmitFooter — note gating (OTTER-521)', () => {
         renderFooterWithNoteSection()
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
         await user.click(textarea)
-        await user.paste(wordsString(RESUBMIT_NOTE_MIN_WORDS))
+        await user.paste('x')
         const resubmit = screen.getByRole('button', { name: /Resubmit initial request/i })
         expect(resubmit).toBeEnabled()
     })

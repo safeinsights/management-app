@@ -8,7 +8,7 @@ import { ProposalReviewLayoutView } from './proposal-review-layout-view'
 import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 
 // Page-views for the reviewer (enclave / DO) "Review study" screen. Both *View components are
-// presentational: they own page chrome (breadcrumbs, titles, layout, action links) while the
+// presentational: they own page chrome (titles, layout, action links) while the
 // real containers inject the data/session-driven sections. Here those sections are supplied as
 // inline, session-free fixtures so the two meaningful states render in isolation (no QueryClient
 // or Clerk in Ladle): (1) the proposal review with its label/value pairs + decision + action bar,
@@ -143,8 +143,6 @@ function ProposalActionsFixture() {
 
 export const ReviewProposal: Story = () => (
     <ProposalReviewLayoutView
-        orgSlug={ORG_SLUG}
-        studyId={STUDY_ID}
         proposal={<ProposalBodyFixture />}
         feedbackAndNotes={null}
         feedback={
@@ -255,19 +253,13 @@ function ResultsBodyFixture() {
 }
 
 export const ReviewResults: Story = () => (
-    <StudyDetailsReviewerView
-        orgSlug={ORG_SLUG}
-        previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}
-    >
+    <StudyDetailsReviewerView previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}>
         <ResultsBodyFixture />
     </StudyDetailsReviewerView>
 )
 
 export const PreviousLinkChrome: Story = () => (
-    <StudyDetailsReviewerView
-        orgSlug={ORG_SLUG}
-        previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}
-    >
+    <StudyDetailsReviewerView previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}>
         <Paper bg="white" p="xxl">
             <Stack>
                 <Title order={4} size="xl">

@@ -9,11 +9,6 @@ import { getInfoForStudyId, latestSubmittedJobForStudy } from '@/server/db/queri
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
 
-const isMainFile = (filename: string): boolean => {
-    const basename = path.basename(filename, path.extname(filename))
-    return basename.toLowerCase() === 'main'
-}
-
 // Whether the study's workspace currently holds any researcher-visible file. Mirrors the filtering in
 // listWorkspaceFilesAction (skip dotfiles, symlinks, non-files, empty files) so "has files" matches
 // exactly what the review table shows — and what submit-enable is computed from.
@@ -62,7 +57,6 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
                 // Directory doesn't exist yet, just return empty list
                 return {
                     files: [],
-                    suggestedMain: undefined,
                     lastModified: null,
                 }
             }
@@ -96,7 +90,6 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
 
         return {
             files,
-            suggestedMain: files.find((f) => isMainFile(f.name))?.name,
             lastModified: lastModified?.toISOString() ?? null,
         }
     })

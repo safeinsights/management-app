@@ -47,9 +47,9 @@ describe('StudyEditPage', () => {
         renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        // The Step 1 form's "Proceed to Step 2" footer button is the cheapest, most stable proof
+        // The Step 1 form's "Save & continue" footer button is the cheapest, most stable proof
         // that we rendered <StudyProposal /> (Step 1) rather than redirecting away.
-        expect(screen.getByRole('button', { name: /Proceed to Step 2/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Save & continue/i })).toBeInTheDocument()
     })
 
     it('shows the not-found message for non-DRAFT studies', async () => {
@@ -84,6 +84,6 @@ describe('StudyEditPage', () => {
         renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: /Proceed to Step 2/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Save & continue/i })).toBeInTheDocument()
     })
 })

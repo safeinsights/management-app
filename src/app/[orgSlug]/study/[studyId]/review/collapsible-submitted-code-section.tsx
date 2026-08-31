@@ -6,8 +6,8 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
-    useExpandable,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { Submitted } from '@/schema/study'

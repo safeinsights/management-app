@@ -20,9 +20,9 @@ describe('LegalTabs', () => {
         // Every tab's upload control is labelled just "Upload"; the panel says which document.
         expect(await screen.findByRole('button', { name: 'Upload' })).toBeDefined()
 
-        fireEvent.click(screen.getByRole('tab', { name: 'Study Level Agreements' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Study Agreements' }))
 
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed SLA' })).toBeDefined())
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed study agreement' })).toBeDefined())
         expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull()
     })
 })

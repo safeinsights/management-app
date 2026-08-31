@@ -130,9 +130,11 @@ export const createTestQueryWrapper = () => {
  */
 export function renderWithProviders(
     ui: ReactElement,
-    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean },
+    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean; queryClient?: QueryClient },
 ) {
-    const testQueryClient = createTestQueryClient()
+    // A caller-supplied client is how a test primes a query before the first render, which is the
+    // only way to assert on an effect that fires when a query resolves but renders nothing itself.
+    const testQueryClient = options?.queryClient ?? createTestQueryClient()
 
     return render(
         <QueryClientProvider client={testQueryClient}>
@@ -456,30 +458,40 @@ export const insertTestBaselineJob = async (studyId: string, { createdAt }: { cr
     return job
 }
 
+// `submittedByOrg` defaults to `org`, which is what most callers want. Pass it to put the two sides
+// of a study on DIFFERENT orgs — study.orgId is the Data Partner, submittedByOrgId the Research Lab
+// — which anything reading one side or naming the other has to be tested against, since a swapped
+// join passes silently when both are the same org.
 export const insertTestStudyOnly = async ({
     org,
+    submittedByOrg,
     researcherId,
+    title = 'study without job',
+    status = 'APPROVED',
 }: {
     org?: MinimalTestOrg
+    submittedByOrg?: MinimalTestOrg
     researcherId?: string
+    title?: string
+    status?: StudyStatus
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
     }
     if (!researcherId) {
-        const { user } = await insertTestUser({ org })
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
         researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
             orgId: org.id,
-            submittedByOrgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
             containerLocation: 'test-container',
-            title: 'study without job',
+            title,
             researcherId,
             piName: 'test',
-            status: 'APPROVED',
+            status,
             submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
@@ -838,11 +850,10 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
 export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
     db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
 
-// Generates a feedback string with `wordCount` whitespace-separated tokens. The
-// proposal-review action requires 1–500 words; default is 60, well above the
-// 1-word floor and far below the 500-word ceiling. Pass smaller / larger counts
-// to exercise the validation boundaries.
-export const buildFeedback = (wordCount = 60) => Array.from({ length: wordCount }, (_, i) => `word${i + 1}`).join(' ')
+// Generates a feedback string of `tokenCount` whitespace-separated tokens, for tests that just
+// need a plausible non-empty body. The default 60 tokens is roughly 400 characters, comfortably
+// inside every 1800-character cap. Build the string directly when a test is about a boundary.
+export const buildFeedback = (tokenCount = 60) => Array.from({ length: tokenCount }, (_, i) => `word${i + 1}`).join(' ')
 
 export const createWorkspaceDir = async (prefix: string) => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))

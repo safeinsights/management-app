@@ -37,19 +37,6 @@ vi.mock('@/server/storage', async () => {
     }
 })
 
-// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
-// inspect the crumbs prop without depending on the DOM render. The arrow wrapper survives
-// vitest's per-test mockReset (which would otherwise wipe the impl on a bare vi.fn).
-const mockPageBreadcrumbs = vi.fn()
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
-        mockPageBreadcrumbs(props)
-        return null
-    },
-}))
-
 const ORG_SLUG = 'test-org'
 
 const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFeedbackEntry =>
@@ -171,12 +158,12 @@ describe('PostFeedbackView', () => {
         })
     })
 
-    describe('full initial request dropdown', () => {
+    describe('full proposal dropdown', () => {
         it('renders the proposal section collapsed by default', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+            expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         })
     })
 
@@ -412,43 +399,6 @@ describe('PostFeedbackView', () => {
 
             // Proposal-only label should not appear under kind=CODE.
             expect(screen.queryByText('Review initial request')).not.toBeInTheDocument()
-        })
-
-        it('renders the "Study proposal" breadcrumb as a link to the proposal post-feedback page for kind=CODE', () => {
-            // PageBreadcrumbs is mocked to () => null in tests/vitest.setup.ts so we assert
-            // on the crumbs array passed to it instead of DOM-querying the link.
-            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
-
-            const expectedHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            // Assert observable behavior (label + href) per crumb, not tuple shape — so a
-            // future refactor that normalizes crumbs to always be [label, href|undefined]
-            // doesn't silently break this expectation.
-            expect(crumbs).toHaveLength(3)
-            expect(crumbs[0][0]).toBe('Dashboard')
-            expect(crumbs[1][0]).toBe('Study proposal')
-            expect(crumbs[1][1]).toBe(expectedHref)
-            expect(crumbs[2][0]).toBe('Review study code')
-        })
-
-        it('renders the "Study proposal" breadcrumb as plain text (not a link) for kind=PROPOSAL', () => {
-            // The PROPOSAL crumb is linkless because it would otherwise be a self-link to
-            // the page the user is already on.
-            const entries = [buildEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
-
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            expect(crumbs).toHaveLength(3)
-            expect(crumbs[0][0]).toBe('Dashboard')
-            expect(crumbs[1][0]).toBe('Study proposal')
-            // Linkless = no href slot — accept either undefined or a missing index.
-            expect(crumbs[1][1]).toBeFalsy()
-            expect(crumbs[2][0]).toBe('Review initial request')
         })
 
         // OTTER-613: on the post-decision DO code page the ENTIRE "Submitted code" section is

@@ -138,15 +138,15 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.getAllByText('main.r').length).toBeGreaterThan(0)
             expect(screen.getByText('helper.r')).toBeInTheDocument()
-            // main.r auto-selects as the main file
-            expect(screen.getByRole('button', { name: /main\.r is the main file/i })).toHaveAttribute(
-                'aria-pressed',
-                'true',
-            )
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /set main\.r as main file/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+
         await user.click(screen.getByRole('button', { name: /submit code/i }))
         await confirmStudyCodeSubmission(user)
 

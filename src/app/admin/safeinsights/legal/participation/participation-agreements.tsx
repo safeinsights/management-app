@@ -13,7 +13,7 @@ import { fetchParticipationAgreementsAction } from '@/server/actions/legal-docum
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
-import { formatDayString } from '../dates'
+import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 import { UploadParticipationAgreementForm } from './upload-participation-agreement-form'
 

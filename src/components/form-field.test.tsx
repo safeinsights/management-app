@@ -17,6 +17,18 @@ describe('FormField', () => {
         expect(screen.getByText('This is required.').closest('[id]')).toHaveAttribute('id', 'field-error')
     })
 
+    // OTTER-691 asks for white space between a field's title and its guidance text on every input
+    // field. Mantine's own `getInputOffsets` ignores the label, so without this the two lines are flush.
+    it('separates the label from the description', () => {
+        renderWithProviders(
+            <FormField inputId="field" label="Study title" description="Helper text">
+                <TextInput id="field" aria-label="Study title input" />
+            </FormField>,
+        )
+
+        expect(screen.getByText('Study title')).toHaveStyle({ marginBottom: '4px' })
+    })
+
     it('renders no error node when there is no error', () => {
         renderWithProviders(
             <FormField inputId="field" label="Study title">

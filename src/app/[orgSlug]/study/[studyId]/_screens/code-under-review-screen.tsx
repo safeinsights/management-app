@@ -32,7 +32,6 @@ export async function CodeUnderReviewScreen({ study, raw, orgSlug, dashboardHref
             study={study}
             job={job}
             reviewingOrgName={reviewingOrgName}
-            dashboardHref={dashboardHref as Route}
             nav={nav}
             submissionVersion={submissionVersion}
             feedbackEntries={feedbackEntries}

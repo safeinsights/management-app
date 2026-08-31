@@ -179,8 +179,14 @@ export const Routes = {
     ),
 
     researcherProfileView: makeRoute(
-        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/researcher-profile`,
-        StudyParams,
+        ({ orgSlug, studyId, userId }) => {
+            const base = `/${orgSlug}/study/${studyId}/researcher-profile`
+            const params = new URLSearchParams()
+            if (userId) params.set('userId', userId)
+            const qs = params.toString()
+            return qs ? `${base}?${qs}` : base
+        },
+        StudyParams.extend({ userId: z.string().optional() }),
     ),
 
     // -------------------------------------------------------------------------
@@ -219,6 +225,7 @@ export const Routes = {
 
     adminSettings: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/settings`, OrgParams),
     adminTeam: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/team`, OrgParams),
+    adminLegal: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/legal`, OrgParams),
 
     adminSafeinsights: '/admin/safeinsights' as Route,
 

@@ -1,7 +1,6 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
@@ -47,7 +46,6 @@ export default async function ReviewerAgreementsRoute(props: {
     // agreements ⇄ code-review loop.
     return (
         <Stack p="xl" gap="xxl">
-            <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
             <StudyPageHeader>Study request</StudyPageHeader>
             <AgreementsPage
                 isReviewer

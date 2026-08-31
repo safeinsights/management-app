@@ -39,7 +39,6 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
             job={job}
             entries={entries}
             reviewingOrgName={reviewingOrgName}
-            dashboardHref={dashboardHref as Route}
             returnTo={returnTo}
             latestJobStatus={decisionStatus}
             nav={nav}

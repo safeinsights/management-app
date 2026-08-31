@@ -148,8 +148,6 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
 
     return (
         <ProposalReviewLayoutView
-            orgSlug={orgSlug}
-            studyId={study.id}
             listener={
                 <ReviewSubmissionListener
                     orgSlug={orgSlug}

@@ -138,7 +138,7 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 })
 
 describe('CodePostSubmissionView', () => {
-    describe('breadcrumbs and header', () => {
+    describe('header', () => {
         it('renders STEP 4, page title "Study proposal", section title "Study code", and study title', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)

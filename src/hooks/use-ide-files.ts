@@ -92,12 +92,15 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     })
 
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
+    // a main file must be picked explicitly when multiple files are present.
+    // a resubmit inherits the main file from the previous submission.
+    const previousMainFile = lastJob?.mainFileName ?? null
     const mainFile = useMemo(() => {
         if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
         if (fileNames.length === 1) return fileNames[0]
-        if (workspace.suggestedMain && fileNames.includes(workspace.suggestedMain)) return workspace.suggestedMain
+        if (previousMainFile && fileNames.includes(previousMainFile)) return previousMainFile
         return ''
-    }, [mainFileOverride, workspace.suggestedMain, fileNames])
+    }, [mainFileOverride, previousMainFile, fileNames])
 
     const filesChanged = useMemo(
         () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
@@ -108,11 +111,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    // OTTER-647: the main file is required but has no field to blur, being a star toggle
-    // whose value is derived from async workspace state (override, then single file, then the
-    // server's suggestion). Routing it through useField would go stale on every workspace
-    // refetch, so derivation stays here and the requirement is surfaced by naming what is
-    // missing next to the disabled button instead.
+    // OTTER-647: the main file is required but has no field to blur, being a star toggle.
+    // Derivation order: explicit override, then the sole file, then the previous submission's
+    // main file (resubmit only). With multiple files on first upload there is no auto-pick, so
+    // submitDisabledReason names what is missing next to the disabled button instead of useField.
     const submitDisabledReason = (() => {
         if (fileNames.length === 0) return null
         if (mainFile === '') return 'Select a main file to submit'

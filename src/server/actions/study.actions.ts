@@ -5,8 +5,8 @@ import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { StudyReviewCommentKind, StudyStatus } from '@/database/types'
-import { normalizeFeedbackToLexical } from '@/lib/lexical'
-import { CODE_REVIEW_FEEDBACK_MAX_WORDS, FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
+import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { assertDecisionFeedback } from './decision-feedback'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
@@ -608,16 +608,10 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
     .requireAbilityTo('review', 'Study')
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
         const userId = session.user.id
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
-
-        if (wordCount < FEEDBACK_MIN_WORDS) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (wordCount > FEEDBACK_MAX_WORDS) {
-            throw new ActionFailure({
-                feedback: `Feedback must be ${FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
-            })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: REVIEW_FEEDBACK_FIELD_TITLE,
+            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const expectedVersion = await currentReviewVersion(studyId)
         if (reviewVersion !== expectedVersion) {
@@ -756,15 +750,10 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
         const userId = session.user.id
 
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
-        if (wordCount < FEEDBACK_MIN_WORDS) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (wordCount > CODE_REVIEW_FEEDBACK_MAX_WORDS) {
-            throw new ActionFailure({
-                feedback: `Feedback must be ${CODE_REVIEW_FEEDBACK_MAX_WORDS} words or fewer (got ${wordCount})`,
-            })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: REVIEW_FEEDBACK_FIELD_TITLE,
+            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const claimedJob = await claimInitialCodeReviewJob({ studyId })
 

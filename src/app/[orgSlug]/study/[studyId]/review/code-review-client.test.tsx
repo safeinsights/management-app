@@ -19,6 +19,7 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 
 vi.mock('@/hooks/use-code-review-mutation', () => ({
     useCodeReviewMutation: vi.fn(),
@@ -74,9 +75,8 @@ describe('CodeReviewClient decision selector', () => {
             onChange: vi.fn(),
             onBlur: vi.fn(),
             error: null,
-            wordCount: 100,
-            minWords: 50,
-            maxWords: 500,
+            characterCount: 100,
+            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
             isValid: true,
         })
     })
