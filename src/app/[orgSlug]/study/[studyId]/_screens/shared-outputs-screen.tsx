@@ -1,4 +1,5 @@
 import type { Route } from 'next'
+import { notFound } from 'next/navigation'
 import { Box, Stack } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -18,7 +19,6 @@ type ShareScreenId = Extract<ScreenId, 'outputs-shared' | 'outputs-errored-share
 type ShareScreenConfig = {
     /** This screen's routing rule, re-checked by the guard so rendering cannot disagree with it. */
     matches: (state: StudyState) => boolean
-    notFoundMessage: string
     lockedBanner: { title: string; body: (dataPartner: string) => string }
 }
 
@@ -38,7 +38,6 @@ const SHARE_SCREENS = {
     // OTTER-688: a clean run (RUN-COMPLETE + FILES-APPROVED, no JOB-ERRORED).
     'outputs-shared': {
         matches: isOutputsSharedOutcome,
-        notFoundMessage: 'This study has no shared outputs to display yet.',
         lockedBanner: {
             title: 'Decrypt to view your outputs',
             body: (dataPartner) =>
@@ -48,7 +47,6 @@ const SHARE_SCREENS = {
     // OTTER-696: an errored run (JOB-ERRORED + FILES-APPROVED) the researcher decrypts to diagnose.
     'outputs-errored-shared': {
         matches: isErroredOutputsSharedOutcome,
-        notFoundMessage: 'This study has no shared outputs to display yet.',
         lockedBanner: {
             title: 'Decrypt outputs to view code error',
             body: (dataPartner) =>
@@ -56,6 +54,12 @@ const SHARE_SCREENS = {
         },
     },
 } as const satisfies Record<ShareScreenId, ShareScreenConfig>
+
+const isShareScreen = (screen: ScreenId): screen is ShareScreenId => screen in SHARE_SCREENS
+
+// Same state, same guard, both screens — so it lives here for the same reason UNLOCKED_BANNER does:
+// per-entry copies are two places to edit and one drift away from disagreeing.
+const NOT_FOUND = { title: 'Outputs not found', message: 'This study has no shared outputs to display yet.' }
 
 // Identical for both screens, so it lives here rather than in each entry above: duplicating it into
 // the config would preserve exactly the drift this consolidation removes.
@@ -72,16 +76,19 @@ export async function SharedOutputsScreen({
     dashboardHref,
     returnTo,
 }: Pick<ScreenComponentProps, 'descriptor' | 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
-    // Narrowed rather than guarded: the registry maps only these two ids here, and the `satisfies`
-    // above makes a new share screen a compile error until it has an entry. A runtime fallback would
-    // be unreachable code standing in for a check the type system already does.
-    const config = SHARE_SCREENS[descriptor.screen as ShareScreenId]
+    // A screen id routed here without a SHARE_SCREENS entry is a registry bug, not a data state, so
+    // it 404s rather than reading `undefined.matches` a line later. Narrowing the prop to
+    // ShareScreenId instead would be stricter but does not compile: SCREEN_COMPONENTS is typed
+    // Record<ScreenId, ScreenComponent>, and under strictFunctionTypes a component accepting fewer
+    // ids is not assignable to one accepting all of them — both entries fail, not just a new third.
+    if (!isShareScreen(descriptor.screen)) return notFound()
+    const config = SHARE_SCREENS[descriptor.screen]
 
     const result = await guardOutputsFeedbackScreen({
         study,
         raw,
         matches: config.matches,
-        notFound: { title: 'Outputs not found', message: config.notFoundMessage },
+        notFound: NOT_FOUND,
         // The reviewer's decision, not the run: FILES-APPROVED is written when they submit it.
         decisionStatus: 'FILES-APPROVED',
     })

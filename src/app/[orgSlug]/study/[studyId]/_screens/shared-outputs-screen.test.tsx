@@ -10,7 +10,7 @@ import {
     requireRawState,
     screen,
 } from '@/tests/unit.helpers'
-import { useParams } from 'next/navigation'
+import { notFound, useParams } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
 import dayjs from 'dayjs'
 import { db } from '@/database'
@@ -155,6 +155,33 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
     return { org, user, study, raw, job }
 }
+
+// The registry types its map as Record<ScreenId, ScreenComponent>, so nothing stops a future id
+// being pointed at this component. It must 404 rather than read `undefined.matches` (PR #1003
+// review) — the failure the earlier `as ShareScreenId` cast would have allowed through.
+describe('SharedOutputsScreen — unmapped screen id', () => {
+    it('404s instead of throwing when routed a screen id with no config', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+        const { study: dbStudy } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        const raw = await requireRawState(dbStudy.id)
+
+        await SharedOutputsScreen({
+            // Deliberately not a share screen: only the registry decides what reaches this component.
+            descriptor: { screen: 'study-overview' },
+            study,
+            raw,
+            orgSlug: org.slug,
+            dashboardHref: DASHBOARD_HREF,
+        })
+
+        expect(notFound).toHaveBeenCalled()
+    })
+})
 
 describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
     // The two-phase behaviour — banner swap, live-region identity, key form removal, outputs table,
