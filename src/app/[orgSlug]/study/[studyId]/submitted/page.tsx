@@ -1,11 +1,7 @@
-import type { Route } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
-import { Routes } from '@/lib/routes'
-import { rawStudyStateForStudy } from '@/server/db/study-state-query'
-import { projectStudyState, proposalStatusScreen, resolveStepNav } from '@/lib/study-screen'
 import { ProposalSubmitted } from './proposal-submitted'
 import { loadProposalSubmittedData } from './load-proposal-submitted'
 
@@ -27,20 +23,7 @@ export default async function StudySubmittedRoute(props: {
         return <AlertNotFound title="Study was not found" message="This study has not been submitted yet" />
     }
 
-    const rawStudyState = await rawStudyStateForStudy(studyId)
-    if (!rawStudyState) {
-        return <AlertNotFound title="Study was not found" message="No such study exists" />
-    }
-
     const { orgName, entries, studyVersion, feedbackError } = await loadProposalSubmittedData(result)
-
-    const state = projectStudyState(rawStudyState)
-    const nav = resolveStepNav(proposalStatusScreen(state), state, {
-        orgSlug,
-        studyId,
-        dashboardHref: (returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard) as Route,
-        returnTo,
-    })
 
     return (
         <ProposalSubmitted
@@ -50,7 +33,7 @@ export default async function StudySubmittedRoute(props: {
             entries={entries}
             studyVersion={studyVersion}
             feedbackError={feedbackError}
-            nav={nav}
+            returnTo={returnTo}
         />
     )
 }

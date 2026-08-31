@@ -73,7 +73,7 @@ describe('ResearcherAgreementsRoute', () => {
         expect(screen.getByText('STEP 3A')).toBeInTheDocument()
     })
 
-    // Previous → /submitted (the approved-proposal page with a working "Next step"), NOT
+    // Previous → /submitted (the approved-proposal page with a working "Next step" forward), NOT
     // /view — /view resolves to proposal-feedback, which has no forward path and would dead-end an
     // approved-no-code researcher.
     it('Previous button targets /submitted (not /view), no ?from=', async () => {

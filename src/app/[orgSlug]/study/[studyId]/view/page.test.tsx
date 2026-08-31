@@ -46,7 +46,7 @@ describe('StudyViewPage', () => {
 
         expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
-        expect(screen.getByRole('link', { name: /next step/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
     })
 
     it('renders the ProposalSubmitted page for a REJECTED study', async () => {
@@ -76,7 +76,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('status-banner-CHANGE-REQUESTED')).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: /edit proposal/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /edit and resubmit/i })).toBeInTheDocument()
     })
 
     it('renders generic layout for DRAFT study without job', async () => {

@@ -135,7 +135,7 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
 
     // Button component={Link} renders as an anchor.
     await page
-        .getByRole('link', { name: /Back to my studies/i })
+        .getByRole('link', { name: /Go to dashboard/i })
         .first()
         .click()
     await page.waitForURL('**/dashboard')
@@ -145,15 +145,17 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
 // Researcher: code upload — file path and IDE path each driven live once
 // ============================================================================
 
-// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /code so the upload
-// surface is reached the way the app routes a real user.
+// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /agreements/researcher
+// -> /code so the upload surface is reached the way the app routes a real user.
 async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await clickViewLink(page, studyRow)
 
     await page.waitForURL(/\/submitted(\?.*)?$/)
-    await page.getByRole('link', { name: /Next step/i }).click()
+    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
+    await page.waitForURL(/\/agreements\/researcher(\?.*)?$/)
+    await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
     await page.waitForURL(/\/code$/)
 }
 
@@ -718,9 +720,9 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(page.getByText(studyTitle).first()).toBeVisible()
         await expect(page.getByText(/Rejected on/)).toBeVisible()
 
-        // Rejected proposals are terminal: the exit is elevated into the solid slot, no forward step.
-        await expect(page.getByRole('link', { name: /Next step/i })).not.toBeVisible()
-        await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()
+        // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
+        await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
+        await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
     })
 })
 
@@ -772,7 +774,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByText(/Clarification requested on/)).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
-        await page.getByRole('link', { name: /Edit proposal/i }).click()
+        await page.getByRole('link', { name: /Edit and resubmit/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
         await expect(page.getByRole('heading', { name: /Edit Initial Request/i, level: 1 })).toBeVisible()

@@ -1,4 +1,5 @@
 import { lexicalJson } from '@/lib/lexical'
+import { Routes } from '@/lib/routes'
 import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
@@ -13,21 +14,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Route } from 'next'
-import type { StepNav } from '@/lib/study-screen'
 import { ProposalSubmitted } from './proposal-submitted'
-
-// Which buttons a status earns is resolveStepNav's job (see lib/study-screen/nav.test.ts); this page
-// only has to render the nav it is handed.
-const NAV: StepNav = {
-    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
-    forward: {
-        label: 'Back to my studies',
-        href: '/dashboard' as Route,
-        variant: 'solid',
-        testId: 'cta-back-to-my-studies',
-    },
-}
 
 const ORG_SLUG = 'test-org'
 const ORG_NAME = 'Test Data Partner'
@@ -91,7 +78,6 @@ describe('ProposalSubmitted', () => {
             const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -114,7 +100,6 @@ describe('ProposalSubmitted', () => {
             ]
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={clarificationStudy}
                     orgName={ORG_NAME}
@@ -138,7 +123,6 @@ describe('ProposalSubmitted', () => {
             const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={rejectedStudy}
                     orgName={ORG_NAME}
@@ -159,7 +143,6 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={pendingStudy}
                     orgName={ORG_NAME}
@@ -180,7 +163,6 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={codeUnderReviewStudy}
                     orgName={ORG_NAME}
@@ -201,7 +183,6 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={pendingStudy}
                     orgName={ORG_NAME}
@@ -222,7 +203,6 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -243,7 +223,6 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -263,7 +242,6 @@ describe('ProposalSubmitted', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -282,7 +260,6 @@ describe('ProposalSubmitted', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={clarificationStudy}
                     orgName={ORG_NAME}
@@ -301,7 +278,6 @@ describe('ProposalSubmitted', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={rejectedStudy}
                     orgName={ORG_NAME}
@@ -320,7 +296,6 @@ describe('ProposalSubmitted', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -338,7 +313,6 @@ describe('ProposalSubmitted', () => {
             const archivedStudy = { ...study, status: 'ARCHIVED' as const, approvedAt: null, rejectedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={archivedStudy}
                     orgName={ORG_NAME}
@@ -354,7 +328,6 @@ describe('ProposalSubmitted', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -373,7 +346,6 @@ describe('ProposalSubmitted', () => {
             const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={pendingStudy}
                     orgName={ORG_NAME}
@@ -396,7 +368,6 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={codeUnderReviewStudy}
                     orgName={ORG_NAME}
@@ -416,14 +387,7 @@ describe('ProposalSubmitted', () => {
     describe('view full proposal dropdown', () => {
         it('is collapsed to the snippet by default on page load', () => {
             renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
             expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
@@ -434,14 +398,7 @@ describe('ProposalSubmitted', () => {
         it('expands to display the study proposal when clicked', async () => {
             const user = userEvent.setup()
             renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
             await user.click(screen.getByTestId('proposal-toggle-snippet'))
@@ -455,14 +412,7 @@ describe('ProposalSubmitted', () => {
         it('displays study proposal content as read-only with no editable fields', async () => {
             const user = userEvent.setup()
             renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
             await user.click(screen.getByTestId('proposal-toggle-snippet'))
@@ -474,49 +424,118 @@ describe('ProposalSubmitted', () => {
     })
 
     describe('navigation', () => {
-        it('renders the step nav it is handed, and nothing of its own', () => {
+        it('shows a "Back" button linking to dashboard when status is APPROVED', () => {
+            const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
-                    study={study}
+                    study={approvedStudy}
                     orgName={ORG_NAME}
                     entries={[]}
                     studyVersion={1}
                 />,
             )
 
-            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
-            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
+            const backLink = screen.getByRole('link', { name: /back/i })
+            expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        it('renders no step nav at all when the nav is empty', () => {
+        it('shows a "Proceed to step 3" button linking to agreements when status is APPROVED', () => {
+            const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={{}}
                     orgSlug={ORG_SLUG}
-                    study={study}
+                    study={approvedStudy}
                     orgName={ORG_NAME}
                     entries={[]}
                     studyVersion={1}
                 />,
             )
 
-            expect(screen.queryByTestId('step-navigation')).not.toBeInTheDocument()
+            const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
+            expect(proceedLink).toHaveAttribute(
+                'href',
+                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
+            )
+        })
+
+        it('shows a "Back" button linking to dashboard when status is CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={clarificationStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const backLink = screen.getByRole('link', { name: /back/i })
+            expect(backLink).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('shows an "Edit and resubmit" button linking to edit and resubmit page when status is CHANGE-REQUESTED', () => {
+            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={clarificationStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const editLink = screen.getByRole('link', { name: /edit and resubmit/i })
+            expect(editLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/edit-and-resubmit`)
+        })
+
+        it('shows a "Go to dashboard" button linking to dashboard when status is REJECTED', () => {
+            const rejectedStudy = { ...study, status: 'REJECTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={rejectedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const dashboardLink = screen.getByRole('link', { name: /go to dashboard/i })
+            expect(dashboardLink).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('shows "Proceed to step 3" when status is PENDING-REVIEW but proposal was approved', () => {
+            const codeUnderReviewStudy = {
+                ...study,
+                status: 'PENDING-REVIEW' as const,
+                approvedAt: new Date('2026-04-20T10:00:00Z'),
+            }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={codeUnderReviewStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
+            expect(proceedLink).toHaveAttribute(
+                'href',
+                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
+            )
+            expect(screen.queryByRole('link', { name: /go to dashboard/i })).not.toBeInTheDocument()
         })
     })
 
     describe('section heading iteration label', () => {
         it('displays "Initial request" on first submission', () => {
             renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
@@ -524,14 +543,7 @@ describe('ProposalSubmitted', () => {
 
         it('displays "Initial request 2.0" after the first resubmission', () => {
             renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={2}
-                />,
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={2} />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 2.0')
@@ -539,14 +551,7 @@ describe('ProposalSubmitted', () => {
 
         it('displays "Initial request 3.0" after the second resubmission', () => {
             renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={3}
-                />,
+                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={3} />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 3.0')
@@ -579,7 +584,6 @@ describe('ProposalSubmitted', () => {
         it('displays entries from most recent to oldest', () => {
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -601,7 +605,6 @@ describe('ProposalSubmitted', () => {
             })
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -616,7 +619,6 @@ describe('ProposalSubmitted', () => {
         it('titles entries with their stored version', () => {
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -632,7 +634,6 @@ describe('ProposalSubmitted', () => {
         it('displays the reviewer name on reviewer feedback entries', () => {
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -647,7 +648,6 @@ describe('ProposalSubmitted', () => {
         it('displays the researcher name on resubmission note entries', () => {
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -662,7 +662,6 @@ describe('ProposalSubmitted', () => {
         it('displays the date the reviewer submitted their decision', () => {
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -677,7 +676,6 @@ describe('ProposalSubmitted', () => {
         it('displays the date the researcher submitted proposal changes', () => {
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -694,7 +692,6 @@ describe('ProposalSubmitted', () => {
             try {
                 renderWithProviders(
                     <ProposalSubmitted
-                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         orgName={ORG_NAME}
@@ -714,7 +711,6 @@ describe('ProposalSubmitted', () => {
             try {
                 renderWithProviders(
                     <ProposalSubmitted
-                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         orgName={ORG_NAME}
@@ -734,7 +730,6 @@ describe('ProposalSubmitted', () => {
             try {
                 renderWithProviders(
                     <ProposalSubmitted
-                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         orgName={ORG_NAME}
@@ -763,7 +758,6 @@ describe('ProposalSubmitted', () => {
 
             renderWithProviders(
                 <ProposalSubmitted
-                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
