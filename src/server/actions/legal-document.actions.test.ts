@@ -18,6 +18,7 @@ import {
     fetchLegalDocumentVersionsAction,
     fetchNextPendingLegalAcknowledgementAction,
     fetchGlobalLegalDocumentsAction,
+    fetchParticipationAgreementFromInviteIdAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 
@@ -633,5 +634,73 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
         const result = await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' })
 
         expect(result).toHaveProperty('error')
+    })
+})
+
+// Read by the signup form before the invitee has an account, so no session is required: it resolves
+// the participation agreement (ropa for a lab, dopa for an enclave) the invite's org owes.
+describe('fetchParticipationAgreementFromInviteIdAction', () => {
+    const createInvite = async (orgId: string, invitedByUserId: string) =>
+        await db
+            .insertInto('pendingUser')
+            .values({
+                orgId,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+    it("resolves a lab org's published ropa as a pdf link", async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        const published = await publish(version.id, '2026-07-27')
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toEqual({
+            versionId: published.id,
+            type: 'ROPA',
+            url: 'https://mock-signed-url.example.com/file',
+        })
+    })
+
+    // The type follows the org, never the caller: an enclave org owes a dopa.
+    it("resolves an enclave org's published dopa", async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('DOPA')
+        const published = await publish(version.id, '2026-07-27')
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result.type).toBe('DOPA')
+        expect(result.versionId).toBe(published.id)
+        expect(result.url).toBeTruthy()
+    })
+
+    // Nothing published yet is an ordinary state; the form falls back to a placeholder, so the action
+    // reports no version and a null url rather than failing.
+    it('reports a null url when the org has no published participation agreement', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toEqual({ versionId: '', type: 'ROPA', url: null })
+    })
+
+    // A draft was shown to no one, so the signup form must not surface it as something to agree to.
+    it('ignores an unpublished draft', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { org } = await createOrgAgreementDraft('ROPA')
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toEqual({ versionId: '', type: 'ROPA', url: null })
     })
 })

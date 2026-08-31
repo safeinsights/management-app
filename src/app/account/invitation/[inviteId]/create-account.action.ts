@@ -17,11 +17,12 @@ import { clerkClient } from '@clerk/nextjs/server'
  * its owner agreed to is the failure worth preventing, and the insert is pure DB, so the only way it
  * fails is a version id that should not have been submitted.
  *
- * The submitted ids are re-checked here rather than trusted — only published versions of the two
- * globally-scoped public documents are accepted, so a crafted request cannot manufacture an
- * acknowledgement of an org- or study-scoped agreement, or of an unpublished draft.
+ * The submitted ids are re-checked here rather than trusted. The form only ever shows the global
+ * tos/pn (org-neutral) and the invite org's own ropa/dopa, so only published versions of those are
+ * accepted: an org-scoped version must belong to the invite's org. A crafted request naming another
+ * org's agreement, a study-scoped one, or an unpublished draft manufactures no acknowledgement.
  */
-async function recordSignupAcknowledgements(db: DBExecutor, userId: string, versionIds: string[]) {
+async function recordSignupAcknowledgements(db: DBExecutor, userId: string, orgId: string, versionIds: string[]) {
     if (!versionIds.length) return
 
     const eligible = await db
@@ -31,6 +32,9 @@ async function recordSignupAcknowledgements(db: DBExecutor, userId: string, vers
         .where('legalDocumentVersion.id', 'in', versionIds)
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        // Global tos/pn are org-neutral (orgId null); the only org-scoped rows the form shows belong
+        // to the invite's own org. Anything scoped to another org was never displayed here.
+        .where((eb) => eb.or([eb('legalDocument.orgId', 'is', null), eb('legalDocument.orgId', '=', orgId)]))
         .execute()
 
     if (!eligible.length) return
@@ -346,7 +350,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 .returning('id')
                 .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-            await recordSignupAcknowledgements(trx, user.id, acknowledgedVersionIds)
+            await recordSignupAcknowledgements(trx, user.id, invite.orgId, acknowledgedVersionIds)
 
             return user
         })

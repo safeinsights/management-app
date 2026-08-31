@@ -24,7 +24,7 @@ import {
     TosPnPreview,
 } from '@/components/legal/signup-acknowledegment/acknowledgement-checkbox'
 import { useRouter } from 'next/navigation'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     fetchGlobalLegalDocumentsAction,
@@ -128,6 +128,18 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
     })
 
+    // An org with no published ropa/dopa renders no participation checkbox (participationAgreementLabel
+    // returns null), so the invitee has nothing to tick. Mark the absent requirement satisfied rather
+    // than leaving Create Account disabled against a box that never appears. When an agreement exists
+    // the box renders and the tick is required as normal.
+    const hasParticipationAgreement = Boolean(participationAgreement.url)
+
+    useEffect(() => {
+        if (isPendingParticipationAgreement || hasParticipationAgreement) return
+        if (form.values.participationAccepted === true) return
+        form.setFieldValue('participationAccepted', true as const)
+    }, [isPendingParticipationAgreement, hasParticipationAgreement, form])
+
     // Submitting before the documents arrive, or after they failed to, falls back to the "Once
     // implemented" placeholder — copy that contradicts what is published, under a ticked box.
     const canSubmit =
@@ -144,7 +156,12 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
             onCreateAccountAction({
                 inviteId,
                 form: { firstName, lastName, password },
-                acknowledgedVersionIds: [...tosPn, participationAgreement].map((document) => document.versionId),
+                // filter(Boolean) drops the empty id the participation placeholder carries when the
+                // org has no published agreement — the action validates each id as a uuid, so '' would
+                // fail the whole submission.
+                acknowledgedVersionIds: [...tosPn, participationAgreement]
+                    .map((document) => document.versionId)
+                    .filter(Boolean),
             }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {

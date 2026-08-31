@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { useSignIn } from '@clerk/nextjs'
+import { db } from '@/database'
 import {
     actionResult,
+    faker,
+    insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
     resetLegalDocuments,
@@ -46,28 +49,87 @@ const publishTos = async () => {
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 
-const renderForm = () =>
-    renderWithProviders(<SetupAccountForm inviteId="an-invite" email="invitee@test.com" orgName="Openstax Lab" />)
+// A real invite: the form reads its org to look up the participation agreement, so a placeholder id
+// cannot stand in. Returns the invite id the form is rendered with.
+const createInvite = async (orgId: string) => {
+    const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+    const invite = await db
+        .insertInto('pendingUser')
+        .values({
+            orgId,
+            email: faker.internet.email({ provider: 'test.com' }),
+            isAdmin: false,
+            invitedByUserId: user.id,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    return invite.id
+}
+
+// A lab org whose invite owes a published ropa, so the form renders the participation checkbox.
+const inviteWithParticipationAgreement = async () => {
+    await mockSessionWithTestData({ isSiAdmin: true })
+    const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'ROPA', orgId: org.id, fileName: 'ropa.pdf' }),
+    )
+    actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-07-27' }))
+    return await createInvite(org.id)
+}
+
+// An org with nothing published yet, so no participation checkbox renders.
+const inviteWithoutParticipationAgreement = async () => {
+    const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    return await createInvite(org.id)
+}
+
+const renderForm = (inviteId: string) =>
+    renderWithProviders(<SetupAccountForm inviteId={inviteId} email="invitee@test.com" orgName="Openstax Lab" />)
 
 // Everything the schema needs, so only the legal documents decide whether Create Account is live.
+// Every rendered acknowledgement box is ticked — one when the org owes only tos/pn, two when it also
+// owes a participation agreement.
 const fillValidForm = async () => {
     await userEvent.type(screen.getByLabelText('First name'), 'Test')
     await userEvent.type(screen.getByLabelText('Last name'), 'User')
     await userEvent.type(screen.getByLabelText('Enter password'), 'Testing1234!')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'Testing1234!')
-    await userEvent.click(screen.getByRole('checkbox'))
+    for (const checkbox of screen.getAllByRole('checkbox')) {
+        await userEvent.click(checkbox)
+    }
 }
 
 const createAccountButton = () => screen.getByRole('button', { name: 'Create Account' })
 
 describe('SetupAccountForm legal documents', () => {
-    it('shows the published documents and lets a completed form through', async () => {
+    it('shows the tos and the participation agreement, and lets a completed form through', async () => {
         fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
         await publishTos()
+        const inviteId = await inviteWithParticipationAgreement()
 
-        renderForm()
+        renderForm(inviteId)
 
         expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        // The participation agreement is a pdf, shown as a link the invitee agrees to.
+        expect(await screen.findByRole('link', { name: 'Research Organization Participation Agreement' })).toBeDefined()
+        await fillValidForm()
+
+        await waitFor(() => expect(createAccountButton()).toBeEnabled())
+    })
+
+    // The org owes no ropa/dopa, so no participation checkbox renders. The requirement to accept one
+    // must not strand the form on a tick the invitee can never make.
+    it('lets a completed form through when the org has no participation agreement', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
+
+        renderForm(inviteId)
+
+        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(
+            screen.queryByRole('link', { name: 'Research Organization Participation Agreement' }),
+        ).not.toBeInTheDocument()
         await fillValidForm()
 
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
@@ -80,10 +142,11 @@ describe('SetupAccountForm legal documents', () => {
             throw new Error('S3 is unavailable')
         })
         await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
 
-        renderForm()
+        renderForm(inviteId)
 
-        expect(await screen.findByText(/Could not load the Terms of Service and Privacy Notice/)).toBeDefined()
+        expect(await screen.findByText(/There was an error loading the document/)).toBeDefined()
         await fillValidForm()
 
         expect(createAccountButton()).toBeDisabled()

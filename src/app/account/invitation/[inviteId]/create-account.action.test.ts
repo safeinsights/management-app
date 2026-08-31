@@ -204,16 +204,14 @@ describe('Create Account Actions', () => {
             expect(await acknowledgementsFor(invite.email)).toEqual([])
         })
 
-        // The form only ever shows the globally-scoped tos/pn. An org-scoped ropa/dopa binds members
-        // of a specific org and is never displayed here, so a crafted request naming one must not
-        // manufacture consent to it — the account is still created, minus that acknowledgement.
-        it('ignores an org-scoped agreement the signup form never displays', async () => {
-            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'ROPA', orgId: org.id })).id
-            const ropa = await db
+        // Publish an org-scoped participation agreement for the given org.
+        const publishParticipationAgreement = async (orgId: string, type: 'ROPA' | 'DOPA') => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type, orgId })).id
+            return await db
                 .insertInto('legalDocumentVersion')
                 .values({
                     legalDocumentId,
-                    filePath: 'legal/ROPA/agreement',
+                    filePath: `legal/${type}/agreement`,
                     fileName: 'agreement.pdf',
                     format: 'pdf',
                     versionNumber: 1,
@@ -222,6 +220,25 @@ describe('Create Account Actions', () => {
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
+        }
+
+        // The invitee is joining this org and the form shows this org's participation agreement, so a
+        // tick against it is real consent and is recorded alongside the global tos/pn.
+        it("records agreement to the invite org's participation agreement", async () => {
+            const dopa = await publishParticipationAgreement(org.id, 'DOPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [dopa.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: dopa.id }])
+        })
+
+        // The form only ever shows the global tos/pn and the invite org's own ropa/dopa. An agreement
+        // scoped to a different org is never displayed here, so a crafted request naming one must not
+        // manufacture consent to it — the account is still created, minus that acknowledgement.
+        it('ignores an org-scoped agreement the signup form never displays', async () => {
+            const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+            const ropa = await publishParticipationAgreement(otherOrg.id, 'ROPA')
             const invite = await createInvite()
 
             await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [ropa.id] })

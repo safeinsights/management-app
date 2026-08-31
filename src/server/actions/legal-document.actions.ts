@@ -722,12 +722,13 @@ export type ParticipationData = {
  */
 export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchParticipationAgreementFromInviteIdAction')
     .params(inviteParams)
-    .middleware(orgIdFromSlug)
-    // .requireAbilityTo('view', 'OrgLegalDocuments') // todo: let me iiiin
+    // Unauthenticated by necessity: read by the signup form before the invitee has an account, the
+    // same as getOrgInfoForInviteAction. The invite id is the bearer credential, and the org is
+    // resolved from it below rather than from the caller.
     .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData> => {
         const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } = await db
             .selectFrom('pendingUser')
-            .innerJoin('org', 'org.id', 'pendingUser.org_id')
+            .innerJoin('org', 'org.id', 'pendingUser.orgId')
             .select(['pendingUser.id as inviteId', 'org.type', 'org.id as orgId'])
             .where('pendingUser.id', '=', inviteId)
             .executeTakeFirstOrThrow()

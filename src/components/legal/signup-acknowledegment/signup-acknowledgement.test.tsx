@@ -1,6 +1,11 @@
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import { AcknowledgementCheckbox, globalDocAgreementLabel, TosPnPreview } from './acknowledgement-checkbox'
+import {
+    AcknowledgementCheckbox,
+    globalDocAgreementLabel,
+    participationAgreementLabel,
+    TosPnPreview,
+} from './acknowledgement-checkbox'
 
 describe('Placeholders', () => {
     it('shows Terms of Service popover when clicked', async () => {
@@ -30,17 +35,56 @@ describe('Placeholders', () => {
 
 describe('AcknowledgementCheckbox', () => {
     it('renders unchecked by default', () => {
-        renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={vi.fn()} />)
+        renderWithProviders(<AcknowledgementCheckbox label="I agree" checked={false} onChange={vi.fn()} />)
         expect(screen.getByRole('checkbox')).not.toBeChecked()
     })
 
     it('calls onChange when clicked', async () => {
         const onChange = vi.fn()
         const user = userEvent.setup()
-        renderWithProviders(<AcknowledgementCheckbox label="" checked={false} onChange={onChange} />)
+        renderWithProviders(<AcknowledgementCheckbox label="I agree" checked={false} onChange={onChange} />)
 
         await user.click(screen.getByRole('checkbox'))
         expect(onChange).toHaveBeenCalledWith(true)
+    })
+
+    // No label means there is nothing to agree to — an org with no participation agreement, say — so
+    // the checkbox is not rendered at all rather than shown against empty copy.
+    it('renders no checkbox when there is no label', () => {
+        renderWithProviders(<AcknowledgementCheckbox label={null} checked={false} onChange={vi.fn()} />)
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    })
+
+    describe('participationAgreementLabel', () => {
+        it('links to the participation agreement pdf by its type name', () => {
+            renderWithProviders(
+                <AcknowledgementCheckbox
+                    label={participationAgreementLabel({
+                        versionId: 'ropa-v1',
+                        type: 'ROPA',
+                        url: 'https://example.com/agreement.pdf',
+                    })}
+                    checked={false}
+                    onChange={vi.fn()}
+                />,
+            )
+
+            const link = screen.getByRole('link', { name: 'Research Organization Participation Agreement' })
+            expect(link).toHaveAttribute('href', 'https://example.com/agreement.pdf')
+        })
+
+        // Nothing published yet: no url, so there is no agreement to link or agree to, and the
+        // checkbox drops out rather than pointing at an empty href.
+        it('renders no checkbox before the agreement has a url', () => {
+            renderWithProviders(
+                <AcknowledgementCheckbox
+                    label={participationAgreementLabel({ versionId: '', type: 'ROPA', url: null })}
+                    checked={false}
+                    onChange={vi.fn()}
+                />,
+            )
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+        })
     })
     describe('once documents have been published', () => {
         const documents = [
