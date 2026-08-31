@@ -1,7 +1,7 @@
 'use client'
 
 import { errorToString, extractActionFailure } from '@/lib/errors'
-import { Alert, AlertProps, Group, Text, useMantineTheme } from '@mantine/core'
+import { Alert, AlertProps, Group, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
@@ -92,7 +92,6 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
 }
 
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
-    const theme = useMantineTheme()
     if (!error) return null
 
     // `component="span"`, so this node stays valid wherever it is used as a Mantine `error`.
@@ -102,8 +101,8 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     // which left the message out of `aria-describedby`.
     return (
         <Group component="span" gap="xs">
-            <WarningCircleIcon size={14} color={theme.colors.red[10]} weight="fill" />
-            <Text c="red.10" size="sm" component="span">
+            <WarningCircleIcon size={14} color="var(--mantine-color-error)" weight="fill" />
+            <Text c="var(--mantine-color-error)" size="sm" component="span">
                 {error}
             </Text>
         </Group>

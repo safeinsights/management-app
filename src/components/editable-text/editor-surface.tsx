@@ -164,7 +164,7 @@ export function EditorSurface({
         overflow: 'hidden',
         minHeight: floor,
         resize: isResizable ? 'vertical' : 'none',
-        borderColor: error ? 'var(--mantine-color-red-10)' : undefined,
+        borderColor: error ? 'var(--mantine-color-error)' : undefined,
     }
     const editableStyle: CSSProperties = { ...contentStyle, minHeight: startingHeight }
 

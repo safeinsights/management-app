@@ -18,6 +18,6 @@ describe('CharacterCounter', () => {
 
     it('turns red once the count passes the limit', () => {
         renderWithProviders(<CharacterCounter count={61} maxCharacters={60} />)
-        expect(colorOf(screen.getByText('61/60'))).toContain('red')
+        expect(colorOf(screen.getByText('61/60'))).toContain('--mantine-color-error')
     })
 })
