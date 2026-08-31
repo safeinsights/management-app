@@ -114,6 +114,56 @@ describe('extractTextFromLexical', () => {
         expect(extractTextFromLexical(json)).toBe('Paragraph one\n\nParagraph two')
     })
 
+    it('separates list items so a bulleted answer does not run together', () => {
+        const json = JSON.stringify({
+            root: {
+                type: 'root',
+                children: [
+                    {
+                        type: 'list',
+                        listType: 'bullet',
+                        children: [
+                            {
+                                type: 'listitem',
+                                children: [{ type: 'text', text: 'First question?' }],
+                            },
+                            {
+                                type: 'listitem',
+                                children: [{ type: 'text', text: 'Second question?' }],
+                            },
+                        ],
+                    },
+                ],
+            },
+        })
+        expect(extractTextFromLexical(json)).toBe('First question?\nSecond question?')
+    })
+
+    it('keeps a list item that mixes formatting on one line', () => {
+        const json = JSON.stringify({
+            root: {
+                type: 'root',
+                children: [
+                    {
+                        type: 'list',
+                        listType: 'number',
+                        children: [
+                            {
+                                type: 'listitem',
+                                children: [
+                                    { type: 'text', text: 'Does ' },
+                                    { type: 'text', text: 'X', format: 1 },
+                                    { type: 'text', text: ' affect Y?' },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+        })
+        expect(extractTextFromLexical(json)).toBe('Does X affect Y?')
+    })
+
     it('returns empty string for root without text or children', () => {
         const json = JSON.stringify({ root: { type: 'root' } })
         expect(extractTextFromLexical(json)).toBe('')

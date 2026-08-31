@@ -60,7 +60,9 @@ describe('step1FieldsSchema', () => {
             expect(messagesFor({ ...VALID_STEP_1, title: 'a'.repeat(61) }, 'title')).toEqual([
                 STUDY_TITLE_OVER_LIMIT_ERROR,
             ])
-            expect(STUDY_TITLE_OVER_LIMIT_ERROR).toBe('Study title exceeds the 60 limit. Shorten it to continue.')
+            expect(STUDY_TITLE_OVER_LIMIT_ERROR).toBe(
+                'Study title exceeds the 60 character limit. Shorten it to continue.',
+            )
             expect(STUDY_TITLE_MAX_CHARACTERS).toBe(60)
         })
 
