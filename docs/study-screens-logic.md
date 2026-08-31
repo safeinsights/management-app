@@ -156,9 +156,11 @@ rules sit above `study-results` because a recorded `FILES-*` decision clears
 `awaitingFilesDecisionOnError`, so `study-results` (#4) would otherwise claim every decided run. They
 split the decision across run outcome × decision: #1 is an errored run whose outputs were **shared**
 (the researcher decrypts to diagnose), #2 is an errored or clean run whose outputs were **withheld**,
-#3 is a clean run whose outputs were **shared**. #1 and #3 render the same `SharedOutputsPanel` and
-differ only in banner copy. `study-results` (#4) is left with exactly one researcher state: an
-undecided `RUN-COMPLETE`, waiting on the reviewer.
+#3 is a clean run whose outputs were **shared**. #1 and #3 render **one component**,
+`SharedOutputsScreen`, keyed on the resolved `ScreenId` (the same shape `CodeDecisionScreen` uses for
+`code-approved`/`code-feedback`); they differ only in the routing predicate and the locked-phase
+banner copy. `study-results` (#4) is left with exactly one researcher state: an undecided
+`RUN-COMPLETE`, waiting on the reviewer.
 
 The three predicates are **mutually disjoint** (see `isOutputsSharedOutcome`), so their order relative
 to each other carries no meaning — only their position above `study-results` does. That matters for a

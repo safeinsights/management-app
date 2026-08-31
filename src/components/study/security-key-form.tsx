@@ -30,14 +30,14 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
     title = DEFAULT_TITLE,
     description = DEFAULT_DESCRIPTION,
 }) => {
-    const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit, hasNoDecryptableFiles } =
+    const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit, hasNoWrappedKey } =
         useSecurityKeyForm({
             job,
             type,
             onDecrypted,
         })
 
-    if (type === 'researcher' && hasNoDecryptableFiles) {
+    if (hasNoWrappedKey) {
         return <NoAccessibleOutputsNotice />
     }
 
@@ -78,11 +78,9 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
  */
 const NoAccessibleOutputsNotice: FC = () => (
     <Paper p="xxl" data-testid="security-key-no-access">
-        <Stack gap={24}>
-            <FormSectionHeader
-                title="Your security key cannot open these outputs"
-                description="These outputs were encrypted for a different security key. Ask an organization administrator to re-share them with your current key."
-            />
-        </Stack>
+        <FormSectionHeader
+            title="Your security key cannot open these outputs"
+            description="These outputs were encrypted for a different security key. Ask an organization administrator to re-share them with your current key."
+        />
     </Paper>
 )

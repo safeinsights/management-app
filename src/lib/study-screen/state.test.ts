@@ -257,64 +257,77 @@ describe('runErrored', () => {
 // reorder would move users between pages. Driven off the projection rather than hand-built
 // StudyState literals so a change in how the FILES-*/JOB-ERRORED rows project is caught here too.
 describe('outputs-decision predicates are disjoint', () => {
-    const claims = (statuses: string[]) => {
-        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, ['CODE-SUBMITTED', ...statuses])] }))
-        return {
-            shared: isOutputsSharedOutcome(s),
-            erroredShared: isErroredOutputsSharedOutcome(s),
-            feedbackOnly: isFeedbackOnlyOutcome(s),
-        }
+    const PREDICATES = {
+        shared: isOutputsSharedOutcome,
+        erroredShared: isErroredOutputsSharedOutcome,
+        feedbackOnly: isFeedbackOnlyOutcome,
     }
 
-    it('clean run + shared outputs → outputs-shared only', () => {
-        expect(claims(['RUN-COMPLETE', 'FILES-APPROVED'])).toEqual({
-            shared: true,
-            erroredShared: false,
-            feedbackOnly: false,
-        })
+    const OUTCOME_STATUSES = ['RUN-COMPLETE', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED'] as const
+    type OutcomeStatus = (typeof OUTCOME_STATUSES)[number]
+
+    const powerSet = <T>(items: readonly T[]): T[][] =>
+        items.reduce<T[][]>((sets, item) => [...sets, ...sets.map((set) => [...set, item])], [[]])
+
+    const claimants = (statuses: readonly OutcomeStatus[]) => {
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, ['CODE-SUBMITTED', ...statuses])] }))
+        return Object.entries(PREDICATES)
+            .filter(([, predicate]) => predicate(s))
+            .map(([name]) => name)
+    }
+
+    // The known overlap, expressed as a rule rather than a listed combination: it is EVERY subset
+    // carrying an errored run plus both FILES-* rows, which is two of the sixteen (with and without
+    // RUN-COMPLETE), not one. Hand-listing it would let the four-status case fail the sweep below.
+    const isKnownOverlap = (combo: readonly OutcomeStatus[]) =>
+        combo.includes('JOB-ERRORED') && combo.includes('FILES-APPROVED') && combo.includes('FILES-REJECTED')
+
+    // Exhaustive rather than case-by-case (PR #1003 review): the previous tests covered the
+    // combinations we happened to think of, so a fourth predicate could have been added without
+    // anything failing. This sweeps all 2^4 status subsets.
+    // Each row is wrapped so vitest passes the whole combination as ONE argument rather than
+    // spreading its statuses across parameters.
+    const sweep = powerSet(OUTCOME_STATUSES)
+        .filter((combo) => !isKnownOverlap(combo))
+        .map((combo) => [combo] as [OutcomeStatus[]])
+
+    it.each(sweep)('at most one predicate claims %j', (statuses) => {
+        const claimed = claimants(statuses)
+        const label = statuses.join('+') || '(no outcome rows)'
+        expect(claimed.length, `${label} claimed by [${claimed}]`).toBeLessThanOrEqual(1)
     })
 
-    it('errored run + shared outputs → errored-shared only', () => {
-        expect(claims(['JOB-ERRORED', 'FILES-APPROVED'])).toEqual({
-            shared: false,
-            erroredShared: true,
-            feedbackOnly: false,
-        })
+    // Spot-checks that each predicate claims the state it exists for — disjointness alone would be
+    // satisfied by three predicates that never fire.
+    it('routes each decided outcome to exactly its own predicate', () => {
+        expect(claimants(['RUN-COMPLETE', 'FILES-APPROVED'])).toEqual(['shared'])
+        expect(claimants(['JOB-ERRORED', 'FILES-APPROVED'])).toEqual(['erroredShared'])
+        expect(claimants(['RUN-COMPLETE', 'FILES-REJECTED'])).toEqual(['feedbackOnly'])
+        expect(claimants(['JOB-ERRORED', 'FILES-REJECTED'])).toEqual(['feedbackOnly'])
     })
 
-    it('feedback only → feedback-only, on a clean or an errored run', () => {
-        expect(claims(['RUN-COMPLETE', 'FILES-REJECTED'])).toEqual({
-            shared: false,
-            erroredShared: false,
-            feedbackOnly: true,
-        })
-        expect(claims(['JOB-ERRORED', 'FILES-REJECTED'])).toEqual({
-            shared: false,
-            erroredShared: false,
-            feedbackOnly: true,
-        })
-    })
-
-    it('an undecided run is claimed by none of them', () => {
-        expect(claims(['RUN-COMPLETE'])).toEqual({ shared: false, erroredShared: false, feedbackOnly: false })
-        expect(claims(['JOB-ERRORED'])).toEqual({ shared: false, erroredShared: false, feedbackOnly: false })
+    it('leaves an undecided run to none of them', () => {
+        expect(claimants(['RUN-COMPLETE'])).toEqual([])
+        expect(claimants(['JOB-ERRORED'])).toEqual([])
     })
 
     // Unreachable via submitOutputsDecisionAction, which refuses a second decision on a job, but the
     // QA status route and the legacy approve/reject actions can write both rows.
-    it('a job carrying BOTH FILES-* rows is claimed by feedback-only alone, never outputs-shared', () => {
-        expect(claims(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'])).toEqual({
-            shared: false,
-            erroredShared: false,
-            feedbackOnly: true,
-        })
+    it('gives a clean job carrying BOTH FILES-* rows to feedback-only alone, never outputs-shared', () => {
+        expect(claimants(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'])).toEqual(['feedbackOnly'])
     })
 
-    // The one overlap this card does not own: an errored job with both rows. Pinned so the ambiguity
-    // is visible, and so a future change to either predicate has to acknowledge it.
+    // The one overlap this card does not own. Excluded from the sweep above and asserted here
+    // instead, so the ambiguity stays visible and a future change to either predicate has to
+    // acknowledge it rather than silently widening the allow-list.
     it('documents the one remaining overlap: errored + both FILES-* rows', () => {
-        const both = claims(['JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED'])
-        expect(both.shared).toBe(false)
-        expect([both.erroredShared, both.feedbackOnly]).toEqual([true, true])
+        expect(claimants(['JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED'])).toEqual([
+            'erroredShared',
+            'feedbackOnly',
+        ])
+        expect(claimants(['RUN-COMPLETE', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED'])).toEqual([
+            'erroredShared',
+            'feedbackOnly',
+        ])
     })
 })
