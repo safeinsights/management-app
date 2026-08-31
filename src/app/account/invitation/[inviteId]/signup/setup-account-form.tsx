@@ -64,8 +64,7 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
-// Inline notice shown when a legal document fails to load. Account creation is held separately (see
-// canSubmit), so this only tells the invitee why, and that their invitation still stands.
+// Inline notice shown when a legal document fails to load.
 const LegalDocumentsError: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -126,20 +125,16 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
     })
 
-    // An org with no published ropa/dopa renders no participation checkbox (participationAgreementLabel
-    // returns null), so the invitee has nothing to tick. Mark the absent requirement satisfied rather
-    // than leaving Create Account disabled against a box that never appears. When an agreement exists
-    // the box renders and the tick is required as normal.
+    // Handle nonexistent participation agreements
     const hasParticipationAgreement = participationAgreement !== null
-
     useEffect(() => {
         if (isPendingParticipationAgreement || hasParticipationAgreement) return
         if (form.values.participationAccepted === true) return
+        // only set true if document has *loaded* a null value
         form.setFieldValue('participationAccepted', true as const)
     }, [isPendingParticipationAgreement, hasParticipationAgreement, form])
 
-    // Submitting before the documents arrive, or after they failed to, falls back to the "Once
-    // implemented" placeholder — copy that contradicts what is published, under a ticked box.
+    // Prevent submission for invalid forms or document retrieval errors
     const canSubmit =
         form.isValid() &&
         !isLoadingTosPn &&
@@ -148,14 +143,11 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         !participationAgreementError
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
-        // confirmPassword and termsAccepted are client-side concerns; the action's schema has
-        // neither, so only the fields it actually uses are sent.
         mutationFn: ({ firstName, lastName, password }: FormValues) =>
             onCreateAccountAction({
                 inviteId,
                 form: { firstName, lastName, password },
-                // The participation agreement is absent until the org publishes one; only the ids the
-                // form actually displayed are recorded, and the action re-checks each against its scope.
+                // The participation agreement is absent until the org publishes one
                 acknowledgedVersionIds: [...tosPn, ...(participationAgreement ? [participationAgreement] : [])].map(
                     (document) => document.versionId,
                 ),
@@ -180,10 +172,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     router.push(Routes.accountMfa)
                 } else if (attempt.status === 'needs_second_factor') {
                     // A freshly-created account has no MFA factors enrolled, so a second-factor
-                    // challenge here is unsatisfiable — handing this state to <RequestMFA> would
-                    // strand the user on the "No MFA factors are configured" dead-end screen.
-                    // The instance-level Clerk MFA policy must allow first sign-in to complete
-                    // so the user can reach /account/mfa to enroll.
+                    // challenge here is unsatisfiable
                     reportError(
                         'Your account was created, but multi-factor authentication is required before you can sign in. Please contact your administrator.',
                     )

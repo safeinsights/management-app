@@ -49,8 +49,7 @@ const publishTos = async () => {
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 
-// A real invite: the form reads its org to look up the participation agreement, so a placeholder id
-// cannot stand in. Returns the invite id the form is rendered with.
+// Need a real invite in the db in order to retrieve ROPA/DOPA docs
 const createInvite = async (orgId: string) => {
     const { user } = await mockSessionWithTestData({ isSiAdmin: true })
     const invite = await db
@@ -66,7 +65,7 @@ const createInvite = async (orgId: string) => {
     return invite.id
 }
 
-// A lab org whose invite owes a published ropa, so the form renders the participation checkbox.
+// Participation checkbox org
 const inviteWithParticipationAgreement = async () => {
     await mockSessionWithTestData({ isSiAdmin: true })
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -77,7 +76,7 @@ const inviteWithParticipationAgreement = async () => {
     return await createInvite(org.id)
 }
 
-// An org with nothing published yet, so no participation checkbox renders.
+// No participation checkbox org
 const inviteWithoutParticipationAgreement = async () => {
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     return await createInvite(org.id)
@@ -86,9 +85,7 @@ const inviteWithoutParticipationAgreement = async () => {
 const renderForm = (inviteId: string) =>
     renderWithProviders(<SetupAccountForm inviteId={inviteId} email="invitee@test.com" orgName="Openstax Lab" />)
 
-// Everything the schema needs, so only the legal documents decide whether Create Account is live.
-// Every rendered acknowledgement box is ticked — one when the org owes only tos/pn, two when it also
-// owes a participation agreement.
+// Everything Create Account button needs in order to be live
 const fillValidForm = async () => {
     await userEvent.type(screen.getByLabelText('First name'), 'Test')
     await userEvent.type(screen.getByLabelText('Last name'), 'User')
@@ -117,8 +114,7 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // The org owes no ropa/dopa, so no participation checkbox renders. The requirement to accept one
-    // must not strand the form on a tick the invitee can never make.
+    // When no participation agreement, make sure the requirements don't prevent the form from being submitted.
     it('lets a completed form through when the org has no participation agreement', async () => {
         fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
         await publishTos()
@@ -135,8 +131,7 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // Empty documents fall back to the "Once implemented" placeholder, which is a false statement
-    // once something is published — so a tick against it must not be able to create an account.
+    // No account creation allowed if a document exists but there was an error loading it
     it('refuses to submit when the documents cannot be loaded, and says so', async () => {
         fetchFileContents.mockImplementation(async () => {
             throw new Error('S3 is unavailable')

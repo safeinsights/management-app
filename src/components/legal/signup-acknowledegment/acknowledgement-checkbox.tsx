@@ -41,9 +41,7 @@ export const participationAgreementLabel = (document: ParticipationData | null) 
 
 const TERMS_ERROR_ID = 'terms-accepted-error'
 
-// A standalone Mantine `Checkbox` uses `error` for styling only: it renders the message but adds
-// neither `aria-invalid` nor `aria-describedby`, unlike the inputs built on `Input.Wrapper`. Both
-// are wired by hand here so the requirement is not conveyed by red text alone.
+// Hand-wire `aria-invalid` and `aria-describedby` errors for accessibility
 export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, onChange, onBlur, error }) => {
     if (!label) return null
 
@@ -53,8 +51,7 @@ export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, 
             onChange={(event) => onChange(event.currentTarget.checked)}
             onBlur={onBlur}
             label={label}
-            // The id rides on this span rather than an `errorProps`, which a standalone Checkbox does
-            // not accept. A span, because Mantine renders the error inside a `<p>`.
+            // Nicely pass error as span for Mantine formatting reasons
             error={error ? <span id={TERMS_ERROR_ID}>{error}</span> : undefined}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? TERMS_ERROR_ID : undefined}

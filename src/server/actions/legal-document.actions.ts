@@ -738,11 +738,8 @@ export type ParticipationData = {
  */
 export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchParticipationAgreementFromInviteIdAction')
     .params(inviteParams)
-    // Unauthenticated by necessity: read by the signup form before the invitee has an account, the
-    // same as getOrgInfoForInviteAction. The invite id is the bearer credential, and the org is
-    // resolved from it below rather than from the caller. Only an unclaimed invite resolves, matching
-    // getOrgInfoForInviteAction: once the invite is redeemed the signup form no longer reads this, so a
-    // spent id stops disclosing the org's participation agreement.
+    // Unauthenticated by necessity. We only have the invite ID to go on.
+    // Won't work for a claimed invite.
     .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData | null> => {
         const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } = await db
             .selectFrom('pendingUser')
@@ -757,8 +754,7 @@ export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchPa
         const agreement = await orgParticipationAgreement(db, { orgId: inviteOrgDetails.orgId, type: doctype })
         if (!agreement) return null
 
-        // ropa/dopa are always pdfs (legalDocumentFormats), so a markdown body means a misconfigured
-        // document rather than something to agree to — treated as nothing published.
+        // ropa/dopa are always pdfs (legalDocumentFormats). if the returned thing isn't pdf, we just skip it
         const body = await bodyForVersion({ type: doctype, filePath: agreement.filePath, fileName: agreement.fileName })
         if (body.format !== 'pdf') return null
 

@@ -57,8 +57,7 @@ describe('Create Account Actions', () => {
                     ],
                 })),
             },
-            // Only the signup path touches these, to verify the address on a Clerk account it
-            // just created for the invitee.
+            // Only the signup path touches these
             emailAddresses: {
                 createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
                 updateEmailAddress: vi.fn(async () => ({})),
@@ -110,8 +109,7 @@ describe('Create Account Actions', () => {
         expect(membership.isAdmin).toBe(false)
     })
 
-    // The signup checkbox has never been persisted, so a user affirmatively agreed with no evidence
-    // recorded. These two cover the fix and the state the app is in before anything is published.
+    // Make sure signup acknowledgments are recorded
     describe('signup acknowledgements', () => {
         const form = { firstName: 'Test', lastName: 'User', password: 'password', confirmPassword: 'password' }
 
@@ -127,9 +125,8 @@ describe('Create Account Actions', () => {
                 .returningAll()
                 .executeTakeFirstOrThrow()
 
-        // Terms of Service are globally scoped, so at most one row can ever exist and a database the
-        // e2e seed has touched already holds it. Find-or-create rather than insert, the same way
-        // createLegalDocumentDraftAction does — a plain insert returns nothing on conflict and throws.
+        // Terms of Service are globally scoped, so at most one row can ever exist. Find-or-create
+        // rather than insert.
         const publishTos = async () => {
             const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
             // Numbered past whatever the document already carries, or the version-number unique
@@ -172,16 +169,16 @@ describe('Create Account Actions', () => {
             expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: version.id }])
         })
 
-        // A draft was never shown to anyone, so agreeing to one would be evidence of nothing. The
-        // account is still created — the app-wide gate collects a real acknowledgement later.
+        // Only acknowledge published versions
         it('ignores a version that was never published', async () => {
             const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
-            // Only one draft may be outstanding per document; clear any the seed left behind.
+            // Clear existing draft if exists
             await db
                 .deleteFrom('legalDocumentVersion')
                 .where('legalDocumentId', '=', legalDocumentId)
                 .where('publishedAt', 'is', null)
                 .execute()
+            // Create draft
             const draft = await db
                 .insertInto('legalDocumentVersion')
                 .values({ legalDocumentId, filePath: 'legal/TOS/draft', fileName: 'draft.md', format: 'markdown' })
@@ -222,8 +219,6 @@ describe('Create Account Actions', () => {
                 .executeTakeFirstOrThrow()
         }
 
-        // The invitee is joining this org and the form shows this org's participation agreement, so a
-        // tick against it is real consent and is recorded alongside the global tos/pn.
         it("records agreement to the invite org's participation agreement", async () => {
             const dopa = await publishParticipationAgreement(org.id, 'DOPA')
             const invite = await createInvite()
@@ -233,9 +228,7 @@ describe('Create Account Actions', () => {
             expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: dopa.id }])
         })
 
-        // The form only ever shows the global tos/pn and the invite org's own ropa/dopa. An agreement
-        // scoped to a different org is never displayed here, so a crafted request naming one must not
-        // manufacture consent to it — the account is still created, minus that acknowledgement.
+        // Check that by-org gating works (no acknowledging another org's ropa/dopa can be recorded here)
         it('ignores an org-scoped agreement the signup form never displays', async () => {
             const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
             const ropa = await publishParticipationAgreement(otherOrg.id, 'ROPA')

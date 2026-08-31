@@ -31,9 +31,7 @@ export type GlobalLegalDocumentType = (typeof globalLegalDocumentTypes)[number]
 // not two optional fields, so exactly one payload is representable.
 export type LegalDocumentBody = { format: 'markdown'; content: string } | { format: 'pdf'; url: string }
 
-// A published document with its body resolved. Scope-neutral: global and enforced sets each narrow
-// `type`; the orthogonal format/body axis is one shared union composed in. Lives here, not in copy or
-// actions, so both server and client can depend on it without depending on each other.
+// A published document with its body resolved. Scope-neutral instead of `global` or `enforced`
 export type ResolvedLegalDocument = {
     type: LegalDocumentTypeValue
     versionId: string
@@ -217,8 +215,7 @@ export const legalDocumentQueryKeys = {
     nextPendingAcknowledgement: () => ['nextPendingLegalAcknowledgement'] as const,
     // Read by the signup form before an account exists, so there is no session to key it by.
     globalDocuments: () => ['globalLegalDocuments'] as const,
-    // The participation agreement the signup form owes, keyed by invite because the org is resolved
-    // from it — read before an account exists, so likewise no session to key it by.
+    // For signup form, use invite ID as key (the only info we have).
     participationAgreementForInvite: (inviteId: string) => ['participationAgreement', inviteId] as const,
     // Keyed by version rather than by the signed URL the reader fetches: a presigned URL is re-minted
     // on every read, so keying on it meant a fresh cache entry each time and never a hit.
