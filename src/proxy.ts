@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import { Routes } from '@/lib/routes'
+import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
 import { marshalSession } from './server/session'
 import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from './lib/types'
@@ -136,6 +137,10 @@ export const proxy = clerkMiddleware(async (auth, req) => {
             const signInUrl = new URL('/account/signin', req.url)
             const intended = safeRedirectUrl(req.nextUrl.pathname + req.nextUrl.search, Routes.home)
             signInUrl.searchParams.set('redirect_url', intended)
+            // This branch is the only place that refuses a session, so the mark tells the signin page
+            // that the server said no. Without it the page can only infer that from its own client
+            // state, which is exactly the state that goes stale and stranded the prompt (OTTER-745).
+            signInUrl.searchParams.set(BOUNCE_PARAM, BOUNCE_VALUE)
             log.warn(`attempted to load ${req.nextUrl.pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }

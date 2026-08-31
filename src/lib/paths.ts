@@ -52,15 +52,19 @@ export const pathForCodeEnvScanArtifacts = (parts: { codeEnvId: string }) =>
 // so they cannot drift. Callers prefix APP_BASE_URL to make it absolute.
 export const pathForInvitation = (inviteId: string) => `/account/invitation/${inviteId}`
 
+// Everything under here answers with an attachment rather than a document, which callers that
+// navigate (rather than link) have to know about: the browser keeps the current page mounted.
+export const DOWNLOAD_PREFIX = '/dl/'
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
-    `/dl/results/${job.id}/${job.resultsPath}`
+    `${DOWNLOAD_PREFIX}results/${job.id}/${job.resultsPath}`
 
 export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileName: string) =>
-    `/dl/study-documents/${studyId}/${type}/${fileName}`
+    `${DOWNLOAD_PREFIX}study-documents/${studyId}/${type}/${fileName}`
 
-export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
+export const studyCodeURL = (jobId: string, fileName: string) => `${DOWNLOAD_PREFIX}study-code/${jobId}/${fileName}`
 
-export const scanLogDownloadURL = (jobId: string) => `/dl/scan-log/${jobId}`
+export const scanLogDownloadURL = (jobId: string) => `${DOWNLOAD_PREFIX}scan-log/${jobId}`
 
 // Stored objects carry an opaque S3 key, so the name the reviewer sees — in the download's
 // Content-Disposition and as the in-app viewer's title — is supplied here rather than by storage.
