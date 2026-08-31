@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
+import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import posthog from 'posthog-js'
 import { useAlreadySignedIn } from './use-already-signed-in'
 
@@ -19,16 +20,14 @@ const mockSignedOutUser = () => (useUser as Mock).mockReturnValue({ isLoaded: tr
 // navigation call rather than the in-memory router.
 const spyOnHardNavigation = () => vi.spyOn(window.location, 'replace').mockImplementation(() => {})
 
-// Mirrors the key leaveForApp writes: each exit leaves a note so the next mount can tell a proxy
-// bounce from a first arrival (OTTER-745). Every hard navigation writes one, so seed it per test.
-const EXIT_ATTEMPT_KEY = 'already-signed-in-exit-attempt'
-const EXIT_BOUNCE_WINDOW_MS = 15_000
-const noteExitAttempt = (at = Date.now()) => sessionStorage.setItem(EXIT_ATTEMPT_KEY, String(at))
+// What the proxy sends back when it refuses a session: the captured target plus the mark that says
+// the refusal came from the server (OTTER-745). Built from the constants so the test cannot drift.
+const refusedArrival = (target = '%2Fopenstax%2Fdashboard') =>
+    `/account/signin?redirect_url=${target}&${BOUNCE_PARAM}=${BOUNCE_VALUE}`
 
 describe('useAlreadySignedIn', () => {
     beforeEach(() => {
         memoryRouter.setCurrentUrl('/account/signin')
-        sessionStorage.clear()
     })
 
     it('reports loading until Clerk has loaded', () => {
@@ -66,11 +65,11 @@ describe('useAlreadySignedIn', () => {
     })
 
     // OTTER-745: the automatic redirect exits through a full page load, so hasRedirectedRef is reset by
-    // the bounce it is meant to survive. Without a note left behind, a client that keeps claiming a
-    // session the proxy refuses would spin one document load per pass instead of sticking on one page.
-    it('shows the form instead of auto-redirecting again when the proxy bounced the last exit back', () => {
-        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt()
+    // the bounce it is meant to survive, and a client that keeps claiming a session the proxy refuses
+    // would spin one document load per pass. The mark on the URL is the server's answer about this
+    // arrival, so the form is reached without another pass.
+    it('shows the form instead of auto-redirecting when the proxy marked this arrival as refused', () => {
+        memoryRouter.setCurrentUrl(refusedArrival())
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
@@ -80,65 +79,40 @@ describe('useAlreadySignedIn', () => {
         expect(navigate).not.toHaveBeenCalled()
     })
 
-    it('auto-redirects when the last exit note is too old to be a bounce', () => {
-        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt(Date.now() - 60_000)
-        mockSignedInUser()
-        const navigate = spyOnHardNavigation()
-
-        const { result } = renderHook(() => useAlreadySignedIn())
-
-        expect(result.current.status).toBe('redirecting')
-        expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
-    })
-
-    it('auto-redirects when the last exit note is dated in the future', () => {
-        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt(Date.now() + 60_000)
-        mockSignedInUser()
-        const navigate = spyOnHardNavigation()
-
-        const { result } = renderHook(() => useAlreadySignedIn())
-
-        expect(result.current.status).toBe('redirecting')
-        expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
-    })
-
-    // OTTER-745: the note answers a question about this document's arrival, but its freshness test runs
-    // against the clock. Clerk holds the latch closed until it loads, and loading is slow in exactly the
-    // case the guard exists for, so the note must not be allowed to go cold while we wait for it.
-    it('keeps the bounce guard when Clerk takes longer than the window to load', () => {
-        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt()
+    // The mark is read per arrival instead of timed, so a slow Clerk cannot age it out of a window the
+    // way the sessionStorage note it replaced could: loading slowly is one of the cases it exists for.
+    it('keeps the refusal when Clerk loads long after the arrival', () => {
+        memoryRouter.setCurrentUrl(refusedArrival())
         ;(useUser as Mock).mockReturnValue({ isLoaded: false, isSignedIn: undefined, user: undefined })
         const navigate = spyOnHardNavigation()
 
         const { result, rerender } = renderHook(() => useAlreadySignedIn())
         expect(result.current.status).toBe('loading')
 
-        const slowClerk = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + EXIT_BOUNCE_WINDOW_MS * 2)
         mockSignedInUser()
         rerender()
-        slowClerk.mockRestore()
 
         expect(result.current.status).toBe('signed-out')
         expect(navigate).not.toHaveBeenCalled()
     })
 
-    it('notes the exit it makes so the next mount can recognize a bounce', () => {
+    // The mark only ever suppresses the automatic redirect. Without a redirect_url there is nothing to
+    // suppress, so it must not hide the prompt from a user who came to this page on purpose.
+    it('still shows the prompt when a marked arrival carries no redirect_url', () => {
+        memoryRouter.setCurrentUrl(`/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}`)
         mockSignedInUser()
-        spyOnHardNavigation()
+        const navigate = spyOnHardNavigation()
 
         const { result } = renderHook(() => useAlreadySignedIn())
-        act(() => result.current.continueToApp())
 
-        expect(Date.now() - Number(sessionStorage.getItem(EXIT_ATTEMPT_KEY))).toBeLessThan(1000)
+        expect(result.current.status).toBe('signed-in')
+        expect(navigate).not.toHaveBeenCalled()
     })
 
-    // The note only ever suppresses the automatic redirect. Without a redirect_url there is nothing to
-    // suppress, so a warm note must not hide the prompt from a user who came to this page on purpose.
-    it('still shows the prompt after a bounce when no redirect_url came back with it', () => {
-        noteExitAttempt()
+    // A download answers with an attachment rather than a document, so navigating there would leave
+    // this page mounted behind a loader with nothing left to wait for (OTTER-745).
+    it('shows the prompt instead of auto-redirecting to a download', () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdl%2Fscan-log%2Fjob-1')
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
@@ -257,6 +231,23 @@ describe('useAlreadySignedIn', () => {
 
         expect(resetPosthog).toHaveBeenCalledOnce()
         expect(signOut).toHaveBeenCalledOnce()
+        expect(result.current.status).toBe('signed-out')
+        expect(result.current.isSwitching).toBe(false)
+    })
+
+    // The switch button awaits nothing, so a rejection has to be handled here or it escapes as an
+    // unhandled rejection, and a session the server has already dropped is exactly where Clerk's
+    // signOut is most likely to fail. The user asked for the form either way.
+    it('switchAccount reveals the form even when signOut rejects', async () => {
+        const signOut = vi.fn().mockRejectedValue(new Error('session already gone'))
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        mockSignedInUser()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
         expect(result.current.status).toBe('signed-out')
         expect(result.current.isSwitching).toBe(false)
     })
