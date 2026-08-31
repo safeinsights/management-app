@@ -82,10 +82,8 @@ const purple: MantineColorsTuple = [
     '#100A4C',
     '#070524',
 ]
-// SI UI Component Library → color primitive / navy. This is the library's brand ramp: the semantic
-// tokens brand/Default, brand/Hover and brand/Light resolve to navy 5, 6 and 0 respectively, which is
-// what makes Mantine's own filled/hover shade arithmetic (primaryShade, then +1 on hover) land exactly
-// on the spec without per-variant overrides.
+// Library brand ramp. brand/Default, brand/Hover and brand/Light are navy 5, 6 and 0, so Mantine's
+// own shade arithmetic (primaryShade, +1 on hover) lands on the spec unaided.
 const navy: MantineColorsTuple = [
     '#E6E9EF',
     '#CCD3DF',
@@ -169,9 +167,7 @@ export const theme = createTheme({
                 color: 'navy',
                 radius: 2, // Corner-radius-xs
             },
-            // Mantine derives outline/subtle hover from its own light-hover alpha, which is not the
-            // library's brand/Light. Only those two variants need correcting; filled already resolves
-            // to brand/Default → brand/Hover via primaryShade.
+            // Mantine derives outline/subtle hover from its light-hover alpha, not brand/Light.
             vars: (_theme: unknown, props: { variant?: string }) => ({
                 root: props.variant === 'outline' || props.variant === 'subtle' ? { '--button-hover': navy[0] } : {},
             }),
