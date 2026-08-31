@@ -9,6 +9,9 @@ export type ScreenId =
     | 'outputs-pending'
     | 'outputs-feedback'
     | 'outputs-errored-shared'
+    // The clean-run counterpart. Named for the reviewer's decision, not for availability:
+    // 'reviewer-outputs-available' already means a completed run still awaiting one.
+    | 'outputs-shared'
     | 'study-results'
     | 'study-overview'
     // reviewer

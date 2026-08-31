@@ -261,4 +261,69 @@ describe('SecurityKeyForm', () => {
         expect(screen.queryByText(INVALID_ERROR)).toBeNull()
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
     })
+
+    // OTTER-688. On the researcher path the action filters to artifacts wrapped for THIS user's
+    // fingerprint, so an empty result means they hold no key — not that the Data Partner withheld
+    // anything. Offering a form no key of theirs can satisfy, and then blaming the DP in its error,
+    // is what this replaces.
+    describe('researcher with no wrapped key', () => {
+        it('replaces the form with an explanation instead of a form to nowhere', async () => {
+            vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+
+            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
+
+            expect(await screen.findByTestId('security-key-no-access')).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { name: 'Your security key cannot open these outputs' }),
+            ).toBeInTheDocument()
+            expect(
+                screen.getByText(
+                    'These outputs were encrypted for a different security key. Ask an organization administrator to re-share them with your current key.',
+                ),
+            ).toBeInTheDocument()
+
+            // No form, and nothing that could imply the outputs themselves are missing.
+            expect(screen.queryByTestId('security-key-form')).toBeNull()
+            expect(screen.queryByRole('textbox')).toBeNull()
+            expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+            expect(screen.queryByText(NO_FILES_ERROR)).toBeNull()
+        })
+
+        it('still renders the form when the researcher does hold a key', async () => {
+            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
+
+            await screen.findByRole('button', { name: 'View' })
+            expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
+            expect(screen.queryByTestId('security-key-no-access')).toBeNull()
+        })
+
+        // A failed fetch also yields no files, but the cause is an outage, not the user's key. The
+        // gate reads isSuccess so it cannot blame the key for it; the pre-existing error path stands.
+        it('does not claim a missing key when the fetch itself failed', async () => {
+            vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
+
+            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
+
+            await screen.findByRole('button', { name: 'View' })
+            expect(screen.queryByTestId('security-key-no-access')).toBeNull()
+
+            enterKey('some-key')
+            clickView()
+            expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+        })
+
+        // Role-awareness is load-bearing: the action's reviewer branch returns every encrypted
+        // artifact without consulting fingerprints, so an empty result there means the JOB produced
+        // nothing — a reviewer-side state OTTER-524 handles by letting them close out the round.
+        // This gate must not intercept it.
+        it('leaves the reviewer path untouched on an empty result', async () => {
+            vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+
+            renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+            await screen.findByRole('button', { name: 'View' })
+            expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
+            expect(screen.queryByTestId('security-key-no-access')).toBeNull()
+        })
+    })
 })
