@@ -22,7 +22,7 @@ const spyOnHardNavigation = () => vi.spyOn(window.location, 'replace').mockImple
 // Mirrors the key leaveForApp writes: each exit leaves a note so the next mount can tell a proxy
 // bounce from a first arrival (OTTER-745). Every hard navigation writes one, so seed it per test.
 const EXIT_ATTEMPT_KEY = 'already-signed-in-exit-attempt'
-const noteExitAttempt = (target: string, at = Date.now()) => sessionStorage.setItem(EXIT_ATTEMPT_KEY, `${at}:${target}`)
+const noteExitAttempt = (at = Date.now()) => sessionStorage.setItem(EXIT_ATTEMPT_KEY, String(at))
 
 describe('useAlreadySignedIn', () => {
     beforeEach(() => {
@@ -69,7 +69,7 @@ describe('useAlreadySignedIn', () => {
     // session the proxy refuses would spin one document load per pass instead of sticking on one page.
     it('shows the form instead of auto-redirecting again when the proxy bounced the last exit back', () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt('/openstax/dashboard')
+        noteExitAttempt()
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
@@ -81,7 +81,7 @@ describe('useAlreadySignedIn', () => {
 
     it('auto-redirects when the last exit note is too old to be a bounce', () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt('/openstax/dashboard', Date.now() - 60_000)
+        noteExitAttempt(Date.now() - 60_000)
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
@@ -91,26 +91,27 @@ describe('useAlreadySignedIn', () => {
         expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
     })
 
-    it('auto-redirects when the last exit note is for a different target', () => {
-        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard')
-        noteExitAttempt('/openstax/study/42')
-        mockSignedInUser()
-        const navigate = spyOnHardNavigation()
-
-        const { result } = renderHook(() => useAlreadySignedIn())
-
-        expect(result.current.status).toBe('redirecting')
-        expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
-    })
-
-    it('notes the target it leaves for so the next mount can recognize a bounce', () => {
+    it('notes the exit it makes so the next mount can recognize a bounce', () => {
         mockSignedInUser()
         spyOnHardNavigation()
 
         const { result } = renderHook(() => useAlreadySignedIn())
         act(() => result.current.continueToApp())
 
-        expect(sessionStorage.getItem(EXIT_ATTEMPT_KEY)).toContain(`:${Routes.dashboard}`)
+        expect(Date.now() - Number(sessionStorage.getItem(EXIT_ATTEMPT_KEY))).toBeLessThan(1000)
+    })
+
+    // The note only ever suppresses the automatic redirect. Without a redirect_url there is nothing to
+    // suppress, so a warm note must not hide the prompt from a user who came to this page on purpose.
+    it('still shows the prompt after a bounce when no redirect_url came back with it', () => {
+        noteExitAttempt()
+        mockSignedInUser()
+        const navigate = spyOnHardNavigation()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+
+        expect(result.current.status).toBe('signed-in')
+        expect(navigate).not.toHaveBeenCalled()
     })
 
     it('shows the prompt instead of auto-redirecting when redirect_url is unsafe', () => {
