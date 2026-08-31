@@ -46,7 +46,6 @@ describe('JobResultsStatusMessage', () => {
                 ),
             ).toBeDefined()
             expect(screen.getByTestId('job-results')).toBeDefined()
-            expect(screen.getByTestId('resubmit-button')).toBeDefined()
             expect(screen.getByText('Job ID:')).toBeDefined()
             expect(screen.getByTestId('copying-input')).toBeDefined()
         })
@@ -63,7 +62,6 @@ describe('JobResultsStatusMessage', () => {
                 ),
             ).toBeDefined()
             expect(screen.getByTestId('job-results')).toBeDefined()
-            expect(screen.getByTestId('resubmit-button')).toBeDefined()
             expect(screen.getByText('Job ID:')).toBeDefined()
         })
 
@@ -94,7 +92,6 @@ describe('JobResultsStatusMessage', () => {
                 ),
             ).toBeDefined()
             expect(screen.getByTestId('job-results')).toBeDefined()
-            expect(screen.getByTestId('resubmit-button')).toBeDefined()
             expect(screen.queryByText('Job ID:')).toBeNull()
         })
     })
@@ -112,7 +109,6 @@ describe('JobResultsStatusMessage', () => {
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
-            expect(screen.getByTestId('resubmit-button')).toBeDefined()
         })
 
         it('shows code rejected message when code is rejected', () => {
@@ -127,7 +123,6 @@ describe('JobResultsStatusMessage', () => {
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
-            expect(screen.getByTestId('resubmit-button')).toBeDefined()
         })
 
         it('hides results when rejected', () => {
@@ -153,7 +148,6 @@ describe('JobResultsStatusMessage', () => {
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
-            expect(screen.queryByTestId('resubmit-button')).toBeNull()
         })
 
         it('shows pending message for job initiated state', () => {

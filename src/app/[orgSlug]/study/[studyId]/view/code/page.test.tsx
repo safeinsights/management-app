@@ -81,7 +81,6 @@ describe('StudyViewCode (/view/code)', () => {
             searchParams: Promise.resolve({ returnTo: 'org' }),
         })
 
-        expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
         expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
     })
 

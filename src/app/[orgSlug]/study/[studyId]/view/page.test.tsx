@@ -206,7 +206,8 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
+            // returnTo=org still reaches the view — it now arrives as the nav's exit destination.
+            expect(page?.props.nav.forward.href).toBe(`/${org.slug}/dashboard`)
         })
 
         it('renders CodePostSubmissionView when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW gate)', async () => {
