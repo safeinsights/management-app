@@ -198,6 +198,27 @@ describe('EditInitialRequestSection autosave indicators (OTTER-748)', () => {
         expect(screen.getByText(STUDY_TITLE_OVER_LIMIT_ERROR)).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
+
+    // This page suppresses the indicator by gating the status rather than by hiding a mounted
+    // indicator with `isVisible`, and the two are not interchangeable here: one announcer speaks
+    // for all three fields, so a status of 'saved' behind an error would have it read "All changes
+    // saved" while the error is on screen. Nothing is discarded either way, which is what this
+    // asserts: the label and the announcement both come back once the field is valid again.
+    it('takes the title indicator and the announcement back once the error clears', async () => {
+        const provider = await renderSection()
+
+        editField.title()
+        reportSaveCycle(provider)
+        typeTitle('x'.repeat(61))
+        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+        expect(screen.getByTestId('autosave-announcer')).toBeEmptyDOMElement()
+
+        typeTitle('A title back inside the limit')
+
+        expect(screen.queryByText(STUDY_TITLE_OVER_LIMIT_ERROR)).not.toBeInTheDocument()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+        expect(screen.getByTestId('autosave-announcer')).toHaveTextContent('All changes saved')
+    })
 })
 
 describe('EditInitialRequestSection autosave announcements (OTTER-675)', () => {
