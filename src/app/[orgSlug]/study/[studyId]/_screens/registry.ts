@@ -14,6 +14,7 @@ import { ReviewerCodeFeedbackScreen } from './reviewer-code-feedback-screen'
 import { OutputsPendingScreen } from './outputs-pending-screen'
 import { OutputsFeedbackScreen } from './outputs-feedback-screen'
 import { OutputsErroredSharedScreen } from './outputs-errored-shared-screen'
+import { OutputsSharedScreen } from './outputs-shared-screen'
 import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
@@ -35,6 +36,7 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'outputs-pending': OutputsPendingScreen,
     'outputs-feedback': OutputsFeedbackScreen,
     'outputs-errored-shared': OutputsErroredSharedScreen,
+    'outputs-shared': OutputsSharedScreen,
     'study-overview': StudyOverviewScreen,
     'reviewer-proposal-review': ReviewerProposalReviewScreen,
     'reviewer-proposal-feedback': ReviewerProposalFeedbackScreen,

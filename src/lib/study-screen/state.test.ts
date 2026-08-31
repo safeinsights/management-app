@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { RawStudyState, RawJob } from './state.types'
-import { projectStudyState, runErrored } from './state'
+import {
+    isErroredOutputsSharedOutcome,
+    isFeedbackOnlyOutcome,
+    isOutputsSharedOutcome,
+    projectStudyState,
+    runErrored,
+} from './state'
 
 const job = (id: string, statuses: string[]): RawJob => ({
     id,
@@ -242,5 +248,73 @@ describe('runErrored', () => {
         expect(runErrored(job(ID1, ['JOB-ERRORED', 'RUN-COMPLETE']).statusChanges)).toBe(false)
         expect(runErrored(job(ID1, ['RUN-COMPLETE']).statusChanges)).toBe(false)
         expect(runErrored(job(ID1, ['CODE-SUBMITTED']).statusChanges)).toBe(false)
+    })
+})
+
+// The three outputs-decision predicates split the reviewer's decision between three researcher
+// screens. What matters is not only each one's truth table but that no two ever claim the same
+// state — otherwise the rule table's ORDER would silently decide which screen renders, and a future
+// reorder would move users between pages. Driven off the projection rather than hand-built
+// StudyState literals so a change in how the FILES-*/JOB-ERRORED rows project is caught here too.
+describe('outputs-decision predicates are disjoint', () => {
+    const claims = (statuses: string[]) => {
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, ['CODE-SUBMITTED', ...statuses])] }))
+        return {
+            shared: isOutputsSharedOutcome(s),
+            erroredShared: isErroredOutputsSharedOutcome(s),
+            feedbackOnly: isFeedbackOnlyOutcome(s),
+        }
+    }
+
+    it('clean run + shared outputs → outputs-shared only', () => {
+        expect(claims(['RUN-COMPLETE', 'FILES-APPROVED'])).toEqual({
+            shared: true,
+            erroredShared: false,
+            feedbackOnly: false,
+        })
+    })
+
+    it('errored run + shared outputs → errored-shared only', () => {
+        expect(claims(['JOB-ERRORED', 'FILES-APPROVED'])).toEqual({
+            shared: false,
+            erroredShared: true,
+            feedbackOnly: false,
+        })
+    })
+
+    it('feedback only → feedback-only, on a clean or an errored run', () => {
+        expect(claims(['RUN-COMPLETE', 'FILES-REJECTED'])).toEqual({
+            shared: false,
+            erroredShared: false,
+            feedbackOnly: true,
+        })
+        expect(claims(['JOB-ERRORED', 'FILES-REJECTED'])).toEqual({
+            shared: false,
+            erroredShared: false,
+            feedbackOnly: true,
+        })
+    })
+
+    it('an undecided run is claimed by none of them', () => {
+        expect(claims(['RUN-COMPLETE'])).toEqual({ shared: false, erroredShared: false, feedbackOnly: false })
+        expect(claims(['JOB-ERRORED'])).toEqual({ shared: false, erroredShared: false, feedbackOnly: false })
+    })
+
+    // Unreachable via submitOutputsDecisionAction, which refuses a second decision on a job, but the
+    // QA status route and the legacy approve/reject actions can write both rows.
+    it('a job carrying BOTH FILES-* rows is claimed by feedback-only alone, never outputs-shared', () => {
+        expect(claims(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'])).toEqual({
+            shared: false,
+            erroredShared: false,
+            feedbackOnly: true,
+        })
+    })
+
+    // The one overlap this card does not own: an errored job with both rows. Pinned so the ambiguity
+    // is visible, and so a future change to either predicate has to acknowledge it.
+    it('documents the one remaining overlap: errored + both FILES-* rows', () => {
+        const both = claims(['JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED'])
+        expect(both.shared).toBe(false)
+        expect([both.erroredShared, both.feedbackOnly]).toEqual([true, true])
     })
 })

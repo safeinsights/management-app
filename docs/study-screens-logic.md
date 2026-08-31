@@ -135,27 +135,38 @@ raw jobs.
 
 **Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                             | Screen                   |
-| --- | -------------------------------------------------------------------------------- | ------------------------ |
-| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)            | `outputs-errored-shared` |
-| 2   | `resultsRejected`                                                                | `outputs-feedback`       |
-| 3   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`          |
-| 4   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`        |
-| 5   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`          |
-| 6   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`          |
-| 7   | `codeAwaitingDecision`                                                           | `code-under-review`      |
-| 8   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback`      |
-| 9   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`         |
-| 10  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback`      |
-| 11  | `isDraft`                                                                        | `study-overview`         |
-| 12  | fallback                                                                         | `study-overview`         |
+| #   | When                                                                                | Screen                   |
+| --- | ----------------------------------------------------------------------------------- | ------------------------ |
+| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)               | `outputs-errored-shared` |
+| 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`       |
+| 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`         |
+| 4   | `hasResults && !awaitingFilesDecisionOnError`                                       | `study-results`          |
+| 5   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                   | `outputs-pending`        |
+| 6   | `codeDecision === 'CODE-APPROVED'`                                                  | `code-approved`          |
+| 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`          |
+| 8   | `codeAwaitingDecision`                                                              | `code-under-review`      |
+| 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`      |
+| 10  | `status === 'PENDING-REVIEW'`                                                       | `study-overview`         |
+| 11  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code)    | `proposal-feedback`      |
+| 12  | `isDraft`                                                                           | `study-overview`         |
+| 13  | fallback                                                                            | `study-overview`         |
 
-Researcher precedence note (OTTER-695, OTTER-697, OTTER-696): the two outputs-decision rules sit above
-`study-results` because a recorded `FILES-*` decision clears `awaitingFilesDecisionOnError`, so
-`study-results` (#3) would otherwise claim every decided run. They split the decision by run
-outcome: #1 is an errored run whose outputs were **shared** (the researcher decrypts to diagnose),
-#2 is an errored or clean run whose outputs were **withheld**. A clean run whose outputs were
-**shared** still falls through to `study-results` (#3).
+Researcher precedence note (OTTER-695, OTTER-696, OTTER-697, OTTER-688): the three outputs-decision
+rules sit above `study-results` because a recorded `FILES-*` decision clears
+`awaitingFilesDecisionOnError`, so `study-results` (#4) would otherwise claim every decided run. They
+split the decision across run outcome × decision: #1 is an errored run whose outputs were **shared**
+(the researcher decrypts to diagnose), #2 is an errored or clean run whose outputs were **withheld**,
+#3 is a clean run whose outputs were **shared**. #1 and #3 render the same `SharedOutputsPanel` and
+differ only in banner copy. `study-results` (#4) is left with exactly one researcher state: an
+undecided `RUN-COMPLETE`, waiting on the reviewer.
+
+The three predicates are **mutually disjoint** (see `isOutputsSharedOutcome`), so their order relative
+to each other carries no meaning — only their position above `study-results` does. That matters for a
+job carrying BOTH `FILES-*` rows, which `submitOutputsDecisionAction` refuses but the QA status route
+and the legacy approve/reject actions can write: `isOutputsSharedOutcome` excludes `resultsRejected`
+so #2 keeps it, agreeing with the pill, which reads Rejected (`DISPLAY_STATUS_PRIORITY` ranks
+`FILES-REJECTED` first). The one overlap left is an errored job with both rows, where #1 and #2 both
+match and order does decide; `state.test.ts` pins it.
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):

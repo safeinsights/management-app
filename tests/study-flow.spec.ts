@@ -502,6 +502,42 @@ async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 }
 
+// OTTER-688: a clean run whose outputs the reviewer shared routes the researcher to their own
+// outputs step, replacing the old inline "results have been approved" panel. Unlike the errored
+// sibling this drives the decrypt all the way through: the reviewer leg above shares for real, so
+// insertSharedFileKeys has written keys wrapped to the lab's public key, and every seeded role
+// shares public_key.pem (bin/seed-environment.ts) — so private_key.pem genuinely opens them. That
+// makes this the only end-to-end check of the server/client boundary on this screen; the unit tests
+// render the server component in-process, with no serialization step to get wrong.
+async function verifyOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
+    await visitAsRole(page, RESEARCHER_DASHBOARD)
+    await viewStudyDetails(page, studyTitle)
+
+    await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
+    await expect(page.getByText(/Decrypt to view your outputs/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
+
+    // Pre-decryption: the terminal actions are not in the DOM yet.
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
+
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
+    await expect(privateKeyTextarea).toBeVisible()
+    await privateKeyTextarea.fill(await readTestSupportFile('private_key.pem'))
+
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
+
+    // Post-decryption: success banner, the outputs table, and all three nav actions.
+    await expect(page.getByText(/Outputs and feedback available/i)).toBeVisible()
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -638,9 +674,7 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 
     await withRole(browser, 'researcher', async (page) => {
-        await visitAsRole(page, RESEARCHER_DASHBOARD)
-        await viewStudyDetails(page, studyTitle)
-        await expect(page.getByText(/results of your study have been approved/i)).toBeVisible()
+        await verifyOutputsSharedDisplay(page, studyTitle)
     })
 })
 

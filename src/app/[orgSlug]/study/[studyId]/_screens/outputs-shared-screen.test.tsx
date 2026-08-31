@@ -19,32 +19,29 @@ import { displayOrgName } from '@/lib/string'
 import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
-import { OutputsErroredSharedScreen } from './outputs-errored-shared-screen'
+import { OutputsSharedScreen } from './outputs-shared-screen'
 import type { ScreenComponentProps } from './types'
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
-const ERRORED_AT = new Date('2026-07-02T12:00:00Z')
+const COMPLETED_AT = new Date('2026-07-02T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
 const DASHBOARD_HREF = '/dashboard'
 
 const BANNER_BODY = (dataPartner: string) =>
-    `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
+    `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`
 
 const renderScreen = async (
     study: ScreenComponentProps['study'],
     raw: RawStudyState,
     orgSlug: string,
     returnTo?: 'org',
-) =>
-    renderWithProviders(
-        await OutputsErroredSharedScreen({ study, raw, orgSlug, dashboardHref: DASHBOARD_HREF, returnTo }),
-    )
+) => renderWithProviders(await OutputsSharedScreen({ study, raw, orgSlug, dashboardHref: DASHBOARD_HREF, returnTo }))
 
-// Errored run + "Share outputs and feedback": JOB-ERRORED plus FILES-APPROVED and a RESULTS
-// decision comment (OTTER-696).
-const setupErroredShared = async ({ withNote = false }: { withNote?: boolean } = {}) => {
+// Clean run + "Share outputs and feedback": RUN-COMPLETE plus FILES-APPROVED and a RESULTS decision
+// comment (OTTER-688).
+const setupOutputsShared = async ({ withNote = false }: { withNote?: boolean } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
@@ -66,7 +63,7 @@ const setupErroredShared = async ({ withNote = false }: { withNote?: boolean } =
         .execute()
     await db
         .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'JOB-ERRORED', createdAt: ERRORED_AT })
+        .values({ studyJobId: job.id, status: 'RUN-COMPLETE', createdAt: COMPLETED_AT })
         .execute()
     await db
         .insertInto('jobStatusChange')
@@ -81,7 +78,7 @@ const setupErroredShared = async ({ withNote = false }: { withNote?: boolean } =
             reviewKind: 'RESULTS',
             entryType: 'DECISION',
             decision: 'APPROVE',
-            body: JSON.parse(lexicalJson('The run failed on the join; the logs are in the outputs.')),
+            body: JSON.parse(lexicalJson('Reviewed and approved. The results meet the study criteria.')),
             round: 1,
             createdAt: DECIDED_AT,
         })
@@ -100,31 +97,45 @@ const setupErroredShared = async ({ withNote = false }: { withNote?: boolean } =
     return { org, user, study, raw, job }
 }
 
-describe('OutputsErroredSharedScreen', () => {
-    // Copy and variant are the panel's contract (see shared-outputs-panel.test.tsx); the
-    // screen's own job is wiring — that it hands down THIS study's title, partner and decision date.
+describe('OutputsSharedScreen', () => {
+    // The two-phase behaviour — banner swap, live-region identity, key form removal, outputs table,
+    // post-decryption nav — is the panel's contract and is covered in shared-outputs-panel.test.tsx.
+    // What is this screen's own job is the wiring: THIS study's title, partner, decision date and
+    // routing predicate.
     it('wires the page header and the study title through to the section header', async () => {
-        const { org, study, raw } = await setupErroredShared()
+        const { org, study, raw } = await setupOutputsShared()
         await renderScreen(study, raw, org.slug)
 
         expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent(study.title!)
+        const header = screen.getByTestId('proposal-section-header')
+        expect(header).toHaveTextContent('STEP 4')
+        expect(header).toHaveTextContent('Verify outputs')
+        expect(header).toHaveTextContent(study.title!)
     })
 
-    it('dates the banner from the FILES-APPROVED decision — not the error, code approval, or today — and names the partner', async () => {
-        const { org, study, raw } = await setupErroredShared()
+    it('renders the pre-decryption action banner with this card’s copy and the partner name', async () => {
+        const { org, study, raw } = await setupOutputsShared()
         await renderScreen(study, raw, org.slug)
 
         const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveAttribute('data-variant', 'action')
+        expect(alert).toHaveTextContent('Decrypt to view your outputs')
         expect(alert).toHaveTextContent(BANNER_BODY(displayOrgName(org.name)))
+    })
+
+    it('dates the banner from the FILES-APPROVED decision — not the run, code approval, or today', async () => {
+        const { org, study, raw } = await setupOutputsShared()
+        await renderScreen(study, raw, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
-        expect(alert).not.toHaveTextContent(dayjs(ERRORED_AT).format('MMM DD, YYYY'))
+        expect(alert).not.toHaveTextContent(dayjs(COMPLETED_AT).format('MMM DD, YYYY'))
         expect(alert).not.toHaveTextContent(dayjs(APPROVED_AT).format('MMM DD, YYYY'))
         expect(alert).not.toHaveTextContent(dayjs(new Date()).format('MMM DD, YYYY'))
     })
 
     it('degrades to an undated banner when the payload job carries no dated FILES-APPROVED row', async () => {
-        const { org, study, raw } = await setupErroredShared()
+        const { org, study, raw } = await setupOutputsShared()
         // Strip only the timestamp: routing still lands here, but the payload cannot date the banner.
         const undated = {
             ...raw,
@@ -136,17 +147,17 @@ describe('OutputsErroredSharedScreen', () => {
         await renderScreen(study, undated, org.slug)
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Decrypt outputs to view code error')
+        expect(alert).toHaveTextContent('Decrypt to view your outputs')
         expect(alert).not.toHaveTextContent('•')
     })
 
     it("renders the reused feedback-and-notes section with this study's outputs feedback", async () => {
-        const { org, user, study, raw } = await setupErroredShared({ withNote: true })
+        const { org, user, study, raw } = await setupOutputsShared({ withNote: true })
         await renderScreen(study, raw, org.slug)
 
         const section = screen.getByTestId('feedback-and-notes-section')
         expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
-        expect(section).toHaveTextContent('The run failed on the join; the logs are in the outputs.')
+        expect(section).toHaveTextContent('Reviewed and approved. The results meet the study criteria.')
         expect(section).toHaveTextContent('Resubmission note (v1.0)')
         expect(section).toHaveTextContent('Adjusted the aggregation query.')
         expect(section).toHaveTextContent(user.fullName)
@@ -154,7 +165,7 @@ describe('OutputsErroredSharedScreen', () => {
     })
 
     it("shows only this study's feedback, not another study's", async () => {
-        const { org, user, study, raw } = await setupErroredShared()
+        const { org, user, study, raw } = await setupOutputsShared()
         const { study: otherStudy, job: otherJob } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
@@ -176,12 +187,12 @@ describe('OutputsErroredSharedScreen', () => {
 
         await renderScreen(study, raw, org.slug)
 
-        expect(screen.getByText('The run failed on the join; the logs are in the outputs.')).toBeInTheDocument()
+        expect(screen.getByText('Reviewed and approved. The results meet the study criteria.')).toBeInTheDocument()
         expect(screen.queryByText('Feedback that belongs to the other study.')).not.toBeInTheDocument()
     })
 
     it('does not surface code-review feedback in the outputs thread', async () => {
-        const { org, user, study, raw, job } = await setupErroredShared()
+        const { org, user, study, raw, job } = await setupOutputsShared()
         await db
             .insertInto('studyReviewComment')
             .values({
@@ -202,7 +213,7 @@ describe('OutputsErroredSharedScreen', () => {
     })
 
     it('renders the key gate and points Previous step at this study', async () => {
-        const { org, study, raw } = await setupErroredShared()
+        const { org, study, raw } = await setupOutputsShared()
         await renderScreen(study, raw, org.slug)
 
         expect(await screen.findByTestId('security-key-form')).toBeInTheDocument()
@@ -213,7 +224,7 @@ describe('OutputsErroredSharedScreen', () => {
     })
 
     it('passes returnTo through to the Previous step link', async () => {
-        const { org, study, raw } = await setupErroredShared()
+        const { org, study, raw } = await setupOutputsShared()
         await renderScreen(study, raw, org.slug, 'org')
 
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
@@ -238,7 +249,7 @@ describe('OutputsErroredSharedScreen', () => {
             studyStatus: 'DRAFT',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const raw = await requireRawState(dbStudy.id)
@@ -249,9 +260,9 @@ describe('OutputsErroredSharedScreen', () => {
         expect(screen.getByText('No submission found')).toBeInTheDocument()
     })
 
-    // Adjacent outcomes that must NOT route here. The clean-run share is the closest: since OTTER-688
-    // it owns a near-identical outputs-and-feedback page built from the same panel, so cross-routing
-    // would be silent apart from the banner copy.
+    // Adjacent outcomes that must NOT route here. The errored share is the closest: it renders a
+    // near-identical outputs-and-feedback page from the same panel, so cross-routing would be silent
+    // apart from the banner copy.
     const renderWithStatuses = async (statuses: StudyJobStatus[]) => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
         const { study: dbStudy, job } = await insertTestStudyJobData({
@@ -269,9 +280,12 @@ describe('OutputsErroredSharedScreen', () => {
     }
 
     it.each([
-        ['an errored run still awaiting the reviewer files decision', ['JOB-ERRORED']],
-        ['a clean approved run, which has its own outputs-shared screen', ['RUN-COMPLETE', 'FILES-APPROVED']],
-        ['an errored run decided feedback-only', ['JOB-ERRORED', 'FILES-REJECTED']],
+        ['a completed run still awaiting the reviewer files decision', ['RUN-COMPLETE']],
+        ['an errored run whose outputs were shared, which has its own screen', ['JOB-ERRORED', 'FILES-APPROVED']],
+        ['a clean run decided feedback-only', ['RUN-COMPLETE', 'FILES-REJECTED']],
+        // Both FILES-* rows on one job: isOutputsSharedOutcome excludes resultsRejected so the
+        // conservative feedback-only screen keeps it, agreeing with the pill, which reads Rejected.
+        ['a job carrying both files decisions', ['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED']],
     ] as [string, StudyJobStatus[]][])('guards against rendering for %s', async (_label, statuses) => {
         await renderWithStatuses(statuses)
 
