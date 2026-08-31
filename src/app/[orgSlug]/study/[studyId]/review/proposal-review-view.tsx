@@ -7,13 +7,10 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
-import { Routes } from '@/lib/routes'
 import { ReviewSubmissionListener } from './review-submission-listener'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
 import { Button, Group, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { CaretLeftIcon } from '@phosphor-icons/react'
-import { useRouter } from 'next/navigation'
 import { useState, type FC } from 'react'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -36,29 +33,26 @@ function useProposalReview({
     studyId,
     tabSessionId,
     reviewVersion,
+    submittingLabName,
 }: {
     orgSlug: string
     studyId: string
     tabSessionId: string
     reviewVersion: number
+    submittingLabName: string
 }) {
-    const feedback = useReviewFeedback()
+    const feedback = useReviewFeedback(`Enter your decision for ${submittingLabName} before submitting.`)
     const decision = useReviewDecision()
-    const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
 
-    const canSubmit = feedback.isValid && decision.selected !== null
-    const backPath = Routes.orgDashboard({ orgSlug })
-
     const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug, tabSessionId, reviewVersion })
 
-    const handleBack = () => {
-        router.push(backPath)
-    }
+    const handleSubmit = async () => {
+        const feedbackError = await feedback.onBlur()
+        const decisionError = await decision.onBlur()
 
-    const handleSubmit = () => {
-        if (decision.selected === null) {
+        if (feedbackError || !feedback.isValid || decisionError || decision.selected === null) {
             return
         }
 
@@ -79,8 +73,6 @@ function useProposalReview({
     return {
         feedback,
         decision,
-        canSubmit,
-        handleBack,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -93,23 +85,18 @@ function useProposalReview({
 
 type ReviewActionsBarProps = {
     study: StudyForReview
-    canSubmit: boolean
     isPending: boolean
-    onBack: () => void
     onSubmit: () => void
 }
 
-const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPending, onBack, onSubmit }) => {
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isPending, onSubmit }) => {
     if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
     return (
-        <Group justify="space-between">
-            <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
-                Back
-            </Button>
-            <Button disabled={!canSubmit || isPending} onClick={onSubmit}>
-                Submit review
+        <Group justify="flex-end">
+            <Button disabled={isPending} onClick={onSubmit}>
+                Submit decision
             </Button>
         </Group>
     )
@@ -134,8 +121,6 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
     const {
         feedback,
         decision,
-        canSubmit,
-        handleBack,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -143,7 +128,13 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
         closeReject,
         handleConfirmSubmit,
         isPending,
-    } = useProposalReview({ orgSlug, studyId: study.id, tabSessionId, reviewVersion })
+    } = useProposalReview({
+        orgSlug,
+        studyId: study.id,
+        tabSessionId,
+        reviewVersion,
+        submittingLabName: study.submittingLabName,
+    })
     const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
     return (
@@ -174,15 +165,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 />
             }
             decision={<ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />}
-            actions={
-                <ReviewActionsBar
-                    study={study}
-                    canSubmit={canSubmit}
-                    isPending={isPending}
-                    onBack={handleBack}
-                    onSubmit={handleSubmit}
-                />
-            }
+            actions={<ReviewActionsBar study={study} isPending={isPending} onSubmit={handleSubmit} />}
             modals={
                 <>
                     <ReviewConfirmationModal

@@ -14,7 +14,9 @@ const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, RE
  * Emptiness is measured trimmed and so is the cap, through `countCharactersFromLexical`, so the
  * counter beside the field and the rule that gates it agree (OTTER-737).
  */
-export function useReviewFeedback() {
+const DEFAULT_EMPTY_ERROR = 'Feedback is required.'
+
+export function useReviewFeedback(emptyError: string = DEFAULT_EMPTY_ERROR) {
     // No `validateOnBlur`: see the note in `use-review-decision`. This hook exposes `onBlur`
     // rather than spreading `getInputProps`, which is the only place Mantine reads that option.
     //
@@ -26,7 +28,7 @@ export function useReviewFeedback() {
     // deriving it below gives, the same way `use-outputs-decision` does it.
     const field = useField<string>({
         initialValue: '',
-        validate: (value) => (isBlank(value) ? 'Feedback is required.' : null),
+        validate: (value) => (isBlank(value) ? emptyError : null),
     })
 
     const value = field.getValue()

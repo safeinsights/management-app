@@ -80,7 +80,7 @@ describe('EditorSurface', () => {
         renderWithProviders(<SingleUserEditor id="doc-error" ariaLabel="Impact" error="Required" />)
 
         expect(editable()).toHaveAttribute('aria-invalid', 'true')
-        expect(surface().style.borderColor).toBe('var(--mantine-color-red-filled)')
+        expect(surface().style.borderColor).toBe('var(--mantine-color-red-10)')
     })
 
     it('renders no placeholder when the caller passes none', () => {

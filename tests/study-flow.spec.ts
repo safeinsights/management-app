@@ -256,7 +256,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
         .getByRole('radio', { name: /^Approve$/i })
         .check()
 
-    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
+    const submitReview = page.getByRole('button', { name: /^Submit decision$/i })
     await expect(submitReview).toBeEnabled()
     await submitReview.click()
 
@@ -691,7 +691,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
             .getByRole('radio', { name: /^Reject$/i })
             .check()
 
-        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
         await dialog.getByRole('button', { name: /^Reject initial request$/i }).click()
@@ -750,7 +750,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
             .getByRole('radio', { name: /Request revision/i })
             .check()
 
-        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
         await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
@@ -808,7 +808,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         // ProposalReviewView re-opens with a fresh decision section.
         await goto(page, `/openstax/study/${studyId}/review`)
         await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
-        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
     })
 })
 
@@ -951,7 +951,7 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await expect(page.getByText('Impact', { exact: true })).toBeVisible()
         await expect(page.getByText('Principal Investigator', { exact: true })).toBeVisible()
 
-        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
         const decisionSection = page.getByTestId('review-decision-section')
         await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
         await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()

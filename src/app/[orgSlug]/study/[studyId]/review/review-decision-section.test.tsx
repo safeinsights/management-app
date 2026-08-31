@@ -140,35 +140,32 @@ describe('ReviewDecisionSection', () => {
         expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
     })
 
-    // Radio.Group's context does not carry `error` to its children, so the message turned red
-    // while the circles stayed grey and the invalid options were unmarked (OTTER-647).
-    it('marks the radio circles invalid, not just the message', async () => {
+    it('shows the empty error above the options without marking the radios', async () => {
         const user = userEvent.setup()
         renderWithProviders(<Wrapper study={study} withLeaveButton />)
 
-        expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
-
         await user.click(screen.getByRole('button', { name: 'leave the group' }))
 
-        expect(await screen.findByText('Select a decision to continue.')).toBeInTheDocument()
-        expect(screen.getByRole('radio', { name: /Approve/ })).toHaveAttribute('data-error', 'true')
-        expect(screen.getByRole('radio', { name: /Decline and end study/ })).toHaveAttribute('data-error', 'true')
+        const error = await screen.findByText('Select an option before submitting.')
+        const firstRadio = screen.getByRole('radio', { name: /Approve/ })
+        expect(error.compareDocumentPosition(firstRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(error.parentElement?.querySelector('svg')).toBeInTheDocument()
+        expect(firstRadio).not.toHaveAttribute('data-error')
+        expect(screen.getByRole('radio', { name: /Decline and end study/ })).not.toHaveAttribute('data-error')
     })
 
-    it('clears the circles once a decision is picked', async () => {
+    it('clears the error once a decision is picked', async () => {
         const user = userEvent.setup()
         renderWithProviders(<Wrapper study={study} withLeaveButton />)
 
         await user.click(screen.getByRole('button', { name: 'leave the group' }))
-        await screen.findByText('Select a decision to continue.')
+        await screen.findByText('Select an option before submitting.')
 
         await user.click(screen.getByRole('radio', { name: /Approve/ }))
 
-        expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
+        expect(screen.queryByText('Select an option before submitting.')).not.toBeInTheDocument()
     })
 
-    // An aria-label on Radio.Group lands on the roleless outer wrapper, leaving the
-    // role="radiogroup" element unnamed. A rendered (visually hidden) label is what names it.
     it('gives the decision radiogroup an accessible name', () => {
         renderWithProviders(<Wrapper study={study} />)
 

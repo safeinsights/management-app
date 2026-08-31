@@ -102,8 +102,8 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     // which left the message out of `aria-describedby`.
     return (
         <Group component="span" gap="xs">
-            <WarningCircleIcon size={14} color={theme.colors.red[7]} weight="fill" />
-            <Text c="red.7" size="sm" component="span">
+            <WarningCircleIcon size={14} color={theme.colors.red[10]} weight="fill" />
+            <Text c="red.10" size="sm" component="span">
                 {error}
             </Text>
         </Group>

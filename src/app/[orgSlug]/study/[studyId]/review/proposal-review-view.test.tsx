@@ -54,16 +54,16 @@ describe('ProposalReviewView', () => {
         expect(screen.queryByText(/Test Study Title/)).not.toBeInTheDocument()
     })
 
-    it('renders the back button', () => {
+    it('does not render a back button', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('button', { name: /Back/ })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
     })
 
-    it('renders submit review as disabled initially', () => {
+    it('renders submit decision as enabled initially', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Submit decision' })).toBeEnabled()
     })
 
     describe('needs-clarification', () => {
@@ -80,7 +80,7 @@ describe('ProposalReviewView', () => {
             expect(requestRevision).toBeChecked()
         })
 
-        it('keeps submit disabled when needs-clarification is selected without valid feedback', async () => {
+        it('keeps submit enabled when needs-clarification is selected without valid feedback', async () => {
             const user = userEvent.setup()
             renderWithProviders(
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
@@ -88,7 +88,7 @@ describe('ProposalReviewView', () => {
 
             await user.click(screen.getByRole('radio', { name: /Request revision/ }))
 
-            expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+            expect(screen.getByRole('button', { name: 'Submit decision' })).toBeEnabled()
         })
     })
 
@@ -207,8 +207,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit decision' })).not.toBeInTheDocument()
         })
 
         it('hides decision section and action bar when study is REJECTED', () => {
@@ -218,8 +217,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit decision' })).not.toBeInTheDocument()
         })
 
         it('hides decision section and action bar when study is CHANGE-REQUESTED', () => {
@@ -234,8 +232,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit decision' })).not.toBeInTheDocument()
         })
     })
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { Box, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
+import { InputError } from '@/components/errors'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
@@ -40,9 +41,8 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
         decision.onSelect(value as Decision)
     }
 
-    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
-    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
-    // applies Mantine's error styling without adding a second message (OTTER-647).
+    const errorNode = decision.error ? <InputError error={decision.error} /> : undefined
+
     const radioOptions = buildDecisionOptions(labName).map((option) => (
         <Radio
             key={option.value}
@@ -54,25 +54,23 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
                 </Text>
             }
             styles={RADIO_STYLES}
-            error={!!decision.error}
         />
     ))
 
     return (
         <Box data-testid="review-decision-section">
-            {/* Blur is a bubbled focusout, so moving between radios would validate a still
-                empty group; useWidgetBlur waits for the user to leave it (OTTER-647). */}
-            {/* The group's name is required by AT but is not drawn in the design, so the label is
-                visually hidden rather than dropped. A real `label`, not `aria-label`: Radio.Group
-                names the element carrying role="radiogroup" from its rendered label, and strands a
-                hand-passed `aria-label` on the roleless outer wrapper. */}
+            {/* Native blur would fire when moving between radios.
+                Radio.Group only names the radiogroup from a rendered label, not aria-label.
+                Default inputWrapperOrder puts the error under the last option. */}
             <Radio.Group
                 value={decision.selected ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
                 name="review-decision"
                 label={<VisuallyHidden>Decision</VisuallyHidden>}
-                error={decision.error}
+                styles={{ label: { position: 'absolute' }, error: { marginBottom: 24 } }}
+                error={errorNode}
+                inputWrapperOrder={['label', 'description', 'error', 'input']}
             >
                 <Stack gap="md">{radioOptions}</Stack>
             </Radio.Group>

@@ -12,7 +12,7 @@ export function useReviewDecision() {
     // through the exposed `onBlur`, so the option would imply wiring that does not exist.
     const field = useField<Decision | null>({
         initialValue: null,
-        validate: (value) => (value === null ? 'Select a decision to continue.' : null),
+        validate: (value) => (value === null ? 'Select an option before submitting.' : null),
     })
 
     return {

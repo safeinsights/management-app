@@ -136,7 +136,7 @@ describe('useReviewFeedback', () => {
         expect(result.current.isValid).toBe(false)
     })
 
-    it('raises a required error when blurred while empty', async () => {
+    it('raises the default required error when blurred while empty', async () => {
         const { result } = renderHook(() => useReviewFeedback())
 
         await act(async () => {
@@ -144,6 +144,18 @@ describe('useReviewFeedback', () => {
         })
 
         expect(result.current.error).toBe('Feedback is required.')
+    })
+
+    it('raises a custom empty error when one is provided', async () => {
+        const { result } = renderHook(() =>
+            useReviewFeedback('Enter your decision for Rice University before submitting.'),
+        )
+
+        await act(async () => {
+            await result.current.onBlur()
+        })
+
+        expect(result.current.error).toBe('Enter your decision for Rice University before submitting.')
     })
 
     it('clears the error once feedback is written', async () => {
