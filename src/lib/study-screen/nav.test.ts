@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { Route } from 'next'
 import type { StudyState } from './state.types'
 import type { ResearcherScreenId } from './screens'
-import { RESEARCHER_STEP_NAV, resolveStepNav, type NavCtx, type StepNav } from './nav'
+import {
+    RESEARCHER_STEP_NAV,
+    REVIEWER_STEP_NAV,
+    resolveReviewerStepNav,
+    resolveStepNav,
+    type NavCtx,
+    type StepNav,
+} from './nav'
 
 const state = (overrides: Partial<StudyState>): StudyState => ({
     status: 'DRAFT',
@@ -33,8 +40,7 @@ const ctx: NavCtx = { orgSlug: 'lab', studyId: STUDY_ID, dashboardHref: '/dashbo
 
 const base = `/lab/study/${STUDY_ID}`
 const labels = (nav: StepNav) => [nav.back?.label, nav.secondary?.label, nav.forward?.label]
-const solids = (nav: StepNav) =>
-    [nav.back, nav.secondary, nav.forward].filter((a) => a?.variant === 'solid').length
+const solids = (nav: StepNav) => [nav.back, nav.secondary, nav.forward].filter((a) => a?.variant === 'solid').length
 
 describe('resolveStepNav — spec pattern invariants', () => {
     // "Every state contains one solid button to ensure the user never encounters a dead end."
@@ -160,7 +166,11 @@ describe('resolveStepNav — code phase', () => {
     })
 
     it('code revision requested → "Edit code" is the forward action', () => {
-        const nav = resolveStepNav('code-feedback', state({ ...submitted, codeDecision: 'CODE-CHANGES-REQUESTED' }), ctx)
+        const nav = resolveStepNav(
+            'code-feedback',
+            state({ ...submitted, codeDecision: 'CODE-CHANGES-REQUESTED' }),
+            ctx,
+        )
         expect(nav.forward).toMatchObject({ label: 'Edit code', href: `${base}/resubmit`, variant: 'solid' })
     })
 
@@ -193,5 +203,102 @@ describe('resolveStepNav — outputs phase', () => {
     it('results not resubmittable → plain exit', () => {
         const nav = resolveStepNav('study-results', state({ ...withResults }), ctx)
         expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+    })
+})
+
+describe('resolveReviewerStepNav — Data Partner', () => {
+    const submitted = { status: 'APPROVED', isDraft: false } as const
+
+    it('covers every reviewer screen', () => {
+        expect(Object.keys(REVIEWER_STEP_NAV).sort()).toEqual([
+            'reviewer-agreements',
+            'reviewer-code-feedback',
+            'reviewer-code-review',
+            'reviewer-proposal-feedback',
+            'reviewer-proposal-review',
+            'reviewer-study-results',
+        ])
+    })
+
+    // OTTER-754 owns that page's navigation; contributing nav here would fight Stella's card.
+    it('leaves the proposal review screen alone', () => {
+        expect(resolveReviewerStepNav('reviewer-proposal-review', state(submitted), ctx)).toEqual({})
+    })
+
+    it('gives the agreements gate no step nav — it has its own footer and no rows in the spec', () => {
+        expect(resolveReviewerStepNav('reviewer-agreements', state(submitted), ctx)).toEqual({})
+    })
+
+    it('post-decision proposal exits without a back button', () => {
+        const nav = resolveReviewerStepNav('reviewer-proposal-feedback', state(submitted), ctx)
+        expect(nav.back).toBeUndefined()
+        expect(nav.forward).toMatchObject({ label: 'Back to my studies', variant: 'solid' })
+    })
+
+    it('anchors code-phase back to the decided proposal', () => {
+        const nav = resolveReviewerStepNav(
+            'reviewer-code-review',
+            state({ ...submitted, codeAwaitingDecision: true }),
+            ctx,
+        )
+        expect(nav.back?.href).toBe(`${base}/review/proposal`)
+        // "Submit decision" opens a modal rather than navigating, so the decision form keeps it.
+        expect(nav.forward).toBeUndefined()
+    })
+
+    it('approved code with no results yet has nothing ahead', () => {
+        const nav = resolveReviewerStepNav(
+            'reviewer-code-feedback',
+            state({ ...submitted, codeDecision: 'CODE-APPROVED' }),
+            ctx,
+        )
+        expect(nav.forward?.label).toBe('Back to my studies')
+    })
+
+    it('approved code with results forwards to them', () => {
+        const nav = resolveReviewerStepNav(
+            'reviewer-code-feedback',
+            state({ ...submitted, codeDecision: 'CODE-APPROVED', hasResults: true }),
+            ctx,
+        )
+        expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/review` })
+    })
+
+    it('revision requested is terminal for the reviewer', () => {
+        const nav = resolveReviewerStepNav(
+            'reviewer-code-feedback',
+            state({ ...submitted, codeDecision: 'CODE-CHANGES-REQUESTED' }),
+            ctx,
+        )
+        expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+    })
+
+    it('anchors outputs-phase back to the approved-code step', () => {
+        const nav = resolveReviewerStepNav('reviewer-study-results', state({ ...submitted, hasResults: true }), ctx)
+        expect(nav.back?.href).toBe(`${base}/review/code`)
+        expect(nav.forward?.label).toBe('Back to my studies')
+    })
+
+    // The "exactly one solid" rule is about the rendered page, not this table. On the screens whose
+    // primary action is "Submit decision" the solid button belongs to the decision form, so the nav
+    // table contributes none — asserted explicitly below so a future edit can't add a second one.
+    it('carries the single solid action on the screens that own one', () => {
+        const cases = [
+            ['reviewer-proposal-feedback', state(submitted)],
+            ['reviewer-code-feedback', state({ ...submitted, codeDecision: 'CODE-APPROVED' })],
+            ['reviewer-study-results', state({ ...submitted, hasResults: true })],
+        ] as const
+        for (const [screen, s] of cases) {
+            expect(solids(resolveReviewerStepNav(screen, s, ctx))).toBe(1)
+        }
+    })
+
+    it('contributes no solid action where the decision form owns it', () => {
+        const nav = resolveReviewerStepNav(
+            'reviewer-code-review',
+            state({ ...submitted, codeAwaitingDecision: true }),
+            ctx,
+        )
+        expect(solids(nav)).toBe(0)
     })
 })

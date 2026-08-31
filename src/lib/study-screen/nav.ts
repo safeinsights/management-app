@@ -1,6 +1,6 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import type { ResearcherScreenId } from './screens'
+import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import type { StudyState } from './state.types'
 import { isErroredResultHiddenFromResearcher } from './state'
 import { canResearcherResubmitCode } from './eligibility'
@@ -173,6 +173,60 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
 
 export function resolveStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): StepNav {
     return RESEARCHER_STEP_NAV[screen](state, ctx)
+}
+
+// --- Data Partner ---------------------------------------------------------------------------------
+// The reviewer's forward action on the active review screens is "Submit decision", which opens a
+// confirmation modal rather than navigating, so it stays with the form that owns the decision — the
+// same split the researcher half makes for its Submit actions. This table supplies only the
+// navigational buttons. The proposal review screen is absent entirely: its nav belongs to OTTER-754.
+
+// Code-phase screens anchor back to the decided proposal, mirroring the researcher side.
+const reviewerCodePreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studyReviewProposal({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
+
+// Outputs-phase screens anchor back to the approved-code step, which /review/code already serves.
+const reviewerResultsPreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studyReviewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
+
+// The spec gives the post-decision proposal screens no back button: the decision is recorded and the
+// proposal step is where the reviewer already stands.
+const reviewerProposalFeedbackNav: NavRule = (_state, ctx) => ({ forward: backToMyStudies(ctx) })
+
+// The agreements gate has no rows in the spec's DP table (agreements were removed from the flow in
+// Jul 2026) and carries its own footer, so it contributes no step nav.
+const reviewerAgreementsNav: NavRule = () => ({})
+
+const reviewerCodeReviewNav: NavRule = (_state, ctx) => ({ back: reviewerCodePreviousStep(ctx) })
+
+const reviewerCodeFeedbackNav: NavRule = (state, ctx) => {
+    const back = reviewerCodePreviousStep(ctx)
+    // Approved code forwards to a "Preparing code" page the spec marks as new and that is not built
+    // yet; until it lands, forward opens only once there are results to look at.
+    if (state.codeDecision === 'CODE-APPROVED' && state.hasResults) {
+        return { back, forward: nextStep(Routes.studyReview({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
+    }
+    return { back, forward: backToMyStudies(ctx) }
+}
+
+const reviewerStudyResultsNav: NavRule = (_state, ctx) => ({
+    back: reviewerResultsPreviousStep(ctx),
+    forward: backToMyStudies(ctx),
+})
+
+// Total over the reviewer screens, same guarantee as the researcher table. reviewer-proposal-review
+// is present but empty: OTTER-754 owns that page's navigation.
+export const REVIEWER_STEP_NAV: Record<ReviewerScreenId, NavRule> = {
+    'reviewer-proposal-review': () => ({}),
+    'reviewer-proposal-feedback': reviewerProposalFeedbackNav,
+    'reviewer-agreements': reviewerAgreementsNav,
+    'reviewer-code-review': reviewerCodeReviewNav,
+    'reviewer-code-feedback': reviewerCodeFeedbackNav,
+    'reviewer-study-results': reviewerStudyResultsNav,
+}
+
+export function resolveReviewerStepNav(screen: ReviewerScreenId, state: StudyState, ctx: NavCtx): StepNav {
+    return REVIEWER_STEP_NAV[screen](state, ctx)
 }
 
 // The /submitted route IS the proposal-status page whatever the study has done since — it is the anchor
