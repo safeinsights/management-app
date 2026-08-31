@@ -44,7 +44,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
         expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
     })
@@ -60,7 +60,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         expect(screen.getByTestId('status-banner-REJECTED')).toBeInTheDocument()
     })
 

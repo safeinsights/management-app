@@ -93,6 +93,7 @@ const blue: MantineColorsTuple = [
     '#0058BD',
     '#004594',
     '#00326B',
+    '#01215E',
 ]
 
 type ExtendedCustomColors = 'purple' | 'blue' | 'charcoal' | 'grey' | 'red' | 'green' | 'yellow' | DefaultMantineColor

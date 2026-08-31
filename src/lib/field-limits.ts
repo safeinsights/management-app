@@ -4,10 +4,15 @@
  * Lives here rather than beside any single form. The researcher proposal, both resubmission notes
  * and all three Data Partner decision fields share it, and a copy per flow could only drift.
  *
- * The wording is the card's, verbatim, down to the missing "character" before "limit".
+ * The wording is the card's, verbatim: "<field> exceeds the <n> character limit. Shorten it to
+ * continue." OTTER-690 specifies it as "exceeds the {maxCharacter} character limit", where only
+ * "{maxCharacter}" is the placeholder and "character limit" is literal copy. Reading the whole
+ * "{maxCharacter} character" as the token is what dropped the word here, and because every capped
+ * field shares this helper, the one omission reached the study title, both resubmission notes and
+ * all three Data Partner decision fields at once.
  */
 export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number) =>
-    `${fieldTitle} exceeds the ${maxCharacters} limit. Shorten it to continue.`
+    `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
 
 // Grapheme clusters, not `.length`. `.length` is UTF-16 code units, which charges the user for
 // storage rather than for what they typed: an NFD-composed "é" (the form Word emits) costs 2 and a

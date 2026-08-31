@@ -532,9 +532,9 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
         await page.waitForURL(/\/submitted(\?.*)?$/)
 
-        // This view mounts the proposal collapsed (initialExpanded={false}), so the body is
-        // display:none until the toggle is clicked.
-        await page.getByTestId('proposal-toggle-header').click()
+        // This view mounts the proposal collapsed (initialExpanded={false}), so the card shows a
+        // snippet and the full body is not rendered until the toggle is clicked.
+        await page.getByRole('button', { name: 'View full proposal' }).click()
         const proposalBody = page.getByTestId('proposal-body')
         await expect(proposalBody).toBeVisible()
 
@@ -1014,9 +1014,11 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // Past the character limit the error appears live, before any blur or click, and clears
         // again as soon as the value comes back under.
         await title.fill('x'.repeat(61))
-        await expect(page.getByText('Study title exceeds the 60 limit. Shorten it to continue.')).toBeVisible()
+        await expect(
+            page.getByText('Study title exceeds the 60 character limit. Shorten it to continue.'),
+        ).toBeVisible()
         await title.fill('x'.repeat(60))
-        await expect(page.getByText('Study title exceeds the 60 limit. Shorten it to continue.')).toBeHidden()
+        await expect(page.getByText('Study title exceeds the 60 character limit. Shorten it to continue.')).toBeHidden()
 
         // Resolving everything lets the same button through to the confirmation modal. Cancel
         // returns to the page with the entered values intact.

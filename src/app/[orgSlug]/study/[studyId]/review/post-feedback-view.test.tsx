@@ -158,12 +158,12 @@ describe('PostFeedbackView', () => {
         })
     })
 
-    describe('full initial request dropdown', () => {
+    describe('full proposal dropdown', () => {
         it('renders the proposal section collapsed by default', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+            expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         })
     })
 
