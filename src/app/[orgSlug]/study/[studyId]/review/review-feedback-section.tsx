@@ -1,7 +1,9 @@
 'use client'
 
-import { Divider, Paper, Stack, Text } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { RequiredIndicator } from '@/components/required-indicator'
+import { fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
@@ -45,11 +47,23 @@ function FeedbackEditor({
     return (
         <Editor
             id={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
+            inputId="review-feedback"
             studyId={studyId}
             websocketProvider={websocketProvider}
             contentStyle={contentStyle}
             onChange={feedback.onChange}
+            onBlur={feedback.onBlur}
+            error={feedback.error}
+            ariaLabel="Initial request review feedback"
+            ariaRequired
+            ariaDescribedBy={fieldDescribedBy('review-feedback', {
+                hasError: !!feedback.error,
+                hasDescription: false,
+            })}
             placeholder={PLACEHOLDER_TEXT}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the word counter (OTTER-674).
+            footerLeft={<FieldErrorBox fieldId="review-feedback" error={feedback.error} />}
             footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
             onProviderReady={publishProvider}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -66,9 +80,12 @@ export function ReviewFeedbackSection({
     return (
         <Paper p="xxl" data-testid="review-feedback-section">
             <Stack gap="lg">
-                <Text fz={20} fw={700} c="charcoal.9">
-                    {feedbackHeading(reviewVersion)}
-                </Text>
+                <Group gap={4} align="center">
+                    <Text fz={20} fw={700} c="charcoal.9">
+                        {feedbackHeading(reviewVersion)}
+                    </Text>
+                    <RequiredIndicator fz={20} fw={700} />
+                </Group>
                 <Divider />
                 <Stack gap="md">
                     <Text fz={16} c="charcoal.9">

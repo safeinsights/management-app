@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Route } from 'next'
-import { projectStudyState, isErroredResultHiddenFromResearcher, resolveStepNav } from '@/lib/study-screen'
+import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
@@ -8,30 +8,13 @@ import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 import type { ScreenComponentProps } from './types'
 
 // code-approved AND code-feedback both render the post-decision view. The effective decision is
-// APPROVED while the code is approved or executing (OTTER-598: hide the code listing while
-// executing); otherwise it's the live CHANGES-REQUESTED/REJECTED decision.
-export async function CodeDecisionScreen({
-    study,
-    raw,
-    orgSlug,
-    dashboardHref,
-    returnTo,
-    descriptor,
-}: ScreenComponentProps) {
+// APPROVED while the code is approved or executing; otherwise it's the live
+// CHANGES-REQUESTED/REJECTED decision.
+export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const state = projectStudyState(raw)
     const decisionStatus =
         state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
     if (decisionStatus === null) notFound()
-
-    // A hidden JOB-ERRORED (e.g. a packaging failure before any JOB-RUNNING substatus) is presented to
-    // the researcher as "approved / results pending"; keep the code listing hidden as during execution,
-    // so a packaging error doesn't re-expose it (OTTER-598 follow-up).
-    // Reviewers route to reviewer-study-results for any hasResults (reviewer rule 1), so this screen
-    // is researcher-only and calling the role-named helper with no role guard is safe.
-    // The read-only /view/code route always shows the submitted code (OTTER-640): the execution-window /
-    // hidden-errored hide is for the live /view flow, where the page reads as "running / results pending".
-    const hiddenErroredResult = isErroredResultHiddenFromResearcher(state)
-    const hideStudyCode = !descriptor.readOnlyCodeStep && (state.isExecuting || hiddenErroredResult)
 
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
@@ -39,8 +22,9 @@ export async function CodeDecisionScreen({
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
-    // Mirrors decisionStatus above rather than reading descriptor.screen, so the nav can't disagree
-    // with the decision the page actually renders (and no ScreenId narrowing cast is needed).
+    // Keyed off decisionStatus rather than descriptor.screen so the nav cannot disagree with the
+    // decision the page actually renders. Whether a forward step exists is decided inside the nav
+    // table, which delegates to hasNextStepFromCode (OTTER-687).
     const nav = resolveStepNav(decisionStatus === 'CODE-APPROVED' ? 'code-approved' : 'code-feedback', state, {
         orgSlug,
         studyId: study.id,
@@ -60,7 +44,6 @@ export async function CodeDecisionScreen({
             latestJobStatus={decisionStatus}
             nav={nav}
             feedbackLoadError={feedbackLoadError}
-            showStudyCode={!hideStudyCode}
         />
     )
 }

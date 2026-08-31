@@ -18,8 +18,11 @@ import {
     deleteFolderContents,
     signedUrlForFile,
     createSignedUploadUrl,
+    createSignedUploadUrlForKey,
+    withS3Prefix,
 } from './aws'
 import { s3Available } from '@/tests/s3.helpers'
+import type { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Readable } from 'stream'
 
 const TEST_PREFIX = `s3-integration-test-${Date.now()}/`
@@ -39,6 +42,29 @@ async function readableToString(readable: Readable): Promise<string> {
         chunks.push(Buffer.from(chunk))
     }
     return Buffer.concat(chunks).toString('utf-8')
+}
+
+// The policy is signed against S3_BROWSER_ENDPOINT, which is host-facing and not routable from in
+// here. A POST policy's signature covers the policy document, not the Host header, so re-pointing
+// the same form at the internal endpoint exercises the real signed policy over a reachable route.
+function reachableFromTests(url: string) {
+    const internal = process.env.S3_ENDPOINT
+    if (!internal) return url
+
+    const target = new URL(url)
+    target.host = new URL(internal).host
+    return target.toString()
+}
+
+// Posts the presigned form the way a browser would, so the policy is exercised rather than inspected.
+async function postSignedUpload(upload: PresignedPost, body: string) {
+    const form = new FormData()
+    for (const [name, value] of Object.entries(upload.fields)) {
+        form.append(name, value)
+    }
+    form.append('file', new Blob([body]), 'agreement.pdf')
+
+    return await fetch(reachableFromTests(upload.url), { method: 'POST', body: form })
 }
 
 async function cleanupTestObjects(client: S3Client, bucket: string) {
@@ -122,6 +148,21 @@ describe.skipIf(!s3Available)('S3 integration', () => {
 
         expect(result.url).toMatch(/^https?:\/\//)
         expect(result.fields).toBeDefined()
+    })
+
+    // The legal-document upload signs the whole key rather than a prefix, because the stored
+    // file_path is itself the record of what was filed — the browser must not be able to put the
+    // object anywhere else. Every unit test stubs this, so the round trip is only covered here.
+    it('signs an upload for one exact key and lands the object there', async () => {
+        const path = `${TEST_PREFIX}exact-key/agreement.pdf`
+        const upload = await createSignedUploadUrlForKey(path)
+
+        expect(upload.fields.key).toBe(withS3Prefix(path))
+
+        const response = await postSignedUpload(upload, 'signed agreement bytes')
+        expect(response.ok).toBe(true)
+
+        expect(await readableToString(await fetchS3File(path))).toBe('signed agreement bytes')
     })
 
     it('deletes a single object with DeleteObject', async () => {

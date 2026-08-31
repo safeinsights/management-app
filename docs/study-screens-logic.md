@@ -116,6 +116,12 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
   stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
+- `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
+  layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
+  document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
+  collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
+  reviewer / Submit, so the columns alone under-report progress (OTTER-572). Gated on `isDraft`:
+  neither layer clears itself on submit, so a non-DRAFT study reports `false` regardless.
 
 ---
 
@@ -129,36 +135,51 @@ raw jobs.
 
 **Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                             | Screen              |
-| --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `hasResults`                                                                     | `study-results`     |
-| 2   | `codeDecision === 'CODE-APPROVED'` or `isExecuting`                              | `code-approved`     |
-| 3   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 4   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 5   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 6   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 7   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 8   | `isDraft`                                                                        | `study-overview`    |
-| 9   | fallback                                                                         | `study-overview`    |
+| #   | When                                                                             | Screen                   |
+| --- | -------------------------------------------------------------------------------- | ------------------------ |
+| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)            | `outputs-errored-shared` |
+| 2   | `resultsRejected`                                                                | `outputs-feedback`       |
+| 3   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`          |
+| 4   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`        |
+| 5   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`          |
+| 6   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`          |
+| 7   | `codeAwaitingDecision`                                                           | `code-under-review`      |
+| 8   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback`      |
+| 9   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`         |
+| 10  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback`      |
+| 11  | `isDraft`                                                                        | `study-overview`         |
+| 12  | fallback                                                                         | `study-overview`         |
+
+Researcher precedence note (OTTER-695, OTTER-697, OTTER-696): the two outputs-decision rules sit above
+`study-results` because a recorded `FILES-*` decision clears `awaitingFilesDecisionOnError`, so
+`study-results` (#3) would otherwise claim every decided run. They split the decision by run
+outcome: #1 is an errored run whose outputs were **shared** (the researcher decrypts to diagnose),
+#2 is an errored or clean run whose outputs were **withheld**. A clean run whose outputs were
+**shared** still falls through to `study-results` (#3).
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
 
 | #   | When                                                                     | Screen                       |
 | --- | ------------------------------------------------------------------------ | ---------------------------- |
-| 1   | `hasResults`                                                             | `reviewer-study-results`     |
-| 2   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
-| 3   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
-| 4   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
-| 5   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
-| 6   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
-| 7   | fallback                                                                 | `study-overview`             |
+| 1   | `awaitingFilesDecisionOnError`                                           | `reviewer-outputs-errored`   |
+| 2   | `resultsDisplayStatus === 'RUN-COMPLETE'`                                | `reviewer-outputs-available` |
+| 3   | `hasResults`                                                             | `reviewer-outputs-decided`   |
+| 4   | `isExecuting`                                                            | `reviewer-outputs-pending`   |
+| 5   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
+| 6   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
+| 7   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
+| 8   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
+| 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
+| 10  | fallback                                                                 | `study-overview`             |
 
-Precedence notes: results out-rank a present code decision (#1 > #2 — `CODE-APPROVED` is always
-present once results land, mirroring legacy `decisionMade = hasLiveCodeDecision && !hasResultsStatus`);
-the agreements gate sits **above** active review (#3 > #4 — a reviewer must ack before the review
-page renders); and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own
-the screen once code exists.
+Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
+decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
+(which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
+present code decision (#5 — `CODE-APPROVED` is always present once execution starts); the agreements
+gate sits **above** active review (#6 > #7 — a reviewer must ack before the review page renders);
+and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once
+code exists.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
@@ -188,7 +209,9 @@ The `reviewer-*` components are **thin adapters** over the existing reviewer vie
 (`ProposalReviewView`, `PostFeedbackView`, `CodeReview`, `StudyDetailsReviewer`, `AgreementsPage`) —
 each fetches its own feedback/job data, exactly as the researcher screens do. Two `ScreenId`s share
 a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScreen` (researcher), and
-`reviewer-code-feedback` branches internally on the decision for the reviewer.
+`reviewer-code-feedback` branches internally on the decision for the reviewer. `outputs-pending` →
+`OutputsPendingScreen` (researcher) and `reviewer-outputs-pending` → `ReviewerOutputsPendingScreen`
+share a `guardExecutionStage` helper for their common precondition checks.
 
 ---
 
@@ -200,12 +223,17 @@ a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScree
 
 | #   | When                                                                                       | Link             | Label                     |
 | --- | ------------------------------------------------------------------------------------------ | ---------------- | ------------------------- |
-| 1   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
-| 2   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
-| 3   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
-| 4   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
-| 5   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
-| 6   | fallback                                                                                   | `studyView`      | `View`                    |
+| 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal`  | `Edit` (+ `delete-draft`) |
+| 2   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
+| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
+| 4   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
+| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
+| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
+| 7   | fallback                                                                                   | `studyView`      | `View`                    |
+
+Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
+draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays
+redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ---
 
@@ -262,7 +290,9 @@ re-architecting — exactly as the design intended.
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
 - **Agreements gate as a screen**: the old redirect-to-`/agreements` is now the `reviewer-agreements`
   screen (rule #3). The reviewer branch of `agreements/page.tsx` became a plain revisitable step
-  (no `?from=`), like the researcher branch.
+  (no `?from=`), like the researcher branch. This gate reads
+  `study.reviewerAgreementsAckedAt`; once study-level-agreement acknowledgement ships on
+  `legal_document`, rule #6 goes with it — two agreement gates on one study would disagree.
 - **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
   initial request" link. It always shows the **decided** initial request regardless of code stage,
   and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the

@@ -11,7 +11,13 @@ import { ReviewerProposalFeedbackScreen } from './reviewer-proposal-feedback-scr
 import { ReviewerAgreementsScreen } from './reviewer-agreements-screen'
 import { ReviewerCodeReviewScreen } from './reviewer-code-review-screen'
 import { ReviewerCodeFeedbackScreen } from './reviewer-code-feedback-screen'
-import { ReviewerStudyResultsScreen } from './reviewer-study-results-screen'
+import { OutputsPendingScreen } from './outputs-pending-screen'
+import { OutputsFeedbackScreen } from './outputs-feedback-screen'
+import { OutputsErroredSharedScreen } from './outputs-errored-shared-screen'
+import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
+import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
+import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
+import { ReviewerOutputsDecidedScreen } from './reviewer-outputs-decided-screen'
 
 // Screens may be async server components (they load their own data). Returned node is awaited
 // at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
@@ -26,11 +32,17 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'code-under-review': CodeUnderReviewScreen,
     'proposal-feedback': ProposalFeedbackScreen,
     'study-results': StudyResultsScreen,
+    'outputs-pending': OutputsPendingScreen,
+    'outputs-feedback': OutputsFeedbackScreen,
+    'outputs-errored-shared': OutputsErroredSharedScreen,
     'study-overview': StudyOverviewScreen,
     'reviewer-proposal-review': ReviewerProposalReviewScreen,
     'reviewer-proposal-feedback': ReviewerProposalFeedbackScreen,
     'reviewer-agreements': ReviewerAgreementsScreen,
     'reviewer-code-review': ReviewerCodeReviewScreen,
     'reviewer-code-feedback': ReviewerCodeFeedbackScreen,
-    'reviewer-study-results': ReviewerStudyResultsScreen,
+    'reviewer-outputs-pending': ReviewerOutputsPendingScreen,
+    'reviewer-outputs-errored': ReviewerOutputsErroredScreen,
+    'reviewer-outputs-available': ReviewerOutputsAvailableScreen,
+    'reviewer-outputs-decided': ReviewerOutputsDecidedScreen,
 }

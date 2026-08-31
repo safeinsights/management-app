@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { Paper, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -9,15 +9,16 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import type { EditorState } from 'lexical'
 
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
-import { lexicalTheme, lexicalNodes, isValidUrl } from './config'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
+import { EditorFooter } from './editor-footer'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
+import { useWidgetBlur } from '@/components/form-field'
 
 /**
  * Non-collaborative editor used when NEXT_PUBLIC_SINGLE_USER_EDITING is set.
@@ -35,7 +36,23 @@ export type SingleUserEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** See EditorProps.footerLeft. */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
+    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    inputId?: string
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
+     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
+     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
+    /** Id(s) of the description/error nodes describing this editor. */
+    ariaDescribedBy?: string
+    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
+    ariaRequired?: boolean
+    /** Fires only when focus leaves the whole editor, toolbar included. */
+    onBlur?: () => void
     /** Extra plugins/children rendered inside the Lexical composer context. */
     children?: React.ReactNode
 }
@@ -77,19 +94,40 @@ export function SingleUserEditor({
     placeholder,
     ariaLabel,
     onChange,
+    footerLeft,
     footerRight,
+    inputId,
+    error,
+    ariaDescribedBy,
+    ariaRequired,
+    onBlur,
     children,
 }: SingleUserEditorProps) {
+    const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
+
     return (
         <LexicalComposer initialConfig={createInitialConfig(id, initialValue)}>
             <Paper
                 p={0}
                 className="collaborative-editor-container"
-                style={{ overflow: 'hidden', position: 'relative' }}
+                style={{
+                    overflow: 'hidden',
+                    position: 'relative',
+                    borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
+                }}
+                {...widgetBlur}
             >
                 <RichTextPlugin
                     contentEditable={
-                        <ContentEditable className={contentClassName} style={contentStyle} ariaLabel={ariaLabel} />
+                        <ContentEditable
+                            id={inputId}
+                            className={contentClassName}
+                            style={contentStyle}
+                            ariaLabel={ariaLabel}
+                            ariaDescribedBy={ariaDescribedBy}
+                            ariaInvalid={error ? true : undefined}
+                            ariaRequired={ariaRequired}
+                        />
                     }
                     placeholder={
                         placeholder ? (
@@ -113,18 +151,16 @@ export function SingleUserEditor({
                 />
                 <HistoryPlugin />
                 <ListPlugin />
-                <TabIndentationPlugin />
+                {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                 <EscapeFocusPlugin />
-                <LinkPlugin validateUrl={isValidUrl} />
+                <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                 {onChange && <EditorChangePlugin onChange={onChange} />}
                 {children}
                 <Toolbar />
             </Paper>
-            {footerRight && (
+            {(footerLeft || footerRight) && (
                 <Stack gap={4} mt={4}>
-                    <Group align="center" wrap="nowrap">
-                        <Box ml="auto">{footerRight}</Box>
-                    </Group>
+                    <EditorFooter left={footerLeft} right={footerRight} />
                 </Stack>
             )}
         </LexicalComposer>

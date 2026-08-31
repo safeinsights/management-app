@@ -12,14 +12,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('is_admin', 'boolean', (col) => col.notNull())
         .execute()
 
-    db.schema
+    await db.schema
         .createIndex('member_user_mbr_usrid_indx')
         .on('member_user')
         .columns(['member_id', 'user_id'])
         .unique()
         .execute()
 
-    db.schema.createIndex('member_user_usrid_indx').on('member_user').column('user_id').execute()
+    await db.schema.createIndex('member_user_usrid_indx').on('member_user').column('user_id').execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

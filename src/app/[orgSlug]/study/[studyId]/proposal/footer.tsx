@@ -11,7 +11,6 @@ import { useProposal } from '@/contexts/proposal'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { Routes } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
-import { hasUserProvidedTitle } from './schema'
 import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {
@@ -29,12 +28,11 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     const isBusy = isSubmitting || isSaving
-    // lexical fields store JSON even when empty, so extract the text to detect real
-    // content. title is excluded — it's gated separately via canSubmit below.
-    const { title, researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
+    // lexical fields store JSON even when empty, so extract the text to detect real content.
+    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
-    const canSubmit = form.isValid() && hasUserProvidedTitle(title)
+    const canSubmit = form.isValid()
 
     const handleConfirmSubmit = () => {
         closeConfirm()
@@ -50,9 +48,18 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
         router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
+    const handleOpenReviewer = async () => {
+        // Flush the form first: the preview's PI popover fetches the profile server-side, and
+        // the server only serves ids the persisted study row names — an unsaved piUserId would
+        // be denied and render as "Profile not available".
+        const saved = await saveDraft()
+        if (!saved) return
+        openReviewer()
+    }
+
     return (
         <>
-            <Group mt="xs" justify="space-between" w="100%">
+            <Group mt="xs" justify="space-between" align="flex-start" w="100%">
                 <Button
                     type="button"
                     variant="subtle"
@@ -64,8 +71,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName, resear
                 >
                     Previous
                 </Button>
-                <Group>
-                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
+                <Group align="flex-start">
+                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
                     <Button

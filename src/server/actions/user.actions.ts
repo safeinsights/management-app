@@ -4,7 +4,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk } from '../clerk'
 import { getUserPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
     // Force metadata sync on sign-in to ensure session has fresh data
@@ -59,10 +59,19 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             .where('orgUser.userId', '=', userId)
             .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('org.id', '=', 'orgUser.orgId'))
             .executeTakeFirstOrThrow()
-        return { orgUser, orgId: orgUser.orgId, id: userId }
+        // deliberately does not return `id`: including the target user id in the ability subject
+        // would let the self-profile rule (`update User` on your own id) match here (OTTER-720).
+        return { orgUser, orgId: orgUser.orgId }
     })
-    .requireAbilityTo('update', 'User')
-    .handler(async ({ params: { userId, isAdmin }, db, orgUser }) => {
+    .requireAbilityTo('manageRole', 'User')
+    .handler(async ({ params: { userId, isAdmin }, db, orgUser, session }) => {
+        // An org admin legitimately holds `manageRole` for their own org, which includes their own
+        // row, so the ability check alone cannot stop self-edits. Refusing here also keeps an org
+        // from being orphaned with zero admins.
+        if (userId === session.user.id) {
+            throw new ActionFailure({ permission_denied: 'cannot change your own role' })
+        }
+
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
         onUserRoleUpdate({
             userId,

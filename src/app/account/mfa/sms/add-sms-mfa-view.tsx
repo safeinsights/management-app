@@ -1,15 +1,18 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import PhoneInput from 'react-phone-number-input'
+import PhoneInput, { isPossiblePhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import { InputError } from '@/components/errors'
+import { revalidateOnBlur } from '@/components/form-field'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import styles from './panel.module.css'
+
+const PHONE_ERROR_ID = 'sms-mfa-phone-error'
 
 // Presentational step-1 ("SMS verification") card for SMS MFA enrollment. It owns the
 // phone-number form layout, the send-code submit row, and the "Back to options" link, but
@@ -36,18 +39,27 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
             <Text fz="sm" fw={500}>
                 Enter phone number
             </Text>
+            {/* PhoneInput is a third-party control, so it cannot take getInputProps; blur
+                validation is wired by hand (OTTER-647). */}
             <PhoneInput
                 international
                 countryCallingCodeEditable={false}
                 defaultCountry="US"
                 value={form.values.phoneNumber}
                 onChange={(value) => form.setFieldValue('phoneNumber', value ?? '')}
+                onBlur={revalidateOnBlur(form, 'phoneNumber')}
                 placeholder="Enter phone number"
                 countries={['US']} // limited to US code
                 className={styles.phoneInput}
                 label="Phone Number"
+                aria-invalid={!!form.errors.phoneNumber || undefined}
+                aria-describedby={form.errors.phoneNumber ? PHONE_ERROR_ID : undefined}
             />
-            {form.errors.phoneNumber && <InputError error={form.errors.phoneNumber} />}
+            {form.errors.phoneNumber && (
+                <Box id={PHONE_ERROR_ID}>
+                    <InputError error={form.errors.phoneNumber} />
+                </Box>
+            )}
             <Button
                 type="submit"
                 loading={isSendingSms}
@@ -55,7 +67,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 size="md"
                 variant="primary"
                 radius="sm"
-                disabled={!/\d{6,}/.test(form.values.phoneNumber)}
+                disabled={!isPossiblePhoneNumber(form.values.phoneNumber.trim())}
             >
                 Send verification code
             </Button>

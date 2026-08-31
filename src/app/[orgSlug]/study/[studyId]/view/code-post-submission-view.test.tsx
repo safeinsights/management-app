@@ -19,12 +19,12 @@ import { CodePostSubmissionView } from './code-post-submission-view'
 // Which buttons a decision/state earns is resolveStepNav's job (see lib/study-screen/nav.test.ts);
 // these views only have to render the nav they are handed.
 const NAV: StepNav = {
-    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'nav-previous-step' },
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
     forward: {
         label: 'Back to my studies',
         href: '/dashboard' as Route,
         variant: 'solid',
-        testId: 'nav-back-to-my-studies',
+        testId: 'cta-back-to-my-studies',
     },
 }
 
@@ -145,7 +145,7 @@ describe('CodePostSubmissionView', () => {
 
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
 
@@ -314,8 +314,8 @@ describe('CodePostSubmissionView', () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
-            expect(screen.getByTestId('nav-previous-step')).toHaveAttribute('href', '/prev')
-            expect(screen.getByTestId('nav-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
         })
 
         it('renders no step nav at all when the nav is empty', async () => {
@@ -334,7 +334,7 @@ describe('CodePostSubmissionView', () => {
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code v2.0' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code v2.0' })).toBeInTheDocument()
             expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
                 /^Resubmitted on \w{3} \d{2}, \d{4}$/,
             )
@@ -368,7 +368,7 @@ describe('CodePostSubmissionView', () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { submissionVersion: 1 })
 
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(/^Submitted on /)
             expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()

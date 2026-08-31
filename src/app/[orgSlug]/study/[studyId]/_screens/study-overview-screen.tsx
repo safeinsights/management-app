@@ -4,6 +4,7 @@ import { StepNavigation } from '@/components/study/step-navigation'
 import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyDetails } from '@/components/study/study-details'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
 
@@ -17,7 +18,7 @@ export function StudyOverviewScreen({ study, raw, orgSlug, dashboardHref, return
     })
 
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId: study.id,
@@ -26,11 +27,11 @@ export function StudyOverviewScreen({ study, raw, orgSlug, dashboardHref, return
                     dashboardHref,
                 }}
             />
-            <Title order={1}>Study Details</Title>
+            <StudyPageHeader>Study Details</StudyPageHeader>
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={4} size="xl" style={{ flex: 1, minWidth: 0 }}>
+                        <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
                             Study Proposal
                         </Title>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
@@ -42,7 +43,7 @@ export function StudyOverviewScreen({ study, raw, orgSlug, dashboardHref, return
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
+                        <Title order={2} size="xl">
                             Study Code
                         </Title>
                     </Group>
@@ -54,7 +55,7 @@ export function StudyOverviewScreen({ study, raw, orgSlug, dashboardHref, return
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
+                        <Title order={2} size="xl">
                             Study Status
                         </Title>
                     </Group>

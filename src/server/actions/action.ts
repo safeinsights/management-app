@@ -99,6 +99,12 @@ export class Action<
                 throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
             }
 
+            // Every middleware return value lands in the CASL subject here, and the subject is
+            // stringified into the permission_denied message below — which is returned to the
+            // caller we just refused. Middleware must therefore return only identifiers that are
+            // safe to hand someone who has no right to the record: ids and slugs, never a whole
+            // row and never secrets (OTTER-724 / MA-6). Read the sensitive columns in the HANDLER,
+            // which only runs after the check passes.
             const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db']) }
             const abilitySubject = toRecord(String(subject), abilityArgs)
 

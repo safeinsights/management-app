@@ -20,12 +20,12 @@ import { ProposalSubmitted } from './proposal-submitted'
 // Which buttons a status earns is resolveStepNav's job (see lib/study-screen/nav.test.ts); this page
 // only has to render the nav it is handed.
 const NAV: StepNav = {
-    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'nav-previous-step' },
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
     forward: {
         label: 'Back to my studies',
         href: '/dashboard' as Route,
         variant: 'solid',
-        testId: 'nav-back-to-my-studies',
+        testId: 'cta-back-to-my-studies',
     },
 }
 
@@ -447,8 +447,8 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('nav-previous-step')).toHaveAttribute('href', '/prev')
-            expect(screen.getByTestId('nav-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
         })
 
         it('renders no step nav at all when the nav is empty', () => {

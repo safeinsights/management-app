@@ -25,6 +25,7 @@ const baseStudy: StudyRowType = {
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     orgName: 'Test Org',
     orgSlug: 'test-org',
 }

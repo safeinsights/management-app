@@ -20,15 +20,16 @@ import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'
 import { CodePostDecisionView } from './code-post-decision-view'
-// Which buttons a decision/state earns is resolveStepNav's job (see lib/study-screen/nav.test.ts);
-// these views only have to render the nav they are handed.
+
+// Which buttons a decision earns is resolveStepNav's job (see lib/study-screen/nav.test.ts); this
+// view only has to render the nav it is handed.
 const NAV: StepNav = {
-    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'nav-previous-step' },
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
     forward: {
         label: 'Back to my studies',
         href: '/dashboard' as Route,
         variant: 'solid',
-        testId: 'nav-back-to-my-studies',
+        testId: 'cta-back-to-my-studies',
     },
 }
 
@@ -115,7 +116,6 @@ function renderView(
         dashboardHref?: Route
         reviewingOrgName?: string
         feedbackLoadError?: boolean
-        showStudyCode?: boolean
         nav?: StepNav
     } = {},
 ) {
@@ -130,7 +130,6 @@ function renderView(
             latestJobStatus={latestJobStatus}
             nav={overrides.nav ?? NAV}
             feedbackLoadError={overrides.feedbackLoadError}
-            showStudyCode={overrides.showStudyCode}
         />,
     )
 }
@@ -160,7 +159,7 @@ describe('CodePostDecisionView', () => {
 
             expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
 
@@ -261,18 +260,6 @@ describe('CodePostDecisionView', () => {
         })
     })
 
-    describe('study code visibility', () => {
-        it('hides the submitted code table during the execution window (showStudyCode=false)', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { showStudyCode: false })
-
-            expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
-            // The approved/running banner still renders so the page reads as "running / results pending".
-            expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
-        })
-    })
-
     describe('feedback and notes', () => {
         it('expands the latest entry and collapses prior entries', async () => {
             const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
@@ -305,8 +292,8 @@ describe('CodePostDecisionView', () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            expect(screen.getByTestId('nav-previous-step')).toHaveAttribute('href', '/prev')
-            expect(screen.getByTestId('nav-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
         })
 
         it('renders no step nav at all when the nav is empty', async () => {

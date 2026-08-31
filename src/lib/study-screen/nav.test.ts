@@ -78,6 +78,9 @@ describe('resolveStepNav — spec pattern invariants', () => {
             'code-approved',
             'code-feedback',
             'code-under-review',
+            'outputs-errored-shared',
+            'outputs-feedback',
+            'outputs-pending',
             'proposal-feedback',
             'study-overview',
             'study-results',
@@ -183,6 +186,24 @@ describe('resolveStepNav — code phase', () => {
 describe('resolveStepNav — outputs phase', () => {
     const withResults = { status: 'APPROVED', isDraft: false, hasResults: true } as const
 
+    it('running in the enclave has nothing ahead, so the exit is elevated', () => {
+        const nav = resolveStepNav(
+            'outputs-pending',
+            state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED', isExecuting: true }),
+            ctx,
+        )
+        expect(nav.back?.href).toBe(`${base}/view/code`)
+        expect(nav.forward?.label).toBe('Back to my studies')
+    })
+
+    // Feedback shared without outputs, and an errored run whose outputs were shared: the forward
+    // action in both is the next iteration.
+    it.each(['outputs-feedback', 'outputs-errored-shared'] as const)('%s promotes "Edit code"', (screen) => {
+        const nav = resolveStepNav(screen, state({ ...withResults, resultsRejected: true }), ctx)
+        expect(nav.back?.href).toBe(`${base}/view/code`)
+        expect(nav.forward).toMatchObject({ label: 'Edit code', href: `${base}/resubmit`, variant: 'solid' })
+    })
+
     it('anchors "Previous step" to the approved-code step', () => {
         const nav = resolveStepNav('study-results', state({ ...withResults, resultsApproved: true }), ctx)
         expect(nav.back?.href).toBe(`${base}/view/code`)
@@ -214,9 +235,12 @@ describe('resolveReviewerStepNav — Data Partner', () => {
             'reviewer-agreements',
             'reviewer-code-feedback',
             'reviewer-code-review',
+            'reviewer-outputs-available',
+            'reviewer-outputs-decided',
+            'reviewer-outputs-errored',
+            'reviewer-outputs-pending',
             'reviewer-proposal-feedback',
             'reviewer-proposal-review',
-            'reviewer-study-results',
         ])
     })
 
@@ -274,10 +298,21 @@ describe('resolveReviewerStepNav — Data Partner', () => {
     })
 
     it('anchors outputs-phase back to the approved-code step', () => {
-        const nav = resolveReviewerStepNav('reviewer-study-results', state({ ...submitted, hasResults: true }), ctx)
+        const nav = resolveReviewerStepNav('reviewer-outputs-decided', state({ ...submitted, hasResults: true }), ctx)
         expect(nav.back?.href).toBe(`${base}/review/code`)
         expect(nav.forward?.label).toBe('Back to my studies')
     })
+
+    // Both undecided outputs screens offer "View" (decrypt) and then "Submit decision" — page
+    // actions, not navigations — so the table gives them only the back link.
+    it.each(['reviewer-outputs-errored', 'reviewer-outputs-available'] as const)(
+        '%s carries only the back link',
+        (screen) => {
+            const nav = resolveReviewerStepNav(screen, state({ ...submitted, hasResults: true }), ctx)
+            expect(nav.back?.href).toBe(`${base}/review/code`)
+            expect(nav.forward).toBeUndefined()
+        },
+    )
 
     // The "exactly one solid" rule is about the rendered page, not this table. On the screens whose
     // primary action is "Submit decision" the solid button belongs to the decision form, so the nav
@@ -286,7 +321,8 @@ describe('resolveReviewerStepNav — Data Partner', () => {
         const cases = [
             ['reviewer-proposal-feedback', state(submitted)],
             ['reviewer-code-feedback', state({ ...submitted, codeDecision: 'CODE-APPROVED' })],
-            ['reviewer-study-results', state({ ...submitted, hasResults: true })],
+            ['reviewer-outputs-pending', state({ ...submitted, isExecuting: true })],
+            ['reviewer-outputs-decided', state({ ...submitted, hasResults: true })],
         ] as const
         for (const [screen, s] of cases) {
             expect(solids(resolveReviewerStepNav(screen, s, ctx))).toBe(1)

@@ -114,4 +114,26 @@ describe('ResubmissionNoteSection', () => {
         const section = screen.getByTestId('resubmission-note-section')
         expect(section.querySelectorAll('svg')).toHaveLength(1)
     })
+
+    it('replaces "All changes saved" with the error once the note is emptied (OTTER-674)', async () => {
+        const user = userEvent.setup()
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+
+        await user.type(textarea, 'some draft text')
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+
+        await user.clear(textarea)
+        expect(screen.getByText(/resubmission note is required/i)).toBeInTheDocument()
+        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+    })
+
+    it('keeps the live region out of the textarea description (OTTER-675)', () => {
+        // The textarea's aria-describedby points at the error node. A live region inside it would
+        // fold "All changes saved" into the field's description and re-read it on every refocus.
+        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
+        const errorNode = document.getElementById('resubmissionNote-error')
+        expect(errorNode).toBeInTheDocument()
+        expect(errorNode!.querySelector('[aria-live]')).toBeNull()
+    })
 })

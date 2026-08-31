@@ -1,7 +1,12 @@
 import { describe, it, expect, test, vi } from 'vitest'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
-import { insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    insertTestOrg,
+    insertTestUser,
+    mockDualRoleSessionWithTestData,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
 import { onUserResetPWAction, onUserSignInAction, syncUserMetadataAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
@@ -55,6 +60,29 @@ describe('User Actions', () => {
         expect(result).toEqual({ redirectToKeyGeneration: true })
     })
 
+    test('onUserSignInAction prompts a multi-org account without a key, evaluated at the account level', async () => {
+        // Account belongs to BOTH a lab and an enclave org. Enforcement keys off the account,
+        // not any single org membership, so a keyless account is prompted exactly once.
+        const { user } = await mockDualRoleSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+        const result = await onUserSignInAction()
+        expect(result).toEqual({ redirectToKeyGeneration: true })
+    })
+
+    test('onUserSignInAction does not prompt a multi-org account holding a single account-level key', async () => {
+        // One key at the account level satisfies enforcement across every org the account joins.
+        const { user } = await mockDualRoleSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        await db
+            .insertInto('userPublicKey')
+            .values({ userId: user.id, publicKey: Buffer.from('account-key'), fingerprint: 'account-fingerprint' })
+            .execute()
+
+        const result = await onUserSignInAction()
+        expect(result).toEqual({})
+    })
+
     test('syncUserMetadataAction should sync metadata', async () => {
         await mockSessionWithTestData()
         const result = await syncUserMetadataAction()
@@ -77,6 +105,71 @@ describe('User Actions', () => {
             isAdmin: true,
         })
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+    })
+
+    test('updateUserRoleAction rejects a non-admin promoting themselves (OTTER-720)', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { org, user, orgUser } = await mockSessionWithTestData({ isAdmin: false })
+
+        // The exploit: pass your OWN userId. This used to satisfy the `update User` self-profile
+        // rule and grant org admin to any authenticated member.
+        const result = await updateUserRoleAction({
+            orgSlug: org.slug,
+            userId: user.id,
+            isAdmin: true,
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const unchanged = await db
+            .selectFrom('orgUser')
+            .selectAll('orgUser')
+            .where('id', '=', orgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.isAdmin).toBe(false)
+    })
+
+    test('updateUserRoleAction rejects an admin changing their own role', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { org, user, orgUser } = await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await updateUserRoleAction({
+            orgSlug: org.slug,
+            userId: user.id,
+            isAdmin: false,
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const unchanged = await db
+            .selectFrom('orgUser')
+            .selectAll('orgUser')
+            .where('id', '=', orgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.isAdmin).toBe(true)
+    })
+
+    test('updateUserRoleAction rejects an admin of another org', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const otherOrg = await insertTestOrg()
+        const { user: targetUser, orgUser: targetOrgUser } = await insertTestUser({ org: otherOrg })
+
+        const result = await updateUserRoleAction({
+            orgSlug: otherOrg.slug,
+            userId: targetUser.id,
+            isAdmin: true,
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        const unchanged = await db
+            .selectFrom('orgUser')
+            .selectAll('orgUser')
+            .where('id', '=', targetOrgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.isAdmin).toBe(false)
     })
 
     test('updateUserRoleAction should update user roles in the database', async () => {

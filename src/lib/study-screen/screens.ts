@@ -8,6 +8,9 @@ export type ResearcherScreenId =
     | 'code-under-review'
     | 'code-approved'
     | 'code-feedback'
+    | 'outputs-pending'
+    | 'outputs-feedback'
+    | 'outputs-errored-shared'
     | 'study-results'
     | 'study-overview'
 
@@ -17,7 +20,10 @@ export type ReviewerScreenId =
     | 'reviewer-agreements'
     | 'reviewer-code-review'
     | 'reviewer-code-feedback'
-    | 'reviewer-study-results'
+    | 'reviewer-outputs-pending'
+    | 'reviewer-outputs-errored'
+    | 'reviewer-outputs-available'
+    | 'reviewer-outputs-decided'
 
 export type ScreenId = ResearcherScreenId | ReviewerScreenId
 
@@ -26,10 +32,7 @@ export type ScreenId = ResearcherScreenId | ReviewerScreenId
 // derived purely from state — no URL params feed into either.
 export type ScreenDescriptor = {
     screen: ScreenId
-    // True only for the read-only /view/code step (resolveResearcherCodeScreen). The code screen reads
-    // this to keep the submitted code visible even while the job runs in the enclave (OTTER-640): the
-    // execution-window hide is the live /view flow's behavior, not the read-only step the researcher
-    // walks back to. The live resolver never sets it, so the live flow is unchanged.
+    // True for the reviewer read-only /review/code step, where navigation differs from live review.
     readOnlyCodeStep?: boolean
 }
 

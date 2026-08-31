@@ -1,7 +1,7 @@
 import type { StudyJobStatus } from '@/database/types'
 import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, type StatusLabel } from '@/lib/status-labels'
 import type { StudyRole, StudyState } from './state.types'
-import { DISPLAY_STATUS_PRIORITY, isErroredResultHiddenFromResearcher, isStaleCodeDecision } from './state'
+import { DISPLAY_STATUS_PRIORITY, awaitingFilesDecisionOnError, isStaleCodeDecision } from './state'
 
 const LABELS: Record<StudyRole, Partial<Record<StudyJobStatus | string, StatusLabel>>> = {
     researcher: RESEARCHER_STATUS_LABELS,
@@ -28,7 +28,7 @@ export function resolvePillStatus(role: StudyRole, state: StudyState): StatusLab
     const labels = LABELS[role]
     const present = new Set<StudyJobStatus>(state.latestJobStatuses)
 
-    const hideErrored = role === 'researcher' && isErroredResultHiddenFromResearcher(state)
+    const hideErrored = role === 'researcher' && awaitingFilesDecisionOnError(state)
 
     const candidate = DISPLAY_STATUS_PRIORITY.find((st) => {
         if (!present.has(st)) return false

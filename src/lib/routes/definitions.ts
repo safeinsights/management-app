@@ -221,6 +221,8 @@ export const Routes = {
     adminTeam: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/team`, OrgParams),
 
     adminSafeinsights: '/admin/safeinsights' as Route,
+
+    adminSafeinsightsLegal: '/admin/safeinsights/legal' as Route,
 } as const
 
 // ============================================================================

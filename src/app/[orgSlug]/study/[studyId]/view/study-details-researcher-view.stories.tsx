@@ -25,19 +25,19 @@ const NAV: StepNav = {
         label: 'Previous step',
         href: Routes.studyViewCode({ orgSlug: ORG_SLUG, studyId: STUDY_ID }),
         variant: 'subtle',
-        testId: 'nav-previous-step',
+        testId: 'cta-previous-step',
     },
     secondary: {
         label: 'Edit code',
         href: Routes.studyResubmit({ orgSlug: ORG_SLUG, studyId: STUDY_ID }),
         variant: 'outline',
-        testId: 'nav-edit-code',
+        testId: 'cta-edit-code',
     },
     forward: {
         label: 'Back to my studies',
         href: Routes.dashboard,
         variant: 'solid',
-        testId: 'nav-back-to-my-studies',
+        testId: 'cta-back-to-my-studies',
     },
 }
 

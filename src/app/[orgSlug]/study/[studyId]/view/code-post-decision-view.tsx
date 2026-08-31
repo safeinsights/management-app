@@ -2,14 +2,14 @@
 
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Anchor, Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
-import { AlertNotFound } from '@/components/errors'
+import { LinkWithIcon } from '@/components/links'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { StepNavigation } from '@/components/study/step-navigation'
-import type { StepNav } from '@/lib/study-screen'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StepNavigation } from '@/components/study/step-navigation'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { StudyCodeToggle, useExpandable } from './study-code-collapse'
@@ -20,6 +20,7 @@ import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
+import type { StepNav } from '@/lib/study-screen'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -30,17 +31,12 @@ interface CodePostDecisionViewProps {
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
     dashboardHref: Route
-    /** Org-scoped entry: threaded onto the breadcrumb's proposal link so org scope survives the hop. */
+    /** Org-scoped entry: threaded onto the "Previous step" → researcher agreements link so org scope survives. */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
     nav: StepNav
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
-    /**
-     * Hidden during the execution window (approved code running in the enclave) so the page reads as
-     * "running / results pending" with no code listing, per OTTER-598. Shown for plain code decisions.
-     */
-    showStudyCode?: boolean
 }
 
 type DecisionCopy = {
@@ -100,29 +96,16 @@ const DecisionBanner: FC<{ copy: DecisionCopy; reviewingOrgName: string }> = ({ 
     </Box>
 )
 
-// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
-// (same as the DO review page) in place of the feedback section, rather than a legacy view.
-const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
-    feedbackLoadError,
-    entries,
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
-}
-
 type StepCardProps = {
     study: Submitted<SelectedStudy>
     copy: DecisionCopy
     timestampDate: Date | string | null
     banner: ReactNode
-    showToggle: boolean
     expanded: boolean
     onToggle: () => void
 }
 
-function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, onToggle }: StepCardProps) {
+function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -132,7 +115,7 @@ function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, on
             timestampDate={timestampDate}
             banner={banner}
         >
-            <StudyCodeToggle isVisible={showToggle} expanded={expanded} onClick={onToggle} />
+            <StudyCodeToggle isVisible={!expanded} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
     )
 }
@@ -140,7 +123,6 @@ function StepCard({ study, copy, timestampDate, banner, showToggle, expanded, on
 // Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
 // this card reveals the proposal link, file table, and the matching "Hide" toggle.
 type SubmittedCodePanelProps = {
-    isVisible: boolean
     expanded: boolean
     jobId: string
     codeFiles: CodeFileList
@@ -148,34 +130,24 @@ type SubmittedCodePanelProps = {
     onCollapse: () => void
 }
 
-const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({
-    isVisible,
-    expanded,
-    jobId,
-    codeFiles,
-    proposalHref,
-    onCollapse,
-}) => {
-    if (!isVisible) return null
+const SubmittedCodePanel: FC<SubmittedCodePanelProps> = ({ expanded, jobId, codeFiles, proposalHref, onCollapse }) => {
     return (
         <Collapse in={expanded}>
             <Paper p="xxl">
                 <Stack gap="md">
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={5}>Submitted code</Title>
-                        <Anchor
+                        <Title order={3} size="h5">
+                            Submitted code
+                        </Title>
+                        <LinkWithIcon
                             href={proposalHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            size="sm"
-                            fw={700}
-                            display="inline-flex"
-                            style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
+                            icon={<ArrowSquareOutIcon size={14} />}
                             data-testid="view-approved-initial-request"
                         >
                             View approved initial request
-                            <ArrowSquareOutIcon size={14} />
-                        </Anchor>
+                        </LinkWithIcon>
                     </Group>
                     <Divider />
                     <Text>View the code files that you uploaded to run against the dataset.</Text>
@@ -198,7 +170,6 @@ export function CodePostDecisionView({
     latestJobStatus,
     nav,
     feedbackLoadError = false,
-    showStudyCode = true,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const { expanded, toggle, collapse } = useExpandable()
@@ -214,9 +185,9 @@ export function CodePostDecisionView({
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
-        <Stack p="xl" gap="xl">
+        <Stack p="xl" gap="xxl">
             <PageBreadcrumbs crumbs={breadcrumbs} />
-            <Title order={1}>Study proposal</Title>
+            <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
                 <StepCard
@@ -224,19 +195,17 @@ export function CodePostDecisionView({
                     copy={copy}
                     timestampDate={timestampDate}
                     banner={banner}
-                    showToggle={showStudyCode && !expanded}
                     expanded={expanded}
                     onToggle={toggle}
                 />
                 <SubmittedCodePanel
-                    isVisible={showStudyCode}
                     expanded={expanded}
                     jobId={job.id}
                     codeFiles={codeFiles}
                     proposalHref={proposalHref}
                     onCollapse={collapse}
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
+                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />
             </Stack>
         </Stack>

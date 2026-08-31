@@ -1,5 +1,3 @@
-@layer reset, base, tokens, recipes, utilities;
-
 .pi-symbol {
     position: fixed;
     bottom: 0px;
@@ -30,6 +28,10 @@
 }
 
 /* EditableText (Lexical) formatting classes */
+.editable-text-paragraph {
+    margin: 0;
+}
+
 .editable-text-bold {
     font-weight: bold;
 }
@@ -118,4 +120,27 @@
     white-space: nowrap;
     color: #fff;
     pointer-events: none;
+}
+
+/*
+ * The AppShell footer is fixed over the bottom of the viewport, so it covers whatever the browser
+ * scrolls to the bottom edge. Scrolling an element into view stops as soon as its bottom edge
+ * reaches the viewport bottom, which lands it underneath the footer: keyboard focus moving to a
+ * control below the fold leaves it hidden (WCAG 2.4.11), and a scripted click at the element's own
+ * coordinates presses the footer instead. On the review page that press lands outside the feedback
+ * editor, so its required-field guard reports the field as abandoned while the reviewer is still in
+ * it (OTTER-647 case 25).
+ *
+ * The header does the same at the top of the viewport, on mobile: an element scrolled up to lands
+ * behind it (measured at 390x844, the target came to rest at y=0 under a 60px header).
+ *
+ * Reserving both teaches every scroll-into-view to stop clear of them. Mantine publishes the sizes
+ * as variables on the same element that scrolls, so they cannot drift, and the fallbacks cover pages
+ * that render neither, such as sign-in. The header reads its *offset* because it is collapsed on
+ * desktop, where it occupies nothing; the footer reads its *height* so the reservation survives even
+ * if the shell is ever told not to offset for it.
+ */
+html {
+    scroll-padding-top: var(--app-shell-header-offset, 0px);
+    scroll-padding-bottom: var(--app-shell-footer-height, 0px);
 }

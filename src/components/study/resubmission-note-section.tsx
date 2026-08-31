@@ -5,6 +5,7 @@ import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@manti
 import { type UseFormReturnType } from '@mantine/form'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
+import { fieldErrorId, nativeFieldProps } from '@/components/form-field'
 import { WordCounter } from '@/components/word-counter'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
 import { countWords } from '@/lib/lexical'
@@ -36,14 +37,11 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const wordCount = countWords(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
-    // The status indicator and validation error share the footer's left slot; only one is relevant at a time.
-    const footerStatus = error ? <InputError error={error} /> : <SaveStatusIndicator status={saveStatus} />
-
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={4} c="charcoal.9">
+                    <Title order={3} size="h4" c="charcoal.9">
                         Resubmission Note
                         <RequiredIndicator isVisible />
                     </Title>
@@ -61,10 +59,22 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         value={value}
                         onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
                         onBlur={() => noteForm.validateField('resubmissionNote')}
-                        error={!!error}
+                        // nativeFieldProps rather than error={!!error} plus a hand-passed
+                        // aria-describedby: Mantine derives describedBy from the input's own
+                        // wrapper and spreads it after the caller's props, so a hand-passed
+                        // value is discarded. Passing the node lets it wire the id itself.
+                        {...nativeFieldProps(error, { required: true })}
                     />
                     <Group justify="space-between" align="center" mt={4}>
-                        {footerStatus}
+                        {/* The indicator sits beside the error node, not inside it: the textarea's
+                            aria-describedby points at that id, and a live region in its subtree
+                            would fold "All changes saved" into the field's description. */}
+                        <Box>
+                            <Box id={fieldErrorId('resubmissionNote')}>
+                                <InputError error={error} />
+                            </Box>
+                            <SaveStatusIndicator status={saveStatus} isVisible={!error} />
+                        </Box>
                         <WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />
                     </Group>
                 </Box>

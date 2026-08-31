@@ -403,6 +403,19 @@ export const createSignedUploadUrl = async (path: string) => {
     })
 }
 
+// As above but for a caller that already knows the whole key. `eq` rather than `starts-with`, so the
+// browser cannot land the object anywhere but where the server recorded it — which matters when the
+// stored path is itself the record of what was filed.
+export const createSignedUploadUrlForKey = async (path: string) => {
+    const prefixedPath = withS3Prefix(path)
+    return await createPresignedPost(getS3BrowserClient(), {
+        Bucket: s3BucketName(),
+        Expires: 3600,
+        Conditions: [['eq', '$key', prefixedPath]],
+        Key: prefixedPath,
+    })
+}
+
 export const deleteS3File = async (Key: string) => {
     await getS3Client().send(
         new DeleteObjectCommand({

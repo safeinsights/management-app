@@ -1,6 +1,7 @@
 'use client'
 
 import { StudiesTable } from '@/components/dashboard/studies-table'
+import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
@@ -53,6 +54,7 @@ export default function UserStudiesDashboard() {
     return (
         <Stack p="xxl" gap="xxl">
             <Title order={1}>My dashboard</Title>
+            <JoinedOrgBanner />
             <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
 
             <Paper shadow="xs" p="xl">

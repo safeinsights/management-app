@@ -41,6 +41,19 @@ describe('proposalFormSchema', () => {
             }
         })
 
+        // trim() runs before min(1), so a whitespace-only title fails here rather than passing
+        // schema validation while a separate trimmed check quietly disables submit.
+        it('rejects a whitespace-only title', () => {
+            const result = proposalFormSchema.safeParse({ ...validProposalData, title: '   ' })
+
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                expect(result.error.issues.find((e) => e.path.includes('title'))?.message).toBe(
+                    'This field is required.',
+                )
+            }
+        })
+
         it('rejects title exceeding word limit', () => {
             const result = proposalFormSchema.safeParse({
                 ...validProposalData,
@@ -240,6 +253,44 @@ describe('proposalFormSchema', () => {
         it('accepts valid piName', () => {
             const result = proposalFormSchema.safeParse(validProposalData)
             expect(result.success).toBe(true)
+        })
+
+        // A name with no linked user must fail, and the issue has to land on `piName` rather than
+        // `piUserId`: no field renders the id, so an error there blocks submit with nothing the
+        // user can see or clear. `piName` is the path the Select displays.
+        it('rejects a piName whose piUserId is empty, reporting it on the piName path', () => {
+            const result = proposalFormSchema.safeParse({ ...validProposalData, piUserId: '' })
+
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                const issue = result.error.issues.find((e) => e.path.includes('piName'))
+                expect(issue?.message).toBe('Select a Principal Investigator from the list.')
+                expect(result.error.issues.some((e) => e.path.includes('piUserId'))).toBe(false)
+            }
+        })
+
+        it('rejects a piName whose piUserId is not a uuid', () => {
+            const result = proposalFormSchema.safeParse({ ...validProposalData, piUserId: 'not-a-uuid' })
+
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                const issue = result.error.issues.find((e) => e.path.includes('piName'))
+                expect(issue?.message).toBe('Select a Principal Investigator from the list.')
+            }
+        })
+
+        it('absorbs an omitted piUserId rather than throwing on undefined', () => {
+            const { piUserId: _omitted, ...withoutId } = validProposalData
+            const result = proposalFormSchema.safeParse(withoutId)
+
+            // Hydrating a draft with no PI yields undefined; `.default('')` absorbs it so the
+            // failure is the visible cross-field message, not a type error on a hidden path.
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                expect(result.error.issues.find((e) => e.path.includes('piName'))?.message).toBe(
+                    'Select a Principal Investigator from the list.',
+                )
+            }
         })
     })
 

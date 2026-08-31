@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { Alert, Badge, Box, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -11,7 +11,6 @@ import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Doc } from 'yjs'
@@ -22,13 +21,15 @@ import { useConnectionPhase } from '@/lib/realtime/yjs-websocket-context'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
-import { lexicalTheme, lexicalNodes, isValidUrl, pickCursorColor } from './config'
+import { EditorFooter } from './editor-footer'
+import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { Toolbar } from './toolbar'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
+import { useWidgetBlur } from '@/components/form-field'
 
-function SaveStatus({ provider }: { provider: HocuspocusProvider | null }) {
+function SaveStatus({ provider, isVisible }: { provider: HocuspocusProvider | null; isVisible: boolean }) {
     const status = useProviderSaveStatus(provider)
-    return <SaveStatusIndicator status={status} />
+    return <SaveStatusIndicator status={status} isVisible={isVisible} />
 }
 
 type ActiveEditor = { userId: string; name: string; color: string; focusing: boolean }
@@ -180,7 +181,23 @@ export type CollaborativeEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /** See EditorProps.footerLeft. */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
+    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    inputId?: string
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
+     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
+     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
+    /** Id(s) of the description/error nodes describing this editor. */
+    ariaDescribedBy?: string
+    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
+    ariaRequired?: boolean
+    /** Fires only when focus leaves the whole editor, toolbar included. */
+    onBlur?: () => void
     /**
      * Called once Lexical's CollaborationPlugin instantiates the provider, and
      * again with null on teardown. Consumers (e.g. siblings that need to
@@ -235,11 +252,18 @@ export function CollaborativeEditor({
     placeholder,
     ariaLabel,
     onChange,
+    footerLeft,
     footerRight,
+    inputId,
+    error,
+    ariaDescribedBy,
+    ariaRequired,
+    onBlur,
     onProviderReady,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const { getToken } = useAuth()
+    const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
     const providerRef = useRef<HocuspocusProvider | null>(null)
     // State mirror of providerRef — the ref is needed for synchronous access in
     // the factory callback; state is needed so the cleanup effect can depend on
@@ -344,11 +368,24 @@ export function CollaborativeEditor({
                 <Paper
                     p={0}
                     className="collaborative-editor-container"
-                    style={{ overflow: 'hidden', position: 'relative' }}
+                    style={{
+                        overflow: 'hidden',
+                        position: 'relative',
+                        borderColor: error ? 'var(--mantine-color-red-filled)' : undefined,
+                    }}
+                    {...widgetBlur}
                 >
                     <RichTextPlugin
                         contentEditable={
-                            <ContentEditable className={contentClassName} style={contentStyle} ariaLabel={ariaLabel} />
+                            <ContentEditable
+                                id={inputId}
+                                className={contentClassName}
+                                style={contentStyle}
+                                ariaLabel={ariaLabel}
+                                ariaDescribedBy={ariaDescribedBy}
+                                ariaInvalid={error ? true : undefined}
+                                ariaRequired={ariaRequired}
+                            />
                         }
                         placeholder={
                             placeholder ? (
@@ -380,16 +417,15 @@ export function CollaborativeEditor({
                     />
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     <ListPlugin />
-                    <TabIndentationPlugin />
+                    {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                     <EscapeFocusPlugin />
-                    <LinkPlugin validateUrl={isValidUrl} />
+                    <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                     <Toolbar />
                 </Paper>
                 <Stack gap={4} mt={4}>
-                    <Group align="center" wrap="nowrap">
-                        <SaveStatus provider={activeProvider} />
-                        {footerRight && <Box ml="auto">{footerRight}</Box>}
-                    </Group>
+                    <EditorFooter left={footerLeft} right={footerRight}>
+                        <SaveStatus provider={activeProvider} isVisible={!error} />
+                    </EditorFooter>
                     <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />
                 </Stack>
             </LexicalCollaboration>

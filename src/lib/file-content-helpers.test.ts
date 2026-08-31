@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeFileContents, imageMimeType, parseCsv, parseLogMessages } from './file-content-helpers'
+import { decodeFileContents, formatJson, imageMimeType, parseCsv, parseLogMessages } from './file-content-helpers'
 
 describe('file-content-helpers', () => {
     describe('decodeFileContents', () => {
@@ -71,6 +71,31 @@ describe('file-content-helpers', () => {
         it('returns null when entries are missing required fields', () => {
             expect(parseLogMessages('[{"timestamp":1000}]')).toBeNull()
             expect(parseLogMessages('[{"message":"hello"}]')).toBeNull()
+        })
+
+        // This viewer is selected by sniffing content, so a log-shaped result file would otherwise
+        // render as a two-column table with its remaining fields silently dropped.
+        it('declines log-shaped entries carrying extra fields rather than dropping them', () => {
+            expect(parseLogMessages('[{"timestamp":1,"message":"ok","estimate":42}]')).toBeNull()
+        })
+    })
+
+    describe('formatJson', () => {
+        it('pretty-prints minified JSON', () => {
+            expect(formatJson('{"a":1,"b":[2,3]}')).toBe('{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}')
+        })
+
+        it('returns null for text that is not JSON', () => {
+            expect(formatJson('not json at all')).toBeNull()
+            expect(formatJson('{broken')).toBeNull()
+        })
+
+        it('formats regardless of the input spacing', () => {
+            expect(formatJson('{ "a" : 1 }')).toBe('{\n  "a": 1\n}')
+        })
+
+        it('preserves whitespace inside strings', () => {
+            expect(formatJson('{"a":"two  spaces"}')).toBe('{\n  "a": "two  spaces"\n}')
         })
     })
 

@@ -21,7 +21,18 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     body,
     confirmLabel,
 }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title={title} closeButtonProps={{ 'aria-label': 'Close' }}>
+    // Every dismissal route closes with Cancel, not just the button: leaving the X, Escape and
+    // outside-click live while Cancel is disabled lets the user dismiss a submission that is still
+    // running, with no way to tell whether dismissing cancelled it (it does not).
+    <AppModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={title}
+        closeButtonProps={{ 'aria-label': 'Close' }}
+        withCloseButton={!isSubmitting}
+        closeOnEscape={!isSubmitting}
+        closeOnClickOutside={!isSubmitting}
+    >
         <Stack gap="xl">
             <Text size="md">{body}</Text>
             <Group>

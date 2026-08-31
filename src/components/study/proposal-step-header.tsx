@@ -26,7 +26,7 @@ export function ProposalStepHeader({
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                 {stepLabel}
             </Text>
-            <Title order={4} fz={20} c="charcoal.9" pb={4}>
+            <Title order={2} fz="xl" c="charcoal.9" pb={4}>
                 {heading}
             </Title>
             <Group justify="space-between" align="center" wrap="nowrap">
@@ -39,7 +39,7 @@ export function ProposalStepHeader({
                     </Text>
                 )}
             </Group>
-            <Divider my="md" data-testid="proposal-header-divider" />
+            <Divider my={24} color="charcoal.1" data-testid="proposal-header-divider" />
             {banner}
             {children}
         </Paper>

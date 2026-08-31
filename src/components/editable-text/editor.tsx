@@ -23,6 +23,7 @@ const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then(
  * for call-site parity and ignored in single-user mode.
  */
 export type EditorProps = {
+    /** Globally unique Yjs document name. NOT a DOM id; pass `inputId` for that. */
     id: string
     studyId: string
     /** Serialized Lexical JSON used to seed the single-user editor. */
@@ -33,7 +34,33 @@ export type EditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
+    /**
+     * Left slot of the footer row, directly under the input. The field's error message goes
+     * here so it takes the slot the save indicator vacates, not a row below it (OTTER-674).
+     */
+    footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
+    /**
+     * DOM id of the editable surface, for label/`aria-describedby` pairing. Must be
+     * distinct from `id`: that one is the Yjs document name and the `yjs_document`
+     * primary key, so reusing it as a DOM id couples persistence to markup.
+     */
+    inputId?: string
+    /**
+     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the caller
+     * renders the message. Typed `string`, not `ReactNode`, so presence stays a plain truthiness
+     * check — a falsy-but-present node (`0`, `''`) can't read as "no error".
+     */
+    error?: string | null
+    /** Id(s) of the nodes describing this editor, e.g. its description and error text. */
+    ariaDescribedBy?: string
+    /**
+     * Marks the editor required to assistive tech. A required asterisk on the label is visual
+     * only, so without this the requirement never reaches a screen reader (OTTER-647).
+     */
+    ariaRequired?: boolean
+    /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
+    onBlur?: () => void
     onProviderReady?: (provider: HocuspocusProvider | null) => void
     /** Height of the skeleton shown while the collaborative chunk loads / before the websocket connects. */
     skeletonHeight?: number

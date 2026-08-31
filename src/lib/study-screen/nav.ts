@@ -2,8 +2,8 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import type { StudyState } from './state.types'
-import { isErroredResultHiddenFromResearcher } from './state'
 import { canResearcherResubmitCode } from './eligibility'
+import { hasNextStepFromCode } from './next-step'
 
 // In-content step navigation (OTTER-673). The spec ("Otter - Front-End Logic" § Navigation) reduces
 // every step page to one of three button patterns, picked by a single question: can the user move
@@ -49,14 +49,14 @@ const previousStep = (href: Route): NavAction => ({
     label: 'Previous step',
     href,
     variant: 'subtle',
-    testId: 'nav-previous-step',
+    testId: 'cta-previous-step',
 })
 
 const nextStep = (href: Route): NavAction => ({
     label: 'Next step',
     href,
     variant: 'solid',
-    testId: 'nav-next-step',
+    testId: 'cta-next-step',
 })
 
 // Always "My studies", never the user's entry point. Deliberate for beta: entry-point routing would
@@ -66,21 +66,21 @@ const backToMyStudies = (ctx: NavCtx): NavAction => ({
     label: 'Back to my studies',
     href: ctx.dashboardHref,
     variant: 'solid',
-    testId: 'nav-back-to-my-studies',
+    testId: 'cta-back-to-my-studies',
 })
 
 const editProposal = (ctx: NavCtx): NavAction => ({
     label: 'Edit proposal',
     href: Routes.studyEditAndResubmit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
     variant: 'solid',
-    testId: 'nav-edit-proposal',
+    testId: 'cta-edit-proposal',
 })
 
 const editCode = (ctx: NavCtx, variant: NavVariant): NavAction => ({
     label: 'Edit code',
     href: Routes.studyResubmit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
     variant,
-    testId: 'nav-edit-code',
+    testId: 'cta-edit-code',
 })
 
 // --- phase anchors -------------------------------------------------------------------------------
@@ -128,13 +128,12 @@ const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     forward: backToMyStudies(ctx),
 })
 
-// The spec's forward here is a "Code processing" page that is not built yet (its row is marked
-// New Page). Until it lands, forward opens only once results exist; before that there is genuinely
-// nothing ahead, which is pattern 3.
+// Whether a forward step exists is "does /view resolve past this screen" — hasNextStepFromCode asks
+// the rule table rather than restating its predicates, so screens the outputs epic adds gain a
+// forward step here without this file changing (OTTER-687).
 const codeApprovedNav: NavRule = (state, ctx) => {
     const back = codePreviousStep(ctx)
-    const resultsReady = state.hasResults && !isErroredResultHiddenFromResearcher(state)
-    if (!resultsReady) return { back, forward: backToMyStudies(ctx) }
+    if (!hasNextStepFromCode('researcher', state, 'code-approved')) return { back, forward: backToMyStudies(ctx) }
     return {
         back,
         forward: nextStep(Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo })),
@@ -147,6 +146,24 @@ const codeFeedbackNav: NavRule = (state, ctx) => {
     // CODE-REJECTED is terminal negative: no further submissions accepted, so the exit is the action.
     return { back, forward: backToMyStudies(ctx) }
 }
+
+// --- outputs phase (researcher) -------------------------------------------------------------------
+// All three anchor back to the approved-code step, like study-results. Their "View" action — entering
+// a security key to decrypt — is a page action rather than a navigation, so it stays with the screen
+// that owns the key, the same split Submit actions get.
+
+// Running in the enclave: waiting on the run, so nothing is ahead.
+const outputsPendingNav: NavRule = (_state, ctx) => ({
+    back: resultsPreviousStep(ctx),
+    forward: backToMyStudies(ctx),
+})
+
+// Feedback shared without outputs, and an errored run whose outputs were shared: in both the spec's
+// forward action is the next iteration, so "Edit code" takes the solid slot.
+const outputsFeedbackNav: NavRule = (_state, ctx) => ({
+    back: resultsPreviousStep(ctx),
+    forward: editCode(ctx, 'solid'),
+})
 
 // Terminal positive: the exit takes the solid slot and "Edit code" sits one level down as the optional
 // further iteration (spec state 5). When the run returned feedback but no shareable outputs there is no
@@ -168,6 +185,9 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
     'code-under-review': codeUnderReviewNav,
     'code-approved': codeApprovedNav,
     'code-feedback': codeFeedbackNav,
+    'outputs-pending': outputsPendingNav,
+    'outputs-feedback': outputsFeedbackNav,
+    'outputs-errored-shared': outputsFeedbackNav,
     'study-results': studyResultsNav,
 }
 
@@ -203,13 +223,17 @@ const reviewerCodeFeedbackNav: NavRule = (state, ctx) => {
     const back = reviewerCodePreviousStep(ctx)
     // Approved code forwards to a "Preparing code" page the spec marks as new and that is not built
     // yet; until it lands, forward opens only once there are results to look at.
-    if (state.codeDecision === 'CODE-APPROVED' && state.hasResults) {
+    if (hasNextStepFromCode('reviewer', state, 'reviewer-code-feedback')) {
         return { back, forward: nextStep(Routes.studyReview({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
     }
     return { back, forward: backToMyStudies(ctx) }
 }
 
-const reviewerStudyResultsNav: NavRule = (_state, ctx) => ({
+// Outputs-phase reviewer screens. The two undecided ones offer "View" (decrypt) and then "Submit
+// decision", both page actions, so this table gives them only the back link.
+const reviewerOutputsUndecidedNav: NavRule = (_state, ctx) => ({ back: reviewerResultsPreviousStep(ctx) })
+
+const reviewerOutputsSettledNav: NavRule = (_state, ctx) => ({
     back: reviewerResultsPreviousStep(ctx),
     forward: backToMyStudies(ctx),
 })
@@ -222,7 +246,10 @@ export const REVIEWER_STEP_NAV: Record<ReviewerScreenId, NavRule> = {
     'reviewer-agreements': reviewerAgreementsNav,
     'reviewer-code-review': reviewerCodeReviewNav,
     'reviewer-code-feedback': reviewerCodeFeedbackNav,
-    'reviewer-study-results': reviewerStudyResultsNav,
+    'reviewer-outputs-pending': reviewerOutputsSettledNav,
+    'reviewer-outputs-errored': reviewerOutputsUndecidedNav,
+    'reviewer-outputs-available': reviewerOutputsUndecidedNav,
+    'reviewer-outputs-decided': reviewerOutputsSettledNav,
 }
 
 export function resolveReviewerStepNav(screen: ReviewerScreenId, state: StudyState, ctx: NavCtx): StepNav {

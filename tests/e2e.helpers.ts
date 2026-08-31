@@ -148,7 +148,7 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(path.dirname(filename), 'support', file), 'utf8')
 }
 
-export type TestingRole = 'researcher' | 'reviewer' | 'admin'
+export type TestingRole = 'researcher' | 'reviewer' | 'admin' | 'legal'
 
 // Credentials for driving the faked sign-in form. Identifiers come from the same
 // fixtures the in-app fake matches on (src/lib/clerk-fake/fixtures); the password is any
@@ -158,6 +158,7 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     admin: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.admin.email, password: FAKE_PASSWORD },
     researcher: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.researcher.email, password: FAKE_PASSWORD },
     reviewer: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.reviewer.email, password: FAKE_PASSWORD },
+    legal: { mfa: CLERK_MFA_CODE, identifier: ROLE_FIXTURES.legal.email, password: FAKE_PASSWORD },
 }
 
 // Per-role storageState file written by tests/global.setup.ts and consumed by specs
@@ -175,6 +176,20 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
     const field = page.locator(`[aria-label="${ariaLabel}"]`)
     await field.click()
     await page.keyboard.type(text)
+}
+
+// Types `text` into a rich-text field and hyperlinks all of it through the editor
+// toolbar. The toolbar is scoped to the field's own editor because a page renders
+// one Lexical instance (and one toolbar) per rich-text field.
+export async function insertLexicalLink(page: Page, ariaLabel: string, text: string, url: string) {
+    const editor = page.locator(`.collaborative-editor-container:has([aria-label="${ariaLabel}"])`)
+    await editor.locator(`[aria-label="${ariaLabel}"]`).click()
+    await page.keyboard.type(text)
+    await page.keyboard.press('ControlOrMeta+a')
+
+    await editor.getByLabel('Link').click()
+    await editor.getByPlaceholder('https://').fill(url)
+    await editor.getByLabel('Apply link').click()
 }
 
 // Opens a context that restores `role`'s saved session from storageState (no

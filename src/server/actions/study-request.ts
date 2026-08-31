@@ -92,6 +92,10 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
+        // The AI review describes the code files just deleted. Drop it too, or
+        // generateAndStoreStudyReview's already-exists short-circuit keeps the
+        // stale summary for the resubmitted code (SHRMP-263).
+        await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
     }
 
     await db
@@ -159,11 +163,18 @@ const onSaveDraftStudyActionArgsSchema = z.object({
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
     .params(onSaveDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    // OTTER-719: `submittingOrgSlug` is a client param and `getOrgIdFromSlug` resolves any slug, so a
+    // caller could otherwise stamp another lab's id onto a new study and gain IDE access to it under
+    // the submittedByOrgId-scoped `load IDE` rule. Resolving the slug to `submittedByOrgId` here puts
+    // it in the ability subject, so `create Study` enforces lab membership through the same CASL rule
+    // as update/delete rather than a hand-rolled check in the handler that authz review would miss.
+    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await getOrgIdFromSlug({ orgSlug })),
+        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    }))
     .requireAbilityTo('create', 'Study')
-    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+    .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
         const userId = session.user.id
-        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
@@ -180,7 +191,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 agreementDocPath: studyInfo.agreementDocPath || null,
                 orgId,
                 researcherId: userId,
-                submittedByOrgId: submittingLab.orgId,
+                submittedByOrgId,
                 containerLocation,
                 status: 'DRAFT',
             })
@@ -332,7 +343,10 @@ const finalizeStudySubmissionInfoSchema = z
     .object({
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
-        piUserId: z.string().nullable().optional(),
+        // Nullable/optional for drafts, but a supplied value must be a real user id: the
+        // client cannot validate this (no field displays it), so submit is the enforcement
+        // point (OTTER-647).
+        piUserId: z.string().uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
         projectSummary: z.string().optional(),
@@ -476,7 +490,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             .where('study.id', '=', studyId)
             .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, study }) => {

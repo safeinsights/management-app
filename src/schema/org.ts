@@ -65,4 +65,8 @@ export const getNewOrg = (type: 'enclave' | 'lab' = 'enclave'): NewOrg => {
 
 export type Org = Selectable<DefinedOrg>
 
+// The subset of an org any authenticated user may read (getOrgFromSlugAction). Deliberately
+// excludes `settings` — which holds an enclave's publicKey — and `email` (OTTER-724 / MA-6).
+export type PublicOrg = Pick<Org, 'id' | 'slug' | 'name' | 'type' | 'description'>
+
 export type NewOrg = Omit<Org, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: never; updatedAt?: never }

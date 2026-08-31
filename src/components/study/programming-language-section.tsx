@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
+import { useWidgetBlur } from '@/components/form-field'
+import { RequiredIndicator } from '@/components/required-indicator'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 import { Divider, Grid, Group, Paper, Radio, Stack, Text, Title } from '@mantine/core'
@@ -42,6 +44,15 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         }
     }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
+    const widgetBlur = useWidgetBlur(() => form.validateField('language'))
+
+    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
+    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
+    // applies Mantine's error styling without adding a second message (OTTER-647).
+    const languageRadios = languages.map((opt) => (
+        <Radio key={opt.value} value={opt.value} label={opt.label} error={!!form.errors.language} />
+    ))
+
     let body: React.ReactNode = null
 
     if (!selectedOrgSlug) {
@@ -61,20 +72,33 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
 
                 <Grid align="flex-start">
                     <Grid.Col span={12}>
+                        {/* Radio.Group's blur is a bubbled focusout, so tabbing between the radios
+                            would validate a still-empty group. useWidgetBlur waits for the user to
+                            leave the group entirely (OTTER-647). */}
+                        {/* Radio.Group puts role="radiogroup" on an inner element that takes its
+                            name from `labelProps.id` and its description from Mantine's own
+                            `description` / `error` props. Hand-passed aria-* attributes land on
+                            the outer wrapper, which has no role, so they were reaching nothing.
+                            `inputWrapperOrder` keeps Mantine from rendering a second copy of the
+                            helper text and message that this component already renders below. */}
                         <Radio.Group
                             id="programming-language"
-                            aria-labelledby="programming-language-title"
-                            aria-describedby="programming-language-helper programming-language-status"
+                            labelProps={{ id: 'programming-language-title' }}
+                            description={helperText}
+                            descriptionProps={{ id: 'programming-language-helper' }}
+                            error={form.errors.language}
+                            inputWrapperOrder={['input']}
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
+                            {...widgetBlur}
                         >
-                            <Group gap="xl">
-                                {languages.map((opt) => (
-                                    <Radio key={opt.value} value={opt.value} label={opt.label} />
-                                ))}
-                            </Group>
+                            <Group gap="xl">{languageRadios}</Group>
                         </Radio.Group>
-                        {form.errors.language && <InputError error={form.errors.language} />}
+                        {form.errors.language && (
+                            <span id="programming-language-error">
+                                <InputError error={form.errors.language} />
+                            </span>
+                        )}
                     </Grid.Col>
                 </Grid>
             </>
@@ -86,8 +110,9 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Text fz={10} fw={700} c="charcoal.7" pb={4}>
                 STEP 1B
             </Text>
-            <Title fz={20} id="programming-language-title" order={4} c="charcoal.9">
+            <Title fz={20} id="programming-language-title" order={2} c="charcoal.9">
                 Programming language
+                <RequiredIndicator fz={20} fw={700} />
             </Title>
             <Divider my="md" />
             <Stack gap="lg">{body}</Stack>

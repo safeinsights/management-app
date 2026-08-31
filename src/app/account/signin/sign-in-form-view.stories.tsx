@@ -41,7 +41,6 @@ function useStoryForm(initialValues: SignInFormValues) {
             email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
             password: (value) => (value.length > 0 ? null : 'Required'),
         },
-        validateInputOnChange: true,
     })
 }
 

@@ -7,7 +7,7 @@
 //
 // If the seed changes (UUIDs, org memberships, emails), update this table to match.
 
-export type FakeRole = 'admin' | 'researcher' | 'reviewer'
+export type FakeRole = 'admin' | 'researcher' | 'reviewer' | 'legal'
 
 export type FakeOrg = {
     id: string
@@ -81,12 +81,29 @@ export const ROLE_FIXTURES: Record<FakeRole, FakeFixture> = {
             'reviewer-is-org-admin': org(ORG.reviewerIsOrgAdmin, true),
         },
     },
+    // Reserved for the legal-acknowledgement spec, which needs a user carrying an outstanding
+    // Terms of Service. Those are global, so the block follows the user everywhere and no other
+    // spec's role can be left owing one. Same memberships as `researcher` — the role only exists to
+    // isolate acknowledgement state.
+    legal: {
+        role: 'legal',
+        userId: '00000000-0000-4000-8000-000000000004',
+        clerkId: 'test-clerk-legal',
+        email: 'si-legal-tester-dbfyq3@mailinator.com',
+        firstName: 'Test Legal',
+        lastName: 'User',
+        orgs: {
+            'openstax-lab': org(ORG.openstaxLab, false),
+        },
+    },
 }
 
 export const FAKE_ROLES = Object.keys(ROLE_FIXTURES) as FakeRole[]
 
+// Derived from the fixture table rather than restated, so adding a role above cannot leave the
+// guard silently rejecting it.
 export function isFakeRole(value: string | undefined | null): value is FakeRole {
-    return value === 'admin' || value === 'researcher' || value === 'reviewer'
+    return !!value && (FAKE_ROLES as string[]).includes(value)
 }
 
 export function fixtureForRole(role: string | undefined | null): FakeFixture | null {
