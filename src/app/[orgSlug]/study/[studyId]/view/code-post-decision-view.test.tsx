@@ -93,7 +93,6 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
     return { org, study, job: latestJob, latestJobStatus: decisionStatus }
 }
 
-
 function renderView(
     study: Submitted<SelectedStudy>,
     job: LatestJobForStudy,
