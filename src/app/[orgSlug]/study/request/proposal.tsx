@@ -23,12 +23,9 @@ interface StudyProposalProps {
 const MODAL_BODY =
     'Make sure your Data Partner and programming language are correct. They cannot be changed after this step. You can still edit your study title.'
 
-/**
- * The three states Step 1 is reached in (OTTER-764):
- * - `create`: no study row yet, every field open, the confirmation modal guards the choices.
- * - `revisit`: the researcher came back to a persisted draft. Only the title is still editable.
- * - `submitted`: the proposal has gone to the Data Partner. The page is a read-only record.
- */
+// The three states Step 1 is reached in (OTTER-764): `create` has no study row and every field
+// open, `revisit` is a persisted draft with only the title editable, and `submitted` is a
+// read-only record.
 type SetupNavMode = 'create' | 'revisit' | 'submitted'
 
 /**
@@ -82,10 +79,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         })
     }, [saveDraft, form, router, submittingOrgSlug])
 
-    // Once the proposal is submitted there is nothing to validate and nothing to save, so the CTA is
-    // a plain step forward to the submitted record (OTTER-764). It still sets `isProceeding`: the
-    // target re-runs its own server reads, so without it the button looks dead for the whole
-    // navigation and repeated clicks stack pushes. Nothing resets it, because the page is leaving.
+    // A submitted proposal has nothing to validate or save, so the CTA only steps forward
+    // (OTTER-764). `isProceeding` still guards it: the target re-reads from the server, and without
+    // it the button looks dead for the whole navigation. Nothing resets it, the page is leaving.
     const goToSubmitted = useCallback(() => {
         if (!studyId) return
         setIsProceeding(true)

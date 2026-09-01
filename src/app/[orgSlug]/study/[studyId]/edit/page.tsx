@@ -40,11 +40,8 @@ export default async function StudyEditPage(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // Step 1 serves two study states (OTTER-764): a DRAFT is the editable wizard, and a submitted
-    // study is the same page as a read-only record, which the submitted proposal steps back to.
-    //
-    // /edit is a revisitable step, so it never self-redirects to resume on Step 2; resolveScreen
-    // decides the canonical screen.
+    // A DRAFT is the editable wizard, a submitted study the same page as a read-only record
+    // (OTTER-764). Revisitable either way, so it never self-redirects to resume on Step 2.
     return (
         <StudyProposal
             studyId={studyId}

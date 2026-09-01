@@ -71,13 +71,9 @@ const setupFixtures = async () => {
     return { lab, user, singleLanguagePartner, multiLanguagePartner, pythonOnlyPartner, retiredPartner }
 }
 
-/**
- * A real DRAFT row for the revisit state, so a Save and continue click runs the actual update action
- * instead of failing against an id that was never persisted.
- *
- * The row is submitted by the lab, which is what `update Study` is scoped to. Its `orgSlug` names the
- * Data Partner for the locked display only: the update path does not send a partner.
- */
+// A real DRAFT row for the revisit state, so a Save and continue click runs the actual update
+// action. The row is submitted by the lab, which is what `update Study` is scoped to; its `orgSlug`
+// names the Data Partner for the locked display only.
 const insertRevisitableDraft = async (fixtures: Fixtures, overrides: Partial<DraftStudyData> = {}) => {
     const { study } = await insertTestStudyJobData({
         org: fixtures.lab,
@@ -877,9 +873,8 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         const { study, draftData } = await insertRevisitableDraft(fixtures)
-        // The row is seeded apart from the draft the page renders, so the write is observable. The
-        // click sends the form's title whether or not it was edited, so asserting the row still
-        // holds the draft's title would otherwise pass with the save removed entirely, and the
+        // Seeded apart from the draft the page renders, so the write is observable: asserting the
+        // row still holds the draft's title would pass with the save removed entirely, and the
         // no-op save is the whole contract here.
         await db.updateTable('study').set({ title: 'A title only the row has' }).where('id', '=', study.id).execute()
         renderSetup(fixtures, { studyId: draftData.id, draftData })

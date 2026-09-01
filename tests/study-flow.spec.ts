@@ -582,10 +582,9 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
         await expect(submittedLink).toHaveAttribute('target', '_blank')
 
-        // OTTER-764 state 3 on the card's own scenario: a proposal genuinely pending review. Step 1
-        // is a record here, so the title has no input left to carry it, and the CTA only steps
-        // forward. The title has been locked since submission, which is what makes the permanent
-        // lock outrank state 2's editable title.
+        // OTTER-764 state 3 on a proposal genuinely pending review. Step 1 is a record here, so no
+        // field has an input left and the CTA only steps forward. The title has been locked since
+        // submission, which is what makes the permanent lock outrank state 2's editable title.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
         await expect(page.getByText(/^STEP 1$/)).toBeVisible()
