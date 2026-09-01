@@ -19,22 +19,18 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
 
 type FormErrorHandler = {
     setErrors(errs: Record<string, string>): void
-    // Only the keys are read, so the value type is deliberately unconstrained: forms carry
-    // non-string fields too (booleans, files, arrays).
     values: Record<string, unknown>
 }
 export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     return (err: unknown) => {
         const failure = extractActionFailure(err)
         if (failure) {
-            // Handle both string and object errors
             if (typeof failure === 'string') {
                 reportError(err)
             } else {
                 const formErrorKeys = Object.keys(failure)
                 const fieldKeys = Object.keys(form.values)
-                // `form` is the catch-all alert key; `code` is a reserved companion that lets
-                // callers pass an error code (e.g. a Clerk code) to drive an alert title.
+                // `form` is the catch-all alert key; `code` carries an error code driving its title.
                 const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form' && k !== 'code')
 
                 const unknownKeys = difference(nonFieldKeys, fieldKeys)
@@ -95,11 +91,8 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     const theme = useMantineTheme()
     if (!error) return null
 
-    // `component="span"`, so this node stays valid wherever it is used as a Mantine `error`.
-    // Mantine renders an input's error inside a `<p>`, and a `<div>` there is invalid HTML that
-    // React reports as a nesting error. Rendering inline also lets call sites hand this straight
-    // to Mantine instead of suppressing the built-in error and rendering an unassociated copy,
-    // which left the message out of `aria-describedby`.
+    // `component="span"` so this stays valid as a Mantine `error`, which renders inside a `<p>`
+    // where a `<div>` is a React nesting error.
     return (
         <Group component="span" gap="xs">
             <WarningCircleIcon size={14} color={theme.colors.red[7]} weight="fill" />

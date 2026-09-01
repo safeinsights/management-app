@@ -1,7 +1,7 @@
 'use client'
 
 import { NavLink } from '@mantine/core'
-import { GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
+import { FileTextIcon, GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
 import { FC, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
@@ -12,6 +12,10 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 type Org = ActionSuccessType<typeof fetchUsersOrgsAction>[number]
 
+// Org admin routes are org-scoped while the SafeInsights admin tree is top-level, so the
+// segment is matched anywhere.
+const isAdminPathname = (pathname: string) => /(^|\/)admin(\/|$)/.test(pathname)
+
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
     org: Org
@@ -21,13 +25,12 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const pathname = usePathname()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
-    const isAdminPage = pathname.startsWith('/admin/')
+    const isAdminPage = isAdminPathname(pathname)
 
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
-    // Re-sync the menu's open state to the route during render (rather than in an
-    // effect) so navigating into/out of /admin opens or closes it without a
-    // cascading re-render, while a manual toggle still holds between navigations.
+    // Re-synced during render, not in an effect, so navigation opens or closes the menu without
+    // a cascading re-render while a manual toggle still holds.
     const [prevIsAdminPage, setPrevIsAdminPage] = useState(isAdminPage)
     if (isAdminPage !== prevIsAdminPage) {
         setPrevIsAdminPage(isAdminPage)
@@ -63,6 +66,13 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
                     url={Routes.adminSettings({ orgSlug })}
+                    pl="xl"
+                />
+                <NavbarLink
+                    isVisible
+                    label="Legal center"
+                    icon={<FileTextIcon size={20} />}
+                    url={Routes.adminLegal({ orgSlug })}
                     pl="xl"
                 />
             </NavLink>

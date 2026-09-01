@@ -32,12 +32,8 @@ export function useEducationSection(data: ResearcherProfileData | null, refetch:
         validateInputOnBlur: true,
     })
 
-    // Seed the form from the persisted profile and decide the initial edit mode, but never
-    // while the user is editing, so a background refetch (15-min interval / window focus)
-    // can never overwrite unsaved input. Seeding the form (an external Mantine store) and the
-    // coupled edit-mode decision must run together in this effect: they have to happen in the
-    // same pass so the form is populated before it opens, and "not editing" is the only
-    // reliable divergence guard (form.isDirty() is not dependable, e.g. after list edits).
+    // Guarded on "not editing" rather than isDirty(), which list edits leave unreliable, so a
+    // background refetch cannot overwrite unsaved input.
     useEffect(() => {
         if (isEditing) return
         form.setValues(defaults)

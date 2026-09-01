@@ -58,13 +58,38 @@ export function isLogType(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || isApprovedLogType(fileType) || isPlaintextLogType(fileType)
 }
 
+// Logs about a FAILED run, not any log: conflating the two made an errored job with only a
+// security scan log promise error logs (OTTER-524).
+const ENCRYPTED_ERROR_LOG_TYPES: FileType[] = ['ENCRYPTED-CODE-RUN-LOG', 'ENCRYPTED-PACKAGING-ERROR-LOG']
+
+// Overlaps the encrypted set on a packaging failure, so only errorLogSentence's
+// decryptable-first ordering stops a readable log reading as unopenable.
+const UNDECRYPTABLE_ERROR_LOG_TYPES: FileType[] = [
+    'PACKAGING-ERROR-LOG',
+    'APPROVED-CODE-RUN-LOG',
+    'APPROVED-PACKAGING-ERROR-LOG',
+]
+
+export function filesIncludeDecryptableErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => ENCRYPTED_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
+export function filesIncludeUndecryptableErrorLog(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => UNDECRYPTABLE_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
+// ENCRYPTED-SECURITY-SCAN-LOG is excluded: it is written at submission and says nothing
+// about a run (OTTER-524).
+export function jobHasDecryptableRunOutcome(files: ReadonlyArray<{ fileType: FileType }>): boolean {
+    return files.some((f) => f.fileType === 'ENCRYPTED-RESULT' || ENCRYPTED_ERROR_LOG_TYPES.includes(f.fileType))
+}
+
 export function logLabel(fileType: FileType): string {
     return LOG_LABELS[fileType] ?? 'Results'
 }
 
-// Pre-PR #764 jobs stored results/logs as plaintext APPROVED-* / SECURITY-SCAN-LOG rows; newer jobs
-// encrypt them for the researcher (ENCRYPTED-*). These two predicates classify a job's files so the
-// results view can show legacy results directly while routing encrypted ones through the key flow.
+// Pre-PR #764 jobs stored results/logs as plaintext APPROVED-* / SECURITY-SCAN-LOG rows;
+// newer jobs encrypt them for the researcher.
 export function isEncryptedArtifact(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
 }
@@ -77,9 +102,8 @@ export function jobHasEncryptedArtifacts(files: { fileType: FileType }[]): boole
     return files.some((f) => isEncryptedArtifact(f.fileType))
 }
 
-// A job is "legacy" for results purposes when it carries plaintext result artifacts and no encrypted
-// ones. The no-encrypted guard keeps a job that has both (shouldn't happen, but defensively) on the
-// encrypted path so nothing decryptable is silently skipped.
+// The no-encrypted guard keeps a job carrying both on the encrypted path so nothing
+// decryptable is silently skipped.
 export function jobHasLegacyResults(files: { fileType: FileType }[]): boolean {
     return !jobHasEncryptedArtifacts(files) && files.some((f) => isLegacyResultArtifact(f.fileType))
 }

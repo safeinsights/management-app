@@ -5,16 +5,16 @@ import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
 import {
-    RESUBMIT_NOTE_MAX_WORDS,
+    RESUBMIT_NOTE_MAX_CHARACTERS,
+    resubmissionNoteCharacterCount,
     resubmissionNoteToLexicalJson,
-    resubmissionNoteWordCount,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { noteSaveStatus, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
@@ -44,13 +44,9 @@ interface CollaborativeResubmissionNoteSectionProps {
     autosaveStatus: ResubmissionNoteAutosaveStatus
 }
 
-// In collaborative mode the editor renders its own provider-driven indicator;
-// showing this one too would double up.
-//
-// The error case goes through the indicator's own `isVisible` rather than unmounting here. A live
-// region is only announced when content it already owns changes, so unmounting on error and
-// mounting again once it clears would hand the region back with "All changes saved" already
-// inside it, and the save would never be announced (OTTER-675).
+// Collaborative mode has the editor's own provider-driven indicator, so this one would double up.
+// The error case goes through `isVisible` rather than unmounting: a live region only announces
+// content changes, so remounting one already holding "All changes saved" says nothing (OTTER-675).
 const SingleUserSaveStatus: FC<{
     isVisible: boolean
     hasError: boolean
@@ -72,7 +68,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const singleUserEditing = useSingleUserEditing()
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
-    const wordCount = resubmissionNoteWordCount(value)
+    const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
     const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
@@ -80,7 +76,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
     const footerLeft = (
         <>
-            <FieldErrorBox fieldId="resubmissionNote" error={error} />
+            <FieldErrorBox fieldId="resubmissionNote" error={error} isLive />
             <SingleUserSaveStatus isVisible={singleUserEditing} hasError={!!error} autosaveStatus={autosaveStatus} />
         </>
     )
@@ -113,9 +109,16 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         ariaDescribedBy={fieldDescribedBy('resubmissionNote', {
                             hasError: !!error,
                             hasDescription: false,
+                            hasCounter: true,
                         })}
                         footerLeft={footerLeft}
-                        footerRight={<WordCounter wordCount={wordCount} maxWords={RESUBMIT_NOTE_MAX_WORDS} />}
+                        footerRight={
+                            <CharacterCounter
+                                id={fieldCounterId('resubmissionNote')}
+                                count={characterCount}
+                                maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS}
+                            />
+                        }
                         skeletonHeight={EDITOR_MIN_HEIGHT}
                     />
                 </Box>

@@ -4,10 +4,8 @@ import { type ReactNode } from 'react'
 import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { fieldDescribedBy, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
-import { Editor } from '@/components/editable-text/editor'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { useWidgetBlur } from '@/components/form-field'
+import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { Decision } from '@/lib/review-decision'
@@ -61,31 +59,18 @@ function FeedbackEditor({
     studyId: string
     jobId: string
 }) {
-    const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishCodeReviewFeedbackProvider()
     return (
-        <Editor
-            id={codeReviewFeedbackDocName(jobId)}
-            inputId="code-review-feedback"
+        <DecisionFeedbackEditor
+            feedback={feedback}
             studyId={studyId}
-            websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
-            onChange={feedback.onChange}
-            onBlur={feedback.onBlur}
-            error={feedback.error}
+            docName={codeReviewFeedbackDocName(jobId)}
+            inputId="code-review-feedback"
             ariaLabel="Code review feedback"
-            ariaRequired
-            ariaDescribedBy={fieldDescribedBy('code-review-feedback', {
-                hasError: !!feedback.error,
-                hasDescription: false,
-            })}
             placeholder={FEEDBACK_PLACEHOLDER}
-            // The error takes exactly the slot the save indicator vacates, so it sits directly
-            // under the input instead of a row below the word counter (OTTER-674).
-            footerLeft={<FieldErrorBox fieldId="code-review-feedback" error={feedback.error} />}
-            footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
-            onProviderReady={publishProvider}
+            contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            onProviderReady={publishProvider}
         />
     )
 }
@@ -144,9 +129,8 @@ function DecisionRadioGroup({
     const handleChange = (next: string) => onChange(next as Decision)
     const widgetBlur = useWidgetBlur(onBlur)
 
-    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
-    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
-    // applies Mantine's error styling without adding a second message (OTTER-647).
+    // Radio.Group's context does not carry `error` to its children, so a boolean `error` restyles
+    // the circles without a second message (OTTER-647).
     const radioOptions = options.map((option) => (
         <Radio
             key={option.value}
@@ -160,10 +144,8 @@ function DecisionRadioGroup({
     ))
 
     return (
-        // Blur is a bubbled focusout, so moving between radios would validate a still-empty
-        // group; useWidgetBlur waits for the user to leave it (OTTER-647).
-        // A real `label`, not `aria-label`: see the note in review-decision-section. It names the
-        // role="radiogroup" element and makes `withAsterisk` render a visible required marker.
+        // Blur is a bubbled focusout, so moving between radios would validate a still-empty group;
+        // useWidgetBlur waits for the user to leave it (OTTER-647).
         <Radio.Group
             value={value ?? ''}
             onChange={handleChange}

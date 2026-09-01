@@ -127,7 +127,7 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 })
 
 describe('CodePostSubmissionView', () => {
-    describe('breadcrumbs and header', () => {
+    describe('header', () => {
         it('renders STEP 4, page title "Study proposal", section title "Study code", and study title', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
@@ -173,7 +173,6 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job, { isUnderReview: false })
 
             expect(screen.queryByTestId('code-under-review-banner')).not.toBeInTheDocument()
-            // The rest of the page still renders (e.g. the submitted timestamp).
             expect(screen.getByTestId('code-submitted-timestamp')).toBeInTheDocument()
         })
     })
@@ -193,7 +192,6 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // The outer "View full study code" toggle unmounts once expanded.
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
             expect(
@@ -215,15 +213,12 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // Star is decorative only (aria-label set, but not a button)
             expect(screen.getByLabelText('Main file')).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /set .* as main file/i })).not.toBeInTheDocument()
 
-            // No delete/trash control
             expect(screen.queryByRole('button', { name: /remove main\.R/i })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /remove helper\.R/i })).not.toBeInTheDocument()
 
-            // Eye icons render as buttons that open the shared FilePreviewModal
             expect(screen.getByRole('button', { name: 'View main.R' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'View helper.R' })).toBeInTheDocument()
         })
@@ -235,8 +230,6 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // After expansion the outer "View full study code" toggle unmounts; only the
-            // in-section "Hide full study code" anchor remains.
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
 
             await interact.click(screen.getByText('Hide full study code'))
@@ -299,25 +292,25 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to studyResearcherAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
+        it('renders Back as a link to the submitted proposal (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
 
             const backLink = screen.getByRole('link', { name: /back/i })
             const backHref = backLink.getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
             expect(backHref).not.toContain('from=')
 
             const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
             expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
         })
 
-        it('threads returnTo=org onto the Back → agreements link so org scope survives the hop', async () => {
+        it('threads returnTo=org onto the Back link so org scope survives the hop', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { returnTo: 'org' })
 
             const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
             expect(backHref).toContain('returnTo=org')
         })
 

@@ -1,13 +1,6 @@
-// E2E Clerk fake — server shim.
-//
-// Aliased in for `@clerk/nextjs/server` when E2E_FAKE_CLERK is set (see next.config.ts).
-// Provides auth/currentUser/clerkClient/clerkMiddleware/createRouteMatcher with the
-// minimal surface the app consumes, sourced from the __e2e_role cookie + fixtures so
-// no Clerk network is ever hit.
-//
-// IMPORTANT: this module must stay edge-safe for clerkMiddleware/createRouteMatcher
-// (proxy.ts runs in the middleware runtime). auth()/currentUser() are only called from
-// the Node server-component/action runtime, where next/headers is available.
+// E2E Clerk fake, aliased in for `@clerk/nextjs/server` when E2E_FAKE_CLERK is set.
+// Must stay edge-safe for clerkMiddleware/createRouteMatcher, since proxy.ts runs in the
+// middleware runtime where next/headers is unavailable.
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { readRoleCookieFromHeaders } from './cookie.server'
@@ -17,7 +10,6 @@ import { buildFakeUser, type FakeUser } from './user-resource'
 import { resolveClerkId } from './resolve-clerk-id.server'
 import { buildRouteMatcher } from './route-matcher'
 
-// The shim's exported User type stands in for @clerk/nextjs/server's `User`.
 export type User = FakeUser
 
 type SessionClaims = {
@@ -31,10 +23,6 @@ type AuthResult = {
     orgSlug?: string
 }
 
-// Builds the AuthResult given an already-resolved userId (clerkId). marshalSession's
-// short-circuit keys off sessionClaims.userMetadata.user.id (the UUID), so userId here
-// only needs to be a stable identifier; for currentUser-backed code paths it must match
-// the DB clerk_id, which the caller resolves.
 function buildAuthResult(fixture: FakeFixture | null, userId: string | null): AuthResult {
     if (!fixture || !userId) return { userId: null, sessionClaims: null }
     const orgSlug = defaultOrgSlug(fixture)
@@ -48,24 +36,20 @@ function buildAuthResult(fixture: FakeFixture | null, userId: string | null): Au
     }
 }
 
-// Server-component / server-action entrypoint. Mirrors @clerk/nextjs/server `auth()`.
 export async function auth(): Promise<AuthResult> {
     const fixture = fixtureForRole(await readRoleCookieFromHeaders())
     if (!fixture) return { userId: null, sessionClaims: null }
     return buildAuthResult(fixture, await resolveClerkId(fixture))
 }
 
-// Mirrors @clerk/nextjs/server `currentUser()`.
 export async function currentUser(): Promise<User | null> {
     const fixture = fixtureForRole(await readRoleCookieFromHeaders())
     if (!fixture) return null
     return { ...buildFakeUser(fixture), id: await resolveClerkId(fixture) }
 }
 
-// Mirrors @clerk/nextjs/server `verifyToken()`: the standalone token verifier the QA-cleanup
-// routes use (they live under /api/*, which clerkMiddleware skips, so auth() has no context).
-// The E2E suite never exercises those routes, so this exists to keep the aliased build resolving;
-// it resolves the admin fixture's claims so any manual call against a fake build still authorizes.
+// Used by the QA-cleanup routes under /api/*, which clerkMiddleware skips so auth() has no
+// context. Returns the admin fixture's claims so a manual call still authorizes.
 export async function verifyToken(_token: string, _options: unknown): Promise<{ sub: string } & SessionClaims> {
     const fixture = fixtureForRole('admin')!
     return {
@@ -75,17 +59,10 @@ export async function verifyToken(_token: string, _options: unknown): Promise<{ 
     }
 }
 
-// --- clerkClient (backend API) -------------------------------------------------
-//
-// Mirrors the subset of methods tests/unit.helpers.tsx mockClerkSession() stubs.
-// All reads resolve from fixtures; all writes are no-ops. This keeps the forceUpdate
-// paths (onUserSignInAction/syncUserMetadataAction) network-free.
-
-// Derived from FAKE_ROLES so a fixture added to the table is resolvable here without a second edit.
 const ALL_FIXTURES = FAKE_ROLES.map((role) => fixtureForRole(role)!)
 
-// Resolve a fixture from a clerkId, matching either the deterministic fixture id or the
-// real DB clerk_id (which forceUpdate paths pass in, sourced from auth().userId).
+// Matches either the deterministic fixture id or the real DB clerk_id, which forceUpdate
+// paths pass in from auth().userId.
 async function fixtureByClerkId(clerkId: string): Promise<FakeFixture | null> {
     const byFixture = ALL_FIXTURES.find((f) => f.clerkId === clerkId)
     if (byFixture) return byFixture
@@ -152,23 +129,14 @@ export async function clerkClient() {
     return fakeClerkClient()
 }
 
-// --- clerkMiddleware / createRouteMatcher --------------------------------------
-//
-// Reimplemented edge-safe. clerkMiddleware passes an auth() to the handler that reads
-// the request cookie directly (next/headers is awkward in middleware). createRouteMatcher
-// compiles the glob patterns proxy.ts uses (see ./route-matcher).
-
 type MiddlewareAuth = () => Promise<AuthResult>
 type MiddlewareHandler = (auth: MiddlewareAuth, req: NextRequest) => Promise<NextResponse | void> | NextResponse | void
 
 export function clerkMiddleware(handler: MiddlewareHandler) {
     return async (req: NextRequest): Promise<NextResponse> => {
-        // req.cookies.get() returns the bare value, not a Cookie header — match the role
-        // directly rather than parsing a header string.
         const rawCookie = req.cookies.get('__e2e_role')?.value
         const fixture = fixtureForRole(isFakeRole(rawCookie) ? rawCookie : null)
-        // Edge-safe: no DB read here. marshalSession short-circuits on the UUID in
-        // userMetadata; the fallback clerkId is only used for proxy logging.
+        // Edge-safe: no DB read here, so the fallback clerkId is only used for proxy logging.
         const result = buildAuthResult(fixture, fixture?.clerkId ?? null)
         const authFn: MiddlewareAuth = async () => result
         const out = await handler(authFn, req)

@@ -3,18 +3,17 @@
 import { FC } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
-import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
-import type { UseFormReturnType } from '@mantine/form'
-import { FormField, nativeFieldProps } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
+import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { countWords } from '@/lib/lexical'
+import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from '@/components/save-status'
+import { useCollabFieldsSaveStatus } from '@/hooks/use-collab-fields-save-status'
 import { Routes, ExternalLinks } from '@/lib/routes'
-import { WORD_LIMITS, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { countCharacters } from '@/lib/field-limits'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
-import { editableTextFields, type EditableTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
-import { CollaborativeProposalTextField } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
-import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
+import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
+import { ProposalTextFieldEntry } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
 
 export interface MemberOption {
     value: string
@@ -28,30 +27,6 @@ interface EditInitialRequestSectionProps {
     enclaveOrgSlug?: string
 }
 
-const EditableTextFieldEntry: FC<{
-    field: EditableTextField
-    form: UseFormReturnType<ProposalFormValues>
-    studyId: string
-    websocketProvider: HocuspocusProviderWebsocket | null
-}> = ({ field, form, studyId, websocketProvider }) => {
-    const value = form.values[field.id] as string
-    const error = form.errors[field.id] as string | undefined
-    const onChange = (val: string) => form.setFieldValue(field.id, val)
-    const onBlur = () => form.validateField(field.id)
-
-    return (
-        <CollaborativeProposalTextField
-            studyId={studyId}
-            field={field as typeof field & { id: ProposalTextFieldKey }}
-            initialValue={value}
-            error={error}
-            onChange={onChange}
-            onBlur={onBlur}
-            websocketProvider={websocketProvider}
-        />
-    )
-}
-
 export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     orgName,
     members,
@@ -59,11 +34,24 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     enclaveOrgSlug,
 }) => {
     const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
-    const titleWordCount = countWords(form.values.title)
+    const titleCharacterCount = countCharacters(form.values.title)
     const titleInputProps = form.getInputProps('title')
+
+    // All three write into the one proposal-fields Yjs doc, unlike the rich-text editors below,
+    // which each own a document and report their own status from inside the editor (OTTER-748).
+    const saveStatusFor = useCollabFieldsSaveStatus(yjsForm)
+    const titleSaveStatus = saveStatusFor('title', form.errors.title)
+    const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
+    const piSaveStatus = saveStatusFor('piName', form.errors.piName)
+
+    // One provider behind all three, so a live region on each would have a screen reader read
+    // "All changes saved" three times per save cycle. They stay visual and announce from here
+    // once (OTTER-675); the editors below keep their own regions.
+    const fieldsAnnouncedStatus = announcedSaveStatus([titleSaveStatus, datasetsSaveStatus, piSaveStatus])
 
     return (
         <Stack gap="xxl" data-testid="edit-initial-request-section">
+            <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
             <Paper p="xxl">
                 <Stack gap="xxl">
                     <Box>
@@ -87,7 +75,16 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         required
                         description="Give your study a short, clear title. This will help identify and reference your project on SafeInsights."
                         error={form.errors.title}
-                        footer={<WordCounter wordCount={titleWordCount} maxWords={WORD_LIMITS.title} />}
+                        footer={
+                            <CharacterCounter
+                                id={fieldCounterId('title')}
+                                count={titleCharacterCount}
+                                maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
+                            />
+                        }
+                        // Validates on change, so the over-limit message can appear with the caret
+                        // still in the field (OTTER-737).
+                        errorLive
                     >
                         <TextInput
                             id="title"
@@ -99,8 +96,19 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 yjsForm.pushField('title', event.currentTarget.value)
                             }}
                             value={form.values.title ?? ''}
-                            {...nativeFieldProps(form.errors.title, { required: true, description: true })}
+                            {...nativeFieldProps(form.errors.title, {
+                                required: true,
+                                describedBy: fieldDescribedBy('title', {
+                                    hasError: false,
+                                    hasDescription: true,
+                                    hasCounter: true,
+                                }),
+                            })}
                         />
+                        {/* A child of FormField rather than its `footer`, which is right-aligned
+                            and already holds the character counter. This keeps the indicator on
+                            the left under the control, matching the editors below. */}
+                        <SaveStatusIndicator status={titleSaveStatus} announce={false} />
                     </FormField>
 
                     <FormField
@@ -140,17 +148,20 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 </Group>
                             </Anchor>
                         </Group>
+                        <SaveStatusIndicator status={datasetsSaveStatus} announce={false} />
                     </FormField>
                 </Stack>
             </Paper>
 
             {editableTextFields.map((field) => (
-                <EditableTextFieldEntry
+                <ProposalTextFieldEntry
                     key={field.id}
                     field={field}
                     form={form}
                     studyId={studyId}
                     websocketProvider={websocketProvider}
+                    placeholder={field.placeholder}
+                    liveCharacterLimit
                 />
             ))}
 
@@ -165,8 +176,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     >
                         <Box w="30%">
                             {/* Cannot spread getInputProps('piName'): this Select's value is the
-                                piUserId while piName holds the label, so the composite handler
-                                stays and blur validation is wired explicitly. */}
+                                piUserId while piName holds the label. */}
                             <Select
                                 id="piName"
                                 aria-label="Principal Investigator"
@@ -185,11 +195,11 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                             />
                         </Box>
+                        <SaveStatusIndicator status={piSaveStatus} announce={false} />
                     </FormField>
 
-                    {/* FormField, not FormFieldLabel: the two render labels at different sizes and
-                        weights, which showed as a mismatch against Principal Investigator right
-                        above in this same panel (OTTER-647). */}
+                    {/* FormField, not FormFieldLabel: the two render labels at different sizes,
+                        which mismatched the field above (OTTER-647). */}
                     <FormField
                         inputId="researcher"
                         label="Researcher"

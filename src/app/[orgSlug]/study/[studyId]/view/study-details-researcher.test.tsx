@@ -3,9 +3,7 @@ import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { StudyDetailsResearcher } from './study-details-researcher'
 
-// OTTER-538: the RL Study Details redesign drops the "Study Code" section entirely and shows only
-// Study Status + Previous. OTTER-614: "Previous" walks back to the post-decision code step at its
-// own route (/view/code) — results is no longer terminal.
+// OTTER-538 drops the "Study Code" section; OTTER-614 makes "Previous" walk back to /view/code.
 
 describe('StudyDetailsResearcher', () => {
     it('omits the Study Code section', async () => {

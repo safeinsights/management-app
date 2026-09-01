@@ -14,12 +14,8 @@ import {
 } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { CodeReview } from './code-review'
-
-// The global setup mocks @/components/page-breadcrumbs to return null; opt back into
-// the real component here so we can assert the rendered breadcrumb links.
-vi.unmock('@/components/page-breadcrumbs')
 
 const ORG_SLUG = 'test-org'
 
@@ -66,20 +62,6 @@ describe('CodeReview', () => {
             expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
         })
 
-        it('renders all three breadcrumbs with the expected links', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
-
-            const dashboardLink = screen.getByRole('link', { name: 'Dashboard' })
-            expect(dashboardLink).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-
-            const proposalLink = screen.getByRole('link', { name: 'Study proposal' })
-            expect(proposalLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/review/proposal`)
-
-            // "Study code" is the terminal crumb and should not be a link
-            expect(screen.getByText('Study code')).toBeInTheDocument()
-            expect(screen.queryByRole('link', { name: 'Study code' })).not.toBeInTheDocument()
-        })
-
         it('renders the STEP 3 sub-label and the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
@@ -112,7 +94,6 @@ describe('CodeReview', () => {
             )
             expect(banner).not.toHaveTextContent('has resubmitted')
 
-            // The lab name should not be wrapped in <strong> / fw=700
             const strongs = banner.querySelectorAll('strong')
             for (const strong of strongs) {
                 expect(strong.textContent ?? '').not.toContain(labName)
@@ -167,8 +148,8 @@ describe('CodeReview', () => {
     })
 
     describe('resubmission (prior entries present)', () => {
-        // A resubmission means the current job is round v2: the prior round's reviewer
-        // decision plus the current round's RL note both surface as feedback entries.
+        // On a resubmission the prior round's reviewer decision and this round's note both
+        // surface as feedback entries.
         const reviewerEntry = buildEntry({
             id: 'reviewer-v1',
             authorName: 'Jessica Walters',
@@ -187,7 +168,6 @@ describe('CodeReview', () => {
             createdAt: ROUND_2_DATE,
             version: 2,
         })
-        // Action returns newest first (createdAt desc).
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
         it('renders "Resubmitted on {date}" in place of "Submitted on"', async () => {
@@ -232,7 +212,6 @@ describe('CodeReview', () => {
 
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
-            // DOM order: submitted code → feedback and notes → (evaluation form lives inside CodeReviewClient)
             expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 

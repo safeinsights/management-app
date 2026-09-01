@@ -36,8 +36,7 @@ describe('OutputsFilesSection', () => {
         expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
     })
 
-    // Semantic table markup, not a div grid: screen readers navigate by row/column and announce
-    // the header with each cell only when the real roles are present.
+    // Screen readers navigate by row/column only when the real table roles are present.
     it('uses real table semantics with column-scoped headers', () => {
         renderSection([buildRow('run.log')])
 
@@ -60,8 +59,7 @@ describe('OutputsFilesSection', () => {
             expect(screen.getByRole('button', { name: 'Download all' })).toBeInTheDocument()
         })
 
-        // Removed from the DOM, not merely hidden: a CSS-hidden control still takes tab focus and
-        // leaves a keyboard user on an invisible element.
+        // A CSS-hidden control still takes tab focus, stranding keyboard users.
         it('is absent from the DOM for a single file', () => {
             renderSection([buildRow('run.log')])
             expect(screen.queryByRole('button', { name: 'Download all' })).toBeNull()
@@ -83,7 +81,6 @@ describe('OutputsFilesSection', () => {
                     onDownloadAll={vi.fn()}
                 />,
             )
-            // One file: tabbing lands on the file name, never on a hidden Download all.
             await userEvent.tab()
             expect(screen.getByTestId('outputs-file-name-file-run.log')).toHaveFocus()
             unmount()
@@ -101,8 +98,7 @@ describe('OutputsFilesSection', () => {
             expect(props.onDownloadAll).toHaveBeenCalledTimes(1)
         })
 
-        // Decorative here, unlike the per-row icon: the button already carries a visible text
-        // label, so announcing the icon too would double up.
+        // Decorative here, unlike the per-row icon: the button already has a visible label.
         it('marks its icon decorative', () => {
             renderSection([buildRow('a.log'), buildRow('b.log')])
 

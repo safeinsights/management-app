@@ -13,16 +13,18 @@ import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
     studyId: string
+    // Supplied by the caller because the two flows disagree: on a DRAFT values.title is a stale
+    // copy of what Step 1 owns, while the resubmit page edits it live (OTTER-690).
+    studyTitle: string | null | undefined
     values: ProposalFormValues
     researcherName: string
     researcherId: string
     enclaveOrgSlug?: string
 }
 
-// Pure presentation — accepts form values + studyId as props so it can be
-// rendered from any context (ProposalProvider, EditResubmitProvider, ...).
 export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
     studyId,
+    studyTitle,
     values,
     researcherName,
     researcherId,
@@ -39,7 +41,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                     Study title
                 </Text>
                 <Text size="md" fw={400}>
-                    {values.title?.trim() || 'Not provided'}
+                    {studyTitle?.trim() || 'Not provided'}
                 </Text>
             </Box>
 

@@ -7,14 +7,12 @@ export type UserOrgRoles = { isAdmin: boolean }
 
 export type UUID = string
 
-// Settings types for different org types
 export type EnclaveSettings = {
     publicKey: string
 }
 
-export type LabSettings = Record<string, never> // Empty object for now, can be extended later
+export type LabSettings = Record<string, never>
 
-// Discriminated union types for organizations
 export type EnclaveOrg = {
     type: 'enclave'
     settings: EnclaveSettings
@@ -29,7 +27,6 @@ export function isOrgAdmin(org: { isAdmin: boolean }) {
     return org.isAdmin == true
 }
 
-// Type guards
 export function isEnclaveOrg(org: { type: OrgType }): org is EnclaveOrg {
     return org.type === 'enclave'
 }
@@ -38,7 +35,6 @@ export function isLabOrg(org: { type: OrgType }): org is LabOrg {
     return org.type === 'lab'
 }
 
-// Helper functions to get orgs from session
 export function getLabOrg(session: UserSession): Org | null {
     return Object.values(session.orgs).find(isLabOrg) || null
 }
@@ -85,13 +81,11 @@ export type CodeManifestFileInfo = {
     contentType: string
 }
 
-// this is the manifest that's generated when a user uploads code
-// it's used to display the code in the UI for review
-// and stored alongside the code in s3
+// Generated when a user uploads code, and stored alongside the code in s3.
 export type CodeManifest = {
     jobId: string
     language: SupportedLanguages
-    files: Record<string, CodeManifestFileInfo> // path -> size
+    files: Record<string, CodeManifestFileInfo>
     tree: TreeNode
     size: number
 }
@@ -121,7 +115,7 @@ export const ACCEPTED_FILE_TYPES = {
     ...ACCEPTED_LANGUAGE_FILE_TYPES['PYTHON'],
     'application/json': ['.json', '.ipynb'],
     'text/csv': ['.csv'],
-    'application/vnd.ms-excel': ['.csv'], // fallback for Windows
+    'application/vnd.ms-excel': ['.csv'],
     'text/plain': ['.txt', '.py', '.r', '.R', '.rmd', '.csv'],
 }
 
@@ -167,9 +161,8 @@ export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERROR
 
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
-// inactivity timeout and warning threshold for user sessions
-export const INACTIVITY_TIMEOUT_MS = 8 * 60 * 60 * 1000 // 8 hours
-export const WARNING_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
+export const INACTIVITY_TIMEOUT_MS = 8 * 60 * 60 * 1000
+export const WARNING_THRESHOLD_MS = 10 * 60 * 1000
 
 export enum AuthRole {
     Admin = 'admin',
@@ -180,7 +173,6 @@ export enum AuthRole {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ActionResult<T extends (...args: any) => any> = Awaited<ReturnType<T>>
 
-// Helper to extract success data type from ActionResponse (excluding error case)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ActionSuccessType<T extends (...args: any) => any> =
     ActionResult<T> extends ActionResponse<infer U> ? U : never
@@ -202,22 +194,20 @@ const FILE_TYPES = [
 
 export const fileTypeSchema = z.enum(FILE_TYPES)
 
-// A re-wrapped AES key for one researcher recipient of one approved file (a `study_job_file_recipient_key`
-// row; see src/server/results-sharing.ts for the model).
 export const sharedFileKeySchema = z.object({ fingerprint: z.string(), crypt: z.string() })
 export const sharedFileSchema = z.object({
-    studyJobFileId: z.string(), // the whole-zip study_job_file row
-    filePath: z.string(), // the inner file within the archive (one AES key per inner file)
+    studyJobFileId: z.string(),
+    // the inner file within the archive; one AES key per inner file
+    filePath: z.string(),
     keys: z.array(sharedFileKeySchema),
 })
 export type SharedFile = z.infer<typeof sharedFileSchema>
 
 export type JobFileInfo = FileEntry & {
-    sourceId: string // the study_job_file row this decrypted file came from
+    sourceId: string
     fileType: FileType
-    // Raw AES key recovered while decrypting, kept in-memory so the browser can re-wrap for
-    // researchers at approve time. SECURITY: unlocks the file body — must never be sent to the
-    // server or persisted. Only the client-side re-wrap flow (buildSharedFiles) reads it.
+    // SECURITY: unlocks the file body. Kept in-memory for the client-side re-wrap at approve time
+    // and must never be sent to the server or persisted.
     rawAesKey?: ArrayBuffer
 }
 
@@ -227,7 +217,6 @@ export type JobFile = {
     fileType: FileType
 }
 
-// use as: IsUnknown<Args> extends true
 export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false) : false
 
 export const BLANK_SESSION: UserSession = {
@@ -237,7 +226,6 @@ export const BLANK_SESSION: UserSession = {
 
 Object.freeze(BLANK_SESSION)
 
-// Import the unified ActionResponse type from errors
 export type { ActionResponse } from '@/lib/errors'
 
 export type StudyStage = 'Proposal' | 'Code' | 'Results'

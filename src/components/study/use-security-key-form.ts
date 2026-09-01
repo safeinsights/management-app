@@ -3,7 +3,6 @@ import { useQuery } from '@/common'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
-import type { LatestJobForStudy } from '@/server/db/queries'
 import * as Sentry from '@sentry/nextjs'
 
 const ERRORS = {
@@ -13,7 +12,8 @@ const ERRORS = {
 } as const
 
 type UseSecurityKeyFormOptions = {
-    job: LatestJobForStudy
+    /** Only the id is read (it keys the encrypted-files fetch), so callers need not load a full job row. */
+    job: { id: string }
     /**
      * Which key set to ask the server for. It cannot be inferred here: this form serves both the
      * reviewer's outputs step (manifest recipient, no wrapped keys) and the researcher reading
@@ -32,9 +32,12 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
-    const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
-        // The role is part of the key: the action returns a different key set per role, so a
-        // dual-role user switching views must not be served the other's cache.
+    const {
+        data: encryptedFiles,
+        isLoading: isLoadingFiles,
+        isSuccess: isFileListLoaded,
+    } = useQuery({
+        // Role is part of the key so a dual-role user is not served the other role's cache.
         queryKey: ['encrypted-files', job.id, type],
         queryFn: async () => {
             try {
@@ -104,5 +107,23 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         isLoadingFiles,
         inputRef,
         handleSubmit,
+        /**
+         * The server answered, and this researcher holds no wrapped key for the job (OTTER-688).
+         *
+         * Role-resolved here rather than by the caller (PR #1003 review): an empty result means
+         * different things per role, so the flag would otherwise only acquire its meaning once
+         * recombined with `type` at the call site, splitting one contract across two files. The
+         * researcher branch of fetchEncryptedJobFilesAction filters to artifacts wrapped for THEIR
+         * fingerprint, so empty means they hold no key; the reviewer branch returns every encrypted
+         * artifact regardless of keys, so empty means the job produced nothing — a different state,
+         * handled elsewhere (OTTER-524), which this flag must never claim.
+         *
+         * Gated on isSuccess, not on a falsy length: queryFn re-throws after the Sentry capture, so a
+         * FAILED fetch leaves data undefined — and reporting that as "you hold no key" would blame the
+         * user's key for an outage. This is the distinction fetchEncryptedJobFilesAction's empty
+         * return conflates (no artifacts / no wrapped key for the caller / fetch failed), and the one
+         * the legacy gate in use-encrypted-files-panel misses with `encryptedFiles?.length ?? 0`.
+         */
+        hasNoWrappedKey: type === 'researcher' && isFileListLoaded && encryptedFiles?.length === 0,
     }
 }

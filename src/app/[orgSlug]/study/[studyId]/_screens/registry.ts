@@ -13,18 +13,17 @@ import { ReviewerCodeReviewScreen } from './reviewer-code-review-screen'
 import { ReviewerCodeFeedbackScreen } from './reviewer-code-feedback-screen'
 import { OutputsPendingScreen } from './outputs-pending-screen'
 import { OutputsFeedbackScreen } from './outputs-feedback-screen'
+import { SharedOutputsScreen } from './shared-outputs-screen'
 import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import { ReviewerOutputsDecidedScreen } from './reviewer-outputs-decided-screen'
 
-// Screens may be async server components (they load their own data). Returned node is awaited
-// at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
-// would not resolve).
+// Screens may be async server components, so the returned node is awaited at the page dispatch
+// rather than rendered as a JSX child, which the test harness would not resolve.
 export type ScreenComponent = (props: ScreenComponentProps) => React.ReactNode | Promise<React.ReactNode>
 
-// Total: every ScreenId maps to a component, so the dispatch in view/page.tsx is exhaustive and a
-// missing screen is a compile error (not a runtime throw).
+// Total, so a missing screen is a compile error rather than a runtime throw.
 export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'code-approved': CodeDecisionScreen,
     'code-feedback': CodeDecisionScreen,
@@ -33,6 +32,9 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'study-results': StudyResultsScreen,
     'outputs-pending': OutputsPendingScreen,
     'outputs-feedback': OutputsFeedbackScreen,
+    // Both share screens are one component keyed on the id, same as CodeDecisionScreen above.
+    'outputs-errored-shared': SharedOutputsScreen,
+    'outputs-shared': SharedOutputsScreen,
     'study-overview': StudyOverviewScreen,
     'reviewer-proposal-review': ReviewerProposalReviewScreen,
     'reviewer-proposal-feedback': ReviewerProposalFeedbackScreen,

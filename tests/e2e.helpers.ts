@@ -1,4 +1,5 @@
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
+import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
 import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import fs from 'fs'
@@ -72,11 +73,21 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     }
 }
 
+// OTTER-690 caps the study title at 60 characters and Step 1 enforces it, so a generated title
+// has to fit or the flow cannot get past the first page. The generated words are only there to
+// make a failure readable; the suffix and timestamp are what make the title unique, so the words
+// are what gets trimmed.
+const STUDY_TITLE_MAX_CHARACTERS = 60
+
 class StudyFeatures {
     public studyTitle = `${faker.hacker.ingverb()} ${faker.commerce.productName().toLowerCase()}`
 
     uniqueTitle(suffix: string) {
-        return `${this.studyTitle} - ${suffix} ${Date.now()}`
+        const unique = `${suffix} ${Date.now()}`
+        const roomForWords = STUDY_TITLE_MAX_CHARACTERS - unique.length - ' - '.length
+        const words = this.studyTitle.slice(0, Math.max(roomForWords, 0)).trim()
+        // A long suffix can leave no room at all, and a bare separator would then lead the title.
+        return words ? `${words} - ${unique}` : unique
     }
 
     static perWorkerFeatures: Record<number, StudyFeatures> = {}
@@ -119,19 +130,17 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
     ],
 })
 
-// --- Clerk testing helpers ---
-//
-// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. Sessions are just
-// the __e2e_role cookie: seeded per role in global.setup.ts and restored via storageState;
-// the sign-in form drives a faked useSignIn that writes the cookie on completion.
-
-// Ensures a signed-out state by clearing the __e2e_role cookie (the fake's session is
-// just that cookie). Used by the auth-UI specs before driving the sign-in form.
-export const e2eSignOut = async (page: Page) => {
+// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server, and a session is just
+// the __e2e_role cookie. Clearing it only changes what the server sees, so notifyClient
+// dispatches the store's sync event; leave it off to simulate a stale client session.
+export const e2eSignOut = async (page: Page, { notifyClient = false } = {}) => {
     await page
         .context()
         .clearCookies({ name: '__e2e_role' })
         .catch(() => {})
+    if (notifyClient) {
+        await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
+    }
 }
 
 type ClerkSignInParams = {

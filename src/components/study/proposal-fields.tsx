@@ -1,9 +1,20 @@
 'use client'
 
+import type { FC } from 'react'
 import { Box, Divider, Group, Stack, Text } from '@mantine/core'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
-import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
+import { ProfessionalProfileLink } from '@/components/professional-profile-link'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+
+export type FieldDividerVariant = 'subtle' | 'default' | 'none'
+
+/** A `variant` of `none` renders nothing. */
+export const FieldDivider: FC<{ variant: FieldDividerVariant }> = ({ variant }) => {
+    if (variant === 'none') return null
+
+    const color = variant === 'subtle' ? 'gray.1' : undefined
+    return <Divider color={color} />
+}
 
 export function LexicalProposalField({
     label,
@@ -13,14 +24,14 @@ export function LexicalProposalField({
 }: {
     label: string
     value?: string | null
-    divider?: 'subtle' | 'default' | 'none'
+    divider?: FieldDividerVariant
     size?: 'sm' | 'md'
 }) {
     if (!value) return null
 
     return (
         <>
-            {divider !== 'none' && <Divider color={divider === 'subtle' ? 'gray.1' : undefined} />}
+            <FieldDivider variant={divider} />
             <Stack gap={4}>
                 <Text fw={600} size="sm">
                     {label}
@@ -32,6 +43,14 @@ export function LexicalProposalField({
         </>
     )
 }
+
+const DatasetPill: FC<{ name: string; size: 'sm' | 'md' }> = ({ name, size }) => (
+    <Box bg="grey.10" px="xs" py={2} bdrs="sm">
+        <Text size={size} c="charcoal.9">
+            {name}
+        </Text>
+    </Box>
+)
 
 export function DatasetsField({
     datasets,
@@ -45,6 +64,8 @@ export function DatasetsField({
     if (!datasets.length) return null
 
     const nameMap = Object.fromEntries(orgDataSources.map((ds) => [ds.id, ds.name]))
+    // Stands in for a data source the org no longer lists, which is still worth showing.
+    const named = datasets.map((id) => ({ id, name: nameMap[id] || id }))
 
     return (
         <Stack gap={4}>
@@ -52,27 +73,36 @@ export function DatasetsField({
                 Dataset(s) of interest
             </Text>
             <Group gap="md">
-                {datasets.map((id) => (
-                    <Box key={id} bg="grey.10" px="sm" py={4} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
-                        <Text size={size} c="charcoal.9">
-                            {nameMap[id] || id}
-                        </Text>
-                    </Box>
+                {named.map(({ id, name }) => (
+                    <DatasetPill key={id} name={name} size={size} />
                 ))}
             </Group>
         </Stack>
     )
 }
 
-interface PopoverFieldProps {
+interface ProfileFieldProps {
     study: SelectedStudy
     orgSlug: string
-    opened: boolean
-    onOpenChange: (opened: boolean) => void
     size?: 'sm' | 'md'
 }
 
-export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverFieldProps) {
+const ProfileRow: FC<{
+    name: string
+    userId?: string | null
+    studyId: string
+    orgSlug: string
+    size?: 'sm' | 'md'
+}> = ({ name, userId, studyId, orgSlug, size = 'md' }) => (
+    <Group gap="md" align="center">
+        <Text size={size} c="charcoal.7">
+            {name}
+        </Text>
+        <ProfessionalProfileLink userId={userId} studyId={studyId} orgSlug={orgSlug} />
+    </Group>
+)
+
+export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
     if (!study.piName) return null
 
     return (
@@ -82,47 +112,30 @@ export function PIField({ study, orgSlug, opened, onOpenChange, size }: PopoverF
                 <Text fw={600} size="sm">
                     Principal Investigator
                 </Text>
-                <ResearcherProfilePopover
-                    userId={study.piUserId ?? ''}
+                <ProfileRow
+                    name={study.piName}
+                    userId={study.piUserId}
                     studyId={study.id}
                     orgSlug={orgSlug}
-                    name={study.piName}
                     size={size}
-                    position="right"
-                    offset={8}
-                    arrowSize={12}
-                    opened={opened}
-                    onOpenChange={onOpenChange}
                 />
             </Stack>
         </>
     )
 }
 
-export function ResearcherField({
-    study,
-    orgSlug,
-    opened,
-    onOpenChange,
-    size,
-    mt,
-}: PopoverFieldProps & { mt?: string }) {
+export function ResearcherField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
-        <Stack gap={4} mt={mt}>
+        <Stack gap={4}>
             <Text fw={600} size="sm">
                 Researcher
             </Text>
-            <ResearcherProfilePopover
+            <ProfileRow
+                name={study.createdBy}
                 userId={study.researcherId}
                 studyId={study.id}
                 orgSlug={orgSlug}
-                name={study.createdBy}
                 size={size}
-                position="right"
-                offset={8}
-                arrowSize={12}
-                opened={opened}
-                onOpenChange={onOpenChange}
             />
         </Stack>
     )

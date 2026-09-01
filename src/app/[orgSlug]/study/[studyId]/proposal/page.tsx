@@ -1,12 +1,15 @@
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
+import { sessionFromClerk } from '@/server/clerk'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { displayOrgName } from '@/lib/string'
+import { countCharacters } from '@/lib/field-limits'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 
 export default async function StudyProposalRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -21,12 +24,29 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
+    // A CHANGE-REQUESTED study belongs on /edit-and-resubmit; redirecting here lets
+    // ProposalProvider below be unconditionally DRAFT (OTTER-690).
+    if (result.status === 'CHANGE-REQUESTED') {
+        redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
+    }
+
+    // Step 2 has no title field, so a blank or over-cap title can only be fixed on Step 1
+    // (OTTER-690, OTTER-737).
+    if (!result.title?.trim() || countCharacters(result.title) > STUDY_TITLE_MAX_CHARACTERS) {
+        redirect(Routes.studyEdit({ orgSlug, studyId }))
+    }
+
+    // Resolved server-side: the browser only knows the viewer's Clerk id, not the database user
+    // id researcherId records.
+    const session = await sessionFromClerk()
+    const isDraftCreator = !!session && session.user.id === result.researcherId
+
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader orgSlug={orgSlug} studyId={studyId} studyTitle={result.title} />
+            <StudyRequestPageHeader />
             <ProposalProvider
                 studyId={studyId}
                 draftData={{
@@ -46,6 +66,8 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     researcherName={result.researcherName}
                     researcherId={result.researcherId}
                     enclaveOrgSlug={result.orgSlug}
+                    studyTitle={result.title}
+                    isDraftCreator={isDraftCreator}
                 />
             </ProposalProvider>
         </Stack>

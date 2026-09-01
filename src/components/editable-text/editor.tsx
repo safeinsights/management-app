@@ -7,21 +7,13 @@ import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocu
 
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { SingleUserEditor } from './single-user-editor'
+import { resolveContentHeight } from './editor-surface'
 
 const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then((mod) => mod.CollaborativeEditor), {
     ssr: false,
 })
 
-/**
- * Single entry point for the proposal/review editors. Renders the Yjs-backed
- * CollaborativeEditor by default, or the standalone SingleUserEditor when the
- * app is in single-user mode (a server-read flag exposed via the websocket
- * provider context). The collaborative chunk is loaded lazily, so it isn't
- * pulled into view in single-user mode.
- *
- * Collaboration-only props (`websocketProvider`, `onProviderReady`) are accepted
- * for call-site parity and ignored in single-user mode.
- */
+// Collaboration-only props are accepted for call-site parity and ignored in single-user mode.
 export type EditorProps = {
     /** Globally unique Yjs document name. NOT a DOM id; pass `inputId` for that. */
     id: string
@@ -34,57 +26,43 @@ export type EditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
-    /**
-     * Left slot of the footer row, directly under the input. The field's error message goes
-     * here so it takes the slot the save indicator vacates, not a row below it (OTTER-674).
-     */
+    /** The field's error message goes here, taking the slot the save indicator vacates (OTTER-674). */
     footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
-    /**
-     * DOM id of the editable surface, for label/`aria-describedby` pairing. Must be
-     * distinct from `id`: that one is the Yjs document name and the `yjs_document`
-     * primary key, so reusing it as a DOM id couples persistence to markup.
-     */
+    /** DOM id of the editable surface. Must differ from `id`, which is the Yjs document name. */
     inputId?: string
-    /**
-     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the caller
-     * renders the message. Typed `string`, not `ReactNode`, so presence stays a plain truthiness
-     * check — a falsy-but-present node (`0`, `''`) can't read as "no error".
-     */
+    /** `string` not `ReactNode`, so a falsy node cannot read as "no error". */
     error?: string | null
-    /** Id(s) of the nodes describing this editor, e.g. its description and error text. */
     ariaDescribedBy?: string
-    /**
-     * Marks the editor required to assistive tech. A required asterisk on the label is visual
-     * only, so without this the requirement never reaches a screen reader (OTTER-647).
-     */
+    /** The label asterisk is visual only, so without this the requirement never reaches AT (OTTER-647). */
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
     onBlur?: () => void
+    contentHeight?: number
+    isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void
-    /** Height of the skeleton shown while the collaborative chunk loads / before the websocket connects. */
+    /** Defaults to the height the editor mounts at, so the swap is not a jump. */
     skeletonHeight?: number
 }
 
-export function Editor({ websocketProvider, skeletonHeight = 240, ...props }: EditorProps) {
+export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorProps) {
     const singleUserEditing = useSingleUserEditing()
-    // The collaborative editor is a `ssr: false` dynamic import, so the server
-    // never renders it. Gate the whole collaborative branch behind a post-mount
-    // flag so the server render and the client's FIRST render are byte-identical
-    // (both the skeleton); the editor then mounts as a normal client-only update.
-    // Without this, the server skeleton vs. the client's dynamic <Suspense>
-    // produces a hydration mismatch (the websocket singleton is client-only).
+    // Keeps the server render and the client's first render byte-identical; without it the
+    // dynamic <Suspense> is a hydration mismatch.
     const [mounted, setMounted] = useState(false)
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration flip
     useEffect(() => setMounted(true), [])
+
+    // Sized like the editor it stands in for; this outer skeleton renders first, so a flat
+    // default here is the jump the user sees.
+    const placeholderHeight = skeletonHeight ?? resolveContentHeight(props.contentHeight, props.contentStyle)
 
     if (singleUserEditing) {
         return <SingleUserEditor {...props} />
     }
 
-    // Hold the skeleton until we're mounted on the client AND the tab-singleton
-    // websocket exists (callers pass null during SSR / pre-hydration).
-    if (!mounted || !websocketProvider) return <Skeleton h={skeletonHeight} radius={4} />
+    // Callers pass a null websocket during SSR and pre-hydration.
+    if (!mounted || !websocketProvider) return <Skeleton h={placeholderHeight} radius={4} />
 
     return <CollaborativeEditor websocketProvider={websocketProvider} {...props} />
 }

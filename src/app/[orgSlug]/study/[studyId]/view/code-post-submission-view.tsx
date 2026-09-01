@@ -6,7 +6,6 @@ import { ArrowSquareOutIcon, CaretRightIcon, CaretLeftIcon } from '@phosphor-ico
 import dayjs from 'dayjs'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
@@ -15,7 +14,8 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -25,11 +25,8 @@ interface CodePostSubmissionViewProps {
     job: LatestJobForStudy
     reviewingOrgName: string
     dashboardHref?: Route
-    /** Org-scoped entry: threaded onto the "Previous" → researcher agreements link so org scope survives the hop. */
     returnTo?: 'org'
-    /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
-    /** Reviewer feedback + resubmission notes for v2+. */
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
 }
@@ -182,19 +179,12 @@ export function CodePostSubmissionView({
 
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
-
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboard],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
+    const previousHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
         <Stack p="xl" gap="xxl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
             <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">

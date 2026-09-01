@@ -1,6 +1,5 @@
 import { FC } from 'react'
-import dayjs from 'dayjs'
-import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 
 type OutputsDecidedBannerProps = {
     resultsErrored: boolean
@@ -11,8 +10,8 @@ type OutputsDecidedBannerProps = {
 
 type BannerCopy = { title: string; body: string }
 
-// resultsErrored = JOB-ERRORED (code run outcome); resultsApproved = FILES-APPROVED vs
-// FILES-REJECTED (reviewer's share decision). The two axes are orthogonal → 4 variants.
+// The run outcome (JOB-ERRORED) and the reviewer's share decision (FILES-APPROVED vs
+// FILES-REJECTED) are orthogonal, hence four variants.
 function resolveBannerCopy({
     resultsErrored,
     resultsApproved,
@@ -49,10 +48,9 @@ export const OutputsDecidedBanner: FC<OutputsDecidedBannerProps> = ({
     decidedAt,
 }) => {
     const { title, body } = resolveBannerCopy({ resultsErrored, resultsApproved, labName })
-    const dateStr = decidedAt ? ` ${STATUS_ALERT_SEPARATOR} ${dayjs(decidedAt).format('MMM DD, YYYY')}` : ''
 
     return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.informative} title={`${title}${dateStr}`}>
+        <StatusAlert variant={STATUS_ALERT_VARIANT.informative} title={statusAlertTitle(title, decidedAt)}>
             {body}
         </StatusAlert>
     )

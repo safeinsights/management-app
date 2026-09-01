@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { RawJob, RawStudyState } from './state.types'
 import { projectStudyState } from './state'
 
-// Deterministic permutations (no Math.random — unavailable and would break reproducibility).
 function permutations<T>(arr: readonly T[]): T[][] {
     if (arr.length <= 1) return [arr.slice()]
     const out: T[][] = []
@@ -49,7 +48,6 @@ describe('projectStudyState order-independence', () => {
     for (const [name, jobs] of Object.entries(fixtures)) {
         it(`${name}: identical under status+job permutation`, () => {
             const expected = projectStudyState(base(jobs))
-            // Permute each job's statusChanges AND the jobs array; every combination must match.
             const jobStatusPerms = jobs.map((j) => permutations(j.statusChanges))
             for (const jobOrder of permutations(jobs.map((_, i) => i))) {
                 for (const pick of cartesian(jobStatusPerms)) {

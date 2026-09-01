@@ -2,7 +2,6 @@ import { describe, expect, test, vi, type Mock } from 'vitest'
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
-    buildFeedback,
     db,
     insertTestOrg,
     insertTestStudyJobData,
@@ -14,7 +13,7 @@ import {
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import { COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS, ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
+import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
@@ -42,9 +41,7 @@ vi.mock('@/server/mailer', () => ({
     sendStudyResultsApprovedEmail: vi.fn(),
 }))
 
-// Spy on the generation trigger so the retry test asserts re-fire without
-// running the real deferred review pipeline. Keep the rest of the module
-// (deferred, other handlers) real — study-request.ts depends on them.
+// Spy on the generation trigger only; study-request.ts depends on the rest of the module.
 vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
     onStudyReviewRequested: vi.fn(),
@@ -113,8 +110,6 @@ describe('Study Job Actions', () => {
     })
 
     test('fetchEncryptedJobFilesAction returns the whole-zip artifacts to an enclave reviewer', async () => {
-        // Enclave reviewers are manifest recipients, so they get every artifact with no
-        // recipientKeys — they decrypt with their own key.
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })
 
@@ -137,14 +132,10 @@ describe('Study Job Actions', () => {
         expect(result[0].recipientKeys).toEqual({})
     })
 
-    // Regression: the middleware must expose submittedByOrgId so the CASL 'view StudyJob' rule
-    // matches lab researchers, not just enclave reviewers — researchers fetch their re-wrapped
-    // result files through this same action.
     test('fetchEncryptedJobFilesAction returns researcher keys for shared files', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { job } = await insertTestStudyJobData({ org })
 
-        // Lab test users are seeded without a key; give this researcher one plus a wrapped key.
         await db
             .insertInto('userPublicKey')
             .values({ userId: user.id, publicKey: Buffer.from('labPublicKey'), fingerprint: 'labFingerprint1' })
@@ -196,14 +187,11 @@ describe('Study Job Actions', () => {
             })
             .executeTakeFirstOrThrow()
 
-        // No study_job_file_recipient_key row for this researcher → nothing they can decrypt.
         const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
         expect(result).toHaveLength(0)
     })
 
     describe('dual-role and stale org claims', () => {
-        // A user who belongs to both the submitting lab and the reviewing enclave, on a study with
-        // the production split (enclave reviews, lab submitted). Mirrors the shape that broke on QA.
         async function setupDualRoleFixture() {
             const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
 
@@ -233,10 +221,6 @@ describe('Study Job Actions', () => {
             return { enclaveOrg, file, job, labOrg, user }
         }
 
-        // Regression: the reviewer/researcher split used to be inferred from session.orgs, so this
-        // user's enclave membership won and they were handed recipientKeys:{}. Their fingerprint is
-        // not in the zip's manifest, so decrypt failed as "private key is not valid for these
-        // results" even though their key rows were present and the ciphertext was intact.
         test('fetchEncryptedJobFilesAction returns wrapped keys to a dual-role user asking as researcher', async () => {
             const { file, job } = await setupDualRoleFixture()
 
@@ -256,8 +240,6 @@ describe('Study Job Actions', () => {
             expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-dual-role' })
         })
 
-        // The same user asking as a reviewer still gets the manifest path, so the fix does not cost
-        // dual-role users their review access.
         test('fetchEncryptedJobFilesAction returns manifest artifacts to a dual-role user asking as reviewer', async () => {
             const { file, job } = await setupDualRoleFixture()
 
@@ -268,9 +250,6 @@ describe('Study Job Actions', () => {
             expect(result[0].recipientKeys).toEqual({})
         })
 
-        // The QA scenario: the enclave membership was revoked in the database long ago, but the
-        // slug survived in publicMetadata.orgs and so in the JWT. Nothing in this action reads that
-        // claim any more, so the researcher decrypts without the manual metadata cleanup QA needed.
         test('fetchEncryptedJobFilesAction ignores a stale enclave claim when asked as researcher', async () => {
             const { org: lab, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const enclave = await insertTestOrg({ slug: 'otter-stale-claim-enclave', type: 'enclave' })
@@ -308,7 +287,6 @@ describe('Study Job Actions', () => {
                 })
                 .executeTakeFirstOrThrow()
 
-            // The claim names the reviewing enclave; the database has no org_user row for it.
             mockClerkSession({
                 clerkUserId: user.clerkId,
                 userId: user.id,
@@ -406,8 +384,6 @@ describe('Study Job Actions', () => {
         })
     })
 
-    // OTTER-675: the DP's single decision on decrypted outputs. Feedback and the files status are
-    // written together, so each test asserts both halves.
     describe('submitOutputsDecisionAction', () => {
         const jobStatuses = (jobId: string) =>
             db.selectFrom('jobStatusChange').select('status').where('studyJobId', '=', jobId).execute()
@@ -492,17 +468,14 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        // The cap is derived from the job's own status, never from the request, so a caller cannot
-        // raise its own limit. These two tests are the pair that proves it: the same word count is
-        // rejected for an errored run and accepted for a completed one.
-        test('applies the 300-word errored cap regardless of what the caller asks for', async () => {
+        test('rejects feedback over 1800 characters on an errored run', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: enclave.slug,
                 studyJobId: job.id,
                 decision: 'share-feedback-only',
-                feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                feedback: 'x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1),
                 sharedFiles: [],
             })
 
@@ -511,7 +484,22 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        test('allows the same length on a completed run, which carries the higher cap', async () => {
+        test('rejects the same length on a completed run', async () => {
+            const { enclave, job } = await setupResultApprovalFixture()
+
+            const result = await submitOutputsDecisionAction({
+                orgSlug: enclave.slug,
+                studyJobId: job.id,
+                decision: 'share-feedback-only',
+                feedback: 'x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1),
+                sharedFiles: [],
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
+            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
+        })
+
+        test('accepts feedback at exactly 1800 characters', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
 
             actionResult(
@@ -519,7 +507,7 @@ describe('Study Job Actions', () => {
                     orgSlug: enclave.slug,
                     studyJobId: job.id,
                     decision: 'share-feedback-only',
-                    feedback: buildFeedback(ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                    feedback: 'x'.repeat(OUTPUTS_FEEDBACK_MAX_CHARACTERS),
                     sharedFiles: [],
                 }),
             )
@@ -528,24 +516,20 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeDefined()
         })
 
-        test('rejects feedback over the completed cap', async () => {
+        test('rejects whitespace-only feedback', async () => {
             const { enclave, job } = await setupResultApprovalFixture()
 
             const result = await submitOutputsDecisionAction({
                 orgSlug: enclave.slug,
                 studyJobId: job.id,
                 decision: 'share-feedback-only',
-                feedback: buildFeedback(COMPLETED_OUTPUTS_FEEDBACK_MAX_WORDS + 1),
+                feedback: '   ',
                 sharedFiles: [],
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ feedback: expect.any(String) }) })
-            expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
         })
 
-        // The study is derived from the job, so naming a job in an org the caller cannot review is
-        // refused. Trusting a caller-supplied studyId alongside the job id would let a reviewer
-        // authorized for their own study finalize someone else's.
         test('permission denied when the job belongs to another org', async () => {
             const { job } = await setupResultApprovalFixture()
             const { org: otherEnclave } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -562,8 +546,6 @@ describe('Study Job Actions', () => {
             expect((await jobStatuses(job.id)).map((s) => s.status)).not.toContain('FILES-REJECTED')
         })
 
-        // UI routing is not a server-side invariant: a direct caller must not be able to finalize a
-        // job that never produced outputs.
         test('refuses a job that has not reached a terminal result', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture({ jobStatus: 'JOB-RUNNING' })
 
@@ -579,8 +561,6 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        // Approving promises the lab can open the files, so these three shapes must all be refused
-        // rather than recorded as an approval nobody can act on.
         test('refuses to approve while sharing no files', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
 
@@ -597,9 +577,6 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        // This is what buildSharedFiles produces when the lab has no registered public key, so it
-        // happens without anyone acting in bad faith: entries exist but wrap no keys, and
-        // insertSharedFileKeys would write nothing and return silently.
         test('refuses to approve when the entries carry no usable keys', async () => {
             const { enclave, file, job, study } = await setupResultApprovalFixture()
 
@@ -619,7 +596,6 @@ describe('Study Job Actions', () => {
         test('refuses to approve when an artifact is left out', async () => {
             const { enclave, job, study, sharedFiles } = await setupResultApprovalFixture()
 
-            // A second encrypted artifact nobody prepared keys for.
             await db
                 .insertInto('studyJobFile')
                 .values({
@@ -643,8 +619,6 @@ describe('Study Job Actions', () => {
             expect(await resultsComment(study.id)).toBeUndefined()
         })
 
-        // The (studyJobId, reviewKind, round) unique constraint is the race-loser guard; the
-        // second reviewer must get a readable message, not a raw duplicate-key error.
         test('refuses a second decision on the same outputs', async () => {
             const { enclave, job, sharedFiles } = await setupResultApprovalFixture()
             const params = {
@@ -733,7 +707,6 @@ describe('Study Job Actions', () => {
 
             actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
-            // A successful review must survive a stray retry — only failed rows clear.
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('id')
@@ -745,7 +718,6 @@ describe('Study Job Actions', () => {
 })
 
 describe('draft code files are private to the Research Lab (OTTER-596)', () => {
-    // Attach a code file to the draft's own studyJob so there is something to fetch.
     const seedCodeFile = async (studyId: string) => {
         const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
         await db

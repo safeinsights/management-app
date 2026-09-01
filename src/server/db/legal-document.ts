@@ -1,7 +1,7 @@
 import { type DBExecutor } from '@/database'
-import { type LegalDocumentTypeValue } from '@/schema/legal-document'
+import type { OrgType } from '@/database/types'
+import { type LegalDocumentTypeValue, type ParticipationAgreementType } from '@/schema/legal-document'
 
-// tos/pn are global, so their scope columns are null rather than absent.
 type DocumentScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
 
 const documentInScope = (db: DBExecutor, { type, orgId, studyId }: DocumentScope) =>
@@ -12,12 +12,9 @@ const documentInScope = (db: DBExecutor, { type, orgId, studyId }: DocumentScope
         .where((eb) => (orgId ? eb('orgId', '=', orgId) : eb('orgId', 'is', null)))
         .where((eb) => (studyId ? eb('studyId', '=', studyId) : eb('studyId', 'is', null)))
 
-// Undefined where the document has never been uploaded, which is an ordinary state for every scope.
 export const findLegalDocument = (db: DBExecutor, scope: DocumentScope) => documentInScope(db, scope).executeTakeFirst()
 
-// Created on first upload rather than seeded. Always returns a row: onConflict covers a concurrent
-// first upload, and the loser of that race reads the winner's back, which the scope unique
-// constraint guarantees is there.
+// Always returns a row: onConflict covers a concurrent first upload and the loser reads the winner's.
 export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentScope) => {
     const inserted = await db
         .insertInto('legalDocument')
@@ -29,8 +26,7 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
 
-// With the orgs it binds. Undefined until an SI admin publishes one, the ordinary state for a
-// freshly approved study.
+// Undefined until an SI admin publishes one, the ordinary state for a freshly approved study.
 export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =>
     db
         .selectFrom('legalDocument')
@@ -46,6 +42,81 @@ export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =
         ])
         .where('legalDocument.type', '=', 'SLA')
         .where('legalDocument.studyId', '=', studyId)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+// Both directions come from here so they cannot point at the same org.
+const studyAgreementSides = {
+    enclave: { party: 'study.orgId', counterparty: 'study.submittedByOrgId' },
+    lab: { party: 'study.submittedByOrgId', counterparty: 'study.orgId' },
+} as const
+
+// Lists studies, not agreements. Lateral rather than a join, which would multiply a study into
+// one row per version.
+export const orgStudyAgreements = (db: DBExecutor, { orgId, orgType }: { orgId: string; orgType: OrgType }) => {
+    const { party, counterparty } = studyAgreementSides[orgType]
+
+    return (
+        db
+            .selectFrom('study')
+            .innerJoin('org as counterparty', 'counterparty.id', counterparty)
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('legalDocument')
+                        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+                        .select([
+                            'legalDocumentVersion.filePath as filePath',
+                            'legalDocumentVersion.fileName as fileName',
+                            'legalDocumentVersion.format as format',
+                            'legalDocumentVersion.signedAt as signedAt',
+                        ])
+                        .whereRef('legalDocument.studyId', '=', 'study.id')
+                        .where('legalDocument.type', '=', 'SLA')
+                        // Redundant against the CHECK constraint, but the planner cannot infer it,
+                        // so without it only `type` bounds the index scan.
+                        .where('legalDocument.orgId', 'is', null)
+                        .where('legalDocumentVersion.publishedAt', 'is not', null)
+                        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+                        .limit(1)
+                        .as('agreement'),
+                (join) => join.onTrue(),
+            )
+            .select([
+                'study.id as studyId',
+                'study.title as studyTitle',
+                'counterparty.name as counterpartyName',
+                'agreement.filePath',
+                'agreement.fileName',
+                'agreement.format',
+                'agreement.signedAt',
+            ])
+            .where('study.deletedAt', 'is', null)
+            .where(party, '=', orgId)
+            // Second arm: once signed, a study stays listed whatever its status becomes.
+            .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.filePath', 'is not', null)]))
+            .execute()
+    )
+}
+
+export const orgParticipationAgreement = (
+    db: DBExecutor,
+    { orgId, type }: { orgId: string; type: ParticipationAgreementType },
+) =>
+    db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .select([
+            'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
+            'legalDocumentVersion.format as format',
+            'legalDocumentVersion.signedAt as signedAt',
+        ])
+        .where('legalDocument.type', '=', type)
+        .where('legalDocument.orgId', '=', orgId)
+        .where('legalDocument.studyId', 'is', null)
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
         .limit(1)

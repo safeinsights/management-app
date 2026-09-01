@@ -34,11 +34,8 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
 
 describe('ProposalSubmitted', () => {
     let study: Submitted<SelectedStudy>
-    // These tests use `study` as a read-only base (each spreads it into a render); they
-    // never mutate the DB row. So seed the org/user/study ONCE in beforeAll (it lives in
-    // the outer transaction and survives per-test rollback) instead of paying the seed +
-    // insert per test. Only the Clerk mocks — cleared by mockReset between tests — are
-    // re-applied per test.
+    // Seeded once in beforeAll: the row lives in the outer transaction and survives per-test
+    // rollback. Only the Clerk mocks, which mockReset clears, are re-applied per test.
     let mockArgs: Parameters<typeof mockClerkSession>[0]
 
     beforeAll(async () => {
@@ -252,7 +249,7 @@ describe('ProposalSubmitted', () => {
 
             const banner = screen.getByTestId('status-banner-APPROVED')
             expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
             )
         })
 
@@ -309,6 +306,21 @@ describe('ProposalSubmitted', () => {
             expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
+        it('leaves no rule behind for a status with no banner copy', () => {
+            const archivedStudy = { ...study, status: 'ARCHIVED' as const, approvedAt: null, rejectedAt: null }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={archivedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
+        })
+
         it('renders only one banner at a time', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
@@ -363,20 +375,21 @@ describe('ProposalSubmitted', () => {
 
             const banner = screen.getByTestId('status-banner-APPROVED')
             expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
             )
             expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
         })
     })
 
-    describe('view full initial request dropdown', () => {
-        it('is collapsed by default on page load', () => {
+    describe('view full proposal dropdown', () => {
+        it('is collapsed to the snippet by default on page load', () => {
             renderWithProviders(
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
-            expect(screen.queryByTestId('proposal-body')).not.toBeVisible()
+            expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
+            expect(screen.getByTestId('proposal-snippet')).toBeVisible()
+            expect(screen.queryByTestId('proposal-body')).not.toBeInTheDocument()
         })
 
         it('expands to display the study proposal when clicked', async () => {
@@ -385,10 +398,11 @@ describe('ProposalSubmitted', () => {
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            await user.click(screen.getByTestId('proposal-toggle-header'))
+            await user.click(screen.getByTestId('proposal-toggle-snippet'))
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('Hide full initial request')
+            expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
             expect(screen.getByTestId('proposal-body')).toBeVisible()
+            expect(screen.queryByTestId('proposal-snippet')).not.toBeInTheDocument()
             expect(screen.getByText(`Title: ${study.title}`)).toBeInTheDocument()
         })
 
@@ -398,7 +412,7 @@ describe('ProposalSubmitted', () => {
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            await user.click(screen.getByTestId('proposal-toggle-header'))
+            await user.click(screen.getByTestId('proposal-toggle-snippet'))
 
             const body = screen.getByTestId('proposal-body')
             const inputs = body.querySelectorAll('input, textarea, select, [contenteditable="true"]')
@@ -423,7 +437,7 @@ describe('ProposalSubmitted', () => {
             expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        it('shows a "Proceed to step 3" button linking to agreements when status is APPROVED', () => {
+        it('shows a "Proceed to step 3" button linking to the code step when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -436,10 +450,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
-            expect(proceedLink).toHaveAttribute(
-                'href',
-                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
-            )
+            expect(proceedLink).toHaveAttribute('href', Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }))
         })
 
         it('shows a "Back" button linking to dashboard when status is CHANGE-REQUESTED', () => {
@@ -507,10 +518,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
-            expect(proceedLink).toHaveAttribute(
-                'href',
-                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
-            )
+            expect(proceedLink).toHaveAttribute('href', Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }))
             expect(screen.queryByRole('link', { name: /go to dashboard/i })).not.toBeInTheDocument()
         })
     })

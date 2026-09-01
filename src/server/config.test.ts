@@ -27,7 +27,6 @@ describe('getConfigValue', () => {
     it('should return the value from AWS secrets if process.env does not contain the key', async () => {
         delete process.env.MY_CONFIG
         process.env.SECRETS_ARN = '1234_ARN'
-        // Set up the mock to return a secret containing MY_CONFIG
         secretsManagerMock.on(GetSecretValueCommand, { SecretId: '1234_ARN' }).resolves({
             SecretString: JSON.stringify({ MY_CONFIG: 'secretValue' }),
         })

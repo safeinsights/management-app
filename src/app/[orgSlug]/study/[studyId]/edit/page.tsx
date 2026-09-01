@@ -6,7 +6,6 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     const params = await props.params
     const { studyId } = params
 
-    // TODO: validate that member from clerk session matches memberId from url
     const study = await db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -29,6 +28,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
             'study.containerLocation',
             'study.outputMimeType',
             'org.slug as orgSlug',
+            'org.name as orgName',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -39,9 +39,8 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
         )
     }
 
-    // /edit is a revisitable step: an authorized DRAFT researcher can open it directly, forward or
-    // back, regardless of how far the draft has progressed. The screen authority (resolveScreen)
-    // decides the canonical screen, so this page no longer self-redirects to resume on Step 2.
+    // /edit is a revisitable step, so it never self-redirects to resume on Step 2; resolveScreen
+    // decides the canonical screen.
     return (
         <StudyProposal
             studyId={studyId}
@@ -50,7 +49,9 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
                 title: study.title ?? '',
                 piName: study.piName,
                 language: study.language,
+                status: study.status,
                 orgSlug: study.orgSlug,
+                orgName: study.orgName,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,
                 agreementDocPath: study.agreementDocPath,

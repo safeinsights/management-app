@@ -4,37 +4,28 @@ import { useMutation } from '@/common'
 import { onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import { reportMutationError } from '@/components/errors'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { buildStudyInfo } from './build-study-info'
+import { buildStudyInfo, type TitleMode } from './build-study-info'
 
 type Options = {
-    /**
-     * Leave the title column untouched when the form title is blank. The
-     * resubmit flow needs this: buildStudyInfo maps a blank title to null, and
-     * a NULL title on a CHANGE-REQUESTED row violates the
-     * study_title_required_when_not_draft check constraint.
-     */
-    omitBlankTitle?: boolean
+    titleMode: TitleMode
+    /** Set false when the caller reports the failure itself, so two toasts don't read as two problems. */
+    reportErrors?: boolean
 }
 
 export function useSaveProposalDraft(
     studyId: string,
     form: UseFormReturnType<ProposalFormValues>,
-    { omitBlankTitle = false }: Options = {},
+    { titleMode, reportErrors = true }: Options,
 ) {
     const mutation = useMutation({
-        mutationFn: () => {
-            const { title, ...rest } = buildStudyInfo(form.getValues())
-            const studyInfo = omitBlankTitle && title === null ? rest : { title, ...rest }
-            return onUpdateDraftStudyAction({ studyId, studyInfo })
-        },
+        mutationFn: () => onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues(), titleMode) }),
         onSuccess: () => form.resetDirty(),
-        onError: reportMutationError('Failed to save draft'),
+        onError: reportErrors ? reportMutationError('Failed to save draft') : undefined,
     })
 
     const saveDraft = useCallback(async (): Promise<boolean> => {
-        // A pristine form has nothing to flush. Skipping also keeps a failed
-        // save from blocking back-navigation for a user who merely viewed the
-        // page after the study became non-editable (e.g. a co-author resubmitted).
+        // Skipping a pristine form also keeps a failed save from blocking back-navigation for a
+        // user who merely viewed a study that has since become non-editable.
         if (!form.isDirty()) return true
         try {
             await mutation.mutateAsync()

@@ -22,7 +22,6 @@ import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { EditResubmitFooter } from './footer'
-import { RESUBMIT_NOTE_MIN_WORDS } from './schema'
 
 function NoteSection({ orgName }: { orgName: string }) {
     const { noteForm } = useEditResubmit()
@@ -33,9 +32,6 @@ const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
 
-// Pre-fill the proposal-side of the form so `form.isValid()` is true and the
-// title gate is satisfied. This isolates the note gate from the proposal-form
-// gate (and from OTTER-557's title check).
 const VALID_PROPOSAL_DRAFT: EditResubmitDraftData = {
     title: 'A valid title',
     datasets: ['some-dataset'],
@@ -55,11 +51,6 @@ const renderFooterWithNoteSection = (draft: EditResubmitDraftData = VALID_PROPOS
     )
 
 describe('EditResubmitFooter — note gating (OTTER-521)', () => {
-    // Regression: an earlier implementation seeded `useForm({ initialErrors })`
-    // for the note form because Mantine doesn't validate initial values. The
-    // seed itself rendered a concatenated error blob on first paint, and was
-    // also unnecessary — `noteForm.isValid()` re-runs the schema against
-    // current values on demand, so the empty-note case is already covered.
     it('disables Resubmit on first paint when the resubmission note is empty, even if the proposal form is otherwise valid', () => {
         renderFooterWithNoteSection()
         const resubmit = screen.getByRole('button', { name: /Resubmit initial request/i })
@@ -71,14 +62,13 @@ describe('EditResubmitFooter — note gating (OTTER-521)', () => {
         renderFooterWithNoteSection()
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
         await user.click(textarea)
-        await user.paste(wordsString(RESUBMIT_NOTE_MIN_WORDS))
+        await user.paste('x')
         const resubmit = screen.getByRole('button', { name: /Resubmit initial request/i })
         expect(resubmit).toBeEnabled()
     })
 })
 
-// Every required proposal field populated EXCEPT the title (left blank, as drafts now
-// persist a NULL title instead of a placeholder; reproduces OTTER-557).
+// Every required proposal field populated except the title, reproducing OTTER-557.
 const fullyValidExceptTitle: ProposalFormValues = {
     title: '',
     datasets: ['dataset-1'],
@@ -90,13 +80,10 @@ const fullyValidExceptTitle: ProposalFormValues = {
     piUserId: BLANK_UUID,
 }
 
-// A 60-word note (above the 50-word minimum) so the note form's validity
-// doesn't get in the way of the title-gate assertions.
 const VALID_NOTE = wordsString(60)
 
-// Test-only probe that primes the note form with a valid value so we can
-// isolate the title-gate behavior under test. Runs in an effect — updating
-// form state during render triggers React's cross-component setState warning.
+// Primes the note form in an effect: updating form state during render triggers React's
+// cross-component setState warning.
 const FormProbes = ({ titleOverride }: { titleOverride?: string }) => {
     const { form, noteForm } = useEditResubmit()
     useEffect(() => {
@@ -183,9 +170,8 @@ describe('EditResubmitFooter — confirmation modal (OTTER-568)', () => {
     })
 })
 
-// Yjs autosave is inactive in single-user mode (no collaboration websocket), so
-// Back must flush the form to the study row before returning to the submitted
-// view — otherwise edits made since page load are lost (OTTER-573).
+// Yjs autosave is inactive in single-user mode, so Back must flush the form to the study row or
+// edits made since page load are lost (OTTER-573).
 describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
     const setupChangeRequestedStudy = async (studyStatus: 'CHANGE-REQUESTED' | 'PENDING-REVIEW') => {
         const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -199,8 +185,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         return { org, researcher, study }
     }
 
-    // piUserId must reference a real user row — the flush writes it to the study
-    // table, and a placeholder UUID would trip the foreign key.
+    // piUserId must reference a real user row or the flush trips the foreign key.
     const renderFooterForStudy = (studyId: string, title: string, piUserId: string) =>
         renderWithProviders(
             <EditResubmitProvider studyId={studyId} draftData={{ ...VALID_PROPOSAL_DRAFT, title, piUserId }}>
@@ -242,9 +227,8 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
 
         renderFooterForStudy(study.id, 'Original title', researcher.id)
-        // Blank title mid-rename: nulling the column would violate the
-        // study_title_required_when_not_draft check constraint and trap the
-        // user on the page; the flush must skip the title but still save.
+        // Nulling the column would violate study_title_required_when_not_draft, so the flush
+        // must skip the title but still save the rest.
         await user.clear(screen.getByLabelText('Study Title Probe'))
 
         await user.click(screen.getByRole('button', { name: 'Back' }))
@@ -260,13 +244,11 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(after.title).toBe('Original title')
-        // The rest of the flush still landed.
         expect(after.piName).toBe('PI Name')
     })
 
-    // The preview's PI popover asks the server for the profile, and the server only serves ids
-    // the persisted study row names — opening the modal on unsaved form state would show
-    // "Profile not available" for a changed PI (OTTER-724).
+    // The server only serves PI profiles the persisted study row names, so opening the modal on
+    // unsaved state would show "Profile not available" (OTTER-724).
     it('flushes the draft to the study row before opening the reviewer preview', async () => {
         const user = userEvent.setup()
         const { researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
@@ -289,7 +271,6 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
     it('reports the error and stays on the page when the flush fails', async () => {
         const user = userEvent.setup()
-        // A PENDING-REVIEW study is no longer editable, so the flush is rejected.
         const { researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
         ;(notifications.show as Mock).mockClear()
 
@@ -311,8 +292,6 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
     it('skips the flush and navigates when the form is pristine', async () => {
         const user = userEvent.setup()
-        // Non-editable status would fail the flush — a pristine form must not
-        // attempt it, so a viewer can still navigate back.
         const { org, researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
         ;(notifications.show as Mock).mockClear()
 

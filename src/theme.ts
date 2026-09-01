@@ -1,4 +1,6 @@
 import {
+    type ButtonProps,
+    type ButtonVariant,
     createTheme,
     CSSVariablesResolver,
     DefaultMantineColor,
@@ -82,6 +84,20 @@ const purple: MantineColorsTuple = [
     '#100A4C',
     '#070524',
 ]
+const BRAND_DEFAULT = '#01215E'
+
+const navy: MantineColorsTuple = [
+    '#E6E9EF',
+    '#CCD3DF',
+    '#99A6BF',
+    '#677A9E',
+    '#344D7E',
+    BRAND_DEFAULT,
+    '#011A4B',
+    '#011438',
+    '#000D26',
+    '#000713',
+]
 const blue: MantineColorsTuple = [
     '#D6E9FF',
     '#BDDCFF',
@@ -93,9 +109,19 @@ const blue: MantineColorsTuple = [
     '#0058BD',
     '#004594',
     '#00326B',
+    BRAND_DEFAULT,
 ]
 
-type ExtendedCustomColors = 'purple' | 'blue' | 'charcoal' | 'grey' | 'red' | 'green' | 'yellow' | DefaultMantineColor
+type ExtendedCustomColors =
+    | 'navy'
+    | 'purple'
+    | 'blue'
+    | 'charcoal'
+    | 'grey'
+    | 'red'
+    | 'green'
+    | 'yellow'
+    | DefaultMantineColor
 
 type ExtendedCustomSpacing = 'xxl' | DefaultMantineSize
 
@@ -109,6 +135,14 @@ declare module '@mantine/core' {
     }
 }
 
+// Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
+// itself, so each needs brand/Light supplied explicitly.
+const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'light']
+
+export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
+    root: LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {},
+})
+
 export const theme = createTheme({
     fontFamily: 'Open Sans',
     headings: {
@@ -116,6 +150,7 @@ export const theme = createTheme({
         fontWeight: '700',
     },
     colors: {
+        navy,
         charcoal,
         grey,
         red,
@@ -134,6 +169,21 @@ export const theme = createTheme({
             styles: () => ({
                 th: {
                     backgroundColor: grey[10],
+                },
+            }),
+        },
+        Button: {
+            defaultProps: {
+                color: 'navy',
+            },
+            vars: buttonVars,
+            styles: () => ({
+                root: {
+                    '&:disabled, &[data-disabled]': {
+                        backgroundColor: grey[1],
+                        color: charcoal[6],
+                        borderColor: 'transparent',
+                    },
                 },
             }),
         },

@@ -47,10 +47,8 @@ describe('dashboardRawStateFromRow', () => {
         expect(state.hasAnyJob).toBe(false)
     })
 
-    // After a round closes (FILES-APPROVED/REJECTED) a fresh IDE launch opens a new INITIATED-only
-    // job, which is the dashboard's latest job. By design the dashboard reflects the CURRENT round
-    // ("new submission in progress"), not the prior round's results — so the link sends the
-    // researcher to the upload page to re-launch / upload, NOT back to the old results on /view.
+    // The dashboard reflects the CURRENT round, not the prior round's results, so a fresh IDE
+    // launch after a closed round links to upload rather than the old results.
     it('fresh INITIATED job after a closed round → link routes to /code (upload), not /view', () => {
         const state = projectStudyState(
             dashboardRawStateFromRow(row({ status: 'APPROVED', jobStatusChanges: [{ status: 'INITIATED' }] })),

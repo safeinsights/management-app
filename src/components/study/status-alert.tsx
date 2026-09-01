@@ -1,12 +1,17 @@
 import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
-import { InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import dayjs from 'dayjs'
 
-export const STATUS_ALERT_SEPARATOR = '\u2022'
+const STATUS_ALERT_SEPARATOR = '•'
+
+export const statusAlertTitle = (title: string, at: Date | string | null | undefined): string =>
+    at ? `${title} ${STATUS_ALERT_SEPARATOR} ${dayjs(at).format('MMM DD, YYYY')}` : title
 
 export const STATUS_ALERT_VARIANT = {
     informative: 'informative',
     action: 'action',
+    success: 'success',
 } as const
 
 export type StatusAlertVariant = (typeof STATUS_ALERT_VARIANT)[keyof typeof STATUS_ALERT_VARIANT]
@@ -15,7 +20,16 @@ type StatusAlertProps = {
     variant: StatusAlertVariant
     title: ReactNode
     children: ReactNode
+    /** Polite live region (OTTER-696). Callers must render ONE StatusAlert whose props change;
+     * a remount drops the announcement. */
+    announce?: boolean
 }
+
+// Figma status/success/text-icon. Deliberately a literal, not a theme token: green.9 (#2F9844) is
+// only 3.35:1 against green.0 and green.10 (#2B8A3E) 3.96:1, both under the 4.5:1 WCAG AA needs for
+// this 14px title (bold 14px is not "large text"), and green.10 is already spoken for by LAB_BG.
+// This value is 7.5:1 on the same background. See OTTER-482 for the earlier contrast pass.
+const SUCCESS_TITLE = '#285831'
 
 const VARIANTS = {
     informative: {
@@ -32,13 +46,24 @@ const VARIANTS = {
         iconColor: 'var(--mantine-color-yellow-10)',
         Icon: WarningCircleIcon,
     },
+    success: {
+        bg: 'green.0',
+        titleColor: SUCCESS_TITLE,
+        titleWeight: 700,
+        iconColor: SUCCESS_TITLE,
+        Icon: CheckCircleIcon,
+    },
 } as const satisfies Record<
     StatusAlertVariant,
     { bg: string; titleColor: string; titleWeight: number; iconColor: string; Icon: typeof InfoIcon }
 >
 
-export function StatusAlert({ variant, title, children }: StatusAlertProps) {
+// aria-atomic so the swap is read as one banner (title AND body), not just the changed title.
+const announceProps = { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } as const
+
+export function StatusAlert({ variant, title, children, announce = false }: StatusAlertProps) {
     const { bg, titleColor, titleWeight, iconColor, Icon } = VARIANTS[variant]
+    const liveRegion = announce ? announceProps : {}
     return (
         <Alert
             variant="light"
@@ -51,6 +76,7 @@ export function StatusAlert({ variant, title, children }: StatusAlertProps) {
             }}
             data-testid="status-alert"
             data-variant={variant}
+            {...liveRegion}
         >
             <Stack gap="xs">
                 <Text fz={14} fw={titleWeight} c={titleColor}>

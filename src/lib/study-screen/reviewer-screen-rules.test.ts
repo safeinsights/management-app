@@ -19,7 +19,8 @@ describe('resolveScreen(reviewer)', () => {
         expect(screen(st({ status: 'CHANGE-REQUESTED' }))).toBe('reviewer-proposal-feedback')
     })
 
-    it('code submitted, agreements NOT acked → reviewer-agreements (gate before review)', () => {
+    // OTTER-727 hid the Agreements gate that used to claim this state.
+    it('code submitted, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         expect(
             screen(
                 st({
@@ -29,7 +30,7 @@ describe('resolveScreen(reviewer)', () => {
                     reviewerAgreementsAcked: false,
                 }),
             ),
-        ).toBe('reviewer-agreements')
+        ).toBe('reviewer-code-review')
     })
 
     it('code submitted, agreements acked → reviewer-code-review', () => {
@@ -212,7 +213,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('agreements gate only applies while awaiting decision (irrelevant once decided)', () => {
+    it('an unacked study with a code decision still resolves on the decision', () => {
         expect(
             screen(
                 st({

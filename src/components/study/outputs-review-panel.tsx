@@ -1,19 +1,23 @@
 'use client'
 
-import { FC, ReactNode, useState } from 'react'
+import { FC, ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { ButtonLink } from '@/components/links'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
+import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
+import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
+
+// Module-level so the no-key path hands the same array identity down on every render.
+const NO_FILES: JobFileInfo[] = []
 
 type OutputsReviewPanelProps = {
     orgSlug: string
@@ -21,39 +25,44 @@ type OutputsReviewPanelProps = {
     studyTitle: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    maxWords: number
     /** Shown while the outputs are still encrypted (OTTER-667 / OTTER-668 copy). */
     lockedBanner: ReactNode
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
     previousHref: Route
+    /** Only the errored screen sets this: for a completed run, no artifacts means delivery
+     * went wrong, so the key step must not be skipped (OTTER-524). */
+    allowDecisionWithoutArtifacts?: boolean
 }
 
-/**
- * The reviewer's outputs step, in its two phases.
- *
- * Decryption happens in the browser and changes no server state, so "advancing" to the review
- * view is a local phase flip, not a route change or a new screen: the study is still
- * JOB-ERRORED / RUN-COMPLETE either side of it. Holding both phases in one component is what
- * lets the decrypted plaintext stay in memory and never travel back to the server.
- *
- * The page and section headers are identical across both phases; only the banner below the
- * divider and the body beneath it change.
- */
+// Both phases live in one component so the decrypted plaintext stays in memory and never
+// reaches the server; advancing is a local flip, not a route change.
 export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     orgSlug,
     studyId,
     studyTitle,
     job,
     labName,
-    maxWords,
     lockedBanner,
     unlockedBanner,
     previousHref,
+    allowDecisionWithoutArtifacts = false,
 }) => {
-    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[] | null>(null)
-    const isLocked = decryptedFiles === null
-    const banner = isLocked ? lockedBanner : unlockedBanner
+    const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+
+    // Read from the job's own files, never from an empty fetchEncryptedJobFiles result, which
+    // also returns [] with no registered key and would let decryption be skipped (OTTER-675).
+    const requiresKey = !allowDecisionWithoutArtifacts || jobHasDecryptableRunOutcome(job.files ?? [])
+
+    const isLocked = requiresKey && isUndecrypted
+    // Non-null with no key step, which flips UnlockedPhase on so the reviewer goes straight to
+    // the decision.
+    const reviewableFiles = requiresKey ? decryptedFiles : NO_FILES
+    // The unlocked banner warns about sharing outputs, so it is wrong when there are none.
+    const banner = requiresKey && !isLocked ? unlockedBanner : lockedBanner
+    // Same value as requiresKey, named separately so a later change to UnlockedPhase's null
+    // guard cannot quietly turn "has a key step" into a sharing permission.
+    const canShareOutputs = requiresKey
 
     return (
         <Box bg="grey.10">
@@ -65,19 +74,14 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     studyTitle={studyTitle}
                     banner={banner}
                 />
-                <LockedPhase
-                    isVisible={isLocked}
-                    job={job}
-                    previousHref={previousHref}
-                    onDecrypted={setDecryptedFiles}
-                />
+                <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
                 <UnlockedPhase
-                    decryptedFiles={decryptedFiles}
+                    decryptedFiles={reviewableFiles}
+                    canShareOutputs={canShareOutputs}
                     orgSlug={orgSlug}
                     studyId={studyId}
                     job={job}
                     labName={labName}
-                    maxWords={maxWords}
                     previousHref={previousHref}
                 />
             </Stack>
@@ -96,9 +100,8 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     if (!isVisible) return null
     return (
         <>
-            {/* The reviewer decrypts via the zip's embedded manifest, which is encrypted to the
-                enclave keys; they hold no re-wrapped per-file keys, so the researcher key set
-                would come back empty. */}
+            {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
+                keys, so the researcher key set would come back empty. */}
             <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
             <Group>
                 <PreviousStepLink previousHref={previousHref} />
@@ -107,43 +110,38 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     )
 }
 
-const PreviousStepLink: FC<{ previousHref: Route }> = ({ previousHref }) => (
-    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
-
 type UnlockedPhaseProps = {
-    /** null until a key has successfully decrypted; the whole review view is gated on it. */
+    /** null until a key has successfully decrypted. */
     decryptedFiles: JobFileInfo[] | null
+    /** False when the job has no artifacts, so there is no key step and nothing to share. */
+    canShareOutputs: boolean
     orgSlug: string
     studyId: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    maxWords: number
     previousHref: Route
 }
 
-// Split from the panel so the hooks below run only once decryption has happened: mounting the
-// collaborative editor (and its websocket) behind a still-locked key would be wasted work.
+// Split from the panel so mounting the collaborative editor and its websocket waits until
+// decryption has happened.
 const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     decryptedFiles,
+    canShareOutputs,
     orgSlug,
     studyId,
     job,
     labName,
-    maxWords,
     previousHref,
 }) => {
     if (decryptedFiles === null) return null
     return (
         <ReviewBody
             decryptedFiles={decryptedFiles}
+            canShareOutputs={canShareOutputs}
             orgSlug={orgSlug}
             studyId={studyId}
             job={job}
             labName={labName}
-            maxWords={maxWords}
             previousHref={previousHref}
         />
     )
@@ -151,36 +149,46 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
 
 type ReviewBodyProps = Omit<UnlockedPhaseProps, 'decryptedFiles'> & { decryptedFiles: JobFileInfo[] }
 
+// An empty "Outputs files" section would imply a complete listing of what the run produced.
+const OutputsSection: FC<{ isVisible: boolean; jobId: string; decryptedFiles: JobFileInfo[] }> = ({
+    isVisible,
+    jobId,
+    decryptedFiles,
+}) => {
+    if (!isVisible) return null
+    return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
+}
+
 const ReviewBody: FC<ReviewBodyProps> = ({
     decryptedFiles,
+    canShareOutputs,
     orgSlug,
     studyId,
     job,
     labName,
-    maxWords,
     previousHref,
 }) => {
-    const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, maxWords, decryptedFiles })
+    const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, decryptedFiles })
 
     return (
         <>
-            <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} />
+            <OutputsSection isVisible={canShareOutputs} jobId={job.id} decryptedFiles={decryptedFiles} />
             <OutputsDecisionSection
                 jobId={job.id}
                 studyId={studyId}
                 labName={labName}
-                maxWords={maxWords}
-                wordCount={decision.wordCount}
+                characterCount={decision.characterCount}
                 feedbackError={decision.feedbackError}
                 onFeedbackChange={decision.onFeedbackChange}
                 selected={decision.selected}
                 onSelect={decision.onSelect}
                 decisionError={decision.decisionError}
+                canShareOutputs={canShareOutputs}
             />
             <Group justify="space-between">
                 <PreviousStepLink previousHref={previousHref} />
-                {/* Enabled from the start by design: pressing it is how the user learns what is
-                    still missing, rather than being left with a dead button and no explanation. */}
+                {/* Enabled from the start: pressing it is how the user learns what is still
+                    missing, rather than facing a dead button with no explanation. */}
                 <Button
                     onClick={decision.attemptSubmit}
                     disabled={decision.isSubmitting}

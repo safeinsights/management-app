@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { LegalDocumentFormat, OrgType } from '@/database/types'
 
 export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
 
@@ -8,23 +9,21 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
     SLA: 'Study Agreement',
-    // "Organization" is the wording on the executed documents themselves, so an admin matching a
-    // signed PDF to a tab sees the same name twice. The app's own noun for the org is below.
+    // "Organization" matches the wording on the executed documents, not the app's own noun for orgs.
     DOPA: 'Data Organization Participation Agreement',
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// The types every user must acknowledge, in the order they are presented. Unlike ropa/dopa/study
-// agreements these are global — one document each, no org or study scope — so the audience is simply
-// everybody. Adding the study agreement here also means retiring study.researcherAgreementsAckedAt /
-// reviewerAgreementsAckedAt: two agreement gates on the same study would disagree.
+// Global types only. Adding SLA here would also mean retiring
+// study.researcherAgreementsAckedAt/reviewerAgreementsAckedAt, as two gates on one study disagree.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
 
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
-export const legalDocumentFormatSchema = z.enum(['markdown', 'pdf'])
+// `satisfies` enforces parity with the DB enum.
+const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
 
-export type LegalDocumentFormat = z.infer<typeof legalDocumentFormatSchema>
+export const legalDocumentFormatSchema = z.enum(legalDocumentFormatValues)
 
 // Fixed per type rather than chosen per upload, so a document can never be stored in a format its
 // viewer cannot render.
@@ -36,22 +35,34 @@ export const legalDocumentFormats: Record<LegalDocumentTypeValue, LegalDocumentF
     ROPA: 'pdf',
 }
 
-// Only the two org-scoped types, and which kind of org each one is signed with.
 export const participationAgreementOrgTypes = { DOPA: 'enclave', ROPA: 'lab' } as const
 
 export type ParticipationAgreementType = keyof typeof participationAgreementOrgTypes
 
-// Derived from the map above rather than restating its keys, so a third participation-agreement type
-// is one edit.
 export const participationAgreementTypeSchema = z.enum(
     Object.keys(participationAgreementOrgTypes) as [ParticipationAgreementType, ...ParticipationAgreementType[]],
 )
 
-// The app's own noun for the org each agreement is signed with, which is not the agreement's name.
 export const participationAgreementOrgLabels: Record<ParticipationAgreementType, string> = {
     DOPA: 'Data Partner',
     ROPA: 'Research Lab',
 }
+
+// A Record rather than a ternary so a new OrgType is a type error instead of falling through to ROPA.
+export const participationAgreementTypeForOrgType: Record<OrgType, ParticipationAgreementType> = {
+    enclave: 'DOPA',
+    lab: 'ROPA',
+}
+
+export const studyAgreementCounterpartyLabels: Record<OrgType, string> = {
+    enclave: 'From',
+    lab: 'To',
+}
+
+// Shared because `??` and `||` differ on an empty-string title, enough to make a sort disagree
+// with what it displays.
+export const studyAgreementDisplayTitle = (row: { studyTitle: string | null; studyId: string }) =>
+    row.studyTitle || row.studyId
 
 // Mirrors the DB's scope check so a bad scope returns a field error, not a constraint violation.
 const scopeSchema = z.object({
@@ -87,34 +98,31 @@ export const createLegalDocumentDraftSchema = scopeSchema
     })
     .superRefine(refineScope)
 
-// The shape check alone lets '2026-02-30' through to the `date` column, where it fails as a database
-// error rather than a field error. Round-tripping rejects any day the calendar does not have.
+// The regex alone lets '2026-02-30' reach the `date` column, where it fails as a database error
+// rather than a field error.
 const isRealCalendarDay = (value: string) => {
     const parsed = new Date(`${value}T00:00:00Z`)
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
 }
 
 // A day of slack, deliberately: this runs on a UTC clock while the admin's date input is local, so
-// someone in a zone ahead of UTC records a genuine same-day signature on what is still tomorrow here.
-// Wide enough for that, narrow enough to still catch a year typed as 2206. Comparing the strings
-// works because YYYY-MM-DD sorts chronologically.
+// a zone ahead of UTC signs same-day on what is still tomorrow here.
 const latestSignableDay = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
 export const publishLegalDocumentVersionSchema = z.object({
     versionId: z.string(),
-    // Kept a plain string so it never hits a timezone conversion on the way to a `date` column.
+    // A plain string so it never hits a timezone conversion on the way to a `date` column.
     signedAt: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, 'Signed date must be YYYY-MM-DD')
         .refine(isRealCalendarDay, 'Signed date is not a real calendar date')
-        // Publishing cannot be undone, so a mistyped year has to be caught before it is on record.
         .refine((value) => value <= latestSignableDay(), 'Signed date cannot be in the future')
         .optional(),
 })
 
 export const acknowledgeLegalDocumentSchema = z.object({
-    // Validated as a uuid because scopeFromVersionId queries on it before any handler runs: a
-    // malformed id would raise there and 500 rather than failing closed.
+    // A uuid because scopeFromVersionId queries on it before any handler runs, so a malformed id
+    // would 500 there rather than failing closed.
     versionId: z.string().uuid(),
 })
 
@@ -123,15 +131,16 @@ export const studyAgreementStatusSchema = z.object({
     studyId: z.string().uuid(),
 })
 
-// One shape for both surfaces — the blocking modal and the proposal step's "being prepared" notice —
-// so the two cannot disagree about the same study. `acknowledged` renders nothing today.
+// One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
 export type StudyAgreementStatus =
     | { state: 'none' }
     | { state: 'pending'; versionId: string; downloadUrl: string }
     | { state: 'acknowledged' }
 
-// Params for both participation reads — the agreements table and the signatory picker — so it is
-// named for what it carries rather than for one of its callers.
+export const orgLegalParams = z.object({
+    orgSlug: z.string().min(1, 'An organization is required'),
+})
+
 export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
 })
@@ -148,39 +157,30 @@ export const fetchLegalDocumentAcknowledgementsSchema = z.object({
         .optional(),
 })
 
-// The columns the audit table can sort by. Org and version are absent on purpose: a user can belong
-// to several orgs, and a missing version is an absence rather than a value to order against.
 export type LegalDocumentAcknowledgementSort = NonNullable<
     z.infer<typeof fetchLegalDocumentAcknowledgementsSchema>['sort']
 >
 
-// Query keys for the legal-document actions. Not beside the actions themselves — that is a server
-// actions module, so every export there has to be an async function. Centralized because the
-// version-history read was cached under two different roots, one per tab, so an upload invalidated
-// one consumer and silently missed the other.
+// Not beside the actions because a server actions module may only export async functions.
 export const legalDocumentQueryKeys = {
-    // The exact scope a reader asked for. tos/pn leave the scope columns undefined.
     versions: (scope: { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }) =>
         ['legalDocumentVersions', scope.type, scope.orgId, scope.studyId] as const,
-    // Prefix of the above, so invalidating after a publish reaches every scope of that type without
-    // the writer having to know which readers are mounted.
+    // A prefix of the above, so invalidating after a publish reaches every scope of that type.
     versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
-    // What the app-wide gate owes the signed-in user next. No scope: it answers for whoever is asking.
     nextPendingAcknowledgement: () => ['nextPendingLegalAcknowledgement'] as const,
     // Read by the signup form before an account exists, so there is no session to key it by.
     publicDocuments: () => ['publicLegalDocuments'] as const,
-    // Keyed by version rather than by the signed URL the reader fetches: a presigned URL is re-minted
-    // on every read, so keying on it meant a fresh cache entry each time and never a hit.
+    // Keyed by version, not the presigned URL: that is re-minted per read, so it never cache-hits.
     documentContent: (versionId: string) => ['legalDocumentContent', versionId] as const,
-    // Sort is part of the key because the action orders the rows: the audience is assembled in
-    // memory, so a re-sort is a new read rather than a client-side shuffle.
+    // Sort is part of the key because the action orders the rows, so a re-sort is a new read.
     acknowledgements: (type: LegalDocumentTypeValue, sort: LegalDocumentAcknowledgementSort) =>
         ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
     studyAgreements: () => ['studyAgreements'] as const,
     studiesAwaitingStudyAgreement: () => ['studiesAwaitingStudyAgreement'] as const,
-    // Per study: the layout's gate and the proposal step's notice share the entry, so one request
-    // answers both.
+    // Shared by the layout's gate and the proposal step's notice, so one request answers both.
     studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,
+    orgStudyAgreements: (orgSlug: string) => ['orgStudyAgreements', orgSlug] as const,
+    orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
 }

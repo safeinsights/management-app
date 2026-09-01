@@ -13,6 +13,7 @@ import {
     setTestStudyStatus,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { ProposalProvider, useProposal, type ProposalDraftData } from '@/contexts/proposal'
@@ -31,8 +32,6 @@ function lexicalText(text: string): string {
     })
 }
 
-// Every required field populated EXCEPT the title (left blank, as drafts now
-// persist a NULL title instead of a placeholder; reproduces OTTER-557).
 const fullyValidExceptTitle: ProposalFormValues = {
     title: '',
     datasets: ['dataset-1'],
@@ -44,78 +43,133 @@ const fullyValidExceptTitle: ProposalFormValues = {
     piUserId: BLANK_UUID,
 }
 
-// Test-only title input wired through useProposal so changes flow through the
-// real Mantine form the footer reads.
 const TitleInputProbe = () => {
     const { form } = useProposal()
     return <TextInput aria-label="Study Title Probe" {...form.getInputProps('title')} />
 }
 
-const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle) =>
+const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle, studyTitle?: string | null) =>
     renderWithProviders(
         <ProposalProvider studyId={STUDY_ID} draftData={draftData}>
-            <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
+            <ProposalFooter
+                researcherName="Researcher"
+                researcherId="researcher-1"
+                studyTitle={studyTitle}
+                orgName="Test Data Partner"
+            />
         </ProposalProvider>,
     )
 
-describe('ProposalFooter submit gating (OTTER-557)', () => {
-    it('keeps Submit disabled when the title is empty', () => {
+const submitButton = () => screen.getByRole('button', { name: 'Submit proposal' })
+
+describe('ProposalFooter submit button (OTTER-691)', () => {
+    it('is enabled with a blank title, which Step 1 now owns', () => {
         renderFooter()
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
+        expect(submitButton()).toBeEnabled()
     })
 
-    it('keeps Submit disabled when the title is whitespace only', () => {
+    it('is enabled with a whitespace-only title', () => {
         renderFooter({ ...fullyValidExceptTitle, title: '   ' })
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeDisabled()
+        expect(submitButton()).toBeEnabled()
     })
 
-    it('enables Submit when the researcher provides a real title', () => {
-        renderFooter({ ...fullyValidExceptTitle, title: 'My Real Study Title' })
-        expect(screen.getByRole('button', { name: 'Submit initial request' })).toBeEnabled()
+    it('stays enabled when the fields this page owns are empty', () => {
+        renderFooter({ ...fullyValidExceptTitle, datasets: [] })
+        expect(submitButton()).toBeEnabled()
     })
 
-    it('enables Submit after the researcher types a real title in the form input', async () => {
+    it('does not open the confirmation modal while a required field is empty', async () => {
         const user = userEvent.setup()
-        renderWithProviders(
-            <ProposalProvider studyId={STUDY_ID} draftData={fullyValidExceptTitle}>
-                <TitleInputProbe />
-                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
-            </ProposalProvider>,
-        )
+        renderFooter({ ...fullyValidExceptTitle, datasets: [] })
 
-        const submit = screen.getByRole('button', { name: 'Submit initial request' })
-        expect(submit).toBeDisabled()
+        await user.click(submitButton())
 
-        await user.clear(screen.getByLabelText('Study Title Probe'))
-        await user.type(screen.getByLabelText('Study Title Probe'), 'My Real Study Title')
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(submitButton()).toBeEnabled()
+    })
 
-        expect(submit).toBeEnabled()
+    it('opens the confirmation modal once every field is valid', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(submitButton())
+
+        const dialog = await screen.findByRole('dialog')
+        expect(within(dialog).getByText('Submit your proposal?')).toBeInTheDocument()
+        expect(
+            within(dialog).getByText(
+                'Your proposal will be sent to Test Data Partner for review. You will not be able to make changes once submitted.',
+            ),
+        ).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    })
+
+    it('keeps the entered values when the modal is cancelled', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(submitButton())
+        await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        await user.click(submitButton())
+        expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('renders no reference to the old copy', () => {
+        renderFooter()
+        expect(screen.queryByRole('button', { name: /Submit initial request/i })).not.toBeInTheDocument()
+    })
+
+    // STUDY_ID has no row, so this submission fails — the only path that hands the form back
+    // rather than navigating.
+    it('closes the modal when the submission fails, leaving the user on the form', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(submitButton())
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Submit proposal' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        expect(submitButton()).toBeEnabled()
     })
 })
 
-// Yjs autosave is inactive in single-user mode (no collaboration websocket), so
-// Previous must flush the form to the study row before leaving — otherwise Step 2
-// progress is lost and the dashboard resumes the draft on Step 1 (OTTER-572/573).
+describe('ProposalFooter reviewer preview title (OTTER-690)', () => {
+    it('renders the persisted title rather than the form value', async () => {
+        const user = userEvent.setup()
+        renderFooter({ ...fullyValidExceptTitle, title: 'stale form copy' }, 'Persisted Step 1 title')
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+
+        const dialog = await screen.findByRole('dialog')
+        expect(within(dialog).getByText('Persisted Step 1 title')).toBeInTheDocument()
+        expect(within(dialog).queryByText('stale form copy')).not.toBeInTheDocument()
+    })
+})
+
+// Yjs autosave is inactive in single-user mode, so Previous must flush the form to the study row
+// before leaving or Step 2 progress is lost (OTTER-572/573).
 describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
-    // piUserId must reference a real user row — the flush writes it to the study
-    // table, and a placeholder UUID would trip the foreign key.
+    // piUserId must reference a real user row or the flush trips the foreign key.
     const renderFooterForStudy = (studyId: string, piUserId: string) =>
         renderWithProviders(
             <ProposalProvider studyId={studyId} draftData={{ ...fullyValidExceptTitle, piUserId }}>
                 <TitleInputProbe />
-                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" />
+                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" orgName="Test Data Partner" />
             </ProposalProvider>,
         )
 
-    it('flushes edited fields to the study row, then navigates to Step 1', async () => {
+    it('flushes edited fields to the study row and leaves the Step 1 title alone', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-save' })
         memoryRouter.setCurrentUrl('/start')
 
         renderFooterForStudy(studyId, researcher.id)
-        await user.type(screen.getByLabelText('Study Title Probe'), 'Saved on Previous')
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
 
-        await user.click(screen.getByRole('button', { name: 'Previous' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
             timeout: 5000,
@@ -126,7 +180,7 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
             .select(['title', 'piName', 'datasets'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow()
-        expect(study.title).toBe('Saved on Previous')
+        expect(study.title).toBe('Test draft')
         expect(study.piName).toBe('Jane Smith')
         expect(study.datasets).toEqual(['dataset-1'])
     })
@@ -134,15 +188,14 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
     it('reports the error and stays on Step 2 when the flush fails', async () => {
         const user = userEvent.setup()
         const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-fail' })
-        // A study that left DRAFT is no longer editable, so the flush is rejected.
         await setTestStudyStatus(studyId, 'PENDING-REVIEW')
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
 
         renderFooterForStudy(studyId, researcher.id)
-        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Edited so the form is dirty')
 
-        await user.click(screen.getByRole('button', { name: 'Previous' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
         const errorCall = (notifications.show as Mock).mock.calls.find(
@@ -155,15 +208,14 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         expect(study.title).toBe('Test draft')
     })
 
-    // The preview's PI popover asks the server for the profile, and the server only serves ids
-    // the persisted study row names — opening the modal on unsaved form state would show
-    // "Profile not available" for a freshly selected PI (OTTER-724).
+    // The server only serves PI profiles the persisted study row names, so opening the modal on
+    // unsaved state would show "Profile not available" (OTTER-724).
     it('flushes the draft to the study row before opening the reviewer preview', async () => {
         const user = userEvent.setup()
         const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-preview-save' })
 
         renderFooterForStudy(studyId, researcher.id)
-        await user.type(screen.getByLabelText('Study Title Probe'), 'Saved before preview')
+        await user.type(screen.getByLabelText('Study Title Probe'), 'Should not persist')
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
@@ -174,22 +226,20 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
             .select(['title', 'piUserId'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow()
-        expect(study.title).toBe('Saved before preview')
+        expect(study.title).toBe('Test draft')
         expect(study.piUserId).toBe(researcher.id)
     })
 
     it('skips the flush and navigates when the form is pristine', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-clean' })
-        // Non-editable status would fail the flush — a pristine form must not
-        // attempt it, so a viewer can still navigate back.
         await setTestStudyStatus(studyId, 'PENDING-REVIEW')
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
 
         renderFooterForStudy(studyId, researcher.id)
 
-        await user.click(screen.getByRole('button', { name: 'Previous' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
             timeout: 5000,

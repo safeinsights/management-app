@@ -28,18 +28,6 @@ vi.mock('@/server/storage', async () => {
     }
 })
 
-// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
-// inspect the crumbs prop without depending on the DOM render.
-const mockPageBreadcrumbs = vi.fn()
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
-        mockPageBreadcrumbs(props)
-        return null
-    },
-}))
-
 const ORG_SLUG = 'openstax'
 const REVIEWING_ORG_NAME = 'OpenStax Reviewers'
 const DECISION_DATE = new Date('2026-04-02T10:00:00Z')
@@ -67,8 +55,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         jobStatus: 'CODE-SUBMITTED',
         title,
     })
-    // Layer the decision row on top. Its createdAt is the user-visible decision timestamp the
-    // header now sources from (the matching status-change row, not the feedback entry).
+    // The header dates the decision from this status-change row, not the feedback entry.
     await db
         .insertInto('jobStatusChange')
         .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
@@ -122,23 +109,6 @@ function renderView(
 }
 
 describe('CodePostDecisionView', () => {
-    describe('breadcrumbs', () => {
-        it('renders Dashboard / Study proposal (linked) / Study code (linkless)', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
-
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            const expectedProposalHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
-            expect(crumbs).toEqual([
-                ['Dashboard', expect.any(String)],
-                ['Study proposal', expectedProposalHref],
-                ['Study code'],
-            ])
-        })
-    })
-
     describe('header', () => {
         it('renders the page title, STEP 4 eyebrow, "Study code" section, and study title', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
@@ -227,11 +197,9 @@ describe('CodePostDecisionView', () => {
             const interact = userEvent.setup()
             await interact.click(toggle)
 
-            // Expanding removes the in-step opener (returns null) and reveals the breakout card's "Hide" toggle.
             await waitFor(() => expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument())
             const collapseToggle = screen.getByTestId('study-code-toggle-collapse')
             expect(collapseToggle).toHaveTextContent('Hide submitted study code')
-            // The file table lives in its own "Submitted code" card, not inside the step header.
             expect(screen.getByRole('heading', { name: 'Submitted code' })).toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
         })
@@ -275,13 +243,13 @@ describe('CodePostDecisionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders a "Previous step" link to studyResearcherAgreements (no ?from=) in all decisions', async () => {
+        it('renders a "Previous step" link to the submitted proposal (no ?from=) in all decisions', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
             const href = previous.getAttribute('href') ?? ''
-            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
+            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
             expect(href).not.toContain('from=')
         })
 
@@ -296,8 +264,7 @@ describe('CodePostDecisionView', () => {
             expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
         })
 
-        // OTTER-687: the forward CTA replaces the dashboard one rather than sitting beside it, so
-        // the approved page ends on the flow instead of ending the flow.
+        // OTTER-687: the forward CTA replaces the dashboard one rather than sitting beside it.
         it('renders "Next step" instead of the dashboard CTA when a step forward exists', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             const nextStepHref = Routes.studyView({ orgSlug: ORG_SLUG, studyId: study.id })
@@ -309,7 +276,6 @@ describe('CodePostDecisionView', () => {
             expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
         })
 
-        // A change request is the next step, so it outranks the forward link even when one is passed.
         it('keeps "Edit and resubmit" over "Next step" for CODE-CHANGES-REQUESTED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
             renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus, {

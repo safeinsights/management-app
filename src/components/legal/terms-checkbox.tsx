@@ -7,8 +7,7 @@ import { FC, ReactNode } from 'react'
 import type { PublicLegalDocument } from './acknowledgement-copy'
 import { LegalDocumentSections } from './document-sections'
 
-// Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
-// they exist the real documents render below and the acknowledgement is recorded against them.
+// Stand-ins for the period before the first Terms of Service and Privacy Notice are published.
 const TOS_TEXT =
     'What to expect: Once implemented, SafeInsights Terms of Service will detail acceptable use of SafeInsights, applicable laws and jurisdictions, procedures for resolving disputes, and disclaimers of liability.'
 
@@ -48,19 +47,15 @@ type TermsCheckboxProps = {
     /** Fires when the box loses focus, so leaving it unchecked can be flagged (OTTER-647). */
     onBlur?: () => void
     error?: ReactNode
-    /**
-     * Published documents to display and agree to. Empty before anything is published, in which case
-     * the placeholder copy stands in and no acknowledgement is recorded — there is no version to
-     * record one against. The app-wide gate then collects it once a real document exists.
-     */
+    /** Empty before anything is published: no version exists to record an acknowledgement
+     * against, so the app-wide gate collects it later. */
     documents?: PublicLegalDocument[]
 }
 
 const TERMS_ERROR_ID = 'terms-accepted-error'
 
-// A standalone Mantine `Checkbox` uses `error` for styling only: it renders the message but adds
-// neither `aria-invalid` nor `aria-describedby`, unlike the inputs built on `Input.Wrapper`. Both
-// are wired by hand here so the requirement is not conveyed by red text alone.
+// A standalone Mantine `Checkbox` uses `error` for styling only, adding neither `aria-invalid`
+// nor `aria-describedby`, so both are wired by hand.
 export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, onBlur, error, documents = [] }) => (
     <Stack gap="sm" mt="md">
         <LegalDocumentSections documents={documents} labelSize="sm" />
@@ -69,8 +64,8 @@ export const TermsCheckbox: FC<TermsCheckboxProps> = ({ checked, onChange, onBlu
             onChange={(event) => onChange(event.currentTarget.checked)}
             onBlur={onBlur}
             label={documents.length ? agreementLabel(documents) : <TermsCheckboxLabel />}
-            // The id rides on this span rather than an `errorProps`, which a standalone Checkbox does
-            // not accept. A span, because Mantine renders the error inside a `<p>`.
+            // A standalone Checkbox accepts no `errorProps`; a span because Mantine renders the
+            // error inside a `<p>`.
             error={error ? <span id={TERMS_ERROR_ID}>{error}</span> : undefined}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? TERMS_ERROR_ID : undefined}

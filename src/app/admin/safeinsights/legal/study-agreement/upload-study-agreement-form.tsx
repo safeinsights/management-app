@@ -17,8 +17,6 @@ import { SignedOnInput } from '../signed-on-input'
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingStudyAgreementAction>[number]
 type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
 
-// What it takes to name the study being published against. A row from the table and a study picked
-// through the cascade both satisfy it, so the rest of the form does not care which one it has.
 type StudyDetails = Pick<StudyAgreement, 'studyId' | 'studyTitle' | 'researchLabName' | 'dataPartnerName'>
 
 const toOptions = (pairs: [string, string][]) =>
@@ -28,7 +26,6 @@ const toOptions = (pairs: [string, string][]) =>
         R.map(([value, label]) => ({ value, label })),
     )
 
-// Fetched once and narrowed in memory as the Data Partner > Research Lab > study cascade is used.
 const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
     const { data: candidates = [], isLoading } = useQuery({
         queryKey: legalDocumentQueryKeys.studiesAwaitingStudyAgreement(),
@@ -53,7 +50,6 @@ const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
         forResearchLab.map((c: Candidate) => [c.studyId, c.studyTitle || c.studyId] as [string, string]),
     )
 
-    // A different parent invalidates the choices below it.
     const chooseDataPartner = (value: string | null) => {
         setDataPartnerId(value)
         setResearchLabId(null)
@@ -66,8 +62,6 @@ const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
 
     return {
         isLoading,
-        // A study agreement hangs off an approved study, so with none waiting the cascade has nothing to offer
-        // and would otherwise render as three empty dropdowns that look broken.
         isEmpty: !isLoading && candidates.length === 0,
         dataPartnerId,
         researchLabId,
@@ -78,7 +72,6 @@ const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
         chooseDataPartner,
         chooseResearchLab,
         setStudyId,
-        // The chosen row already carries the names, so nothing has to be looked up to describe it.
         selected: candidates.find((c: Candidate) => c.studyId === studyId),
     }
 }
@@ -97,8 +90,6 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
     </>
 )
 
-// Says why the cascade is empty. Both causes are ordinary states rather than faults: nothing has
-// been approved yet, or every approved study already has its agreement.
 const NoStudiesWaiting: FC = () => (
     <Text c="dimmed">
         No approved studies are waiting for a study agreement. A study becomes available here once its proposal has been
@@ -106,7 +97,6 @@ const NoStudiesWaiting: FC = () => (
     </Text>
 )
 
-// Only shown when the study is not already fixed by the row that opened the form.
 const StudySelect: FC<{
     isVisible: boolean
     candidates: ReturnType<typeof useStudyAgreementCandidates>
@@ -135,7 +125,7 @@ const StudySelect: FC<{
             />
             <Select
                 label="Study"
-                description="Only approved studies that do not already have one are listed"
+                description="Only approved studies without a study agreement are listed"
                 placeholder="Select a study"
                 data={candidates.studyOptions}
                 value={candidates.studyId}
@@ -158,19 +148,15 @@ const VersionNote: FC<{ agreement: StudyAgreement | undefined }> = ({ agreement 
     )
 }
 
-// Read back only for a study that came from the table; the cascade above already names the chosen one.
 const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details }) => {
     if (!details) return null
     return <StudyFields details={details} />
 }
 
-// Says nothing about acknowledgement: a study agreement is filed here, not enforced — only tos/pn are in
-// enforcedLegalDocumentTypes.
+// Says nothing about acknowledgement: only tos/pn are in enforcedLegalDocumentTypes.
 const PUBLISH_CONSEQUENCE =
     'This becomes the current Study Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
 
-// Given an `agreement`, this adds a version to that study: the study and its orgs carry over from the row
-// and only a new date and file are collected. Without one, the study is picked from the cascade.
 export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreement?: StudyAgreement }> = ({
     onCompleteAction,
     agreement,
@@ -184,7 +170,6 @@ export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreem
         onComplete: onCompleteAction,
     })
 
-    // Nothing to publish against, so the form is replaced rather than shown unfillable.
     if (!agreement && candidates.isEmpty) return <NoStudiesWaiting />
 
     return (

@@ -3,16 +3,16 @@
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { AlertNotFound } from '@/components/errors'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink, LinkWithIcon } from '@/components/links'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { StudyCodeToggle, useExpandable } from './study-code-collapse'
+import { useExpandable } from '@/hooks/use-expandable'
+import { StudyCodeToggle } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
@@ -30,16 +30,10 @@ interface CodePostDecisionViewProps {
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
     dashboardHref: Route
-    /** Org-scoped entry: threaded onto the "Previous step" → researcher agreements link so org scope survives. */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
-    /**
-     * Forward link to the next step of the flow; set only when /view resolves past this screen
-     * (OTTER-614, OTTER-687). When set, the primary action reads "Next step" instead of "Go to
-     * dashboard".
-     */
+    // Set only when /view resolves past this screen (OTTER-614, OTTER-687).
     nextStepHref?: Route
-    /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
 }
 
@@ -74,8 +68,7 @@ const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     },
 }
 
-// Date is sourced from the decision's own status-change row so it stays correct (and present)
-// even when feedback entries are empty or belong to a different review round.
+// Dated from the decision's own status-change row so it survives empty or stale feedback entries.
 function deriveCodePostDecision({
     job,
     entries,
@@ -108,12 +101,6 @@ type DecisionActionsProps = {
     nextStepHref?: Route
 }
 
-const PreviousStepLink: FC<{ href: Route }> = ({ href }) => (
-    <ButtonLink href={href} variant="subtle" leftSection={<CaretLeftIcon />}>
-        Previous step
-    </ButtonLink>
-)
-
 const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
     if (!isVisible) return null
     return (
@@ -143,29 +130,16 @@ const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisi
 
 function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, nextStepHref }: DecisionActionsProps) {
     const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
-    // When the flow continues past this screen, carry the user forward instead of ending at the
-    // dashboard. Resubmit outranks it: a change request is the flow, not a step to skip.
+    // Resubmit outranks the forward link: a change request is the flow, not a step to skip.
     const showNextStep = !showResubmit && !!nextStepHref
     return (
         <Group justify="space-between">
-            <PreviousStepLink href={previousHref} />
+            <PreviousStepLink previousHref={previousHref} />
             <NextStepAction isVisible={showNextStep} href={nextStepHref} />
             <DashboardAction isVisible={!showResubmit && !showNextStep} href={dashboardHref} />
             <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
         </Group>
     )
-}
-
-// Reviewer feedback could not be loaded. Degrade gracefully with the shared not-found notice
-// (same as the DO review page) in place of the feedback section, rather than a legacy view.
-const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: CodeReviewFeedbackEntry[] }> = ({
-    feedbackLoadError,
-    entries,
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
 type StepCardProps = {
@@ -192,8 +166,7 @@ function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: St
     )
 }
 
-// Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
-// this card reveals the proposal link, file table, and the matching "Hide" toggle.
+// Its own card per OTTER-590: collapsed, only the in-step toggle shows.
 type SubmittedCodePanelProps = {
     expanded: boolean
     jobId: string
@@ -247,20 +220,14 @@ export function CodePostDecisionView({
     const { expanded, toggle, collapse } = useExpandable()
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
-    const previousHref = Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })
+    // OTTER-727 hid Agreements; "Previous step" now walks straight to the approved proposal.
+    const previousHref = proposalHref
     const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
-
-    const breadcrumbs: Array<[string, string?]> = [
-        ['Dashboard', dashboardHref],
-        ['Study proposal', proposalHref],
-        ['Study code'],
-    ]
 
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
     return (
         <Stack p="xl" gap="xxl">
-            <PageBreadcrumbs crumbs={breadcrumbs} />
             <StudyPageHeader>Study proposal</StudyPageHeader>
 
             <Stack gap="xxl">
@@ -279,7 +246,7 @@ export function CodePostDecisionView({
                     proposalHref={proposalHref}
                     onCollapse={collapse}
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
+                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecisionActions
                     decision={latestJobStatus}
                     previousHref={previousHref}

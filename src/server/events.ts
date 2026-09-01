@@ -12,17 +12,11 @@ import { generateAndStoreStudyReview } from './agents/review-agent/runner'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Functions in this file are intended to be contain non-essential code that should run after the calling action has completed.    //
-// They cannot return values and the success of the caller should not depend on their state                                        //
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// These run after the calling action has completed; the caller's success must not depend on them.
 
 export function deferred<Args extends unknown[], R>(handler: (...args: Args) => Promise<R>): (...args: Args) => void {
     return (...args: Args) => {
-        // after() runs post-response. captureException only enqueues an event;
-        // without an awaited flush the serverless instance can freeze before it
-        // transmits, silently dropping the report. Pass the real Error (not a
-        // string) so the logger/Sentry keep the stack trace, then flush.
+        // captureException only enqueues; without an awaited flush the instance can freeze first.
         after(async () => {
             try {
                 await handler(...args)
@@ -43,8 +37,7 @@ type AuditEntry = {
     metadata?: Json
 }
 
-// Defaults to the module-level connection so existing callers are unaffected; pass an
-// executor to enlist the audit row in the caller's transaction (see auditCodeEnv below).
+// Pass an executor to enlist the audit row in the caller's transaction.
 export const audit = async (entry: AuditEntry, executor: DBExecutor = db): Promise<void> => {
     logger.info(`${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
     await executor.insertInto('audit').values(entry).execute()
@@ -59,14 +52,8 @@ type CodeEnvAuditArgs = {
     name?: string
 }
 
-/**
- * Unlike every other handler in this file these are NOT wrapped in deferred(): a
- * deferred callback runs after the response, by which point the action's transaction
- * has already committed *or rolled back*, and after() does not unschedule on error. A
- * mutation that failed partway (an AWS call after the update, say) would still emit an
- * audit row claiming the change succeeded. Writing inline on the caller's executor
- * makes the audit row commit and roll back atomically with the change it describes.
- */
+// Not deferred(), unlike the other handlers: after() does not unschedule on error, so a failed
+// mutation would still emit an audit row claiming success.
 const auditCodeEnv = async (
     eventType: Extract<AuditEventType, 'CREATED' | 'UPDATED' | 'DELETED'>,
     { db: executor, codeEnvId, userId, changes, starterCodeReplaced, name }: CodeEnvAuditArgs,
@@ -90,7 +77,6 @@ const auditCodeEnv = async (
 export const onCodeEnvCreated = (args: CodeEnvAuditArgs) => auditCodeEnv('CREATED', args)
 
 export const onCodeEnvUpdated = async (args: CodeEnvAuditArgs) => {
-    // A save that changed nothing and replaced nothing is not history worth keeping.
     if (args.changes.length === 0 && !args.starterCodeReplaced) return
     await auditCodeEnv('UPDATED', args)
 }
@@ -102,7 +88,7 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
-    // TODO(SHRMP-277, Iris): call sendStudyAgreementPreparationEmail once it exists in mailer.ts
+    // TODO(SHRMP-277): call sendStudyAgreementPreparationEmail once it exists in mailer.ts
 
     await capturePostHogEvent({
         distinctId: userId,

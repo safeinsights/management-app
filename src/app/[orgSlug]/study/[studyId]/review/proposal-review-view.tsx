@@ -118,17 +118,11 @@ const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, canSubmit, isPendi
 const CONFIRM_BODY =
     'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.'
 
-/**
- * Inner component that does all the hook work. Lives **inside**
- * `<ReviewFeedbackProviderShare>` so `useProposalReviewMutation` can read the
- * editor's published `HocuspocusProvider` via `useReviewFeedbackProvider()`.
- * Without this split the mutation hook would call `useReviewFeedbackProvider`
- * from a tree position above the share context provider and throw.
- */
+// Lives inside <ReviewFeedbackProviderShare> so useProposalReviewMutation can reach the editor's
+// HocuspocusProvider; without the split it would call the hook above its provider and throw.
 function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion }: ProposalReviewViewProps) {
-    // One id per mount of the review view. Shared between the broadcaster (mutation
-    // hook) and the listener so the broadcaster's own tab is the only one that skips
-    // the kick-out flow. Same-user other tabs get fresh ids and respond as expected.
+    // One id per mount, shared by broadcaster and listener so only the broadcasting tab skips the
+    // kick-out flow.
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const {
@@ -148,8 +142,6 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
 
     return (
         <ProposalReviewLayoutView
-            orgSlug={orgSlug}
-            studyId={study.id}
             listener={
                 <ReviewSubmissionListener
                     orgSlug={orgSlug}

@@ -12,8 +12,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ReviewDecisionSection } from './review-decision-section'
 
-// `withLeaveButton` is opt-in so the cases that only read the rendered options keep the DOM they
-// have always had; a control present in every case would widen what any broad query here sees.
+// Opt-in so a control present in every case does not widen what the broad queries here see.
 function Wrapper({
     study,
     labName = 'Rice University',
@@ -32,7 +31,6 @@ function Wrapper({
     )
 }
 
-// Drives the error state through the component's own blur path rather than reaching into the form.
 function LeaveGroupButton({ isVisible, onLeave }: { isVisible: boolean; onLeave: () => void }) {
     if (!isVisible) return null
     return (
@@ -143,8 +141,8 @@ describe('ReviewDecisionSection', () => {
         expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
     })
 
-    // Radio.Group's context does not carry `error` to its children, so the message turned red
-    // while the circles stayed grey and the invalid options were unmarked (OTTER-647).
+    // Radio.Group's context does not carry `error` to its children, so the circles stayed grey
+    // while the message turned red (OTTER-647).
     it('marks the radio circles invalid, not just the message', async () => {
         const user = userEvent.setup()
         renderWithProviders(<Wrapper study={study} withLeaveButton />)
@@ -170,8 +168,8 @@ describe('ReviewDecisionSection', () => {
         expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
     })
 
-    // An aria-label on Radio.Group lands on the roleless outer wrapper, leaving the
-    // role="radiogroup" element unnamed. A rendered label is what actually names it.
+    // An aria-label on Radio.Group lands on the roleless outer wrapper, so a rendered label is
+    // what actually names the group.
     it('gives the decision radiogroup an accessible name', () => {
         renderWithProviders(<Wrapper study={study} />)
 

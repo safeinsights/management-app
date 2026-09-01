@@ -1,6 +1,14 @@
 export * from './state.types'
 export * from './screens'
-export { projectStudyState, awaitingFilesDecisionOnError, isFeedbackOnlyOutcome, latestJob } from './state'
+export {
+    projectStudyState,
+    awaitingFilesDecisionOnError,
+    isFeedbackOnlyOutcome,
+    runErrored,
+    latestJob,
+    isErroredOutputsSharedOutcome,
+    isOutputsSharedOutcome,
+} from './state'
 export {
     resolveScreen,
     resolveResearcherCodeScreen,

@@ -7,10 +7,7 @@ import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import { JobResultsStatusMessageView } from './job-results-status-message-view'
 
-// The researcher Study Details page-view (OTTER-538 results stage). StudyDetailsResearcherView
-// is presentational; its status body is the real JobResultsStatusMessageView so the production
-// copy/branching renders faithfully. JobResults fetches its files via useQuery, so here we pass
-// an inert placeholder into the `results` slot (the real container injects <JobResults/>).
+// JobResults fetches its files via useQuery, so the `results` slot gets an inert placeholder here.
 const meta = { title: 'Pages / Study details', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -24,7 +21,6 @@ const statusChanges = (statuses: StudyJobStatus[]) => statuses.map((status) => (
 
 const files = (fileTypes: FileType[]) => fileTypes.map((fileType) => ({ fileType }))
 
-// Stand-in for the approved-results listing the container injects via <JobResults/>.
 const ResultsPlaceholder: ReactNode = (
     <Stack gap="xs">
         <Group gap="xs">
@@ -57,36 +53,27 @@ function StatusBody({ statuses, fileTypes }: { statuses: StudyJobStatus[]; fileT
     )
 }
 
-// State 1: code submitted, no decision yet — the one-line "results pending" message.
 export const AwaitingResults: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
-            studyId={STUDY_ID}
-            orgSlug={ORG_SLUG}
             previousHref={previousHref}
             statusMessage={<StatusBody statuses={['CODE-SUBMITTED']} fileTypes={[]} />}
         />
     </div>
 )
 
-// State 2: results approved and available — approval message, results View/Download, Resubmit.
 export const ResultsReady: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
-            studyId={STUDY_ID}
-            orgSlug={ORG_SLUG}
             previousHref={previousHref}
             statusMessage={<StatusBody statuses={['FILES-APPROVED']} fileTypes={['APPROVED-RESULT']} />}
         />
     </div>
 )
 
-// State 3: approved code errored — error message, Job ID, Code Run Log View/Download, Resubmit.
 export const CodeErrored: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
-            studyId={STUDY_ID}
-            orgSlug={ORG_SLUG}
             previousHref={previousHref}
             statusMessage={
                 <StatusBody statuses={['FILES-APPROVED', 'JOB-ERRORED']} fileTypes={['APPROVED-CODE-RUN-LOG']} />

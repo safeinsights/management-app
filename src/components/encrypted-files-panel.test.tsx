@@ -27,9 +27,8 @@ const toArrayBuffer = (str: string): ArrayBuffer => {
 
 type MinimalJob = { id: string }
 
-// Encrypt one results artifact the way TOA would (prod whole-zip + embedded manifest), persist the
-// study_job_file row, and return the entry the fetchEncryptedJobFilesAction mock serves. The
-// reviewer is a manifest recipient, so recipientKeys is empty — they decrypt with their own key.
+// Encrypts one artifact the way TOA would. The reviewer is a manifest recipient, so
+// recipientKeys is empty — they decrypt with their own key.
 async function seedArtifact(
     job: MinimalJob,
     { fileType, subdir, files }: { fileType: FileType; subdir: string; files: { name: string; content: string }[] },
@@ -56,7 +55,7 @@ async function seedArtifact(
     }
 }
 
-// A display-only encrypted-artifact row (no real ciphertext) for lock/shared states.
+// Display-only: no real ciphertext, so only lock/shared states can be asserted.
 async function insertEncryptedRow(job: MinimalJob, { fileType, subdir }: { fileType: FileType; subdir: string }) {
     return db
         .insertInto('studyJobFile')
@@ -107,7 +106,6 @@ describe('EncryptedFilesPanel', () => {
         expect(screen.getByText('Results')).toBeDefined()
         expect(screen.getByLabelText('Encrypted')).toBeDefined()
 
-        // Locked → no View/Download
         expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
         expect(screen.queryByTestId('download-link')).toBeNull()
 
@@ -307,7 +305,6 @@ describe('EncryptedFilesPanel', () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
         const shared = await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
 
-        // All-or-nothing: once approved every artifact is shared (getSharedFileIdsForJob returns all).
         vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
 
         const latestJob = await latestJobForStudy(study.id)
@@ -331,12 +328,9 @@ describe('EncryptedFilesPanel', () => {
         expect(screen.getByLabelText('Encrypted')).toBeDefined()
     })
 
-    // Researcher path: visibility and the decrypt form are gated on the user's own wrapped-key set
-    // (what fetchEncryptedJobFilesAction returns), not the job-wide artifact list.
     it('renders nothing for a researcher with no wrapped keys, even when the job has artifacts', async () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
         const shared = await insertEncryptedRow(job, { fileType: 'ENCRYPTED-RESULT', subdir: 'encrypted' })
-        // Job is approved/shared at the job level, but this researcher holds no key for it.
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
         vi.mocked(fetchSharedFileIdsAction).mockResolvedValue([shared.id])
 
@@ -346,7 +340,6 @@ describe('EncryptedFilesPanel', () => {
         )
 
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
-        // No form to nowhere, and no false green "shared" check on an artifact they can't decrypt.
         expect(container.querySelector('form')).toBeNull()
         expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
         expect(screen.queryByText('Results')).toBeNull()
@@ -366,7 +359,7 @@ describe('EncryptedFilesPanel', () => {
         renderWithProviders(<EncryptedFilesPanel isReviewer={false} job={latestJob} onFilesApproved={vi.fn()} />)
 
         await waitFor(() => expect(screen.getByText('Results')).toBeDefined())
-        // Green "shared with researcher" is a reviewer-facing signal — researchers never see it.
+        // The green check is a reviewer-facing signal; researchers never see it.
         expect(screen.queryByLabelText('Shared with researcher')).toBeNull()
         expect(screen.getByPlaceholderText(READER_KEY_PLACEHOLDER)).toBeDefined()
     })

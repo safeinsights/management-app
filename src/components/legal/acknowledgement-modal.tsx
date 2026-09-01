@@ -28,16 +28,8 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
     return <Alert color="red">{error}</Alert>
 }
 
-/**
- * Blocks the app until the user acknowledges the document they owe.
- *
- * One document per modal: acknowledging refetches what is outstanding, so a user owing both the Terms
- * of Service and the Privacy Notice is asked about the second once the first is recorded.
- *
- * Declining is legitimate, so Sign out is the alternative to agreeing. Without it the modal covers
- * the nav and the only way out is closing the tab, which leaves the session intact and puts them
- * straight back here.
- */
+// Not dismissable: dismissing and carrying on is what it exists to prevent, so Sign out is the
+// only alternative to agreeing.
 export const LegalAcknowledgementModal: FC<Props> = ({
     isVisible,
     document,

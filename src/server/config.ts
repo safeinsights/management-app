@@ -32,9 +32,8 @@ export const PROD_BUILD = process.env.NODE_ENV === 'production'
 export const PROD_ENV = ENVIRONMENT_ID == 'production'
 export const STAGING_ENV = ENVIRONMENT_ID == 'staging'
 
-// Read server-side (not NEXT_PUBLIC_) and threaded to the client via the websocket
-// provider. The app build is shared across environments, so a NEXT_PUBLIC_ flag
-// inlined at build time can't vary per-env; a runtime env var read here can.
+// Not NEXT_PUBLIC_: the build is shared across environments, so a build-time inlined flag could
+// not vary per-env. Threaded to the client via the websocket provider.
 export const SINGLE_USER_EDITING = process.env.SINGLE_USER_EDITING === 't'
 export const DEPLOYED_ENV = !CI_ENV && ENVIRONMENT_ID !== 'local'
 export const CODER_DISABLED = Boolean(CI_ENV || DEV_ENV)

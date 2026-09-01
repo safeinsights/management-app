@@ -1,10 +1,9 @@
 import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOut, DownloadSimple, WarningCircle } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOut, WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import { scanLogDownloadURL } from '@/lib/paths'
 import type { JobScanResult, ScanToolStatus, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { AiSummaryCollapsible, StudyCodeViewer } from './submitted-code-interactive'
+import { AiSummaryCollapsible, ScanLogActions, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
@@ -121,24 +120,6 @@ function ScanRow({ label, status, labels, testId }: ScanRowProps) {
     )
 }
 
-function ScanLogDownload({ jobId, isVisible }: { jobId: string; isVisible: boolean }) {
-    if (!isVisible) return null
-    return (
-        <Anchor
-            href={scanLogDownloadURL(jobId)}
-            download
-            size="sm"
-            fw={600}
-            display="inline-flex"
-            style={{ alignItems: 'center', gap: 4, width: 'fit-content' }}
-            data-testid="security-scan-log-download"
-        >
-            <DownloadSimple size={16} />
-            Download
-        </Anchor>
-    )
-}
-
 // The two labeled rows are always shown (the AC lists them as static elements).
 // Their values come from the parsed log; when no log has been read yet, each row
 // shows a pending note rather than a status.
@@ -168,7 +149,7 @@ function SecurityScanLog({ scan, jobId }: { scan: JobScanResult; jobId: string }
                 Security scan log
             </Text>
             <ScanLogBody scan={scan} />
-            <ScanLogDownload jobId={jobId} isVisible={scan.logFile != null} />
+            <ScanLogActions studyJobId={jobId} isVisible={scan.logFile != null} />
         </Stack>
     )
 }

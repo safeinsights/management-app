@@ -1,51 +1,40 @@
-import { useCallback } from 'react'
 import { useField } from '@mantine/form'
-import { FEEDBACK_MAX_WORDS, FEEDBACK_MIN_WORDS } from '@/lib/proposal-review'
-import { countWordsFromLexical } from '@/lib/lexical'
+import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
+import { overCharacterLimitError } from '@/lib/field-limits'
 
-type UseReviewFeedbackOptions = {
-    maxWords?: number
-}
+const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS)
 
-/**
- * Required reviewer feedback. Backed by `useField` rather than plain state so leaving the
- * editor without writing anything raises a visible error instead of silently disabling
- * Submit (OTTER-647). The `value` / `onChange` / `wordCount` / `isValid` surface is
- * unchanged for the Yjs-backed editor and the review mutation hooks.
- */
-export function useReviewFeedback({ maxWords = FEEDBACK_MAX_WORDS }: UseReviewFeedbackOptions = {}) {
-    // No `validateOnBlur`: see the note in `use-review-decision`. This hook exposes `onBlur`
-    // rather than spreading `getInputProps`, which is the only place Mantine reads that option.
+// `useField` rather than plain state so an empty editor raises a visible error instead of silently
+// disabling Submit (OTTER-647).
+export function useReviewFeedback() {
+    // No `validateOnBlur`: Mantine reads it only from `getInputProps`, which this hook doesn't use.
+    // The cap is not in `validate` either, since `useField` drops errors across a change.
     const field = useField<string>({
         initialValue: '',
-        validate: (value) => {
-            const words = countWordsFromLexical(value)
-            if (words < FEEDBACK_MIN_WORDS) return 'Feedback is required.'
-            if (words > maxWords) return `Feedback must be ${maxWords} words or fewer.`
-            return null
-        },
+        validate: (value) => (isBlank(value) ? 'Feedback is required.' : null),
     })
 
     const value = field.getValue()
-    const wordCount = countWordsFromLexical(value)
+    const characterCount = countCharactersFromLexical(value)
+    const isOverLimit = characterCount > REVIEW_FEEDBACK_MAX_CHARACTERS
 
-    const onChange = useCallback(
-        (json: string) => {
-            field.setValue(json)
-        },
-        [field],
-    )
+    // No useCallback: the React Compiler refuses to preserve a hand-memoized closure over `field`.
+    const onChange = (json: string) => field.setValue(json)
+
+    // Cast because Mantine types `field.error` as ReactNode, while this hook's `validate` only ever
+    // returns strings and the editors narrow `error` to `string`.
+    const error = isOverLimit ? OVER_LIMIT_ERROR : ((field.error as string | null) ?? null)
 
     return {
         value,
         onChange,
         onBlur: field.validate,
-        // Mantine types `field.error` as ReactNode, but this hook's `validate` only ever returns
-        // strings, and the editors' `error` prop is narrowed to `string` (see `EditorProps.error`).
-        error: field.error as string | null,
-        wordCount,
-        minWords: FEEDBACK_MIN_WORDS,
-        maxWords,
-        isValid: wordCount >= FEEDBACK_MIN_WORDS && wordCount <= maxWords,
+        error,
+        characterCount,
+        maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
+        isValid: !isBlank(value) && !isOverLimit,
     }
 }
+
+const isBlank = (value: string) => !hasLexicalContent(value)

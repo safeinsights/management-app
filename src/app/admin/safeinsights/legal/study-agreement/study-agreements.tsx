@@ -9,13 +9,11 @@ import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { UploadStudyAgreementForm } from './upload-study-agreement-form'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
-import { formatDayString } from '../dates'
+import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
 
-// Built here rather than inline in the JSX, and DataTable rather than a bare Table so that fetching
-// and noRecordsText come from the component the rest of this admin section already uses.
 const studyAgreementColumns = ({
     onNewVersion,
     onViewHistory,
@@ -24,7 +22,6 @@ const studyAgreementColumns = ({
     onViewHistory: (agreement: StudyAgreement) => void
 }): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID' },
-    // study.title is nullable, and the upload cascade already falls back to the id.
     { accessor: 'studyTitle', title: 'Study', render: (agreement) => agreement.studyTitle || agreement.studyId },
     { accessor: 'researchLabName', title: 'Research Lab' },
     { accessor: 'dataPartnerName', title: 'Data Partner' },
@@ -74,7 +71,6 @@ export const StudyAgreements: FC = () => {
                 title="Upload a new version"
                 closeOnClickOutside={false}
             >
-                {/* Keyed by study so a second row opens a fresh form rather than the last one's file. */}
                 <UploadStudyAgreementForm
                     key={newVersionFor?.studyId}
                     onCompleteAction={closeNewVersion}

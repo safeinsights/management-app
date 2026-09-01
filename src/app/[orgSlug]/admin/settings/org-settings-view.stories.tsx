@@ -9,11 +9,7 @@ import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
 
-// The org-admin Settings page-view — the same layout settings/page.tsx renders (breadcrumbs +
-// title + the four stacked sections). The About card is the real OrganizationSettingsDisplay
-// wrapped like OrganizationSettingsManager does; ApiKeySettingsDisplay renders nothing today
-// (under design); the Code Environments / Data Sources shells are fed inline fixtures. Action
-// controls (edit / delete) are plain stand-ins since the live mutations live in the containers.
+// The same layout settings/page.tsx renders, with inline fixtures and stand-in action controls.
 const meta = { title: 'Pages / Org settings', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -31,8 +27,8 @@ const org: Org = {
 
 const noop = () => {}
 
-// The About card exactly as OrganizationSettingsManager renders it in display state (Paper-wrapped
-// OrganizationSettingsDisplay); the edit toggle is a container concern, so onStartEdit is a no-op.
+// The About card in display state; the edit toggle is a container concern, so onStartEdit is a
+// no-op.
 const orgCard = (o: Org) => (
     <Paper shadow="xs" p="xl" mb="xl">
         <OrganizationSettingsDisplay org={o} onStartEdit={noop} />
@@ -146,7 +142,6 @@ export const EmptyCards: Story = () => (
     </Box>
 )
 
-// The Data Sources card on its own, showing a linked external URL row.
 export const DataSourcesCardOnly: Story = () => (
     <Box style={{ maxWidth: 960, margin: '24px auto' }}>
         <DataSourcesView onAdd={noop}>
