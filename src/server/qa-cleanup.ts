@@ -1,34 +1,11 @@
-/**
- * QA cleanup helpers: fully delete users and studies, including their backing
- * Clerk account and S3 files. Exposed via /api/qa/* routes so QA can clean up
- * after themselves.
- *
- * These routes run in every environment, production included, so the only thing
- * standing between them and real customer data is `assertQaEmail`: every user
- * they touch must have a "qa-" prefixed email address. Deletion here is permanent
- * and covers the DB rows, the S3 objects, and the Clerk account, so treat that
- * check as load-bearing — do not add a /api/qa/* path that reaches these helpers
- * without it. Every invocation is written to the audit table.
- *
- * The one deliberate exception is DELETE /api/admin/users/[userId], which deletes a
- * REAL account (an offboarding or an erasure request) and so cannot be QA-restricted.
- * It is a separate route with its own SI-admin guard and audit trail, and it reaches
- * the delete via findUser + deleteUserCompletely rather than the QA-guarded
- * findQaUser/deleteUserById pair. That split is the reason those are two functions:
- * keep the guarded entry points guarded, and make the unguarded one impossible to
- * call by accident.
- *
- * Deletion order is FK-safe: relations without ON DELETE CASCADE are removed
- * manually before their parent row. That list is maintained by hand, so a new
- * table referencing user.id without a cascade breaks deletion at runtime with an
- * opaque 500 — see the legal_document_acknowledgement delete below. When adding
- * such a table, either give the FK ON DELETE CASCADE or add it here. All row
- * deletes for a cleanup run in a single transaction so a failure can never
- * leave a partially deleted graph.
- * External cleanup (S3, Clerk) runs only after the transaction commits, and
- * its failures propagate so the caller never sees success for an incomplete
- * cleanup.
- */
+// These routes run in production, so `assertQaEmail` is the only thing between them and real
+// customer data — never add a /api/qa/* path that reaches these helpers without it. The unguarded
+// findUser/deleteUserCompletely pair exists for DELETE /api/admin/users/[userId], which deletes a
+// real account under its own SI-admin guard; keeping them separate is what stops an accidental
+// unguarded call.
+//
+// Deletion order is FK-safe by hand: a new table referencing user.id without ON DELETE CASCADE
+// breaks deletion at runtime, so give it a cascade or add it below.
 import { sql, type Kysely } from 'kysely'
 import { type DB } from '@/database/types'
 import { type SessionUser } from '@/lib/types'

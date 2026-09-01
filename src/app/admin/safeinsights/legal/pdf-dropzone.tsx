@@ -18,8 +18,6 @@ const ChosenFile: FC<{ file: File | null }> = ({ file }) => {
     )
 }
 
-// Mantine routes anything failing `accept` or `maxFiles` to onReject, not onDrop. Left unhandled, a
-// dropped .docx or a two-file drop does nothing at all and the form reads as broken.
 const RejectionNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -30,7 +28,6 @@ const RejectionNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-// One file only: a version is one document, and the upload URL is signed for a single key.
 export const PdfDropzone: FC<{ label: string; file: File | null; onChange: (file: File) => void }> = ({
     label,
     file,

@@ -16,12 +16,11 @@ type Scope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
-// A version carries a signature date only where there is a counterparty to sign it, which is exactly
-// the scoped types: the DB check constraint leaves both scope columns null for tos/pn.
+// Only scoped types have a counterparty to sign: the DB check constraint leaves both scope
+// columns null for tos/pn.
 const hasSignatory = (scope: Scope) => Boolean(scope.orgId || scope.studyId)
 
-// Rendered in place rather than linked, because a signed URL to a .md gives the reader raw source or
-// a download. Per row so each version opens its own copy.
+// Rendered in place rather than linked: a signed URL to a .md gives the reader raw source.
 const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ versionId, url, label }) => {
     const [isOpen, { open, close }] = useDisclosure(false)
 
@@ -73,9 +72,7 @@ const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [
     documentColumnFor(scope.type),
 ]
 
-// Fetched on open rather than with the table behind it, so a page of agreements does not pull every
-// version and sign every URL up front. Scope-agnostic: the versions of an org's agreement and of a
-// study's read the same.
+// Fetched on open so a page of agreements does not pull every version and sign every URL up front.
 const useVersionHistory = ({ scope, isOpen }: { scope: Scope; isOpen: boolean }) =>
     useQuery({
         queryKey: legalDocumentQueryKeys.versions(scope),

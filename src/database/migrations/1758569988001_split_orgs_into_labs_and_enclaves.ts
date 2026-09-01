@@ -4,29 +4,24 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.createType('org_type').asEnum(['enclave', 'lab']).execute()
 
-    // Add the type column with default 'enclave'
     await db.schema
         .alterTable('org')
         .addColumn('type', sql`org_type`, (col) => col.defaultTo('enclave').notNull())
         .execute()
 
-    // Add the settings JSONB column
     await db.schema
         .alterTable('org')
         .addColumn('settings', 'jsonb', (col) => col.defaultTo(sql`'{}'::jsonb`).notNull())
         .execute()
 
-    // Migrate existing publicKey values into settings for enclave orgs
     await sql`
     UPDATE org
     SET settings = jsonb_build_object('publicKey', public_key)
     ,type = 'enclave'
     `.execute(db)
 
-    // Now we can drop the public_key column since it's moved to settings
     await db.schema.alterTable('org').dropColumn('public_key').execute()
 
-    // For each existing org (which are all enclaves now), create a corresponding lab org
     const existingOrgs = await db.selectFrom('org').selectAll('org').execute()
 
     await db.schema
@@ -42,7 +37,6 @@ export async function up(db: Kysely<any>): Promise<void> {
         const labSlug = `${org.slug}-lab`
         const labName = `${org.name} Lab`
 
-        // Create the lab org
         const labOrg = await db
             .insertInto('org')
             .values({
@@ -60,7 +54,6 @@ export async function up(db: Kysely<any>): Promise<void> {
             throw new Error(`Failed to create lab org for ${org.slug}`)
         }
 
-        // Get all users for this org
         const orgUsers = await db.selectFrom('orgUser').selectAll('orgUser').where('orgId', '=', org.id).execute()
 
         for (const orgUser of orgUsers) {
@@ -81,7 +74,6 @@ export async function up(db: Kysely<any>): Promise<void> {
         }
     }
 
-    // Now remove isResearcher and isReviewer columns from orgUser table
     await db.schema.alterTable('pendingUser').dropColumn('is_reviewer').execute()
     await db.schema.alterTable('pendingUser').dropColumn('is_researcher').execute()
 

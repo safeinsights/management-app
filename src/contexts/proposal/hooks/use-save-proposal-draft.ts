@@ -7,13 +7,8 @@ import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposa
 import { buildStudyInfo, type TitleMode } from './build-study-info'
 
 type Options = {
-    /** Who owns `study.title` on this write. See {@link TitleMode}. */
     titleMode: TitleMode
-    /**
-     * Set false when the caller reports the failure itself. The submit-failure path does: its own
-     * toast already says whether the work survived, and a second "Failed to save draft" beside it
-     * reads as a separate problem rather than the same one.
-     */
+    /** Set false when the caller reports the failure itself, so two toasts don't read as two problems. */
     reportErrors?: boolean
 }
 
@@ -29,9 +24,8 @@ export function useSaveProposalDraft(
     })
 
     const saveDraft = useCallback(async (): Promise<boolean> => {
-        // A pristine form has nothing to flush. Skipping also keeps a failed
-        // save from blocking back-navigation for a user who merely viewed the
-        // page after the study became non-editable (e.g. a co-author resubmitted).
+        // Skipping a pristine form also keeps a failed save from blocking back-navigation for a
+        // user who merely viewed a study that has since become non-editable.
         if (!form.isDirty()) return true
         try {
             await mutation.mutateAsync()

@@ -26,8 +26,6 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-// The storage read is the only failure this form has to survive: the action itself is fine, the
-// object behind a published version is not readable.
 const { fetchFileContents } = vi.hoisted(() => ({ fetchFileContents: vi.fn() }))
 
 vi.mock('@/server/storage', async (importOriginal) => ({
@@ -37,7 +35,6 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 
 const TERMS_BODY = 'The published terms.'
 
-// useSignIn is automocked with no return value, and only the post-submit path uses what it returns.
 beforeEach(async () => {
     ;(useSignIn as Mock).mockReturnValue({ isLoaded: true, signIn: null, setActive: null })
     await resetLegalDocuments()
@@ -65,7 +62,6 @@ const createInvite = async (orgId: string) => {
     return invite.id
 }
 
-// Participation checkbox org
 const inviteWithParticipationAgreement = async () => {
     await mockSessionWithTestData({ isSiAdmin: true })
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -76,7 +72,6 @@ const inviteWithParticipationAgreement = async () => {
     return await createInvite(org.id)
 }
 
-// No participation checkbox org
 const inviteWithoutParticipationAgreement = async () => {
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     return await createInvite(org.id)
@@ -85,7 +80,6 @@ const inviteWithoutParticipationAgreement = async () => {
 const renderForm = (inviteId: string) =>
     renderWithProviders(<SetupAccountForm inviteId={inviteId} email="invitee@test.com" orgName="Openstax Lab" />)
 
-// Everything Create Account button needs in order to be live
 const fillValidForm = async () => {
     await userEvent.type(screen.getByLabelText('First name'), 'Test')
     await userEvent.type(screen.getByLabelText('Last name'), 'User')
@@ -114,7 +108,6 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // When no participation agreement, make sure the requirements don't prevent the form from being submitted.
     it('lets a completed form through when the org has no participation agreement', async () => {
         fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
         await publishTos()
@@ -131,7 +124,8 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // No account creation allowed if a document exists but there was an error loading it
+    // Empty documents fall back to a placeholder that contradicts what is published, so a tick
+    // against it must not create an account.
     it('refuses to submit when the documents cannot be loaded, and says so', async () => {
         fetchFileContents.mockImplementation(async () => {
             throw new Error('S3 is unavailable')

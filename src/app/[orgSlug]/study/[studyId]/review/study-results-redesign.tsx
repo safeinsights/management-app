@@ -7,16 +7,11 @@ import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
-// Job-level Approve/Reject for results. Distinct from StudyReviewButtons which is the
-// study-level (proposal-level) approve/reject used elsewhere.
 import { JobReviewButtons } from './job-review-buttons'
 import { JobStatusHelpText } from './study-results'
 
-// OTTER-538: replacement for StudyResults — shows the new secondary text on RUN-COMPLETE,
-// hides the results table and Approve/Reject until the reviewer's key successfully decrypts.
-// For terminal statuses (FILES-APPROVED, FILES-REJECTED, JOB-ERRORED) we still defer to
-// JobStatusHelpText so the user sees status-appropriate copy instead of a "successfully
-// processed" message that would be misleading for an errored or rejected job.
+// OTTER-538: the results table and Approve/Reject stay hidden until the reviewer's key decrypts,
+// and terminal statuses defer to JobStatusHelpText.
 
 const RUN_COMPLETE_SECONDARY_TEXT =
     'The code was successfully processed! Review results and security logs (if available) to decide if these can be released to the researcher.'
@@ -41,8 +36,7 @@ export const StudyResultsRedesign: FC<{
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
     const handleFilesApproved = (files: JobFileInfo[]) => {
-        // EncryptedFilesPanel emits [] on mount before any decryption — ignore
-        // that initial emission so JobReviewButtons stays hidden until decryption.
+        // EncryptedFilesPanel emits [] on mount, so ignore that first emission.
         setDecryptedResults((prev) => (prev === undefined && files.length === 0 ? prev : files))
         onFilesApproved?.(files)
     }

@@ -1,17 +1,9 @@
-/**
- * DOM ids of the Step 1 controls, and the form paths their errors are keyed by.
- *
- * The two are not interchangeable, and conflating them is how a "flag the first invalid field"
- * jump silently does nothing: `focusFirstInvalid` looks ids up with `getElementById`, while
- * `form.validate()` returns a map keyed by schema path.
- */
+// DOM ids and form paths are not interchangeable: focusFirstInvalid uses getElementById while
+// form.validate() keys by schema path, so conflating them makes the jump silently do nothing.
 export const TITLE_INPUT_ID = 'title'
 export const ORG_SELECT_ID = 'studyOrg'
-/**
- * A wrapper around the radio group, not the group itself: Mantine consumes `Radio.Group`'s `id`
- * to derive its internal associations and never renders it, so `getElementById` finds nothing.
- * The group keeps its own id; this one is only the focus target.
- */
+// A wrapper, not the group itself: Mantine consumes Radio.Group's id internally and never
+// renders it, so getElementById would find nothing.
 export const LANGUAGE_FIELD_ID = 'programming-language-field'
 
 export const FIELD_ID_TO_FORM_PATH = {

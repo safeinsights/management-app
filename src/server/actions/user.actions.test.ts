@@ -36,7 +36,6 @@ describe('User Actions', () => {
     test('onUserSignInAction should create a new user and redirect to reviewer key page', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
 
-        // Manually remove the auto-created key for this test
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
 
         const result = await onUserSignInAction()
@@ -61,8 +60,6 @@ describe('User Actions', () => {
     })
 
     test('onUserSignInAction prompts a multi-org account without a key, evaluated at the account level', async () => {
-        // Account belongs to BOTH a lab and an enclave org. Enforcement keys off the account,
-        // not any single org membership, so a keyless account is prompted exactly once.
         const { user } = await mockDualRoleSessionWithTestData()
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
 
@@ -71,7 +68,6 @@ describe('User Actions', () => {
     })
 
     test('onUserSignInAction does not prompt a multi-org account holding a single account-level key', async () => {
-        // One key at the account level satisfies enforcement across every org the account joins.
         const { user } = await mockDualRoleSessionWithTestData()
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         await db
@@ -111,8 +107,7 @@ describe('User Actions', () => {
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const { org, user, orgUser } = await mockSessionWithTestData({ isAdmin: false })
 
-        // The exploit: pass your OWN userId. This used to satisfy the `update User` self-profile
-        // rule and grant org admin to any authenticated member.
+        // Passing your own userId used to satisfy the `update User` self-profile rule.
         const result = await updateUserRoleAction({
             orgSlug: org.slug,
             userId: user.id,
@@ -189,6 +184,5 @@ describe('User Actions', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.isAdmin).toBe(true)
-        // In the new structure, roles are determined by org type, not user fields
     })
 })

@@ -4,8 +4,7 @@ import { SafeInsightsLogo } from './si-logo'
 import { SiBulbLogo } from './si-bulb-logo'
 import { SmallMonoColorLogo } from './small-mono-color-logo'
 
-// The app's logo SVGs (pure presentational), shown at a few sizes. SmallMonoColorLogo renders
-// in white, so it's placed on a dark purple backdrop matching the app header/sidebar.
+// SmallMonoColorLogo renders in white, so it sits on a dark purple backdrop here.
 const meta = { title: 'Layout / Logos' }
 export default meta
 

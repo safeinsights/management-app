@@ -21,8 +21,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
@@ -31,7 +30,6 @@ vi.mock('@/server/aws', async (importOriginal) => {
 beforeEach(resetLegalDocuments)
 
 // The shared helpers put both of a study's orgs on one org, which would hide a swapped join.
-// study.orgId is the enclave (Data Partner), study.submittedByOrgId is the lab (Research Lab).
 const insertStudyWithDistinctOrgs = async ({
     status = 'APPROVED' as StudyStatus,
     title = 'A study',
@@ -97,9 +95,8 @@ describe('fetchStudiesAwaitingSlaAction', () => {
         expect(after.some((candidate) => candidate.studyId === study.id)).toBe(false)
     })
 
-    // The document row is written before the file is uploaded, so an abandoned upload must not take
-    // the study out of the picker — nothing is published, so it is absent from the table too, and
-    // the study would be unreachable from either screen.
+    // The row is written before the upload, so an abandoned one would make the study unreachable
+    // from both the picker and the table.
     it('keeps offering a study whose only SLA is an unfinished draft', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
@@ -139,10 +136,7 @@ describe('fetchStudyLevelAgreementsAction', () => {
         expect(row?.researchLabName).toBe(researchLab.name)
         expect(row?.dataPartnerName).toBe(dataPartner.name)
         expect(row?.versionNumber).toBe(1)
-        // Read back as text, so the day entered survives whatever zone the reader is in.
         expect(row?.signedAt).toBe('2026-07-27')
-        // Must be signed from this row's own key, not another version's, and carry the type and name
-        // the browser needs to show it rather than download a nameless blob.
         expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath, {
             ResponseContentType: 'application/pdf',
             ResponseContentDisposition: `inline; filename="${row!.fileName}"`,
@@ -172,13 +166,10 @@ describe('fetchStudyLevelAgreementsAction', () => {
         expect(forStudy[0]!.versionNumber).toBe(2)
     })
 
-    // distinctOn forces the SQL ORDER BY, so the display order is applied afterwards. It mirrors the
-    // upload cascade, and without it the table comes back in legal_document id order.
     it('orders by data partner name rather than by internal id', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const token = faker.string.alpha(10)
 
-        // Inserted out of order, so passing cannot be an accident of insertion order.
         for (const name of ['Zebra', 'Apple', 'Mango']) {
             const { study } = await insertStudyWithDistinctOrgs({ dataPartnerName: `${token} ${name}` })
             await uploadAndPublishSla(study.id, '2026-07-27')

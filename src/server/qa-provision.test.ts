@@ -14,7 +14,6 @@ import { updateClerkUserMetadata } from '@/server/clerk'
 import { deliver } from '@/server/mailgun'
 import { provisionQaUser, createQaInvite, QaConflictError, QaInvalidRequestError } from './qa-provision'
 
-// Assert no invite email escapes: createQaInvite deliberately skips onUserInvited.
 vi.mock('@/server/mailgun', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/mailgun')>()
     return { ...actual, deliver: vi.fn(async () => {}) }
@@ -104,7 +103,6 @@ describe('provisionQaUser', () => {
 
     it('replaces an existing key in place', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        // enclave users are seeded with a placeholder key by insertTestUser
         const { user } = await insertTestUser({ org, email: qaEmail() })
         const pem = await readTestSupportFile('public_key.pem')
 
@@ -144,8 +142,6 @@ describe('provisionQaUser', () => {
         expect(result.passwordSet).toBe(true)
     })
 
-    // Authorization reads memberships from the Clerk JWT, not the DB, so a membership
-    // change that skips this sync is invisible until the user signs in again.
     it('syncs Clerk metadata after an org change so authorization sees it', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
@@ -156,8 +152,6 @@ describe('provisionQaUser', () => {
         expect(updateClerkUserMetadata as Mock).toHaveBeenCalledWith(user.id)
     })
 
-    // A committed membership change plus a failed Clerk sync would leave the DB and the
-    // JWT granting different access. The change is rolled back instead.
     it('restores the previous memberships when the Clerk metadata sync fails', async () => {
         const orgA = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const orgB = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -210,8 +204,7 @@ describe('createQaInvite', () => {
         const { client } = await mockSessionWithTestData({ isSiAdmin: true })
         if (!client)
             throw new Error('expected a mocked clerk client')
-            // The default mock resolves a clerk user for any email; an invite is for someone
-            // who is not yet a member, so return none.
+            // The default mock resolves a clerk user for any email; an invitee has none.
         ;(client.users.getUserList as Mock).mockResolvedValue({ data: [], totalCount: 0 })
 
         const result = await createQaInvite(db, { email: 'QA-New@Test.com', orgSlug: org.slug, isAdmin: true }, null)
@@ -311,8 +304,7 @@ describe('QaInvalidRequestError', () => {
         ).rejects.toBeInstanceOf(QaInvalidRequestError)
     })
 
-    // Decodes cleanly but is an EC key, not the RSA-OAEP key results are wrapped to.
-    // Bad caller input, so it must not surface as a 500.
+    // An EC key decodes cleanly but is not the RSA-OAEP key results are wrapped to.
     it('is raised for a decodable PEM holding an unsupported key type', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org, email: qaEmail() })

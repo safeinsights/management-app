@@ -27,37 +27,27 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
     Object.entries(FIELD_TO_SLUG).map(([key, slug]) => [slug, key as ProposalTextFieldKey]),
 )
 
-// Exported so SQL that builds the name from a study id column (see hasStep2CollabDocSql) reuses
-// this convention instead of re-spelling it.
+// Exported so hasStep2CollabDocSql, which builds this name from a study id column, reuses the
+// convention instead of re-spelling it.
 export const PROPOSAL_FIELDS_SUFFIX = '-fields'
 
 export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}${PROPOSAL_FIELDS_SUFFIX}`
 
-// The part of a lexical field's document name that follows the study id. Exported for the same
-// reason as PROPOSAL_FIELDS_SUFFIX: hasStep2CollabDocSql builds these names from a column and would
-// otherwise re-spell the separator, so a change here would leave that fragment matching nothing.
+// Exported for the same reason as PROPOSAL_FIELDS_SUFFIX.
 export const proposalTextFieldSuffix = (slug: ProposalTextSlug) => `-${slug}`
 
-// Y.Map name for the collab fields inside the proposal-fields doc. Shared so
-// the client hook and editor service agree on the key.
 export const PROPOSAL_FIELDS_MAP_NAME = 'fields'
 
 export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalTextFieldKey) =>
     `${PROPOSAL_PREFIX}${studyId}${proposalTextFieldSuffix(FIELD_TO_SLUG[fieldKey])}`
 
-/**
- * Versioned review-feedback document name. A round-boundary identifier: the
- * editor for round N binds to a different Yjs document than round N-1, so a
- * stale connected client from round N-1 cannot write into round N.
- */
+// Versioning is a round boundary: a stale client still connected from round N-1 cannot
+// write into round N's document.
 export const reviewFeedbackDocNameForVersion = (studyId: string, version: number) =>
     `${REVIEW_FEEDBACK_PREFIX}${studyId}-v${version}`
 
-/**
- * Versioned resubmission-note document name, for the same round-boundary
- * reason as review feedback. `version` is the version the RESUBMISSION-NOTE
- * comment will take on submit.
- */
+// Versioned for the same round-boundary reason as review feedback. `version` is the version
+// the RESUBMISSION-NOTE comment will take on submit.
 export const proposalResubmissionNoteDocNameForVersion = (studyId: string, version: number) =>
     `${PROPOSAL_PREFIX}${studyId}-resubmission-note-v${version}`
 
@@ -67,11 +57,8 @@ export const RESUBMISSION_NOTE_SUFFIX_RE = /^resubmission-note-v([1-9]\d*)$/
 
 export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${jobId}`
 
-/**
- * The DO's outputs-review feedback for one job (OTTER-675). Job-keyed like code-review
- * feedback rather than study-keyed: a study's outputs are reviewed once per job, and keying
- * on the job keeps a later round's editor in a different Yjs room from this one's.
- */
+// Job-keyed rather than study-keyed (OTTER-675) so a later round's editor lands in a
+// different Yjs room.
 export const outputsReviewFeedbackDocName = (jobId: string) => `${OUTPUTS_REVIEW_FEEDBACK_PREFIX}${jobId}`
 
 export type ParsedDocumentName =
@@ -89,8 +76,7 @@ export const parseDocumentName = (name: string): ParsedDocumentName | null => {
         return { kind: 'outputs-review-feedback', jobId }
     }
 
-    // The longer prefix must be checked first; otherwise the review-feedback
-    // branch would match a `code-review-feedback-<uuid>` doc and mis-parse it.
+    // Longer prefix first, or the review-feedback branch below would swallow these.
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
         const jobId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
         if (!UUID_RE.test(jobId)) return null

@@ -9,11 +9,8 @@ vi.mock('@/server/mailgun', async (importOriginal) => {
     return { ...actual, deliver: vi.fn(async () => {}) }
 })
 
-/**
- * clerkMiddleware doesn't run on /api/*, so the routes verify the SI admin's session token
- * straight from the Authorization header. Mirror qa-cleanup.test.ts: set the header and make
- * verifyToken resolve to the claims mockSessionWithTestData wired into the session.
- */
+// clerkMiddleware doesn't run on /api/*, so the routes read the session token from the
+// Authorization header directly.
 async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdmin: true }) {
     const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')

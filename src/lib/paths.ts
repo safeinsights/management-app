@@ -21,10 +21,8 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
-// The versionId is the whole key, not a prefix holding a named file: drafts have no version number
-// yet, and one object per version stops a replacement draft colliding with a published file. Nothing
-// derives from the extension — `format` is a column — so the uploaded name is stored beside the path
-// rather than baked into it, which keeps the key free of anything the client chose.
+// The versionId is the whole key: drafts have no version number yet, and one object per version
+// stops a replacement draft colliding with a published file.
 export const pathForLegalDocumentVersion = (parts: {
     type: LegalDocumentType
     legalDocumentId: string
@@ -48,8 +46,7 @@ export const pathForJobScanArtifacts = (parts: { studyJobId: string }) => `scan-
 export const pathForCodeEnvScanArtifacts = (parts: { codeEnvId: string }) =>
     `scan-artifacts/code-env/${parts.codeEnvId}`
 
-// The invite email and the QA provisioning API both hand out this link; keep it in one place
-// so they cannot drift. Callers prefix APP_BASE_URL to make it absolute.
+// Callers prefix APP_BASE_URL to make it absolute.
 export const pathForInvitation = (inviteId: string) => `/account/invitation/${inviteId}`
 
 // Everything under here answers with an attachment rather than a document, which callers that
@@ -83,7 +80,7 @@ export const coderWorkspaceDataPath = (username: CoderUsername, workspaceName: s
 export const coderWorkspaceBuildPath = (workspaceId: WorkspaceId) => `/api/v2/workspaces/${workspaceId}/builds`
 export const coderWorkspaceBuildByIdPath = (buildId: BuildId) => `/api/v2/workspacebuilds/${buildId}`
 
-// Coder log endpoints accept an `after` log id to fetch only newer lines; omit it for the full log.
+// Coder log endpoints accept an `after` log id to fetch only newer lines.
 const withAfter = (path: string, after?: number | null) => (after != null ? `${path}?after=${after}` : path)
 export const coderWorkspaceBuildLogsPath = (buildId: BuildId, after?: number | null) =>
     withAfter(`/api/v2/workspacebuilds/${buildId}/logs`, after)

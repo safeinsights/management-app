@@ -113,13 +113,10 @@ describe('substituteEntryPointFile', () => {
     })
 
     it('absorbs double quotes an admin wrapped around %f instead of double-quoting (OTTER-477 follow-up)', () => {
-        // Without absorbing, "%f" -> "'main_revised (1).R'", which /bin/sh hands to R as the
-        // literal 'main_revised (1).R' (Greg Fitch: cannot open file ''main_revised (1).R'').
         expect(substituteEntryPointFile('Rscript "%f"', 'main_revised (1).R')).toBe("Rscript 'main_revised (1).R'")
     })
 
     it('absorbs single quotes an admin wrapped around %f instead of re-exposing parens', () => {
-        // Without absorbing, '%f' -> ''main(1).r'', whose parens are unquoted -> `(` syntax error.
         expect(substituteEntryPointFile("Rscript '%f'", 'main(1).r')).toBe("Rscript 'main(1).r'")
     })
 
@@ -130,7 +127,6 @@ describe('substituteEntryPointFile', () => {
     })
 
     it('does not absorb a non-matching quote pair around %f', () => {
-        // Mismatched quotes are a malformed template; only the inner bare %f is quoted.
         expect(substituteEntryPointFile(`"%f'`, 'main.R')).toBe(`"'main.R''`)
     })
 

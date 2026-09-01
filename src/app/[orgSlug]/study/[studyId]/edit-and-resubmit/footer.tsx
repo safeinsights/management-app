@@ -23,8 +23,8 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
-    // titleMode 'omitIfBlank': this flow owns its own title, but nulling the column on a
-    // CHANGE-REQUESTED row would violate the study_title_required_when_not_draft constraint.
+    // titleMode 'omitIfBlank': nulling the column on a CHANGE-REQUESTED row would violate
+    // study_title_required_when_not_draft.
     const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omitIfBlank' })
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
@@ -39,8 +39,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const isFormValid = form.isValid() && noteForm.isValid()
 
     const handleBack = async () => {
-        // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
-        // proposal fields to the study row explicitly. Also flush the debounced note.
+        // Yjs autosave is inactive in single-user mode, so flush explicitly.
         const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
         if (!fieldsSaved || !noteSaved) return
         router.push(Routes.studySubmitted({ orgSlug, studyId }))
@@ -52,9 +51,8 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     }
 
     const handleOpenReviewer = async () => {
-        // Flush the form first: the preview's PI popover fetches the profile server-side, and
-        // the server only serves ids the persisted study row names — an unsaved piUserId would
-        // be denied and render as "Profile not available".
+        // The server only serves PI profiles the persisted study row names, so an unsaved
+        // piUserId would render as "Profile not available".
         const saved = await saveDraft()
         if (!saved) return
         openReviewer()

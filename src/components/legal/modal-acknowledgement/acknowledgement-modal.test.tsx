@@ -50,8 +50,8 @@ describe('LegalAcknowledgementModal', () => {
         expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     })
 
-    // Mantine's `loading` blocks pointer clicks without setting `disabled`, so the button stays
-    // keyboard-focusable and Enter would fire a second write mid-flight.
+    // Mantine's `loading` blocks pointer clicks without setting `disabled`, so Enter would fire
+    // a second write mid-flight.
     it('keeps Continue disabled while a submission is in flight', () => {
         renderModal({ isChecked: true, isSubmitting: true })
         expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
@@ -77,8 +77,8 @@ describe('LegalAcknowledgementModal', () => {
         expect(onContinue).toHaveBeenCalled()
     })
 
-    // Declining is a legitimate choice, and the modal covers the nav — without this the only way out
-    // is closing the tab, which leaves the session intact.
+    // The modal covers the nav, so without this the only way out is closing the tab, which
+    // leaves the session intact.
     it('offers signing out as the alternative to agreeing', async () => {
         const onSignOut = vi.fn()
         const user = userEvent.setup()

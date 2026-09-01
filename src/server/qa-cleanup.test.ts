@@ -13,7 +13,6 @@ import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { deleteFolderContents } from '@/server/aws'
 
-// PROD_ENV is a module-level const, so override it via a mutable holder we can flip per test.
 const configState = { PROD_ENV: false }
 vi.mock('@/server/config', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/config')>()
@@ -25,7 +24,6 @@ vi.mock('@/server/config', async (importOriginal) => {
     }
 })
 
-// S3 cleanup is exercised by study deletion; stub it so tests don't touch S3.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return { ...actual, deleteFolderContents: vi.fn(async () => {}) }
@@ -38,13 +36,6 @@ beforeEach(() => {
     configState.PROD_ENV = false
 })
 
-/**
- * The QA routes verify the SI admin's Clerk session token straight from the
- * Authorization header (clerkMiddleware doesn't run on /api/*), so authenticating
- * a test means setting that header and making `verifyToken` resolve to the same
- * claims `mockSessionWithTestData` wired into the session. Returns the mocked Clerk
- * client so callers can assert on it (e.g. deleteUser).
- */
 async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
     const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')
@@ -55,8 +46,6 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
 }
 
 describe('requireQaAdmin', () => {
-    // These routes intentionally run on production; the qa-email guard, not the
-    // environment, is what keeps them off real accounts.
     it('allows an SI admin in production', async () => {
         configState.PROD_ENV = true
         await authenticateAsSiAdmin({ isSiAdmin: true })
@@ -85,18 +74,14 @@ describe('requireQaAdmin', () => {
         if (!result.ok) expect(result.status).toBe(403)
     })
 
-    // The authenticated admin is returned so callers can attribute what they create
-    // (e.g. pendingUser.invited_by_user_id on a QA invite).
     it('allows an SI admin and returns them', async () => {
         const { user } = await authenticateAsSiAdmin({ isSiAdmin: true })
         const result = await requireQaAdmin()
         expect(result).toMatchObject({ ok: true, user: { id: user.id, isSiAdmin: true } })
     })
 
-    // Regression guard for the empty-options bug: standalone verifyToken does not read
-    // CLERK_SECRET_KEY from the env, so the guard must pass it explicitly or JWK resolution
-    // fails and every request 401s. Assert the option is present (by key, not value — the key
-    // is unset in the test env) so dropping it back to `{}` fails here.
+    // Standalone verifyToken does not read CLERK_SECRET_KEY from the env, so the guard must pass
+    // it explicitly. Asserted by key, not value: the key is unset in the test env.
     it('passes the Clerk secret key to verifyToken', async () => {
         await authenticateAsSiAdmin({ isSiAdmin: true })
         await requireQaAdmin()
@@ -106,14 +91,12 @@ describe('requireQaAdmin', () => {
     })
 })
 
-// The QA routes run on production, so this check is the only thing keeping them off
-// real accounts. Deletion is permanent (DB rows, S3 objects, Clerk account).
+// The QA routes run on production, so this check is the only thing keeping them off real accounts.
 describe('assertQaEmail', () => {
     it.each(['qa-reviewer@test.com', 'QA-Test@example.org', 'qa-@test.com'])('accepts %s', (email) => {
         expect(() => assertQaEmail(email, 'user')).not.toThrow()
     })
 
-    // The dash is what separates the QA convention from real given names.
     it.each([
         'qa@test.com',
         'qa.bob@test.com',
@@ -133,7 +116,6 @@ describe('assertQaEmail', () => {
         expect(() => assertQaEmail(null, 'user')).toThrow(QaForbiddenError)
     })
 
-    // "qa" must anchor the local part, not appear anywhere in the address.
     it('rejects an address whose domain merely contains qa', () => {
         expect(() => assertQaEmail('bob@qa.example.com', 'user')).toThrow(QaForbiddenError)
     })
@@ -150,8 +132,6 @@ describe('QA account guard', () => {
         expect(still).toBeDefined()
     })
 
-    // Passing the internal id must not sidestep the check: it is applied to the
-    // stored address, not to whatever the caller typed.
     it('refuses by stored email even when looked up by id', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: 'someone@corp.com' })
@@ -210,10 +190,8 @@ describe('deleteUserById', () => {
     it('deletes the user, their studies, dependent rows, and the Clerk account', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
-        // A study owned by this researcher must be removed before the user (FK has no cascade).
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
-        // Authenticate as an SI admin so the global Clerk client mock (with deleteUser) is wired up.
         const { client } = await mockSessionWithTestData({ isSiAdmin: true })
         if (!client) throw new Error('expected a mocked clerk client')
 
@@ -234,8 +212,6 @@ describe('deleteUserById', () => {
         expect(client.users.deleteUser as Mock).toHaveBeenCalledWith(user.clerkId)
     })
 
-    // Deleting a QA account must never take a real researcher's study with it just
-    // because the QA account was assigned to review it.
     it('detaches, rather than deletes, studies the user only reviews or is PI on', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user: realResearcher } = await insertTestUser({ org })
@@ -284,8 +260,6 @@ describe('deleteUserById', () => {
 
         await expect(deleteUserById(db, user.id)).rejects.toThrow('clerk is down')
 
-        // Rows are deleted transactionally and committed before Clerk cleanup runs,
-        // so the DB side is complete even though the endpoint reports the failure.
         const deleted = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
     })
@@ -294,7 +268,6 @@ describe('deleteUserById', () => {
         await expect(deleteUserById(db, faker.string.uuid())).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })
 
-    // QA works from email addresses rather than internal ids.
     it('resolves the user by email, ignoring case', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
@@ -311,8 +284,7 @@ describe('deleteUserById', () => {
         await expect(deleteUserById(db, 'nobody@example.com')).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })
 
-    // A segment that is neither a uuid nor an email must 404 rather than making
-    // Postgres raise on the uuid comparison.
+    // Must 404 rather than making Postgres raise on the uuid comparison.
     it('throws for a segment that is neither a uuid nor an email', async () => {
         await expect(deleteUserById(db, 'not-a-uuid')).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })

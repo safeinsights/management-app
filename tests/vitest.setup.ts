@@ -1,4 +1,4 @@
-import 'dotenv/config' // read .env file before other imports, to match Next.js default
+import 'dotenv/config' // must precede other imports, matching Next.js
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/actions/action'
@@ -17,12 +17,8 @@ declare module 'vitest' {
 
 expect.extend(matchers)
 
-// Deferred callbacks (via next/server's `after`) are fire-and-forget async operations.
-// In production they run after the response. In tests we must:
-//  1. Track their promises so we can await them before rolling back the transaction
-//  2. Mock `sleep` to be instant (otherwise simulateJobScan waits 1s, completeFakeCodeScan waits 30s)
-// Without this, callbacks outlive the test transaction and cause FK violations, non-deterministically
-// depending on machine speed (works on fast local machines, fails on slow CI).
+// `after()` callbacks must be awaited before the test transaction rolls back, or they outlive
+// it and cause speed-dependent FK violations (passing locally, failing on slow CI).
 const mockState = vi.hoisted(() => {
     const headers = new Map()
     const pendingDeferredCallbacks: Promise<unknown>[] = []
@@ -51,26 +47,15 @@ mockState.setRunWithLocalStorage((cb) => {
     localStorageContext.run({ db: undefined as never }, cb)
 })
 
-// Drain the deferred callbacks scheduled so far (the `after()` work the harness collects), so a test
-// can force fire-and-forget side effects to land before continuing. Single-level by design: snapshot
-// then clear before awaiting, so callbacks scheduled *during* the drain stay queued for afterEach
-// rather than being dropped. Use when a later step depends on a deferred side effect having committed
-// (e.g. a deferred CODE-SCANNED insert must land before the test records the next status change, or
-// the time-ordered v7 ids invert and queries reading the "latest" status see the wrong row).
-//
-// Relies on an invariant: the `after()` mock (`runDeferredTestCallback`) invokes the callback
-// synchronously and pushes the in-flight promise onto `pendingDeferredCallbacks` before `await
-// submitCode(...)` returns. If that collection ever became async (e.g. queued on a microtask before
-// pushing), `flushDeferred()` could snapshot an empty array and silently no-op, reintroducing the race.
+// Deferred side effects must land before a test continues — e.g. a deferred CODE-SCANNED insert
+// must commit before the next status change, or the time-ordered v7 ids invert.
 export async function flushDeferred() {
     const toRun = mockState.pendingDeferredCallbacks.slice()
     mockState.pendingDeferredCallbacks.length = 0
     await Promise.allSettled(toRun)
 }
 
-// vi.mock calls must live at the module top level. Vitest hoists them above imports,
-// so any values referenced by a factory must come from vi.hoisted instead of ordinary
-// module-scope declarations.
+// Vitest hoists vi.mock above imports, so factory-referenced values must come from vi.hoisted.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 vi.mock('next/router', () => require('next-router-mock'))
@@ -110,11 +95,11 @@ vi.mock('next/font/google', () => ({
 }))
 vi.mock('next/headers', async () => ({ headers: async () => mockState.headers }))
 
-// Clerk SDK mocks - configured via mockClerkSession() in unit.helpers.tsx
+// Configured via mockClerkSession() in unit.helpers.tsx
 vi.mock('@clerk/nextjs')
 vi.mock('@clerk/nextjs/server')
 
-// Partial mock: only mock Clerk mutation functions, keep read functions real
+// Mutations only; read functions stay real.
 vi.mock('@/server/clerk', async (importOriginal) => ({
     ...(await importOriginal()),
     updateClerkUserName: vi.fn(),
@@ -131,19 +116,14 @@ vi.mock('@mantine/notifications', () => ({
     Notifications: () => null,
 }))
 
-// Stub out the Hocuspocus client so unit tests don't open real websockets to
-// the editor service. The fake provider exposes enough of the Yjs/awareness
-// surface for @lexical/yjs's CollaborationPlugin to mount without crashing.
+// Stubs the Hocuspocus client so unit tests open no real websockets.
 vi.mock('@hocuspocus/provider', async () => {
     const Y = await import('yjs')
     const websocketCtorSpy = vi.fn()
     const websocketInstances: FakeHocuspocusProviderWebsocket[] = []
     class FakeHocuspocusProviderWebsocket {
         providerMap = new Map()
-        // Tests treat the socket as already connected so the editor renders fully
-        // without each test having to wire up a status sequence. Tests that need
-        // to drive the reconnect/failed paths can set `socket.status` and call
-        // `__emit('status', { status })`.
+        // Already connected so the editor renders without each test wiring up a status sequence.
         status: 'connecting' | 'connected' | 'disconnected' = 'connected'
         _observers = new Map<string, Set<(...args: unknown[]) => void>>()
         destroy = vi.fn()
@@ -156,7 +136,6 @@ vi.mock('@hocuspocus/provider', async () => {
         off(event: string, fn: (...args: unknown[]) => void) {
             this._observers.get(event)?.delete(fn)
         }
-        // Test helper: drives the connection-phase state machine in unit tests.
         __emit(event: string, ...args: unknown[]) {
             this._observers.get(event)?.forEach((fn) => fn(...args))
         }
@@ -208,7 +187,6 @@ vi.mock('@hocuspocus/provider', async () => {
         awareness = new FakeAwareness()
         isSynced = false
         unsyncedChanges = 0
-        // Surfaced so tests can assert which document name a provider was created for.
         configuration: { name?: string } = {}
         attach = vi.fn()
         detach = vi.fn()
@@ -252,15 +230,15 @@ vi.mock('@hocuspocus/provider', async () => {
     }
 })
 
-// Make sleep instant so deferred simulation callbacks (simulateJobScan, completeFakeCodeScan)
-// complete within the test transaction instead of firing real 1s/30s timers.
+// Instant sleep keeps deferred simulation callbacks inside the test transaction instead of
+// firing real 1s/30s timers.
 vi.mock('@/lib/utils', async (importOriginal) => ({
     ...(await importOriginal()),
     sleep: vi.fn().mockResolvedValue(undefined),
 }))
 
 beforeAll(async () => {
-    // Defense layer: clear Clerk credentials to prevent real API calls if mocks fail
+    // Defense in depth: prevents real API calls should the Clerk mocks fail.
     delete process.env.CLERK_SECRET_KEY
     delete process.env.CLERK_PUBLISHABLE_KEY
     delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
@@ -294,9 +272,8 @@ afterEach(async () => {
     delete process.env.UPLOAD_TMP_DIRECTORY
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
-    // Unmount React trees first so query observers (and their refetchInterval timers) are removed,
-    // then clear every test QueryClient so no in-flight refetch or cached state crosses into the
-    // next test (which would read the per-test process.env.CODER_FILES after it's been reassigned).
+    // Unmount before clearing the clients, or a surviving refetchInterval observer carries
+    // in-flight state into the next test.
     cleanup()
     const { resetTestQueryClients } = await import('@/tests/unit.helpers')
     resetTestQueryClients()

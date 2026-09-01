@@ -10,25 +10,20 @@ import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 interface Args {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
-    /** Forwarded to {@link useYjsFormMap}; omit to co-edit every collaborative field. */
+    /** Omit to co-edit every collaborative field. */
     collabKeys?: readonly CollabFieldKey[]
 }
 
 interface Return {
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
-    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
     tabSessionId: string
 }
 
-// Shared collaboration wiring for the proposal-draft and change-requested resubmit
-// flows. Both surfaces co-edit the same `proposal-${studyId}-*` Yjs documents, so
-// they need the same per-mount tab id, websocket, and form map. Keeping it here
-// avoids the two providers drifting apart.
+// Shared by the proposal-draft and change-requested resubmit flows, which co-edit the same
+// `proposal-${studyId}-*` Yjs documents and must not drift apart.
 export function useProposalCollaboration({ studyId, form, collabKeys }: Args): Return {
-    // One id per mount of the provider. Different tabs get different ids even for
-    // the same Clerk user, which is what the listener compares against to skip
-    // only the broadcaster's own tab.
+    // One id per mount, so two tabs of the same Clerk user still differ.
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const websocketProvider = useYjsWebsocket()

@@ -39,16 +39,8 @@ export function ResearchInterestsInput({
         }
     }
 
-    // Commit the draft only when the user leaves the whole widget, so moving to a control inside
-    // it (a pill's remove button) does not add an accidental pill.
-    //
-    // Uses the shared guard rather than a local `!relatedTarget` check: that check also swallowed
-    // the commonest case, clicking a non-focusable part of the page, which meant leaving the
-    // field empty never reached `onAdd` and so never raised the required error (OTTER-647).
-    //
-    // Wrapped in a plain div because `PillsInput` forwards its ref to the inner field. Scoping the
-    // guard to that would put the pills and their remove buttons outside the widget, so removing a
-    // pill would commit the draft — the accidental-pill bug the guard exists to prevent.
+    // Commits only on leaving the whole widget, so a pill's remove button adds no accidental
+    // pill. The wrapping div is required: `PillsInput` forwards its ref to the inner field (OTTER-647).
     const widgetBlur = useWidgetBlur(onAdd)
 
     const interestPills = interests.map((item, idx) => (

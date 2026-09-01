@@ -20,13 +20,9 @@ import { SignedOnInput } from '../signed-on-input'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
-// What it takes to name the org being published against. A row from the table and an org picked
-// from the dropdown both satisfy it, so the rest of the form does not care which one it has.
 type Signatory = { orgId: string; orgName: string; versionNumber: number | null }
 
-// Every org of this type is offered, including ones that have already signed: renewing is a new
-// version of the same document. The version a chosen org is on comes from the agreements query the
-// table behind this modal already loaded, rather than a second round trip.
+// Orgs that have already signed are still offered: renewing is a new version of the same document.
 const useSignatoryChoice = ({ type, fixed }: { type: ParticipationAgreementType; fixed?: Signatory }) => {
     const [orgId, setOrgId] = useState<string | null>(null)
     const { data: signatories = [], isLoading } = useQuery({
@@ -65,7 +61,6 @@ const invalidateKeysFor = (type: ParticipationAgreementType) => [
     legalDocumentQueryKeys.versionsForType(type),
 ]
 
-// Only shown when the org is not already fixed by the row that opened the form.
 const SignatorySelect: FC<{
     isVisible: boolean
     orgLabel: string
@@ -86,7 +81,6 @@ const SignatorySelect: FC<{
     )
 }
 
-// Only shown when the org is fixed; the dropdown above already names the chosen one.
 const ChosenSignatory: FC<{ orgLabel: string; signatory: Signatory | undefined }> = ({ orgLabel, signatory }) => {
     if (!signatory) return null
     return <ReadOnlyField label={orgLabel} value={signatory.orgName} />
@@ -108,8 +102,6 @@ const publishConsequence = (documentLabel: string, orgName: string) =>
 Earlier versions stay in the record. Publication will prompt all users to whom this
 document applies to re-acknowledge. This cannot be undone.`
 
-// Given a `signatory`, this adds a version to that org: only a new date and file are collected.
-// Without one, the org is picked from the dropdown.
 export const UploadParticipationAgreementForm: FC<{
     type: ParticipationAgreementType
     signatory?: Signatory

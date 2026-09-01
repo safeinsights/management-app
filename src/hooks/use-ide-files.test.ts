@@ -22,8 +22,7 @@ const workspaceRoots: string[] = []
 const renderIDEFiles = (studyId: string) =>
     renderHook(() => useIDEFiles({ studyId }), { wrapper: createTestQueryWrapper() })
 
-// An APPROVED study whose code change was requested is the real state a researcher edits in: the
-// study stays APPROVED while the resubmittable state lives on the job (OTTER-558).
+// The study stays APPROVED while the resubmittable state lives on the job (OTTER-558).
 const setupResubmittableStudy = async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
     const { study } = await insertTestStudyJobData({
@@ -35,9 +34,8 @@ const setupResubmittableStudy = async () => {
     return study
 }
 
-// OTTER-558 regression: the resubmit footer's Cancel-vs-Save-and-exit toggle must key on real
-// session edits, not the mtime-based `filesChanged` (true on load). `userEditedFiles` starts false
-// and only flips once the user uploads, deletes, or picks a main file.
+// OTTER-558 regression: the footer's Cancel toggle must key on real session edits, not the
+// mtime-based `filesChanged`, which is already true on load.
 describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
@@ -192,8 +190,8 @@ describe('useIDEFiles mainFile (OTTER-729)', () => {
     })
 })
 
-// OTTER-516 regression: viewFile must round-trip the file's exact bytes. Reading a png as
-// utf-8 corrupts it beyond rendering, so the action hands back an ArrayBuffer as stored.
+// OTTER-516 regression: reading a png as utf-8 corrupts it beyond rendering, so the action hands
+// back an ArrayBuffer as stored.
 describe('useIDEFiles viewFile (OTTER-516)', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
@@ -207,7 +205,7 @@ describe('useIDEFiles viewFile (OTTER-516)', () => {
         const study = await setupResubmittableStudy()
         const root = await createWorkspaceDir('use-ide-files-view')
         workspaceRoots.push(root)
-        // PNG magic header followed by bytes that are not valid utf-8
+        // PNG magic header followed by bytes that are not valid utf-8.
         const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xc3, 0x28])
         await writeWorkspaceFiles(root, study.id, { 'plot.png': pngBytes })
 

@@ -12,23 +12,12 @@ const description = (orgName: string) => `Update your profile to share your rese
 interface ResearcherFieldProps {
     researcherName: string
     orgName: string
-    /**
-     * True only for the person who created the draft. Any other lab member editing the same
-     * proposal sees the name and nothing else: the guidance and the button both act on the
-     * *viewer's* own profile, so offering them to someone else invites editing the wrong profile.
-     */
+    // The guidance and button act on the viewer's own profile, so a co-author sees the name only.
     isDraftCreator: boolean
 }
 
-/**
- * The Researcher row: a label over the creator's name, not an input (OTTER-691).
- *
- * Deliberately not `FormField` or `ReadOnlyField`. `FormField` builds an `Input.Wrapper` whose
- * label points at a control, and there is no control here. `ReadOnlyField` is the right shape but
- * carries no asterisk and no description slot, both of which Figma shows on this row. The asterisk
- * stays visual only: there is nothing for a user to fill in, so marking it required to assistive
- * tech would announce an obligation that cannot be acted on.
- */
+// Not FormField (its label points at a control that does not exist here) and not ReadOnlyField
+// (no asterisk or description slot). The asterisk is visual only.
 export const ResearcherField: FC<ResearcherFieldProps> = ({ researcherName, orgName, isDraftCreator }) => (
     <Stack gap={4}>
         <Text fw={600} size="sm">

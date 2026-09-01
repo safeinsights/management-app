@@ -32,8 +32,6 @@ function lexicalText(text: string): string {
     })
 }
 
-// Every field this page owns, populated. The title is blank on purpose: Step 1 owns it now
-// (OTTER-690), so Step 2 must neither require it nor write it back.
 const fullyValidExceptTitle: ProposalFormValues = {
     title: '',
     datasets: ['dataset-1'],
@@ -45,8 +43,6 @@ const fullyValidExceptTitle: ProposalFormValues = {
     piUserId: BLANK_UUID,
 }
 
-// Test-only title input wired through useProposal so changes flow through the
-// real Mantine form the footer reads.
 const TitleInputProbe = () => {
     const { form } = useProposal()
     return <TextInput aria-label="Study Title Probe" {...form.getInputProps('title')} />
@@ -66,9 +62,6 @@ const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle, stud
 
 const submitButton = () => screen.getByRole('button', { name: 'Submit proposal' })
 
-// Replaces the OTTER-557 gating suite twice over. That suite asserted a blank title blocks Submit,
-// which OTTER-690 ended when the title moved to Step 1. OTTER-691 then removed validity gating
-// altogether: the button is always live, and clicking it is what raises the errors.
 describe('ProposalFooter submit button (OTTER-691)', () => {
     it('is enabled with a blank title, which Step 1 now owns', () => {
         renderFooter()
@@ -92,7 +85,6 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
         await user.click(submitButton())
 
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-        // The failed click must not disable the control the user needs to retry with.
         expect(submitButton()).toBeEnabled()
     })
 
@@ -120,7 +112,6 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
         await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }))
 
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-        // Re-opening proves nothing was reset: a cleared form would fail validation instead.
         await user.click(submitButton())
         expect(await screen.findByRole('dialog')).toBeInTheDocument()
     })
@@ -130,15 +121,8 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
         expect(screen.queryByRole('button', { name: /Submit initial request/i })).not.toBeInTheDocument()
     })
 
-    // The modal's loading state is only reachable while it is still mounted, so closing it before
-    // starting the mutation made the spinner, the "Submitting" label and the disabled Cancel dead
-    // code. STUDY_ID has no row, so this submission fails, which is also the only path that has to
-    // hand the form back rather than navigate.
-    // Only the settled outcome is asserted here. An earlier version also asserted the "Submitting"
-    // label mid-flight, which raced the mutation: against a warm test database the submission fails
-    // and the modal closes before the query runs, so the test passed or failed on timing. The
-    // loading presentation is covered deterministically in submit-confirmation-modal.test.tsx,
-    // which renders that state directly instead of trying to catch it.
+    // STUDY_ID has no row, so this submission fails — the only path that hands the form back
+    // rather than navigating.
     it('closes the modal when the submission fails, leaving the user on the form', async () => {
         const user = userEvent.setup()
         renderFooter()
@@ -148,14 +132,11 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Submit proposal' }))
 
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-        // The form is still there to retry from, with its button live.
         expect(submitButton()).toBeEnabled()
     })
 })
 
 describe('ProposalFooter reviewer preview title (OTTER-690)', () => {
-    // The preview must read the persisted study.title, not the form's seeded copy: on a DRAFT the
-    // form copy is never edited, so reading it would render whatever was seeded at mount.
     it('renders the persisted title rather than the form value', async () => {
         const user = userEvent.setup()
         renderFooter({ ...fullyValidExceptTitle, title: 'stale form copy' }, 'Persisted Step 1 title')
@@ -168,12 +149,10 @@ describe('ProposalFooter reviewer preview title (OTTER-690)', () => {
     })
 })
 
-// Yjs autosave is inactive in single-user mode (no collaboration websocket), so
-// Previous must flush the form to the study row before leaving — otherwise Step 2
-// progress is lost and the dashboard resumes the draft on Step 1 (OTTER-572/573).
+// Yjs autosave is inactive in single-user mode, so Previous must flush the form to the study row
+// before leaving or Step 2 progress is lost (OTTER-572/573).
 describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
-    // piUserId must reference a real user row — the flush writes it to the study
-    // table, and a placeholder UUID would trip the foreign key.
+    // piUserId must reference a real user row or the flush trips the foreign key.
     const renderFooterForStudy = (studyId: string, piUserId: string) =>
         renderWithProviders(
             <ProposalProvider studyId={studyId} draftData={{ ...fullyValidExceptTitle, piUserId }}>
@@ -182,9 +161,6 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
             </ProposalProvider>,
         )
 
-    // OTTER-690: the flush carries every field this page owns, and deliberately not the title.
-    // The probe below edits the form's title copy to prove that a stale Step 2 value cannot
-    // overwrite the one Step 1 persisted.
     it('flushes edited fields to the study row and leaves the Step 1 title alone', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-save' })
@@ -212,7 +188,6 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
     it('reports the error and stays on Step 2 when the flush fails', async () => {
         const user = userEvent.setup()
         const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-fail' })
-        // A study that left DRAFT is no longer editable, so the flush is rejected.
         await setTestStudyStatus(studyId, 'PENDING-REVIEW')
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
@@ -233,9 +208,8 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
         expect(study.title).toBe('Test draft')
     })
 
-    // The preview's PI popover asks the server for the profile, and the server only serves ids
-    // the persisted study row names — opening the modal on unsaved form state would show
-    // "Profile not available" for a freshly selected PI (OTTER-724).
+    // The server only serves PI profiles the persisted study row names, so opening the modal on
+    // unsaved state would show "Profile not available" (OTTER-724).
     it('flushes the draft to the study row before opening the reviewer preview', async () => {
         const user = userEvent.setup()
         const { studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-preview-save' })
@@ -259,8 +233,6 @@ describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
     it('skips the flush and navigates when the form is pristine', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-clean' })
-        // Non-editable status would fail the flush — a pristine form must not
-        // attempt it, so a viewer can still navigate back.
         await setTestStudyStatus(studyId, 'PENDING-REVIEW')
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()

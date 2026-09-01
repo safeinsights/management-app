@@ -1,18 +1,6 @@
-// E2e study-data seeding.
-//
-// The Playwright process and the running app share one Postgres (DATABASE_URL),
-// so seeding rows here puts the app into the exact study/job state a test needs
-// without re-driving the propose -> approve -> upload pipeline through the
-// browser. This is the e2e analogue of the pure inserts in
-// `tests/unit.helpers.tsx`; it lives in its own file because unit.helpers imports
-// `vitest` and `@testing-library/react` at the top level, neither of which loads
-// under Playwright.
-//
-// Everything targets the fixed identities created once by `db:migrate`
-// (`src/database/seeds/1743608138837_test_users.ts` + `bin/seed-environment.ts`).
-// No orgs or users are created at runtime — a seeded study is owned by the real
-// researcher test account and reviewed by the real openstax enclave, so the app
-// authorises the same role the tests sign in as.
+// Playwright and the app share one Postgres, so inserting rows here puts the app into a given
+// study/job state without driving the browser. Everything targets the fixed identities
+// `db:migrate` creates, so the app authorises the same role the tests sign in as.
 
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { v7 as uuidv7 } from 'uuid'
@@ -22,16 +10,12 @@ import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { findOrCreateLegalDocument } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 
-// openstax is the canonical e2e org pair: the researcher submits from the lab
-// (openstax-lab) and the reviewer reviews in the enclave (openstax). Matches the
-// org-split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
+// Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
 const LAB_SLUG = 'openstax-lab'
 
-// Fixed UUIDs the seeds assign to the test users. Used only as a fallback: in PR
-// environments a user who logged in before seeding owns their email under a
-// random UUID, and seed-environment adopts that row instead. So resolve by email
-// first (the row the app actually authenticates as) and fall back to the fixed id.
+// Fallback only: in PR environments a user who logged in before seeding owns their email under
+// a random UUID.
 const FIXED_USER_IDS = {
     admin: '00000000-0000-4000-8000-000000000001',
     researcher: '00000000-0000-4000-8000-000000000002',
@@ -45,18 +29,13 @@ const ROLE_EMAIL_ENV: Record<SeedRole, string> = {
     admin: 'CLERK_ADMIN_EMAIL',
     researcher: 'CLERK_RESEARCHER_EMAIL',
     reviewer: 'CLERK_REVIEWER_EMAIL',
-    // Faked-auth only, never provisioned in Clerk, so there is no env override to resolve by. The
-    // empty name simply never matches, leaving the fixed seed id as the answer.
+    // Faked-auth only, never provisioned in Clerk, so this env var never resolves and the
+    // fixed seed id wins.
     legal: 'CLERK_LEGAL_EMAIL',
 }
 
-// --- identity resolution -----------------------------------------------------
-
 const userIdCache = new Map<SeedRole, string>()
 
-// Resolve the canonical DB user id for a seeded role. Prefer the row that owns
-// the role's Clerk email (what the app signs in as), falling back to the fixed
-// seed UUID. Cached because every factory needs the researcher id.
 export async function resolveUserId(role: SeedRole): Promise<string> {
     const cached = userIdCache.get(role)
     if (cached) return cached
@@ -87,9 +66,7 @@ export async function resolveUserId(role: SeedRole): Promise<string> {
     return row.id
 }
 
-// The lexical fields (researchQuestions / projectSummary / impact) are jsonb
-// columns holding a Lexical editor state, not plain text. Wrap a string in the
-// minimal `{root}` shape the app stores so the read-only review screens render it.
+// These columns are jsonb holding a Lexical editor state, not plain text.
 function lexical(text: string) {
     return {
         root: {
@@ -129,8 +106,6 @@ async function resolveOrg(slug: string): Promise<SeededOrg> {
     return org
 }
 
-// --- low-level inserts -------------------------------------------------------
-
 type StudyOverrides = {
     title: string
     status?: StudyStatus
@@ -139,12 +114,10 @@ type StudyOverrides = {
     submittedAt?: Date | null
     approvedAt?: Date | null
     rejectedAt?: Date | null
-    // Inert since OTTER-727 hid the agreements gate: no screen rule reads these timestamps any more,
-    // so the code screens resolve whether or not they are set. Kept because the columns still exist
-    // and seeding them keeps historical rows realistic — safe to drop when agreements is resolved.
+    // Inert since OTTER-727 hid the agreements gate; kept so seeded rows stay realistic.
     agreementsAcked?: boolean
-    // Default to the canonical e2e pair. Only local dev seeding overrides these, to
-    // spread studies across org pairs so pickers have something to narrow.
+    // Only local dev seeding overrides these, to spread studies across org pairs so pickers
+    // have something to narrow.
     enclaveSlug?: string
     labSlug?: string
 }
@@ -166,20 +139,16 @@ async function insertStudy(overrides: StudyOverrides) {
             orgId: enclave.id,
             submittedByOrgId: lab.id,
             researcherId,
-            // A decided study carries the reviewer who acted on it; the review screens
-            // read this to render the decision author.
             reviewerId: status === 'PENDING-REVIEW' || status === 'DRAFT' ? null : reviewerId,
             containerLocation: 'test-container',
             title: overrides.title,
             piName: 'E2E Test PI',
-            // The proposal form requires a valid piUserId (uuid); without it the
-            // edit-and-resubmit form is invalid and its submit button stays disabled.
+            // Without this the edit-and-resubmit form is invalid and its submit button stays disabled.
             piUserId: researcherId,
             status,
             language: overrides.language ?? 'R',
             dataSources: ['all'],
-            // The proposal form requires at least one dataset, so the edit-and-resubmit
-            // form stays valid when pre-filled. Seed a concrete value, not null.
+            // The proposal form requires at least one dataset to stay valid when pre-filled.
             datasets: overrides.datasets ?? ['Student Activity Logs'],
             outputMimeType: 'application/zip',
             submittedAt: overrides.submittedAt === undefined ? new Date() : overrides.submittedAt,
@@ -187,8 +156,6 @@ async function insertStudy(overrides: StudyOverrides) {
             rejectedAt: overrides.rejectedAt ?? null,
             researcherAgreementsAckedAt: acked,
             reviewerAgreementsAckedAt: acked,
-            // Lexical editor state (jsonb), wrapped from text so the read-only review
-            // screens render real content.
             researchQuestions: lexical('What is the impact of highlighting on student outcomes?'),
             projectSummary: lexical('We analyze archival data to study highlighting behavior.'),
             impact: lexical('This research will improve understanding of study habits.'),
@@ -199,12 +166,8 @@ async function insertStudy(overrides: StudyOverrides) {
     return { study, enclave, lab, researcherId, reviewerId }
 }
 
-// A submitted job with a MAIN-CODE file and the given status history. `statuses`
-// are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
-// A landed AI-summary report. In prod this is written by a deferred background task
-// (onStudyReviewRequested) at code submission; the reviewer code-review screen polls
-// study_review until a row lands and gates the feedback editor on it. Without this the
-// UI is stuck on "AI Summary is loading", so seeded code-submitted jobs insert one.
+// In prod a deferred background task writes this; without a seeded row the reviewer screen is
+// stuck on "AI Summary is loading".
 function buildReviewReport() {
     return {
         proposalSummary: 'Seeded proposal summary for e2e.',
@@ -215,6 +178,7 @@ function buildReviewReport() {
     }
 }
 
+// `statuses` are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
 async function insertSubmittedJob(
     studyId: string,
     statuses: StudyJobStatus[],
@@ -235,8 +199,6 @@ async function insertSubmittedJob(
             .execute()
     }
 
-    // Land a terminal study_review row so the reviewer code-review screen's AI-summary
-    // poll resolves and the feedback editor renders (mirrors the deferred prod task).
     if (withReview) {
         await db
             .insertInto('studyReview')
@@ -244,11 +206,7 @@ async function insertSubmittedJob(
             .execute()
     }
 
-    // Space the status rows so createdAt ordering is deterministic (the latest-job query
-    // orders by createdAt then id). Stamp them in the PAST (oldest furthest back, newest
-    // ~1s ago) so any status a later step appends via the real API (e.g. the results
-    // upload's RUN-COMPLETE at server-now) reliably sorts AFTER the seeded ones — seeding
-    // future timestamps would let CODE-APPROVED outrank a freshly-uploaded RUN-COMPLETE.
+    // Backdated so a status a later step appends at server-now sorts after the seeded ones.
     const now = Date.now()
     await db
         .insertInto('jobStatusChange')
@@ -265,33 +223,22 @@ async function insertSubmittedJob(
     return job
 }
 
-// --- public factories --------------------------------------------------------
-//
-// Each returns the new studyId already in the named state. Pass a unique title
-// (use `studyFeatures.uniqueTitle(...)`) so studies stay isolated per worker.
-// Factories that create a submitted job also return its `jobId` so result/error
-// flows can upload via the debug script (`bin/debug/upload-results.ts`) directly,
-// without polling `/api/studies/ready` — there is no external job runner on CI.
+// Pass a unique title (`studyFeatures.uniqueTitle(...)`) so studies stay isolated per worker.
 
 export type SeedResult = { studyId: string; jobId?: string }
 
-// PENDING-REVIEW proposal, no code. For reviewer proposal-decision tests
-// (approve / reject / request-clarification) and the proposal-only review view.
 export async function seedProposalPendingReview(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'PENDING-REVIEW' })
     return { studyId: study.id }
 }
 
-// APPROVED proposal with no job yet. For the researcher code-upload entry flow
-// (the /submitted -> /code path).
 export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
     return { studyId: study.id }
 }
 
-// As above but against a named org pair. For local dev seeding only: an SLA belongs to a
-// study, so the admin's Data Partner > Research Lab > study picker is empty until studies
-// exist across more than one pair.
+// Local dev seeding only: the admin's Data Partner > Research Lab > study picker stays empty
+// until studies exist across more than one org pair.
 export async function seedStudyFor(
     overrides: Pick<StudyOverrides, 'title' | 'status' | 'enclaveSlug' | 'labSlug'>,
 ): Promise<SeedResult> {
@@ -304,54 +251,38 @@ export async function seedStudyFor(
     return { studyId: study.id }
 }
 
-// APPROVED proposal + a submitted job in CODE-SUBMITTED, agreements acked. For
-// reviewer code-review tests (approve / request-revision / reject) and the
-// two-context code-review collaboration spec.
 export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
     return { studyId: study.id }
 }
 
-// Code already approved; the job is ready to receive results. The caller then uploads an
-// encrypted result/error log via the debug script, which POSTs /api/job/[jobId]/results
-// and appends the definitive latest status (RUN-COMPLETE for results, JOB-ERRORED for
-// logs). We intentionally do NOT seed JOB-READY here: that status carries a later
-// timestamp than the upload's server-side insert in some runs, which would make
-// latestJobForStudy resolve to JOB-READY instead of RUN-COMPLETE and strand the reviewer
-// off the results-review screen. Latest seeded status is CODE-APPROVED; the upload owns
-// the terminal one. Returns the jobId for the upload step.
+// Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
+// in latestJobForStudy and strand the reviewer off the results-review screen.
 export async function seedCodeApprovedJobReady(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED'])
     return { studyId: study.id, jobId: job.id }
 }
 
-// Proposal rejected (terminal). For dashboard/status + post-submission rejected-view tests.
 export async function seedProposalRejected(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'REJECTED', rejectedAt: new Date() })
     return { studyId: study.id }
 }
 
-// Proposal needs clarification (CHANGE-REQUESTED, no code). For the clarification
-// banner + edit-and-resubmit CTA tests.
 export async function seedProposalChangeRequested(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'CHANGE-REQUESTED' })
     return { studyId: study.id }
 }
 
-// Code reviewed with a change request (resubmittable). For the researcher
-// code-change-requested banner + resubmit-code tests.
 export async function seedCodeChangeRequested(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'])
     return { studyId: study.id }
 }
 
-// Results ready: code ran and the reviewer approved the files (FILES-APPROVED closes the round).
-// This is a resubmittable state (the researcher can revise and resubmit code). The status history
-// deliberately ends on FILES-APPROVED with the automated CODE-SCANNED earlier, mirroring the QA
-// scenario where the resubmit save gate must key on the decision, not the topmost status row.
+// The history deliberately ends on FILES-APPROVED with CODE-SCANNED earlier: the resubmit save
+// gate must key on the decision, not the topmost status row.
 export async function seedCodeResultsReady(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     await insertSubmittedJob(study.id, [
@@ -364,7 +295,6 @@ export async function seedCodeResultsReady(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
-// Code hard-rejected (terminal, study ends). For the terminal rejected-code-view tests.
 export async function seedCodeRejected(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({
         title,
@@ -377,27 +307,13 @@ export async function seedCodeRejected(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
-// --- legal documents ---------------------------------------------------------
-//
-// Terms of Service and Privacy Notice are GLOBALLY scoped — one document each, applying to every
-// user — so publishing one from inside a test would make every other worker's user instantly owe an
-// acknowledgement and block them. Nothing here may run during a spec; global.setup calls it once
-// before any worker starts.
-//
-// It lives here rather than in src/database/seeds because those seeds also execute in deployed
-// environments via the migrator Lambda, and a stub Terms of Service must never be published there.
+// Legal documents are GLOBALLY scoped, so publishing one obliges every user of the database it
+// lands in. Kept out of src/database/seeds, which also runs in deployed environments.
 
-// The one role deliberately left owing something. Every other seeded role is brought up to date.
 const PENDING_ACK_ROLE: SeedRole = 'legal'
 
-// Hosts whose database is disposable: a docker-compose service, a CI service container, or a local
-// one. Publishing a Terms of Service obliges every user of whatever database it lands in, and these
-// documents read "Seeded for end-to-end tests", so anywhere shared has to refuse rather than gate
-// real people behind a stub.
 const DISPOSABLE_DB_HOSTS = ['localhost', '127.0.0.1', 'postgres', 'db', 'db-unit-test']
 
-// Runs on CI too: the CI service hostnames are already listed above, so exempting CI would only
-// remove the check where no human is looking at the target.
 const assertDisposableDatabase = () => {
     // Unset is refused rather than tolerated: databaseURL() falls back to the DB_SECRET_ARN secret,
     // which is how a deployed environment resolves its database.
@@ -413,10 +329,7 @@ const assertDisposableDatabase = () => {
     }
 }
 
-// Two Terms of Service versions so the `legal` role can sit acknowledged at v1 and owing v2, which
-// is the "has been updated" path the card is about.
-// Asserted on by the specs that prove a real published document is on screen, so it lives here with
-// the content it names rather than being retyped in each of them.
+// Two ToS versions let the `legal` role sit acknowledged at v1 and owing v2.
 export const SEEDED_TOS_V2_BODY = 'This version supersedes v1.'
 
 const TOS_CONTENT = [
@@ -431,12 +344,8 @@ async function uploadLegalContent(key: string, content: string) {
 
 const seededFileName = (type: 'TOS' | 'PN', index: number) => `${type}-v${index + 1}.md`
 
-// Published version ids for a document, oldest first. Tops up to `contents.length` so a re-run
-// against a database that already holds the seeded versions adds nothing.
-//
-// Refuses rather than tops up when the versions already there are not the ones this function wrote —
-// a document published by hand through the admin Legal tab leaves the specs asserting on seeded
-// content that is no longer current, which fails a long way from the cause.
+// Refuses when the existing versions are not the ones this wrote: a hand-published document
+// would leave the specs asserting on content that is no longer current.
 async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], publishedBy: string) {
     const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type })
 
@@ -448,8 +357,6 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
         .orderBy('versionNumber')
         .execute()
 
-    // Extra versions count as drift too: the specs assert on the newest, and anything past this
-    // seed's own list is content it does not know.
     const unseeded = existing.filter(
         (version, index) => index >= contents.length || version.fileName !== seededFileName(type, index),
     )
@@ -503,15 +410,8 @@ async function acknowledgeVersions(userIds: string[], versionIds: string[]) {
 }
 
 /**
- * Put every e2e role into a known acknowledgement state.
- *
- * Every role but `legal` is acknowledged up to date, so the gate never fires for the specs that use
- * them. `legal` is acknowledged at Terms of Service v1 and at the current Privacy Notice, leaving
- * exactly one thing outstanding — ToS v2 — so the modal takes the "has been updated" path rather
- * than the neutral wording it uses when a new and an updated document arrive together.
- *
- * Its rows are cleared first: the spec acknowledges v2, so a re-run against the same database would
- * otherwise find nothing outstanding and no modal.
+ * Leaves `legal` owing exactly ToS v2 and everyone else up to date. Its rows are cleared first,
+ * or a re-run would find nothing outstanding and show no modal.
  */
 export async function seedLegalDocuments() {
     assertDisposableDatabase()
@@ -526,9 +426,8 @@ export async function seedLegalDocuments() {
 
     const currentVersionIds = [tosVersionIds.at(-1), pnVersionIds.at(-1)].filter((id) => id !== undefined)
 
-    // Every other user in the database, not just the fixture roles. This also runs against a local
-    // dev database holding QA logins and the developer's own row, and anyone left un-acked meets a
-    // modal quoting a test stub with no clue which test run put it there.
+    // Every user, not just the fixture roles: local dev databases hold QA and developer logins,
+    // and anyone left un-acked meets a modal quoting a test stub.
     const others = await db.selectFrom('user').select('id').where('id', '!=', legalUserId).execute()
     await acknowledgeVersions(
         others.map((user) => user.id),

@@ -44,7 +44,6 @@ describe('assertDecisionFeedback', () => {
         expect(() => assertDecisionFeedback(`  ${'x'.repeat(1800)}  `, OPTIONS)).not.toThrow()
     })
 
-    // The three review steps pass their own constants, so the message names the caller's field.
     it('names the field and cap it was given', () => {
         const failure = failureFrom('x'.repeat(11), { fieldTitle: 'Something else', maxCharacters: 10 })
 

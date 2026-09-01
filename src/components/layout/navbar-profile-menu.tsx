@@ -61,7 +61,6 @@ export function NavbarProfileMenu() {
         toggle()
 
         if (!wasOpened) {
-            // focus the first menu item
             setTimeout(() => {
                 const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
                 firstItem?.focus()
@@ -72,8 +71,8 @@ export function NavbarProfileMenu() {
     const isAdminPage = pathname.startsWith(Routes.adminSafeinsights)
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
-    // Opens on arrival at an admin page, not just on first mount: the menu persists across client
-    // navigation, so a mount-time initial value would leave the submenu shut while it reads active.
+    // The menu persists across client navigation, so a mount-time initial value would leave the
+    // submenu shut while it reads active.
     useEffect(() => {
         if (isAdminPage) setIsAdminMenuOpen(true)
     }, [isAdminPage])

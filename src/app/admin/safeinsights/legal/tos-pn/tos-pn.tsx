@@ -49,7 +49,6 @@ function UploadModalContents({
         onError: reportMutationError('Could not publish'),
     })
 
-    // Review + Confirm require a draft. If there is no draft, but page state is different, still show the upload page.
     if (page === 'upload' || !draft) {
         return <DraftForm doctype={doctype} draftName={draft?.fileName ?? null} onDraftSaved={handleDraftSaved} />
     }
@@ -76,8 +75,6 @@ function UploadModalContents({
     }
 }
 
-// What is live right now, without a click. Prior versions live in the shared VersionHistoryModal,
-// the same one the participation and study-level tables open.
 function CurrentVersion({ version, doctype }: { version: PublishedVersion | null; doctype: GlobalLegalDocumentType }) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
@@ -107,8 +104,8 @@ export function TosPnPanel({ doctype }: { doctype: GlobalLegalDocumentType }) {
         queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
     })
 
-    // isError first: data stays undefined after a failed query, so the !data check would
-    // otherwise leave the panel on the loading message forever.
+    // isError first: data stays undefined after a failed query, so !data alone would leave the
+    // panel loading forever.
     if (isError) return <ErrorAlert error={error} />
     if (isLoading || !data) return <LoadingMessage message="Loading..." />
 

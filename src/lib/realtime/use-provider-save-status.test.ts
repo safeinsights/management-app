@@ -4,8 +4,7 @@ import { useProviderSaveStatus } from './use-provider-save-status'
 
 type Listener = () => void
 
-// Hand-rolled emitter provider: the global Hocuspocus mock stubs provider.on/off
-// as no-op spies, so a real emitter is needed to drive unsyncedChanges/synced.
+// The global Hocuspocus mock stubs provider.on/off as no-op spies, so a real emitter is needed.
 function createFakeProvider({ isSynced = true }: { isSynced?: boolean } = {}) {
     const listeners: Record<string, Set<Listener>> = {}
     return {
@@ -102,14 +101,12 @@ describe('useProviderSaveStatus', () => {
         rerender({ provider: providerB })
         expect(result.current).toBe('idle')
 
-        // The new provider settling with no local edit must not re-show "saved".
         act(() => {
             providerB.unsyncedChanges = 0
             providerB.emit('unsyncedChanges')
         })
         expect(result.current).toBe('idle')
 
-        // A genuine edit on the new provider is still reported.
         act(() => {
             providerB.unsyncedChanges = 1
             providerB.emit('unsyncedChanges')

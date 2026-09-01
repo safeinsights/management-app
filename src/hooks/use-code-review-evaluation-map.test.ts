@@ -7,8 +7,7 @@ import { type CodeReviewCriteriaDraft, useCodeReviewEvaluationMap } from './use-
 
 type Listener = () => void
 
-// Minimal HocuspocusProvider stand-in for the criteria bridge: exposes a real
-// Y.Doc so we can drive map mutations directly, plus a `synced` event surface.
+// Exposes a real Y.Doc so tests can drive map mutations directly.
 function createFakeProvider(doc: Y.Doc) {
     const syncedListeners: Listener[] = []
     return {
@@ -82,7 +81,6 @@ describe('useCodeReviewEvaluationMap', () => {
     it('applies remote map values onto the form on sync', async () => {
         const { form, hook } = setupHook({ provider: providerA })
 
-        // Pre-seed the doc as if the server has the value already.
         const map = docA.getMap<unknown>('evaluationCriteria')
         map.set('proposalAlignment', 'yes')
         map.set('securityChecks', 'not-sure')
@@ -93,7 +91,6 @@ describe('useCodeReviewEvaluationMap', () => {
         expect(form.getValues().criteria.proposalAlignment).toBe('yes')
         expect(form.getValues().criteria.securityChecks).toBe('not-sure')
         expect(form.getValues().criteria.agreementCompliance).toBeNull()
-        // Resets dirty after remote apply so passive readers don't see the form as edited.
         expect(form.isDirty()).toBe(false)
     })
 
@@ -102,9 +99,6 @@ describe('useCodeReviewEvaluationMap', () => {
         act(() => providerA.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
 
-        // Local write through the hook. The hook does NOT touch the form on its own
-        // (callers set the form value alongside pushCriterion). LOCAL_ORIGIN ensures
-        // the map.observe callback skips the local mutation so we don't loop back.
         act(() => hook.result.current.pushCriterion('agreementCompliance', 'no'))
 
         const map = docA.getMap<unknown>('evaluationCriteria')
@@ -113,7 +107,6 @@ describe('useCodeReviewEvaluationMap', () => {
     })
 
     it('A sets, B unsets → result is absent (unselected) on both peers', async () => {
-        // Two peers, two hooks (mounted on docA and docB providers).
         const { hook: hookA } = setupHook({ provider: providerA })
         const { hook: hookB } = setupHook({ provider: providerB })
 
@@ -122,9 +115,7 @@ describe('useCodeReviewEvaluationMap', () => {
         await waitFor(() => expect(hookA.result.current.isSynced).toBe(true))
         await waitFor(() => expect(hookB.result.current.isSynced).toBe(true))
 
-        // A sets a criterion.
         act(() => hookA.result.current.pushCriterion('privacyProtection', 'yes'))
-        // Propagate A → B.
         syncDocs(docA, docB)
 
         const mapA = docA.getMap<unknown>('evaluationCriteria')
@@ -132,31 +123,25 @@ describe('useCodeReviewEvaluationMap', () => {
         expect(mapA.get('privacyProtection')).toBe('yes')
         expect(mapB.get('privacyProtection')).toBe('yes')
 
-        // B unsets by passing null. Hook converts to map.delete().
         act(() => hookB.result.current.pushCriterion('privacyProtection', null))
         syncDocs(docB, docA)
 
-        // After delete-after-set propagates back, both peers see the key as absent.
         expect(mapB.get('privacyProtection')).toBeUndefined()
         expect(mapA.get('privacyProtection')).toBeUndefined()
     })
 
     it('no-ops when disabled', () => {
         const { hook } = setupHook({ provider: providerA, enabled: false })
-        // No sync trigger; even if we tried to push, no map exists.
         act(() => hook.result.current.pushCriterion('proposalAlignment', 'yes'))
         const map = docA.getMap<unknown>('evaluationCriteria')
         expect(map.get('proposalAlignment')).toBeUndefined()
     })
 
     it('first-sync seed: local non-null selections survive provider sync (no clobber)', async () => {
-        // Pre-sync flow: a user clicks a radio before fieldsMap exists. The caller
-        // sets form first then calls pushCriterion, which no-ops while fieldsMap is
-        // null. Simulate that here: drop a value into the form, then trigger sync.
+        // Mirrors a radio clicked before fieldsMap exists, where pushCriterion no-ops.
         const { form, hook } = setupHook({ provider: providerA })
         form.setFieldValue('criteria.proposalAlignment', 'yes')
 
-        // Map is empty at sync time, mirroring "no one has touched this study yet".
         act(() => providerA.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
 
@@ -169,7 +154,6 @@ describe('useCodeReviewEvaluationMap', () => {
         const { form, hook } = setupHook({ provider: providerA })
         form.setFieldValue('criteria.proposalAlignment', 'yes')
 
-        // Server already had 'no' from another peer; remote-wins on conflicting first sync.
         const map = docA.getMap<unknown>('evaluationCriteria')
         map.set('proposalAlignment', 'no')
 
@@ -192,5 +176,4 @@ describe('useCodeReviewEvaluationMap', () => {
     })
 })
 
-// Quiet console.warn from any auth-failure paths the hook might log.
 vi.spyOn(console, 'warn').mockImplementation(() => {})

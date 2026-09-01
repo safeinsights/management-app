@@ -1,12 +1,6 @@
 import net from 'node:net'
 import { IS_CI } from './common.helpers'
 
-// Probes the S3-compatible endpoint (SeaweedFS locally) so integration-style
-// tests can skip cleanly when devs haven't run `docker compose up seaweedfs`.
-//
-// On CI the service is expected to be up, so an unreachable endpoint is a setup
-// bug rather than a skip condition — callers use `s3RequiredOrSkip` to turn that
-// into a hard failure.
 export async function isS3Reachable(): Promise<boolean> {
     const endpoint = process.env.S3_ENDPOINT ?? 'http://127.0.0.1:8333'
     let host: string
@@ -30,9 +24,8 @@ export async function isS3Reachable(): Promise<boolean> {
     })
 }
 
-// Probes once at module load. Tests use `s3Available` with `describe.skipIf` /
-// `test.skipIf`; on CI an unreachable endpoint throws so the missing service is
-// surfaced instead of silently skipped.
+// Lets tests skip when SeaweedFS isn't running locally; on CI a missing service must fail loudly
+// rather than silently skip.
 export const s3Available = await isS3Reachable()
 
 if (!s3Available && IS_CI) {

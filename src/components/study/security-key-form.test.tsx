@@ -26,9 +26,8 @@ const toArrayBuffer = (str: string): ArrayBuffer => {
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
 }
 
-// Encrypt one artifact the way TOA would (whole-zip + embedded manifest) and return the entry the
-// mocked fetchEncryptedJobFilesAction serves. The reviewer is a manifest recipient (empty
-// recipientKeys) — they decrypt with their own key.
+// Encrypts one artifact the way TOA would. The reviewer is a manifest recipient, so
+// recipientKeys is empty and they decrypt with their own key.
 async function seedArtifact(
     jobId: string,
     { fileType, files }: { fileType: FileType; files: { name: string; content: string }[] },
@@ -39,10 +38,8 @@ async function seedArtifact(
     for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
     const zip = await writer.generate()
 
-    // One row per artifact slot (job + path + type), which the unique index enforces, so a test
-    // seeding its own content over the one beforeEach already made reuses that row rather than
-    // adding a second. Mirrors storeJobFile, where a repeat delivery replaces the object behind the
-    // row it already has.
+    // A unique index allows one row per artifact slot, so re-seeding replaces the row rather
+    // than adding a second, mirroring storeJobFile.
     const path = `test-org/${jobId}/results/encrypted-logs/encrypted-results.zip`
     const inserted = await db
         .insertInto('studyJobFile')
@@ -141,9 +138,8 @@ describe('SecurityKeyForm', () => {
         expect(screen.queryByRole('heading', { name: /security key/i })).not.toBeInTheDocument()
     })
 
-    // The two roles are served different key sets, and a reviewer holds no re-wrapped per-file
-    // keys. Asking as a researcher returns [] for them, which strands the outputs step on the
-    // locked phase, so the role has to reach the action rather than being assumed by the hook.
+    // A reviewer holds no re-wrapped per-file keys, so asking as a researcher returns [] and
+    // strands the outputs step on the locked phase.
     it.each(['reviewer', 'researcher'] as const)('requests the %s key set when acting as one', async (type) => {
         renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
 
@@ -215,9 +211,8 @@ describe('SecurityKeyForm', () => {
         expect(screen.queryByText(EMPTY_ERROR)).toBeNull()
     })
 
-    // A key is only proven by ciphertext it actually opened, so neither of the next two cases may
-    // hand the caller a decrypted set (OTTER-675): with nothing to decrypt, the parse step accepts
-    // any syntactically valid PEM.
+    // With nothing to decrypt the parse step accepts any syntactically valid PEM, so neither
+    // case may hand the caller a decrypted set (OTTER-675).
     it('shows a no-files error when the fetch returns an empty list', async () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
 

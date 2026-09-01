@@ -46,9 +46,8 @@ const formSchema = z
             return schema
         })(),
         confirmPassword: z.string(),
-        // In the form so leaving it unchecked raises a visible error rather than only
-        // disabling the button (OTTER-647). Stripped before the action, whose schema
-        // has no such field.
+        // In the form so leaving it unchecked raises a visible error rather than only disabling
+        // the button (OTTER-647). Stripped before the action.
         termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
         participationAccepted: z.literal(true, { message: 'You must accept the participation agreement to continue' }),
     })
@@ -64,7 +63,6 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
-// Inline notice shown when a legal document fails to load.
 const LegalDocumentsError: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -103,8 +101,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const [passwordTouched, setPasswordTouched] = useState(false)
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
-    // Public: the form has to show these before an account exists. Empty until the first Terms of
-    // Service and Privacy Notice are published, which AcknowledgementCheckbox renders as placeholder copy.
+    // Public: the form must show these before an account exists.
     const {
         data: tosPn = [],
         isPending: isLoadingTosPn,
@@ -114,8 +111,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchGlobalLegalDocumentsAction(),
     })
 
-    // Semi-public: the org's ROPA or DOPA must also be shown before the account exists. Null until one
-    // is published, and gated by the invite's org.
+    // Semi-public: the org's own ropa/dopa, gated by the invite's org. Null until one is published.
     const {
         data: participationAgreement = null,
         isPending: isPendingParticipationAgreement,
@@ -125,16 +121,15 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
     })
 
-    // Handle nonexistent participation agreements
+    // An org with no participation agreement has nothing to tick, so the field satisfies itself once
+    // the query has *loaded* a null.
     const hasParticipationAgreement = participationAgreement !== null
     useEffect(() => {
         if (isPendingParticipationAgreement || hasParticipationAgreement) return
         if (form.values.participationAccepted === true) return
-        // only set true if document has *loaded* a null value
         form.setFieldValue('participationAccepted', true as const)
     }, [isPendingParticipationAgreement, hasParticipationAgreement, form])
 
-    // Prevent submission for invalid forms or document retrieval errors
     const canSubmit =
         form.isValid() &&
         !isLoadingTosPn &&
@@ -171,8 +166,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     markOrgJoined(orgName)
                     router.push(Routes.accountMfa)
                 } else if (attempt.status === 'needs_second_factor') {
-                    // A freshly-created account has no MFA factors enrolled, so a second-factor
-                    // challenge here is unsatisfiable
+                    // A fresh account has no MFA factors, so a second-factor challenge is
+                    // unsatisfiable; Clerk's instance policy must let first sign-in complete.
                     reportError(
                         'Your account was created, but multi-factor authentication is required before you can sign in. Please contact your administrator.',
                     )
@@ -252,15 +247,13 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                             form.getInputProps('password').onBlur?.(event)
                             setPasswordTouched(true)
                         }}
-                        // Error is suppressed in favor of the requirements list below, which
-                        // now also appears when the field is left empty.
+                        // Suppressed in favor of the requirements list below.
                         error={undefined}
                         aria-invalid={!!form.errors.password || undefined}
-                        // Rendered as the input's description so Mantine owns the
-                        // aria-describedby wiring; a hand-passed value is overwritten.
+                        // Rendered as the description so Mantine owns the aria-describedby wiring.
                         description={requirementsDescription}
-                        // Description below the input, not Mantine's default position above it:
-                        // this is live validation feedback, and it sat under the field before.
+                        // Below the input, not Mantine's default above: this is live validation
+                        // feedback.
                         inputWrapperOrder={['label', 'input', 'description', 'error']}
                     />
 
@@ -271,8 +264,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         placeholder="********"
                         {...form.getInputProps('confirmPassword')}
                         error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
-                        // PasswordInput's inner <input> is rendered with withAria disabled, so
-                        // `error` alone never marks it invalid to assistive tech (OTTER-647).
+                        // PasswordInput's inner <input> has withAria disabled, so `error` alone
+                        // never marks it invalid to assistive tech (OTTER-647).
                         aria-invalid={!!form.errors.confirmPassword || undefined}
                     />
 
