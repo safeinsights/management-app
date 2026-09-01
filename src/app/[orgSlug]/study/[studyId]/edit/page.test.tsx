@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { redirect, useParams } from 'next/navigation'
 import { StudyRequestProvider } from '@/contexts/study-request'
 import logger from '@/lib/logger'
+import { Routes } from '@/lib/routes'
 import {
     db,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
+    mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -37,6 +39,32 @@ const setupDraft = async () => {
 }
 
 const LEXICAL_BODY = JSON.stringify({ root: { children: [{ type: 'paragraph', children: [] }] } })
+
+// insertTestStudyJobData points orgId and submittedByOrgId at one org, which cannot express a
+// Data Partner reviewing another lab's study. OTTER-768 adds a fixture option for this.
+const insertSubmittedStudyFor = async (
+    enclaveOrgId: string,
+    submittedByOrgId: string,
+    researcherId: string,
+    title: string,
+) =>
+    await db
+        .insertInto('study')
+        .values({
+            orgId: enclaveOrgId,
+            submittedByOrgId,
+            containerLocation: 'test-container',
+            title,
+            researcherId,
+            piName: 'test',
+            status: 'PENDING-REVIEW',
+            submittedAt: new Date(),
+            dataSources: ['all'],
+            outputMimeType: 'application/zip',
+            language: 'R',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
 
 // StudyProposal calls useStudyRequest(); production wires that provider in the study layout,
 // which this render does not exercise.
@@ -136,6 +164,52 @@ describe('StudyEditPage', () => {
 
         expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()
         expect(screen.queryByText('A study belonging to another lab')).not.toBeInTheDocument()
+    })
+
+    // OTTER-764 review: getStudyAction only checks `view Study`, which the Data Partner's members
+    // hold for every submitted study. Step 1 is the Research Lab's page, so they are moved on
+    // rather than shown the researcher wizard.
+    it('sends a Data Partner member to the review page', async () => {
+        const { org: enclaveOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
+        const { user: otherResearcher } = await insertTestUser({ org: otherLab })
+        const study = await insertSubmittedStudyFor(
+            enclaveOrg.id,
+            otherLab.id,
+            otherResearcher.id,
+            'A study under review',
+        )
+
+        await expect(renderRoute(enclaveOrg.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclaveOrg.slug, studyId: study.id }))
+    })
+
+    it('renders Step 1 for a dual-role user whose lab submitted the study', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        const study = await insertSubmittedStudyFor(enclaveOrg.id, labOrg.id, user.id, 'A dual-role study')
+        ;(useParams as Mock).mockReturnValue({ orgSlug: labOrg.slug, studyId: study.id })
+
+        await renderPage(labOrg.slug, study.id)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
+    })
+
+    // Idiom carried over from agreements/researcher: SI admins pass on `manage all`, as they do
+    // everywhere else in the app.
+    it('renders Step 1 for an SI admin who is not a member of the submitting lab', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const enclaveOrg = await insertTestOrg({ slug: `enclave-${crypto.randomUUID().slice(0, 8)}`, type: 'enclave' })
+        const lab = await insertTestOrg({ slug: `lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
+        const { user: researcher } = await insertTestUser({ org: lab })
+        const study = await insertSubmittedStudyFor(enclaveOrg.id, lab.id, researcher.id, 'An SI admin study')
+        ;(useParams as Mock).mockReturnValue({ orgSlug: lab.slug, studyId: study.id })
+
+        await renderPage(lab.slug, study.id)
+
+        expect(mockRedirect).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
     })
 
     // /edit is a revisitable step: it never resume-redirects to Step 2. resolveScreen, not this
