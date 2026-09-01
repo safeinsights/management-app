@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Box, Radio, Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@/common'
@@ -41,8 +41,14 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     isLocked,
     lockedLanguageLabel,
 }) => {
-    const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.values.orgSlug)
+    const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.getValues().orgSlug)
     form.watch('orgSlug', ({ value }) => setSelectedOrgSlug(value))
+
+    // Mirrored rather than read off `form.values`, which Mantine documents as always stale in
+    // uncontrolled mode. setFieldValue schedules no render of its own, so without this a reset
+    // would leave a dot on a radio the form no longer holds.
+    const [selectedLanguage, setSelectedLanguage] = useState(form.getValues().language)
+    form.watch('language', ({ value }) => setSelectedLanguage(value))
 
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
@@ -64,23 +70,29 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
         helperText = `${orgName} will use the language you select to set up the right environment for you.`
     }
 
+    // Which partner the defaults below were applied for. React Query hands back a fresh `data`
+    // object on every background refetch, and re-applying then would wipe a choice just made.
+    const appliedOrgSlug = useRef<string | null>(null)
+
     useEffect(() => {
         // A locked field has no error slot and is skipped when focusing, so a value changed here
         // could be neither seen nor corrected (OTTER-647).
         if (isLocked || !data) return
+        if (appliedOrgSlug.current === selectedOrgSlug) return
+        appliedOrgSlug.current = selectedOrgSlug
 
-        if (data.languages.length === 1) {
-            form.setFieldValue('language', data.languages[0].value)
-            return
-        }
-
-        // A language the new partner cannot run still satisfies the enum, so leaving it would let
-        // validation pass on an environment that does not exist.
-        const current = form.getValues().language
-        if (current && !data.languages.some((option) => option.value === current)) {
-            form.setFieldValue('language', null)
-            form.clearFieldError('language')
-        }
+        // A new partner starts the choice over: the design's default for a multi-language partner
+        // is nothing selected, and a language carried across is not one chosen for this partner.
+        const onlyOption = data.languages.length === 1 ? data.languages[0].value : null
+        form.setFieldValue('language', onlyOption)
+        // `language` is in validateInputOnChange, so the line above queues a required-error for the
+        // null case, on a field nobody has failed yet. clearFieldError cannot undo it: it bails
+        // while that error is still unflushed, so the removal has to queue behind it instead.
+        form.setErrors((current) => {
+            const next = { ...current }
+            delete next.language
+            return next
+        })
         // form intentionally excluded: Mantine rebuilds it every render, so listing it would loop.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrgSlug, data, isLocked])
@@ -135,7 +147,7 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     descriptionProps={{ id: HELPER_ID }}
                     error={error}
                     inputWrapperOrder={['input']}
-                    value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
+                    value={selectedLanguage ?? ''}
                     onChange={(value) => form.setFieldValue('language', value as Language)}
                     {...widgetBlur}
                 >

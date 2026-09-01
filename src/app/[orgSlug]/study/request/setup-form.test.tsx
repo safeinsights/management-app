@@ -396,7 +396,7 @@ describe('Data Partner and programming language fields', () => {
         expect(screen.queryByRole('radio', { name: 'R' })).not.toBeInTheDocument()
     })
 
-    it('keeps a language the newly chosen Data Partner still supports', async () => {
+    it('starts the choice over when the Data Partner changes, even to one that still supports it', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
@@ -407,7 +407,34 @@ describe('Data Partner and programming language fields', () => {
         await selectPartner(user, fixtures.multiLanguagePartner.name)
 
         await waitFor(() => expect(screen.getByRole('radio', { name: 'Python' })).toBeInTheDocument())
-        expect(screen.getByRole('radio', { name: 'R' })).toBeChecked()
+        expect(screen.getByRole('radio', { name: 'R' })).not.toBeChecked()
+        expect(screen.getByRole('radio', { name: 'Python' })).not.toBeChecked()
+        expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+    })
+
+    it('keeps the chosen language when the list refetches for the same Data Partner', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const queryClient = createTestQueryClient()
+        renderSetup(fixtures, {}, queryClient)
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await user.click(await screen.findByRole('radio', { name: 'Python' }))
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
+
+        // A background refetch for the same partner. The options are re-ordered so the assertion
+        // can tell that the fresh data really landed, which is what makes the second half mean
+        // something: re-applying the defaults here would wipe a choice just made.
+        queryClient.setQueryData(['languages-for-org', fixtures.multiLanguagePartner.slug], {
+            orgName: fixtures.multiLanguagePartner.name,
+            languages: [
+                { value: 'PYTHON', label: 'Python' },
+                { value: 'R', label: 'R' },
+            ],
+        })
+
+        await waitFor(() => expect(screen.getAllByRole('radio')[0]).toHaveAccessibleName('Python'))
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
     })
 })
 
