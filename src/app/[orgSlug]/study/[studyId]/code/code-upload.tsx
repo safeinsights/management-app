@@ -9,15 +9,23 @@ import { Routes } from '@/lib/routes'
 interface CodeUploadPageProps {
     orgSlug: string
     studyId: string
+    dataPartnerName: string
     previousHref: Route
 }
 
-export function CodeUploadPage({ orgSlug, studyId, previousHref }: CodeUploadPageProps) {
+export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, previousHref }: CodeUploadPageProps) {
     const router = useRouter()
 
     const onSubmitSuccess = useCallback(() => {
         router.push(Routes.studyView({ orgSlug, studyId }))
     }, [router, orgSlug, studyId])
 
-    return <StudyCode studyId={studyId} previousHref={previousHref} onSubmitSuccess={onSubmitSuccess} />
+    return (
+        <StudyCode
+            studyId={studyId}
+            dataPartnerName={dataPartnerName}
+            previousHref={previousHref}
+            onSubmitSuccess={onSubmitSuccess}
+        />
+    )
 }

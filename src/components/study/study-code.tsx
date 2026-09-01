@@ -14,11 +14,27 @@ import { StudyCodeFilesSection } from './study-code-files'
 const STEP_LABEL = 'STEP 3'
 const SECTION_TITLE = 'Submit code'
 
+/** `Spacing/lg` in the Figma frames. Mantine `lg` is 20px in this app's theme, the token is 24px. */
+const CARD_SECTION_GAP = 24
+
 interface StudyCodeProps {
     studyId: string
+    dataPartnerName: string
     previousHref: Route
     onSubmitSuccess?: () => void
 }
+
+const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) => (
+    <Text data-testid="submit-code-intro">
+        Develop and test your code in the SafeInsights IDE (Integrated Development Environment) with preloaded example
+        data from {dataPartnerName}. The IDE opens in a new tab, and any files you create will appear here
+        automatically. When you are ready,{' '}
+        <Text span fw={700}>
+            return here, select your main file, and submit your code for review
+        </Text>
+        .
+    </Text>
+)
 
 const SubmitBlockedReason: FC<{ reason: string | null }> = ({ reason }) => {
     if (!reason) return null
@@ -57,7 +73,7 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
     </Group>
 )
 
-export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeProps) => {
+export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSuccess }: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
@@ -73,11 +89,14 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
                     divider, which is OTTER-693's "reuse the section header component" requirement.
                     No studyTitle: the card forbids repeating the title as body text here, and
                     StudyCode no longer receives one so it cannot drift back. The rule draws only
-                    when something follows it inside the card, so the files below are what make it
-                    appear; rows 4-5 add the static copy and the FAQ above them, and row 6 lifts the
-                    files into their own "Your files" card. */}
+                    when something follows it inside the card, so the content below is what makes it
+                    appear; row 5 adds the FAQ under the intro, and row 6 lifts the files into their
+                    own "Your files" card. */}
                 <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
-                    <StudyCodeFilesSection ide={ide} />
+                    <Stack gap={CARD_SECTION_GAP}>
+                        <SubmitCodeIntro dataPartnerName={dataPartnerName} />
+                        <StudyCodeFilesSection ide={ide} />
+                    </Stack>
                 </ProposalStepHeader>
 
                 <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={openConfirm} />

@@ -59,7 +59,13 @@ const setupStudy = async (orgSlug = 'openstax-lab') => {
     return { org, user, study }
 }
 
-const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, string>) => {
+const DATA_PARTNER = 'Test Data Partner'
+
+const renderIDE = async (
+    studyOrgSlug = 'openstax-lab',
+    files?: Record<string, string>,
+    dataPartnerName = DATA_PARTNER,
+) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
@@ -69,9 +75,9 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+    renderWithProviders(<StudyCode studyId={study.id} dataPartnerName={dataPartnerName} previousHref={previousHref} />)
 
-    return { study, previousHref }
+    return { study, previousHref, dataPartnerName }
 }
 
 describe('StudyCode component', () => {
@@ -319,6 +325,30 @@ describe('StudyCode component', () => {
         })
     })
 
+    describe('static body copy (OTTER-693)', () => {
+        it('renders the copy exactly', async () => {
+            await renderIDE()
+
+            // toHaveTextContent normalises whitespace, which is what lets this assert the copy as
+            // one sentence run across the emphasised span the design calls for.
+            expect(await screen.findByTestId('submit-code-intro')).toHaveTextContent(
+                'Develop and test your code in the SafeInsights IDE (Integrated Development Environment) with ' +
+                    `preloaded example data from ${DATA_PARTNER}. The IDE opens in a new tab, and any files you ` +
+                    'create will appear here automatically. When you are ready, return here, select your main file, ' +
+                    'and submit your code for review.',
+            )
+        })
+
+        it('interpolates the Data Partner rather than hardcoding one', async () => {
+            // A second, different name: the assertion above alone would pass on a hardcoded string.
+            await renderIDE('openstax-lab', undefined, 'Rice University')
+
+            expect(await screen.findByTestId('submit-code-intro')).toHaveTextContent(
+                'preloaded example data from Rice University.',
+            )
+        })
+    })
+
     describe('starter code', () => {
         const renderWithCodeEnv = async (
             files?: Record<string, string>,
@@ -334,7 +364,9 @@ describe('StudyCode component', () => {
                 await writeWorkspaceFiles(root, study.id, files)
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
-            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+            )
             return { study }
         }
 
@@ -390,7 +422,9 @@ describe('StudyCode component', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-            const { unmount } = renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            const { unmount } = renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+            )
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
@@ -398,7 +432,9 @@ describe('StudyCode component', () => {
 
             unmount()
 
-            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+            )
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
