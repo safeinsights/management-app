@@ -273,3 +273,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         starterFiles: starterCodeInfo?.starterFiles ?? [],
     }
 }
+
+/**
+ * Lives here rather than beside any one consumer: the study-code card and the files block it
+ * renders both take the whole hook return, and importing the type from either of them would
+ * close a cycle between the two.
+ */
+export type StudyCodeIDE = ReturnType<typeof useIDEFiles>

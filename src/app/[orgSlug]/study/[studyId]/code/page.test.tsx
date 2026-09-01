@@ -38,7 +38,7 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
+        expect(screen.getByText('STEP 3')).toBeInTheDocument()
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
         expect(previousLink).toHaveAttribute('href', expect.stringContaining('/edit'))

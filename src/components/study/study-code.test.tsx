@@ -69,7 +69,7 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
+    renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
     return { study, previousHref }
 }
@@ -258,16 +258,65 @@ describe('StudyCode component', () => {
         expect(screen.queryByText('OR')).not.toBeInTheDocument()
     })
 
-    it('renders the page chrome and previous link', async () => {
+    it('renders the previous link', async () => {
         const { previousHref } = await renderIDE()
-
-        await waitFor(() => {
-            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
-            expect(screen.getByText('Study code')).toBeInTheDocument()
-        })
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
         expect(previousLink).toHaveAttribute('href', previousHref)
+    })
+
+    describe('section header (OTTER-693)', () => {
+        it('reuses the shared section header component', async () => {
+            await renderIDE()
+
+            // ProposalStepHeader's own test id. A re-implementation of the same eyebrow/title
+            // markup would not carry it, and there is a live one of those in
+            // view/code-post-submission-view.tsx, so this is what pins reuse.
+            expect(await screen.findByTestId('proposal-section-header')).toBeInTheDocument()
+        })
+
+        it('renders STEP 3 as the step indicator', async () => {
+            await renderIDE()
+            const header = await screen.findByTestId('proposal-section-header')
+
+            // Exact string, not a substring: the "STEP 4 of 4" this replaced would satisfy a
+            // loose match against "STEP 3" once the number changed.
+            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+        })
+
+        it('renders "Submit code" as the section title', async () => {
+            await renderIDE()
+
+            // By role: the footer button and the confirmation modal CTA share this label.
+            expect(await screen.findByRole('heading', { name: 'Submit code', level: 2 })).toBeInTheDocument()
+        })
+
+        it('does not display the study title as body text', async () => {
+            const { study } = await renderIDE()
+            const header = await screen.findByTestId('proposal-section-header')
+
+            // study.title is nullable on drafts; assert the seed gave us one so the absence
+            // check below is testing something.
+            const title = study.title ?? ''
+            expect(title).not.toBe('')
+
+            expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
+            expect(header).not.toHaveTextContent(title)
+        })
+
+        it('rules off the header above the page content', async () => {
+            await renderIDE()
+            const header = await screen.findByTestId('proposal-section-header')
+
+            // The 24px spacing either side of this rule is the card's "spacing lg / divider /
+            // spacing lg". It is not assertable here — Mantine compiles `my={24}` to
+            // `calc(1.5rem * var(--mantine-scale))` and jsdom loads no stylesheet, so a
+            // toHaveStyle check would pin a Mantine internal rather than measure 24px. The
+            // spacing is owned by ProposalStepHeader and covered by its own test; what this
+            // asserts is that the reused header is what draws the rule, and that the card has
+            // content below it rather than being an empty stub.
+            expect(within(header).getByTestId('proposal-header-divider')).toBeInTheDocument()
+        })
     })
 
     describe('starter code', () => {
@@ -285,7 +334,7 @@ describe('StudyCode component', () => {
                 await writeWorkspaceFiles(root, study.id, files)
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
-            renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
             return { study }
         }
 
@@ -341,9 +390,7 @@ describe('StudyCode component', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-            const { unmount } = renderWithProviders(
-                <StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />,
-            )
+            const { unmount } = renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
@@ -351,7 +398,7 @@ describe('StudyCode component', () => {
 
             unmount()
 
-            renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()

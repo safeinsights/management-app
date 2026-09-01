@@ -1,5 +1,5 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, vi } from '@/tests/unit.helpers'
-import type { StudyCodeIDE } from './study-code-panel'
+import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { StudyCodePanel } from './study-code-panel'
 
 const sampleFiles = [
@@ -42,6 +42,8 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
     }
 }
 
+// Sole consumer since OTTER-693 moved the Submit code page onto ProposalStepHeader: the /resubmit
+// editor. These are also the only guard on the files body and action buttons the two screens share.
 describe('StudyCodePanel', () => {
     it('renders IDE and upload buttons in review state', () => {
         const ide = createMockIde()

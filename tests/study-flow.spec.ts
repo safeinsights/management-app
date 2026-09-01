@@ -156,6 +156,9 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await page.getByRole('link', { name: /Proceed to step 3/i }).click()
     await page.waitForURL(/\/code$/)
+    // Render signal, not just a URL signal: the callers below immediately reach for controls
+    // inside the card. Role-scoped because the footer button shares the label.
+    await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
 }
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {

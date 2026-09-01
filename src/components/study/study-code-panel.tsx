@@ -1,15 +1,8 @@
-import { useRef, type ReactNode } from 'react'
-import { Divider, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
-import { useIDEFiles } from '@/hooks/use-ide-files'
+import { useRef, type FC, type ReactNode } from 'react'
+import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
-import { InfoTooltip } from '@/components/tooltip'
-import { LaunchIdeButton } from './launch-ide-button'
-import { LaunchProgress } from './launch-progress'
-import { StudyCodeEmptyView } from './study-code-empty-view'
-import { StudyCodeReviewView } from './study-code-review-view'
-import { UploadFilesButton } from './upload-files-button'
-
-export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
+import type { StudyCodeIDE } from '@/hooks/use-ide-files'
+import { isFilesReviewState, StudyCodeFileActions, StudyCodeFilesBody } from './study-code-files'
 
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
@@ -20,6 +13,22 @@ interface StudyCodePanelProps {
     showLaunchIde?: boolean
 }
 
+const PanelStepLabel: FC<{ stepLabel?: string }> = ({ stepLabel }) => {
+    if (!stepLabel) return null
+
+    return (
+        <Text fz="sm" fw={700} c="gray.7">
+            {stepLabel}
+        </Text>
+    )
+}
+
+/**
+ * The pre-OTTER-693 single-card code screen. Sole consumer is now the /resubmit editor
+ * (EditStudyCodeView): the Submit code page moved onto ProposalStepHeader + StudyCodeFilesSection,
+ * and /resubmit keeps this layout until its own redesign lands. The files body and the action
+ * buttons are shared with that card, so behaviour cannot drift between the two screens.
+ */
 export const StudyCodePanel = ({
     ide,
     stepLabel,
@@ -29,80 +38,13 @@ export const StudyCodePanel = ({
     showLaunchIde = true,
 }: StudyCodePanelProps) => {
     const openRef = useRef<() => void>(null)
-    const isReviewState = !ide.isLoadingFiles && !ide.showEmptyState
-
-    let body: ReactNode
-    if (ide.isLoadingFiles) {
-        body = <Skeleton height={240} radius="md" />
-    } else if (ide.showEmptyState) {
-        body = (
-            <StudyCodeEmptyView
-                launchWorkspace={ide.launchWorkspace}
-                isLaunching={ide.isLaunching}
-                launchError={ide.launchError}
-                launchLastUpdatedAt={ide.launchLastUpdatedAt}
-                launchBuildLog={ide.launchBuildLog}
-                launchAgentLog={ide.launchAgentLog}
-                uploadFiles={ide.uploadFiles}
-                isUploading={ide.isUploading}
-                starterFiles={ide.starterFiles}
-                showLaunchIde={showLaunchIde}
-            />
-        )
-    } else {
-        body = (
-            <Stack gap="md">
-                <LaunchProgress
-                    isVisible={ide.isLaunching}
-                    buildLog={ide.launchBuildLog}
-                    agentLog={ide.launchAgentLog}
-                    lastUpdatedAt={ide.launchLastUpdatedAt}
-                />
-                <StudyCodeReviewView
-                    uploadFiles={ide.uploadFiles}
-                    isUploading={ide.isUploading}
-                    files={ide.fileDetails}
-                    mainFile={ide.mainFile}
-                    setMainFile={ide.setMainFile}
-                    removeFile={ide.removeFile}
-                    viewFile={ide.viewFile}
-                    jobCreatedAt={ide.jobCreatedAt}
-                    openRef={openRef}
-                />
-            </Stack>
-        )
-    }
-
-    const reviewButtons = isReviewState ? (
-        <Group wrap="nowrap">
-            {showLaunchIde && (
-                <InfoTooltip
-                    label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
-                    withArrow
-                    multiline
-                    w={320}
-                >
-                    <LaunchIdeButton
-                        onClick={(event) => ide.launchWorkspace({ sameWindow: event.shiftKey })}
-                        isLaunching={ide.isLaunching}
-                        launchError={ide.launchError}
-                        variant="outline"
-                    />
-                </InfoTooltip>
-            )}
-            <UploadFilesButton openRef={openRef} disabled={ide.isUploading} />
-        </Group>
-    ) : null
+    const isReviewState = isFilesReviewState(ide)
 
     return (
         <>
             <Paper p="xl">
                 <Stack gap="xs">
-                    {stepLabel && (
-                        <Text fz="sm" fw={700} c="gray.7">
-                            {stepLabel}
-                        </Text>
-                    )}
+                    <PanelStepLabel stepLabel={stepLabel} />
                     <Title order={2} size="h4">
                         {heading}
                     </Title>
@@ -111,11 +53,16 @@ export const StudyCodePanel = ({
                         <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>
                             Title: {studyTitle ?? 'Untitled draft'}
                         </Text>
-                        {reviewButtons}
+                        <StudyCodeFileActions
+                            isVisible={isReviewState}
+                            ide={ide}
+                            showLaunchIde={showLaunchIde}
+                            openRef={openRef}
+                        />
                     </Group>
                 </Stack>
                 <Divider my="lg" />
-                {body}
+                <StudyCodeFilesBody ide={ide} showLaunchIde={showLaunchIde} openRef={openRef} />
             </Paper>
 
             {footer}

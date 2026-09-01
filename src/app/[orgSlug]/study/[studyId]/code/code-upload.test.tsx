@@ -47,14 +47,7 @@ const setupStudy = async (orgSlug = 'openstax') => {
 
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
-    renderWithProviders(
-        <CodeUploadPage
-            orgSlug={orgSlug}
-            studyId={study.id}
-            studyTitle={study.title}
-            previousHref={'/test' as Route}
-        />,
-    )
+    renderWithProviders(<CodeUploadPage orgSlug={orgSlug} studyId={study.id} previousHref={'/test' as Route} />)
     return { study }
 }
 
@@ -90,8 +83,9 @@ describe('CodeUploadPage', () => {
         await renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
-            expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(screen.getByText('STEP 3')).toBeInTheDocument()
+            // By role: the footer button and the confirmation modal CTA share this label.
+            expect(screen.getByRole('heading', { name: 'Submit code', level: 2 })).toBeInTheDocument()
             expect(screen.getByText(/write and test your code in ide/i)).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
         })
@@ -126,14 +120,7 @@ describe('CodeUploadPage', () => {
             'helper.r': 'print("helper")',
         })
 
-        renderWithProviders(
-            <CodeUploadPage
-                orgSlug="openstax"
-                studyId={study.id}
-                studyTitle={study.title}
-                previousHref={'/test' as Route}
-            />,
-        )
+        renderWithProviders(<CodeUploadPage orgSlug="openstax" studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
             expect(screen.getAllByText('main.r').length).toBeGreaterThan(0)
@@ -177,14 +164,7 @@ describe('CodeUploadPage', () => {
             'main.r': 'print("main")',
         })
 
-        renderWithProviders(
-            <CodeUploadPage
-                orgSlug={orgSlug}
-                studyId={study.id}
-                studyTitle={study.title}
-                previousHref={'/test' as Route}
-            />,
-        )
+        renderWithProviders(<CodeUploadPage orgSlug={orgSlug} studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
@@ -214,14 +194,7 @@ describe('CodeUploadPage', () => {
             'main.R': 'print("main")',
         })
 
-        renderWithProviders(
-            <CodeUploadPage
-                orgSlug="openstax"
-                studyId={study.id}
-                studyTitle={study.title}
-                previousHref={'/test' as Route}
-            />,
-        )
+        renderWithProviders(<CodeUploadPage orgSlug="openstax" studyId={study.id} previousHref={'/test' as Route} />)
 
         await waitFor(() => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
