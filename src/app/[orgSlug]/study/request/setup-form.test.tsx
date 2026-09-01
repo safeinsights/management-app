@@ -139,6 +139,16 @@ describe('Set Up page copy', () => {
         expect(screen.getByText(PARTNER_DESCRIPTION)).toBeInTheDocument()
     })
 
+    it('renders no placeholder text in either input', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        // Asserted on the controls themselves: a queryByPlaceholderText miss would also pass if the
+        // field had disappeared entirely.
+        expect(titleInput()).toHaveAttribute('placeholder', '')
+        await waitFor(() => expect(screen.getByTestId('org-select')).toHaveAttribute('placeholder', ''))
+    })
+
     it('capitalizes both words of the Data Partner label', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
