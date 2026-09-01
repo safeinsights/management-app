@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Box, Group, Radio, Stack, Text } from '@mantine/core'
+import { Box, Radio, Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
@@ -59,9 +59,9 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     let helperText: string
 
     if (isSingleLanguage) {
-        helperText = `At the present ${orgName} only supports ${languages[0].label}. Code files submitted in other languages will not be able to run.`
+        helperText = `At present, ${orgName} only supports ${languages[0].label}.`
     } else {
-        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to set up the right environment for you.`
+        helperText = `${orgName} will use the language you select to set up the right environment for you.`
     }
 
     useEffect(() => {
@@ -120,7 +120,9 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     } else if (languages.length > 0) {
         body = (
             <>
-                <Text id={HELPER_ID}>{helperText}</Text>
+                <Text id={HELPER_ID} size="xs" c="dimmed">
+                    {helperText}
+                </Text>
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
@@ -137,7 +139,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     onChange={(value) => form.setFieldValue('language', value as Language)}
                     {...widgetBlur}
                 >
-                    <Group gap="xl">{languageRadios}</Group>
+                    {/* Stacked, not a row: the multi-language design lists the options vertically. */}
+                    <Stack gap="xs">{languageRadios}</Stack>
                 </Radio.Group>
                 <ErrorLine error={error} />
             </>

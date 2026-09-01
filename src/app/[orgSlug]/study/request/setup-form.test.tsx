@@ -363,9 +363,7 @@ describe('Data Partner and programming language fields', () => {
         await selectPartner(user, fixtures.singleLanguagePartner.name)
 
         expect(
-            await screen.findByText(
-                `At the present ${fixtures.singleLanguagePartner.name} only supports R. Code files submitted in other languages will not be able to run.`,
-            ),
+            await screen.findByText(`At present, ${fixtures.singleLanguagePartner.name} only supports R.`),
         ).toBeInTheDocument()
     })
 
@@ -378,7 +376,7 @@ describe('Data Partner and programming language fields', () => {
 
         expect(
             await screen.findByText(
-                `Indicate the programming language that you will use in your data analysis. ${fixtures.multiLanguagePartner.name} will use this to set up the right environment for you.`,
+                `${fixtures.multiLanguagePartner.name} will use the language you select to set up the right environment for you.`,
             ),
         ).toBeInTheDocument()
     })
