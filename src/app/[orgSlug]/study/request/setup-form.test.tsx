@@ -163,12 +163,72 @@ describe('Set Up page section header', () => {
 
         expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
     })
+})
 
-    it('leaves the existing page heading alone', async () => {
+describe('Set Up page header', () => {
+    it('names the study Untitled before the row exists', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
 
-        expect(screen.getByRole('heading', { name: 'Request data use', level: 1 })).toBeInTheDocument()
+        expect(screen.getByText('Untitled')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Untitled study', level: 1 })).toBeInTheDocument()
+    })
+
+    it('mirrors the title into the heading as it is typed', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await user.type(titleInput(), 'Highlighting and recall')
+
+        expect(screen.getByRole('heading', { name: 'Highlighting and recall', level: 1 })).toBeInTheDocument()
+    })
+
+    it('names the research lab once the study is persisted', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures, {
+            studyId: faker.string.uuid(),
+            draftData: {
+                id: faker.string.uuid(),
+                orgSlug: fixtures.singleLanguagePartner.slug,
+                language: 'R',
+                status: 'DRAFT',
+                title: 'A saved title',
+                submittingLabName: 'Genius Lab',
+            },
+        })
+
+        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'A saved title', level: 1 })).toBeInTheDocument()
+    })
+
+    it('keeps the research lab after a submission, never reverting to Untitled', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures, {
+            studyId: faker.string.uuid(),
+            draftData: submittedDraft(fixtures, { submittingLabName: 'Genius Lab' }),
+        })
+
+        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+    })
+
+    it('falls back to the lab slug when no lab name was passed', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures, {
+            studyId: faker.string.uuid(),
+            draftData: submittedDraft(fixtures),
+        })
+
+        expect(screen.getByText(fixtures.lab.slug)).toBeInTheDocument()
+    })
+
+    it('renders exactly one level-1 heading', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 })
 

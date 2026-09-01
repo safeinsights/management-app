@@ -54,6 +54,7 @@ export default async function StudyEditPage(props: {
                 status: study.status,
                 orgSlug: study.orgSlug,
                 orgName: study.orgName,
+                submittingLabName: study.submittingLabName ?? study.submittedByOrgSlug,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,
                 agreementDocPath: study.agreementDocPath,

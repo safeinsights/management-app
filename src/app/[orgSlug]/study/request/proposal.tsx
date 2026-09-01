@@ -10,7 +10,8 @@ import { useStudyRequest } from '@/contexts/study-request'
 import { SetupForm } from './setup-form'
 import { useSetupForm, type SetupFormLocks } from './use-setup-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
-import { StudyRequestPageHeader } from './page-header'
+import { PageHeader } from '@/components/page-header'
+import { displayOrgName } from '@/lib/string'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
@@ -119,6 +120,13 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     const lockedLanguageLabel = draftData?.language ? languageLabels[draftData.language] : undefined
 
+    // Until the row exists there is no lab to name, so the eyebrow says so; every later visit
+    // arrives with a studyId and names the lab (OTTER-619). The heading mirrors the live field, so
+    // it keeps up with the title as it is typed.
+    const eyebrow =
+        navMode === 'create' ? 'Untitled' : displayOrgName(draftData?.submittingLabName ?? submittingOrgSlug)
+    const headingTitle = titleValue.trim() || 'Untitled study'
+
     // "Discard study" belongs to the state where no row exists yet, when leaving really does make the
     // study never have existed. Once it is persisted, deleting it belongs to the dashboard.
     const onCancel = navMode === 'create' ? handleCancel : undefined
@@ -126,7 +134,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader />
+            <PageHeader eyebrow={eyebrow} title={headingTitle} />
             <SetupForm
                 form={form}
                 titleValue={titleValue}
