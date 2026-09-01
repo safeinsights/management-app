@@ -34,7 +34,6 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                 throw new Error('Verification failed')
             }
 
-            // activate the session verified by backup code
             await setActive?.({ session: result.createdSessionId })
         },
         onSuccess: async () => {
@@ -78,8 +77,8 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         placeholder="Each code can only be used once"
                         key={form.key('code')}
                         {...form.getInputProps('code')}
-                        // Handed to Mantine rather than rendered beside a suppressed error, so the
-                        // message lands in the input's `aria-describedby` instead of being visual only.
+                        // Handed to Mantine so the message lands in `aria-describedby` rather than
+                        // being visual only.
                         error={form.errors.code ? <InputError error={form.errors.code} /> : undefined}
                         autoComplete="one-time-code"
                     />

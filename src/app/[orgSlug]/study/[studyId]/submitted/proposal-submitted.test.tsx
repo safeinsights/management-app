@@ -34,11 +34,8 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
 
 describe('ProposalSubmitted', () => {
     let study: Submitted<SelectedStudy>
-    // These tests use `study` as a read-only base (each spreads it into a render); they
-    // never mutate the DB row. So seed the org/user/study ONCE in beforeAll (it lives in
-    // the outer transaction and survives per-test rollback) instead of paying the seed +
-    // insert per test. Only the Clerk mocks — cleared by mockReset between tests — are
-    // re-applied per test.
+    // Seeded once in beforeAll: the row lives in the outer transaction and survives per-test
+    // rollback. Only the Clerk mocks, which mockReset clears, are re-applied per test.
     let mockArgs: Parameters<typeof mockClerkSession>[0]
 
     beforeAll(async () => {
@@ -440,8 +437,6 @@ describe('ProposalSubmitted', () => {
             expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        // OTTER-727 hid Agreements, so Proceed now links straight to the code step. The fixture study
-        // has a JOB-READY job (no code submitted yet), so that is the upload page.
         it('shows a "Proceed to step 3" button linking to the code step when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(

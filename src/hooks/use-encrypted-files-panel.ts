@@ -12,9 +12,7 @@ import type { FileType } from '@/database/types'
 type Options = {
     job: LatestJobForStudy
     onFilesApproved: (files: JobFileInfo[]) => void
-    // Reviewers are manifest recipients and see every artifact (and a job-wide "shared with lab"
-    // indicator). Researchers see only artifacts they hold a wrapped key for, so row visibility and
-    // state are driven off their own decryptable set, not the job-wide one.
+    // Reviewers see every artifact; researchers see only ones they hold a wrapped key for.
     isReviewer: boolean
 }
 
@@ -36,15 +34,14 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
 
     const isJobApproved = (job.statusChanges ?? []).some((sc) => sc.status === 'FILES-APPROVED')
 
-    // Which artifacts are shared with researchers, derived from the re-wrapped key rows.
     const { data: sharedFileIds = [] } = useQuery({
         queryKey: ['shared-file-ids', job.id],
         queryFn: () => fetchSharedFileIdsAction({ jobId: job.id }),
         enabled: isJobApproved,
     })
 
-    // The role is part of the key: the action returns a different key set per role, so a dual-role
-    // user switching between the review and researcher views must not be served the other's cache.
+    // Part of the query key: the action returns a different key set per role, and a dual-role user
+    // must not be served the other role's cache.
     const fetchAs = isReviewer ? 'reviewer' : 'researcher'
 
     const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
@@ -69,16 +66,12 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         onSuccess: (files) => setDecryptedFiles(files),
     })
 
-    // All-or-nothing: approving shares the whole decrypted package (results AND logs). Each
-    // artifact carries its own rawAesKey, so buildSharedFiles re-wraps each for the lab keys.
     useEffect(() => {
         onFilesApproved(decryptedFiles)
     }, [decryptedFiles]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const encryptedRows = useMemo(() => (job.files ?? []).filter((f) => isEncryptedArtifact(f.fileType)), [job.files])
 
-    // A researcher's accessible set = artifacts they hold a wrapped key for (what the action
-    // returns). Reviewers can decrypt every artifact, so theirs is all encrypted rows.
     const accessibleIdSet = useMemo(
         () => new Set((encryptedFiles ?? []).map((f) => f.studyJobFileId)),
         [encryptedFiles],
@@ -88,17 +81,15 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         [isReviewer, encryptedRows, accessibleIdSet],
     )
 
-    // Gate the decrypt form on what THIS user can actually decrypt: a researcher with no wrapped
-    // keys (e.g. late joiner, pre-renewal) has nothing to decrypt, so don't show a form to nowhere.
+    // Gated on what this user can decrypt, so a researcher holding no wrapped keys is not shown a
+    // form that leads nowhere.
     const accessibleCount = isReviewer ? encryptedRows.length : (encryptedFiles?.length ?? 0)
     const shouldShowForm = accessibleCount > 0 && decryptedFiles.length === 0
 
     const sharedIdSet = useMemo(() => new Set(sharedFileIds), [sharedFileIds])
 
-    // Before decryption: one locked row per encrypted artifact (size unknown until decrypted).
-    // After: one row per inner file, all sharing the artifact's row id (sourceId) that "shared" is
-    // keyed on. The green "shared" state is a reviewer-facing signal (job-wide sharedFileIds = "I've
-    // shared this with the lab"); a researcher only ever sees rows they can already decrypt.
+    // Before decryption one locked row per artifact; after, one row per inner file, all sharing the
+    // artifact's sourceId. The "shared" state is reviewer-facing only.
     const fileRows: UnifiedFileRow[] = useMemo(() => {
         if (decryptedFiles.length > 0) {
             return decryptedFiles.map((f) => ({

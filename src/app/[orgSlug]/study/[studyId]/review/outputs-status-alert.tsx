@@ -13,7 +13,6 @@ const DAY_MINUTES = 24 * 60
 
 const elapsedMinutes = (startedAtMs: number, nowMs: number) => Math.max(0, Math.floor((nowMs - startedAtMs) / 60_000))
 
-// relative ("5 minutes ago") within 24h
 export function formatElapsed(startedAtMs: number, nowMs: number): string {
     const totalMinutes = elapsedMinutes(startedAtMs, nowMs)
     const hours = Math.floor(totalMinutes / 60)
@@ -24,7 +23,6 @@ export function formatElapsed(startedAtMs: number, nowMs: number): string {
     return minutes === 0 ? hoursPart : `${hoursPart} and ${minutesPart}`
 }
 
-// absolute timestamp ("on Jul 20, 2026 at 10:00 AM") beyond 24h
 export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
     if (elapsedMinutes(startedAtMs, nowMs) < DAY_MINUTES) return `${formatElapsed(startedAtMs, nowMs)} ago`
     return `on ${dayjs(startedAtMs).format('MMM DD, YYYY [at] h:mm A')}`

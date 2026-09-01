@@ -13,8 +13,7 @@ import { captureException } from '@sentry/nextjs'
 import { useEffect, useState } from 'react'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 
-// Asking about one document at a time keeps the ack row, the rendered text and the ticked box a
-// single unit. Any others arrive on the refetch below.
+// One document at a time keeps the ack row, the rendered text and the ticked box a single unit.
 function useNextPendingLegalAcknowledgement() {
     const { session } = useSession()
     const queryClient = useQueryClient()
@@ -26,9 +25,8 @@ function useNextPendingLegalAcknowledgement() {
         enabled: Boolean(session),
     })
 
-    // An unreadable document leaves the gate open, which is the right call — the user can do nothing
-    // about it and the compliance artifact is the ack row, not the blocking. But a gate that has
-    // quietly stopped asking must not also be invisible to us.
+    // An unreadable document leaves the gate open, since the compliance artifact is the ack row
+    // rather than the blocking; report it so the silence is not also invisible to us.
     useEffect(() => {
         if (readError) captureException(readError)
     }, [readError])
@@ -46,28 +44,22 @@ function useNextPendingLegalAcknowledgement() {
 
     return {
         document,
-        // Consent is keyed to the version that was on screen rather than kept as a bare boolean. The
-        // query can refetch while the modal is open, so a document published mid-read would otherwise
-        // inherit a tick given to the one before it — and these rows are the compliance evidence.
+        // Keyed to the version on screen: the query can refetch while the modal is open, so a
+        // document published mid-read would otherwise inherit the previous one's tick.
         isChecked: consentedVersionId === document?.versionId,
         setIsChecked: (checked: boolean) => setConsentedVersionId(checked ? (document?.versionId ?? null) : null),
         onContinue: () => {
             if (consentedVersionId) acknowledge(consentedVersionId)
         },
         isSubmitting: isPending,
-        // errorToString, not error.message: the wrapped useMutation throws an ActionFailure whose
-        // message is the JSON of its field errors, which is what the modal would otherwise display.
+        // errorToString, not error.message: the ActionFailure's message is the JSON of its
+        // field errors.
         error: error ? errorToString(error) : null,
     }
 }
 
-/**
- * App-wide gate: any user owing an acknowledgement is blocked until they give it.
- *
- * Mounted in AppShell rather than hooked to a login event, so it also catches a user who was already
- * signed in when a document was published and never logs in again. `/account/*` renders outside
- * AppShell, which keeps MFA enrolment and key setup unblocked without any per-route wiring.
- */
+// Mounted in AppShell rather than on login, so it catches users already signed in when a
+// document was published; `/account/*` renders outside it, keeping MFA and key setup unblocked.
 export const RequireLegalAcknowledgement = () => {
     const signOut = useSignOut()
     const { document, isChecked, setIsChecked, onContinue, isSubmitting, error } = useNextPendingLegalAcknowledgement()

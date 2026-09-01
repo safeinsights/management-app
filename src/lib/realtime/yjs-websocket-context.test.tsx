@@ -32,7 +32,6 @@ vi.mock('@/server/actions/editor.actions', () => ({
     getStudyStatusAction: vi.fn(() => Promise.resolve({ status: 'PENDING-REVIEW' })),
 }))
 
-// The mock class exposes its constructor spy at __ctor (see tests/vitest.setup.ts).
 const ctorSpy = (HocuspocusProviderWebsocket as unknown as { __ctor: Mock }).__ctor
 
 const Probe = ({ onSocket }: { onSocket: (socket: ReturnType<typeof useYjsWebsocket>) => void }) => {
@@ -83,8 +82,6 @@ describe('YjsWebsocketProvider', () => {
             </YjsWebsocketProvider>,
         )
 
-        // Module-scoped cache means a remount of the React provider tree does not
-        // open a second TCP connection within the same tab.
         expect(ctorSpy).toHaveBeenCalledTimes(1)
     })
 
@@ -140,12 +137,11 @@ describe('useConnectionPhase', () => {
         const phases: string[] = []
         mountWithThresholds((p) => phases.push(p))
         const socket = (HocuspocusProviderWebsocket as unknown as { __instances: FakeSocket[] }).__instances[0]
-        // Simulate the socket dropping after a successful connect.
         act(() => {
             socket.status = 'disconnected'
             socket.__emit('status', { status: 'disconnected' })
         })
-        // Below threshold — still connected from the user's POV (no flicker).
+        // Below threshold, so no flicker.
         act(() => {
             vi.advanceTimersByTime(99)
         })
@@ -188,7 +184,6 @@ describe('useConnectionPhase', () => {
         })
         expect(phases.at(-1)).toBe('connected')
 
-        // Timers were cleared, so advancing past the failure threshold doesn't flip back.
         act(() => {
             vi.advanceTimersByTime(1000)
         })
@@ -232,35 +227,20 @@ describe('review page multiplexing', () => {
             )
         }
 
-        // renderWithProviders mounts YjsWebsocketProvider; both the listener and the
-        // feedback editor consume the same singleton, so we expect a single TCP
-        // connection even though the page has two separate Yjs documents in flight.
         renderWithProviders(<FeedbackHarness />)
 
         expect(ctorSpy).toHaveBeenCalledTimes(1)
     })
 })
 
-// Regression: see Bug 1 in the original report. ReviewSubmissionListener used
-// to construct its own HocuspocusProvider for `review-feedback-${studyId}`,
-// colliding with the editor's provider in HocuspocusProviderWebsocket.providerMap
-// (the second `attach()` overwrites the first by name). The fix routes the
-// listener through ReviewFeedbackProviderShare so it consumes the editor's
-// provider instead of constructing a second one.
-//
-// These tests exercise the publish/subscribe contract directly rather than the
-// full review page mount — `next/dynamic`-loaded CollaborativeEditor + Lexical's
-// own provider-factory effect don't reliably run inside a unit-test microtask
-// window, so we test the seam the listener actually depends on.
+// Exercises the publish/subscribe seam directly, as the dynamic-loaded editor does not mount
+// reliably in a unit test.
 describe('ReviewFeedbackProviderShare', () => {
     it('subscribers receive the provider that the editor publishes', async () => {
         const ReviewFeedbackProviderShareModule = await import('@/lib/realtime/review-feedback-provider-context')
         const { ReviewFeedbackProviderShare, usePublishReviewFeedbackProvider, useReviewFeedbackProvider } =
             ReviewFeedbackProviderShareModule
 
-        // Stand-in HocuspocusProvider — using the FakeHocuspocusProvider class would
-        // require importing it through the mocked module, but we only care about
-        // identity here, so a plain object is sufficient.
         const fakeProvider = { id: 'editor-provider' } as unknown as HocuspocusProvider
 
         let received: HocuspocusProvider | null = null
@@ -401,8 +381,7 @@ describe('ReviewFeedbackProviderShare', () => {
             return null
         }
 
-        // React logs caught errors to console.error during render — silence to keep
-        // test output clean; we're asserting on the thrown value, not the log.
+        // React logs caught render errors to console.error; silenced to keep output clean.
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
         try {
             expect(() => render(<PublishProbe />)).toThrow(/ReviewFeedbackProviderShare missing/)
@@ -423,11 +402,8 @@ describe('bfcache restore', () => {
         __resetSharedYjsWebsocketForTests()
     })
 
-    // Regression: see Bug 2 in the original report. `pagehide` destroys the
-    // singleton; without a matching `pageshow` handler, React state retained
-    // the destroyed reference and editors went silently dead after a back-button
-    // bfcache restore. The fix is a `pageshow` handler that re-creates the
-    // singleton and notifies live providers via socketSubscribers.
+    // `pagehide` destroys the singleton, so without a `pageshow` handler React state keeps the
+    // destroyed reference and editors go silently dead after a bfcache restore.
     it('re-creates the singleton and updates consumers when the page is restored from bfcache', () => {
         const sockets: Array<ReturnType<typeof useYjsWebsocket>> = []
         render(
@@ -439,19 +415,15 @@ describe('bfcache restore', () => {
         expect(initial).not.toBeNull()
         expect(ctorSpy).toHaveBeenCalledTimes(1)
 
-        // Simulate the browser's bfcache: pagehide destroys, pageshow with
-        // persisted=true must re-create.
         act(() => {
             window.dispatchEvent(new Event('pagehide'))
         })
         act(() => {
-            // PageTransitionEvent isn't available in jsdom by default; fake it.
+            // PageTransitionEvent isn't available in jsdom.
             const event = Object.assign(new Event('pageshow'), { persisted: true })
             window.dispatchEvent(event)
         })
 
-        // A new HocuspocusProviderWebsocket was constructed, AND the consumer's
-        // useState now points at it (rather than the destroyed original).
         expect(ctorSpy).toHaveBeenCalledTimes(2)
         const restored = sockets.at(-1)
         expect(restored).not.toBe(initial)

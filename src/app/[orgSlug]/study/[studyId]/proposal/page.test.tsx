@@ -24,13 +24,8 @@ beforeEach(() => {
 const renderRoute = (orgSlug: string, studyId: string) =>
     StudyProposalRoute({ params: Promise.resolve({ orgSlug, studyId }) })
 
-/**
- * Guards the redirect that lets everything downstream stop branching on status (OTTER-690).
- *
- * ProposalProvider passes a reduced collaborative key set, the DRAFT resolver and `titleMode:
- * 'omit'` unconditionally, all of which are wrong for a CHANGE-REQUESTED study. They are safe
- * only because this route never serves one. If this test goes, so does that guarantee.
- */
+// ProposalProvider unconditionally passes the DRAFT resolver and `titleMode: 'omit'`, which are
+// wrong for a CHANGE-REQUESTED study and safe only because of this redirect (OTTER-690).
 describe('StudyProposalRoute status routing', () => {
     it('renders the Step 2 editor for a DRAFT', async () => {
         const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-draft' })
@@ -49,9 +44,7 @@ describe('StudyProposalRoute status routing', () => {
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyEditAndResubmit({ orgSlug: lab.slug, studyId }))
     })
 
-    // A draft predating OTTER-690 can have a NULL title, and this page has no field to set one.
-    // Step 1 owns the title and stays revisitable, so it is the only place the draft can be made
-    // submittable again.
+    // This page has no title field, so a NULL-titled draft can only be fixed on Step 1.
     it('sends a DRAFT with no title back to Step 1', async () => {
         const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-untitled' })
         await db.updateTable('study').set({ title: null }).where('id', '=', studyId).execute()
@@ -61,9 +54,8 @@ describe('StudyProposalRoute status routing', () => {
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyEdit({ orgSlug: lab.slug, studyId }))
     })
 
-    // Same dead end as a NULL title, and the one the OTTER-737 cap introduced: a draft created
-    // before the cap can hold a 70-character title that Step 2 cannot show, let alone shorten, so
-    // finalizeStudySubmissionAction would reject the submit against a field that is not on the page.
+    // A draft predating the OTTER-737 cap can hold an over-long title Step 2 cannot shorten, so
+    // the submit would be rejected against a field that is not on the page.
     it('sends a DRAFT whose stored title is over the cap back to Step 1', async () => {
         const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-long-title' })
         await db

@@ -2,8 +2,7 @@ import { db as defaultDb, jsonArrayFrom, type DBExecutor } from '@/database'
 import type { RawStudyState } from '@/lib/study-screen'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 
-// Accepts an optional executor (mirrors codeSubmissionVersion) so a mutation action can run this gate
-// on its own handler transaction rather than the module singleton. Pages call it with the default.
+// The optional executor lets a mutation action run this gate on its own handler transaction.
 export async function rawStudyStateForStudy(
     studyId: string,
     db: DBExecutor = defaultDb,
@@ -19,7 +18,6 @@ export async function rawStudyStateForStudy(
             'study.reviewerAgreementsAckedAt',
             'study.proposalResubmissionNoteDraft',
             'study.codeResubmissionNoteDraft',
-            // Step 2 fields → hasStep2Progress (OTTER-572 draft resume).
             'study.piUserId',
             'study.datasets',
             'study.researchQuestions',
@@ -33,8 +31,7 @@ export async function rawStudyStateForStudy(
                 eb
                     .selectFrom('studyJob')
                     .whereRef('studyJob.studyId', '=', 'study.id')
-                    // jobs ordered by id desc for stable output; correctness does NOT depend on order
-                    // (projectStudyState re-selects the latest job by max(id)).
+                    // Ordered for stable output only; projectStudyState re-selects by max(id).
                     .orderBy('studyJob.id', 'desc')
                     .select(['studyJob.id'])
                     .select((j) => [
@@ -42,8 +39,7 @@ export async function rawStudyStateForStudy(
                             j
                                 .selectFrom('jobStatusChange')
                                 .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                                // createdAt is display-only (dates the outputs-feedback banner);
-                                // the projection itself never reads it.
+                                // createdAt is display-only; the projection never reads it.
                                 .select(['jobStatusChange.status', 'jobStatusChange.createdAt']),
                         ).as('statusChanges'),
                     ]),

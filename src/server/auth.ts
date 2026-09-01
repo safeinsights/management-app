@@ -2,10 +2,8 @@ import { sessionFromClerk } from '@/server/clerk'
 import { toRecord } from '@/lib/permissions'
 import type { StudyStatus } from '@/database/types'
 
-// `status` gates the reviewer (enclave/Data Organization) path only — unsubmitted drafts are private
-// to the submitting Research Lab (OTTER-596). The lab path (submittedByOrgId) is intentionally
-// status-agnostic so a lab keeps access to its own drafts. Guards the direct download routes
-// (study-code, study-documents, results) against a DO fetching a draft by known id.
+// `status` gates the reviewer path only: unsubmitted drafts are private to the submitting lab,
+// whose own path stays status-agnostic (OTTER-596).
 export async function canViewStudyResults(study: { orgId: string; submittedByOrgId: string; status: StudyStatus }) {
     const session = await sessionFromClerk()
 

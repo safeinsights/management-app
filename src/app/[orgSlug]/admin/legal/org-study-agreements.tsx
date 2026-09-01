@@ -19,10 +19,10 @@ import { useMemo, useState } from 'react'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-// The action returns rows unordered, so this alone decides what an admin sees first.
+// The action returns rows unordered, so this decides what an admin sees first.
 const DEFAULT_SORT: DataTableSortStatus<StudyAgreement> = { columnAccessor: 'signedAt', direction: 'desc' }
 
-// Stable identity so the sort memo is not invalidated on every render while the query is loading.
+// Stable identity so the sort memo survives renders while the query is loading.
 const EMPTY_ROWS: StudyAgreement[] = []
 
 const AgreementLink: FC<{ agreement: StudyAgreement }> = ({ agreement }) => {
@@ -40,8 +40,7 @@ const AgreementLink: FC<{ agreement: StudyAgreement }> = ({ agreement }) => {
     )
 }
 
-// The counterparty column is unsortable: it names the same org on most rows, so ordering by it
-// says nothing.
+// The counterparty column is unsortable: it names the same org on most rows.
 const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID', sortable: true },
     { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
@@ -55,23 +54,22 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
     { accessor: 'downloadUrl', title: 'View', render: (agreement) => <AgreementLink agreement={agreement} /> },
 ]
 
-// One value per sortable column, so the sort orders rows by exactly what the column displays.
 const sortValues: Record<string, (row: StudyAgreement) => string> = {
     studyId: (row) => row.studyId,
     studyTitle: studyAgreementDisplayTitle,
     signedAt: (row) => row.signedAt ?? '',
 }
 
-// Unsigned studies stay at the bottom whichever way the column is pointed: sorting by a date asks
-// for the rows that have one. signedAt is YYYY-MM-DD, so it sorts chronologically as text.
+// Unsigned studies stay at the bottom whichever way the column points. signedAt is YYYY-MM-DD,
+// so it sorts chronologically as text.
 const sortAgreements = (rows: StudyAgreement[], { columnAccessor, direction }: DataTableSortStatus<StudyAgreement>) => {
     const flip = direction === 'asc' ? 1 : -1
     const valueOf = sortValues[columnAccessor as string] ?? (() => '')
 
     return [...rows].sort((a, b) => {
         if (columnAccessor === 'signedAt' && (!a.signedAt || !b.signedAt)) {
-            // Only separates signed from unsigned. Two unsigned rows fall through to the title,
-            // since returning 0 would leave them in whatever order the planner produced.
+            // Two unsigned rows fall through to the title; returning 0 would leave them in
+            // whatever order the planner produced.
             const bySignedPresence = Number(Boolean(b.signedAt)) - Number(Boolean(a.signedAt))
             if (bySignedPresence !== 0) return bySignedPresence
         } else {
@@ -106,8 +104,8 @@ const useOrgStudyAgreements = (orgSlug: string) => {
     return { records, isLoading, isError, error, sortStatus, setSortStatus }
 }
 
-// A refused read must not fall through to the table, where it is indistinguishable from an org with
-// no agreements yet.
+// A refused read must not fall through to the table, where it looks like an org with no
+// agreements yet.
 const StudyAgreementsTable: FC<{ orgSlug: string; counterpartyLabel: string }> = ({ orgSlug, counterpartyLabel }) => {
     const { records, isLoading, isError, error, sortStatus, setSortStatus } = useOrgStudyAgreements(orgSlug)
 

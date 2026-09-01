@@ -13,33 +13,19 @@ type GuardSuccess = {
     entries: OutputsFeedbackThreadEntry[]
     feedbackLoadError: boolean
     dataPartner: string
-    /** When the reviewer submitted the decision. Display-only, so null degrades to an undated banner. */
     decidedAt: Date | string | null
 }
 
 type GuardOptions = {
     study: SelectedStudy
     raw: RawStudyState
-    /** This screen's routing rule, re-checked here so rendering cannot disagree with the rule table. */
+    // Re-checked here so rendering cannot disagree with the rule table.
     matches: (state: StudyState) => boolean
-    /** Copy for the alert shown when the study is not in this screen's state at all. */
     notFound: { title: string; message: string }
-    /** Which FILES-* status dates this screen's banner. */
     decisionStatus: StudyJobStatus
 }
 
-/**
- * The shared guard-and-load scaffold for the researcher's post-decision outputs screens
- * (OTTER-695 feedback-only, OTTER-696 errored-and-shared). They differ only in the routing
- * predicate, the not-found copy and which decision status dates the banner — everything else,
- * including the order of guards, was duplicated between them until the OTTER-696 review.
- *
- * The predicate runs first: `raw` is already in hand, so the check is free and cannot disagree
- * with the rule table. Only then do the narrowing lookups that cost I/O.
- *
- * Returns the loaded data on success, or a ReactElement alert on any of the three failure paths.
- * Callers discriminate with `!('job' in result)`, matching guardExecutionStage.
- */
+// Returns loaded data or a ReactElement alert; callers discriminate with `!('job' in result)`.
 export async function guardOutputsFeedbackScreen({
     study,
     raw,
@@ -54,8 +40,7 @@ export async function guardOutputsFeedbackScreen({
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
 
-    // The banner date comes from the SAME raw job the routing guard decided on — no second
-    // latest-job query whose definition could drift from the projection's (OTTER-695 review).
+    // Same raw job the routing guard decided on, so no second query can drift from it.
     const job = latestJob(raw.jobs)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />

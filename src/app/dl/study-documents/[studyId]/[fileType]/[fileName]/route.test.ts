@@ -3,8 +3,7 @@ import * as apiHandler from './route'
 import { urlForStudyDocumentFile } from '@/server/storage'
 import { createTestProposalDraft, mockSessionWithTestData, setTestStudyStatus } from '@/tests/unit.helpers'
 
-// The route only reads the DB row for auth; stub the signed-URL helper so the redirect case doesn't
-// need S3.
+// The route only reads the DB row for auth; stub the signed-URL helper so no S3 is needed.
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
     return { ...actual, urlForStudyDocumentFile: vi.fn(async () => 'https://signed.example/description.pdf') }

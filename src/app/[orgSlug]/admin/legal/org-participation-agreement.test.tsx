@@ -11,8 +11,8 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations, not mockResolvedValue: mockReset restores these but wipes a value set
+        // afterwards.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
@@ -67,8 +67,8 @@ describe('OrgParticipationAgreement', () => {
 
         renderWithProviders(<OrgParticipationAgreement orgSlug={org.slug} type="ROPA" />)
 
-        // Wait on the date, not the heading: the heading comes from the prop and is on screen while
-        // the query is still loading, so waiting on it would assert against the loader.
+        // The heading comes from a prop and is on screen while the query loads, so waiting on it
+        // would assert against the loader.
         await waitFor(() => expect(screen.getByText('Effective on: May 05, 2026')).toBeDefined())
         expect(screen.getByRole('heading', { name: 'Research Organization Participation Agreement' })).toBeDefined()
     })

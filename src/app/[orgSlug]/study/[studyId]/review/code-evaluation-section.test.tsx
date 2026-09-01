@@ -67,9 +67,8 @@ describe('CodeEvaluationSection', () => {
         expect(refs.form.getValues().criteria.agreementCompliance).toBe('no')
     })
 
-    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper, so the group
-    // that screen readers actually see was left unnamed. Asserting on the accessible name rather
-    // than the attribute, since the attribute can be present and still reach nothing.
+    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper, so assert the
+    // accessible name rather than the attribute.
     it('names every criterion radiogroup after its visible criterion text', () => {
         renderSection()
 

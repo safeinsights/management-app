@@ -3,20 +3,17 @@
 import { getStudyJobInfo, latestActivityPerJobFile } from '@/server/db/queries'
 import { Action, z } from './action'
 
-// One decrypted output file: the archive row it was extracted from, plus its inner path.
 const jobFileRefSchema = z.object({ studyJobFileId: z.string(), filePath: z.string() })
 
 const jobFileActivitySchema = z.object({
     jobId: z.string(),
-    // A "Download all" click records the same action against every file in one round trip, so
-    // this is a list rather than a single value.
+    // "Download all" records the same action against every file in one round trip.
     files: z.array(jobFileRefSchema).min(1),
     action: z.enum(['VIEWED', 'DOWNLOADED']),
 })
 
-// OTTER-675: internal events behind the outputs table's "Last activity" column. Writing is
-// gated on 'view StudyJob' rather than an approve/reject ability: looking at a file is exactly
-// what a viewer is allowed to do, and the row records that it happened.
+// Gated on 'view StudyJob' rather than an approve/reject ability: looking at a file is exactly
+// what a viewer is allowed to do (OTTER-675).
 export const recordJobFileActivityAction = new Action('recordJobFileActivityAction', { performsMutations: true })
     .params(jobFileActivitySchema)
     .middleware(async ({ params: { jobId } }) => {
@@ -25,8 +22,7 @@ export const recordJobFileActivityAction = new Action('recordJobFileActivityActi
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { jobId, files, action }, session, db }) => {
-        // Scope the insert to archives that really belong to this job, so a forged id cannot
-        // attach activity to another study's file.
+        // Scoped to this job's archives, so a forged id cannot attach activity to another study.
         const ownArchives = await db
             .selectFrom('studyJobFile')
             .select('id')

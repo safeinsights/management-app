@@ -23,7 +23,6 @@ const mockKeys = {
     exportedPublicKey: new ArrayBuffer(8),
 }
 
-// useClipboard resolves/rejects based on navigator.clipboard.writeText.
 const mockClipboard = (succeed: boolean) => {
     const writeText = vi.fn(() => (succeed ? Promise.resolve() : Promise.reject(new Error('blocked'))))
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
@@ -87,8 +86,8 @@ describe('Security key generation', () => {
         await waitFor(() => expect(screen.queryByText('Have you stored your security key?')).toBeNull())
     })
 
-    // OTTER-655: the guard entry point passes no redirect_url, which is how a first key used to
-    // land on "My dashboard" instead of the org that invited the account.
+    // OTTER-655: the guard entry point passes no redirect_url, which used to land a first key on
+    // "My dashboard" instead of the inviting org.
     it('first-time generation saves the key and uses the resolved landing when no redirect_url is present', async () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: false, firstKeyRedirect: '/openstax-lab/dashboard' as Route })
@@ -151,9 +150,8 @@ describe('Security key generation', () => {
         expect(screen.queryByText(/Copy did not work/)).toBeNull()
     })
 
-    // The AC allows one indicator at a time, and a denied clipboard prompt can sit open for as long
-    // as the user ignores it, so its rejection can arrive after they have clicked again and
-    // succeeded. That stale result must not resurrect the failure message.
+    // A denied clipboard prompt can sit open indefinitely, so its rejection can arrive after a
+    // later success; that stale result must not resurrect the failure message.
     it('ignores a copy result the user has already superseded', async () => {
         const writeText = mockClipboard(true)
         let rejectAbandonedAttempt = (_: Error) => {}

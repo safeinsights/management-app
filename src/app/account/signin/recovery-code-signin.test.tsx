@@ -29,7 +29,6 @@ describe('RecoveryCodeSignIn', () => {
         })
         const mockSetActive = vi.fn()
 
-        // Override the global mock
         ;(useSignIn as Mock).mockReturnValue({
             isLoaded: true,
             signIn: { attemptSecondFactor: mockAttemptSecondFactor },

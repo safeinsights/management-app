@@ -56,7 +56,6 @@ export const getS3Client = () =>
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
-// For Pre-signed URLs and client calls
 let _s3BrowserClient: S3Client | null = null
 export const getS3BrowserClient = () =>
     _s3BrowserClient ||
@@ -267,7 +266,7 @@ async function connectToPgAdmin(database = 'postgres'): Promise<PG.Client> {
 async function grantReadOnlyAccess(dbName: string) {
     const readOnlyUser = await getConfigValue('CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER')
 
-    // GRANT CONNECT must be run from any database (it's a cluster-level privilege)
+    // GRANT CONNECT is a cluster-level privilege, so it runs from any database.
     const adminClient = await connectToPgAdmin()
     try {
         await adminClient.query(`GRANT CONNECT ON DATABASE "${dbName}" TO ${readOnlyUser}`)
@@ -275,7 +274,7 @@ async function grantReadOnlyAccess(dbName: string) {
         await adminClient.end()
     }
 
-    // Schema and table grants must be run while connected to the target database
+    // Schema and table grants require a connection to the target database.
     const dbClient = await connectToPgAdmin(dbName)
     try {
         await dbClient.query(`GRANT USAGE ON SCHEMA public TO ${readOnlyUser}`)
@@ -291,7 +290,7 @@ export async function createPgDatabase(dbName: string) {
     try {
         await client.query(`CREATE DATABASE "${dbName}"`)
     } catch (err: unknown) {
-        if (err instanceof Error && 'code' in err && err.code === '42P04') return // 42P04 == 'DUPLICATE DATABASE'
+        if (err instanceof Error && 'code' in err && err.code === '42P04') return // DUPLICATE DATABASE
         throw err
     } finally {
         await client.end()
@@ -319,9 +318,7 @@ export const s3BucketName = () => {
     return process.env.BUCKET_NAME
 }
 
-// Optional environment-wide prefix applied to every key/prefix read from or written to the
-// main S3 bucket. Lets multiple environments share one bucket without colliding. When unset
-// or empty it is a no-op. Normalized to have no leading slash and exactly one trailing slash.
+// Lets multiple environments share one bucket without colliding; a no-op when unset.
 export const s3KeyPrefix = (): string => {
     const raw = process.env.S3_KEY_PREFIX
     if (!raw) return ''
@@ -329,9 +326,7 @@ export const s3KeyPrefix = (): string => {
     return trimmed ? `${trimmed}/` : ''
 }
 
-// Prepend the environment prefix to a logical (unprefixed) key or prefix before it is handed to
-// the S3 SDK. Idempotent: a value that already carries the prefix is returned unchanged, so keys
-// that come back from a List call can be re-submitted to another command without double-prefixing.
+// Idempotent, so keys returned by a List call can be re-submitted without double-prefixing.
 export const withS3Prefix = (keyOrPrefix: string): string => {
     const prefix = s3KeyPrefix()
     if (!prefix || keyOrPrefix === prefix || keyOrPrefix.startsWith(prefix)) return keyOrPrefix
@@ -399,13 +394,11 @@ export const createSignedUploadUrl = async (path: string) => {
         Bucket: s3BucketName(),
         Expires: 3600,
         Conditions: [['starts-with', '$key', prefixedPath]],
-        Key: prefixedPath + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+        Key: prefixedPath + '/${filename}', // single quotes intentional: S3 substitutes ${filename}
     })
 }
 
-// As above but for a caller that already knows the whole key. `eq` rather than `starts-with`, so the
-// browser cannot land the object anywhere but where the server recorded it — which matters when the
-// stored path is itself the record of what was filed.
+// `eq` rather than `starts-with`, so the browser cannot land the object anywhere but the recorded path.
 export const createSignedUploadUrlForKey = async (path: string) => {
     const prefixedPath = withS3Prefix(path)
     return await createPresignedPost(getS3BrowserClient(), {
@@ -489,12 +482,8 @@ async function buildCodeBuildEnvVars(webhookEndpoint: string, vars: Record<strin
     }).map(([name, value]) => ({ name, value: typeof value === 'object' ? JSON.stringify(value) : value }))
 }
 
-/**
- * Pure command-input builder for the build-image CodeBuild trigger. Exported so
- * unit tests can verify the inputs without intercepting the AWS SDK — mocking
- * `@aws-sdk/client-codebuild` doesn't work across vitest's externalised CJS
- * resolution boundary, and a function-seam approach has the same issue.
- */
+// Exported so tests can verify the inputs without mocking the AWS SDK, which vitest cannot do
+// across its externalised CJS resolution boundary.
 export async function buildTriggerBuildImageCommandInput(
     info: MinimalJobInfo & {
         codeEnvURL: string
@@ -503,10 +492,7 @@ export async function buildTriggerBuildImageCommandInput(
         containerLocation: string
     },
 ) {
-    // Substitute the %f entry-point token, shell-quoting the filename so names with
-    // parentheses or other shell metacharacters don't break the `/bin/sh` command the
-    // containerizer runs (OTTER-477). The helper also absorbs quotes an admin may have
-    // wrapped around %f in the env's command template, so the two don't double-quote.
+    // Shell-quotes the filename so metacharacters don't break the containerizer's /bin/sh (OTTER-477).
     const cmd = substituteEntryPointFile(info.cmdLine, info.codeEntryPointFileName)
     return {
         projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
@@ -536,21 +522,12 @@ export async function triggerBuildImageForJob(
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }
 
-/** Pure command-input builder for the source-scan CodeBuild trigger. See buildTriggerBuildImageCommandInput. */
 export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobInfo) {
     return {
         projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
-            // No ON_START_PAYLOAD: a scan-start webhook would re-post CODE-SUBMITTED onto the job,
-            // and if the scan's start hook lands after a reviewer has already decided the round
-            // (e.g. requested changes) the spurious CODE-SUBMITTED reopens active review. The real
-            // submission is recorded at upload time; the scanner only needs to report completion.
-            //
-            // A failed scan posts CODE-SCANNED too, not JOB-ERRORED. The source scan is advisory:
-            // finding issues means the code reaches the reviewer with the scan log attached so a
-            // human makes the call. JOB-ERRORED is a terminal results-stage status (it routes the
-            // job to the post-run results UI), so erroring the job on a scan finding both ends the
-            // review round prematurely and lands it on a page that assumes a run already happened.
+            // No ON_START_PAYLOAD: a start webhook would re-post CODE-SUBMITTED, reopening a decided
+            // round. A failed scan posts CODE-SCANNED too, since the scan is advisory.
             ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
             ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
             SCAN_MODE: 'source',

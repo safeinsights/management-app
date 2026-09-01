@@ -93,12 +93,10 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => mockStudies),
 }))
 
-// The action's real return type carries many more fields than these fixtures need; the default
-// factory mock above sidesteps that, but mockResolvedValueOnce is strict, so cast through it.
+// mockResolvedValueOnce is strict and the action's return type is much wider than the fixtures.
 type OrgStudies = Awaited<ReturnType<typeof fetchStudiesForOrgAction>>
 
-// Build org-study fixtures from the base mock with field overrides, then cast the array to the
-// action's (much wider) return type in one place — mockResolvedValueOnce is strict.
+// Casts to the action's wider return type in one place, since mockResolvedValueOnce is strict.
 const orgStudies = (...overrides: Array<Partial<(typeof mockStudies)[number]>>): OrgStudies =>
     overrides.map((o) => ({ ...mockStudies[0], ...o })) as unknown as OrgStudies
 
@@ -238,8 +236,8 @@ describe('Studies Table', () => {
     })
 
     it('renders the refresher in its own slot, outside the header actions row', async () => {
-        // The refresher's width changes between states; sharing a flex row
-        // with the audience toggle pushed the toggle sideways on every state change.
+        // The refresher's width changes between states, which shifted the toggle when they
+        // shared a flex row.
         renderWithProviders(
             <StudiesTable
                 audience="reviewer"
@@ -255,8 +253,6 @@ describe('Studies Table', () => {
         const slot = await screen.findByTestId('refresher-slot')
         expect(within(slot).getByText(/seconds until refresh/i)).toBeDefined()
         const toggle = screen.getByText('Toggle Placeholder')
-        // Guard the original bug at the header-row level: the row holding the title,
-        // toggle, and CTA must not contain the slot anywhere inside it.
         const headerRow = screen.getByText('Review Studies').parentElement as HTMLElement
         expect(headerRow.contains(toggle)).toBe(true)
         expect(headerRow.contains(slot)).toBe(false)

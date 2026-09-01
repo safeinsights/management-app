@@ -11,31 +11,15 @@ import {
 // The live contract is the researcher table in docs/study-screens-logic.md — extend from there.
 
 export const RESEARCHER_SCREEN_RULES = [
-    // Errored run whose outputs the reviewer shared along with feedback (OTTER-696). Ranked above
-    // study-results for the same reason as outputs-feedback below: FILES-APPROVED clears
-    // awaitingFilesDecisionOnError, so study-results would otherwise claim it.
+    // These three claim every FILES-* decision and must out-rank study-results, which would
+    // otherwise take them once FILES-APPROVED clears awaitingFilesDecisionOnError. They are
+    // mutually disjoint, so their order among themselves carries no meaning.
     ['outputs-errored-shared', { when: isErroredOutputsSharedOutcome }],
-
-    // Share-feedback-only decision (OTTER-695/697): the researcher reads the feedback and resubmits.
-    // Covers both clean runs (RUN-COMPLETE + FILES-REJECTED) and errored runs (JOB-ERRORED +
-    // FILES-REJECTED). Banner copy is chosen on the screen: errored only when JOB-ERRORED is
-    // present and RUN-COMPLETE is not.
-    // Out-ranks study-results, which would otherwise claim any FILES-* decision.
     ['outputs-feedback', { when: isFeedbackOnlyOutcome }],
-
-    // Clean run whose outputs the reviewer shared along with feedback (OTTER-688) — the researcher
-    // decrypts and reads them. Out-ranks study-results for the same reason as the two rules above.
-    // All three outputs-decision predicates are mutually disjoint (see isOutputsSharedOutcome), so
-    // their order relative to each other carries no meaning; only their position above study-results
-    // does.
     ['outputs-shared', { when: isOutputsSharedOutcome }],
 
-    // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
-    // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher sits on
-    // outputs-pending below (the job's JOB-* statuses keep isExecuting true), or on code-under-review
-    // after a resubmission drops the decision. Neither discloses the error (OTTER-598, 43898).
-    // With the three rules above claiming every FILES-* decision, this now serves exactly one
-    // researcher state: an undecided RUN-COMPLETE, waiting on the reviewer.
+    // A bare JOB-ERRORED is excluded until a reviewer records a FILES-* decision, so the error is
+    // never disclosed before triage (OTTER-598).
     ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
 
     // Code approved and executing in the enclave: researcher outputs-pending screen (OTTER-686).

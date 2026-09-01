@@ -4,9 +4,6 @@ import { Badge, Group, Stack, Table, Text } from '@mantine/core'
 import type { AuditEventType } from '@/database/types'
 import type { CodeEnvAuditMetadata } from '@/lib/audit-diff'
 
-// Presentational pieces for the code environment history modal. Data fetching lives in
-// the useCodeEnvHistory hook; these render plain values so they work in isolation.
-
 export type CodeEnvHistoryEntry = {
     id: string
     createdAt: Date
@@ -57,8 +54,7 @@ const EventBadge: React.FC<{ eventType: AuditEventType }> = ({ eventType }) => {
 
 const StarterCodeBadge: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
-    // "Replaced" rather than "uploaded": the server wiped and rewrote the folder, but the
-    // files themselves are pushed by the browser after the action returns.
+    // "Replaced" rather than "uploaded": the browser pushes the files after the action returns.
     return (
         <Badge color="grape" variant="light" size="sm">
             Starter code replaced
@@ -137,9 +133,8 @@ export const CodeEnvHistoryEmpty: React.FC<{ isVisible: boolean }> = ({ isVisibl
     return <Text c="dimmed">No changes have been recorded for this code environment yet.</Text>
 }
 
-// Distinct from the empty state on purpose: "nobody changed this" and "we could not tell you
-// who changed this" are opposite answers, and an investigation that trusts the former when
-// the latter is true reaches the wrong conclusion.
+// Distinct from the empty state: "nobody changed this" and "we could not tell you who changed
+// this" are opposite answers.
 export const CodeEnvHistoryError: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
     return <Text c="red">Could not load the change history for this code environment. Please try again.</Text>

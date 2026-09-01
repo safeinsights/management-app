@@ -27,8 +27,7 @@ beforeEach(() => {
     })
 })
 
-// Append a job status strictly after the latest existing one so multi-status histories keep a
-// stable order (mirrors the helper the deleted /view cascade test used).
+// Append strictly after the latest existing status so multi-status histories keep a stable order.
 const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
     const job = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirstOrThrow()
     const last = await db
@@ -47,8 +46,7 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
 const ackReviewerAgreements = (studyId: string) =>
     db.updateTable('study').set({ reviewerAgreementsAckedAt: new Date() }).where('id', '=', studyId).execute()
 
-// The page's return type is the ReactNode union (guard branches can hand back AlertNotFound JSX),
-// so narrow to an element to read `.type` / pass to render.
+// The page returns a ReactNode union, so narrow to an element to read `.type`.
 const callPage = async (orgSlug: string, studyId: string) =>
     (await StudyReviewPage({
         params: Promise.resolve({ orgSlug, studyId }),
@@ -63,27 +61,24 @@ describe('StudyReviewPage', () => {
         expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/view'))
     })
 
-    // Permission gating lives in reviewerPageGuard, which keys off the review ABILITY (granted to SI
-    // admins via manage/all) rather than org membership, so an SI admin can review any org's study.
+    // reviewerPageGuard keys off the review ability, not org membership, so an SI admin can
+    // review any org's study.
     it('lets an SI admin review a study for an enclave org they do not belong to', async () => {
         const { user: siAdmin } = await mockSessionWithTestData({ isSiAdmin: true })
         const reviewingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        // No job (insertTestStudyOnly): a proposal under review has no submitted code
         const { study } = await insertTestStudyOnly({ org: reviewingOrg, researcherId: siAdmin.id })
         await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         const page = await callPage(reviewingOrg.slug, study.id)
 
-        // No code submitted yet → the proposal review flow, NOT AccessDeniedAlert.
         expect(page?.type).toBe(ProposalReviewView)
         expect(page?.type).not.toBe(AccessDeniedAlert)
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
     it('does not let a non-member, non-SI user reach the review flow for another org', async () => {
-        // A plain enclave reviewer of a DIFFERENT org has no view access to this study, so the guard's
-        // view gate denies first (AlertNotFound). The key assertion is the negative: they never reach
-        // the active review flow and are never treated as a reviewer.
+        // A reviewer from a different org has no view access, so the guard's view gate denies
+        // first with AlertNotFound.
         await mockSessionWithTestData({ orgType: 'enclave' })
         const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -125,13 +120,11 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        // Distinguish from the code-feedback screen, which also renders PostFeedbackView with kind="CODE".
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).not.toBe('CODE')
     })
 
-    // OTTER-727 hid the agreements gate that used to claim this state, so an unacked reviewer goes
-    // straight to the code-review editor.
+    // OTTER-727 hid the agreements gate, so an unacked reviewer goes straight to the editor.
     it('renders CodeReview when code is submitted even though agreements are not acked', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -173,8 +166,7 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        // Both feedback screens render PostFeedbackView; assert kind="CODE" so this can't pass via
-        // the proposal-feedback variant (which would mean the code decision routed to the wrong screen).
+        // Both feedback screens render PostFeedbackView, so kind="CODE" is what distinguishes them.
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
     })
@@ -192,7 +184,6 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        // The executing window out-ranks the code-approved feedback screen.
         expect(page?.type).toBe(SecondaryAnalysisView)
     })
 

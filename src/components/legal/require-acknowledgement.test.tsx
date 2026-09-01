@@ -14,7 +14,7 @@ import {
 } from '@/server/actions/legal-document.actions'
 import { RequireLegalAcknowledgement } from './require-acknowledgement'
 
-// The upload happens client-side, so only the AWS boundary is stubbed; the rest hits the real DB.
+// The upload happens client-side, so only the AWS boundary is stubbed.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
@@ -26,14 +26,13 @@ vi.mock('@/server/aws', async (importOriginal) => {
 
 const TERMS_BODY = 'The terms you must accept.'
 
-// Document reads go through storage rather than calling S3 directly, and mocking `@/server/aws`
-// does NOT reach storage's own import of it.
+// Mocking `@/server/aws` does not reach storage's own import of it.
 vi.mock('@/server/storage', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/storage')>()),
     fetchFileContents: vi.fn(async () => new Blob([TERMS_BODY])),
 }))
 
-// The gate answers for every published tos/pn, so a seeded dev database would leave a second
+// The gate answers for every published tos/pn, so a seeded database would leave a second
 // document outstanding behind the one under test.
 beforeEach(resetLegalDocuments)
 
@@ -80,8 +79,6 @@ describe('RequireLegalAcknowledgement', () => {
         await waitFor(() => expect(screen.queryByText(/The Terms of Service/)).toBeNull())
     })
 
-    // Each modal covers one document, so the ticked box, the text on screen and the row written can
-    // never disagree. The second document is reached by the refetch that acknowledging triggers.
     it('asks about one document at a time', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await publishTos()
@@ -98,7 +95,6 @@ describe('RequireLegalAcknowledgement', () => {
 
         expect(await screen.findByText(/The Privacy Notice is now available/)).toBeDefined()
         expect(screen.queryByText(/Terms of Service/)).toBeNull()
-        // Ticking the first document must not carry over to the second.
         expect(screen.getByRole('checkbox')).not.toBeChecked()
 
         await userEvent.click(screen.getByRole('checkbox'))
@@ -108,8 +104,8 @@ describe('RequireLegalAcknowledgement', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
-    // The whole sentence, not a fragment of it: the thrown ActionFailure's own message is the JSON of
-    // its field errors, and a regression to that would still satisfy a looser match.
+    // Matched whole: the thrown ActionFailure's message is the JSON of its field errors, which a
+    // looser match would still satisfy.
     it('shows why an acknowledgement was refused rather than silently reopening', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const version = await publishTos()
@@ -118,8 +114,7 @@ describe('RequireLegalAcknowledgement', () => {
         renderWithProviders(<RequireLegalAcknowledgement />)
         expect(await screen.findByText(TERMS_BODY)).toBeDefined()
 
-        // Withdrawn underneath the open modal. All three columns together, or the row fails its
-        // draft-or-published check constraint.
+        // All three columns together, or the row fails its draft-or-published check constraint.
         await db
             .updateTable('legalDocumentVersion')
             .set({ publishedAt: null, publishedBy: null, versionNumber: null })

@@ -57,7 +57,6 @@ describe('useWorkspaceBuildStatus', () => {
         expect(result.current.failed).toBe(false)
         expect(result.current.buildLog).toBe('building image')
         expect(result.current.agentLog).toBe('agent up')
-        // new lines arrived on the first poll, so a lastUpdated timestamp is stamped
         expect(result.current.lastUpdatedAt).toBeInstanceOf(Date)
         expect(result.current.isPolling).toBe(true)
         expect(statusMock).toHaveBeenCalledWith({ studyId, cursors: undefined })

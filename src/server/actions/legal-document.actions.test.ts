@@ -21,30 +21,24 @@ import {
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 
-// The upload happens client-side, so only the AWS boundary is stubbed; the rest hits the real DB.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
 
-// Document reads go through storage rather than calling S3 directly, and mocking `@/server/aws`
-// does NOT reach storage's own import of it — storage keeps the unmocked binding — so the stub has
-// to sit on the module the action actually calls. Echoing the key back as the body means a test
-// asserting on content is asserting the right version's file was read; a fixed string would pass
-// for any version.
+// Mocking `@/server/aws` does not reach storage's own import of it. Echoing the key back as the
+// body means a content assertion proves the right version's file was read.
 vi.mock('@/server/storage', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/storage')>()),
     fetchFileContents: vi.fn(async (path: string) => new Blob([`content of ${path}`])),
 }))
 
-// Version numbers and "nothing published yet" are assertions about the global tos/pn singletons, so
-// the seeded documents on a dev database have to go first.
+// The seeded documents on a dev database would break assertions about the tos/pn singletons.
 beforeEach(resetLegalDocuments)
 
 const createDraft = async (fileName = 'terms.md') =>
@@ -72,7 +66,6 @@ describe('createLegalDocumentDraftAction', () => {
         expect(version.versionNumber).toBeNull()
         expect(version.filePath).toBe(`legal/TOS/${legalDocument.id}/${version.id}`)
         expect(version.fileName).toBe('terms.md')
-        // Must be the exact key the stored file_path names, or the upload lands where no row points.
         expect(vi.mocked(createSignedUploadUrlForKey)).toHaveBeenCalledWith(version.filePath)
     })
 
@@ -126,7 +119,6 @@ describe('createLegalDocumentDraftAction', () => {
         expect(result).toHaveProperty('error')
     })
 
-    // Derived rather than accepted, so a document cannot be stored in a format its viewer cannot read.
     it('stores the format its type is published in, whatever the file is called', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
@@ -175,8 +167,7 @@ describe('publishLegalDocumentVersionAction', () => {
 
         await publish(version.id, '2026-07-27')
 
-        // Cast in SQL: reading through the driver would pass or fail depending on the machine's
-        // timezone, which is the bug being guarded against.
+        // Cast in SQL: the driver's result depends on the machine timezone, the bug being guarded.
         const row = await db
             .selectFrom('legalDocumentVersion')
             .select(sql<string>`signed_at::text`.as('signedAtText'))
@@ -185,12 +176,10 @@ describe('publishLegalDocumentVersionAction', () => {
 
         expect(row.signedAtText).toBe('2026-07-27')
 
-        // And the same day again on the way back out, where the driver would otherwise shift it.
         const { current } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'ROPA', orgId: org.id }))
         expect(current?.signedAt).toBe('2026-07-27')
     })
 
-    // Publishing cannot be undone, so a signed agreement with no signature date would be permanent.
     it('refuses to publish a signed agreement without the date it was signed', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { version } = await createOrgAgreementDraft('DOPA')
@@ -290,8 +279,6 @@ describe('acknowledgeLegalDocumentAction', () => {
         expect(acks[0]!.ackedAt).toEqual(first.ackedAt)
     })
 
-    // An acknowledgement is the compliance evidence, so a version id alone must not be enough to
-    // record consent to an agreement that binds somebody else's organization.
     it('lets a member of the signing org acknowledge its participation agreement', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const slug = faker.string.alpha(10)
@@ -301,7 +288,6 @@ describe('acknowledgeLegalDocumentAction', () => {
         )
         const published = await publish(version.id, '2026-07-27')
 
-        // Same slug, so the helper reuses the org above and the user is a member of it.
         const { user } = await mockSessionWithTestData({ orgSlug: slug, orgType: 'enclave' })
         actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
 
@@ -341,7 +327,6 @@ describe('acknowledgeLegalDocumentAction', () => {
         expect(result).toHaveProperty('error')
     })
 
-    // The enforcement modal is shown to everyone, so this is the permission the whole card rests on.
     it('is allowed for a user who is not an SI admin', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const published = await publish((await createDraft()).version.id)
@@ -383,7 +368,6 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         expect(pending!.type).toBe('TOS')
         expect(pending!.versionId).toBe(tos.id)
         expect(pending!.content).toContain(tos.filePath)
-        // Never acknowledged, so the modal must say "is now available" rather than "has been updated".
         expect(pending!.isUpdate).toBe(false)
     })
 
@@ -397,9 +381,7 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
     })
 
-    // The obligation is to the terms in force: acknowledging v1 does not settle v2, and v1 is never
-    // asked for again. One SI-admin session throughout because mockSessionWithTestData mints a new
-    // user each call — and an admin who publishes new terms does owe them, like everyone else.
+    // One SI-admin session throughout: mockSessionWithTestData mints a new user each call.
     it('asks only for the current version, and marks it as an update', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
@@ -422,8 +404,6 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
     })
 
-    // Ordering matters here because only the head is returned: the Privacy Notice is unreachable
-    // until the Terms of Service is settled.
     it('asks for the Terms of Service before the Privacy Notice when both are outstanding', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await publishPn()
@@ -497,7 +477,6 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
     it('ignores acknowledgements of other documents', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
         await publishPn()
-        // Two tos versions so the tos acknowledgement outranks the privacy notice's on version number.
         await publishTos('terms-v1.md')
         const tosV2 = await publishTos('terms-v2.md')
         actionResult(await acknowledgeLegalDocumentAction({ versionId: tosV2.id }))

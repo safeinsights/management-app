@@ -1,9 +1,4 @@
-// E2E Clerk fake — role cookie (browser-safe helpers).
-//
-// A single host-only cookie carries which seeded role the test is running as.
-// It is read by both the client shim (document.cookie) and the server shim
-// (next/headers cookies(), via cookie.server.ts). Keep this module free of any
-// server-only imports (no next/headers) so it can be bundled into client code.
+// Keep free of server-only imports (no next/headers) so it can be bundled into client code.
 
 import { isFakeRole, type FakeRole } from './fixtures'
 

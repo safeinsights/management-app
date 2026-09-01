@@ -238,8 +238,7 @@ describe('ReviewerOutputsDecided', () => {
         ).toBeInTheDocument()
     })
 
-    // The same gate as the errored screen. A submission-time scan log is not this run's outputs, and
-    // it is already on the code review step, so this form must not offer it back as one.
+    // A submission-time scan log is not this run's outputs, so the form must not offer it as one.
     it('omits the security-key section when the only encrypted artifact is a scan log', async () => {
         const { org, study, job, raw } = await setupDecided()
         await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
@@ -249,8 +248,8 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
-    // OTTER-524: an errored run can be closed out with nothing to decrypt, and coming back here would
-    // otherwise ask the reviewer for a key against files that do not exist, which no key can satisfy.
+    // OTTER-524: an errored run can be closed out with nothing to decrypt, so asking for a key
+    // would pose a demand no key can satisfy.
     it('omits the security-key section when the decided run left nothing to decrypt', async () => {
         const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
         await renderView(study, raw, org.slug)

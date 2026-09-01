@@ -11,8 +11,6 @@ import { initialFormValues, type StudyProposalFormValues } from '@/contexts/stud
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            // With SSR, we usually want to set some default staleTime
-            // above 0 to avoid re-fetching immediately on the client
             staleTime: 60 * 1000,
             retry: false,
         },
@@ -35,7 +33,6 @@ export const TestingProvidersWrapper = {
     wrapper: TestingProviders,
 }
 
-// Hook to create a test form with default values
 export const useTestStudyProposalForm = (overrides?: Partial<StudyProposalFormValues>) => {
     return useForm<StudyProposalFormValues>({
         initialValues: {

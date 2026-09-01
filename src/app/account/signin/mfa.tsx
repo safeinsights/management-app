@@ -21,7 +21,6 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const { isSignedIn } = useUser()
     const completeSignIn = useCompleteSignIn()
 
-    // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
     const hasBoth = Boolean(hasSMS && hasTOTP)
@@ -58,7 +57,6 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 await setActive({ session: signInAttempt.createdSessionId })
                 await completeSignIn()
             } else {
-                // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({
                     code: `Unknown signIn status: ${signInAttempt?.status || 'unknown'}`,
                 })
@@ -86,14 +84,12 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
             await mfa.signIn.reload()
             setMethod(null)
             setStep('select')
-            // Clear the code input when returning to options
             form.setFieldValue('code', '')
             form.clearErrors()
         }
     }
 
-    // Get phone number from signIn resource if SMS method is selected
-    // clerk masks phone number during mfa signin
+    // Clerk masks the phone number during MFA sign-in.
     const phoneNumber =
         method === 'sms' && mfa
             ? mfa.signIn.supportedSecondFactors?.find((f) => f.strategy === 'phone_code')

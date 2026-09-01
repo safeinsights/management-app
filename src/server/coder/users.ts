@@ -43,7 +43,6 @@ export async function getCoderUser(studyId: string): Promise<CoderUser | null> {
     })
 
     if (data.users?.length) {
-        // User exists, return the user data
         return data.users[0]
     }
 

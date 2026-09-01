@@ -16,19 +16,12 @@ import type { ReactNode } from 'react'
 import { formatDayString } from '@/lib/dates'
 import { ReadOnlyField } from './read-only-field'
 
-// Which document the new version belongs to. tos/pn leave both scope fields off.
 type DraftScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
 
 type PublishVariables = { scope: DraftScope; signedAt: string; file: File }
 
-/**
- * Upload a signed agreement and publish it as the document's next version.
- *
- * Shared by the participation and study-level forms, which differ only in how the subject is chosen
- * and which caches go stale — everything from "make a draft" to "it is live" is the same. Publish
- * runs last so a failed upload leaves a replaceable draft rather than a live agreement with no file
- * behind it; a document that already has versions gets a new one rather than a second document.
- */
+// Publish runs last, so a failed upload leaves a replaceable draft rather than a live agreement
+// with no file behind it.
 const usePublishAgreement = ({
     invalidateKeys,
     onComplete,
@@ -54,9 +47,6 @@ const usePublishAgreement = ({
     })
 }
 
-// Everything an upload form does that is not choosing the subject: the participation and
-// study-level forms differ in what they publish against and in nothing else. `scopeFor` turns the
-// chosen subject into the document to add a version to.
 export const useAgreementUpload = <Subject,>({
     subject,
     scopeFor,
@@ -87,21 +77,14 @@ export const useAgreementUpload = <Subject,>({
         askForConfirmation,
         stopConfirming,
         isPending,
-        // Settled rather than merely pending: the form stays mounted until the parent closes it.
         isSettled: isSuccess,
         canPublish: Boolean(subject && signedAt && file) && !isPending && !isSuccess,
         isConfirming: confirming && Boolean(subject),
     }
 }
 
-/**
- * Second, separate confirmation before anything is written, because publishing cannot be undone.
- *
- * Reads back the date and file itself; `subject` names whatever the version belongs to and
- * `consequence` says what publishing does, since only the caller knows whether that is an org's
- * participation agreement or a study's. Stays open for the duration of the publish: closing it first
- * left the upload running behind an idle-looking form, and a second click published twice.
- */
+// Stays open for the publish: closing first left the upload running behind an idle-looking form,
+// and a second click published twice.
 export const ConfirmPublishModal: FC<{
     isOpen: boolean
     signedAt: string

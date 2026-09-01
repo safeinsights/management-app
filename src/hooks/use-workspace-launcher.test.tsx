@@ -99,7 +99,7 @@ describe('useWorkspaceLauncher', () => {
 
     describe('launchWorkspace', () => {
         it('should set isLaunching true while the ensure mutation is in flight', async () => {
-            ensureMock.mockImplementation(() => new Promise(() => {})) // never resolves
+            ensureMock.mockImplementation(() => new Promise(() => {}))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -155,8 +155,7 @@ describe('useWorkspaceLauncher', () => {
             })
         })
 
-        // ctrl-click passes sameWindow so the IDE opens in the current tab, which keeps it in the
-        // same Playwright page context for e2e testing.
+        // sameWindow keeps the IDE in the same Playwright page context for e2e testing.
         it('should open workspace in the same tab when launched with sameWindow', async () => {
             const url = 'https://workspace.example.com'
             statusMock.mockResolvedValue(readyStatus(url))
@@ -175,8 +174,8 @@ describe('useWorkspaceLauncher', () => {
             })
         })
 
-        // A blocked popup is not a launch failure: the workspace launched fine and the user gets a
-        // clickable fallback notification, so the hook must NOT surface it as `error`.
+        // A blocked popup is not a launch failure: the workspace launched and the user gets a
+        // clickable fallback notification.
         it('should show fallback notification without erroring when popup is blocked', async () => {
             mockWindowOpen.mockReturnValue(null)
             statusMock.mockResolvedValue(readyStatus())
