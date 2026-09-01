@@ -8,13 +8,12 @@ import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import { useRouter } from 'next/navigation'
 import { Step } from './mfa'
-import { Routes } from '@/lib/routes'
+import { useCompleteSignIn } from './use-complete-sign-in'
 
 export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
-    const router = useRouter()
+    const completeSignIn = useCompleteSignIn()
 
     const form = useForm({
         initialValues: { code: '' },
@@ -38,12 +37,12 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
             // activate the session verified by backup code
             await setActive?.({ session: result.createdSessionId })
         },
-        onSuccess: () => {
+        onSuccess: async () => {
             notifications.show({
                 message: 'You have signed in using a recovery code.',
                 color: 'green',
             })
-            router.push(Routes.dashboard)
+            await completeSignIn()
         },
         onError: (err) => {
             form.setFieldError(

@@ -786,6 +786,23 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
+// A signed-in user holding no key, with a live invite to a second org. This is the state every
+// sign-in screen has to survive: the invite must be accepted before the key detour sends the user
+// somewhere else, and dropping either step loses a membership (OTTER-655, SHRMP-306).
+export async function insertKeylessInvitedUser() {
+    const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+    await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+    const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const invite = await db
+        .insertInto('pendingUser')
+        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return { user, org, invitingOrg, invite }
+}
+
 type MockDualRoleSessionOptions = {
     labSlug?: string
     enclaveSlug?: string

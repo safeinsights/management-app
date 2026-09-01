@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { faker } from '@faker-js/faker'
 import dayjs from 'dayjs'
+import { EMPTY_CELL } from '@/lib/dates'
 import {
     actionResult,
     db,
@@ -58,6 +59,14 @@ const topRowText = () => screen.getAllByRole('row')[1]?.textContent ?? ''
 const sortNearFront = (userId: string) =>
     db.updateTable('user').set({ firstName: 'Aaa', lastName: 'Sorter' }).where('id', '=', userId).execute()
 
+// Last login is the final column, so the cell is read positionally rather than by text: a dash also
+// appears in the columns for a user with no orgs and no acknowledgement.
+const lastLoginCell = async (email: string) => {
+    const row = (await screen.findByText(email)).closest('tr')
+    const cells = row?.querySelectorAll('td') ?? []
+    return cells[cells.length - 1]?.textContent
+}
+
 describe('AcknowledgementsTable', () => {
     it('lists a user who has agreed to nothing', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
@@ -110,6 +119,38 @@ describe('AcknowledgementsTable', () => {
         fireEvent.click(document.querySelector('th[data-accessor="fullName"]') as HTMLElement)
 
         await waitFor(() => expect(topRowText()).toContain(last))
+    })
+
+    it('reports when a user last logged in', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
+        await publishTos()
+        await db
+            .insertInto('audit')
+            .values({
+                userId: user.id,
+                recordId: user.id,
+                recordType: 'USER',
+                eventType: 'LOGGED_IN',
+                createdAt: new Date('2026-04-02T00:00:00Z'),
+            })
+            .execute()
+
+        renderWithProviders(<AcknowledgementsTable type="TOS" />)
+
+        expect(await lastLoginCell(user.email!)).toBe('Apr 02, 2026')
+    })
+
+    // A dash rather than "Never": the login trail does not reach back to the start of the app, so
+    // an absent value means no record rather than an absence of logins.
+    it('shows a dash for a user the login trail has never seen', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await sortNearFront(user.id)
+        await publishTos()
+
+        renderWithProviders(<AcknowledgementsTable type="TOS" />)
+
+        expect(await lastLoginCell(user.email!)).toBe(EMPTY_CELL)
     })
 
     it('shows one page of users at a time', async () => {

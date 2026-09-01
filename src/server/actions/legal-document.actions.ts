@@ -410,6 +410,21 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 
         const latestByUser = new Map(acknowledgements.map((ack) => [ack.userId, ack]))
 
+        // Joined on recordId rather than userId: the two hold the same value for a login, but
+        // recordId is the subject of the event (userId is the actor, and the two diverge — an
+        // invite records the inviter against the pending row), and recordId is what is indexed.
+        const logins = await db
+            .selectFrom('audit')
+            .select(['recordId', 'createdAt'])
+            .where('recordType', '=', 'USER')
+            .where('eventType', '=', 'LOGGED_IN')
+            .distinctOn('recordId')
+            .orderBy('recordId')
+            .orderBy('createdAt', 'desc')
+            .execute()
+
+        const lastLoginByUser = new Map(logins.map((login) => [login.recordId, login.createdAt]))
+
         // Collapsed to one row per user, since a user can belong to several orgs.
         const byUser = new Map<string, ReturnType<typeof buildRow>>()
         function buildRow(row: (typeof memberships)[number]) {
@@ -421,6 +436,9 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                 orgs: [] as { id: string; name: string }[],
                 acknowledgedVersionNumber: ack?.versionNumber ?? null,
                 ackedAt: ack?.ackedAt ?? null,
+                // Absent means no record, not "never signed in": the audit trail starts partway
+                // through the app's life, so the column renders a dash rather than a claim.
+                lastLoginAt: lastLoginByUser.get(row.id) ?? null,
             }
         }
 
@@ -438,11 +456,13 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         const { columnAccessor = 'fullName', direction = 'asc' } = sort ?? {}
         const flip = direction === 'asc' ? 1 : -1
         users.sort((a, b) => {
-            if (columnAccessor === 'ackedAt') {
-                // Never-acked users sort last whichever way the column is pointed: sorting by a date
+            if (columnAccessor === 'ackedAt' || columnAccessor === 'lastLoginAt') {
+                // Rows with no date sort last whichever way the column is pointed: sorting by a date
                 // asks for the rows that have one, and "has not agreed" is what the version column says.
-                if (!a.ackedAt || !b.ackedAt) return Number(Boolean(b.ackedAt)) - Number(Boolean(a.ackedAt))
-                return (a.ackedAt.getTime() - b.ackedAt.getTime()) * flip
+                const left = a[columnAccessor]
+                const right = b[columnAccessor]
+                if (!left || !right) return Number(Boolean(right)) - Number(Boolean(left))
+                return (left.getTime() - right.getTime()) * flip
             }
             return (a[columnAccessor] ?? '').localeCompare(b[columnAccessor] ?? '') * flip
         })

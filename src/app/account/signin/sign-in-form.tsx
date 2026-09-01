@@ -3,15 +3,14 @@ import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import { actionResult, safeRedirectUrl } from '@/lib/utils'
-import { keyGenerationUrl } from '@/lib/user-key-redirect'
-import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useAuth, useSignIn } from '@clerk/nextjs'
+import { safeRedirectUrl } from '@/lib/utils'
+import { useSignIn } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { type MFAState } from './logic'
 import { SignInFormView } from './sign-in-form-view'
+import { useCompleteSignIn } from './use-complete-sign-in'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -27,9 +26,9 @@ export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { getToken } = useAuth()
     const { setActive, signIn } = useSignIn()
     const router = useRouter()
+    const completeSignIn = useCompleteSignIn()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
 
@@ -88,15 +87,7 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
-                const result = actionResult(await onUserSignInAction())
-                await getToken({ skipCache: true })
-                if (result?.redirectToKeyGeneration) {
-                    // The validated value, not the raw one: an invalid redirect_url validates to
-                    // the dashboard, which keyGenerationUrl treats as no destination (OTTER-655).
-                    router.push(keyGenerationUrl(validatedRedirect))
-                } else {
-                    router.push(validatedRedirect)
-                }
+                await completeSignIn()
             }
             if (attempt.status === 'needs_second_factor') {
                 // Auth method not yet determined, set to false for now

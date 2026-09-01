@@ -5,7 +5,7 @@ import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
-import { onUserAcceptInvite } from '@/server/events'
+import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -60,6 +60,10 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
             // an UpdateResult that looks like success regardless of how many rows were touched.
             .returning('id')
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
+
+        // Signup does not run the shared post-sign-in sequence — a fresh account is sent to MFA
+        // enrolment rather than resolving its own landing — so the login is recorded here instead.
+        onUserLogIn({ userId: session.user.id })
     })
 
 // Deliberately callable without a session: the invite link is opened before the recipient has an

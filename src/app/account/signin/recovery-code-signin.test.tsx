@@ -1,7 +1,16 @@
-import { renderWithProviders, fireEvent, screen, waitFor, userEvent, Mock } from '@/tests/unit.helpers'
+import {
+    db,
+    fireEvent,
+    insertKeylessInvitedUser,
+    Mock,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { vi, describe, it, expect } from 'vitest'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
-import { useSignIn } from '@clerk/nextjs'
+import { useAuth, useSignIn } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
@@ -44,5 +53,43 @@ describe('RecoveryCodeSignIn', () => {
                 }),
             )
         })
+    })
+    // The recovery branch used to push straight to the dashboard, skipping the whole post-sign-in
+    // sequence, so an invited user who reached for a backup code never joined the org (SHRMP-306).
+    it('accepts a pending invite and routes a keyless user through key generation', async () => {
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
+        memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
+        ;(useSignIn as Mock).mockReturnValue({
+            isLoaded: true,
+            signIn: {
+                attemptSecondFactor: vi
+                    .fn()
+                    .mockResolvedValue({ status: 'complete', createdSessionId: 'test-session-id' }),
+            },
+            setActive: vi.fn(),
+        })
+        ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
+
+        renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
+
+        await userEvent.type(screen.getByLabelText(/Enter recovery code/i), 'testcode123')
+        fireEvent.click(screen.getByRole('button', { name: /Sign in/i }))
+
+        // The membership is the point: the old branch dropped invite_id entirely.
+        await waitFor(async () => {
+            const membership = await db
+                .selectFrom('orgUser')
+                .select('id')
+                .where('userId', '=', user.id)
+                .where('orgId', '=', invitingOrg.id)
+                .executeTakeFirst()
+            expect(membership).toBeDefined()
+        })
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
+            ),
+        )
     })
 })

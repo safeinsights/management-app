@@ -156,7 +156,7 @@ export const fetchLegalDocumentAcknowledgementsSchema = z.object({
     studyId: z.string().optional(),
     sort: z
         .object({
-            columnAccessor: z.enum(['fullName', 'email', 'ackedAt']),
+            columnAccessor: z.enum(['fullName', 'email', 'ackedAt', 'lastLoginAt']),
             direction: z.enum(['asc', 'desc']),
         })
         .optional(),
