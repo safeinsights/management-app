@@ -9,7 +9,6 @@ import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { PageHeader } from '@/components/page-header'
-import { displayOrgName } from '@/lib/string'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
@@ -26,6 +25,8 @@ type OutputsReviewPanelProps = {
     studyTitle: string
     job: NonNullable<LatestJobForStudy>
     labName: string
+    /** The lab in display form; labName stays raw for the banner copy. */
+    eyebrow: string
     /** Shown while the outputs are still encrypted (OTTER-667 / OTTER-668 copy). */
     lockedBanner: ReactNode
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
@@ -44,6 +45,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     studyTitle,
     job,
     labName,
+    eyebrow,
     lockedBanner,
     unlockedBanner,
     previousHref,
@@ -68,7 +70,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <PageHeader eyebrow={displayOrgName(labName)} title={studyTitle} />
+                <PageHeader eyebrow={eyebrow} title={studyTitle} />
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"

@@ -1,4 +1,5 @@
 import { Routes } from '@/lib/routes'
+import { displayLabName } from '@/lib/string'
 import { SecondaryAnalysisView } from '../review/secondary-analysis-view'
 import { guardExecutionStage } from './execution-stage-guard'
 import type { ScreenComponentProps } from './types'
@@ -14,7 +15,7 @@ export async function ReviewerOutputsPendingScreen({
     return (
         <SecondaryAnalysisView
             studyTitle={study.title!}
-            labName={study.submittingLabName ?? study.submittedByOrgSlug}
+            eyebrow={displayLabName(study.submittingLabName, study.submittedByOrgSlug)}
             stageStatus={stage.status}
             stageStartedAt={stage.startedAt}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

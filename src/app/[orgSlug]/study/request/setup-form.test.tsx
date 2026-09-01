@@ -123,6 +123,9 @@ const renderSetup = (
     )
 
 const titleInput = () => screen.getByLabelText(/study title/i)
+// The study title now renders twice on a locked page: the page heading and the read-only field.
+// Field assertions scope to the field so they cannot pass on the heading alone.
+const lockedFieldValue = (label: string) => screen.getByText(label).parentElement?.lastElementChild
 const continueButton = () => screen.getByRole('button', { name: 'Save & continue' })
 // The revisit and submitted states carry their own CTA copy, exact per OTTER-764.
 const saveAndContinueButton = () => screen.getByRole('button', { name: 'Save and continue' })
@@ -780,7 +783,7 @@ describe('Locked fields', () => {
         const draftData = draftFor(fixtures, { status: 'PENDING-REVIEW' })
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        await waitFor(() => expect(screen.getByText('A previously saved title')).toBeInTheDocument())
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
         expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
@@ -853,7 +856,7 @@ describe('Locked fields', () => {
         const draftData = submittedDraft(fixtures, { title: overLimitTitle })
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        expect(await screen.findByText(overLimitTitle)).toBeInTheDocument()
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent(overLimitTitle))
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
 
         await user.click(nextStepButton())
@@ -992,7 +995,7 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         const draftData = submittedDraft(fixtures)
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        expect(await screen.findByText('A previously saved title')).toBeInTheDocument()
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         expect(screen.getByText(fixtures.singleLanguagePartner.name)).toBeInTheDocument()
         expect(screen.getByText('R')).toBeInTheDocument()
 
@@ -1021,7 +1024,7 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         const draftData = submittedDraft(fixtures)
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        expect(await screen.findByText('A previously saved title')).toBeInTheDocument()
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         await user.click(nextStepButton())
 
         await waitFor(() =>
@@ -1044,7 +1047,7 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         const draftData = submittedDraft(fixtures)
         renderSetup(fixtures, { studyId: draftData.id, draftData, returnTo: 'org' })
 
-        expect(await screen.findByText('A previously saved title')).toBeInTheDocument()
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         await user.click(nextStepButton())
 
         await waitFor(() =>
@@ -1060,7 +1063,7 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         const draftData = submittedDraft(fixtures, { status: 'CHANGE-REQUESTED' })
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        expect(await screen.findByText('A previously saved title')).toBeInTheDocument()
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         await user.click(nextStepButton())
 
         await waitFor(() =>

@@ -111,9 +111,9 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getAllByText(/Effect of Reading Comprehension Tools/).length).toBeGreaterThan(1)
         })
     })
 

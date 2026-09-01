@@ -45,13 +45,13 @@ describe('ProposalReviewView', () => {
     it('renders the page title', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
     })
 
     it('renders the study title in proposal section', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByText(/Test Study Title/)).toBeInTheDocument()
+        expect(screen.getAllByText(/Test Study Title/).length).toBeGreaterThan(1)
     })
 
     it('renders the back button', () => {

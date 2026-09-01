@@ -115,6 +115,12 @@ export function displayOrgName(orgName: string): string {
         .trim()
 }
 
+// A slug is not a name: displayOrgName strips the word "Lab", and a hyphen is a word boundary, so
+// "genius-lab" would come back as "genius-". Only a real name goes through it.
+export function displayLabName(labName: string | null | undefined, fallbackSlug: string): string {
+    return labName ? displayOrgName(labName) : fallbackSlug
+}
+
 export function toSentence(items: string[], conjunction: string = 'and'): string {
     if (items.length === 0) return ''
     if (items.length === 1) return items[0]

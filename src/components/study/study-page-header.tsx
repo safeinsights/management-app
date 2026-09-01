@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/page-header'
-import { displayOrgName } from '@/lib/string'
+import { displayLabName } from '@/lib/string'
 
 // Every study page shows the submitting Research Lab, so both a researcher and a reviewer of the
 // same study read the same eyebrow. Resolved here rather than at each call site so the fallback
@@ -13,7 +13,7 @@ export type StudyHeaderStudy = {
 export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
     return (
         <PageHeader
-            eyebrow={displayOrgName(study.submittingLabName ?? study.submittedByOrgSlug)}
+            eyebrow={displayLabName(study.submittingLabName, study.submittedByOrgSlug)}
             title={study.title ?? 'Untitled study'}
         />
     )
