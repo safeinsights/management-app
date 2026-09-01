@@ -7,6 +7,9 @@ import { type Kysely, sql } from 'kysely'
 // Not a partial index on `WHERE event_type = 'LOGGED_IN'`, tempting as it is: an earlier migration
 // adds that value with ALTER TYPE, and Postgres refuses to use a new enum value in the transaction
 // that introduced it, so a fresh database fails to migrate.
+//
+// Does not supersede audit_record_type_record_id_created_at_idx: that one serves the per-record
+// history query, which filters no event type and so cannot use an index with one in second place.
 export async function up(db: Kysely<unknown>): Promise<void> {
     await sql`
         CREATE INDEX audit_last_login_idx

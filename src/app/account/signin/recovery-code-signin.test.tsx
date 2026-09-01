@@ -3,6 +3,7 @@ import {
     fireEvent,
     insertKeylessInvitedUser,
     Mock,
+    mockSessionWithTestData,
     renderWithProviders,
     screen,
     userEvent,
@@ -17,6 +18,11 @@ import { Routes } from '@/lib/routes'
 
 describe('RecoveryCodeSignIn', () => {
     it('successfully signs in with a recovery code and redirects to dashboard', async () => {
+        // Stated explicitly: insertTestUser only seeds a key for enclave orgs, and a keyless user
+        // would be diverted to key generation instead of the dashboard this asserts.
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
+
         const mockAttemptSecondFactor = vi.fn().mockResolvedValue({
             status: 'complete',
             createdSessionId: 'test-session-id',

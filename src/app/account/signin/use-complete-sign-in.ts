@@ -10,6 +10,7 @@ import { useAuth } from '@clerk/nextjs'
 import type { GetToken } from '@clerk/types'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 
 // A stale token matters far less than losing the invite or the key detour that follow it, so a
@@ -76,7 +77,7 @@ export const useCompleteSignIn = () => {
     const searchParams = useSearchParams()
     const { getToken } = useAuth()
 
-    return async () => {
+    return useCallback(async () => {
         try {
             const result = await completeServerSignIn(getToken)
 
@@ -100,5 +101,5 @@ export const useCompleteSignIn = () => {
             console.error('post sign-in navigation failed:', error)
             router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
         }
-    }
+    }, [router, searchParams, getToken])
 }

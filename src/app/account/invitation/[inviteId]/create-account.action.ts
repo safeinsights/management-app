@@ -51,6 +51,10 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
     .requireAbilityTo('claim', 'PendingUser')
     .handler(async ({ params: { inviteId }, session, db }) => {
+        // Before the claim: the session already exists by now, so the login is true whatever the
+        // invite row turns out to say.
+        onUserLogIn({ userId: session.user.id })
+
         await db
             .updateTable('pendingUser')
             .set({ claimedByUserId: session.user.id })
@@ -60,9 +64,6 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
             // an UpdateResult that looks like success regardless of how many rows were touched.
             .returning('id')
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
-
-        // Signup skips the shared post-sign-in sequence (it lands on MFA enrolment), so record it here.
-        onUserLogIn({ userId: session.user.id })
     })
 
 // Deliberately callable without a session: the invite link is opened before the recipient has an

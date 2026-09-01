@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { faker } from '@faker-js/faker'
 import dayjs from 'dayjs'
 import { EMPTY_CELL } from '@/lib/dates'
@@ -58,13 +58,6 @@ const topRowText = () => screen.getAllByRole('row')[1]?.textContent ?? ''
 // own row rather than assume it is on top.
 const sortNearFront = (userId: string) =>
     db.updateTable('user').set({ firstName: 'Aaa', lastName: 'Sorter' }).where('id', '=', userId).execute()
-
-// Read positionally: a dash also appears in the org and acknowledgement columns.
-const lastLoginCell = async (email: string) => {
-    const row = (await screen.findByText(email)).closest('tr')
-    const cells = row?.querySelectorAll('td') ?? []
-    return cells[cells.length - 1]?.textContent
-}
 
 describe('AcknowledgementsTable', () => {
     it('lists a user who has agreed to nothing', async () => {
@@ -137,17 +130,22 @@ describe('AcknowledgementsTable', () => {
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
 
-        expect(await lastLoginCell(user.email!)).toBe('Apr 02, 2026')
+        const row = (await screen.findByText(user.email!)).closest('tr')!
+        expect(within(row).getByText('Apr 02, 2026')).toBeDefined()
     })
 
     it('shows a dash for a user the login trail has never seen', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
         await sortNearFront(user.id)
-        await publishTos()
+        const published = await publishTos()
+        // Acknowledged so the row carries a real date there, leaving the login as its only dash —
+        // which also fails loudly if the column ever renders the acknowledgement's value.
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
 
-        expect(await lastLoginCell(user.email!)).toBe(EMPTY_CELL)
+        const row = (await screen.findByText(user.email!)).closest('tr')!
+        expect(within(row).getByText(EMPTY_CELL)).toBeDefined()
     })
 
     it('shows one page of users at a time', async () => {
