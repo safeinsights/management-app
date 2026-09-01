@@ -152,6 +152,10 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
         '--mantine-color-placeholder': theme.colors.grey[7],
         '--mantine-color-dimmed': theme.colors.gray[7],
         '--mantine-color-error': theme.colors.red[10],
+        // Mantine only emits --mantine-color-*-0..9. Extra tuple shades need these
+        // so `color="red.10"` can resolve idle (10) and filled hover (10+1).
+        '--mantine-color-red-10': theme.colors.red[10],
+        '--mantine-color-red-11': theme.colors.red[10],
     },
     dark: {},
     light: {},

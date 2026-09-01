@@ -23,7 +23,6 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
     variant = 'default',
     children,
 }) => {
-    const isDestructive = variant === 'destructive'
     return (
         <AppModal
             isOpen={isOpen}
@@ -40,7 +39,12 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
                     <Button variant="outline" onClick={onClose} disabled={isPending}>
                         Cancel
                     </Button>
-                    <Button color={isDestructive ? 'red' : undefined} onClick={onConfirm} loading={isPending}>
+                    <Button
+                        variant={variant === 'destructive' ? 'filled' : undefined}
+                        color={variant === 'destructive' ? 'red.10' : undefined}
+                        onClick={onConfirm}
+                        loading={isPending}
+                    >
                         {confirmLabel}
                     </Button>
                 </Group>

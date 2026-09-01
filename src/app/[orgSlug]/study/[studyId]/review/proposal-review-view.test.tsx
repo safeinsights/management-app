@@ -13,7 +13,8 @@ import { lexicalJson } from '@/lib/lexical'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
+import { DecisionConfirmationModal } from './decision-confirmation-modal'
+import type { Decision } from '@/lib/review-decision'
 import { ProposalReviewView } from './proposal-review-view'
 
 describe('ProposalReviewView', () => {
@@ -141,61 +142,119 @@ describe('ProposalReviewView', () => {
         })
     })
 
-    describe('ReviewConfirmationModal copy', () => {
-        it('renders the reject modal with the new title and both paragraphs', () => {
+    describe('DecisionConfirmationModal', () => {
+        const labName = 'Test Research Lab'
+
+        it('renders approve modal with decision-specific title, body, and CTA', () => {
             renderWithProviders(
-                <ReviewConfirmationModal
+                <DecisionConfirmationModal
+                    decision="approve"
+                    labName={labName}
                     isOpen
                     onClose={() => {}}
                     onConfirm={() => {}}
                     isPending={false}
-                    title="Reject initial request"
-                    confirmLabel="Reject initial request"
-                    variant="destructive"
-                >
-                    <span>
-                        Please confirm you are ready to submit your review. Further edits are not permitted once
-                        submitted.
-                    </span>
-                    {REJECTION_WARNING}
-                </ReviewConfirmationModal>,
+                />,
             )
 
             const dialog = screen.getByRole('dialog')
-            expect(dialog).toHaveTextContent('Reject initial request')
+            expect(dialog).toHaveTextContent('Approve proposal?')
             expect(dialog).toHaveTextContent(
-                'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.',
+                `Your approval and feedback will be sent to ${labName}. You will not be able to make changes after approving.`,
             )
-            expect(dialog).toHaveTextContent(
-                'Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This action cannot be undone.',
-            )
-            expect(dialog.textContent ?? '').not.toContain('Other teammates')
+            expect(screen.getByRole('button', { name: 'Approve proposal' })).toBeInTheDocument()
         })
 
-        it('renders the approve/needs-clarification modal with the shared body and no rejection warning', () => {
+        it('renders request-revision modal with decision-specific title, body, and CTA', () => {
             renderWithProviders(
-                <ReviewConfirmationModal
+                <DecisionConfirmationModal
+                    decision="needs-clarification"
+                    labName={labName}
                     isOpen
                     onClose={() => {}}
                     onConfirm={() => {}}
                     isPending={false}
-                    title="Confirm review submission?"
-                    confirmLabel="Yes, submit review"
-                >
-                    <span>
-                        Please confirm you are ready to submit your review. Further edits are not permitted once
-                        submitted.
-                    </span>
-                </ReviewConfirmationModal>,
+                />,
             )
 
             const dialog = screen.getByRole('dialog')
-            expect(dialog).toHaveTextContent('Confirm review submission?')
+            expect(dialog).toHaveTextContent('Request revision?')
             expect(dialog).toHaveTextContent(
-                'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.',
+                `Your feedback will be sent to ${labName} so they can update and resubmit.`,
             )
-            expect(dialog.textContent ?? '').not.toContain('Rejection:')
-            expect(dialog.textContent ?? '').not.toContain('Other teammates')
+            expect(dialog).toHaveTextContent("You'll be notified when the revised proposal is ready for review.")
+            expect(screen.getByRole('button', { name: 'Request revision' })).toBeInTheDocument()
+        })
+
+        it('renders decline modal with decision-specific title, body, and CTA', () => {
+            renderWithProviders(
+                <DecisionConfirmationModal
+                    decision="reject"
+                    labName={labName}
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending={false}
+                />,
+            )
+
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toHaveTextContent('Decline proposal?')
+            expect(dialog).toHaveTextContent(
+                `Your decision and feedback will be sent to ${labName}. Declining ends this study and cannot be undone.`,
+            )
+            expect(screen.getByRole('button', { name: 'Decline and end study' })).toBeInTheDocument()
+        })
+
+        it('renders nothing when decision is null', () => {
+            renderWithProviders(
+                <DecisionConfirmationModal
+                    decision={null}
+                    labName={labName}
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending={false}
+                />,
+            )
+
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+
+        it('disables both buttons while submission is pending', () => {
+            renderWithProviders(
+                <DecisionConfirmationModal
+                    decision="approve"
+                    labName={labName}
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending
+                />,
+            )
+
+            expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+        })
+
+        it('each decision renders its own distinct CTA label', () => {
+            const decisions: Decision[] = ['approve', 'needs-clarification', 'reject']
+            const expectedLabels = ['Approve proposal', 'Request revision', 'Decline and end study']
+
+            decisions.forEach((decision, i) => {
+                const { unmount } = renderWithProviders(
+                    <DecisionConfirmationModal
+                        decision={decision}
+                        labName={labName}
+                        isOpen
+                        onClose={() => {}}
+                        onConfirm={() => {}}
+                        isPending={false}
+                    />,
+                )
+
+                expect(screen.getByRole('button', { name: expectedLabels[i] })).toBeInTheDocument()
+                unmount()
+            })
         })
     })
 

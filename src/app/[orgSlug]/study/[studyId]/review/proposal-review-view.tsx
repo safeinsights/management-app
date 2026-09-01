@@ -1,6 +1,5 @@
 'use client'
 
-import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -9,7 +8,8 @@ import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-prov
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { ReviewSubmissionListener } from './review-submission-listener'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
-import { Button, Group, Text } from '@mantine/core'
+import { DecisionConfirmationModal } from './decision-confirmation-modal'
+import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useState, type FC } from 'react'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
@@ -43,8 +43,7 @@ function useProposalReview({
 }) {
     const feedback = useReviewFeedback(`Enter your decision for ${submittingLabName} before submitting.`)
     const decision = useReviewDecision()
-    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
-    const [rejectOpen, { open: openReject, close: closeReject }] = useDisclosure(false)
+    const [modalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
 
     const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug, tabSessionId, reviewVersion })
 
@@ -56,11 +55,7 @@ function useProposalReview({
             return
         }
 
-        if (decision.selected === 'reject') {
-            openReject()
-        } else {
-            openConfirm()
-        }
+        openModal()
     }
 
     const handleConfirmSubmit = () => {
@@ -74,10 +69,8 @@ function useProposalReview({
         feedback,
         decision,
         handleSubmit,
-        confirmOpen,
-        closeConfirm,
-        rejectOpen,
-        closeReject,
+        modalOpen,
+        closeModal,
         handleConfirmSubmit,
         isPending,
     }
@@ -85,25 +78,19 @@ function useProposalReview({
 
 type ReviewActionsBarProps = {
     study: StudyForReview
-    isPending: boolean
     onSubmit: () => void
 }
 
-const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isPending, onSubmit }) => {
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, onSubmit }) => {
     if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
     return (
         <Group justify="flex-end">
-            <Button disabled={isPending} onClick={onSubmit}>
-                Submit decision
-            </Button>
+            <Button onClick={onSubmit}>Submit decision</Button>
         </Group>
     )
 }
-
-const CONFIRM_BODY =
-    'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.'
 
 /**
  * Inner component that does all the hook work. Lives **inside**
@@ -118,23 +105,14 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
     // the kick-out flow. Same-user other tabs get fresh ids and respond as expected.
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
-    const {
-        feedback,
-        decision,
-        handleSubmit,
-        confirmOpen,
-        closeConfirm,
-        rejectOpen,
-        closeReject,
-        handleConfirmSubmit,
-        isPending,
-    } = useProposalReview({
-        orgSlug,
-        studyId: study.id,
-        tabSessionId,
-        reviewVersion,
-        submittingLabName: study.submittingLabName,
-    })
+    const { feedback, decision, handleSubmit, modalOpen, closeModal, handleConfirmSubmit, isPending } =
+        useProposalReview({
+            orgSlug,
+            studyId: study.id,
+            tabSessionId,
+            reviewVersion,
+            submittingLabName: study.submittingLabName,
+        })
     const isEditable = !isSubmittedProposalReviewStatus(study.status)
 
     return (
@@ -165,32 +143,16 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 />
             }
             decision={<ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />}
-            actions={<ReviewActionsBar study={study} isPending={isPending} onSubmit={handleSubmit} />}
+            actions={<ReviewActionsBar study={study} onSubmit={handleSubmit} />}
             modals={
-                <>
-                    <ReviewConfirmationModal
-                        isOpen={confirmOpen}
-                        onClose={closeConfirm}
-                        onConfirm={handleConfirmSubmit}
-                        isPending={isPending}
-                        title="Confirm review submission?"
-                        confirmLabel="Yes, submit review"
-                    >
-                        <Text size="md">{CONFIRM_BODY}</Text>
-                    </ReviewConfirmationModal>
-                    <ReviewConfirmationModal
-                        isOpen={rejectOpen}
-                        onClose={closeReject}
-                        onConfirm={handleConfirmSubmit}
-                        isPending={isPending}
-                        title="Reject initial request"
-                        confirmLabel="Reject initial request"
-                        variant="destructive"
-                    >
-                        <Text size="md">{CONFIRM_BODY}</Text>
-                        {REJECTION_WARNING}
-                    </ReviewConfirmationModal>
-                </>
+                <DecisionConfirmationModal
+                    decision={decision.selected}
+                    labName={study.submittingLabName}
+                    isOpen={modalOpen}
+                    onClose={closeModal}
+                    onConfirm={handleConfirmSubmit}
+                    isPending={isPending}
+                />
             }
         />
     )
