@@ -3,9 +3,11 @@ import {
     type ButtonVariant,
     createTheme,
     CSSVariablesResolver,
+    defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
     MantineColorsTuple,
+    type VariantColorsResolver,
 } from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
@@ -133,6 +135,24 @@ declare module '@mantine/core' {
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
     }
+
+    export interface ButtonProps {
+        variant?: ButtonVariant | 'error'
+    }
+}
+
+const ERROR_BG_DARK = '#A83028'
+
+const variantColorResolver: VariantColorsResolver = (input) => {
+    if (input.variant === 'error') {
+        return {
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        }
+    }
+    return defaultVariantColorsResolver(input)
 }
 
 // Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
@@ -149,6 +169,7 @@ export const theme = createTheme({
         fontFamily: 'Open Sans',
         fontWeight: '700',
     },
+    variantColorResolver,
     colors: {
         navy,
         charcoal,
@@ -201,10 +222,7 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
         '--mantine-color-placeholder': theme.colors.grey[7],
         '--mantine-color-dimmed': theme.colors.gray[7],
         '--mantine-color-error': theme.colors.red[10],
-        // Mantine only emits --mantine-color-*-0..9. Extra tuple shades need these
-        // so `color="red.10"` can resolve idle (10) and filled hover (10+1).
-        '--mantine-color-red-10': theme.colors.red[10],
-        '--mantine-color-red-11': theme.colors.red[10],
+        '--mantine-color-error-filled': ERROR_BG_DARK,
     },
     dark: {},
     light: {},

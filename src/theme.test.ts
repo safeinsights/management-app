@@ -36,4 +36,21 @@ describe('button colors', () => {
             expect(buttonVars({}, { variant }).root).toEqual({})
         },
     )
+
+    it('resolves error idle and hover to the library error tokens', () => {
+        expect(theme.colors?.red?.[10]).toBe('#7E241E')
+        expect(
+            theme.variantColorResolver?.({
+                variant: 'error',
+                color: 'navy',
+                theme,
+                autoContrast: false,
+            }),
+        ).toEqual({
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        })
+    })
 })

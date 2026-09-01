@@ -9,7 +9,7 @@ interface ReviewConfirmationModalProps {
     isPending: boolean
     title: string
     confirmLabel: string
-    variant?: 'default' | 'destructive'
+    variant?: 'default' | 'error'
     children: ReactNode
 }
 
@@ -23,6 +23,8 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
     variant = 'default',
     children,
 }) => {
+    const confirmVariant = variant === 'error' ? 'error' : undefined
+
     return (
         <AppModal
             isOpen={isOpen}
@@ -39,12 +41,7 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
                     <Button variant="outline" onClick={onClose} disabled={isPending}>
                         Cancel
                     </Button>
-                    <Button
-                        variant={variant === 'destructive' ? 'filled' : undefined}
-                        color={variant === 'destructive' ? 'red.10' : undefined}
-                        onClick={onConfirm}
-                        loading={isPending}
-                    >
+                    <Button variant={confirmVariant} onClick={onConfirm} loading={isPending}>
                         {confirmLabel}
                     </Button>
                 </Group>
