@@ -6,8 +6,9 @@ import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
+import { PageHeader } from '@/components/page-header'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { Stack, Text, Title } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { redirect } from 'next/navigation'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
@@ -27,7 +28,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="xxl" gap="xxl">
-            <Title order={1}>{orgName + (isEnclave ? ' Data Partner' : ' Research Lab')} dashboard</Title>
+            <PageHeader eyebrow={orgName} title="Dashboard" />
             <JoinedOrgBanner />
             <Text mt="-md">{description}</Text>
             <StudiesTable

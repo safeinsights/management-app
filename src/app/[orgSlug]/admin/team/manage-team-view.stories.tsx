@@ -72,13 +72,13 @@ const TableStandIn = (records: OrgUserReturn[]) => (
 
 export const WithPeople: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto', padding: 16 }}>
-        <ManageTeamView inviteAction={InviteButtonStandIn} table={TableStandIn(people)} />
+        <ManageTeamView orgName="Genius" inviteAction={InviteButtonStandIn} table={TableStandIn(people)} />
     </Box>
 )
 
 export const EmptyTeam: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto', padding: 16 }}>
-        <ManageTeamView inviteAction={InviteButtonStandIn} table={TableStandIn([])} />
+        <ManageTeamView orgName="Genius" inviteAction={InviteButtonStandIn} table={TableStandIn([])} />
     </Box>
 )
 

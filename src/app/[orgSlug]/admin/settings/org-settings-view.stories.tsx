@@ -111,6 +111,7 @@ const DataSourcesCard = (
 export const Populated: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto' }}>
         <OrgSettingsView
+            orgName="Genius"
             orgSettings={orgCard(org)}
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={CodeEnvsCard}
@@ -122,6 +123,7 @@ export const Populated: Story = () => (
 export const EmptyCards: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto' }}>
         <OrgSettingsView
+            orgName="Genius"
             orgSettings={orgCard({ ...org, description: null })}
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={

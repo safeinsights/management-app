@@ -16,4 +16,4 @@ const TabsStandIn = () => (
     </Paper>
 )
 
-export const LegalCenter: Story = () => <OrgLegalView tabs={<TabsStandIn />} />
+export const LegalCenter: Story = () => <OrgLegalView orgName="Genius" tabs={<TabsStandIn />} />
