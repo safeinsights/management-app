@@ -49,8 +49,8 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
         accessor: 'lastLoginAt',
         title: 'Last login',
         sortable: true,
-        // A dash, not "Never": the login trail does not reach back to the start of the app, so an
-        // absent value means no record rather than an absence of logins.
+        // A dash, not "Never": the trail does not reach back to the start of the app, so an absent
+        // value means no record rather than no logins.
         render: (row) => formatInstant(row.lastLoginAt),
     },
 ]

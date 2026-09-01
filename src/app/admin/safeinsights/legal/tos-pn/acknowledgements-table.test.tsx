@@ -59,8 +59,7 @@ const topRowText = () => screen.getAllByRole('row')[1]?.textContent ?? ''
 const sortNearFront = (userId: string) =>
     db.updateTable('user').set({ firstName: 'Aaa', lastName: 'Sorter' }).where('id', '=', userId).execute()
 
-// Last login is the final column, so the cell is read positionally rather than by text: a dash also
-// appears in the columns for a user with no orgs and no acknowledgement.
+// Read positionally: a dash also appears in the org and acknowledgement columns.
 const lastLoginCell = async (email: string) => {
     const row = (await screen.findByText(email)).closest('tr')
     const cells = row?.querySelectorAll('td') ?? []
@@ -141,8 +140,6 @@ describe('AcknowledgementsTable', () => {
         expect(await lastLoginCell(user.email!)).toBe('Apr 02, 2026')
     })
 
-    // A dash rather than "Never": the login trail does not reach back to the start of the app, so
-    // an absent value means no record rather than an absence of logins.
     it('shows a dash for a user the login trail has never seen', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
         await sortNearFront(user.id)

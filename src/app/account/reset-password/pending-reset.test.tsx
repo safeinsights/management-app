@@ -39,8 +39,7 @@ const submitReset = async () => {
 }
 
 // A completed reset hands back a live session, so this screen is a sign-in like any other. It used
-// to push straight at redirect_url, skipping the invite, the key detour and the login record
-// (SHRMP-306).
+// to push straight at redirect_url, skipping the invite, the key detour and the login record.
 describe('PendingReset', () => {
     it('routes a keyless user through key generation once the reset completes', async () => {
         const { user } = await insertKeylessInvitedUser()
@@ -55,8 +54,7 @@ describe('PendingReset', () => {
             ),
         )
 
-        // Both are true of the same request and neither implies the other: the reset is what the
-        // user did, the login is what they now hold.
+        // Neither implies the other: the reset is what the user did, the login is what they now hold.
         await flushDeferred()
         const events = (await getAuditEntries(user.id, 'USER')).map((entry) => entry.eventType)
         expect(events).toContain('RESET_PASSWORD')

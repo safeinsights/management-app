@@ -1,14 +1,16 @@
 import { type Kysely, sql } from 'kysely'
 
-// The acknowledgements table reads each user's most recent LOGGED_IN row, which is the first read
-// this event type has ever had. Partial rather than a plain composite so event_type is satisfied by
-// the predicate and the two selected columns come from the index itself: without it Postgres
-// heap-fetches every USER audit row just to check the event type.
+// Serves the last-login read on the acknowledgements table: the two filtered columns lead, leaving
+// (record_id, created_at DESC) to supply the ordering, and both selected columns come from the index
+// so the scan is index-only.
+//
+// Not a partial index on `WHERE event_type = 'LOGGED_IN'`, tempting as it is: an earlier migration
+// adds that value with ALTER TYPE, and Postgres refuses to use a new enum value in the transaction
+// that introduced it, so a fresh database fails to migrate.
 export async function up(db: Kysely<unknown>): Promise<void> {
     await sql`
         CREATE INDEX audit_last_login_idx
-        ON audit (record_id, created_at DESC)
-        WHERE record_type = 'USER' AND event_type = 'LOGGED_IN'
+        ON audit (record_type, event_type, record_id, created_at DESC)
     `.execute(db)
 }
 

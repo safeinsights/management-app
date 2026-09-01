@@ -723,8 +723,7 @@ describe('Create Account Actions', () => {
         expect(updatedInvite?.claimedByUserId).toBe(user.id)
     })
 
-    // Signup is the one session-establishing screen that does not run the shared post-sign-in
-    // sequence, so without this the audit table has no record that a new account ever signed in.
+    // Signup skips the shared sequence, so without this a new account's first sign-in is never audited.
     it('onPendingUserLoginAction records the login', async () => {
         const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
 

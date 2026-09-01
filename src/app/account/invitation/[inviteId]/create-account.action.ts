@@ -61,8 +61,7 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
             .returning('id')
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-        // Signup does not run the shared post-sign-in sequence — a fresh account is sent to MFA
-        // enrolment rather than resolving its own landing — so the login is recorded here instead.
+        // Signup skips the shared post-sign-in sequence (it lands on MFA enrolment), so record it here.
         onUserLogIn({ userId: session.user.id })
     })
 

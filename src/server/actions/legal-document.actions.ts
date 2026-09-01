@@ -410,9 +410,8 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 
         const latestByUser = new Map(acknowledgements.map((ack) => [ack.userId, ack]))
 
-        // Joined on recordId rather than userId: the two hold the same value for a login, but
-        // recordId is the subject of the event (userId is the actor, and the two diverge — an
-        // invite records the inviter against the pending row), and recordId is what is indexed.
+        // recordId, not userId: same value for a login, but recordId is the event's subject (userId is
+        // the actor, and an invite records the inviter) and it is the indexed column.
         const logins = await db
             .selectFrom('audit')
             .select(['recordId', 'createdAt'])
@@ -436,8 +435,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                 orgs: [] as { id: string; name: string }[],
                 acknowledgedVersionNumber: ack?.versionNumber ?? null,
                 ackedAt: ack?.ackedAt ?? null,
-                // Absent means no record, not "never signed in": the audit trail starts partway
-                // through the app's life, so the column renders a dash rather than a claim.
+                // Absent means no record, not "never signed in" — the trail starts partway through.
                 lastLoginAt: lastLoginByUser.get(row.id) ?? null,
             }
         }

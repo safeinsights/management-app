@@ -142,9 +142,8 @@ describe('SignInForm', () => {
 
         await waitFor(() => expect(password).toHaveAttribute('aria-invalid', 'true'))
     })
-    // An invited user who has not yet enrolled MFA completes sign-in in one step and lands here,
-    // where invite_id used to be ignored — so the invite that brought them was silently lost
-    // (SHRMP-306).
+    // An invited user who has not enrolled MFA completes sign-in in one step and lands here, where
+    // invite_id used to be ignored — so the invite that brought them was silently lost.
     it('accepts a pending invite for a keyless user who signs in without MFA', async () => {
         const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)

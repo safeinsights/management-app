@@ -105,8 +105,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 await onUserResetPWAction()
-                // A reset hands back a live session, so the same post-sign-in sequence applies:
-                // the audit row, the pending invite, and the key detour a keyless account needs.
+                // A reset hands back a live session, so the same post-sign-in sequence applies.
                 await completeSignIn()
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)

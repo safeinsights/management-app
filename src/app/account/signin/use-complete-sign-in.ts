@@ -12,12 +12,8 @@ import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 
-// The session token is what carries fresh org metadata to the next page, but a stale token is a
-// far smaller problem than losing the invite or the key detour that follows it, so a refresh
-// failure is logged rather than thrown. The caller is named in the log because the two differ in
-// what the user is left holding: after sign-in nothing has been committed yet, while after an
-// invite accept the membership row already exists, so a stale token there means a joined user
-// whose session cannot see the org.
+// A stale token matters far less than losing the invite or the key detour that follow it, so a
+// refresh failure is logged rather than thrown.
 async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invite-accepted') {
     try {
         await getToken({ skipCache: true })
@@ -26,9 +22,8 @@ async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invi
     }
 }
 
-// Clerk has already established the session by the time this runs, so a failure here must not
-// abort the rest of the sequence: a pending invite still needs accepting, and the client key guard
-// still catches a keyless account wherever it lands.
+// The session already exists by now, so a failure here must not abort the invite accept or the
+// key detour that follow.
 async function completeServerSignIn(getToken: GetToken) {
     try {
         const result = actionResult(await onUserSignInAction())
@@ -40,53 +35,42 @@ async function completeServerSignIn(getToken: GetToken) {
     }
 }
 
-// Always resolves to a destination rather than throwing, so the key detour still runs on top of
-// whatever this decides.
+// Always resolves to a destination rather than throwing, so the key detour still runs on top.
 async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToken): Promise<Route> {
     const joinTeamPage = Routes.accountInvitationJoinTeam({ inviteId }) as Route
 
     let org: { slug: string; name: string }
     try {
-        // Read the org before joining: accepting marks the invite claimed,
-        // and the lookup only resolves unclaimed invites.
+        // Read the org first: accepting marks the invite claimed, and the lookup only resolves unclaimed ones.
         org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
     } catch (error) {
-        // A claimed or deleted invite, so retrying can never succeed, which is
-        // distinct from a join failure that is worth retrying. The join-team
-        // page renders a persistent "no longer valid" panel for this state, so
-        // land there rather than on a dashboard where only the transient toast
-        // explains what happened.
+        // Unlike a join failure, retrying can never succeed here, and only the join-team page explains
+        // that persistently — a dashboard would say it in a toast that vanishes.
         reportError(error, 'This invitation is no longer valid')
         return joinTeamPage
     }
 
     try {
-        // actionResult, despite the discarded value: it is what turns an
-        // action failure into a throw, so the catch below can run.
+        // actionResult despite the discarded value: it is what turns a failure into a throw for the catch.
         actionResult(await onJoinTeamAccountAction({ inviteId }))
     } catch (error) {
-        // A join that fails inside its transaction rolls the claim back, leaving the invite live,
-        // so return to the join-team page where Accept can be retried instead of silently landing
-        // elsewhere.
+        // A failed join rolls its claim back, leaving the invite live, so land where Accept can be retried.
         reportError(error, 'Failed to accept your invitation. Please try again.')
         return joinTeamPage
     }
 
-    // Same one-shot flag the join-team page sets, so this path lands on
-    // the dashboard banner.
+    // Same one-shot flag the join-team page sets, so this path lands on the dashboard banner.
     markOrgJoined(org.name)
-    // Deliberately after the landing is settled: nothing that runs once the membership exists may
-    // turn a successful join into a retry prompt.
+    // After the landing is settled: nothing running once the membership exists may turn a successful
+    // join into a retry prompt.
     await refreshSessionToken(getToken, 'invite-accepted')
 
     return Routes.orgDashboard({ orgSlug: org.slug }) as Route
 }
 
-// Everything that has to happen after Clerk hands back a session, in one place. Four screens
-// establish a session — password, second factor, recovery code, and password reset — and each had
-// grown its own copy of this sequence with a different subset of the steps. The recovery-code
-// screen ran none of them, so a user who followed an invite link and signed in with a backup code
-// never joined the org (SHRMP-306).
+// Everything that happens after Clerk hands back a session. Four screens establish one, and each
+// had grown a copy of this with a different subset of the steps — the recovery-code screen ran none
+// of it, so an invited user signing in with a backup code never joined the org.
 export const useCompleteSignIn = () => {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -100,23 +84,19 @@ export const useCompleteSignIn = () => {
             let redirectUrl = rawRedirect ? safeRedirectUrl(rawRedirect, Routes.dashboard) : null
 
             const inviteId = searchParams.get('invite_id')
-            // An invite outranks redirect_url when both are present. Joining is the thing that just
-            // changed, and its landing is the only one that reflects it: the dashboard confirms the
-            // membership and carries the joined-org banner, while a deep link captured before the
-            // join may still be unreachable to this account.
+            // An invite outranks redirect_url: its landing is the only one that reflects the new
+            // membership, and a deep link captured before the join may not even be reachable yet.
             if (inviteId) {
                 redirectUrl = await acceptInviteAndResolveLanding(inviteId, getToken)
             }
 
-            // Key generation last, so a keyless user still accepts their invite on the way through
-            // and resumes where they were headed afterwards (OTTER-655).
+            // Key generation last, so a keyless user still accepts the invite and resumes afterwards.
             router.push(
                 result?.redirectToKeyGeneration ? keyGenerationUrl(redirectUrl) : (redirectUrl ?? Routes.dashboard),
             )
         } catch (error) {
-            // Last resort: both steps above resolve their own failures to a destination, so
-            // reaching this means something unexpected threw. The user is signed in either way, so
-            // navigate rather than stranding them on the form.
+            // Both steps above resolve their own failures, so reaching this means something unexpected
+            // threw. The user is signed in either way, so navigate rather than strand them on the form.
             console.error('post sign-in navigation failed:', error)
             router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
         }

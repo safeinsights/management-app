@@ -54,8 +54,8 @@ describe('RecoveryCodeSignIn', () => {
             )
         })
     })
-    // The recovery branch used to push straight to the dashboard, skipping the whole post-sign-in
-    // sequence, so an invited user who reached for a backup code never joined the org (SHRMP-306).
+    // This branch used to push straight to the dashboard, so an invited user reaching for a backup
+    // code never joined the org.
     it('accepts a pending invite and routes a keyless user through key generation', async () => {
         const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
