@@ -1,11 +1,12 @@
 import { z } from 'zod'
-import type { LegalDocumentFormat, OrgType } from '@/database/types'
+import type { LegalDocumentFormat, LegalDocumentType, OrgType } from '@/database/types'
 
-export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
+// Restate enum (but enforce parity with DB) for zod validation
+const legalDocumentTypeValues = ['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'] as const satisfies readonly LegalDocumentType[]
 
-export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
+export const legalDocumentTypeSchema = z.enum(legalDocumentTypeValues)
 
-export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
+export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
     SLA: 'Study Agreement',
@@ -33,7 +34,7 @@ export type LegalDocumentBody = { format: 'markdown'; content: string } | { form
 
 // A published document with its body resolved. Scope-neutral instead of `global` or `enforced`
 export type ResolvedLegalDocument = {
-    type: LegalDocumentTypeValue
+    type: LegalDocumentType
     versionId: string
 } & LegalDocumentBody
 
@@ -57,7 +58,7 @@ export const legalDocumentFormatSchema = z.enum(legalDocumentFormatValues)
 
 // Fixed per type rather than chosen per upload, so a document can never be stored in a format its
 // viewer cannot render.
-export const legalDocumentFormats: Record<LegalDocumentTypeValue, LegalDocumentFormat> = {
+export const legalDocumentFormats: Record<LegalDocumentType, LegalDocumentFormat> = {
     TOS: 'markdown',
     PN: 'markdown',
     SLA: 'pdf',
@@ -206,11 +207,11 @@ export type LegalDocumentAcknowledgementSort = NonNullable<
 // one consumer and silently missed the other.
 export const legalDocumentQueryKeys = {
     // The exact scope a reader asked for. tos/pn leave the scope columns undefined.
-    versions: (scope: { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }) =>
+    versions: (scope: { type: LegalDocumentType; orgId?: string; studyId?: string }) =>
         ['legalDocumentVersions', scope.type, scope.orgId, scope.studyId] as const,
     // Prefix of the above, so invalidating after a publish reaches every scope of that type without
     // the writer having to know which readers are mounted.
-    versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
+    versionsForType: (type: LegalDocumentType) => ['legalDocumentVersions', type] as const,
     // What the app-wide gate owes the signed-in user next. No scope: it answers for whoever is asking.
     nextPendingAcknowledgement: () => ['nextPendingLegalAcknowledgement'] as const,
     // Read by the signup form before an account exists, so there is no session to key it by.
@@ -222,7 +223,7 @@ export const legalDocumentQueryKeys = {
     documentContent: (versionId: string) => ['legalDocumentContent', versionId] as const,
     // Sort is part of the key because the action orders the rows: the audience is assembled in
     // memory, so a re-sort is a new read rather than a client-side shuffle.
-    acknowledgements: (type: LegalDocumentTypeValue, sort: LegalDocumentAcknowledgementSort) =>
+    acknowledgements: (type: LegalDocumentType, sort: LegalDocumentAcknowledgementSort) =>
         ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,

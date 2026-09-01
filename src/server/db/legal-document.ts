@@ -1,9 +1,9 @@
 import { type DBExecutor } from '@/database'
-import type { OrgType } from '@/database/types'
-import { type LegalDocumentTypeValue, type ParticipationAgreementType } from '@/schema/legal-document'
+import type { LegalDocumentType, OrgType } from '@/database/types'
+import { type ParticipationAgreementType } from '@/schema/legal-document'
 
 // tos/pn are global, so their scope columns are null rather than absent.
-type DocumentScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
+type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 const documentInScope = (db: DBExecutor, { type, orgId, studyId }: DocumentScope) =>
     db

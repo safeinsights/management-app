@@ -23,7 +23,6 @@ import {
     type GlobalLegalDocument,
     type PendingLegalDocument,
     type LegalDocumentBody,
-    type LegalDocumentTypeValue,
     inviteParams,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
@@ -343,7 +342,7 @@ const bodyForVersion = async ({
     filePath,
     fileName,
 }: {
-    type: LegalDocumentTypeValue
+    type: LegalDocumentType
     filePath: string
     fileName: string
 }): Promise<LegalDocumentBody> =>
