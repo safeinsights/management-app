@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { memoryRouter } from 'next-router-mock'
 import { redirect, useParams } from 'next/navigation'
 import { StudyRequestProvider } from '@/contexts/study-request'
 import logger from '@/lib/logger'
@@ -12,6 +13,8 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
+    waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import StudyEditPage from './page'
@@ -210,6 +213,50 @@ describe('StudyEditPage', () => {
 
         expect(mockRedirect).not.toHaveBeenCalled()
         expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
+    })
+
+    // The URL is the only carrier of returnTo across a step back and forward, so the parse is
+    // covered here rather than only at the two ends of the chain.
+    it('carries returnTo from the URL into the forward link', async () => {
+        const user = userEvent.setup()
+        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: researcher.id,
+            studyStatus: 'PENDING-REVIEW',
+            title: 'A study entered from an org dashboard',
+        })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+        memoryRouter.setCurrentUrl('/start')
+
+        await renderPage(org.slug, study.id, { returnTo: 'org' })
+        await user.click(screen.getByRole('button', { name: 'Next step' }))
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id, returnTo: 'org' }),
+            ),
+        )
+    })
+
+    it('discards a returnTo the routes do not build', async () => {
+        const user = userEvent.setup()
+        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: researcher.id,
+            studyStatus: 'PENDING-REVIEW',
+            title: 'A study reached with a bogus entry',
+        })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+        memoryRouter.setCurrentUrl('/start')
+
+        await renderPage(org.slug, study.id, { returnTo: 'bogus' })
+        await user.click(screen.getByRole('button', { name: 'Next step' }))
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+        )
     })
 
     // /edit is a revisitable step: it never resume-redirects to Step 2. resolveScreen, not this

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Route } from 'next'
-import { makeRoute } from './builder'
+import { makeRoute, withQuery } from './builder'
 import { safeRedirectUrl } from '@/lib/utils'
 
 export const OrgParams = z.object({
@@ -55,25 +55,13 @@ export const Routes = {
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
     studyView: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/view`
-            const params = new URLSearchParams()
-            if (returnTo) params.set('returnTo', returnTo)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
+        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/view`, { returnTo }),
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
     // 404s until the code step is reached; /view resolves to results once decided.
     studyViewCode: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/view/code`
-            const params = new URLSearchParams()
-            if (returnTo) params.set('returnTo', returnTo)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
+        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/view/code`, { returnTo }),
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
@@ -81,13 +69,7 @@ export const Routes = {
     // (OTTER-764): without it, a round trip through here strands an org-scoped entry on the
     // personal dashboard.
     studyEdit: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/edit`
-            const params = new URLSearchParams()
-            if (returnTo) params.set('returnTo', returnTo)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
+        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/edit`, { returnTo }),
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
@@ -112,13 +94,8 @@ export const Routes = {
 
     // Split by role so a dual-role user's flow comes from the URL, not a guess.
     studyResearcherAgreements: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/agreements/researcher`
-            const params = new URLSearchParams()
-            if (returnTo) params.set('returnTo', returnTo)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
+        ({ orgSlug, studyId, returnTo }) =>
+            withQuery(`/${orgSlug}/study/${studyId}/agreements/researcher`, { returnTo }),
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
@@ -130,24 +107,12 @@ export const Routes = {
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 
     studySubmitted: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => {
-            const base = `/${orgSlug}/study/${studyId}/submitted`
-            const params = new URLSearchParams()
-            if (returnTo) params.set('returnTo', returnTo)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
+        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/submitted`, { returnTo }),
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
     researcherProfileView: makeRoute(
-        ({ orgSlug, studyId, userId }) => {
-            const base = `/${orgSlug}/study/${studyId}/researcher-profile`
-            const params = new URLSearchParams()
-            if (userId) params.set('userId', userId)
-            const qs = params.toString()
-            return qs ? `${base}?${qs}` : base
-        },
+        ({ orgSlug, studyId, userId }) => withQuery(`/${orgSlug}/study/${studyId}/researcher-profile`, { userId }),
         StudyParams.extend({ userId: z.string().optional() }),
     ),
 

@@ -96,7 +96,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         useSetupForm({
             form,
             ...locks,
-            requiresConfirmation: navMode === 'create',
+            // Derived from the same locks rather than from navMode, so the modal cannot go quiet
+            // while a choice it warns about is still editable.
+            requiresConfirmation: !locks.isOrgLocked || !locks.isLanguageLocked,
             onProceed: saveAndAdvance,
         })
 
