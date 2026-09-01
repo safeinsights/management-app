@@ -747,7 +747,8 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByText(studyTitle)).toBeVisible()
+        // The title is the page heading, and also body text inside the section header.
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
@@ -860,7 +861,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await page.getByRole('link', { name: /Edit and resubmit/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
-        await expect(page.getByRole('heading', { name: /Edit Initial Request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
 
         // The form must load the previously-saved proposal values for editing, not
         // empty placeholders. These mirror the content seeded by seedProposalPendingReview.
@@ -890,7 +891,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         // Resubmission returns the proposal to PENDING-REVIEW: the editable
         // ProposalReviewView re-opens with a fresh decision section.
         await goto(page, `/openstax/study/${studyId}/review`)
-        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
     })
 })
@@ -1026,8 +1027,8 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        // "Review initial request" is both the h1 and a section h4 — pin to h1.
-        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        // The page heading is the study title; "Review initial request" is the section header.
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
 
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
         await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
