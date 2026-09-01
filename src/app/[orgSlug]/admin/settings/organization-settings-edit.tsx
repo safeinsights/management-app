@@ -115,7 +115,6 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                     )
                                 }
                             />
-                            {/* If there is no name error show the characters count */}
                             {form.errors.name && (
                                 <FormFieldMessage message={(form.values.name || '').length + '/50 characters'} />
                             )}
@@ -143,7 +142,6 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                     )
                                 }
                             />
-                            {/* If there is no description error show the characters count */}
                             <FormFieldMessage message={(form.values.description || '').length + '/250 characters'} />
                         </Grid.Col>
                     </Grid>

@@ -14,7 +14,6 @@ import { StudyRequestPageHeader } from './page-header'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
-    /** Present once the draft has a persisted row. Drives the locks and the navigation state. */
     studyId?: string
     draftData?: DraftStudyData | null
     /** Set when the researcher entered from an org dashboard, so the step forward can hand it back. */
@@ -43,16 +42,10 @@ const CTA_LABELS: Record<SetupNavMode, string> = {
     submitted: 'Next step',
 }
 
-/**
- * Which state the page is in and which fields are read-only, derived from persisted server data only.
- *
- * Never from local or session state: that is what makes "the disabled title survives navigation,
- * reload and a new session" true by construction rather than by a guard someone can forget.
- */
+// Derived from persisted server data only, so the state and locks survive navigation and reload.
 function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData | null | undefined) {
-    // `!!status` as well as the comparison: a brand-new study at /study/request has no persisted row,
-    // so `status` is undefined and a bare `status !== 'DRAFT'` reads as submitted on the one screen
-    // whose entire purpose is entering the title.
+    // `!!status` as well as the comparison: a study with no persisted row has no status, and a bare
+    // `status !== 'DRAFT'` would read as submitted on the screen whose purpose is entering the title.
     const isSubmitted = !!draftData?.status && draftData.status !== 'DRAFT'
 
     let navMode: SetupNavMode = 'create'
@@ -60,11 +53,8 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
 
     const locks: SetupFormLocks = {
         isTitleLocked: isSubmitted,
-        // A submitted study locks every field whether or not each value is present, because the whole
-        // page is a record at that point. On a draft the `!!persistedValue` guards stay: having a
-        // studyId does not mean a Data Partner or a language was ever chosen, and locking on the id
-        // alone would leave such a draft permanently uncompletable, with no field to fix and a
-        // Continue click that can never pass validation.
+        // The `!!persistedValue` guards stay on a draft: a studyId does not mean a Data Partner or a
+        // language was ever chosen, and locking on the id alone would leave it uncompletable.
         isOrgLocked: isSubmitted || (!!studyId && !!draftData?.orgSlug),
         isLanguageLocked: isSubmitted || (!!studyId && !!draftData?.language),
     }
@@ -80,8 +70,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     const { navMode, locks } = deriveSetupState(studyId, draftData)
 
-    // Step 1 has no autosave, so proceeding persists the study row (create or update)
-    // before advancing to the collaborative Step 2 editor.
+    // Step 1 has no autosave, so proceeding persists the study row before Step 2.
     const saveAndAdvance = useCallback(() => {
         setIsProceeding(true)
         saveDraft({
@@ -112,8 +101,6 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         })
 
     useEffect(() => {
-        // Only initialize if we have draft data to load
-        // For new studies, the context is already fresh (no need to reset)
         if (draftData) {
             initFromDraft(draftData, submittingOrgSlug)
         }
@@ -125,8 +112,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         saveAndAdvance()
     }
 
-    // Resets client state and returns to the dashboard. It does not delete a persisted row, which
-    // is why it is offered only before anything has been saved.
+    // Does not delete a persisted row, which is why "Discard study" wording is confined to the
+    // case where nothing has been saved yet.
     const handleCancel = () => {
         reset()
         router.push(Routes.dashboard)

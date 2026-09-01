@@ -23,15 +23,9 @@ export default async function StudyEditPage(props: {
 
     // Step 1 serves two personas (OTTER-764): a DRAFT is the editable wizard, and a submitted study
     // is the same page as a read-only record, which is what the submitted proposal steps back to.
-    // No status is turned away, so every study the researcher may see has a Step 1 to return to, and
-    // the "Next step" a submitted one offers always lands on a /submitted page that accepts it.
     //
-    // The read-only view needs a title to display, and it always has one: the
-    // study_title_required_when_not_draft constraint permits a null title on a DRAFT only.
-    //
-    // /edit is a revisitable step: an authorized researcher can open it directly, forward or back,
-    // regardless of how far the study has progressed. The screen authority (resolveScreen) decides
-    // the canonical screen, so this page no longer self-redirects to resume on Step 2.
+    // /edit is a revisitable step, so it never self-redirects to resume on Step 2; resolveScreen
+    // decides the canonical screen.
     return (
         <StudyProposal
             studyId={studyId}

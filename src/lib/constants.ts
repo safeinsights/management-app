@@ -10,13 +10,10 @@ export const PROPOSAL_GRID_SPAN = {
 export const ENCLAVE_BG = 'purple.6'
 export const LAB_BG = 'green.10'
 
-// The app's content/page background — applied to the Mantine AppShell main area. Exported so
-// Ladle's canvas can reference the same source of truth (change it here → app and Ladle update).
+// Exported so Ladle's canvas shares the app's source of truth.
 export const APP_MAIN_BG = 'grey.10'
 
-// Static AppShell layout config shared by the real shell (src/components/layout/app-shell.tsx)
-// and Ladle's AppShell decorator (.ladle/decorators/with-app-shell.tsx), so the two can't drift.
-// Per-surface dynamic bits (mobile/desktop collapse) stay in each file.
+// Shared by the real shell and Ladle's AppShell decorator so the two can't drift.
 export const APP_SHELL = {
     navbarWidth: 260,
     headerHeight: 60,
@@ -27,7 +24,6 @@ export const APP_SHELL = {
     headerBg: 'purple.8',
 } as const
 
-// 8 seconds
 export const NOTIFICATION_DISPLAY_MS = 8000
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'

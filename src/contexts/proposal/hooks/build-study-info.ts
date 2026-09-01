@@ -1,18 +1,9 @@
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
-/**
- * Who owns `study.title` on this write.
- *
- * - `send` - the caller's form owns the title (CHANGE-REQUESTED resubmit).
- * - `omit` - someone else owns it, so leave the column alone. Step 1 owns it on a DRAFT
- *   (OTTER-690), and `onUpdateDraftStudyAction` / `finalizeStudySubmissionAction` both skip
- *   undefined keys, so omitting preserves the stored value verbatim.
- * - `omitIfBlank` - the caller owns it, but a blank must not be written: a NULL title on a
- *   non-DRAFT row violates the `study_title_required_when_not_draft` check constraint.
- *
- * Required rather than defaulted: three mutually exclusive behaviors across four write paths,
- * and a default is how a new caller silently inherits the wrong one.
- */
+// Who owns `study.title` on this write; required rather than defaulted so a new caller cannot
+// silently inherit the wrong one. `omit` leaves the stored value alone for DRAFTs, where Step 1
+// owns it (OTTER-690); `omitIfBlank` avoids writing a NULL that would violate
+// `study_title_required_when_not_draft`.
 export type TitleMode = 'send' | 'omit' | 'omitIfBlank'
 
 export function buildStudyInfo(values: ProposalFormValues, titleMode: TitleMode) {

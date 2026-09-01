@@ -8,9 +8,8 @@ import { CodePostDecisionView } from '../view/code-post-decision-view'
 import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 import type { ScreenComponentProps } from './types'
 
-// code-approved AND code-feedback both render the post-decision view. The effective decision is
-// APPROVED while the code is approved or executing; otherwise it's the live
-// CHANGES-REQUESTED/REJECTED decision.
+// The effective decision is APPROVED while the code is approved or executing; otherwise it is the
+// live CHANGES-REQUESTED/REJECTED decision.
 export async function CodeDecisionScreen({
     study,
     raw,
@@ -30,9 +29,8 @@ export async function CodeDecisionScreen({
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
-    // OTTER-614 / OTTER-687: the code page forwards to plain /view instead of ending at the
-    // dashboard, but only when /view resolves past this screen. Otherwise the button would point at
-    // the page it sits on.
+    // Only when /view resolves past this screen; otherwise the button would point at the page it
+    // sits on (OTTER-614, OTTER-687).
     const nextStepHref = hasNextStepFromCode('researcher', state, descriptor.screen)
         ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
         : undefined

@@ -44,12 +44,8 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
 
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
 
-    // A run closed out with nothing to decrypt must not come back here asking for a key that cannot
-    // work (OTTER-524). The same question the errored screen asks, and for the same reason: this form
-    // promises the reviewer their outputs, so a job whose only encrypted artifact is a scan log must
-    // not satisfy it either. That log is written by the code scanner at submission, says nothing about
-    // the run, and is already on the code review step, so returning it under "View outputs again"
-    // would rebuild on this screen exactly the conflation the errored screen now refuses to make.
+    // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
+    // submission-time scan log does not count as an output (OTTER-524).
     const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
 
     return (

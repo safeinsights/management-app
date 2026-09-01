@@ -9,12 +9,8 @@ export interface DraftStudyData {
     id: string
     orgSlug: string
     language: Language | null
-    /**
-     * Persisted status. Drives the post-submission read-only title on the Set Up page, so it must
-     * come from the study row rather than from anything client-side (OTTER-690).
-     */
+    /** Must come from the study row, not anything client-side (OTTER-690). */
     status?: StudyStatus
-    /** Display name of the Data Partner, shown once the selection is locked. */
     orgName?: string
     title?: string
     piName?: string

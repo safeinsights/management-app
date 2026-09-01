@@ -6,13 +6,7 @@ import { ButtonLink, Link } from '@/components/links'
 import { Panel } from '@/components/panel'
 import { Routes } from '@/lib/routes'
 
-// Presentational MFA status page-view. It owns both states: the "MFA is enabled"
-// confirmation card and the enrollment-options card. It is kept in its OWN file (free
-// of Clerk's useUser / reload / redirect) so it renders in isolation (e.g. Ladle). The
-// ManageMFA container (./manage-mfa) reads the real twoFactorEnabled state and passes
-// it via `hasMFA`.
 export type ManageMFAViewProps = {
-    /** When true, show the success/confirmation card; otherwise show enrollment options. */
     hasMFA: boolean
 }
 

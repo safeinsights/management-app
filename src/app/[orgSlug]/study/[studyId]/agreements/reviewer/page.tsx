@@ -3,10 +3,8 @@
 import { Routes } from '@/lib/routes'
 import { redirect } from 'next/navigation'
 
-// OTTER-727: the Agreements step is hidden. Nothing links here any more, so this route exists only to
-// catch stale bookmarks, browser history and old emails — it redirects to the canonical reviewer
-// screen (bare /review re-resolves to code review) instead of rendering the placeholder. /review runs
-// the shared reviewer access guard, so no session/ability preamble is needed here.
+// OTTER-727 hid the Agreements step; this route only catches stale bookmarks. /review runs the
+// shared reviewer access guard, so no preamble is needed here.
 export default async function ReviewerAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
 }) {

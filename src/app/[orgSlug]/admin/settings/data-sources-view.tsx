@@ -5,11 +5,8 @@ import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '
 import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { isHttpUrl } from '@/schema/url'
 
-// Presentational pieces for the "Data Sources" settings card. They own the card chrome
-// and the visible row (name / code-env names / description / linked URLs) but NOT data
-// fetching, the add/edit modals, or the per-row delete mutation — those stay in the
-// DataSources container (./data-sources). The body and per-row action node are injected
-// so these render in isolation (e.g. Ladle, which has no QueryClient).
+// Presentational only: the body and per-row action node are injected so these render without a
+// QueryClient (e.g. Ladle).
 
 export type DataSourceUrlView = {
     id: string
@@ -22,13 +19,11 @@ export type DataSourceRowViewProps = {
     codeEnvNames: string
     description: string | null
     urls: DataSourceUrlView[]
-    /** Edit/delete controls — injected by the container (they own mutation + modal). */
     actions: ReactNode
 }
 
-// Defense in depth for rows persisted before the schema restricted schemes (OTTER-724): a
-// stored `javascript:` URL still executes when React renders it into an href, so refuse to
-// link anything that is not http(s) and show the raw text instead.
+// Rows persisted before the schema restricted schemes (OTTER-724) can hold a `javascript:` URL,
+// which still executes when React renders it into an href.
 function DataSourceUrlLink({ url, description }: { url: string; description: string | null }) {
     const linkable = isHttpUrl(url)
 

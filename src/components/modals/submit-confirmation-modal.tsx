@@ -10,24 +10,12 @@ interface SubmitConfirmationModalProps {
     title: string
     body: string
     confirmLabel: string
-    /**
-     * Replaces `confirmLabel` while the submission is in flight, shown beside a spinner.
-     *
-     * Omit it to keep Mantine's default loading treatment, which covers the label with a centered
-     * loader overlay and leaves the button reading as a bare spinner.
-     */
+    /** Omit to keep Mantine's default treatment, which covers the label with a loader overlay. */
     confirmLoadingLabel?: string
 }
 
-/**
- * The confirm button.
- *
- * With a loading label it drives the busy state through `disabled` plus a `leftSection` spinner
- * rather than Mantine's `loading`. `loading` renders the Loader as a centered overlay *on top of*
- * the label, so the word would be in the DOM and invisible on screen; the design (OTTER-691) shows
- * the spinner and the word side by side. `disabled` gives the same double-submit protection,
- * because `loading` sets the disabled attribute anyway.
- */
+// With a loading label the busy state uses `disabled` plus a `leftSection` spinner rather than
+// Mantine's `loading`, which overlays the Loader on the label (OTTER-691).
 const ConfirmButton: FC<{
     onConfirm: () => void
     isSubmitting: boolean
@@ -47,8 +35,7 @@ const ConfirmButton: FC<{
             variant="primary"
             onClick={onConfirm}
             disabled={isSubmitting}
-            // No explicit color: the loader inherits the button text color, which is what
-            // greys it out in step with the label while the button is disabled.
+            // No explicit color, so the loader greys out in step with the label.
             leftSection={isSubmitting ? <Loader size={14} /> : undefined}
         >
             {isSubmitting ? confirmLoadingLabel : confirmLabel}
@@ -66,9 +53,8 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     confirmLabel,
     confirmLoadingLabel,
 }) => (
-    // Every dismissal route closes with Cancel, not just the button: leaving the X, Escape and
-    // outside-click live while Cancel is disabled lets the user dismiss a submission that is still
-    // running, with no way to tell whether dismissing cancelled it (it does not).
+    // X, Escape and outside-click close with Cancel too: left live while Cancel is disabled they
+    // would dismiss a running submission with no sign of whether it was cancelled.
     <AppModal
         isOpen={isOpen}
         onClose={onClose}

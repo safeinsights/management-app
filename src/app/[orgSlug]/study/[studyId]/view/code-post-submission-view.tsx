@@ -25,11 +25,8 @@ interface CodePostSubmissionViewProps {
     job: LatestJobForStudy
     reviewingOrgName: string
     dashboardHref?: Route
-    /** Org-scoped entry: threaded onto the "Previous" → researcher agreements link so org scope survives the hop. */
     returnTo?: 'org'
-    /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
-    /** Reviewer feedback + resubmission notes for v2+. */
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
 }
@@ -182,7 +179,6 @@ export function CodePostSubmissionView({
 
     const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    // OTTER-727 hid Agreements; Back now walks straight to the approved proposal it sat between.
     const previousHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
     const codeFiles = filterAndOrderCodeFiles(job.files)

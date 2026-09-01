@@ -3,8 +3,8 @@ import type { DashboardState } from './state.types'
 import { resolveDashboardAction } from './resolve'
 import { studyState } from './state.fixture'
 
-// DashboardState is StudyState minus the three facts the dashboard query doesn't fetch, so the
-// shared fixture satisfies it; the extra fields are simply unread here.
+// DashboardState is StudyState minus the facts the dashboard query doesn't fetch, so the shared
+// fixture satisfies it.
 const dstate = (overrides: Partial<DashboardState>): DashboardState => studyState(overrides)
 
 const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
@@ -16,8 +16,6 @@ describe('resolveDashboardAction (researcher)', () => {
         expect(a.secondaryAction).toBe('delete-draft')
         expect(a.href).toContain('/edit')
     })
-    // OTTER-572: a draft that has reached Step 2 resumes on the proposal editor (Step 2), not the
-    // Step 1 data-partner picker. Step 1 destination is /edit, Step 2 is /proposal.
     it('draft with Step 2 progress → Edit + delete-draft + /proposal (resume on Step 2)', () => {
         const a = resolveDashboardAction('researcher', dstate({ isDraft: true, hasStep2Progress: true }), ctx)
         expect(a.label).toBe('Edit')
@@ -52,8 +50,7 @@ describe('resolveDashboardAction (researcher)', () => {
         expect(a.label).toBe('View')
         expect(a.href).toContain('/code')
     })
-    // Negative of the rule above: APPROVED with NO job and agreements NOT acked must fall through the
-    // code-upload rules to /submitted (the OTTER boundary — don't send them to /code before they ack).
+    // Must fall through to /submitted: they are not sent to /code before acking.
     it('APPROVED, agreements NOT acked, no job → View → /submitted', () => {
         const a = resolveDashboardAction(
             'researcher',

@@ -29,9 +29,7 @@ export const ProposalFooterActions: FC<ProposalFooterActionsProps> = ({
                     {cancelLabel}
                 </Button>
             )}
-            {/* Never disabled on validity. The spec requires this button live on page load, while
-                the form is empty, and after a failed click, because clicking it is what surfaces
-                the errors: a disabled button explains nothing. */}
+            {/* Never disabled on validity: clicking it is what surfaces the errors. */}
             <Button type="button" size="md" variant="filled" disabled={isSaving} loading={isSaving} onClick={onProceed}>
                 {proceedLabel}
             </Button>

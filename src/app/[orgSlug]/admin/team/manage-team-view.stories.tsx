@@ -11,15 +11,12 @@ import { UsersTableView } from './users-table-view'
 import { InviteFormView } from './invite-form-view'
 import { PendingInvitesView } from './pending-invites-view'
 
-// The org-admin Manage team page-view. UsersTableView, InviteFormView and
-// PendingInvitesView are all presentational; the live mutations / session live in the
-// containers. Stories feed inline fixtures and stand-in action controls.
+// The views here are presentational; the live mutations live in the containers, so stories feed
+// inline fixtures and stand-in action controls.
 const meta = { title: 'Pages / Manage team', argTypes: pageBackgroundArgTypes }
 export default meta
 
-// A self-contained stub avatar (data URI) so UserAvatar's image path renders in Ladle without a
-// network fetch. UserAvatar reads `imageUrl`, which OrgUserReturn doesn't carry yet — widen the
-// fixture so a story can preview the avatar-with-image state alongside the initials fallback.
+// Data URI so UserAvatar's image path renders in Ladle without a network fetch.
 const STUB_AVATAR =
     'data:image/svg+xml,' +
     encodeURIComponent(
@@ -54,7 +51,6 @@ const people: StoryUser[] = [
 
 const noop = () => {}
 
-// A non-mutating stand-in for the container's PermissionSelector.
 const PermissionStandIn = (u: OrgUserReturn) => (
     <Select value={permissionLabelForUser(u)} data={PERMISSION_LABELS} onChange={noop} placeholder="Pick value" />
 )
@@ -86,7 +82,6 @@ export const EmptyTeam: Story = () => (
     </Box>
 )
 
-// Stand-in re-invite / revoke controls (the container injects the mutating versions).
 const PendingActions = (
     <>
         <Button variant="outline" size="xs" onClick={noop}>
@@ -117,9 +112,7 @@ const InviteModalBody = (
     </>
 )
 
-// The modal portals into the document body, so each story drives it from a trigger button with
-// real open/close state — that way the X, Escape and overlay-click actually dismiss it (an
-// always-open `onClose={noop}` modal can't be escaped).
+// Real open/close state so X, Escape and overlay-click actually dismiss the modal.
 function InviteModalStory({ children }: { children: ReactNode }) {
     const [open, setOpen] = useState(true)
     return (

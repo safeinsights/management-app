@@ -20,6 +20,49 @@ vi.mock('@/server/aws', async (importOriginal) => {
 
 const { PATCH, DELETE } = await import('./route')
 
+// Rows are inserted directly rather than through the publish/acknowledge actions, which would drag
+// this suite's setup through their S3 mocks. Only the acknowledgement's FK to user matters here.
+//
+// `publisherId` is a different account on purpose: publishing is an SI admin action, so pointing
+// legal_document_version.published_by at the user being deleted would trip that FK first and the
+// test would pass for the wrong reason.
+async function acknowledgeLegalDocument(userId: string, publisherId: string) {
+    const document = await db
+        .insertInto('legalDocument')
+        .values({ type: 'TOS', orgId: null, studyId: null })
+        .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
+        .returning('id')
+        .executeTakeFirst()
+    const documentId =
+        document?.id ??
+        (
+            await db
+                .selectFrom('legalDocument')
+                .select('id')
+                .where('type', '=', 'TOS')
+                .where('orgId', 'is', null)
+                .where('studyId', 'is', null)
+                .executeTakeFirstOrThrow()
+        ).id
+
+    // published_at/published_by/version_number are constrained to be set together.
+    const version = await db
+        .insertInto('legalDocumentVersion')
+        .values({
+            legalDocumentId: documentId,
+            fileName: 'terms.md',
+            filePath: `legal/${faker.string.uuid()}/terms.md`,
+            format: 'markdown',
+            publishedAt: new Date(),
+            publishedBy: publisherId,
+            versionNumber: faker.number.int({ min: 1, max: 1_000_000 }),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    await db.insertInto('legalDocumentAcknowledgement').values({ legalDocumentVersionId: version.id, userId }).execute()
+}
+
 async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdmin: true }) {
     const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')
@@ -29,17 +72,15 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
     return mocks
 }
 
-// getAuditEntries omits metadata, which is the part that matters here.
-// Destructive routes write an `attempted` row before the work and a `succeeded`/`failed`
-// row after, so assertions have to name which outcome they mean.
+// getAuditEntries omits metadata, which is the part that matters here. Destructive routes write
+// both an `attempted` and a `succeeded`/`failed` row, so assertions must name the outcome.
 const auditRowsFor = async (recordId: string) =>
     await db
         .selectFrom('audit')
         .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata'])
         .where('recordId', '=', recordId)
         .orderBy('createdAt')
-        // Both rows are written inside the same clock tick, so createdAt alone leaves
-        // their order undefined; v7 ids are time-ordered and break the tie.
+        // Both rows land in the same clock tick, so createdAt ties; v7 ids break it.
         .orderBy('id')
         .execute()
 
@@ -146,8 +187,7 @@ describe('QA account guard and audit trail', () => {
         expect((await response.json()).error).toContain('qa')
     })
 
-    // These routes run on production, so every invocation must leave a record
-    // attributed to the SI admin who made it.
+    // These routes run on production, so every invocation must be attributed to an SI admin.
     it('audits a provisioning call against the acting admin', async () => {
         const { user: admin } = await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -160,7 +200,6 @@ describe('QA account guard and audit trail', () => {
         expect(entry.metadata).toMatchObject({ via: 'qa-api', passwordSet: true })
     })
 
-    // The audit row records that a password was set, never the password itself.
     it('never records the password in the audit metadata', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -186,8 +225,7 @@ describe('QA account guard and audit trail', () => {
         expect(entry.metadata).toMatchObject({ email: user.email, via: 'qa-api' })
     })
 
-    // The attempt row is what survives a crash between the DB commit and the S3/Clerk
-    // cleanup — without it a half-finished deletion leaves no trace at all.
+    // The attempt row is what survives a crash between the DB commit and the S3/Clerk cleanup.
     it('records the attempt before the destructive work and the outcome after', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -206,7 +244,6 @@ describe('QA account guard and audit trail', () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
         ;(deleteFolderContents as Mock).mockRejectedValueOnce(new Error('s3 is down'))
-        // A study forces the S3 cleanup path that is being made to fail.
         await insertTestStudyData({ org, researcherId: user.id })
 
         await expect(
@@ -236,6 +273,31 @@ describe('DELETE /api/qa/users/[userId]', () => {
         expect(deleted).toBeUndefined()
     })
 
+    // The signup flow acknowledges every enforced published document, so a real account always
+    // carries these rows while insertTestUser alone does not. Deleting without clearing them
+    // raises an FK violation that surfaces as a 500, which is how every QA signup run came to
+    // strand its accounts on qa.
+    it('deletes a user who has acknowledged a legal document', async () => {
+        const { user: admin } = await authenticateAsSiAdmin()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+        await acknowledgeLegalDocument(user.id, admin.id)
+
+        const response = await DELETE(new Request('http://localhost', { method: 'DELETE' }), {
+            params: Promise.resolve({ userId: user.id }),
+        })
+
+        expect(response.status).toBe(200)
+        const deleted = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+        const acks = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .select('id')
+            .where('userId', '=', user.id)
+            .execute()
+        expect(acks).toHaveLength(0)
+    })
+
     it('returns 404 for an unknown user', async () => {
         await authenticateAsSiAdmin()
 
@@ -244,5 +306,22 @@ describe('DELETE /api/qa/users/[userId]', () => {
         })
 
         expect(response.status).toBe(404)
+    })
+
+    // The QA guard now lives in findQaUser, one layer above the delete itself, so that the
+    // SI-admin route can reach deleteUserCompletely without it. This pins that the QA route
+    // did not follow it out: /api/qa/* must still refuse a real account.
+    it('refuses a non-QA account and leaves it intact', async () => {
+        await authenticateAsSiAdmin()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: 'real.person@corp.com' })
+
+        const response = await DELETE(new Request('http://localhost', { method: 'DELETE' }), {
+            params: Promise.resolve({ userId: user.id }),
+        })
+
+        expect(response.status).toBe(403)
+        const stillThere = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
+        expect(stillThere).toBeDefined()
     })
 })

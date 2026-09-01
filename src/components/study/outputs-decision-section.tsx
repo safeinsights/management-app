@@ -24,24 +24,14 @@ const contentStyle = {
     lineHeight: 1.6,
 } as const
 
-// OTTER-524: a run can fail before producing anything a reviewer can open, and the reviewer still has
-// to close the round out. The decision therefore stands, but sharing is impossible. Everything below
-// that reads `canShareOutputs` exists to say that plainly instead of offering a choice that cannot be
-// honored.
-//
-// Worded as "nothing here that can be shared" rather than "there are no output files": the branch is
-// also reached by a job holding files this screen cannot offer, and claiming they do not exist would
-// contradict the banner above, which says an error log was recorded. Three shapes reach it: a
-// submission-time scan log, an error log stored in a form no key opens, and a pre-#764 job whose
-// results are plaintext APPROVED-* rows the reviewer flow has never been able to share.
+// Worded as "nothing that can be shared" rather than "no output files": the branch is also
+// reached by jobs holding files this screen cannot offer (OTTER-524).
 const noOutputsShareHint = (labName: string) => `There is nothing from this run that can be shared with ${labName}.`
 
-// A real <ul>, not "<br />•": the two clauses are a list, and a screen reader should announce them
-// as one ("list, 2 items") rather than as a single run-on sentence with stray bullet characters.
+// A real <ul> so a screen reader announces "list, 2 items" rather than a run-on sentence.
 const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labName, canShareOutputs }) => {
-    // With nothing shareable there is no judgment to make about contents, so the two-branch guidance
-    // would be describing a choice the reviewer does not have. States what this screen can do rather
-    // than what the run produced, which is the one thing that is true for every shape reaching here.
+    // With nothing shareable the two-branch guidance would describe a choice the reviewer does
+    // not have.
     if (!canShareOutputs) {
         return (
             <Text component="div" fz={16} c="charcoal.9">
@@ -66,8 +56,7 @@ const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labN
 
 type DecisionOption = { value: OutputsDecision; title: string; description: string; disabled: boolean }
 
-// Disabled rather than removed: keeping both options visible is what lets the reviewer see why only
-// one is selectable. Dropping the row would read as the option having silently disappeared.
+// Disabled rather than removed, so the reviewer can see why only one option is selectable.
 const buildDecisionOptions = (labName: string, canShareOutputs: boolean): DecisionOption[] => [
     {
         value: 'share-outputs',
@@ -100,19 +89,9 @@ type DecisionRadioGroupProps = {
 const descriptionId = (value: OutputsDecision) => `outputs-decision-${value}-description`
 
 const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, error, labName, canShareOutputs }) => {
-    // Mantine's Radio renders a native <input type="radio">; Radio.Group gives them a shared
-    // `name`, so mutual exclusivity and arrow-key navigation are the browser's, not simulated.
-    //
-    // The description is wrapped in an element we own so it can be referenced by
-    // `aria-describedby`: Mantine renders `description` for sighted users but never associates it
-    // with the input, so without this a screen reader announces only the title and the user never
-    // hears which option withholds the files.
-    //
-    // `aria-invalid` sits on the inputs rather than on the `role="radiogroup"` element, which is
-    // where the group's invalid state belongs: Mantine renders that element itself, inside
-    // Radio.Group, and passes nothing through to it, so the inputs are the only reachable target.
-    // Without it the group was flagged visually and via `aria-describedby` but never announced as
-    // invalid, unlike the feedback editor right above it (OTTER-675).
+    // Mantine renders `description` for sighted users but never puts it in `aria-describedby`,
+    // and passes nothing through to the radiogroup element, leaving the inputs the only
+    // reachable target for `aria-invalid` (OTTER-675).
     const options = buildDecisionOptions(labName, canShareOutputs).map((option) => (
         <Radio
             key={option.value}
@@ -127,23 +106,16 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
         />
     ))
 
-    // Guarded rather than passed unconditionally: InputError renders null for a falsy error, but
-    // the element itself is truthy, and Mantine treats any error node as "this field is invalid".
+    // InputError renders null for a falsy error, but the element itself is truthy and Mantine
+    // treats any error node as "this field is invalid".
     const errorNode = error ? <InputError error={error} /> : undefined
 
     return (
-        // The id lives on this wrapper, not on Radio.Group: Mantine consumes an `id` prop to derive
-        // its internal label/error ids and never renders it on an element, so
-        // document.getElementById would find nothing and the submit-time focus jump would silently
-        // do nothing (see focusFirstInvalid).
+        // Mantine consumes Radio.Group's `id` to derive internal ids and never renders it, so
+        // the submit-time focus jump would find nothing (see focusFirstInvalid).
         <Box id={DECISION_GROUP_ID}>
-            {/* No blur validation: the message renders above the options, so raising it as focus
-                leaves the group would push the navigation row down mid-click and cost the reviewer
-                the click that caused it (see useOutputsDecision).
-                The group's name is required by AT but is not drawn in the design, so the label is
-                visually hidden rather than dropped.
-                inputWrapperOrder moves the message above the options, where the design puts it;
-                Mantine's default order would render it under the last description. */}
+            {/* No blur validation: the message renders above the options, so raising it on blur
+                would push the navigation row down mid-click. */}
             <Radio.Group
                 value={value ?? ''}
                 onChange={(next) => onChange(next as OutputsDecision)}
@@ -158,10 +130,8 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
     )
 }
 
-// Carries the counter id so the count reaches the editor's aria-describedby. Rendered through
-// the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
-// second SaveStatusIndicator here would show the user two "All changes saved" messages in
-// collaborative mode, and could contradict the error below when validation fails.
+// Rendered through the Editor's own `footerRight` slot: a second SaveStatusIndicator here would
+// show two "All changes saved" messages in collaborative mode.
 const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
     <CharacterCounter
         id={fieldCounterId(FEEDBACK_INPUT_ID)}
@@ -170,8 +140,7 @@ const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => 
     />
 )
 
-// Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
-// assertive region would interrupt the user mid-sentence.
+// Polite, not assertive: the over-limit message fires on every keystroke past the cap.
 const FeedbackError: FC<{ error: string | undefined }> = ({ error }) => (
     <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
         <InputError error={error} />

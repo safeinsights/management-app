@@ -21,8 +21,7 @@ const messagesFor = (value: unknown, path: string) => {
 }
 
 describe('step1FieldsSchema', () => {
-    // OTTER-647: Step 1 renders exactly the title, Data Partner and language fields. If this
-    // schema ever requires more, the extra rules fail with no field able to display them.
+    // OTTER-647: a rule for a field Step 1 does not render fails with nothing able to display it.
     it('validates with only the fields Step 1 renders', () => {
         expect(step1FieldsSchema.safeParse(VALID_STEP_1).success).toBe(true)
     })
@@ -48,8 +47,6 @@ describe('step1FieldsSchema', () => {
             expect(step1FieldsSchema.safeParse({ ...VALID_STEP_1, title: 'a'.repeat(60) }).success).toBe(true)
         })
 
-        // The limit is characters, not words: a 60-character multi-word title must pass where a
-        // 20-word rule would have failed it.
         it('counts characters rather than words', () => {
             const multiWord = 'one two three four five six seven eight nine ten eleven twel'
             expect(multiWord).toHaveLength(60)
@@ -66,13 +63,10 @@ describe('step1FieldsSchema', () => {
             expect(STUDY_TITLE_MAX_CHARACTERS).toBe(60)
         })
 
-        // The card excludes whitespace at either end from the count, so a title only pushed over by
-        // a trailing space still validates and its counter still reads 60/60.
         it('excludes surrounding whitespace from the limit', () => {
             expect(messagesFor({ ...VALID_STEP_1, title: `  ${'a'.repeat(60)}  ` }, 'title')).toEqual([])
         })
 
-        // Interior whitespace is content, so "a b" is three characters and 61 of them still fail.
         it('counts interior whitespace toward the limit', () => {
             const spaced = `${'a'.repeat(30)} ${'b'.repeat(30)}`
             expect(spaced).toHaveLength(61)
@@ -87,13 +81,12 @@ describe('step1FieldsSchema', () => {
             ])
         })
 
-        // The field renders nothing until a Data Partner is chosen, so an error here would be one
-        // the user can neither see nor clear, and Continue would flag nothing and do nothing.
+        // The field renders nothing until a Data Partner is chosen, so an error here could be
+        // neither seen nor cleared.
         it('does not require a language while no Data Partner is selected', () => {
             expect(messagesFor({ ...VALID_STEP_1, orgSlug: '', language: null }, 'language')).toEqual([])
         })
 
-        // Both must surface on one click, not just the first.
         it('reports the title and Data Partner problems together', () => {
             const result = step1FieldsSchema.safeParse({ title: '', orgSlug: '', language: null })
             expect(result.success).toBe(false)
@@ -118,9 +111,8 @@ describe('studyProposalFormSchema', () => {
     })
 })
 
-// One schema for every draft entry point: Step 1 creation, Step 1 updates, and the
-// CHANGE-REQUESTED resubmit autosave. The title cap is deliberately NOT here; the actions that
-// submit apply it, so an autosave can still carry a title that predates the cap (OTTER-737).
+// The title cap is deliberately absent so an autosave can still carry a title that predates it;
+// the submit actions apply the cap (OTTER-737).
 describe('draftStudyApiSchema', () => {
     it('accepts a title longer than the cap, so a pre-cap row can still autosave', () => {
         expect(draftStudyApiSchema.safeParse({ title: 'a'.repeat(200) }).success).toBe(true)

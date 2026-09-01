@@ -107,7 +107,6 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
     const setupHref = Routes.studyEdit({ orgSlug, studyId: study.id, returnTo })
     const proposalStatus = effectiveProposalStatus(study)
 
-    // OTTER-727 hid the Agreements step this used to lead to, so proceed straight to the code step.
     const proceedHref = researcherCodeStepHref(study, { orgSlug, returnTo })
 
     switch (proposalStatus) {
@@ -186,8 +185,8 @@ export function ProposalSubmitted({
     const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
     const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
 
-    // ARCHIVED has no banner copy. Passing the element anyway would leave the header card ending in
-    // its own rule, because the header cannot tell an element that renders nothing from one that does.
+    // The header cannot tell an element that renders nothing from one that does, so ARCHIVED (no
+    // banner copy) must pass nothing at all.
     const banner = bannerConfig ? <StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} /> : null
 
     return (

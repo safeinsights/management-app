@@ -9,13 +9,12 @@ import { OUTPUTS_FILE_NAME_MAX_LENGTH } from '@/lib/outputs-review'
 import classes from './outputs-file-row.module.css'
 
 export type OutputFileRowData = {
-    /** Stable row key: the archive row plus the inner path uniquely identifies a decrypted file. */
     key: string
     studyJobFileId: string
     filePath: string
     name: string
     contents: ArrayBuffer
-    /** False while the activity query is still in flight or has failed; see LastActivityCell. */
+    /** False while the activity query is still in flight or has failed. */
     isActivityKnown: boolean
     activity: JobFileActivity | null
 }
@@ -27,12 +26,10 @@ const ACTION_LABEL = { VIEWED: 'Viewed', DOWNLOADED: 'Downloaded' } as const
 
 export const formatActivityDate = (date: Date | string): string => dayjs(date).format('MMM DD, YYYY, hh:mm a')
 
-// The middle dots are decorative. Read straight through, "Jessica Walters · Viewed · Apr 22"
-// announces as one run-on phrase, so each dot is paired with hidden connective text and hidden
-// from AT itself.
+// The dots are hidden from AT and paired with connective text; read straight through they would
+// announce as one run-on phrase.
 const LastActivityCell: FC<{ activity: JobFileActivity | null; isKnown: boolean }> = ({ activity, isKnown }) => {
-    // "No activity yet" is a claim about who has accessed the file, so it waits until the answer is
-    // actually in. An unresolved or failed query leaves the cell blank instead of asserting it.
+    // "No activity yet" is a claim, so it waits for the query rather than asserting it blind.
     if (!isKnown) return null
 
     if (!activity) {
@@ -63,16 +60,16 @@ type OutputsFileRowProps = {
 }
 
 export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownload }) => {
-    // Only a truncated name needs an explicit accessible name; when the text is shown in full the
-    // button's own content already is it, and an aria-label would just duplicate it.
+    // Only a truncated name needs an explicit accessible name; otherwise the button's own
+    // content already is it.
     const isTruncated = row.name.length > OUTPUTS_FILE_NAME_MAX_LENGTH
     const fileNameLabel = isTruncated ? row.name : undefined
 
     return (
         <Table.Tr className={classes.row}>
             <Table.Td>
-                {/* Tooltip on a focusable button so the full name reaches keyboard users too, not
-                    just on hover. `events` adds focus; Mantine omits it by default. */}
+                {/* Mantine omits focus from tooltip `events` by default, which would hide the
+                    full name from keyboard users. */}
                 <Tooltip label={row.name} events={{ hover: true, focus: true, touch: true }}>
                     <UnstyledButton
                         className={classes.fileName}
@@ -90,8 +87,8 @@ export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownloa
                 <LastActivityCell activity={row.activity} isKnown={row.isActivityKnown} />
             </Table.Td>
             <Table.Td ta="right">
-                {/* The sole control for this row's download, so the icon carries the accessible
-                    name (naming the file) rather than being hidden as decorative. */}
+                {/* The sole control in this cell, so the icon carries the accessible name rather
+                    than being hidden as decorative. */}
                 <Tooltip label="Download" events={{ hover: true, focus: true, touch: true }}>
                     <ActionIcon
                         variant="subtle"

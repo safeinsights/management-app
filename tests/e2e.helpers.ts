@@ -1,4 +1,5 @@
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
+import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
 import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import fs from 'fs'
@@ -129,19 +130,17 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
     ],
 })
 
-// --- Clerk testing helpers ---
-//
-// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. Sessions are just
-// the __e2e_role cookie: seeded per role in global.setup.ts and restored via storageState;
-// the sign-in form drives a faked useSignIn that writes the cookie on completion.
-
-// Ensures a signed-out state by clearing the __e2e_role cookie (the fake's session is
-// just that cookie). Used by the auth-UI specs before driving the sign-in form.
-export const e2eSignOut = async (page: Page) => {
+// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server, and a session is just
+// the __e2e_role cookie. Clearing it only changes what the server sees, so notifyClient
+// dispatches the store's sync event; leave it off to simulate a stale client session.
+export const e2eSignOut = async (page: Page, { notifyClient = false } = {}) => {
     await page
         .context()
         .clearCookies({ name: '__e2e_role' })
         .catch(() => {})
+    if (notifyClient) {
+        await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
+    }
 }
 
 type ClerkSignInParams = {

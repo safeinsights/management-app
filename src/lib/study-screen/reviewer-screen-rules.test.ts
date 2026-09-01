@@ -19,8 +19,7 @@ describe('resolveScreen(reviewer)', () => {
         expect(screen(st({ status: 'CHANGE-REQUESTED' }))).toBe('reviewer-proposal-feedback')
     })
 
-    // OTTER-727 hid the Agreements gate that used to claim this state, so the ack no longer gates
-    // review: an unacked reviewer goes straight to the code-review editor.
+    // OTTER-727 hid the Agreements gate that used to claim this state.
     it('code submitted, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         expect(
             screen(

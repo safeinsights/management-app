@@ -2,9 +2,6 @@ import type { Story } from '@ladle/react'
 import { Stack, TextInput } from '@mantine/core'
 import { FormFieldLabel } from './form-field-label'
 
-// Accessible Mantine Input.Label with three variants. Note: in the component,
-// only the 'orgset' variant is special-cased; the 'optional' and default
-// variants both render a Title (order 5) with slightly different font weights.
 const meta = { title: 'Forms / Form field label' }
 export default meta
 

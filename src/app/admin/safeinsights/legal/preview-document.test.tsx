@@ -29,7 +29,6 @@ describe('PreviewDocument', () => {
             <PreviewDocument versionId="tos-v1" url="https://example.com/doc.md" label="Terms of Service" />,
         )
 
-        // ErrorAlert always renders its default title.
         expect(await screen.findByText('An error occurred')).toBeDefined()
     })
 })

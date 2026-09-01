@@ -15,18 +15,15 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import KeysPage from './page'
 
-// Spread the original: si-encryption/util is a barrel over this module, so a bare factory would
-// also blank out the key helpers this file uses to build the stand-in below.
+// Spread the original: si-encryption/util is a barrel, so a bare factory would blank out the key
+// helpers used below.
 vi.mock('si-encryption/util/keypair', async (importOriginal) => ({
     ...(await importOriginal<typeof import('si-encryption/util/keypair')>()),
     generateKeyPair: vi.fn(),
 }))
 
-// Only the key pair and the clipboard are mocked: this test exists to prove the page wires the
-// resolved landing into the redirect, which the prop-injecting component tests cannot show
-// (OTTER-655), so setUserPublicKeyAction and the landing resolver stay real. The stand-in is a real
-// SPKI key rather than a stub because the action validates the bytes it is handed; generating a
-// fresh 4096-bit pair per test would put a random multi-hundred-millisecond cost on every run.
+// The landing resolver stays real: the point is that the page wires it into the redirect
+// (OTTER-655). The stand-in is a real SPKI key because the action validates the bytes.
 const renderKeysPage = async () => {
     Object.defineProperty(navigator, 'clipboard', {
         value: { writeText: vi.fn(() => Promise.resolve()) },

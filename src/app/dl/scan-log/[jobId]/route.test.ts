@@ -4,8 +4,7 @@ import { db } from '@/database'
 import { urlForFile } from '@/server/storage'
 import { BLANK_UUID, insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
 
-// The route only reads the DB row for the file path; stub the signed-URL helper so
-// the redirect case doesn't need S3.
+// The route only reads the DB row for the file path; stub the signed-URL helper so no S3 is needed.
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
     return { ...actual, urlForFile: vi.fn(async () => 'https://signed.example/security-scan-log.txt') }
@@ -46,7 +45,6 @@ describe('GET /dl/scan-log/[jobId]', () => {
     })
 
     it('returns 401 when the requester cannot view the job (different org)', async () => {
-        // Job is created under its own org; the session below belongs to a different org.
         const { job } = await insertTestStudyJobData()
         await insertScanLog(job.id)
 

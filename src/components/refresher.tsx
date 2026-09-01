@@ -2,9 +2,8 @@ import type { ReactNode } from 'react'
 import { useTimer } from './timer'
 import { Text, Flex, Loader } from '@mantine/core'
 
-// The refresher's width varies by state; a dedicated right-aligned row with a fixed
-// minimum height keeps it at the table's top-right corner without shifting other
-// header controls as it changes.
+// The refresher's width varies by state, so a fixed-height row keeps it from shifting the
+// other header controls.
 export const RefresherSlot: React.FC<{ children: ReactNode }> = ({ children }) => {
     if (!children) return null
     return (

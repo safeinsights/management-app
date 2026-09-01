@@ -12,14 +12,13 @@ export type UseStudyStatusParams = {
     jobStatusChanges: MinimalStatusChange[]
 }
 
-// The dashboard pill, now derived from the shared state machine. We synthesize a single-job
-// RawStudyState from the row's (latest-job) statuses, project it, and resolve the label — so the
-// pill, the row highlight, reviewer routing, and the study pages all read one source of truth.
+// Derived from the shared state machine so the pill, row highlight, reviewer routing, and study
+// pages all read one source of truth.
 export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
     const state = projectStudyState({
         status: studyStatus,
-        // The pill only needs status + jobs; fields this hook doesn't receive (agreements,
-        // draft notes, dates, step-2 progress) are null and don't affect any pill fact.
+        // The pill only needs status + jobs; the fields this hook does not receive affect no pill
+        // fact, so they are null.
         approvedAt: null,
         rejectedAt: null,
         researcherAgreementsAckedAt: null,

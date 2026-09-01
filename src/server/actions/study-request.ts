@@ -48,13 +48,8 @@ const simulateJobScan = deferred(async (studyJobId: string) => {
     await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
-// Safety-net delete: an in-tx DELETE inside finalizeStudySubmissionAction handles
-// the common case, but a Hocuspocus debounced persist can still commit between
-// the management-app status flip and our in-tx delete (different connections,
-// READ COMMITTED snapshots). Wait long enough for any in-flight persist to land,
-// then re-delete rows whose updatedAt predates the captured submit timestamp.
-// The bound preserves rows from a fast PENDING-REVIEW -> CHANGE-REQUESTED ->
-// reopen-and-edit cycle that lands inside the 5-second window.
+// A Hocuspocus persist can commit after the in-tx delete; re-delete rows
+// older than the captured submit timestamp.
 const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
     await purgeProposalYjsDocsBeforeAt(database, args)
@@ -70,16 +65,7 @@ function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
     }
 }
 
-/**
- * Attach the submitted code to the study's current submission round, reusing the job opened at IDE
- * launch / file upload instead of minting a new one (OTTER-601). A new job is created only after a
- * post-run results decision (FILES-APPROVED / FILES-REJECTED) closes the round; change-requested and
- * errored rounds reuse the same job (ROUND_CLOSING_JOB_STATUSES in study-job-status.ts).
- *
- * The MAIN/SUPPLEMENTAL code file set is overwritten each time so a re-submit within an un-reviewed
- * round (or after change-requested) reflects exactly the files now provided, with no leftovers from a
- * prior attempt — in the DB and in S3.
- */
+// Reuses the job opened at IDE launch rather than minting a new one (OTTER-601).
 async function attachCodeToRoundJob(
     db: Kysely<DB>,
     studyId: string,
@@ -91,17 +77,14 @@ async function attachCodeToRoundJob(
     const studyJobId = job.id
 
     if (!job.created) {
-        // Reused round: drop any code files a prior attempt left on this job, in the DB and in S3,
-        // so a removed file does not linger in the reviewer's view.
         await db
             .deleteFrom('studyJobFile')
             .where('studyJobId', '=', studyJobId)
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
-        // The AI review describes the code files just deleted. Drop it too, or
-        // generateAndStoreStudyReview's already-exists short-circuit keeps the
-        // stale summary for the resubmitted code (SHRMP-263).
+        // Otherwise generateAndStoreStudyReview short-circuits and keeps the stale
+        // summary for the resubmitted code (SHRMP-263).
         await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
     }
 
@@ -127,25 +110,13 @@ async function attachCodeToRoundJob(
             .executeTakeFirstOrThrow()
     }
 
-    // s3 signed url for client to upload
     const urlForCodeUpload = await createSignedUploadUrl(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
 
     return { studyJobId, urlForCodeUpload }
 }
 
-/**
- * Record CODE-SUBMITTED once per submission *round*. CODE-SUBMITTED is an append-only submission
- * event: each round (initial, and each resubmit after a CODE-CHANGES-REQUESTED) appends one, so the
- * status history is an honest log of how many times the code was submitted. The round-boundary fix
- * keeps a change-requested resubmit on the SAME job, so we can't dedup on "job already has a
- * CODE-SUBMITTED" — that would swallow the new round's submission and leave the researcher's /view
- * stuck on the feedback screen and the reviewer never re-notified.
- *
- * Round-aware idempotency (order-independent — same counting the liveness/version logic uses): the
- * current round is already submitted iff submitted-count > change-requested-count on this job. A
- * re-submit within the same un-reviewed round (submitted > requested) is a no-op; the first submit
- * of a round (submitted == requested) appends.
- */
+// Once per submission round, not per job: a change-requested resubmit stays on the same job,
+// so the round is already submitted iff submitted-count > change-requested-count.
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     const counts = await db
         .selectFrom('jobStatusChange')
@@ -161,9 +132,6 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
-// Schema for creating a new draft. The cap is applied in the handler rather than here, for the
-// reason `draftStudyApiSchema` gives, even though a brand-new study has no stored title to spare:
-// one enforcement point per action keeps the failure a message on the field (OTTER-737).
 const onSaveDraftStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     submittingOrgSlug: z.string(),
@@ -172,31 +140,22 @@ const onSaveDraftStudyActionArgsSchema = z.object({
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
     .params(onSaveDraftStudyActionArgsSchema)
-    // OTTER-719: `submittingOrgSlug` is a client param and `getOrgIdFromSlug` resolves any slug, so a
-    // caller could otherwise stamp another lab's id onto a new study and gain IDE access to it under
-    // the submittedByOrgId-scoped `load IDE` rule. Resolving the slug to `submittedByOrgId` here puts
-    // it in the ability subject, so `create Study` enforces lab membership through the same CASL rule
-    // as update/delete rather than a hand-rolled check in the handler that authz review would miss.
+    // Resolving here puts submittedByOrgId in the ability subject, so `create Study` enforces lab
+    // membership via CASL — otherwise a caller could stamp another lab's id on a study (OTTER-719).
     .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
         ...(await getOrgIdFromSlug({ orgSlug })),
         submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
     }))
     .requireAbilityTo('create', 'Study')
     .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
-        // A new study's title is whatever Step 1 just typed, so there is no pre-cap value to spare
-        // here and the cap applies unconditionally.
         const titleLength = countCharacters(studyInfo.title ?? '')
 
         if (titleLength > STUDY_TITLE_MAX_CHARACTERS) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
-        // Creation is the only entry point that mints a row, so it is the only one that can stop an
-        // untitled study existing at all (OTTER-690). Rows predating that card still need the
-        // /proposal and finalizeStudySubmissionAction guards; this keeps new ones from joining
-        // them. The rule sits here rather than in the params schema because `draftStudyApiSchema`
-        // is shared with the update and resubmit paths, whose titles are owned elsewhere and must
-        // not be cleared. `countCharacters` trims, so a whitespace-only title counts as blank.
+        // Not in draftStudyApiSchema: that schema is shared with update/resubmit, whose titles
+        // are owned elsewhere (OTTER-690).
         if (titleLength === 0) {
             throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
         }
@@ -239,11 +198,6 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         }
     })
 
-// Schema for updating an existing draft. Serves Step 1 updates AND the CHANGE-REQUESTED resubmit
-// autosave (`edit-and-resubmit/footer.tsx` -> useSaveProposalDraft), so it stays permissive on the
-// title: a study created before OTTER-690 can hold a title longer than 60 characters, and rejecting
-// that inside `.params()` would fail every autosave on a page the researcher only opened to edit
-// something else. The handler below applies the cap where the status makes it meaningful.
 const onUpdateDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     studyInfo: draftStudyApiSchema,
@@ -254,30 +208,14 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, submittedByOrgId }) => {
-        // Allow co-authoring within the submitting lab while the proposal is editable.
-        // CASL `update Study` is already scoped to the caller's own labs, so a lab member outside
-        // this study's lab never reaches here. The row filter below repeats that scope alongside
-        // the editable status set and throws on a 0-row result, so a caller who passed the ability
-        // check on a broader grant (an SI admin holds `manage all`), or one operating on a
-        // post-submit study, gets a hard rejection instead of a misleading success with signed
-        // upload URLs.
+        // The row filter below repeats CASL's lab scope so a caller holding a broader grant
+        // (`manage all`) is hard-rejected rather than handed signed upload URLs.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // The title rule is selected by workflow, not by action. A DRAFT row's title is owned by
-        // Step 1, where the researcher is looking at the field and can shorten it. A
-        // CHANGE-REQUESTED row's may predate the cap entirely, and this action is its autosave:
-        // blocking that would strand the resubmit page rather than flag the field. The cap reaches
-        // that flow at `resubmitProposalAction`, where the researcher is submitting (OTTER-737).
-        //
-        // Gated on lab membership so the message cannot be used as an oracle: answering "title too
-        // long" would otherwise tell the caller that a guessed id exists and is currently a DRAFT.
-        // CASL already denies a lab member outside this study's lab, so the gate is defense in
-        // depth there and only bites on a caller who passed on a broader grant. `submittedByOrgId`
-        // comes from the middleware's read, so it costs no extra query, and the length check still
-        // runs before the UPDATE rather than after it, which is what keeps an over-long title from
-        // being written and only then complained about.
+        // DRAFT only: a CHANGE-REQUESTED title may predate the cap, so that flow is capped at
+        // resubmitProposalAction instead (OTTER-737).
         if (
             userLabOrgIds.includes(submittedByOrgId) &&
             status === 'DRAFT' &&
@@ -286,7 +224,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
 
-        // Update study fields (only defined values)
         const updatable = [
             'title',
             'piName',
@@ -341,7 +278,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         }
     })
 
-// Submit a draft study - converts DRAFT to PENDING-REVIEW and creates study job
 const onSubmitDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     mainCodeFileName: z.string(),
@@ -355,7 +291,6 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
     .handler(async ({ db, params: { studyId, mainCodeFileName, codeFileNames }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // Verify the study is in DRAFT status before submitting
         const study = await db
             .selectFrom('study')
             .select(['id', 'status'])
@@ -371,8 +306,6 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
         }
 
-        // Attach the code to the study's current submission round. finalizeStudySubmissionAction
-        // adds the CODE-SUBMITTED status to this same job, so the two no longer diverge.
         const { studyJobId, urlForCodeUpload } = await attachCodeToRoundJob(
             db,
             studyId,
@@ -388,19 +321,11 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
         }
     })
 
-// Finalize study submission after files are uploaded
-// First-submit-wins + atomic snapshot: a single conditional UPDATE both writes the
-// caller's field snapshot (when supplied) AND flips the status. This eliminates the
-// race window where two concurrent submitters could each run a separate field-update
-// before one of them flipped status, leaving the winner's row populated with the
-// loser's stale snapshot.
 const finalizeStudySubmissionInfoSchema = z
     .object({
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
-        // Nullable/optional for drafts, but a supplied value must be a real user id: the
-        // client cannot validate this (no field displays it), so submit is the enforcement
-        // point (OTTER-647).
+        // No field displays this, so submit is the only enforcement point (OTTER-647).
         piUserId: z.string().uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
@@ -417,10 +342,8 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // CASL `update Study` is already scoped to the caller's own labs, so a lab member outside
-        // this study's lab never reaches here. Repeated on the claiming UPDATE below so a caller
-        // who passed the ability check on a broader grant (an SI admin holds `manage all`) cannot
-        // finalize someone else's draft just by knowing the studyId.
+        // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
+        // cannot finalize someone else's draft by knowing the studyId.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
@@ -442,17 +365,8 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             }
         }
 
-        // Most callers pass titleMode 'omit', because Step 1 owns study.title on a DRAFT, so the
-        // title being submitted is usually the persisted one. A draft predating OTTER-690 can have
-        // none, and `study_title_required_when_not_draft` rejects that the moment status leaves
-        // DRAFT. Resolve it here so the researcher gets a message rather than a raw DB error.
-        //
-        // Read here rather than folded into the middleware's read of this same row: middleware
-        // output becomes the ability subject, and requireAbilityTo serializes that subject into the
-        // permission_denied it returns to a caller it just refused, so a title carried that far
-        // would travel back to anyone who guessed a study id (OTTER-724 / MA-6). It cannot be
-        // deferred to the UPDATE's `returning` either: by then the status has already left DRAFT
-        // and the check constraint has fired, which is the raw error this guard exists to replace.
+        // Kept out of the middleware: that output is serialized into permission_denied and would
+        // leak the title to anyone who guessed a study id (OTTER-724 / MA-6).
         const submittedTitle =
             'title' in snapshotFields
                 ? (snapshotFields.title as string | null)
@@ -463,15 +377,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
         }
 
-        // Submitting is the gate, so the cap is checked here rather than in the params schema: this
-        // action also carries drafts whose stored title predates the cap, and a schema rejection
-        // would surface as a generic failure instead of a message on the field (OTTER-737).
-        //
-        // Both checks above are a backstop, not the message the researcher is meant to read. Step 2
-        // renders no title field, so a failure keyed to `title` has nothing to attach to on the page
-        // the submit came from. /proposal is what keeps that from happening: it sends a draft whose
-        // stored title is blank or over the cap to Step 1, which owns the field, before Step 2 can
-        // be reached. These throws cover the paths that do send a title of their own.
         if (countCharacters(submittedTitle) > STUDY_TITLE_MAX_CHARACTERS) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
@@ -490,12 +395,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             throw new ActionFailure({ submission: 'Proposal has already been submitted' })
         }
 
-        // The atomic UPDATE above is the canonical post-submit snapshot. Drop the
-        // proposal-* yjs_document rows so a future CHANGE-REQUESTED reopen falls
-        // through to onLoadDocument's seeder (which reads from study columns)
-        // rather than re-loading stale CRDT state from before the submit. The
-        // deferred follow-up below catches any Hocuspocus debounce that lands
-        // between commit time and now.
+        // A later CHANGE-REQUESTED reopen must re-seed from study columns, not stale pre-submit CRDT.
         await db
             .deleteFrom('yjsDocument')
             .where('studyId', '=', studyId)
@@ -515,8 +415,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .where('study.id', '=', studyId)
             .executeTakeFirstOrThrow()
 
-        // The round job created by onSubmitDraftStudyAction (id tiebreaker keeps this deterministic
-        // when two jobs share a createdAt). Adding CODE-SUBMITTED here targets that same job.
+        // id tiebreaker keeps this deterministic when two jobs share a createdAt.
         const latestJob = await db
             .selectFrom('studyJob')
             .select('studyJob.id as id')
@@ -527,7 +426,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .executeTakeFirst()
 
         if (latestJob) {
-            // Round-aware: appends a CODE-SUBMITTED for a new round, no-ops within an un-reviewed round.
             await markCodeSubmitted(db, { studyJobId: latestJob.id, userId })
             triggerCodeScan(latestJob.id, orgSlug, studyId)
             onStudyReviewRequested({ studyJobId: latestJob.id })
@@ -546,7 +444,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
     })
 
-// Fetch draft/proposal approved study data for editing
 export const getDraftStudyAction = new Action('getDraftStudyAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ db, params: { studyId } }) => {
@@ -583,7 +480,6 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, study }) => {
-        // Get code files if they exist
         const studyJob = await db
             .selectFrom('studyJob')
             .select('id')
@@ -610,7 +506,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
 export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('delete', 'Study') // will use orgId from above
+    .requireAbilityTo('delete', 'Study')
     .handler(async ({ db, orgSlug, params: { studyId } }) => {
         await deleteStudyCompletely(db, orgSlug, studyId)
     })
@@ -674,14 +570,6 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         return { studyJobId }
     })
 
-// OTTER-521: Edit & resubmit proposal — researcher revises the initial request
-// after the DO marked it 'needs clarification' (CHANGE-REQUESTED).
-//
-// The resubmission note is stored in the studyProposalComment table introduced
-// by OTTER-501 (entryType=RESUBMISSION-NOTE, authorRole=RESEARCHER).
-// Authorization is handled via CASL (requireAbilityTo('update', 'Study')) — we
-// don't add a redundant `where researcherId = userId` filter.
-
 const proposalUpdatableFields = [
     'title',
     'piName',
@@ -693,8 +581,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Mirrors resubmitNoteSchema, the resolver the two note forms use. The proposal flow submits
-// Lexical JSON; the code flow still submits plain text.
+// Mirrors resubmitNoteSchema: the proposal flow submits Lexical JSON, the code flow plain text.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
@@ -704,12 +591,6 @@ const resubmissionNoteParam = z
         message: overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
     })
 
-// Final resubmission: writes the latest proposal edits, records the
-// resubmission note as a study_proposal_comment row, and transitions
-// CHANGE-REQUESTED -> PENDING-REVIEW.
-//
-// `performsMutations: true` runs this handler inside db.transaction().
-// Do not drop it: the study updates/inserts must commit or roll back together.
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -723,23 +604,15 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // OTTER-497: resubmit is open to any member of the submitting lab (the
-        // original creator stays recorded as researcherId). CASL `update Study`
-        // is org-type-scoped, so the row filter below scopes to the submitting
-        // lab, matching onUpdateDraftStudyAction / finalizeStudySubmissionAction.
+        // Any member of the submitting lab may resubmit; researcherId stays the original creator
+        // (OTTER-497).
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
         const labScope = userLabOrgIds.length > 0 ? userLabOrgIds : ['']
 
-        // This SELECT is not load-bearing for safety: the UPDATE below applies the
-        // same status + lab guards and would claim 0 rows, caught by `if (!claimed)`.
-        // It earns its place by splitting the diagnostics, distinguishing "not your
-        // lab / doesn't exist" from "already submitted (race)" so each case gets a
-        // distinct user-facing message. Don't delete it to "simplify".
-        // org.name is fetched here (joined on the reviewing org, study.orgId) so the
-        // `proposal-submitted` broadcast below can name the reviewing org in peers'
-        // toast without a second round-trip.
+        // Redundant with the UPDATE's guards; it exists to distinguish "not your lab" from
+        // "already submitted (race)" for distinct messages. Don't delete it to "simplify".
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
@@ -748,17 +621,11 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('study.submittedByOrgId', 'in', labScope)
             .executeTakeFirst()
 
-        // User-facing failures (wrong-lab access, wrong-status race) use ActionFailure
-        // so the client receives a structured `{ error: { submission } }` it can show,
-        // rather than a plain Error bubbling up as a generic unhandled exception.
         if (!study) throw new ActionFailure({ submission: 'Study not found or access denied' })
         if (study.status !== 'CHANGE-REQUESTED') {
             throw new ActionFailure({ submission: 'This proposal can no longer be resubmitted.' })
         }
 
-        // The resubmit form renders the title and caps it, so resubmission is where a title that
-        // predates the cap has to be shortened. Reported on the field, not as a params rejection,
-        // for the reason `draftStudyApiSchema` stays permissive (OTTER-737).
         if (countCharacters(studyInfo.title ?? '') > STUDY_TITLE_MAX_CHARACTERS) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
@@ -767,14 +634,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             proposalUpdatableFields.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
-        // First-resubmitter-wins via atomic conditional UPDATE: bundling the
-        // status flip and the note-draft clear in one UPDATE with a status
-        // guard means two concurrent co-authors clicking Resubmit can't both
-        // win the SELECT/UPDATE race and double-insert a RESUBMISSION-NOTE
-        // row. The loser hits the 0-row branch and fails before the comment
-        // insert below runs. submittedAt is intentionally NOT bumped — the
-        // original first-submission timestamp is preserved; the
-        // studyProposalComment row carries the resubmission timestamp.
+        // First-resubmitter-wins: the status guard stops concurrent co-authors from double-inserting
+        // a RESUBMISSION-NOTE row. submittedAt is deliberately not bumped; the comment row holds it.
         const resubmittedAt = new Date()
         const claimed = await db
             .updateTable('study')
@@ -806,33 +667,22 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             })
             .execute()
 
-        // The bumped version above opens a new review round. Any `review-feedback-*`
-        // yjs_document row from the closed round is now orphaned: round N+1 binds
-        // to a fresh `…-v<n+1>` room. A stale `…-v<n>` tab still connected when
-        // the status flipped back to PENDING-REVIEW could otherwise re-create the
-        // deleted row via Hocuspocus persistence. Mirrors the same-tx delete in
-        // submitProposalReviewAction.
+        // The new round orphans the closed round's review-feedback rows; delete in-tx so a still
+        // connected tab cannot re-create them via Hocuspocus persistence.
         await db
             .deleteFrom('yjsDocument')
             .where('studyId', '=', studyId)
             .where('name', 'like', `review-feedback-${studyId}%`)
             .execute()
 
-        // OTTER-497: change-requested editing is collaborative, so drop the
-        // proposal-* yjs_document rows on resubmit for the same reason
-        // finalizeStudySubmissionAction does — a future CHANGE-REQUESTED reopen
-        // should fall through to onLoadDocument's seeder (study columns) instead
-        // of re-loading stale CRDT from before this resubmit. The deferred purge
-        // catches any Hocuspocus debounce landing after commit.
+        // A later reopen must re-seed from study columns, not stale pre-resubmit CRDT (OTTER-497).
         await db
             .deleteFrom('yjsDocument')
             .where('studyId', '=', studyId)
             .where('name', 'like', `proposal-${studyId}-%`)
             .execute()
 
-        // Metadata for the `proposal-submitted` stateless broadcast: peers still
-        // editing get a toast naming the submitter, and the client uses clerkId to
-        // identify the submitter's own session. Mirrors finalizeStudySubmissionAction.
+        // Feeds the `proposal-submitted` broadcast; clerkId lets a client skip its own session.
         const submitter = await db
             .selectFrom('user')
             .select(['fullName', 'clerkId'])
@@ -853,9 +703,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         }
     })
 
-// OTTER-558: Save the in-progress resubmission note as a lab-shared draft. Any
-// researcher in the submitting lab can edit; last write wins (no merge / CRDT).
-// Cleared by resubmitStudyCodeAction when the note is finalized.
+// Lab-shared draft note; last write wins, no CRDT merge (OTTER-558).
 export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
     performsMutations: true,
 })
@@ -867,19 +715,15 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // Code resubmission runs while study.status stays APPROVED (the reviewer's decision lives on the
-        // job, not the study). Eligibility is the projected-state fact shared with the resubmit page and
-        // resubmitStudyCodeAction (order-independent and liveness-aware), so this autosave can't reject a
-        // state the page rendered as editable. Run on the handler executor.
+        // study.status stays APPROVED during code resubmission; the decision lives on the job, so
+        // eligibility comes from the same projected state the resubmit page renders from.
         const raw = await rawStudyStateForStudy(studyId, db)
         if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
-        // The lab guard stops a cross-lab member from writing a draft onto another
-        // lab's study, and the 0-row check turns a wrong-lab attempt into a hard
-        // ActionFailure instead of letting the client's autosave indicator report
-        // "saved" when nothing persisted.
+        // The 0-row check turns a cross-lab attempt into a hard failure instead of letting the
+        // client's autosave indicator report "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
             .set({ codeResubmissionNoteDraft: note })
@@ -895,19 +739,10 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
         return { studyId, savedAt: new Date().toISOString() }
     })
 
-// Save the in-progress proposal resubmission note as a lab-shared draft.
-// Mirrors saveCodeResubmissionNoteDraftAction — last write wins, lab-scoped
-// via the `submittedByOrgId in <user's lab orgs>` guard so a co-author in the
-// same lab sees the latest draft. Cleared by resubmitProposalAction when the
-// note is finalized into a studyProposalComment. The 0-row check turns a
-// cross-lab / wrong-status attempt into a hard ActionFailure — otherwise the
-// client would render the autosave indicator as "All changes saved" while the
-// note was never persisted.
 export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    // 100_000: the draft is serialized Lexical JSON since OTTER-658, and heavy
-    // per-word formatting can push a legitimate 300-word note past lower bounds.
+    // Serialized Lexical JSON: heavy per-word formatting inflates a 300-word note (OTTER-658).
     .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
@@ -932,11 +767,6 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
         return { studyId, savedAt: new Date().toISOString() }
     })
 
-// OTTER-558: Finalize the code resubmission. Creates a new study_job (mirroring
-// submitStudyCodeAction's flow), copies the coder workspace files to S3,
-// records the resubmission note on the job row, clears the draft on study,
-// and triggers the scan + review-requested events. The study's proposal-stage
-// status is untouched; the new CODE-SUBMITTED job status drives the review phase.
 export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { performsMutations: true })
     .params(
         z.object({
@@ -951,9 +781,6 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .handler(async ({ orgSlug, params, session, db }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
-        // Same projected-state eligibility as the autosave action and the resubmit page: order-independent
-        // (a late CODE-SCANNED sorting to the top can't mask the decision) and liveness-aware (a study
-        // already resubmitted and awaiting review is not resubmittable). Run on the handler executor.
         const raw = await rawStudyStateForStudy(studyId, db)
         if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
             throw new Error('Cannot resubmit study code: study is not in a resubmittable state')
@@ -966,10 +793,6 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        // attachCodeToRoundJob → getOrCreateCurrentRoundJob decides reuse-vs-new-round by whether the
-        // round has CLOSED (FILES-APPROVED/FILES-REJECTED only). A CODE-CHANGES-REQUESTED resubmit
-        // revises IN PLACE (same job, overwritten files, a new CODE-SUBMITTED); a resubmit after a
-        // post-run results decision opens a genuinely new round job.
         const { studyJobId } = await attachCodeToRoundJob(
             db,
             studyId,
@@ -980,8 +803,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
-        // Mirrors submitStudyCodeAction: these copies run inside the Action
-        // transaction, so a later rollback can leave orphaned S3 objects.
+        // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
             const filePath = path.join(coderFilesPath, sanitized)
@@ -993,8 +815,8 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         await markCodeSubmitted(db, { studyJobId, userId })
 
-        // Record the round this note opened (the study-wide submission version) so the reviewer's
-        // feedback panel labels the note and that round's decision with the same version (OTTER-638).
+        // Lets the reviewer's feedback panel label note and decision with the same version
+        // (OTTER-638).
         const resubmissionRound = await codeSubmissionVersion(studyId, db)
 
         await db

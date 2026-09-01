@@ -1,44 +1,17 @@
-/**
- * The one over-limit message every capped input field raises (OTTER-737).
- *
- * Lives here rather than beside any single form. The researcher proposal, both resubmission notes
- * and all three Data Partner decision fields share it, and a copy per flow could only drift.
- *
- * The wording is the card's, verbatim: "<field> exceeds the <n> character limit. Shorten it to
- * continue." OTTER-690 specifies it as "exceeds the {maxCharacter} character limit", where only
- * "{maxCharacter}" is the placeholder and "character limit" is literal copy. Reading the whole
- * "{maxCharacter} character" as the token is what dropped the word here, and because every capped
- * field shares this helper, the one omission reached the study title, both resubmission notes and
- * all three Data Partner decision fields at once.
- */
+// Wording is verbatim copy from OTTER-690.
 export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number) =>
     `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
 
-// Grapheme clusters, not `.length`. `.length` is UTF-16 code units, which charges the user for
-// storage rather than for what they typed: an NFD-composed "é" (the form Word emits) costs 2 and a
-// family emoji costs 11. Nobody would notice on an 1800-character body, but the study title has 60,
-// where a researcher could watch the counter pass the cap on a title of 40 visible letters with
-// nothing on screen to explain it. Segmenting also settles the NFC/NFD question on its own, since
-// either encoding of "é" is one cluster, so no normalize pass is needed ahead of it.
-//
-// Built once at module scope: constructing a Segmenter costs more than the segmenting does, and
-// both the counter and the rule that gates the field run on every keystroke.
+// Grapheme clusters, not `.length`: code units charge for storage rather than for what the user
+// typed. Built once because the counter runs per keystroke.
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
-// Plain ASCII has one grapheme per code unit, so `.length` is already the right answer for it and
-// the segmenter can be skipped. CR is excluded because "\r\n" is the one ASCII pair that UAX #29
-// joins into a single cluster, which is where the shortcut would otherwise disagree with the
-// segmenter. Worth the test: a full 6000-character project summary measures ~0.27ms segmented
-// against ~0.002ms here, on a path that runs per keystroke.
+// Plain ASCII is one grapheme per code unit, so the segmenter can be skipped. CR is excluded
+// because "\r\n" is the one ASCII pair UAX #29 joins into a single cluster.
 const SINGLE_UNIT_ASCII = /^[\n\t\x20-\x7E]*$/
 
-/**
- * How every capped field measures its length (OTTER-737).
- *
- * Surrounding whitespace is excluded and interior whitespace is not, so "  a b  " counts 3. One
- * definition for the counter beside the field, the client rule and the server rule: measuring the
- * same value two ways is what lets a field read 1800/1800 while its validator sees 1801.
- */
+// One definition shared by the field counter, the client rule and the server rule, so a field
+// cannot read 1800/1800 while its validator sees 1801 (OTTER-737).
 export const countCharacters = (value: string) => {
     const trimmed = value.trim()
     if (SINGLE_UNIT_ASCII.test(trimmed)) return trimmed.length

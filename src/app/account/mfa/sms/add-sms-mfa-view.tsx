@@ -14,13 +14,6 @@ import styles from './panel.module.css'
 
 const PHONE_ERROR_ID = 'sms-mfa-phone-error'
 
-// Presentational step-1 ("SMS verification") card for SMS MFA enrollment. It owns the
-// phone-number form layout, the send-code submit row, and the "Back to options" link, but
-// NOT the Clerk enroll flow (createPhoneNumber / prepareVerification / verification steps).
-// Kept in its OWN file (free of Clerk's useUser / useReverification) so it renders in
-// isolation (e.g. Ladle). @mantine/form's useForm works under Ladle, so the container
-// builds the form and passes it down along with the submit handler and loading state.
-
 export type PhoneFormValues = { phoneNumber: string }
 
 export type AddSmsMfaViewProps = {
@@ -49,7 +42,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 onChange={(value) => form.setFieldValue('phoneNumber', value ?? '')}
                 onBlur={revalidateOnBlur(form, 'phoneNumber')}
                 placeholder="Enter phone number"
-                countries={['US']} // limited to US code
+                countries={['US']}
                 className={styles.phoneInput}
                 label="Phone Number"
                 aria-invalid={!!form.errors.phoneNumber || undefined}
