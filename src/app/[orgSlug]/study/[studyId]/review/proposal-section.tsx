@@ -53,7 +53,7 @@ function StatusBanner({ labName, isResubmission }: { labName: string; isResubmis
         <ReviewCriteriaBanner
             mb="md"
             testId="status-banner"
-            criteriaTestId="evaluation-criteria"
+            criteriaTestId="proposal-review-criteria"
             intro={bannerIntro(labName, isResubmission)}
             criteria={EVALUATION_CRITERIA}
         />

@@ -716,7 +716,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await page
             .getByTestId('review-decision-section')
-            .getByRole('radio', { name: /^Reject$/i })
+            .getByRole('radio', { name: /^Decline and end study$/i })
             .check()
 
         await page.getByRole('button', { name: /^Submit decision$/i }).click()
@@ -982,7 +982,7 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
         const decisionSection = page.getByTestId('review-decision-section')
         await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
-        await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
+        await expect(decisionSection.getByRole('radio', { name: /^Decline and end study$/i })).toBeVisible()
     })
 })
 

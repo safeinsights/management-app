@@ -104,7 +104,7 @@ describe('ProposalSection', () => {
         const banner = screen.getByTestId('status-banner')
         expect(banner).toBeInTheDocument()
         expect(banner).toHaveTextContent('has submitted an initial request requesting permission to use your data')
-        expect(screen.getByTestId('evaluation-criteria')).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-review-criteria')).toBeInTheDocument()
         expect(screen.getByText(/Feasibility:/)).toBeInTheDocument()
         expect(screen.getByText(/Can this study be supported with your available data/)).toBeInTheDocument()
         expect(screen.getByText(/Could the results advance the understanding/)).toBeInTheDocument()
