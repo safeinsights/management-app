@@ -1,17 +1,12 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
-import * as RouterMock from 'next-router-mock'
 import {
     db,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
-    renderWithProviders,
-    screen,
     setTestStudyStatus,
-    userEvent,
-    waitFor,
 } from '@/tests/unit.helpers'
 import ResearcherAgreementsRoute from './page'
 
@@ -29,23 +24,36 @@ const renderRoute = (orgSlug: string, studyId: string, searchParams: Record<stri
         searchParams: Promise.resolve(searchParams),
     })
 
-describe('ResearcherAgreementsRoute', () => {
-    it('renders researcher agreements for APPROVED study not yet acknowledged', async () => {
+// OTTER-727 hid the Agreements step; the route exists only to catch stale bookmarks and history.
+describe('ResearcherAgreementsRoute (hidden — redirects)', () => {
+    it('redirects an APPROVED study with no code to the code upload page', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
-        expect(screen.getByText('STEP 3B')).toBeInTheDocument()
-        expect(screen.getByText('STEP 3C')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /Proceed to Step 4/ })).toBeInTheDocument()
+        expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/code`)
     })
 
-    // Revisitable researcher step: renders for an authorized researcher regardless of ack state or
-    // study status, and does not self-redirect. resolveScreen (on /view) is the screen authority.
-    it('renders researcher agreements even after acknowledging (revisitable, no redirect)', async () => {
+    it('redirects to /view/code once code has been submitted', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/view/code`)
+    })
+
+    it('preserves returnTo=org on the redirect so org scope survives the hop', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        await expect(renderRoute(org.slug, study.id, { returnTo: 'org' })).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/view/code?returnTo=org`)
+    })
+
+    it('redirects regardless of ack state (the ack no longer gates anything)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await db
@@ -54,110 +62,23 @@ describe('ResearcherAgreementsRoute', () => {
             .where('id', '=', study.id)
             .execute()
 
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
+        expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/code`)
     })
 
-    it('renders researcher agreements even when study is not APPROVED (revisitable, no redirect)', async () => {
+    it('redirects a non-APPROVED study too', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await setTestStudyStatus(study.id, 'DRAFT')
 
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
+        await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
+        expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/code`)
     })
 
-    // Previous → /submitted (the approved-proposal page with a working "Next step" forward), NOT
-    // /view — /view resolves to proposal-feedback, which has no forward path and would dead-end an
-    // approved-no-code researcher.
-    it('Previous button targets /submitted (not /view), no ?from=', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: /Previous/ }))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toBe(`/${org.slug}/study/${study.id}/submitted`)
-        expect(asPath).not.toContain('from=')
-    })
-
-    it('Previous preserves returnTo=org on the /submitted link', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await renderRoute(org.slug, study.id, { returnTo: 'org' })
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: /Previous/ }))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { asPath } = (RouterMock as any).memoryRouter
-        expect(asPath).toBe(`/${org.slug}/study/${study.id}/submitted?returnTo=org`)
-    })
-
-    // "Proceed to Step 4" → the code step (/view/code), not plain /view (which would jump an advanced
-    // study straight to results).
-    it('Proceed targets /view/code when code is already submitted', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: /Proceed to Step 4/ }))
-
-        await waitFor(() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { asPath } = (RouterMock as any).memoryRouter
-            expect(asPath).toBe(`/${org.slug}/study/${study.id}/view/code`)
-        })
-    })
-
-    it('Proceed targets code upload when no code has been submitted yet', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
-
-        const interact = userEvent.setup()
-        await interact.click(screen.getByRole('button', { name: /Proceed to Step 4/ }))
-
-        await waitFor(() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { asPath } = (RouterMock as any).memoryRouter
-            expect(asPath).toBe(`/${org.slug}/study/${study.id}/code`)
-        })
-    })
-
-    it('renders Previous button for researcher', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-
-        const page = await renderRoute(org.slug, study.id)
-        renderWithProviders(page!)
-
-        expect(screen.getByRole('button', { name: 'Previous' })).toBeInTheDocument()
-    })
-
-    // Dual-role regression: a user who is both reviewer (enclave) and researcher (their own lab)
-    // reaches this researcher route via their lab's slug after clicking "Next step" on the
-    // approved proposal. Even though they CAN review, this route keeps them in the researcher flow —
-    // it must NOT bounce them into the reviewer agreement → /review loop.
-    it('keeps a dual-role user in the researcher flow (does not treat them as a reviewer)', async () => {
+    // A user who is both reviewer and researcher must stay in the researcher flow.
+    it('keeps a dual-role user in the researcher flow', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
         const study = await db
             .insertInto('study')
@@ -177,11 +98,8 @@ describe('ResearcherAgreementsRoute', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const page = await renderRoute(labOrg.slug, study.id)
-        renderWithProviders(page!)
+        await expect(renderRoute(labOrg.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByText('STEP 3A')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /Proceed to Step 4/ })).toBeInTheDocument()
+        expect(mockRedirect).toHaveBeenCalledWith(`/${labOrg.slug}/study/${study.id}/code`)
     })
 })

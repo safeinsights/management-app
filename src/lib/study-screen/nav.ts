@@ -80,13 +80,12 @@ const editCode = (ctx: NavCtx, variant: NavVariant): NavAction => ({
 // "Previous step" is anchored per phase rather than to the page the user arrived from, which is what
 // lets this table stay a pure function of state.
 
-// Code phase anchors to Agreements, the step immediately before it. The spec's RL table anchors it
-// to the approved proposal instead, which would strand the Agreements page; that is a change to the
-// flow rather than to its navigation, so it is left for the card that owns it.
+// Code phase anchors to the approved proposal, matching the spec's RL table. This branch originally
+// anchored it to Agreements, the step that used to sit between them; OTTER-727 has since hidden that
+// page and stripped its last researcher-facing links, so anchoring there would make this the only
+// route back into it.
 const codePreviousStep = (ctx: NavCtx): NavAction =>
-    previousStep(
-        Routes.studyResearcherAgreements({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }),
-    )
+    previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
 
 // Outputs phase anchors to the approved-code step, which the read-only /view/code route already serves.
 const resultsPreviousStep = (ctx: NavCtx): NavAction =>
@@ -165,6 +164,10 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
     // Intentionally nav-identical to outputs-feedback: the two screens split only on banner copy, and
     // the spec gives both the same forward action. A state-dependent branch would need its own rule.
     'outputs-errored-shared': outputsFeedbackNav,
+    // A clean run whose outputs were shared is the successful conclusion, so it takes study-results'
+    // shape rather than the errored share's: resultsApproved holds by definition here (OTTER-688), so
+    // the rule reduces to exit-solid with Edit code one level down.
+    'outputs-shared': studyResultsNav,
     'study-results': studyResultsNav,
 }
 

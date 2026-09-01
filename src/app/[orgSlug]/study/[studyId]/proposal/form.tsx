@@ -7,15 +7,9 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import {
-    SaveStatusAnnouncer,
-    SaveStatusIndicator,
-    announcedSaveStatus,
-    type SaveStatusValue,
-} from '@/components/save-status'
-import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
+import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from '@/components/save-status'
+import { useCollabFieldsSaveStatus } from '@/hooks/use-collab-fields-save-status'
 import { ExternalLinks } from '@/lib/routes'
-import { type CollabFieldKey } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { ResearcherField } from './researcher-field'
@@ -63,14 +57,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
 }) => {
     const { studyId, form, websocketProvider, yjsForm, tabSessionId } = useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const fieldsSaveStatus = useProviderSaveStatus(yjsForm.provider)
-
-    // The Yjs provider saves the whole fields doc, so its status is form-wide;
-    // each field only surfaces it after the user has actually edited that field
-    // (OTTER-594 QA: pristine fields must not claim "All changes saved"), and stands down while
-    // that field's validation error owns the row (OTTER-674).
-    const saveStatusFor = (key: CollabFieldKey, error: unknown): SaveStatusValue =>
-        yjsForm.editedKeys.has(key) && !error ? fieldsSaveStatus : 'idle'
+    const saveStatusFor = useCollabFieldsSaveStatus(yjsForm)
     const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
     const piSaveStatus = saveStatusFor('piName', form.errors.piName)
 

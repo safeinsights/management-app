@@ -6,6 +6,8 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
+import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from '@/components/save-status'
+import { useCollabFieldsSaveStatus } from '@/hooks/use-collab-fields-save-status'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
@@ -35,8 +37,21 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     const titleCharacterCount = countCharacters(form.values.title)
     const titleInputProps = form.getInputProps('title')
 
+    // All three write into the one proposal-fields Yjs doc, unlike the rich-text editors below,
+    // which each own a document and report their own status from inside the editor (OTTER-748).
+    const saveStatusFor = useCollabFieldsSaveStatus(yjsForm)
+    const titleSaveStatus = saveStatusFor('title', form.errors.title)
+    const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
+    const piSaveStatus = saveStatusFor('piName', form.errors.piName)
+
+    // One provider behind all three, so a live region on each would have a screen reader read
+    // "All changes saved" three times per save cycle. They stay visual and announce from here
+    // once (OTTER-675); the editors below keep their own regions.
+    const fieldsAnnouncedStatus = announcedSaveStatus([titleSaveStatus, datasetsSaveStatus, piSaveStatus])
+
     return (
         <Stack gap="xxl" data-testid="edit-initial-request-section">
+            <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
             <Paper p="xxl">
                 <Stack gap="xxl">
                     <Box>
@@ -67,8 +82,8 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
                             />
                         }
-                        // This form validates on change, so the over-limit message can appear with
-                        // the caret still in the field and nothing to announce it (OTTER-737).
+                        // Validates on change, so the over-limit message can appear with the caret
+                        // still in the field (OTTER-737).
                         errorLive
                     >
                         <TextInput
@@ -90,6 +105,10 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 }),
                             })}
                         />
+                        {/* A child of FormField rather than its `footer`, which is right-aligned
+                            and already holds the character counter. This keeps the indicator on
+                            the left under the control, matching the editors below. */}
+                        <SaveStatusIndicator status={titleSaveStatus} announce={false} />
                     </FormField>
 
                     <FormField
@@ -129,6 +148,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 </Group>
                             </Anchor>
                         </Group>
+                        <SaveStatusIndicator status={datasetsSaveStatus} announce={false} />
                     </FormField>
                 </Stack>
             </Paper>
@@ -156,8 +176,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     >
                         <Box w="30%">
                             {/* Cannot spread getInputProps('piName'): this Select's value is the
-                                piUserId while piName holds the label, so the composite handler
-                                stays and blur validation is wired explicitly. */}
+                                piUserId while piName holds the label. */}
                             <Select
                                 id="piName"
                                 aria-label="Principal Investigator"
@@ -176,11 +195,11 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                             />
                         </Box>
+                        <SaveStatusIndicator status={piSaveStatus} announce={false} />
                     </FormField>
 
-                    {/* FormField, not FormFieldLabel: the two render labels at different sizes and
-                        weights, which showed as a mismatch against Principal Investigator right
-                        above in this same panel (OTTER-647). */}
+                    {/* FormField, not FormFieldLabel: the two render labels at different sizes,
+                        which mismatched the field above (OTTER-647). */}
                     <FormField
                         inputId="researcher"
                         label="Researcher"

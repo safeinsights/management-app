@@ -48,7 +48,7 @@ async function setupValidReviewableJob(
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(study.id)
     const studyWithLab: SelectedStudy = { ...study, submittingLabName: labName }
-    const previousHref = Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id })
+    const previousHref = Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id })
     return { study: studyWithLab, job, orgSlug: org.slug, previousHref }
 }
 
@@ -95,7 +95,6 @@ describe('CodeReviewClient decision selector', () => {
 
         expect(screen.getByTestId('code-review-decision-approve')).toBeInTheDocument()
         expect(screen.getByTestId('code-review-decision-needs-clarification')).toBeInTheDocument()
-        // OTTER-650: the "Reject and end study" option was removed as an interim step.
         expect(screen.queryByTestId('code-review-decision-reject')).not.toBeInTheDocument()
 
         expect(screen.getByText('Approve and run code')).toBeInTheDocument()
@@ -115,9 +114,8 @@ describe('CodeReviewClient decision selector', () => {
     })
 
     it('renders the editable review form (not "Code review is closed") for an APPROVED study with a reviewable job', async () => {
-        // OTTER-552: a resubmission after a code change-request leaves the study APPROVED
-        // (proposal-stage status) while the latest job is CODE-SUBMITTED. Editability is
-        // job-driven, so the DO must see the editor, not the closed-review alert.
+        // OTTER-552: a resubmission leaves the study APPROVED while the latest job is
+        // CODE-SUBMITTED, and editability is job-driven.
         const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
         renderWithProviders(
             <CodeReviewClient

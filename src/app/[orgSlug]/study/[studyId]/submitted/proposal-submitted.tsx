@@ -14,6 +14,7 @@ import { ProposalHeader } from '../../request/page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
+import { researcherCodeStepHref } from '@/lib/studies'
 import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
 
 interface ProposalSubmittedProps {
@@ -49,7 +50,7 @@ const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
         bg: STATUS_BANNER_BG.approved,
         statusBadge: 'Approved on',
         message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+            `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
     },
     REJECTED: {
         color: 'red',
@@ -97,9 +98,11 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
     study,
     returnTo,
 }) => {
-    const studyParams = { orgSlug, studyId: study.id }
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+    const editAndResubmitHref = Routes.studyEditAndResubmit({ orgSlug, studyId: study.id })
     const proposalStatus = effectiveProposalStatus(study)
+
+    const proceedHref = researcherCodeStepHref(study, { orgSlug, returnTo })
 
     switch (proposalStatus) {
         case 'CHANGE-REQUESTED':
@@ -114,7 +117,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
                     >
                         Back
                     </Button>
-                    <Button component={Link} href={Routes.studyEditAndResubmit(studyParams)} size="md">
+                    <Button component={Link} href={editAndResubmitHref} size="md">
                         Edit and resubmit
                     </Button>
                 </Group>
@@ -131,11 +134,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
                     >
                         Back
                     </Button>
-                    <Button
-                        component={Link}
-                        href={Routes.studyResearcherAgreements({ orgSlug, studyId: study.id, returnTo })}
-                        size="md"
-                    >
+                    <Button component={Link} href={proceedHref} size="md">
                         Proceed to step 3
                     </Button>
                 </Group>
@@ -177,8 +176,8 @@ export function ProposalSubmitted({
     const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
     const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
 
-    // ARCHIVED has no banner copy. Passing the element anyway would leave the header card ending in
-    // its own rule, because the header cannot tell an element that renders nothing from one that does.
+    // The header cannot tell an element that renders nothing from one that does, so ARCHIVED (no
+    // banner copy) must pass nothing at all.
     const banner = bannerConfig ? <StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} /> : null
 
     return (

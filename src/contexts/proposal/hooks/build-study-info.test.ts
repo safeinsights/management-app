@@ -62,9 +62,8 @@ describe('buildStudyInfo', () => {
         expect(result.piName).toBeUndefined()
     })
 
-    // 'omit' leaves the key off entirely, which is what preserves the Step 1 title: both
-    // onUpdateDraftStudyAction and finalizeStudySubmissionAction skip undefined keys, and a key
-    // that is present-but-null would null the column instead (OTTER-690).
+    // The actions skip undefined keys, so omitting preserves the Step 1 title where a
+    // present-but-null key would null the column (OTTER-690).
     describe("titleMode 'omit'", () => {
         it('leaves the title key out even when the form holds one', () => {
             const result = buildStudyInfo(validFormValues, 'omit')
@@ -84,7 +83,7 @@ describe('buildStudyInfo', () => {
         })
 
         // A NULL title on a non-DRAFT row violates study_title_required_when_not_draft, which is
-        // exactly the row this mode's caller (the resubmit autosave) writes to.
+        // the row this mode's caller writes to.
         it('omits a blank title rather than sending null', () => {
             expect('title' in buildStudyInfo(blankFormValues, 'omitIfBlank')).toBe(false)
             expect('title' in buildStudyInfo({ ...blankFormValues, title: '   ' }, 'omitIfBlank')).toBe(false)

@@ -70,8 +70,6 @@ describe('OutputsFileRow file name', () => {
         expect(onView).toHaveBeenCalledWith(expect.objectContaining({ name: 'run.log' }))
     })
 
-    // The visual tooltip is not exposed to every AT, so a truncated name also carries the full
-    // value as its accessible name.
     it('exposes the untruncated name to assistive tech when truncated', () => {
         renderRow(buildRow({ name: NAME_51 }))
 
@@ -87,7 +85,6 @@ describe('OutputsFileRow file name', () => {
         expect(await screen.findByRole('tooltip')).toHaveTextContent(NAME_51)
     })
 
-    // Keyboard users never hover, so a hover-only tooltip would hide the full name from them.
     it('shows the tooltip on keyboard focus too', async () => {
         renderRow(buildRow({ name: NAME_51 }))
 
@@ -122,8 +119,6 @@ describe('OutputsFileRow last activity', () => {
         expect(formatActivityDate(new Date('2026-04-21T13:12:00'))).toBe('Apr 21, 2026, 01:12 pm')
     })
 
-    // Read straight through, "Name · Viewed · Apr 22" announces as one run-on phrase; the dots
-    // are hidden and replaced with connective text so the three parts stay distinguishable.
     it('hides the middle dots from assistive tech and supplies spoken separators', () => {
         renderRow(buildRow({ activity: buildActivity() }))
 
@@ -146,8 +141,6 @@ describe('OutputsFileRow actions', () => {
         expect(onDownload).toHaveBeenCalledWith(expect.objectContaining({ name: 'run.log' }))
     })
 
-    // Inverse of the header's Download all icon: this icon is the only control in the cell, so
-    // hiding it would leave the button with no accessible name at all.
     it('names the icon after the file rather than hiding it', () => {
         renderRow(buildRow({ name: 'results.csv' }))
 

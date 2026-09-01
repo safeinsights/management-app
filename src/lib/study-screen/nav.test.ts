@@ -44,6 +44,7 @@ describe('resolveStepNav — spec pattern invariants', () => {
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-CHANGES-REQUESTED' })],
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-REJECTED' })],
         ['study-results', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })],
+        ['outputs-shared', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })],
         ['study-results', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true })],
     ]
 
@@ -71,6 +72,7 @@ describe('resolveStepNav — spec pattern invariants', () => {
             'outputs-errored-shared',
             'outputs-feedback',
             'outputs-pending',
+            'outputs-shared',
             'proposal-feedback',
             'study-overview',
             'study-results',
@@ -81,9 +83,10 @@ describe('resolveStepNav — spec pattern invariants', () => {
 describe('resolveStepNav — code phase', () => {
     const submitted = { status: 'APPROVED', isDraft: false } as const
 
-    it('anchors "Previous step" to Agreements, the step before it', () => {
+    // OTTER-727 hid the Agreements step, so the approved proposal is the step before this one.
+    it('anchors "Previous step" to the approved proposal', () => {
         const nav = resolveStepNav('code-under-review', state({ ...submitted, codeAwaitingDecision: true }), ctx)
-        expect(nav.back?.href).toBe(`${base}/agreements/researcher`)
+        expect(nav.back?.href).toBe(`${base}/submitted`)
     })
 
     it('code submitted, awaiting a decision → forward blocked', () => {

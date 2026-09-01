@@ -182,7 +182,6 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job, { isUnderReview: false })
 
             expect(screen.queryByTestId('code-under-review-banner')).not.toBeInTheDocument()
-            // The rest of the page still renders (e.g. the submitted timestamp).
             expect(screen.getByTestId('code-submitted-timestamp')).toBeInTheDocument()
         })
     })
@@ -202,7 +201,6 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // The outer "View full study code" toggle unmounts once expanded.
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
             expect(
@@ -224,15 +222,12 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // Star is decorative only (aria-label set, but not a button)
             expect(screen.getByLabelText('Main file')).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /set .* as main file/i })).not.toBeInTheDocument()
 
-            // No delete/trash control
             expect(screen.queryByRole('button', { name: /remove main\.R/i })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /remove helper\.R/i })).not.toBeInTheDocument()
 
-            // Eye icons render as buttons that open the shared FilePreviewModal
             expect(screen.getByRole('button', { name: 'View main.R' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'View helper.R' })).toBeInTheDocument()
         })
@@ -244,8 +239,6 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // After expansion the outer "View full study code" toggle unmounts; only the
-            // in-section "Hide full study code" anchor remains.
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
 
             await interact.click(screen.getByText('Hide full study code'))

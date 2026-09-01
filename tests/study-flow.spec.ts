@@ -145,8 +145,9 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
 // Researcher: code upload — file path and IDE path each driven live once
 // ============================================================================
 
-// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /agreements/researcher
-// -> /code so the upload surface is reached the way the app routes a real user.
+// From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /code so the upload surface
+// is reached the way the app routes a real user. OTTER-727 removed the /agreements/researcher hop
+// that used to sit in the middle.
 async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
@@ -154,8 +155,6 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
 
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await page.getByRole('link', { name: /Proceed to step 3/i }).click()
-    await page.waitForURL(/\/agreements\/researcher(\?.*)?$/)
-    await page.getByRole('button', { name: /Proceed to Step 4/i }).click()
     await page.waitForURL(/\/code$/)
 }
 
@@ -272,20 +271,15 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
 
 const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
 
-// Reaches the code-review editor from the reviewer dashboard: View lands on /review.
-// When the reviewer hasn't acked the agreements the gate (STEP 2A) renders first and
-// "Proceed to Step 3" re-resolves bare /review to the editor; when agreements are
-// already acked (the common seeded case) the editor renders directly. Handle both.
+// Reaches the code-review editor from the reviewer dashboard: View lands on /review, which resolves
+// straight to the editor. OTTER-727 hid the agreements gate (STEP 2A) that used to render first when
+// the reviewer hadn't acked, so there is no longer a conditional hop to handle here.
 async function openCodeReviewEditor(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
 
     await page.waitForURL(/\/review(\?.*)?$/)
-    const proceed = page.getByRole('button', { name: /Proceed to Step 3/i })
-    if (await proceed.isVisible().catch(() => false)) {
-        await proceed.click()
-    }
     await expect(page.getByTestId('code-review-section')).toBeVisible()
 }
 
@@ -508,6 +502,37 @@ async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 }
 
+// The only end-to-end check of the server/client boundary on this screen: the reviewer leg shares
+// for real, so private_key.pem genuinely opens the wrapped keys (OTTER-688).
+async function verifyOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
+    await visitAsRole(page, RESEARCHER_DASHBOARD)
+    await viewStudyDetails(page, studyTitle)
+
+    await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
+    await expect(page.getByText(/Decrypt to view your outputs/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
+
+    // Pre-decryption: the terminal actions are not in the DOM yet.
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
+
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
+    await expect(privateKeyTextarea).toBeVisible()
+    await privateKeyTextarea.fill(await readTestSupportFile('private_key.pem'))
+
+    const viewButton = page.getByRole('button', { name: 'View' })
+    await expect(viewButton).toBeEnabled()
+    await viewButton.click()
+
+    // Post-decryption: success banner, the outputs table, and all three nav actions.
+    await expect(page.getByText(/Outputs and feedback available/i)).toBeVisible()
+    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeHidden()
+    await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Edit code/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -644,9 +669,7 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 
     await withRole(browser, 'researcher', async (page) => {
-        await visitAsRole(page, RESEARCHER_DASHBOARD)
-        await viewStudyDetails(page, studyTitle)
-        await expect(page.getByText(/results of your study have been approved/i)).toBeVisible()
+        await verifyOutputsSharedDisplay(page, studyTitle)
     })
 })
 

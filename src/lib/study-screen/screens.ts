@@ -11,12 +11,17 @@ export type ResearcherScreenId =
     | 'outputs-pending'
     | 'outputs-feedback'
     | 'outputs-errored-shared'
+    // The clean-run counterpart. Named for the reviewer's decision, not for availability:
+    // 'reviewer-outputs-available' already means a completed run still awaiting one.
+    | 'outputs-shared'
     | 'study-results'
     | 'study-overview'
 
 export type ReviewerScreenId =
     | 'reviewer-proposal-review'
     | 'reviewer-proposal-feedback'
+    // Unreachable since OTTER-727 hid the Agreements step; kept so the gate can be restored by
+    // re-adding one rule entry.
     | 'reviewer-agreements'
     | 'reviewer-code-review'
     | 'reviewer-code-feedback'
@@ -27,9 +32,6 @@ export type ReviewerScreenId =
 
 export type ScreenId = ResearcherScreenId | ReviewerScreenId
 
-// The rule table decides WHICH screen a study shows; ./nav decides which back/forward buttons that
-// screen carries (OTTER-673 standardised in-content nav, so it is no longer per-view). Both are
-// derived purely from state — no URL params feed into either.
 export type ScreenDescriptor = {
     screen: ScreenId
     // True for the reviewer read-only /review/code step, where navigation differs from live review.

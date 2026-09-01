@@ -5,9 +5,8 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import type { StepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcher } from './study-details-researcher'
 
-// OTTER-538: the RL Study Details redesign drops the "Study Code" section entirely and shows only
-// Study Status + the step nav. Where "Previous step" points is resolveStepNav's business now
-// (lib/study-screen/nav.test.ts pins it to the code step), so this only checks the wiring.
+// Where "Previous step" points is resolveStepNav's business (pinned in lib/study-screen/nav.test.ts),
+// so this file only checks that the view renders the nav it is handed.
 
 const NAV: StepNav = {
     back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },

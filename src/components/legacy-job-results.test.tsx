@@ -21,8 +21,8 @@ const clickView = async () => {
 }
 
 describe('LegacyJobResults ViewFile', () => {
-    // Legacy results were written into an about:blank tab via document.write, which executed
-    // researcher-controlled job output as HTML in the app origin (OTTER-721).
+    // Legacy results were written via document.write, executing researcher-controlled job
+    // output as HTML in the app origin (OTTER-721).
     it('never opens a tab when viewing a result', async () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(null)
         renderWithProviders(<ViewFile file={jobFile('results.txt', XSS_PAYLOAD)} />)
@@ -45,8 +45,7 @@ describe('LegacyJobResults ViewFile', () => {
         expect((window as unknown as { __pwned?: boolean }).__pwned).toBeUndefined()
     })
 
-    // .html routes to the highlight.js viewer rather than the plain text viewer, so it is the
-    // extension most likely to regress into rendered markup.
+    // .html routes to the highlight.js viewer, so it is the likeliest to regress into markup.
     it('renders an html result as inert text', async () => {
         renderWithProviders(<ViewFile file={jobFile('report.html', XSS_PAYLOAD)} />)
 

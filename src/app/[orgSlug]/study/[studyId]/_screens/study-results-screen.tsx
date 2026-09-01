@@ -5,8 +5,7 @@ import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcher } from '../view/study-details-researcher'
 import type { ScreenComponentProps } from './types'
 
-// study-results: results page. "Previous step" walks back to the code step (/view/code) and "Edit
-// code" is offered only when the study is actually resubmittable — both decided by resolveStepNav.
+// returnTo is threaded so org scope survives the hop back to the code step.
 export async function StudyResultsScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()

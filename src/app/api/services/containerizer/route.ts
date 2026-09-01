@@ -10,17 +10,12 @@ const schema = z.object({
     jobId: z.string(),
     status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
-    // OTTER-524: the failure class the build reports on JOB-ERRORED, e.g. BASE_IMAGE_UNAVAILABLE.
-    //
-    // Deliberately z.string() rather than z.enum, and deliberately optional. A code this app does not
-    // recognize yet must not fail validation: the containerizer deploys independently, so rejecting
-    // an unknown code would stop the job ever being marked errored at all. The buildspec's fallback
-    // path also always posts a code-less payload. Unknown values are discarded on the insert below.
+    // OTTER-524. Deliberately loose: the containerizer deploys independently, so rejecting an
+    // unrecognized code would stop the job ever being marked errored.
     failureReason: z.string().optional(),
 })
 
-// Only a failure carries a failure class, and only classified codes are kept, so unvetted text a
-// build script sent never lands in the database at all and no future reader can surface it.
+// Only classified codes are kept, so unvetted text a build script sent never reaches the database.
 const classifiedFailureReason = (body: z.infer<typeof schema>): JobFailureReason | null =>
     body.status === 'JOB-ERRORED' && isKnownFailureReason(body.failureReason) ? body.failureReason : null
 
@@ -51,8 +46,7 @@ export const POST = createWebhookHandler({
                 job,
             })
 
-            // Both halves of one log move together, or neither does: see the same guard in
-            // job-scan-results.
+            // Both halves move together: see the same guard in job-scan-results.
             if (!encrypted || encrypted.stored) {
                 const file = new File([body.plaintextLog], 'packaging-error-log.txt', { type: 'text/plain' })
                 await storeStudyLogFile(
@@ -87,16 +81,9 @@ export const POST = createWebhookHandler({
             return
         }
 
-        // The status dedup would otherwise throw the classification away with the duplicate row. Two
-        // deliveries report one failure (the build script's own handler and the buildspec's bare
-        // `post_build` fallback) and only one of them carries the code, so whichever lands second
-        // must still be able to record it.
-        //
-        // Keyed on whether the row already holds a CLASSIFIED code, not on whether it holds any text
-        // at all. A recorded classification is never overwritten, but unclassified text (the enclave
-        // writes a raw thrown AWS error into this same column, and `/api/job/[jobId]` accepts any
-        // message) is, because it is deliberately never displayed and would otherwise mask the one
-        // value the errored screen can actually explain.
+        // Two deliveries report one failure and only one carries the code, so the second must still
+        // record it rather than lose it to the status dedup. A classification is never overwritten,
+        // but unclassified text — never displayed — is.
         if (failureReason && !isKnownFailureReason(last.message)) {
             await db.updateTable('jobStatusChange').set({ message: failureReason }).where('id', '=', last.id).execute()
         }

@@ -68,8 +68,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         jobStatus: 'CODE-SUBMITTED',
         title,
     })
-    // Layer the decision row on top. Its createdAt is the user-visible decision timestamp the
-    // header now sources from (the matching status-change row, not the feedback entry).
+    // The header dates the decision from this status-change row, not the feedback entry.
     await db
         .insertInto('jobStatusChange')
         .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
@@ -207,11 +206,9 @@ describe('CodePostDecisionView', () => {
             const interact = userEvent.setup()
             await interact.click(toggle)
 
-            // Expanding removes the in-step opener (returns null) and reveals the breakout card's "Hide" toggle.
             await waitFor(() => expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument())
             const collapseToggle = screen.getByTestId('study-code-toggle-collapse')
             expect(collapseToggle).toHaveTextContent('Hide submitted study code')
-            // The file table lives in its own "Submitted code" card, not inside the step header.
             expect(screen.getByRole('heading', { name: 'Submitted code' })).toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
         })

@@ -11,7 +11,6 @@ const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
 describe('generateDataSourcesContextString', () => {
     beforeEach(() => {
-        // Set default mock values which can be overriden in test cases
         getDataSourcesForOrgMock.mockResolvedValue([])
     })
 

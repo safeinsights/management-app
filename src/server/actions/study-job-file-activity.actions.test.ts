@@ -37,8 +37,6 @@ describe('recordJobFileActivityAction', () => {
         expect(rows[0]).toMatchObject({ action: 'VIEWED', filePath: 'run.log', userId: user.id })
     })
 
-    // "Download all" is one round trip that has to land on every file, because the column reports
-    // per-file activity rather than a single aggregate event.
     test('records one row per file for a bulk download', async () => {
         const { job, archive } = await setup()
 
@@ -63,7 +61,6 @@ describe('recordJobFileActivityAction', () => {
         expect(rows.every((r) => r.action === 'DOWNLOADED')).toBe(true)
     })
 
-    // A forged id must not be able to attach activity to another study's file.
     test('ignores archives that belong to a different job', async () => {
         const { job, org } = await setup()
         const { job: otherJob } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
@@ -132,8 +129,6 @@ describe('fetchJobFileActivityAction', () => {
         expect(activity[0].actorName).toBe(dbUser.fullName)
     })
 
-    // The column shows the latest action, not a history, so a later event must replace the
-    // earlier one rather than stacking beside it.
     test('collapses each file to its most recent action', async () => {
         const { job, archive } = await setup()
 

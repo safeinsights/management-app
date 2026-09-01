@@ -29,7 +29,6 @@ interface CodePostSubmissionViewProps {
     nav: StepNav
     /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
-    /** Reviewer feedback + resubmission notes for v2+. */
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
 }

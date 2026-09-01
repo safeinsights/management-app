@@ -202,7 +202,6 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
         return { ...codeEnv, orgId }
     })
     .requireAbilityTo('update', 'Org')
-    // other parms comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
     .handler(
         async ({
             params,
@@ -227,10 +226,8 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 ...fieldValues
             } = params
 
-            // Loaded here rather than in middleware: every middleware key is fed into the
-            // CASL subject, and a failed ability check returns that subject to the caller
-            // JSON-stringified. In middleware this row's `settings.environment` — plaintext
-            // env var values — would leak to anyone the check then denies.
+            // Not in middleware: middleware keys become the CASL subject, which a denied
+            // ability check returns to the caller — leaking plaintext env var values.
             const priorCodeEnv = await priorCodeEnvFor(db, codeEnvId)
 
             if (dataSourceIds.length > 0) {
@@ -285,10 +282,8 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 codeEnvId,
                 userId: session.user.id,
                 changes: diffFields(priorCodeEnv, updatedCodeEnv, AUDITED_CODE_ENV_FIELDS),
-                // Mirrors the condition that gated the S3 wipe above, so this records what
-                // the server actually did rather than what the client merely claimed. The
-                // files themselves are uploaded after this action returns, so a replacement
-                // is not proof that the new objects landed in S3.
+                // Mirrors the condition that gated the S3 wipe above, so this records what the
+                // server did rather than what the client claimed.
                 starterCodeReplaced: Boolean(starterCodeUploaded && starterCodeFileNames?.length),
                 name: updatedCodeEnv.name,
             })
@@ -355,8 +350,8 @@ const fetchOrgCodeEnvsSchema = z.object({
     orgSlug: z.string(),
 })
 
-// `selectAll('orgCodeEnv')` includes settings.environment — plaintext env-var name/value pairs,
-// commonly credentials — plus scan results, so this is admin-console data, not public catalog data.
+// selectAll includes settings.environment (plaintext env vars, often credentials), so this is
+// admin-console data, not public catalog data.
 export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
     .params(fetchOrgCodeEnvsSchema)
     .middleware(orgIdFromSlug)
@@ -422,9 +417,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
     })
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { orgSlug }, db, session, ...codeEnv }) => {
-        // Captured before the row is destroyed so the audit entry records its final state.
-        // Loaded here rather than in middleware for the same reason as the update action:
-        // middleware keys reach the caller in a denied ability check's error message.
+        // Captured before the row is destroyed, and not in middleware: middleware keys reach the
+        // caller in a denied ability check's error message.
         const priorCodeEnv = await priorCodeEnvFor(db, codeEnv.id)
 
         if (!codeEnv.isTesting) {
@@ -454,9 +448,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
                 )
             }
 
-            // OTTER-527: an env whose latest scan passed must not be deleted unless another
-            // non-testing env for the language also passed, otherwise the language's default
-            // image would fall back to one that failed (or never finished) scanning.
+            // OTTER-527: deleting the last passing env would make the language's default image
+            // fall back to one that failed or never finished scanning.
             const deletingPassedEnv = beingDeleted?.latestScanStatus === 'SCAN-COMPLETE'
             const anotherPassedEnvExists = others.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
 
@@ -498,8 +491,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             .where('orgCodeEnv.id', '=', codeEnv.id)
             .executeTakeFirstOrThrow(throwNotFound(`Failed to delete code environment with id ${codeEnv.id}`))
 
-        // The audit row deliberately outlives the record (audit.recordId has no FK), so
-        // the name is denormalized into metadata to keep the entry readable.
+        // The audit row outlives the record (audit.recordId has no FK), so the name is
+        // denormalized into metadata.
         await onCodeEnvDeleted({
             db,
             codeEnvId: codeEnv.id,
@@ -523,8 +516,8 @@ export const fetchCodeEnvHistoryAction = new Action('fetchCodeEnvHistoryAction')
     .handler(async ({ codeEnv, db }) => {
         return await db
             .selectFrom('audit')
-            // audit.userId has no FK because entries outlive deleted users; an inner join
-            // would silently drop exactly the history an audit trail exists to preserve.
+            // audit.userId has no FK because entries outlive deleted users; an inner join would
+            // drop exactly the history an audit trail exists to preserve.
             .leftJoin('user', 'user.id', 'audit.userId')
             .select([
                 'audit.id',
@@ -535,12 +528,11 @@ export const fetchCodeEnvHistoryAction = new Action('fetchCodeEnvHistoryAction')
                 'user.fullName as userFullName',
             ])
             .where('audit.recordType', '=', 'CODE_ENV')
-            // Scoped to the middleware-resolved id, never the raw param: audit has no org
-            // column, so trusting params.codeEnvId here would expose other orgs' history.
+            // Audit has no org column, so trusting params.codeEnvId here would expose other
+            // orgs' history.
             .where('audit.recordId', '=', codeEnv.id)
             .orderBy('audit.createdAt', 'desc')
-            // v7 ids are time-ordered, so they break ties between rows written inside the
-            // same clock tick — createdAt alone leaves those in an arbitrary order.
+            // v7 ids are time-ordered, so they break ties within a single clock tick.
             .orderBy('audit.id', 'desc')
             .execute()
     })
@@ -551,8 +543,7 @@ const fetchStarterCodeSchema = z.object({
     fileName: z.string(),
 })
 
-// Returns S3 file contents. Note this is the admin console's editor view; the researcher-facing
-// starter-code download is getStarterCodeUrlAction, which stays cross-org on `view Orgs`.
+// Admin console's editor view; the researcher-facing download is getStarterCodeUrlAction.
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     .params(fetchStarterCodeSchema)
     .middleware(codeEnvFromOrgAndId)

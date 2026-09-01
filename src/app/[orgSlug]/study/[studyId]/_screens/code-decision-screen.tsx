@@ -7,9 +7,8 @@ import { CodePostDecisionView } from '../view/code-post-decision-view'
 import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 import type { ScreenComponentProps } from './types'
 
-// code-approved AND code-feedback both render the post-decision view. Which of the two resolved, and
-// the decision it displays, are read back off the screen the rule table picked (codeDecisionForScreen)
-// rather than re-derived here, so the banner and the nav cannot disagree with the page that routed.
+// code-approved and code-feedback both render this view; codeDecisionForScreen reads back which one
+// the rule table picked, so the banner and the nav cannot disagree with the page that routed.
 export async function CodeDecisionScreen({
     study,
     raw,
@@ -28,8 +27,6 @@ export async function CodeDecisionScreen({
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
-    // Whether a forward step exists is decided inside the nav table, which delegates to
-    // hasNextStepFromCode (OTTER-687).
     const nav = resolveStepNav(decision.screen, state, {
         orgSlug,
         studyId: study.id,

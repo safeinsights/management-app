@@ -45,7 +45,6 @@ describe('ReadOnlyLexicalContent', () => {
             expect(found).not.toBeNull()
             return found!
         })
-        // Guards the premise: this is legacy content, so the fix cannot come from the attribute.
         expect(anchor.getAttribute('target')).toBeNull()
 
         fireEvent.click(anchor)
@@ -59,8 +58,7 @@ describe('ReadOnlyLexicalContent', () => {
         )
 
         await waitFor(() => expect(container.querySelectorAll('p')).toHaveLength(2))
-        // happy-dom does not load globals.css, so assert the hook the stylesheet targets
-        // rather than a computed margin, which would be empty either way.
+        // happy-dom does not load globals.css, so a computed margin would be empty either way.
         for (const p of container.querySelectorAll('p')) {
             expect(p.classList.contains('editable-text-paragraph')).toBe(true)
         }

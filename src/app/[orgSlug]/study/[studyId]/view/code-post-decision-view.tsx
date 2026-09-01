@@ -72,8 +72,7 @@ const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     },
 }
 
-// Date is sourced from the decision's own status-change row so it stays correct (and present)
-// even when feedback entries are empty or belong to a different review round.
+// Dated from the decision's own status-change row so it survives empty or stale feedback entries.
 function deriveCodePostDecision({
     job,
     entries,
@@ -122,8 +121,7 @@ function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: St
     )
 }
 
-// Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
-// this card reveals the proposal link, file table, and the matching "Hide" toggle.
+// Its own card per OTTER-590: collapsed, only the in-step toggle shows.
 type SubmittedCodePanelProps = {
     expanded: boolean
     jobId: string

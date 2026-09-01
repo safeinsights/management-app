@@ -10,8 +10,8 @@ type OutputsDecidedBannerProps = {
 
 type BannerCopy = { title: string; body: string }
 
-// resultsErrored = JOB-ERRORED (code run outcome); resultsApproved = FILES-APPROVED vs
-// FILES-REJECTED (reviewer's share decision). The two axes are orthogonal → 4 variants.
+// The run outcome (JOB-ERRORED) and the reviewer's share decision (FILES-APPROVED vs
+// FILES-REJECTED) are orthogonal, hence four variants.
 function resolveBannerCopy({
     resultsErrored,
     resultsApproved,

@@ -12,7 +12,7 @@ type Props = {
     orgType: OrgType
 }
 
-// keepMounted={false} so the participation tab's query only runs once its panel is opened.
+// keepMounted={false} so the participation tab's query only runs once its panel opens.
 export const OrgLegalTabs: FC<Props> = ({ orgSlug, orgType }) => {
     const participationType = participationAgreementTypeForOrgType[orgType]
 
@@ -20,7 +20,6 @@ export const OrgLegalTabs: FC<Props> = ({ orgSlug, orgType }) => {
         <Tabs defaultValue="SLA" keepMounted={false}>
             <Tabs.List>
                 <Tabs.Tab value="SLA">{legalDocumentTypeLabels.SLA}</Tabs.Tab>
-                {/* The full name, unlike the SI-admin strip where five tabs compete for width. */}
                 <Tabs.Tab value={participationType}>{legalDocumentTypeLabels[participationType]}</Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="SLA" pt="md">

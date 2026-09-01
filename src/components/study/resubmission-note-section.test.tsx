@@ -95,7 +95,7 @@ describe('ResubmissionNoteSection', () => {
         await user.click(textarea)
         await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
 
-        // Mantine's `c` prop resolves to an inline color referencing a theme variable.
+        // Mantine's `c` prop resolves to an inline color, not a class name.
         const counter = screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS + 1}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
         expect(counter.style.color).toContain('red')
     })
@@ -111,8 +111,8 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
     })
 
-    // OTTER-737: the form validates on change, so the message arrives with the caret still in the
-    // field and nothing else would say so.
+    // The form validates on change, so the message arrives with the caret still in the field
+    // and nothing else would say so (OTTER-737).
     it('raises the over-limit error while typing and announces it politely', async () => {
         const user = userEvent.setup()
         renderSection()
@@ -199,8 +199,8 @@ describe('ResubmissionNoteSection', () => {
     })
 
     it('keeps the live region out of the textarea description (OTTER-675)', () => {
-        // The textarea's aria-describedby points at the error node. A live region inside it would
-        // fold "All changes saved" into the field's description and re-read it on every refocus.
+        // A live region inside the error node would fold "All changes saved" into the field's
+        // description and re-read it on every refocus.
         renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
         const errorNode = document.getElementById('resubmissionNote-error')
         expect(errorNode).toBeInTheDocument()

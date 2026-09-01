@@ -34,11 +34,8 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
 
 describe('ProposalSubmitted', () => {
     let study: Submitted<SelectedStudy>
-    // These tests use `study` as a read-only base (each spreads it into a render); they
-    // never mutate the DB row. So seed the org/user/study ONCE in beforeAll (it lives in
-    // the outer transaction and survives per-test rollback) instead of paying the seed +
-    // insert per test. Only the Clerk mocks — cleared by mockReset between tests — are
-    // re-applied per test.
+    // Seeded once in beforeAll: the row lives in the outer transaction and survives per-test
+    // rollback. Only the Clerk mocks, which mockReset clears, are re-applied per test.
     let mockArgs: Parameters<typeof mockClerkSession>[0]
 
     beforeAll(async () => {
@@ -252,7 +249,7 @@ describe('ProposalSubmitted', () => {
 
             const banner = screen.getByTestId('status-banner-APPROVED')
             expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
             )
         })
 
@@ -378,7 +375,7 @@ describe('ProposalSubmitted', () => {
 
             const banner = screen.getByTestId('status-banner-APPROVED')
             expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to Step 3 - Agreements to sign the required legal documents.`,
+                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
             )
             expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
         })
@@ -440,7 +437,7 @@ describe('ProposalSubmitted', () => {
             expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        it('shows a "Proceed to step 3" button linking to agreements when status is APPROVED', () => {
+        it('shows a "Proceed to step 3" button linking to the code step when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -453,10 +450,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
-            expect(proceedLink).toHaveAttribute(
-                'href',
-                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
-            )
+            expect(proceedLink).toHaveAttribute('href', Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }))
         })
 
         it('shows a "Back" button linking to dashboard when status is CHANGE-REQUESTED', () => {
@@ -524,10 +518,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
-            expect(proceedLink).toHaveAttribute(
-                'href',
-                Routes.studyResearcherAgreements({ orgSlug: ORG_SLUG, studyId: study.id }),
-            )
+            expect(proceedLink).toHaveAttribute('href', Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }))
             expect(screen.queryByRole('link', { name: /go to dashboard/i })).not.toBeInTheDocument()
         })
     })

@@ -15,12 +15,8 @@ import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType } from '@/database/types'
 
-// OTTER-538: focused tests for the redesigned StudyResults panel.
-// The redesign (1) shows the RUN-COMPLETE secondary text on RUN-COMPLETE, (2) hides
-// the results table until the reviewer's key successfully decrypts, (3) drops the
-// "Enter Reviewer Key to view…" label above the key input, and (4) defers to
-// JobStatusHelpText for terminal non-COMPLETE statuses so an errored or rejected
-// job doesn't claim it was "successfully processed".
+// OTTER-538: the results table stays hidden until the reviewer's key decrypts, and terminal
+// non-COMPLETE statuses defer to JobStatusHelpText.
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
@@ -84,8 +80,6 @@ describe('StudyResultsRedesign', () => {
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResultsRedesign job={job!} />)
 
-        // pre-decryption: the unified file table (rendered as a Mantine Table)
-        // should not appear. The decrypt form is the only thing besides the header.
         expect(screen.queryByRole('table')).not.toBeInTheDocument()
     })
 
@@ -133,8 +127,6 @@ describe('StudyResultsRedesign', () => {
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResultsRedesign job={job!} />)
 
-        // Pre-decrypt: no table, no Approve/Reject buttons (JobReviewButtons returns null
-        // when decryptedResults is undefined — see job-review-buttons.tsx).
         expect(screen.queryByRole('table')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^Approve$/ })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^Reject$/ })).not.toBeInTheDocument()

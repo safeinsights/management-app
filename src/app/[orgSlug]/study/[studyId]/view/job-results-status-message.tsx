@@ -6,8 +6,7 @@ import { type FileType } from '@/database/types'
 import { JobResults } from '@/components/job-results'
 import { JobResultsStatusMessageView } from './job-results-status-message-view'
 
-// Data container: fetches the approved-results listing (JobResults' useQuery + server action)
-// and injects it into the presentational JobResultsStatusMessageView via the `results` slot.
+// Fetches the approved-results listing and injects it into the presentational view.
 export type JobResultsStatusMessageProps = {
     job: LatestJobForStudy
     files: { fileType: FileType }[]

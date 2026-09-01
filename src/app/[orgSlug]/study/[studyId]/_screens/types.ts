@@ -7,7 +7,6 @@ export type ScreenComponentProps = {
     raw: RawStudyState
     orgSlug: string
     dashboardHref: string
-    // Org-scoped entry (?returnTo=org); leaves thread it onto their own back/forward routes so the
-    // researcher stays in org scope across hops.
+    // Threaded onto back/forward routes so the researcher stays in org scope across hops.
     returnTo?: 'org'
 }

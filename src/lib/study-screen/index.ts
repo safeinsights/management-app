@@ -8,6 +8,7 @@ export {
     latestJob,
     isErroredOutputsSharedOutcome,
     codeDecisionForScreen,
+    isOutputsSharedOutcome,
 } from './state'
 export type { CodeDecisionScreenId } from './state'
 export {

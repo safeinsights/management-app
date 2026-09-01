@@ -7,15 +7,13 @@ import { CodePostSubmissionView } from '../view/code-post-submission-view'
 import type { ScreenComponentProps } from './types'
 import type { Route } from 'next'
 
-// code-under-review: code submitted, no decision yet. The submitted job must exist at this point;
-// guard with notFound() so the render below never receives null.
 export async function CodeUnderReviewScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
 
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
     const submissionVersion = await codeSubmissionVersion(study.id)
-    // Feedback is only meaningful on resubmissions; skip the extra query on v1.
+    // Feedback is only meaningful on resubmissions, so skip the query on v1.
     const feedbackEntries =
         submissionVersion > 1 ? actionResult(await getCodeReviewFeedbackAction({ studyId: study.id })) : []
 

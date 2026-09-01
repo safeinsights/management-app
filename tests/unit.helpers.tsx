@@ -35,9 +35,6 @@ import userEvent from '@testing-library/user-event'
 import * as RouterMock from 'next-router-mock'
 export { userEvent }
 
-// Helper to mock the current pathname inside unit tests that need to simulate specific routes.
-// It leverages the underlying next-router-mock memory router so it plays nicely with
-// the default router setup defined in `tests/vitest.setup.ts`.
 export const mockPathname = (path: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(RouterMock as any).memoryRouter.setCurrentUrl(path)
@@ -57,8 +54,8 @@ export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =
         .where('recordType', '=', recordType)
         .execute()
 
-// Separate from getAuditEntries because that one is used with toContainEqual, whose
-// exact-object matching would break on an extra metadata key.
+// Separate from getAuditEntries, whose callers use toContainEqual — exact-object matching
+// would break on an extra metadata key.
 export const getAuditEntriesWithMetadata = (recordId: string, recordType: AuditRecordType) =>
     db
         .selectFrom('audit')
@@ -73,15 +70,10 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
 
-// Every QueryClient minted for a test is tracked here and torn down in the global afterEach
-// (see resetTestQueryClients). Without this, a still-live client's scheduled work — most importantly
-// useWorkspaceFiles' refetchInterval timer — outlives its test and fires during the next one, reading
-// the process-global CODER_FILES (reassigned/deleted per test) and flipping a component's state. That
-// surfaced as "intermittent" study-code submit-button failures only under full-suite timing.
+// Tracked so resetTestQueryClients can tear them down: a still-live client's refetchInterval
+// timer otherwise fires during the NEXT test, flipping component state.
 const liveTestQueryClients = new Set<QueryClient>()
 
-// Background refetches (window-focus, mount, reconnect) are also disabled so queries only run when a
-// test explicitly invalidates them — interval polling is stopped by the teardown above.
 export const createTestQueryClient = () => {
     const client = new QueryClient({
         defaultOptions: {
@@ -100,9 +92,7 @@ export const createTestQueryClient = () => {
     return client
 }
 
-// Called from the global afterEach (tests/vitest.setup.ts) after RTL cleanup() has unmounted the
-// React trees: clear every test client so no cached data or in-flight refetch crosses into the next
-// test. Observers (and their interval timers) are already gone via cleanup().
+// Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {
     for (const client of liveTestQueryClients) {
         client.clear()
@@ -110,9 +100,7 @@ export const resetTestQueryClients = () => {
     liveTestQueryClients.clear()
 }
 
-// `renderHook(..., { wrapper: createTestQueryWrapper() })` for hooks that depend on
-// useMutation / useQuery. Each call gets a fresh QueryClient so cached state cannot
-// leak between tests.
+// For `renderHook(..., { wrapper: createTestQueryWrapper() })`.
 export const createTestQueryWrapper = () => {
     const client = createTestQueryClient()
     const Wrapper = ({ children }: { children: ReactNode }) => (
@@ -123,17 +111,14 @@ export const createTestQueryWrapper = () => {
 }
 
 /**
- * `singleUserEditing` swaps the collaborative editors for the standalone Lexical surface, so the
- * editable node is in the DOM instead of held behind a skeleton waiting on a live websocket. It
- * belongs here rather than in a per-test provider stack: a hand-rolled wrapper silently opts out
- * of the query client, modals and spy mode, and drifts as this helper gains providers.
+ * `singleUserEditing` swaps the collaborative editors for the standalone Lexical surface, putting
+ * the editable node in the DOM instead of behind a skeleton awaiting a live websocket.
  */
 export function renderWithProviders(
     ui: ReactElement,
     options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean; queryClient?: QueryClient },
 ) {
-    // A caller-supplied client is how a test primes a query before the first render, which is the
-    // only way to assert on an effect that fires when a query resolves but renders nothing itself.
+    // A caller-supplied client lets a test prime a query before the first render.
     const testQueryClient = options?.queryClient ?? createTestQueryClient()
 
     return render(
@@ -154,20 +139,8 @@ export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
 
-// Generates a throwaway address for a user row. faker.internet.email() draws its local part from
-// the shared name pools plus a small numeric suffix, an effective space of roughly 1.9M addresses,
-// narrow enough that a full run repeats one and user_email_lower_unique rejects the second insert,
-// surfacing as a duplicate-key error in whichever unrelated test lost the race.
-//
-// The counter makes addresses unique within a worker outright. Across workers and across runs the
-// token carries it: a repeat would need the same token, the same local part and the same sequence
-// number, which is not impossible but is far below the rate of any other flake in the suite. The
-// token rather than a worker id keeps this independent of how vitest pools tests (faker is
-// unseeded, so each worker draws its own).
-//
-// faker's casing is preserved, so callers still get the mixed-case addresses they got before.
-// Tests that need two records to share an address must pass it explicitly rather than hoping for
-// a collision.
+// faker.internet.email() draws from ~1.9M addresses, narrow enough that a full run repeats one
+// and user_email_lower_unique rejects the insert. The counter and token make them unique.
 let emailSequence = 0
 const emailWorkerToken = faker.string.alphanumeric({ length: 6, casing: 'lower' })
 
@@ -177,8 +150,6 @@ export const testEmail = (provider = 'test.com') => {
 }
 
 // Screen components take the raw study state their rules routed on (see render-screen.tsx).
-// Screen tests fetch it here and pass the same { study, raw } pick the screens declare, so
-// each screen test file isn't re-declaring the fetch-or-throw and the Pick.
 export type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
 
 export const requireRawState = async (studyId: string) => {
@@ -263,16 +234,8 @@ export const insertTestStudyData = async ({
     }
 }
 
-/**
- * An org, study and job in the shape the storage and ingest layers take (`MinimalJobInfo`), which is
- * what every test of those paths needs and what none of the fixtures above return. `studyJobId` is the
- * first of the three jobs `insertTestStudyData` creates.
- *
- * `jobInfo` is nested rather than spread alongside `org` because `storeS3File` tags the uploaded
- * object with every property of the info it is handed (`objectToAWSTags` runs each value through
- * `strToAscii`), so anything but the three string fields throws. Callers wanting a path can hand
- * `jobInfo` straight to `pathForStudyJob`.
- */
+// `jobInfo` is nested rather than spread alongside `org` because `storeS3File` tags the uploaded
+// object with every property it is handed, so anything but the three string fields throws.
 export const insertTestJobInfo = async ({ org }: { org?: MinimalTestOrg } = {}) => {
     const testOrg = org ?? (await insertTestOrg())
     const { studyId, jobIds } = await insertTestStudyData({ org: testOrg })
@@ -280,17 +243,11 @@ export const insertTestJobInfo = async ({ org }: { org?: MinimalTestOrg } = {}) 
     return { jobInfo: { orgSlug: testOrg.slug, studyId, studyJobId: jobIds[0] }, org: testOrg }
 }
 
-/**
- * A throwaway upload payload. The bytes are deliberately arbitrary: the ingest routes and
- * `storeJobFile` never read them, so a test only needs a `File` to arrive with the right name.
- */
+// The bytes are arbitrary: the ingest routes and `storeJobFile` never read them.
 export const testUploadFile = (name: string, type = 'application/zip') =>
     new File([new TextEncoder().encode('boom')], name, { type })
 
-/**
- * A unique qa-prefixed address. The /api/qa routes only act on accounts whose email
- * local part starts with "qa" (see assertQaEmail), since they run on production.
- */
+// The /api/qa routes run on production and act only on "qa"-prefixed emails (see assertQaEmail).
 export const qaEmail = () => `qa-${faker.string.alpha(10).toLowerCase()}@test.com`
 
 export const insertTestUser = async ({
@@ -302,7 +259,6 @@ export const insertTestUser = async ({
     org: MinimalTestOrg
     isAdmin?: boolean
     useRealKeys?: boolean
-    /** Override the generated address, e.g. to build a qa-prefixed account for the QA routes. */
     email?: string
 }) => {
     const user = await db
@@ -316,7 +272,6 @@ export const insertTestUser = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    // Add users as orgUsers
     const orgUser = await db
         .insertInto('orgUser')
         .values({
@@ -327,7 +282,6 @@ export const insertTestUser = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    // Add user public key for enclave orgs (reviewers)
     if (org.type === 'enclave') {
         let publicKey: Buffer
         let fingerprint: string
@@ -415,7 +369,6 @@ export const insertTestStudyJobData = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    // Create job
     const job = await db
         .insertInto('studyJob')
         .values({
@@ -445,9 +398,8 @@ export const insertTestStudyJobData = async ({
     }
 }
 
-// A baseline job is the file-less INITIATED row minted when a workspace is opened (IDE launch /
-// file upload) before any code is submitted. Pass `createdAt` to place it relative to an existing
-// submission when a test needs the baseline to be newer or older than the reviewed job.
+// A baseline job is the file-less INITIATED row minted when a workspace is opened, before any
+// code is submitted.
 export const insertTestBaselineJob = async (studyId: string, { createdAt }: { createdAt?: Date } = {}) => {
     const job = await db
         .insertInto('studyJob')
@@ -458,10 +410,8 @@ export const insertTestBaselineJob = async (studyId: string, { createdAt }: { cr
     return job
 }
 
-// `submittedByOrg` defaults to `org`, which is what most callers want. Pass it to put the two sides
-// of a study on DIFFERENT orgs — study.orgId is the Data Partner, submittedByOrgId the Research Lab
-// — which anything reading one side or naming the other has to be tested against, since a swapped
-// join passes silently when both are the same org.
+// Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
+// Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.
 export const insertTestStudyOnly = async ({
     org,
     submittedByOrg,
@@ -517,19 +467,8 @@ export const insertTestStudyJobUsers = async ({
     return { study, job, user1, user2, ...rest }
 }
 
-/**
- * Clear every legal document, version and acknowledgement.
- *
- * Terms of Service and Privacy Notice are global singletons, so a suite asserting "nothing published"
- * or counting versions is asserting on database-wide state — which a seeded dev database (`db:migrate`
- * plus `db:seed-legal`) already occupies, and CI does not. Call it in `beforeEach` so those suites
- * mean the same thing in both places.
- *
- * Safe under the per-test transaction (vitest.setup.ts starts one and rolls it back): another suite's
- * rows are uncommitted and invisible here, so this can only remove committed seed data, and even that
- * is undone at the end of the test. Keep the order — acknowledgement, version, document — or the
- * foreign keys refuse, and two suites deleting in opposite orders could deadlock.
- */
+// Legal documents are global singletons, so version counts assert on database-wide state.
+// Keep the delete order, or the foreign keys refuse and concurrent suites deadlock.
 export const resetLegalDocuments = async () => {
     await db.deleteFrom('legalDocumentAcknowledgement').execute()
     await db.deleteFrom('legalDocumentVersion').execute()
@@ -594,9 +533,8 @@ type MockSession = {
     orgType?: 'enclave' | 'lab'
     isSiAdmin?: boolean
     twoFactorEnabled?: boolean
-    // Additional org memberships beyond the primary `orgSlug`, e.g. to mock a dual-role
-    // user who belongs to both a lab and an enclave. Ids must match real DB org ids when
-    // the mocked session drives server actions that query by org id.
+    // Ids must match real DB org ids when the mocked session drives server actions that
+    // query by org id.
     extraOrgs?: Array<{ slug: string; id?: string; type?: 'enclave' | 'lab'; isAdmin?: boolean }>
 }
 
@@ -618,7 +556,6 @@ export const mockClerkSession = (values: MockSession | null) => {
     const client = clerkClient as unknown as Mock
     const user = currentClerkUser as unknown as Mock
     const auth = clerkAuth as unknown as Mock
-    // Flattened structure - no environment nesting
     const unsafeMetadata = {
         currentOrgSlug: values.orgSlug,
     }
@@ -649,7 +586,6 @@ export const mockClerkSession = (values: MockSession | null) => {
             isAdmin: extra.isAdmin ?? false,
         }
     }
-    // Flattened structure - no environment nesting
     const publicMetadata = {
         format: 'v3',
         user: {
@@ -792,10 +728,8 @@ type MockDualRoleSessionOptions = {
     twoFactorEnabled?: boolean
 }
 
-// Creates a real lab org + enclave org and a single user who is a member of BOTH (a
-// "dual-role" user: researcher via the lab, reviewer via the enclave). The Clerk mock's
-// publicMetadata carries both real org ids, so server actions resolve the same dual-role
-// session the real app would. Use for My dashboard Reviewer/Researcher toggle tests.
+// A user who is a member of BOTH a lab and an enclave, so server actions resolve the dual-role
+// session the real app would.
 export async function mockDualRoleSessionWithTestData(options: MockDualRoleSessionOptions = {}) {
     const labOrg = await insertTestOrg({ slug: options.labSlug ?? faker.string.alpha(10), type: 'lab' })
     const enclaveOrg = await insertTestOrg({ slug: options.enclaveSlug ?? faker.string.alpha(10), type: 'enclave' })
@@ -827,10 +761,8 @@ type CreateTestProposalDraftOptions = {
     }
 }
 
-// Builds the canonical OTTER-497 fixture shape: enclave + lab + lab-member session +
-// DRAFT study where `submittedByOrgId` is the lab and `orgId` is the enclave. Use this
-// instead of `insertTestStudyOnly` for collaboration tests, which collapse both ids to
-// the same org and do not match the production submitting-lab vs reviewing-enclave split.
+// OTTER-497. Preferred over `insertTestStudyOnly` for collaboration tests, which collapse both
+// org ids to one and so do not match the production lab/enclave split.
 export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: CreateTestProposalDraftOptions) {
     const enclave = await insertTestOrg({ type: 'enclave', slug: enclaveSlug })
     const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -850,9 +782,8 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
 export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
     db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
 
-// Generates a feedback string of `tokenCount` whitespace-separated tokens, for tests that just
-// need a plausible non-empty body. The default 60 tokens is roughly 400 characters, comfortably
-// inside every 1800-character cap. Build the string directly when a test is about a boundary.
+// The default 60 tokens is ~400 characters, comfortably inside every 1800-character cap.
+// Build the string directly when a test is about a boundary.
 export const buildFeedback = (tokenCount = 60) => Array.from({ length: tokenCount }, (_, i) => `word${i + 1}`).join(' ')
 
 export const createWorkspaceDir = async (prefix: string) => {
@@ -969,7 +900,6 @@ export const insertTestDataSource = async (options: InsertTestDataSourceOptions)
     return { ...dataSource, urls: createdUrls }
 }
 
-// Re-export actionResult for backwards compatibility in tests
 export { actionResult } from '@/lib/utils'
 
 export type InsertTestResearcherProfileOptions = {
@@ -1112,10 +1042,8 @@ export const expectStudyJobRecords = async (
         .execute()
     expect(jobFiles).toEqual(expectedFiles)
 
-    // Assert the SET of statuses, not their order: CODE-SUBMITTED (submit action) and
-    // CODE-SCANNED (scan webhook) are written within the same operation and can share a
-    // created_at to the millisecond, so ORDER BY created_at returns them in arbitrary order.
-    // What matters is that all three transitions were recorded, not their micro-ordering.
+    // The SET of statuses, not their order: CODE-SUBMITTED and CODE-SCANNED are written in the
+    // same operation and can share a created_at to the millisecond.
     const statuses = await db
         .selectFrom('jobStatusChange')
         .select(['status'])

@@ -17,7 +17,7 @@ import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { PostFeedbackView } from '../post-feedback-view'
 import StudyReviewCodePage from './page'
 
-// Append a job status strictly after the latest existing one so multi-status histories keep a stable order.
+// Append strictly after the latest existing status so multi-status histories keep a stable order.
 const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
     const job = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirstOrThrow()
     const last = await db
@@ -38,7 +38,6 @@ const callPage = async (orgSlug: string, studyId: string) =>
         params: Promise.resolve({ orgSlug, studyId }),
     })) as React.ReactElement<Record<string, unknown>>
 
-// A study with results: the read-only /review/code step is reachable and lands on the code-feedback screen.
 const seedResultsStudy = async (orgSlug: string) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'enclave' })
     const { study } = await insertTestStudyJobData({
@@ -53,21 +52,20 @@ const seedResultsStudy = async (orgSlug: string) => {
 }
 
 describe('StudyReviewCodePage', () => {
-    it('renders the code-feedback screen with a Previous link to reviewer agreements for a results study', async () => {
+    it('renders the code-feedback screen with a Previous link to the reviewed proposal for a results study', async () => {
         const { org, study } = await seedResultsStudy('openstax')
 
         const page = await callPage(org.slug, study.id)
 
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
-        expect(page?.props.previousHref).toBe(Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id }))
+        expect(page?.props.previousHref).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
 
         renderWithProviders(page!)
         expect(screen.getByTestId('post-feedback-previous')).toBeInTheDocument()
     })
 
-    // OTTER-687: the DP outputs screen has no route of its own, so forward is bare /review and the
-    // reviewer rule table decides what renders there.
+    // OTTER-687: the outputs screen has no route of its own, so forward is bare /review.
     it('forwards to /review for a results study, whose /review resolves past the code step', async () => {
         const { org, study } = await seedResultsStudy('openstax')
 
@@ -96,8 +94,8 @@ describe('StudyReviewCodePage', () => {
         expect(page?.props.nextStepHref).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
     })
 
-    // Approved but not yet packaged: /review still resolves to this very screen, so a forward link
-    // would only point at the page it sits on.
+    // Before packaging, /review resolves to this same screen, so a forward link would point at
+    // the page it sits on.
     it('offers no step forward while /review still resolves to the code step', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -118,8 +116,7 @@ describe('StudyReviewCodePage', () => {
     })
 
     it('renders code-feedback with the Previous link for a decided-code study without results yet', async () => {
-        // The route is reachable mid-flow (e.g. a reviewer navigating directly), not only after results.
-        // A code decision with no results still resolves to reviewer-code-feedback and shows Previous.
+        // The route is reachable mid-flow, not only after results.
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -133,7 +130,7 @@ describe('StudyReviewCodePage', () => {
 
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
-        expect(page?.props.previousHref).toBe(Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id }))
+        expect(page?.props.previousHref).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
     })
 
     it('404s when the study has not reached the code stage (no forward jumps)', async () => {
