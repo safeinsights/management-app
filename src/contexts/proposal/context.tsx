@@ -21,7 +21,6 @@ interface ProposalContextValue {
     isSubmitting: boolean
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
-    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
     tabSessionId: string
 }
 
@@ -43,25 +42,12 @@ interface ProposalProviderProps {
     draftData?: DraftStudyData
 }
 
-// Everything below is unconditional because this provider only ever serves a DRAFT: the route
-// redirects CHANGE-REQUESTED to /edit-and-resubmit (see proposal/page.tsx). Do not reintroduce a
-// `status` prop and half-branch these; if that redirect is ever reverted, all of them have to
-// branch together.
-//
-// `title` is excluded: Step 1 owns study.title on a DRAFT (OTTER-690). Leaving it in would let a
-// cold fields-doc seed a blank title, or a stale persisted one, over the Step 1 value via the
-// server-side mirror.
+// Unconditional because this provider only ever serves a DRAFT, the route redirects
+// CHANGE-REQUESTED away. `title` is excluded: Step 1 owns it on a DRAFT (OTTER-690).
 const DRAFT_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
 
-/**
- * Drops the keys a persisted NULL column arrives as.
- *
- * An explicit `undefined` wins in an object spread, so passing one through would blank out the
- * matching entry in `initialProposalValues` and leave the form holding `undefined` where the
- * schema expects an array or a string. Validation would then answer with a zod type message
- * ("expected array, received undefined") instead of the field's own required copy, on exactly the
- * untouched draft that needs the required copy most.
- */
+// An explicit `undefined` wins in a spread and would blank out the `initialProposalValues` entry,
+// leaving an untouched draft with a zod type message instead of the field's own required copy.
 function definedDraftFields(draftData?: DraftStudyData): DraftStudyData {
     if (!draftData) return {}
     const entries = Object.entries(draftData).filter(([, value]) => value !== undefined && value !== null)
@@ -72,10 +58,8 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
     const form = useForm<ProposalFormValues>({
         validate: zodResolver(draftProposalFormSchema),
         initialValues: { ...initialProposalValues, ...definedDraftFields(draftData) },
-        // No validateInputOnChange: the card requires that an error clears while the user is
-        // editing and does not come back until the next blur or Submit click. Mantine's
-        // clearInputErrorOnChange (on by default) does the clearing; re-validating on every
-        // keystroke would put the message straight back (OTTER-691).
+        // No validateInputOnChange: an error must clear while editing and stay gone until the next
+        // blur or Submit, but re-validating per keystroke would put it straight back (OTTER-691).
     })
 
     const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({

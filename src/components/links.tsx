@@ -37,8 +37,7 @@ export const LinkWithIcon: FC<LinkWithIconProps> = ({
         fw={600}
         display="inline-flex"
         {...anchorProps}
-        // Merge rather than replace: the icon+text layout depends on these, so a caller
-        // passing `style` overrides individual keys without dropping the flex layout.
+        // Merged, not replaced, so a caller's `style` cannot drop the icon+text flex layout.
         style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0, ...style }}
     >
         {iconPosition === 'leading' && icon}

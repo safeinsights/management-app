@@ -22,12 +22,11 @@ export function useTimer({ isEnabled, every, trigger, updateInterval }: UseTimer
         const firstEntry = Object.entries(every)[0]
         const unit = firstEntry[1]
         if (unit.startsWith('second')) {
-            resolvedUpdateInterval = Math.min(5000, totalMS) // Update every 5 seconds
+            resolvedUpdateInterval = Math.min(5000, totalMS)
         } else if (unit.startsWith('minute')) {
-            resolvedUpdateInterval = Math.min(300000, totalMS) // Update every 5 minutes
+            resolvedUpdateInterval = Math.min(300000, totalMS)
         } else {
-            // likely ms
-            resolvedUpdateInterval = Math.min(250, totalMS) // do not re-render too often, limit to 1/4 second
+            resolvedUpdateInterval = Math.min(250, totalMS)
         }
     }
 
@@ -70,8 +69,6 @@ export function useTimer({ isEnabled, every, trigger, updateInterval }: UseTimer
         }
     }, [isEnabled, totalMS, resolvedUpdateInterval, trigger])
 
-    // When disabled the interval is torn down and the countdown is meaningless, so
-    // derive 0 here instead of writing it back into state from the effect (which
-    // would be a cascading set-state-in-effect).
+    // Derived rather than written back from the effect, which would cascade set-state-in-effect.
     return isEnabled ? timeRemaining : 0
 }

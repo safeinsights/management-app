@@ -8,35 +8,25 @@ export const RESUBMIT_NOTE_MAX_CHARACTERS = 1800
 const REQUIRED_NOTE_ERROR = 'A resubmission note is required.'
 const NOTE_MAX_ERROR = overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS)
 
-/**
- * The proposal flow submits Lexical JSON; the code flow still submits plain text.
- *
- * This is the one field pair in the app where both shapes really arrive, so all three helpers read
- * the value through `lexicalToText` and none of them branches on the shape itself. The two note
- * fields, their counters and the server rule then measure a note the same way whichever shape it
- * came in.
- */
+// The proposal flow submits Lexical JSON while the code flow submits plain text, so every helper
+// reads through `lexicalToText` to measure both shapes the same way.
 export function resubmissionNoteCharacterCount(value: string): number {
     return countCharacters(lexicalToText(value))
 }
 
-/** Whether the note has any content at all, ignoring surrounding whitespace. */
 export function resubmissionNoteIsBlank(value: string): boolean {
     return !lexicalToText(value).trim()
 }
 
-// Empty drafts stay '' - Lexical rejects an empty-root state, so callers treat '' as "no initial
-// value". Blankness is judged on the text, not the raw string, so a Lexical document that holds
-// nothing is treated the same as an empty one rather than being wrapped and shown to the user as
-// its own JSON.
+// Lexical rejects an empty-root state, so empty drafts stay '' and callers read that as "no
+// initial value".
 export function resubmissionNoteToLexicalJson(value: string): string {
     if (!lexicalToText(value).trim()) return ''
     return normalizeFeedbackToLexical(value)
 }
 
 export const resubmitNoteSchema = z.object({
-    // superRefine rather than chained refines so a blank note reports only that it is blank; the
-    // two rules cannot both be reported under one control without reading as a defect.
+    // superRefine rather than chained refines so a blank note reports only that it is blank.
     resubmissionNote: z.string().superRefine((val, ctx) => {
         if (resubmissionNoteIsBlank(val)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: REQUIRED_NOTE_ERROR })

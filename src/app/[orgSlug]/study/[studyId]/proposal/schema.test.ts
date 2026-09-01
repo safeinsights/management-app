@@ -50,8 +50,6 @@ describe('proposalFormSchema', () => {
             }
         })
 
-        // trim() runs before min(1), so a whitespace-only title fails here rather than passing
-        // schema validation while a separate trimmed check quietly disables submit.
         it('rejects a whitespace-only title', () => {
             const result = proposalFormSchema.safeParse({ ...validProposalData, title: '   ' })
 
@@ -84,8 +82,6 @@ describe('proposalFormSchema', () => {
             expect(result.success).toBe(true)
         })
 
-        // Characters, not words: 30 short words is past the old 20-word cap and inside 60
-        // characters, so this fails if the word rule survived.
         it('measures the title in characters rather than words', () => {
             const result = proposalFormSchema.safeParse({ ...validProposalData, title: 'ab '.repeat(20).trim() })
             expect(result.success).toBe(true)
@@ -275,9 +271,8 @@ describe('proposalFormSchema', () => {
             expect(result.success).toBe(true)
         })
 
-        // A name with no linked user must fail, and the issue has to land on `piName` rather than
-        // `piUserId`: no field renders the id, so an error there blocks submit with nothing the
-        // user can see or clear. `piName` is the path the Select displays.
+        // No field renders piUserId, so an error there would block submit with nothing the user
+        // can see or clear.
         it('rejects a piName whose piUserId is empty, reporting it on the piName path', () => {
             const result = proposalFormSchema.safeParse({ ...validProposalData, piUserId: '' })
 
@@ -303,8 +298,6 @@ describe('proposalFormSchema', () => {
             const { piUserId: _omitted, ...withoutId } = validProposalData
             const result = proposalFormSchema.safeParse(withoutId)
 
-            // Hydrating a draft with no PI yields undefined; `.default('')` absorbs it so the
-            // failure is the visible cross-field message, not a type error on a hidden path.
             expect(result.success).toBe(false)
             if (!result.success) {
                 expect(result.error.issues.find((e) => e.path.includes('piName'))?.message).toBe(
@@ -370,11 +363,9 @@ describe('proposalFormSchema', () => {
 const messagesFor = (result: ReturnType<typeof draftProposalFormSchema.safeParse>, path: string) =>
     result.success ? [] : result.error.issues.filter((i) => i.path[0] === path).map((i) => i.message)
 
-// Step 2 on a DRAFT. Everything here is deliberately absent from `proposalFormSchema`, which the
-// CHANGE-REQUESTED resubmit page still uses.
 describe('draftProposalFormSchema (OTTER-691)', () => {
-    // The title lives on Step 1 now, so this schema must not carry a rule for a field the page
-    // does not render: that is a submit blocker the user cannot clear (OTTER-647).
+    // A rule for a field the page does not render is a submit blocker the user cannot clear
+    // (OTTER-647).
     it('accepts a payload with no title at all', () => {
         const { title: _title, ...withoutTitle } = validProposalData
         expect(draftProposalFormSchema.safeParse(withoutTitle).success).toBe(true)
@@ -403,7 +394,6 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
             expect(messagesFor(result, 'piName')).toContain(DRAFT_REQUIRED_ERRORS.piName)
         })
 
-        // One control, one message: a blank field is empty, not also over-limit.
         it('reports only the empty message for a blank field', () => {
             const result = draftProposalFormSchema.safeParse({ ...validProposalData, impact: lexicalText('') })
             expect(messagesFor(result, 'impact')).toEqual([DRAFT_REQUIRED_ERRORS.impact])
@@ -411,9 +401,8 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
     })
 
     describe('character limits', () => {
-        // Pinned to literals, not to CHARACTER_LIMITS. Every other assertion in this block derives
-        // its expectation from the constant, so a typo in the constant would move the test with it
-        // and the four numbers the card specifies would go unguarded.
+        // Pinned to literals, not CHARACTER_LIMITS: a typo in the constant would otherwise move
+        // every other assertion in this block with it.
         it('caps each field at the number the card specifies', () => {
             expect(CHARACTER_LIMITS).toEqual({
                 researchQuestions: 3000,
@@ -461,8 +450,6 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
             )
         })
 
-        // Characters, not words: 3000 short words is far past a 500-word cap but well inside the
-        // character cap, so this fails if word counting survived anywhere.
         it('measures characters rather than words', () => {
             const result = draftProposalFormSchema.safeParse({
                 ...validProposalData,
@@ -471,8 +458,6 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
             expect(result.success).toBe(true)
         })
 
-        // The card excludes whitespace at either end of the content from the count, and counts
-        // everything between, so "a b" is three characters.
         it('excludes surrounding whitespace from the cap and counts interior whitespace', () => {
             const padded = draftProposalFormSchema.safeParse({
                 ...validProposalData,
@@ -502,8 +487,6 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
     })
 })
 
-// The resubmit page shares this module and now measures the same fields in the same unit as Step 2
-// (OTTER-737). Only the empty-field wording still differs between the two.
 describe('proposalFormSchema counts characters (OTTER-737)', () => {
     it('accepts a field over the old 500-word cap that is inside the character limit', () => {
         const result = proposalFormSchema.safeParse({

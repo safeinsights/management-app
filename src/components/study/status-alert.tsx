@@ -3,12 +3,8 @@ import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-// Module-private since the OTTER-696 review: every banner now builds its dated title through
-// statusAlertTitle below, so no caller needs the separator itself.
 const STATUS_ALERT_SEPARATOR = '•'
 
-// Appends the "• MMM DD, YYYY" suffix a dated banner title carries. Display-only: an absent date
-// degrades to an undated title rather than blocking a page routing already chose.
 export const statusAlertTitle = (title: string, at: Date | string | null | undefined): string =>
     at ? `${title} ${STATUS_ALERT_SEPARATOR} ${dayjs(at).format('MMM DD, YYYY')}` : title
 
@@ -24,14 +20,8 @@ type StatusAlertProps = {
     variant: StatusAlertVariant
     title: ReactNode
     children: ReactNode
-    /**
-     * Opt in to a polite live region (OTTER-696). Only surfaces that SWAP this banner's copy in
-     * place need it: Mantine's Alert defaults to role="alert", an assertive region that interrupts
-     * the screen reader — wrong for a state change the user just caused. Announcing works only
-     * while the region stays mounted across the swap, so callers must render ONE StatusAlert whose
-     * props change, never two components swapped by a conditional (which remounts the region and
-     * drops the announcement).
-     */
+    /** Polite live region (OTTER-696). Callers must render ONE StatusAlert whose props change;
+     * a remount drops the announcement. */
     announce?: boolean
 }
 

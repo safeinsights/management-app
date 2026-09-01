@@ -15,7 +15,7 @@ import { ProposalStepHeader } from './proposal-step-header'
 const EXPAND_LABEL = 'View full proposal'
 const COLLAPSE_LABEL = 'Hide full proposal'
 const SNIPPET_LINE_CLAMP = 2
-/** `Spacing/lg` in the Figma frames this card is drawn from; the Mantine scale has no 24px step. */
+/** `Spacing/lg` in Figma; the Mantine scale has no 24px step. */
 const CARD_SECTION_GAP = 24
 
 type ProposalRequestProps = {
@@ -29,10 +29,8 @@ type ProposalRequestProps = {
     entries?: ProposalFeedbackEntry[]
 }
 
-/**
- * Plain text, not clamped Lexical: the snippet must be exactly two visible lines, and an empty
- * Lexical paragraph inside the stored value would spend one of them on blank space.
- */
+// Plain text, not clamped Lexical: an empty paragraph in the stored value would spend one of the
+// snippet's two visible lines on blank space.
 function researchQuestionPreview(researchQuestions: SelectedStudy['researchQuestions']): string {
     return extractTextFromLexical(stringifyJson(researchQuestions) ?? undefined)
         .replace(/\s+/g, ' ')
@@ -152,16 +150,8 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
     )
 }
 
-/**
- * Expand/collapse for the proposal card, plus the focus hand-off the swap needs. Collapsing does
- * not hide the card, it replaces its content, so the toggle that was clicked is gone by the next
- * render and its replacement has to claim the focus. `focusToggle` stays false until the reader
- * uses a toggle, which keeps the card from stealing focus on page load.
- *
- * The toggle at the end of the card hands the focus upward to the snippet toggle. That is on
- * purpose: after the collapse the card is short and nothing follows it, thus the control at the
- * top of the card is the only place left to go.
- */
+// Collapsing replaces the card's content, so the clicked toggle is gone by the next render and
+// its replacement must claim focus. `focusToggle` stays false until a toggle is used.
 function useProposalCard(initialExpanded: boolean) {
     const { expanded, toggle, collapse } = useExpandable(initialExpanded)
     const [focusToggle, setFocusToggle] = useState(false)

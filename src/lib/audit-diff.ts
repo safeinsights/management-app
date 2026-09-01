@@ -8,10 +8,6 @@ export type AuditFieldChange = {
     after: Json
 }
 
-// Single source for the audited orgCodeEnv columns so the "before" select, the diff, and
-// the audit metadata cannot drift apart as columns are added. Lives here rather than
-// beside the actions because that is a server module, where every export must be an
-// action.
 export const AUDITED_CODE_ENV_FIELDS = [
     'name',
     'identifier',
@@ -43,13 +39,8 @@ export const codeEnvAuditMetadataSchema = z.object({
 
 export type CodeEnvAuditMetadata = z.infer<typeof codeEnvAuditMetadataSchema>
 
-/**
- * `undefined` is not representable in JSON and would be dropped during jsonb
- * serialization, leaving an entry with a missing before/after key that the history
- * table cannot render. Collapsing it to `null` also makes "key absent from params"
- * compare equal to "column is null in the database" — without this, every save of a
- * record with an optional-but-null column reports a spurious change.
- */
+// `undefined` is dropped in jsonb serialization, and collapsing to `null` makes an absent
+// key compare equal to a null column so it stops reporting a change on every save.
 const normalize = (value: unknown): Json => {
     if (value === undefined || value === null) return null
     if (value instanceof Date) return value.toISOString()
@@ -58,17 +49,8 @@ const normalize = (value: unknown): Json => {
 
 export const REDACTED_ENV_VALUE = '••••••'
 
-/**
- * Replaces environment variable values with a placeholder before they are recorded.
- *
- * `orgCodeEnv.settings` holds env var values in plaintext, but the audit trail is
- * append-only and outlives any later rotation — a credential written here would stay
- * readable by every org admin forever, even after the real one was changed. Names are
- * kept, since "which variable changed" is the part an admin needs during an incident.
- *
- * Applied only when recording: comparison still runs on the real values, so a change to
- * a value alone is still detected as a change.
- */
+// The audit trail is append-only and outlives any rotation, so a plaintext env var value
+// written here would stay readable by every org admin forever.
 const redactSettings = (value: Json): Json => {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
 
@@ -87,15 +69,8 @@ const redactSettings = (value: Json): Json => {
 
 const forRecording = (field: string, value: Json): Json => (field === 'settings' ? redactSettings(value) : value)
 
-/**
- * Compares two records and returns one entry per field whose value changed.
- *
- * Values are compared structurally so jsonb and array columns diff by content:
- * Kysely parses a fresh object for every jsonb read, so reference equality would
- * report those fields as changed on every save. Structural comparison is also
- * immune to Postgres reordering jsonb object keys on storage, which makes a
- * stringify-based comparison report false positives.
- */
+// Compared structurally: Kysely parses a fresh object for every jsonb read, and Postgres may
+// reorder jsonb keys on storage.
 export function diffFields<T extends Record<string, unknown>>(
     before: Partial<T>,
     after: Partial<T>,

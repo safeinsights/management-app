@@ -18,15 +18,14 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations, not mockResolvedValue: mockReset restores these but wipes a value set
+        // afterwards.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
 
-// The Research Lab is a separate org from the Data Partner, which is what the counterparty column
-// must name — sharing one org would let a swapped join pass.
+// Separate orgs, so a swapped join in the counterparty column cannot pass.
 const insertPartyOrgs = async () => ({
     dataPartner: await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' }),
     researchLab: await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' }),
@@ -134,13 +133,11 @@ describe('OrgStudyAgreements', () => {
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
         await rowFor(signedTitle)
 
-        // The action returns rows unordered, so this is the table's own default sort: most recently
-        // effective first, nothing-signed-yet last.
+        // The action returns rows unordered, so this asserts the table's own default sort.
         await waitFor(() => expect(rowTitles()[rowTitles().length - 1]).toContain(unsignedTitle))
 
-        // Ascending would put the earliest date first; the study with no date still sorts last.
-        // Clicked through the header's text rather than by role: a sortable header is a button whose
-        // accessible name also carries the sort-direction icon.
+        // Clicked through the header's text: a sortable header's accessible name also carries the
+        // sort-direction icon.
         const header = screen.getByText('Effective on').closest('th')
         if (!header) throw new Error('no Effective on header')
         fireEvent.click(header)

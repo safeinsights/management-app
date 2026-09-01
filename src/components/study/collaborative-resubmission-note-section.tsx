@@ -44,13 +44,9 @@ interface CollaborativeResubmissionNoteSectionProps {
     autosaveStatus: ResubmissionNoteAutosaveStatus
 }
 
-// In collaborative mode the editor renders its own provider-driven indicator;
-// showing this one too would double up.
-//
-// The error case goes through the indicator's own `isVisible` rather than unmounting here. A live
-// region is only announced when content it already owns changes, so unmounting on error and
-// mounting again once it clears would hand the region back with "All changes saved" already
-// inside it, and the save would never be announced (OTTER-675).
+// Collaborative mode has the editor's own provider-driven indicator, so this one would double up.
+// The error case goes through `isVisible` rather than unmounting: a live region only announces
+// content changes, so remounting one already holding "All changes saved" says nothing (OTTER-675).
 const SingleUserSaveStatus: FC<{
     isVisible: boolean
     hasError: boolean

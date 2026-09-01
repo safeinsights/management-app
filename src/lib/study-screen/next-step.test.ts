@@ -3,7 +3,6 @@ import { hasNextStepFromCode } from './next-step'
 import { studyState } from './state.fixture'
 import type { StudyState } from './state.types'
 
-// An approved-code study that has not started running: the state both roles' code screens show.
 const state = (overrides: Partial<StudyState> = {}): StudyState =>
     studyState({
         status: 'APPROVED',
@@ -35,17 +34,15 @@ describe('hasNextStepFromCode', () => {
             expect(hasNextStepFromCode('researcher', executing, 'code-approved')).toBe(true)
         })
 
-        // A packaging failure errors the job with no execution substatus ever recorded, so
-        // isExecuting stays false and the table holds the researcher on the code screen while the
-        // reviewer triages: there is nothing to step forward to.
+        // A packaging failure records no execution substatus, so isExecuting stays false and the
+        // researcher is held on the code screen while the reviewer triages.
         it('is false for a job that errored before execution started', () => {
             const errored = state({ hasResults: true, resultsErrored: true, isExecuting: false })
             expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(false)
         })
 
-        // The errored-while-executing shape keeps isExecuting true (state.ts), so the table forwards
-        // to outputs-pending, which reports the last execution stage and discloses nothing about the
-        // failure the reviewer has yet to triage (OTTER-598, 43898).
+        // outputs-pending reports the last execution stage and discloses nothing about a failure
+        // the reviewer has yet to triage (OTTER-598).
         it('forwards to a screen that hides an error still awaiting a files decision', () => {
             const errored = state({ hasResults: true, resultsErrored: true, isExecuting: true })
             expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(true)

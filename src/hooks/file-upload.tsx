@@ -4,7 +4,6 @@ import { useMantineTheme } from '@mantine/core'
 import React from 'react'
 import { FileWithPath } from '@mantine/dropzone'
 
-// Detects if any uploaded files share the same name as the main code file and shows a notification.
 export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
     if (!mainFile || !additionalFiles) return false
 

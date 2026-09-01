@@ -82,8 +82,8 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
                             />
                         }
-                        // This form validates on change, so the over-limit message can appear with
-                        // the caret still in the field and nothing to announce it (OTTER-737).
+                        // Validates on change, so the over-limit message can appear with the caret
+                        // still in the field (OTTER-737).
                         errorLive
                     >
                         <TextInput
@@ -176,8 +176,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     >
                         <Box w="30%">
                             {/* Cannot spread getInputProps('piName'): this Select's value is the
-                                piUserId while piName holds the label, so the composite handler
-                                stays and blur validation is wired explicitly. */}
+                                piUserId while piName holds the label. */}
                             <Select
                                 id="piName"
                                 aria-label="Principal Investigator"
@@ -199,9 +198,8 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         <SaveStatusIndicator status={piSaveStatus} announce={false} />
                     </FormField>
 
-                    {/* FormField, not FormFieldLabel: the two render labels at different sizes and
-                        weights, which showed as a mismatch against Principal Investigator right
-                        above in this same panel (OTTER-647). */}
+                    {/* FormField, not FormFieldLabel: the two render labels at different sizes,
+                        which mismatched the field above (OTTER-647). */}
                     <FormField
                         inputId="researcher"
                         label="Researcher"

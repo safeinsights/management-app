@@ -27,9 +27,8 @@ const formSchema = z
             return schema
         })(),
         confirmPassword: z.string(),
-        // In the form so leaving it unchecked raises a visible error rather than only
-        // disabling the button (OTTER-647). Stripped before the action, whose schema
-        // has no such field.
+        // In the form so leaving it unchecked raises a visible error rather than only disabling
+        // the button (OTTER-647). Stripped before the action.
         termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
     })
     .superRefine(({ confirmPassword, password }, ctx) => {
@@ -44,8 +43,8 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
-// Account creation is held until the documents load: the checkbox falls back to placeholder copy
-// when they are missing, and a tick against that is not evidence of agreeing to anything published.
+// Held until the documents load: the checkbox falls back to placeholder copy when they are
+// missing, and a tick against that is evidence of nothing.
 const LegalDocumentsUnavailable: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -83,8 +82,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const [passwordTouched, setPasswordTouched] = useState(false)
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
-    // Public: the form has to show these before an account exists. Empty until the first Terms of
-    // Service and Privacy Notice are published, which TermsCheckbox renders as placeholder copy.
+    // Public: the form must show these before an account exists.
     const {
         data: legalDocuments = [],
         isPending: isLoadingLegalDocuments,
@@ -94,13 +92,9 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchPublicLegalDocumentsAction(),
     })
 
-    // Submitting before the documents arrive, or after they failed to, falls back to the "Once
-    // implemented" placeholder — copy that contradicts what is published, under a ticked box.
     const canSubmit = form.isValid() && !isLoadingLegalDocuments && !legalDocumentsUnavailable
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
-        // confirmPassword and termsAccepted are client-side concerns; the action's schema has
-        // neither, so only the fields it actually uses are sent.
         mutationFn: ({ firstName, lastName, password }: FormValues) =>
             onCreateAccountAction({
                 inviteId,
@@ -126,11 +120,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     markOrgJoined(orgName)
                     router.push(Routes.accountMfa)
                 } else if (attempt.status === 'needs_second_factor') {
-                    // A freshly-created account has no MFA factors enrolled, so a second-factor
-                    // challenge here is unsatisfiable — handing this state to <RequestMFA> would
-                    // strand the user on the "No MFA factors are configured" dead-end screen.
-                    // The instance-level Clerk MFA policy must allow first sign-in to complete
-                    // so the user can reach /account/mfa to enroll.
+                    // A fresh account has no MFA factors, so a second-factor challenge is
+                    // unsatisfiable; Clerk's instance policy must let first sign-in complete.
                     reportError(
                         'Your account was created, but multi-factor authentication is required before you can sign in. Please contact your administrator.',
                     )
@@ -210,15 +201,13 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                             form.getInputProps('password').onBlur?.(event)
                             setPasswordTouched(true)
                         }}
-                        // Error is suppressed in favor of the requirements list below, which
-                        // now also appears when the field is left empty.
+                        // Suppressed in favor of the requirements list below.
                         error={undefined}
                         aria-invalid={!!form.errors.password || undefined}
-                        // Rendered as the input's description so Mantine owns the
-                        // aria-describedby wiring; a hand-passed value is overwritten.
+                        // Rendered as the description so Mantine owns the aria-describedby wiring.
                         description={requirementsDescription}
-                        // Description below the input, not Mantine's default position above it:
-                        // this is live validation feedback, and it sat under the field before.
+                        // Below the input, not Mantine's default above: this is live validation
+                        // feedback.
                         inputWrapperOrder={['label', 'input', 'description', 'error']}
                     />
 
@@ -229,8 +218,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         placeholder="********"
                         {...form.getInputProps('confirmPassword')}
                         error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
-                        // PasswordInput's inner <input> is rendered with withAria disabled, so
-                        // `error` alone never marks it invalid to assistive tech (OTTER-647).
+                        // PasswordInput's inner <input> has withAria disabled, so `error` alone
+                        // never marks it invalid to assistive tech (OTTER-647).
                         aria-invalid={!!form.errors.confirmPassword || undefined}
                     />
 

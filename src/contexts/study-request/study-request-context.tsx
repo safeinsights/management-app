@@ -39,15 +39,9 @@ export function StudyRequestProvider({
     const [orgSlug, setOrgSlug] = useState(initialDraft?.orgSlug ?? '')
     const [submittingOrgSlug, setSubmittingOrgSlug] = useState(initialSubmittingOrgSlug)
 
-    // Resolver is scoped to the fields Step 1 renders; `piName` belongs to the Step 2 editor
-    // and would otherwise fail validation with no field to show the error on. `title` moved
-    // onto Step 1 with OTTER-690, so it is in scope here.
-    //
-    // `title` is deliberately NOT in validateInputOnChange. Mantine runs a field's whole
-    // validator on change, so the blank rule would fire on every keystroke and flash "Enter a
-    // study title before continuing." the moment the user clears the box, which the spec
-    // forbids: blank is a blur/click error. Only the over-limit half is live, and the Step 1
-    // title field raises that itself (see use-setup-form).
+    // Scoped to Step 1's fields; `piName` belongs to Step 2 and would fail with no field to show
+    // the error on. `title` is in scope but stays out of validateInputOnChange, where its blank
+    // rule would flash on every keystroke (OTTER-690).
     const form = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(step1FieldsSchema),
@@ -106,9 +100,6 @@ export function StudyRequestProvider({
 
     useEffect(() => {
         if (initialDraft) {
-            // Seeds the Mantine form and the document-file store from the server-provided
-            // draft. This is a genuine external-store sync from props, and initFromDraft's
-            // form/store writes cannot run during render, so it must stay in an effect.
             // eslint-disable-next-line react-hooks/set-state-in-effect -- external store seeding from a server draft
             initFromDraft(initialDraft, initialSubmittingOrgSlug)
         }

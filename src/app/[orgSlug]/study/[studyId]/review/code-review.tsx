@@ -19,9 +19,8 @@ type CodeReviewProps = {
     entries: CodeReviewFeedbackEntry[]
 }
 
-// Each code job becomes a review round (v1, v2, …) in getCodeReviewFeedbackAction.
-// On the *current* round the page is rendered for, entries are only present when
-// at least one prior round exists, so any entry implies a resubmission.
+// On the current round, entries exist only when a prior round does, so any entry implies a
+// resubmission.
 function deriveCodeReviewVersion(entries: CodeReviewFeedbackEntry[]): number {
     if (entries.length === 0) return 1
     const versions = entries.map((entry) => entry.version).filter((v): v is number => v != null)
@@ -78,9 +77,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     }
 
     const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
-    // OTTER-727 hid the Agreements step, so Previous walks straight back to the decided proposal —
-    // the target agreements itself pointed at (OTTER-643). Not /review, which re-resolves to this
-    // very screen.
+    // Not /review, which would re-resolve to this very screen (OTTER-643, OTTER-727).
     const previousHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 

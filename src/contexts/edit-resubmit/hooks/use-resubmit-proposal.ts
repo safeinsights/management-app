@@ -29,7 +29,7 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
             actionResult(
                 await resubmitProposalAction({
                     studyId,
-                    // titleMode 'send': the resubmit form owns the title on a CHANGE-REQUESTED row.
+                    // The resubmit form owns the title on a CHANGE-REQUESTED row.
                     studyInfo: buildStudyInfo(form.getValues(), 'send'),
                     resubmissionNote: noteForm.values.resubmissionNote,
                 }),
@@ -45,10 +45,8 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
                 submittedByName: result.submitterFullName,
                 orgName: result.orgName,
             }
-            // The action has already flipped status to PENDING-REVIEW, so the
-            // editor service accepts this stateless event on the proposal-fields
-            // doc. Peers that miss it fall through to the status poll mounted in
-            // the resubmit form. Mirrors the draft submit flow.
+            // The action has already flipped status to PENDING-REVIEW, so the editor service
+            // accepts this event; peers that miss it fall through to the status poll.
             yjsForm.provider?.sendStateless(JSON.stringify(event))
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },

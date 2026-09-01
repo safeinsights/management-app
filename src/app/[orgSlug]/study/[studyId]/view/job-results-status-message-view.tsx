@@ -8,12 +8,6 @@ import { isLogType } from '@/lib/file-type-helpers'
 import { ResubmitButton } from '@/components/study/resubmit-button'
 import { type FileType } from '@/database/types'
 
-// Presentational researcher status message. It owns the status copy + resubmit row, but
-// receives the approved-results listing via the `results` slot. Kept in its OWN file (free
-// of JobResults' useQuery/server action and the @/server/db value import) so it renders in
-// isolation (e.g. Ladle). The JobResultsStatusMessage container (./job-results-status-message)
-// injects the real <JobResults/>.
-
 type StatusFlags = {
     isApproved: boolean
     isRejected: boolean
@@ -27,8 +21,8 @@ type StatusBody = {
     hideResults: boolean
 } | null
 
-// Pure resolution of the researcher-facing status copy. Returns null for the pending/default
-// state so the view can short-circuit to the "results pending" message without the resubmit row.
+// Returns null for the pending state so the view can short-circuit to "results pending" without
+// the resubmit row.
 function resolveStatusBody(flags: StatusFlags, files: { fileType: FileType }[], jobId: string): StatusBody {
     const { isApproved, isRejected, isFilesRejected, isErrored } = flags
 
@@ -75,7 +69,7 @@ export type JobResultsStatusMessageViewProps = {
     jobId: string
     studyId: string
     submittingOrgSlug: string
-    /** Approved-results listing (View/Download links). Injected by the container because it fetches; in isolation a story passes a placeholder. */
+    // Injected by the container because it fetches; a story passes a placeholder.
     results: ReactNode
 }
 

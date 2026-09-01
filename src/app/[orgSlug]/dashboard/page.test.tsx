@@ -19,7 +19,6 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => []),
 }))
 
-// TODO Extract out into a helper function that we can re-use
 const mockOrg: Org = {
     id: faker.string.uuid(),
     slug: 'test-org',

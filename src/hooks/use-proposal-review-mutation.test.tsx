@@ -26,10 +26,7 @@ import {
 } from '@/lib/realtime/review-feedback-provider-context'
 import { useProposalReviewMutation } from './use-proposal-review-mutation'
 
-// Stub the editor's HocuspocusProvider. We publish this into the
-// ReviewFeedbackProviderShare context to imitate what CollaborativeEditor's
-// `onProviderReady` does in production. The mutation hook reads it via
-// useReviewFeedbackProvider() and calls sendStateless on it.
+// Published into ReviewFeedbackProviderShare to imitate CollaborativeEditor's `onProviderReady`.
 type StubProvider = {
     sendStateless: ReturnType<typeof vi.fn>
 }
@@ -49,12 +46,8 @@ function PublishProvider({ provider }: { provider: StubProvider | null }) {
 
 function makeWrapper(provider: StubProvider | null) {
     const QueryWrapper = createTestQueryWrapper()
-    // PublishProvider mounts AFTER children so the children's effects (the
-    // hook's subscribe) run before PublishProvider's publish effect. Without
-    // this ordering the publish notifies an empty subscriber set and the hook
-    // ends up with editorProvider = null. In production the CollaborativeEditor
-    // mounts dynamically much later than the surrounding tree, so the timing
-    // is naturally correct.
+    // PublishProvider mounts after children so the hook subscribes before the publish effect runs;
+    // otherwise publish notifies an empty subscriber set and editorProvider stays null.
     return function Wrapper({ children }: { children: ReactNode }) {
         return (
             <QueryWrapper>
@@ -174,9 +167,7 @@ describe('useProposalReviewMutation', () => {
             studyStatus: 'PENDING-REVIEW',
         })
 
-        // No provider in the share context, simulating the editor not having
-        // mounted yet. The hook should gracefully skip broadcasting rather
-        // than crash.
+        // No provider in the share context, simulating the editor not having mounted yet.
         const { result } = renderHook(
             () =>
                 useProposalReviewMutation({
@@ -205,8 +196,7 @@ describe('useProposalReviewMutation', () => {
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        // Force the action's editable-status guard to reject by promoting the study
-        // out of PENDING-REVIEW after fixtures are inserted.
+        // Promoting out of PENDING-REVIEW forces the action's editable-status guard to reject.
         await setTestStudyStatus(study.id, 'APPROVED')
         const provider = createStubProvider()
 

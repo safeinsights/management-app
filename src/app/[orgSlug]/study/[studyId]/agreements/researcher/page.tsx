@@ -8,10 +8,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 
-// OTTER-727: the Agreements step is hidden. Nothing links here any more, so this route exists only to
-// catch stale bookmarks, browser history and old emails — it redirects to the code step instead of
-// rendering the placeholder. The study is still loaded because the destination depends on code stage,
-// and access is still checked so the redirect can't be used to probe studies the user can't see.
+// OTTER-727 hid the Agreements step; this route only catches stale bookmarks. Access is still
+// checked so the redirect cannot be used to probe studies the user cannot see.
 export default async function ResearcherAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
     searchParams: Promise<Record<string, string | undefined>>

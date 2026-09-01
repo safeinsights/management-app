@@ -53,7 +53,6 @@ describe('Study Actions', () => {
         vi.clearAllMocks()
     })
 
-    // Approving a proposal sends "proposal approved" email to the researcher
     it('successfully approves a study proposal', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -128,7 +127,6 @@ describe('Study Actions', () => {
         const { user, org } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        // Attempt to approve the same study twice in parallel
         await Promise.all([
             approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
             approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
@@ -151,9 +149,6 @@ describe('Study Actions', () => {
         })
     })
 
-    // Legacy code-phase stragglers (PENDING-REVIEW with approvedAt set, written by the retired
-    // code-submit status flip) must not be re-approvable as proposals; code decisions own that
-    // state via submitCodeReviewDecisionAction.
     it('rejects proposal approval for an already-decided study', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -201,7 +196,6 @@ describe('Study Actions', () => {
             userId: otherUser.id,
             orgId: otherOrg.id,
         })
-        // was inserted in beforeEach, should return error
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const result = await getStudyAction({ studyId })
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
@@ -209,7 +203,6 @@ describe('Study Actions', () => {
     })
 
     describe('rejectStudyProposalAction', () => {
-        // Rejecting a study that has code sends "study results rejected" email to the researcher
         it('rejects a study with a job', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({
@@ -273,7 +266,6 @@ describe('Study Actions', () => {
                 .executeTakeFirstOrThrow()
         }
 
-        // Approving a proposal-only study sends "proposal approved" email to the researcher
         it('approves a proposal-only study without crashing', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const study = await insertProposalOnlyStudy(org, user.id)
@@ -317,7 +309,6 @@ describe('Study Actions', () => {
             expect(jobStatusChanges).toHaveLength(0)
         })
 
-        // Rejecting a proposal-only study sends "proposal rejected" email to the researcher
         it('rejects a proposal-only study without crashing', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const study = await insertProposalOnlyStudy(org, user.id)
@@ -466,7 +457,6 @@ describe('Study Actions', () => {
                 studyInfo: { title: 'Teammate DRAFT' },
             })
 
-            // User B in the same lab.
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             const result = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
 
@@ -497,7 +487,6 @@ describe('Study Actions', () => {
             })
             const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
 
-            // User in labB tries to read labA's dashboard. CASL denies cross-org viewing.
             await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
@@ -512,7 +501,6 @@ describe('Study Actions', () => {
         it('data-org (enclave) member cannot getStudyAction an unsubmitted draft by id', async () => {
             const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-draft-enclave' })
 
-            // Switch to a member of the reviewing Data Organization (enclave) that owns study.orgId.
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
@@ -541,13 +529,10 @@ describe('Study Actions', () => {
         it('lab teammate can still getStudyAction their own unsubmitted draft', async () => {
             const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-labaccess-enclave' })
 
-            // A different member of the submitting lab.
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             await expect(getStudyAction({ studyId })).resolves.toMatchObject({ id: studyId })
         })
 
-        // Guards the status-flip bypass: without a server-side PENDING-REVIEW check, a DO reviewer
-        // could approve/reject a DRAFT to move it into a viewable status and then read it.
         it('data-org member cannot approve an unsubmitted draft, and status stays DRAFT', async () => {
             const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-approve-draft' })
 
@@ -578,7 +563,6 @@ describe('Study Actions', () => {
             expect(row.status).toBe('DRAFT')
         })
 
-        // AC3: Research Lab collaboration is unaffected — a lab member can still submit their draft.
         it('lab member can still submit their own draft (DRAFT to PENDING-REVIEW)', async () => {
             const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-lab-submit' })
 
@@ -594,12 +578,8 @@ describe('Study Actions', () => {
         })
     })
 
-    // OTTER-572: a draft whose Step 2 edits only ever reached Yjs must still be reported as having Step 2
-    // progress, so the dashboard resumes it on the proposal editor instead of the Step 1 picker.
     it('reports hasStep2CollabDoc for a DRAFT whose Step 2 edits live only in Yjs', async () => {
         const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'step2-collab-doc-enclave' })
-        // A DRAFT may carry a null title, which the dashboard renders as blank; normalize the way the
-        // table does so the row can go through the same projection the Edit link uses.
         const stateFor = async () => {
             const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
             const row = rows.find((s) => s.id === studyId)!
@@ -646,7 +626,6 @@ describe('ackAgreementsAction', () => {
         const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const enclaveOrg = await insertTestOrg({ slug: 'test-enclave', type: 'enclave' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
-        // Set submittedByOrgId to the lab org (realistic: enclave owns, lab submits)
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
         await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
@@ -679,9 +658,6 @@ describe('ackAgreementsAction', () => {
         expect(updated.researcherAgreementsAckedAt).toBeNull()
     })
 
-    // SI admins (manage/all) review studies for enclaves they don't belong to. The reviewer
-    // ack must succeed on their behalf, otherwise the agreements gate blocks them from the
-    // code-submitted review flow even though every page-level check lets them through.
     it('sets reviewerAgreementsAckedAt when an SI admin acks as reviewer for a non-member org', async () => {
         const enclaveOrg = await insertTestOrg({ slug: 'si-admin-enclave', type: 'enclave' })
         const labOrg = await insertTestOrg({ slug: 'si-admin-lab', type: 'lab' })
@@ -702,15 +678,7 @@ describe('ackAgreementsAction', () => {
         expect(updated.researcherAgreementsAckedAt).toBeNull()
     })
 
-    // OTTER-546: a user who is a member of BOTH orgs (e.g. multi-org QA accounts, or
-    // a test fixture where orgId === submittedByOrgId) used to silently ack both
-    // columns when proceeding from the researcher view, which skipped the reviewer's
-    // Agreements page on their next visit. With the explicit `role` param, acking on
-    // the researcher side never touches the reviewer column even when the caller
-    // would otherwise pass both org checks.
     it('does NOT set reviewerAgreementsAckedAt when role=researcher and caller would pass both org checks', async () => {
-        // insertTestStudyJobData defaults orgId === submittedByOrgId, which is the
-        // same condition as a multi-org QA user against a real study.
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
@@ -738,7 +706,6 @@ describe('ackAgreementsAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
 
-        // Call again — should not change the timestamp
         await ackAgreementsAction({ studyId: study.id, role: 'researcher' })
 
         const second = await db
@@ -751,9 +718,6 @@ describe('ackAgreementsAction', () => {
     })
 
     it('fails when role=reviewer but user is not a member of the reviewer org', async () => {
-        // Caller belongs to the lab that submitted the study (so the `view Study`
-        // ability check passes), but does NOT belong to the reviewer enclave — they
-        // must not be able to ack as a reviewer.
         const enclaveOrg = await insertTestOrg({ slug: 'acker-enclave', type: 'enclave' })
         const { org: labOrg, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org: enclaveOrg, researcherId: user.id })
@@ -778,7 +742,6 @@ describe('ackAgreementsAction', () => {
         const { study } = await insertTestStudyJobData({ org: enclaveOrg })
         await db.updateTable('study').set({ submittedByOrgId: labOrg.id }).where('id', '=', study.id).execute()
 
-        // SI admin can `view` any Study but belongs to neither org — handler should refuse the ack
         await mockSessionWithTestData({ isSiAdmin: true })
 
         await expect(ackAgreementsAction({ studyId: study.id, role: 'researcher' })).resolves.toMatchObject({
@@ -1036,8 +999,6 @@ describe('submitProposalReviewAction', () => {
         expect(rows).toHaveLength(1)
     })
 
-    // Characters, not words: 600 short words is past the old 500-word cap and well inside 1800
-    // characters, so this fails if word counting survived anywhere on the server.
     it('accepts many short words that the old 500-word cap would have rejected', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -1160,8 +1121,6 @@ describe('submitProposalReviewAction', () => {
         expect(unchanged.status).toBe('CHANGE-REQUESTED')
     })
 
-    // OTTER-471: exercises the claim CAS under true concurrency (Promise.all),
-    // not just the sequential A-then-B path covered above.
     it('OTTER-471: parallel approve + reject through submit action, exactly one wins', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -1277,7 +1236,6 @@ describe('submitProposalReviewAction', () => {
         const before = new Date('2026-01-01T00:00:00Z')
         const versionedName = `review-feedback-${study.id}-v1`
 
-        // Stale row from before the captured submit timestamp; should be deleted.
         await db
             .insertInto('yjsDocument')
             .values({
@@ -1297,8 +1255,6 @@ describe('submitProposalReviewAction', () => {
             .execute()
         expect(afterFirstPurge).toHaveLength(0)
 
-        // Fresh row from a fast clarification-and-reopen cycle; should survive a bounded purge
-        // whose beforeAt predates this row's updatedAt.
         await db
             .insertInto('yjsDocument')
             .values({
@@ -1323,7 +1279,6 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        // Simulate the reviewer's drafted-but-not-submitted Y.Doc state for round 1.
         const versionedName = `review-feedback-${study.id}-v1`
         await db
             .insertInto('yjsDocument')
@@ -1350,8 +1305,6 @@ describe('submitProposalReviewAction', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        // Seed a RESUBMISSION-NOTE so currentReviewVersion returns 2; the
-        // client thinks it's submitting round 1.
         await db
             .insertInto('studyProposalComment')
             .values({
@@ -1434,7 +1387,6 @@ describe('submitProposalReviewAction', () => {
         expect(JSON.stringify(v2?.body)).not.toContain('round-1-original')
     })
 
-    // OTTER-574: reviewerId is dynamic and tracks whoever last took a decision action.
     it('reviewerId flips to the second reviewer across consecutive review rounds', async () => {
         const { user: reviewerA, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
@@ -1458,7 +1410,6 @@ describe('submitProposalReviewAction', () => {
             .executeTakeFirstOrThrow()
         expect(afterA.reviewerId).toBe(reviewerA.id)
 
-        // Researcher resubmits: bump version + flip status back to PENDING-REVIEW so round 2 can run.
         await db
             .insertInto('studyProposalComment')
             .values({
@@ -1516,7 +1467,6 @@ describe('submitCodeReviewDecisionAction', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        // Code review only happens after the proposal was approved; mirror that here.
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
         return { user, org, study, job }
     }
@@ -1530,10 +1480,6 @@ describe('submitCodeReviewDecisionAction', () => {
             .orderBy('round', 'asc')
             .execute()
 
-    // A CODE-CHANGES-REQUESTED resubmit revises the SAME job in place (OTTER-316): it appends a
-    // fresh CODE-SUBMITTED on the existing job, which flips count-based liveness back to "under
-    // review" so the reviewer can decide again. Mirror just that DB effect here so the cycle stays
-    // a single-session unit test (the researcher's resubmit action is covered in study-request.test.ts).
     const simulateResubmitOnSameJob = (jobId: string, userId: string) =>
         db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId }).execute()
 
@@ -1607,8 +1553,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
     })
 
-    // OTTER-603: rejecting code fails the job only; the proposal must stay APPROVED
-    // so the proposal page keeps showing "approved" rather than flipping to rejected.
     it('reject writes a code-review row, marks job CODE-REJECTED, and leaves study.status APPROVED', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
@@ -1661,7 +1605,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(rows[0].studyJobId).toBe(job.id)
         expect(rows[0].criteria).toEqual(validCriteria)
 
-        // proposal-stage state (status/approvedAt/rejectedAt) stays approved; reviewerId tracks the latest decision.
         const updatedStudy = await db
             .selectFrom('study')
             .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
@@ -1792,12 +1735,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('accepts a code review when study is APPROVED but the latest job is reviewable (resubmission after change request)', async () => {
-        // OTTER-552: after a code change-request the proposal-stage study status
-        // correctly stays APPROVED while the researcher resubmits code, so the latest
-        // job sits at CODE-SUBMITTED awaiting a fresh decision. Eligibility is driven
-        // by the JOB status, not study.status, so the reviewer can decide on the
-        // resubmission. (Previously a study.status === PENDING-REVIEW gate wrongly
-        // rejected this with "already been decided".)
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -1819,9 +1756,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('OTTER-638: accepts the reviewer decision on resubmitted code (changes requested, then approved)', async () => {
-        // The headline bug: round 1 records a decision on the job; the same-job resubmit reuses that
-        // job; round 2's decision used to collide with round 1 on the (job, kind) unique constraint
-        // and was wrongly rejected as "another reviewer has already submitted a decision".
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         const first = await submitCodeReviewDecisionAction({
@@ -1858,8 +1792,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('OTTER-638: numbers three rounds on the same job (changes → changes → approve)', async () => {
-        // Each same-job round bumps the study-wide submission version (count of CODE-CHANGES-REQUESTED
-        // before the decision), so three rounds on one job get rounds 1, 2, 3 with no collision.
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         await submitCodeReviewDecisionAction({
@@ -1920,7 +1852,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(rows.map((r) => r.round)).toEqual([1, 2])
         expect(rows.map((r) => r.decision)).toEqual(['NEEDS-CLARIFICATION', 'REJECT'])
 
-        // Rejecting code only fails the job; the proposal stays approved (OTTER-603).
         const rejected = await db
             .selectFrom('jobStatusChange')
             .select('id')
@@ -1962,8 +1893,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('OTTER-638: a same-job resubmission note shares its round version with that round decision', async () => {
-        // Regression for the label divergence: the resubmission note that opened round 2 must read as
-        // v2, matching the round-2 decision — not v1 from the job-creation-order fallback.
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         await submitCodeReviewDecisionAction({
@@ -1974,8 +1903,6 @@ describe('submitCodeReviewDecisionAction', () => {
             criteria: validCriteria,
         })
 
-        // The researcher's resubmit revises the same job: append the submission and record the note's
-        // round (study-wide submission version), exactly as resubmitStudyCodeAction does.
         await simulateResubmitOnSameJob(job.id, user.id)
         await db
             .updateTable('studyJob')
@@ -1995,16 +1922,12 @@ describe('submitCodeReviewDecisionAction', () => {
         })
 
         const entries = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
-        // The job now carries two CODE-SUBMITTED rows (round 1 + the resubmit); the note must still
-        // appear exactly once, not once per submission.
         const notes = entries.filter((e) => e.entryType === 'RESUBMISSION-NOTE')
         expect(notes).toHaveLength(1)
         const round2Decision = entries.find((e) => e.entryType === 'REVIEWER-FEEDBACK' && e.decision === 'APPROVE')
         expect(notes[0].version).toBe(2)
         expect(round2Decision?.version).toBe(2)
 
-        // The note opened round 2, so it must sit above round 1's decision in the newest-first
-        // timeline — positioned by its resubmit time, not the (older) job-creation time.
         const noteIdx = entries.findIndex((e) => e.entryType === 'RESUBMISSION-NOTE')
         const round1Idx = entries.findIndex(
             (e) => e.entryType === 'REVIEWER-FEEDBACK' && e.decision === 'NEEDS-CLARIFICATION',
@@ -2013,9 +1936,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('OTTER-638: rejects a second decision when code was not resubmitted (still already decided)', async () => {
-        // Guard the eligibility gate: after a change request with no resubmit, the latest code change
-        // is a decision, so claimInitialCodeReviewJob blocks before reaching the insert — the fix must
-        // not turn this into an accepted duplicate.
         const { org, study } = await setApprovedStudyAndCodeSubmitted()
 
         await submitCodeReviewDecisionAction({
@@ -2039,9 +1959,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('OTTER-638: numbers rounds across separate jobs (new job after results approved)', async () => {
-        // Multi-job path: a results decision (FILES-APPROVED) closes the round and the next submission
-        // opens a NEW job. Round = study-wide submission version, so the decision on the second job is
-        // round 2 even though it is that job's first decision.
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         await submitCodeReviewDecisionAction({
@@ -2052,7 +1969,6 @@ describe('submitCodeReviewDecisionAction', () => {
             criteria: validCriteria,
         })
 
-        // Results approved closes round 1 and opens a fresh job for round 2.
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'FILES-APPROVED', userId: user.id })
@@ -2082,10 +1998,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('rejects a duplicate code-review submission for the same job', async () => {
-        // First submit approves the code, which advances the job to CODE-APPROVED;
-        // a second submit then fails the reviewable-state precondition rather
-        // than reaching the unique index. Either guard is acceptable: the test
-        // verifies that no second CODE-REVIEWER-FEEDBACK row appears.
         const { org, study } = await setApprovedStudyAndCodeSubmitted()
 
         await submitCodeReviewDecisionAction({
@@ -2109,12 +2021,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('surfaces a clean ActionFailure (not raw "duplicate key") when two reviewers race past the claim', async () => {
-        // Simulates the race-loser path: claimInitialCodeReviewJob passes (the
-        // study/job are still in reviewable state because the winning reviewer
-        // has not yet committed), but the studyReviewComment insert trips the
-        // composite unique constraint on (studyJobId, reviewKind, round). Both
-        // reviewers are in round 1 (no round-opening event yet), so the action's
-        // computed round (1) collides with the pre-seeded round-1 row.
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
         await db
             .insertInto('studyReviewComment')
@@ -2141,12 +2047,9 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(result).toMatchObject({
             error: { study: 'another reviewer has already submitted a decision for this study code' },
         })
-        // The pre-seeded row is the only CODE row; the action did not create a second.
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
-    // OTTER-471: exercises the studyJob row lock + composite unique constraint
-    // under true concurrency (Promise.all), not just the sequential case above.
     it('OTTER-471: parallel approve + reject through submit action, exactly one CODE-* terminal row', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
@@ -2227,8 +2130,6 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 
     it('composite unique constraint allows two CODE decisions for the same job in different rounds', async () => {
-        // OTTER-638: a same-job resubmit opens a new review round, so a second decision on the same
-        // job in round 2 must be permitted (it is the round that distinguishes the rows).
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -2389,8 +2290,6 @@ describe('getOutputsFeedbackThreadAction', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
-        // Pin the submission timestamp so the note (dated by the latest CODE-SUBMITTED) sorts
-        // deterministically below the outputs decision instead of tying on the transaction's now().
         await db
             .updateTable('jobStatusChange')
             .set({ createdAt: new Date('2026-07-01T00:00:00Z') })
@@ -2480,8 +2379,6 @@ describe('getCodeReviewFeedbackAction', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
-        // A proposal-review row in the legacy table; getCodeReviewFeedbackAction
-        // reads from studyReviewComment so this should not be returned regardless.
         await db
             .insertInto('studyProposalComment')
             .values({
@@ -2516,9 +2413,6 @@ describe('getCodeReviewFeedbackAction', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        // The composite unique is per (study_job_id, review_kind): simulate a
-        // re-submitted job by creating a second job and writing a fresher review
-        // against it.
         const newerJob = await db
             .insertInto('studyJob')
             .values({ studyId: study.id })
@@ -2587,7 +2481,6 @@ describe('getCodeReviewFeedbackAction', () => {
             .execute()
 
         const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
-        // newest first: the v2 resubmission note comes before the v1 reviewer decision
         expect(rows).toHaveLength(2)
         const noteRow = rows.find((r) => r.entryType === 'RESUBMISSION-NOTE')
         const feedbackRow = rows.find((r) => r.entryType === 'REVIEWER-FEEDBACK')
@@ -2613,8 +2506,6 @@ describe('getCodeReviewFeedbackAction', () => {
             })
             .where('id', '=', job.id)
             .execute()
-        // The note is positioned by its latest CODE-SUBMITTED timestamp; align it so it ties with the
-        // reviewer decision and the deterministic tie-break (not the timestamp) decides the order.
         await db
             .updateTable('jobStatusChange')
             .set({ createdAt: sharedCreatedAt })
@@ -2734,7 +2625,6 @@ describe('getOutputsDecisionFeedbackAction', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        // A CODE decision that must not appear in the results
         await db
             .insertInto('studyReviewComment')
             .values({
@@ -2765,7 +2655,6 @@ describe('softDeleteStudyAction', () => {
             studyInfo: { title: 'Doomed Draft' },
         })
 
-        // sanity: lab dashboard sees the draft before delete
         const before = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
         expect(before).toEqual(expect.arrayContaining([expect.objectContaining({ id: studyId })]))
 
@@ -2778,19 +2667,16 @@ describe('softDeleteStudyAction', () => {
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow()
         expect(row.deletedAt).not.toBeNull()
-        expect(row.status).toBe('DRAFT') // status untouched, only deletedAt set
+        expect(row.status).toBe('DRAFT')
 
-        // lab dashboard no longer surfaces the deleted draft
         const after = await fetchStudiesForOrgAction({ orgSlug: lab.slug })
         expect(after).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: studyId })]))
 
-        // user dashboard also drops it
         const userView = await fetchStudiesForCurrentResearcherUserAction()
         expect(Array.isArray(userView)).toBe(true)
         if (Array.isArray(userView)) {
             expect(userView.find((s) => s.id === studyId)).toBeUndefined()
         }
-        // silence unused warning if user was destructured but not otherwise referenced
         expect(user.id).toBeTruthy()
     })
 
@@ -2815,7 +2701,6 @@ describe('softDeleteStudyAction', () => {
             studyInfo: { title: 'Colleague Draft' },
         })
 
-        // Different lab member — passes view/delete CASL but is not the draft author
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
         await expect(softDeleteStudyAction({ studyId })).resolves.toMatchObject({

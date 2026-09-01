@@ -56,10 +56,8 @@ describe('StatusAlert', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveAttribute('aria-live', 'polite')
         expect(alert).not.toHaveAttribute('aria-live', 'assertive')
-        // Mantine's Alert defaults to role="alert", an implicitly ASSERTIVE region. Overriding it is
-        // the point of the prop, so assert the role too rather than aria-live alone.
+        // Mantine's Alert defaults to role="alert", an implicitly assertive region.
         expect(alert).toHaveAttribute('role', 'status')
-        // Without this the swap announces the changed title only, not the body that explains it.
         expect(alert).toHaveAttribute('aria-atomic', 'true')
     })
 })

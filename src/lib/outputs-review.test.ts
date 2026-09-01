@@ -12,8 +12,7 @@ describe('outputs review decisions', () => {
         expect(toOutputsReviewDecision('share-outputs')).toBe('APPROVE')
     })
 
-    // Not REJECT: withholding the files asks the lab to revise and resubmit, whereas REJECT is
-    // the terminal decision that ends a study.
+    // Not REJECT: withholding the files asks the lab to resubmit, while REJECT ends a study.
     it('maps feedback-only to a clarification request, not a rejection', () => {
         expect(toOutputsReviewDecision('share-feedback-only')).toBe('NEEDS-CLARIFICATION')
     })
@@ -22,7 +21,6 @@ describe('outputs review decisions', () => {
         expect(OUTPUTS_DECISIONS).toEqual(['share-outputs', 'share-feedback-only'])
     })
 
-    // One cap for both run outcomes. It used to depend on whether the run errored (OTTER-737).
     it('caps feedback at 1800 characters regardless of the run outcome', () => {
         expect(OUTPUTS_FEEDBACK_MAX_CHARACTERS).toBe(1800)
     })

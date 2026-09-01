@@ -114,9 +114,8 @@ describe('useSubmitProposal', () => {
         })
     })
 
-    // OTTER-690: Step 1 owns study.title on a DRAFT. The Step 2 form still carries a seeded copy
-    // for the reviewer preview, and submit is the moment the column becomes immutable, so a stale
-    // copy landing here would be permanent.
+    // OTTER-690: submit is the moment study.title becomes immutable, so a stale Step 2 copy
+    // landing here would be permanent.
     it('leaves the Step 1 title untouched on submit', async () => {
         const { studyId, user } = await createTestProposalDraft({
             enclaveSlug: 'submit-title-owner',
@@ -181,7 +180,6 @@ describe('useSubmitProposal', () => {
     it('reports an error and does not broadcast when the proposal was already submitted', async () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-concurrent' })
 
-        // First-submit-wins: pre-flip the study to PENDING-REVIEW.
         actionResult(await finalizeStudySubmissionAction({ studyId }))
 
         const { yjsForm, sendStateless } = buildStubYjsForm()
@@ -207,16 +205,12 @@ describe('useSubmitProposal', () => {
             ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
         )
         expect(errorCall).toBeDefined()
-        // The copy is specified verbatim by the card, so it is asserted verbatim.
         expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_MESSAGE })
         expect(sendStateless).not.toHaveBeenCalled()
-        // The user stays on the form, which is what makes "your work is saved" recoverable.
+        // Staying on the form is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
     })
 
-    // The reassurance has to be earned. A dirty form on a study that is no longer editable fails the
-    // recovery save for the same reason it failed the submit, and saying "your work is saved" there
-    // is the one wrong answer this path can give.
     it('says the work was not saved when the recovery save fails too', async () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-unsaved' })
         actionResult(await finalizeStudySubmissionAction({ studyId }))
@@ -234,7 +228,7 @@ describe('useSubmitProposal', () => {
             { wrapper: createTestQueryWrapper() },
         )
 
-        // Dirty, so the recovery save actually runs rather than short-circuiting on a pristine form.
+        // Dirty, so the recovery save runs rather than short-circuiting on a pristine form.
         act(() => {
             result.current.form.setFieldValue('impact', lexicalJson('Revised impact statement.'))
         })
@@ -255,9 +249,8 @@ describe('useSubmitProposal', () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-scroll' })
         actionResult(await finalizeStudySubmissionAction({ studyId }))
 
-        // A real node under the real id, so the assertion is "the Submit button was scrolled to"
-        // rather than "some scroll happened". The previous version stubbed window.scrollTo and
-        // checked only `behavior`, which stayed green no matter where the page ended up.
+        // A real node under the real id, so this asserts the Submit button was scrolled to rather
+        // than merely that some scroll happened.
         const submitButton = document.createElement('button')
         submitButton.id = SUBMIT_BUTTON_ID
         submitButton.scrollIntoView = vi.fn()

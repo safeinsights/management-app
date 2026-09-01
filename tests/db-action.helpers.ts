@@ -1,8 +1,5 @@
-// Helpers that combine DB fixture setup with server action calls.
-// These live in a separate file (not unit.helpers.tsx) because unit.helpers is
-// imported by vitest.setup.ts. Top-level imports of server action modules there
-// would load the entire server module graph (events, mailer, aws, config) during
-// setup, breaking test-file-level vi.mock() calls for those modules.
+// Kept out of unit.helpers.tsx: vitest.setup.ts imports that, and pulling the server module
+// graph in during setup would break test-file-level vi.mock() calls.
 import { actionResult } from '@/lib/utils'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { insertTestStudyJobData, insertTestStudyOnly, mockSessionWithTestData } from '@/tests/unit.helpers'

@@ -3,52 +3,26 @@ import type { Route } from 'next'
 import { makeRoute } from './builder'
 import { safeRedirectUrl } from '@/lib/utils'
 
-// ============================================================================
-// Parameter Schemas
-// ============================================================================
-
-/**
- * Schema for routes that require an organization slug
- */
 export const OrgParams = z.object({
     orgSlug: z.string().min(1, 'Organization slug is required'),
 })
 
-/**
- * Schema for routes that require both org slug and study ID
- */
 export const StudyParams = z.object({
     orgSlug: z.string().min(1, 'Organization slug is required'),
     studyId: z.string().uuid('Study ID must be a valid UUID'),
 })
 
-/**
- * Schema for routes with no parameters
- */
 export const NoParams = z.object({})
 
-/**
- * Schema for routes that require an invite ID
- */
 export const InviteParams = z.object({
     inviteId: z.string().uuid('Invite ID must be a valid UUID'),
 })
 
-// ============================================================================
-// Search Parameter Schemas
-// ============================================================================
-
-/**
- * Dashboard search params (for handling invitations)
- */
 export const DashboardSearchParams = z.object({
     skip: z.string().optional(),
     decline: z.string().optional(),
 })
 
-/**
- * Common redirect URL pattern
- */
 export const RedirectSearchParams = z.object({
     redirect_url: z
         .string()
@@ -56,9 +30,6 @@ export const RedirectSearchParams = z.object({
         .transform((val) => (val ? safeRedirectUrl(val, '/' as Route) : undefined)),
 })
 
-/**
- * Invitation link params
- */
 export const InviteSearchParams = z.object({
     invite_id: z.string().uuid().optional(),
     redirect_url: z
@@ -67,16 +38,8 @@ export const InviteSearchParams = z.object({
         .transform((val) => (val ? safeRedirectUrl(val, '/' as Route) : undefined)),
 })
 
-// ============================================================================
-// Route Definitions
-// based on https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
-// ============================================================================
-
+// Route typing approach: https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
 export const Routes = {
-    // -------------------------------------------------------------------------
-    // Public / Root Routes (Simple routes - no parameters)
-    // -------------------------------------------------------------------------
-
     home: '/' as Route,
 
     dashboard: '/dashboard' as Route,
@@ -87,15 +50,7 @@ export const Routes = {
 
     editorDemo: '/editor-demo' as Route,
 
-    // -------------------------------------------------------------------------
-    // Organization Routes
-    // -------------------------------------------------------------------------
-
     orgDashboard: makeRoute(({ orgSlug }) => `/${orgSlug}/dashboard`, OrgParams),
-
-    // -------------------------------------------------------------------------
-    // Study Routes
-    // -------------------------------------------------------------------------
 
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
@@ -110,8 +65,7 @@ export const Routes = {
         StudyParams.extend({ returnTo: z.string().optional() }),
     ),
 
-    // Read-only post-decision code view: lets a researcher walk back to the code step from a results
-    // study (whose /view resolves to the results screen). The page 404s if code isn't reached yet.
+    // 404s until the code step is reached; /view resolves to results once decided.
     studyViewCode: makeRoute(
         ({ orgSlug, studyId, returnTo }) => {
             const base = `/${orgSlug}/study/${studyId}/view/code`
@@ -127,9 +81,7 @@ export const Routes = {
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
-    // Read-only post-decision code view for the reviewer (DO), the counterpart to studyViewCode: lets a
-    // reviewer walk back to the code step from a results study (whose /review resolves to results). No
-    // returnTo — the reviewer flow is always org-scoped via the path. The page 404s if code isn't reached.
+    // Reviewer counterpart to studyViewCode; no returnTo, the path is always org-scoped.
     studyReviewCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/code`, StudyParams),
 
     studyReviewProposal: makeRoute(
@@ -146,9 +98,7 @@ export const Routes = {
         StudyParams,
     ),
 
-    // Agreements is split into role-specific sibling routes so the page never has to guess which
-    // flow a dual-role user (reviewer via the enclave, researcher via their own lab) is in: the URL
-    // is the role. Researcher carries returnTo (org-scoped entry); reviewer does not.
+    // Split by role so a dual-role user's flow comes from the URL, not a guess.
     studyResearcherAgreements: makeRoute(
         ({ orgSlug, studyId, returnTo }) => {
             const base = `/${orgSlug}/study/${studyId}/agreements/researcher`
@@ -189,10 +139,6 @@ export const Routes = {
         StudyParams.extend({ userId: z.string().optional() }),
     ),
 
-    // -------------------------------------------------------------------------
-    // Account Routes (Simple routes - no parameters)
-    // -------------------------------------------------------------------------
-
     accountKeys: '/account/keys' as Route,
 
     accountMfa: '/account/mfa' as Route,
@@ -209,19 +155,11 @@ export const Routes = {
 
     accountInvitationJoinTeam: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/join-team`, InviteParams),
 
-    // -------------------------------------------------------------------------
-    // Researcher Routes (Simple routes - no parameters)
-    // -------------------------------------------------------------------------
-
     researcherStudies: '/researcher/studies' as Route,
 
     researcherProfile: '/researcher/profile' as Route,
 
     userKey: '/user-key' as Route,
-
-    // -------------------------------------------------------------------------
-    // Admin Routes
-    // -------------------------------------------------------------------------
 
     adminSettings: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/settings`, OrgParams),
     adminTeam: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/team`, OrgParams),
@@ -232,18 +170,10 @@ export const Routes = {
     adminSafeinsightsLegal: '/admin/safeinsights/legal' as Route,
 } as const
 
-// ============================================================================
-// External Links (not Next.js routes)
-// ============================================================================
-
 export const ExternalLinks = {
     dataCatalog: 'https://dev-docs.sandbox.safeinsights.org/data-catalog/',
     resourceCenter: 'https://dev-docs.sandbox.safeinsights.org/data-organizations/',
 } as const
-
-// ============================================================================
-// Type Exports
-// ============================================================================
 
 /**
  * Extract the parameter type from a route

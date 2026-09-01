@@ -272,12 +272,8 @@ const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; nam
 )
 PopoverAnchor.displayName = 'PopoverAnchor'
 
-/**
- * The hover card on a researcher name. `proposal/reviewer-preview.tsx` is the only caller left, and
- * it keeps the hover card on purpose: OTTER-755 replaces this with `ProfessionalProfileLink` on the
- * three reviewer pages it names, and the preview of the researcher's own draft is not one of them.
- * Do not delete this as an orphan.
- */
+// Not an orphan: `proposal/reviewer-preview.tsx` keeps the hover card on purpose, since it is
+// not one of the pages OTTER-755 moved to `ProfessionalProfileLink`.
 export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     userId,
     studyId,

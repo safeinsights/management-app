@@ -10,17 +10,8 @@ import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
 
-/**
- * Record the new user's agreement to the documents the signup form showed them.
- *
- * Runs inside the account-creation transaction: an account that exists without the evidence of what
- * its owner agreed to is the failure worth preventing, and the insert is pure DB, so the only way it
- * fails is a version id that should not have been submitted.
- *
- * The submitted ids are re-checked here rather than trusted — only published versions of the two
- * globally-scoped public documents are accepted, so a crafted request cannot manufacture an
- * acknowledgement of an org- or study-scoped agreement, or of an unpublished draft.
- */
+// Runs inside the account-creation transaction so an account never exists without this evidence.
+// Submitted ids are re-checked, not trusted.
 async function recordSignupAcknowledgements(db: DBExecutor, userId: string, versionIds: string[]) {
     if (!versionIds.length) return
 
@@ -42,11 +33,8 @@ async function recordSignupAcknowledgements(db: DBExecutor, userId: string, vers
         .execute()
 }
 
-// Invites are bearer credentials by design: holding the invite id is what authorizes acting on
-// it, so `claim PendingUser` is unconditioned in permissions.ts. The `claimedByUserId` guard is
-// what stops one user burning an invite somebody else already accepted; re-claiming by the same
-// user is a no-op success because onCreateAccountAction claims in-transaction and this action
-// runs again from the signup page after sign-in.
+// Invites are bearer credentials, so `claim PendingUser` is unconditioned in permissions.ts. The
+// `claimedByUserId` guard stops one user burning an invite somebody else accepted.
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
     .requireAbilityTo('claim', 'PendingUser')
@@ -56,16 +44,13 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
             .set({ claimedByUserId: session.user.id })
             .where('id', '=', inviteId)
             .where((eb) => eb.or([eb('claimedByUserId', 'is', null), eb('claimedByUserId', '=', session.user.id)]))
-            // returning() so an update that matched nothing yields no row and raises, rather than
-            // an UpdateResult that looks like success regardless of how many rows were touched.
+            // returning() so an update matching nothing raises instead of looking like success.
             .returning('id')
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
     })
 
-// Deliberately callable without a session: the invite link is opened before the recipient has an
-// account, and the signup page needs the org name and invited email to render. Exposure is limited
-// by the query rather than by an ability rule — only an unclaimed invite resolves, so a link that
-// has already been accepted stops disclosing the invitee's email and the inviting user's name.
+// Deliberately session-less: the link is opened before the recipient has an account. Exposure is
+// limited by the query — only an unclaimed invite resolves.
 export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
     .params(
         z.object({
@@ -91,13 +76,8 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
             .executeTakeFirstOrThrow()
     })
 
-// Two legitimate callers with different rights: an org admin revoking an invite, and the invitee
-// declining it. Invites are bearer credentials — holding the id is the same credential that
-// authorizes accepting one, and declining is strictly weaker, so possession authorizes declining
-// an unclaimed invite. (The previous email-match check was weaker than it looked: Clerk reports
-// unverified addresses, so anyone could add the invitee's address to their own account unverified
-// and delete their invites.) Claimed invites are spent bearer tokens; only an org admin may still
-// remove those rows.
+// Declining is strictly weaker than accepting, so bearing the id authorizes it. Claimed invites
+// are spent — org admin only.
 export const onRevokeInviteAction = new Action('onRevokeInviteAction')
     .params(
         z.object({
@@ -105,8 +85,7 @@ export const onRevokeInviteAction = new Action('onRevokeInviteAction')
         }),
     )
     .handler(async function ({ params: { inviteId }, db, session }) {
-        // This action has no requireAbilityTo, so an unauthenticated caller still reaches the
-        // handler with a null session; both branches below require an identity.
+        // No requireAbilityTo, so an unauthenticated caller reaches the handler with a null session.
         if (!session) {
             throw new ActionFailure({ permission_denied: 'cannot revoke this invite' })
         }
@@ -127,13 +106,9 @@ export const onRevokeInviteAction = new Action('onRevokeInviteAction')
         await db.deleteFrom('pendingUser').where('id', '=', invite.id).executeTakeFirstOrThrow()
     })
 
-// Invites are bearer credentials by design: any authenticated user holding the link may accept it,
-// and the membership attaches to the accepting session's account — a user opening an invite
-// addressed to another email joins under their own identity. The invariant enforced here is no
-// privilege escalation: the acting identity comes from the session, never from a parameter (the
-// pre-fix version took a `loggedInEmail` param and granted membership to whichever account owned
-// it, unauthenticated — OTTER-724 / MA-9), the granted role comes only from the invite row, and
-// nothing writes or verifies email addresses on any Clerk account.
+// Bearer credential by design: the membership attaches to the accepting session's account. The
+// invariant is no privilege escalation — the acting identity comes from the session, never from a
+// parameter, and the granted role comes only from the invite row (OTTER-724 / MA-9).
 export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     .params(
         z.object({
@@ -142,7 +117,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     )
 
     .handler(async function ({ params: { inviteId }, db, session }) {
-        // Without requireAbilityTo the handler is reached with a null session, so require one here.
+        // Without requireAbilityTo the handler is reached with a null session.
         if (!session) {
             throw new ActionFailure({ permission_denied: 'cannot accept this invite' })
         }
@@ -158,9 +133,8 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
         }
 
         const siUser = await db.transaction().execute(async (trx) => {
-            // Claim first, atomically: `claimedByUserId is null` plus returning() makes concurrent
-            // accepts race on this row — the loser matches nothing and fails here instead of
-            // reporting success — and a failure below rolls the claim back with the membership.
+            // Claim first, atomically: concurrent accepts race on this row, and a failure below
+            // rolls the claim back with the membership.
             const invite = await trx
                 .updateTable('pendingUser')
                 .set({ claimedByUserId: user.id })
@@ -176,10 +150,8 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .select(['id', 'isAdmin'])
                 .executeTakeFirst()
 
-            // Already a member: the invite is still consumed so it leaves pending lists, and its
-            // role is honoured as a grant — an admin re-invite of an existing contributor is the
-            // ordinary promote-by-invite path. Never a downgrade: a contributor invite to an
-            // existing admin is not a demotion; role removal has its own admin-only flow.
+            // The invite's role is honoured as a grant (promote-by-invite) but never as a
+            // downgrade — demotion has its own admin-only flow.
             if (orgUser) {
                 if (invite.isAdmin && !orgUser.isAdmin) {
                     await trx
@@ -208,8 +180,8 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
         await updateClerkUserMetadata(siUser.id)
         onUserAcceptInvite(siUser.id)
 
-        // Checked here too because the client RequireUserKey guard reads Clerk useUser() metadata,
-        // which can be stale right after this server-side update.
+        // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
+        // stale right after this server-side update.
         const needsUserKey = !(await getUserPublicKey(siUser.id))
 
         return { ...siUser, needsUserKey }
@@ -224,19 +196,15 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 lastName: z.string(),
                 password: z.string(),
             }),
-            // The versions the form actually displayed, not "whatever is latest now". If a new
-            // version is published between page load and submit we record what they were shown, and
-            // the app-wide gate collects the newer one on first login.
-            // Validated as uuids because a malformed one reaches Postgres as a 22P02 inside the
-            // account-creation transaction, which by then has a Clerk user standing behind it.
+            // The versions the form displayed, not "whatever is latest now". Validated as uuids
+            // because a malformed one reaches Postgres as a 22P02 inside the transaction.
             acknowledgedVersionIds: z.array(z.string().uuid()).optional(),
         }),
     )
 
     .handler(async function ({ params: { inviteId, form, acknowledgedVersionIds = [] }, db }) {
-        // Unauthenticated by necessity — this is what creates the account the invite is for — so
-        // the invite id is the only credential. A claimed invite is spent and must not create a
-        // second account or re-grant membership.
+        // Unauthenticated by necessity, so the invite id is the only credential. A claimed invite
+        // is spent and must not create a second account.
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
@@ -264,10 +232,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                     privateMetadata,
                 })
             } catch (error) {
-                // Clerk rejects weak/compromised passwords (and other invalid input) with a 422.
-                // Surface the human-readable reason inline instead of the opaque "Unprocessable
-                // Entity" toast. The signup form renders the `form` key as a dedicated alert and
-                // uses `code` to pick an appropriate title (e.g. "Compromised Password").
+                // Clerk rejects weak/compromised passwords with a 422; surface its reason inline.
                 if (isClerkApiError(error)) {
                     const { code, message } = extractClerkCodeAndMessage(error)
                     throw new ActionFailure({ form: message, code })
@@ -321,8 +286,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 throw new ActionFailure({ team: 'already a member' })
             }
 
-            // isAdmin comes from the invite row alone; the caller-supplied form carries only
-            // name and password, so it cannot influence the granted role.
+            // isAdmin comes from the invite row alone; the form cannot influence the granted role.
             await trx
                 .insertInto('orgUser')
                 .values({
@@ -333,11 +297,8 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 .returning('id')
                 .executeTakeFirstOrThrow()
 
-            // Claim in the same transaction as the membership grant so the claimed-invite guard is
-            // self-enforcing, rather than relying on the signup page to call
-            // onPendingUserLoginAction after sign-in (unchecked, and skipped if sign-in fails or
-            // the tab closes). The unclaimed filter plus returning() also makes the claim atomic
-            // against a concurrent redemption of the same invite.
+            // Claimed in the same transaction as the membership grant, so the guard is
+            // self-enforcing rather than relying on a later client call.
             await trx
                 .updateTable('pendingUser')
                 .set({ claimedByUserId: user.id })

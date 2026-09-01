@@ -4,10 +4,8 @@ import type { ComponentPropsWithoutRef, FocusEvent, FormEventHandler, ReactNode 
 import { Button, Flex, Radio, TextInput } from '@mantine/core'
 import { useWidgetBlur } from '@/components/form-field'
 
-// Presentational layout for the "Invite People" form: email input + Contributor /
-// Administrator radios + "Send invitation" button. It owns no form state, mutation, or
-// session — the container (./invitation) wires Mantine form props and the invite mutation
-// in via the props below, so this renders in isolation (e.g. Ladle).
+// Presentational only; ./invitation wires the form state and mutation in, so this renders in
+// isolation (e.g. Ladle).
 export type InviteFormViewProps = {
     onSubmit: FormEventHandler<HTMLFormElement>
     emailProps: Partial<ComponentPropsWithoutRef<typeof TextInput>>
@@ -27,14 +25,8 @@ export function InviteFormView({
     isSubmitting,
     isSubmitDisabled,
 }: InviteFormViewProps) {
-    // Guarded blur: every radio is in the tab order until one is chosen, so Mantine's raw
-    // validating onBlur would flash the error while the user is still moving between options
-    // (OTTER-647).
-    //
-    // `getInputProps` builds its onBlur as a zero-argument closure over the field path, so it can
-    // be driven from the guard's pointer branch, where there is no focus event to forward. Its
-    // onFocus marks the field touched and is chained rather than replaced: the guard needs its own
-    // to know the user reached the group, and dropping Mantine's would leave the field untouched.
+    // Every radio is in the tab order until one is chosen, so an unguarded validating onBlur
+    // flashes the error while the user moves between options (OTTER-647).
     const { onBlur: validatePermission, onFocus: touchPermission, ...permissionRest } = permissionProps
     const {
         ref: permissionRef,
