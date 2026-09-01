@@ -172,3 +172,18 @@ export const runErrored = (statusChanges: RawJob['statusChanges']): boolean =>
 // and rendering cannot disagree (same pattern as awaitingFilesDecisionOnError above).
 export const isErroredOutputsSharedOutcome = (s: Pick<StudyState, 'resultsErrored' | 'resultsApproved'>): boolean =>
     s.resultsErrored && s.resultsApproved
+
+// OTTER-688: a clean run whose outputs the reviewer shared along with their feedback (FILES-APPROVED
+// without JOB-ERRORED). Same contract as the two predicates above: the researcher rule table and the
+// screen's render guard both read it, so routing and rendering cannot disagree.
+//
+// Both negative clauses keep this DISJOINT from its siblings, so no rule's position in the table
+// decides a screen. !resultsErrored yields the errored share to isErroredOutputsSharedOutcome, whose
+// page explains a failed run. !resultsRejected matters for a job carrying BOTH FILES-* rows —
+// unreachable via submitOutputsDecisionAction, which refuses a second decision, but writable by the
+// QA status route and the legacy approve/reject actions. There the pill reads Rejected
+// (DISPLAY_STATUS_PRIORITY ranks FILES-REJECTED first), so advertising outputs would contradict it;
+// the conservative feedback-only page keeps that state instead.
+export const isOutputsSharedOutcome = (
+    s: Pick<StudyState, 'resultsApproved' | 'resultsRejected' | 'resultsErrored'>,
+): boolean => s.resultsApproved && !s.resultsRejected && !s.resultsErrored

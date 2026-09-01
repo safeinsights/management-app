@@ -53,14 +53,14 @@ const seedResultsStudy = async (orgSlug: string) => {
 }
 
 describe('StudyReviewCodePage', () => {
-    it('renders the code-feedback screen with a Previous link to reviewer agreements for a results study', async () => {
+    it('renders the code-feedback screen with a Previous link to the reviewed proposal for a results study', async () => {
         const { org, study } = await seedResultsStudy('openstax')
 
         const page = await callPage(org.slug, study.id)
 
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
-        expect(page?.props.previousHref).toBe(Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id }))
+        expect(page?.props.previousHref).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
 
         renderWithProviders(page!)
         expect(screen.getByTestId('post-feedback-previous')).toBeInTheDocument()
@@ -133,7 +133,7 @@ describe('StudyReviewCodePage', () => {
 
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
-        expect(page?.props.previousHref).toBe(Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id }))
+        expect(page?.props.previousHref).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
     })
 
     it('404s when the study has not reached the code stage (no forward jumps)', async () => {

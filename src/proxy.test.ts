@@ -4,6 +4,7 @@ import { updateClerkUserMetadata } from '@/server/clerk'
 import { NextRequest } from 'next/server'
 import { CSP_HEADER, CSP_NONCE_HEADER, REPORTING_ENDPOINTS_HEADER } from '@/lib/csp'
 import { continueWithNonce } from './proxy'
+import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 
 type ProxyHandler = (auth: Mock, req: NextRequest) => Promise<Response>
 
@@ -158,5 +159,8 @@ describe('proxy session marshaling failures', () => {
         expect(location).toContain('/account/signin')
         expect(location).toContain('redirect_url=%2Fdashboard')
         expect(location).not.toContain('error=session')
+        // OTTER-745: this branch is the only one that refuses a session, and the signin page reads the
+        // mark rather than inferring the refusal from its own (stale) client state.
+        expect(location).toContain(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`)
     })
 })

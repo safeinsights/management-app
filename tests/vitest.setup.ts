@@ -215,10 +215,23 @@ vi.mock('@hocuspocus/provider', async () => {
         destroy = vi.fn()
         disconnect = vi.fn()
         connect = vi.fn()
-        on = vi.fn()
-        off = vi.fn()
         send = vi.fn()
         sendStateless = vi.fn()
+        _observers = new Map<string, Set<(...args: unknown[]) => void>>()
+        on(event: string, fn: (...args: unknown[]) => void) {
+            if (!this._observers.has(event)) this._observers.set(event, new Set())
+            this._observers.get(event)!.add(fn)
+        }
+        off(event: string, fn: (...args: unknown[]) => void) {
+            this._observers.get(event)?.delete(fn)
+        }
+        // Test helper, matching the websocket fake above: a real emitter rather than a no-op spy,
+        // because the provider's own lifecycle events are the only way a test can move a surface's
+        // save status off idle. Nothing emits on its own, so a test that ignores this sees the same
+        // inert provider as before.
+        __emit(event: string, ...args: unknown[]) {
+            this._observers.get(event)?.forEach((fn) => fn(...args))
+        }
         constructor(opts?: { document?: InstanceType<typeof Y.Doc>; name?: string }) {
             this.document = opts?.document ?? new Y.Doc()
             this.configuration = { name: opts?.name }

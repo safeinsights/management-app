@@ -7,6 +7,7 @@ export {
     runErrored,
     latestJob,
     isErroredOutputsSharedOutcome,
+    isOutputsSharedOutcome,
 } from './state'
 export {
     resolveScreen,

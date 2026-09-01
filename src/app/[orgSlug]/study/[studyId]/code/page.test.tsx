@@ -44,7 +44,8 @@ describe('StudyCodeUploadRoute', () => {
         expect(previousLink).toHaveAttribute('href', expect.stringContaining('/edit'))
     })
 
-    it('routes approved study previous button to agreements', async () => {
+    // OTTER-727 hid Agreements, so an approved study's Previous walks back to the approved proposal.
+    it('routes approved study previous button to the submitted proposal', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -55,7 +56,7 @@ describe('StudyCodeUploadRoute', () => {
         await renderRoute(org.slug, study.id)
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
-        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/agreements/researcher'))
+        expect(previousLink).toHaveAttribute('href', expect.stringContaining('/submitted'))
     })
 
     it('redirects to view for non-DRAFT/APPROVED study', async () => {

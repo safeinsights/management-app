@@ -35,6 +35,12 @@ type StatusAlertProps = {
     announce?: boolean
 }
 
+// Figma status/success/text-icon. Deliberately a literal, not a theme token: green.9 (#2F9844) is
+// only 3.35:1 against green.0 and green.10 (#2B8A3E) 3.96:1, both under the 4.5:1 WCAG AA needs for
+// this 14px title (bold 14px is not "large text"), and green.10 is already spoken for by LAB_BG.
+// This value is 7.5:1 on the same background. See OTTER-482 for the earlier contrast pass.
+const SUCCESS_TITLE = '#285831'
+
 const VARIANTS = {
     informative: {
         bg: 'purple.0',
@@ -52,9 +58,9 @@ const VARIANTS = {
     },
     success: {
         bg: 'green.0',
-        titleColor: 'green.9',
+        titleColor: SUCCESS_TITLE,
         titleWeight: 700,
-        iconColor: 'var(--mantine-color-green-9)',
+        iconColor: SUCCESS_TITLE,
         Icon: CheckCircleIcon,
     },
 } as const satisfies Record<

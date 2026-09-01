@@ -1,7 +1,9 @@
+import type { Route } from 'next'
 import type { StudyJobStatus } from '@/database/types'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { DraftStep2Fields } from '@/lib/study-screen/state.types'
 import { effectiveProposalStatus } from '@/lib/review-decision'
+import { Routes } from '@/lib/routes'
 
 type StudyWithJobStatuses = {
     jobStatusChanges: Array<{ status: StudyJobStatus }>
@@ -9,6 +11,20 @@ type StudyWithJobStatuses = {
 
 export function studyHasJobStatus(study: StudyWithJobStatuses, status: StudyJobStatus): boolean {
     return study.jobStatusChanges.some((s) => s.status === status)
+}
+
+// The researcher's code step, as the hidden (OTTER-727) Agreements page's own Proceed computed it: once
+// code is submitted, the read-only code view — NOT plain /view, which would jump an advanced study
+// straight to results. Only the read-only branch threads `returnTo`; `Routes.studyCode` takes no such
+// param, since an unsubmitted study is only ever reached from the researcher's own flow.
+export function researcherCodeStepHref(
+    study: StudyWithJobStatuses & { id: string },
+    { orgSlug, returnTo }: { orgSlug: string; returnTo?: string },
+): Route {
+    if (studyHasJobStatus(study, 'CODE-SUBMITTED')) {
+        return Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
+    }
+    return Routes.studyCode({ orgSlug, studyId: study.id })
 }
 
 export function deriveStudyVersion(entries: { version: number }[]): number {
