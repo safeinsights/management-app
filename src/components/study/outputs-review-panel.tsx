@@ -8,7 +8,8 @@ import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
-import { StudyPageHeader } from '@/components/study/study-page-header'
+import { PageHeader } from '@/components/page-header'
+import { displayOrgName } from '@/lib/string'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
@@ -67,7 +68,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <PageHeader eyebrow={displayOrgName(labName)} title={studyTitle} />
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"

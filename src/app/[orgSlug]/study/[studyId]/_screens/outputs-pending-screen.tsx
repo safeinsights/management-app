@@ -35,7 +35,7 @@ export async function OutputsPendingScreen({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"

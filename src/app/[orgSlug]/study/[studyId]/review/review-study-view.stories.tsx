@@ -2,6 +2,7 @@ import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
 import { Box, Button, Divider, Flex, Group, Paper, Radio, Stack, Table, Text, Textarea, Title } from '@mantine/core'
 import { CaretLeftIcon, DownloadSimpleIcon, EyeIcon, TrophyIcon } from '@phosphor-icons/react/dist/ssr'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
@@ -135,6 +136,15 @@ function ProposalActionsFixture() {
 
 export const ReviewProposal: Story = () => (
     <ProposalReviewLayoutView
+        header={
+            <StudyPageHeader
+                study={{
+                    title: 'Impact of highlighting on student learning outcomes',
+                    submittingLabName: 'Genius Lab',
+                    submittedByOrgSlug: 'genius',
+                }}
+            />
+        }
         proposal={<ProposalBodyFixture />}
         feedbackAndNotes={null}
         feedback={

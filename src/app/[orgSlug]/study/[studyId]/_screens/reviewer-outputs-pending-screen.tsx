@@ -14,6 +14,7 @@ export async function ReviewerOutputsPendingScreen({
     return (
         <SecondaryAnalysisView
             studyTitle={study.title!}
+            labName={study.submittingLabName ?? study.submittedByOrgSlug}
             stageStatus={stage.status}
             stageStartedAt={stage.startedAt}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

@@ -1,6 +1,7 @@
 'use server'
 
 import { Stack } from '@mantine/core'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
@@ -24,6 +25,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     return (
         <Stack p="xl" gap="xl">
+            <StudyPageHeader study={result} />
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}

@@ -3,12 +3,14 @@ import { Box, Group, Stack } from '@mantine/core'
 import type { StudyJobStatus } from '@/database/types'
 import { ButtonLink } from '@/components/links'
 import { PreviousStepLink } from '@/components/study/previous-step-link'
-import { StudyPageHeader } from '@/components/study/study-page-header'
+import { PageHeader } from '@/components/page-header'
+import { displayOrgName } from '@/lib/string'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { OutputsStatusAlert } from './outputs-status-alert'
 
 export type SecondaryAnalysisViewProps = {
     studyTitle: string
+    labName: string
     stageStatus: StudyJobStatus
     stageStartedAt: string | Date
     previousHref: Route
@@ -17,6 +19,7 @@ export type SecondaryAnalysisViewProps = {
 
 export function SecondaryAnalysisView({
     studyTitle,
+    labName,
     stageStatus,
     stageStartedAt,
     previousHref,
@@ -25,7 +28,7 @@ export function SecondaryAnalysisView({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <PageHeader eyebrow={displayOrgName(labName)} title={studyTitle} />
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
