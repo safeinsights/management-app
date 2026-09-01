@@ -17,10 +17,8 @@ import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from './use-yjs-form-map'
 
-// Dynamic import inside the factory so the helper module is resolved at mock
-// time, not at file-init. Using a top-level `import` left the binding in TDZ
-// when vitest hoisted vi.mock above it, throwing "Cannot access __vi_import_N__
-// before initialization" on CI.
+// Dynamic import inside the factory: a top-level import leaves the binding in TDZ once vitest
+// hoists vi.mock above it, throwing "Cannot access __vi_import_N__ before initialization" on CI.
 vi.mock('@hocuspocus/provider', async () => {
     const { createHocuspocusMock } = await import('@/tests/hocuspocus.mock')
     return createHocuspocusMock({ withYDoc: true })
@@ -99,9 +97,8 @@ describe('useYjsFormMap', () => {
         expect(fieldsMap!.get('piUserId')).toBe(piUserId)
     })
 
-    // OTTER-690: the DRAFT Step 2 editor passes a reduced key set because Step 1 owns study.title
-    // there. Seeding `title` from that page would let a blank or stale collaborative copy reach the
-    // column through the server-side mirror.
+    // OTTER-690: seeding `title` from the DRAFT Step 2 editor would let a blank or stale
+    // collaborative copy reach the column through the server-side mirror.
     it('cold load: seeds only the keys the caller asked for', async () => {
         const { studyId } = await createDraftStudy('cold-scoped')
 
@@ -111,8 +108,8 @@ describe('useYjsFormMap', () => {
             piName: 'PI',
             piUserId: faker.string.uuid(),
         })
-        // Built once, outside the render callback: a fresh websocket provider per render would
-        // re-run the effect under test forever.
+        // Built once outside the render callback; a fresh provider per render re-runs the effect
+        // under test forever.
         const websocketProvider = newWebsocketProvider()
         const hookResult = renderHook(() =>
             useYjsFormMap({
@@ -134,9 +131,8 @@ describe('useYjsFormMap', () => {
         expect(fieldsMap.get('piName')).toBe('PI')
     })
 
-    // The legacy fields-doc of any pre-OTTER-690 draft still holds a `title` key. A reduced key
-    // set has to ignore it on the way in as well, or reopening such a draft would overwrite the
-    // Step 1 title in the form with the stale collaborative one.
+    // Pre-OTTER-690 drafts still hold a `title` key, which would otherwise overwrite the Step 1
+    // title on reopen.
     it('ignores a remote title when the caller did not ask for it', async () => {
         const { studyId } = await createDraftStudy('remote-scoped', 'Owned by Step 1')
 
@@ -175,9 +171,8 @@ describe('useYjsFormMap', () => {
     it('warm load: applies CRDT state pushed before sync to the form when a yjsDocument row exists', async () => {
         const { studyId } = await createDraftStudy('warm', 'OriginalForm')
 
-        // The row gates `getYjsDocumentUpdatedAtAction` onto the warm-load branch (non-null
-        // updatedAt). The mocked Hocuspocus provider can't read it back as CRDT bytes, so
-        // the Y.applyUpdate below is what supplies the actual content the form will see.
+        // The row only gates the warm-load branch; the mock cannot read it back as CRDT bytes, so
+        // the Y.applyUpdate below supplies the content the form actually sees.
         await db
             .insertInto('yjsDocument')
             .values({
@@ -195,8 +190,7 @@ describe('useYjsFormMap', () => {
         expect(constructed).toHaveLength(1)
         const handle = constructed[0]
 
-        // Simulate the Hocuspocus server pushing persisted CRDT state into the doc
-        // before the synced event fires.
+        // Simulates the server pushing persisted CRDT state in before the synced event fires.
         const seedDoc = new Y.Doc()
         seedDoc.getMap('fields').set('title', 'FromCRDT')
         Y.applyUpdate(handle.document!, Y.encodeStateAsUpdate(seedDoc))
@@ -226,8 +220,7 @@ describe('useYjsFormMap', () => {
         handle.triggerSync()
         await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
 
-        // Write to the captured Y.Doc with a non-LOCAL_ORIGIN origin so the hook's
-        // observe handler treats it as a remote update.
+        // A non-LOCAL_ORIGIN origin so the hook's observer treats it as a remote update.
         const remoteOrigin = Symbol('remote')
         const document = handle.document!
         document.transact(() => {
@@ -257,8 +250,7 @@ describe('useYjsFormMap', () => {
         await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
 
         const peerB = new Y.Doc()
-        // Pre-sync peerB with peerA's current state so the receiving peer has the
-        // baseline before applying incremental updates.
+        // Pre-sync the baseline before applying incremental updates.
         Y.applyUpdate(peerB, Y.encodeStateAsUpdate(handle.document!))
 
         const capturedOrigins: unknown[] = []
@@ -269,7 +261,6 @@ describe('useYjsFormMap', () => {
 
         hookResult.result.current.pushField('datasets', ['ds-1', 'ds-2'])
 
-        // Confirm the local write committed before checking propagation.
         expect(handle.document!.getMap('fields').get('datasets')).toEqual(['ds-1', 'ds-2'])
 
         await waitFor(() => expect(peerB.getMap('fields').get('datasets')).toEqual(['ds-1', 'ds-2']))
@@ -339,9 +330,7 @@ describe('useYjsFormMap', () => {
         constructed[0].triggerSync()
         await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
 
-        // A no-op push (value already in the map) must not flag the field. The real
-        // push after it bounds the assertion: once 'title' is marked, a lingering
-        // mark from the no-op would show up in the size check below.
+        // A no-op push (value already in the map) must not flag the field.
         hookResult.result.current.pushField('title', 'Original')
         hookResult.result.current.pushField('datasets', ['ds-1', 'ds-2'])
 

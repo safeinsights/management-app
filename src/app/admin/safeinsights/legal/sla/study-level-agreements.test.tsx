@@ -19,15 +19,12 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations go to vi.fn, not mockResolvedValue: mockReset would wipe a value set after.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
 })
 
-// An approved study with no SLA yet: what the upload cascade offers, and what the form's empty
-// state depends on the absence of.
 const seedApprovedStudy = async (title: string) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -65,7 +62,6 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
     return seeded
 }
 
-// Scoped to one study's row: the table shows every SLA the suite has seeded.
 const openNewVersionFor = async (title: string) => {
     await waitFor(() => expect(screen.getByText(title)).toBeDefined())
     const row = screen.getByText(title).closest('tr')
@@ -74,7 +70,6 @@ const openNewVersionFor = async (title: string) => {
     await waitFor(() => expect(screen.getByText('Upload a new version')).toBeDefined())
 }
 
-// The dropzone keeps a real file input behind it, so the file goes in directly.
 const chooseFile = (name: string) => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     fireEvent.change(input, { target: { files: [new File(['pdf bytes'], name, { type: 'application/pdf' })] } })
@@ -93,7 +88,6 @@ describe('StudyLevelAgreements', () => {
 
         expect(within(row).getByText(researchLab.name)).toBeDefined()
         expect(within(row).getByText(dataPartner.name)).toBeDefined()
-        // Guards the off-by-one: the day entered must be the day rendered.
         expect(within(row).getByText('Jul 27, 2026')).toBeDefined()
     })
 
@@ -106,7 +100,6 @@ describe('StudyLevelAgreements', () => {
 
         await openNewVersionFor(title)
 
-        // The study is fixed, so there is nothing to pick.
         expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
         expect(screen.getByText(/This study is on version 1\./)).toBeDefined()
         expect(screen.getByText('Signed Study Agreement')).toBeDefined()
@@ -131,7 +124,6 @@ describe('StudyLevelAgreements', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: 'Publish' }))
 
-        // Both modals are open at once, so the assertions are scoped to the confirmation.
         const confirmation = await waitFor(() => {
             const dialog = screen.getAllByRole('dialog').find((el) => within(el).queryByText('Publish this file?'))
             if (!dialog) throw new Error('confirmation modal did not open')
@@ -143,15 +135,10 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText(dataPartner.name)).toBeDefined()
         expect(within(confirmation).getByText('Aug 03, 2026')).toBeDefined()
         expect(within(confirmation).getByText('signed-sla.pdf')).toBeDefined()
-        // Says what publishing does — files the agreement — and nothing about acknowledgement, which
-        // an sla does not trigger: only tos/pn are in enforcedLegalDocumentTypes.
         expect(within(confirmation).getByText(/becomes the current Study Agreement on record/)).toBeDefined()
         expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
 
-    // Confirming used to close the confirmation before the upload started, leaving an idle-looking
-    // form whose Publish button was still live — a second click published a second version of the
-    // same agreement, irreversibly.
     it('keeps the confirmation up and the form locked while publishing', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const title = `SLA study ${faker.string.alpha(6)}`
@@ -178,8 +165,7 @@ describe('StudyLevelAgreements', () => {
 
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        // Seeded rather than relying on whatever else the suite left approved: with no candidates
-        // the form renders its empty state and there are no selects to assert on.
+        // With no candidates the form renders its empty state and there are no selects to assert on.
         await seedApprovedStudy(`SLA candidate ${faker.string.alpha(6)}`)
 
         renderWithProviders(<StudyLevelAgreements />)
@@ -190,7 +176,6 @@ describe('StudyLevelAgreements', () => {
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
         expect(screen.getByLabelText('Signed on')).toBeDefined()
         expect(screen.getByText('Signed Study Agreement')).toBeDefined()
-        // Queried by placeholder because "Research Lab" also names a column in the table behind.
         expect(screen.getByPlaceholderText('Select a Research Lab')).toBeDisabled()
     })
 
@@ -212,8 +197,7 @@ describe('StudyLevelAgreements', () => {
             return dialog
         })
 
-        // findByText, not getByText: the table header renders before the versions arrive, so the
-        // dialog is on screen while it is still fetching.
+        // findByText: the table header renders before the versions arrive.
         expect(await within(history).findByText('Jul 27, 2026')).toBeDefined()
     })
 })

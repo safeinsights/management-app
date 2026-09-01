@@ -17,9 +17,7 @@ import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ProposalSection } from './proposal-section'
 
-// Fully-typed factory so tests don't `as ProposalFeedbackEntry[]` against partial
-// objects — that cast silently passes typecheck even when ProposalRequest starts
-// reading new fields (mirrors the buildEntry helper in post-feedback-view.test.tsx).
+// Fully typed so a cast cannot hide a partial object once ProposalRequest reads new fields.
 const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFeedbackEntry =>
     ({
         id: overrides.id ?? 'entry-1',
@@ -176,8 +174,8 @@ describe('ProposalSection', () => {
         expect(screen.getByTestId('proposal-toggle-top')).toHaveAttribute('aria-expanded', 'true')
     })
 
-    // The card swaps its content instead of hiding it, so the clicked toggle is unmounted by the
-    // time the next render lands. Without the hand-off, keyboard users end up on the document body.
+    // The card swaps its content, so the clicked toggle is unmounted by the next render and
+    // keyboard focus would land on the document body.
     it('hands focus to the toggle that replaces the one just clicked', async () => {
         const user = userEvent.setup()
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
@@ -250,8 +248,8 @@ describe('ProposalSection', () => {
         it('clamps the research question preview to two lines', () => {
             renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
-            // Mantine drives the clamp from a CSS variable plus a data attribute, so assert those
-            // rather than a -webkit-line-clamp declaration jsdom never sees.
+            // Mantine drives the clamp from a CSS variable, not a -webkit-line-clamp declaration
+            // jsdom would see.
             const preview = screen.getByTestId('proposal-snippet-question')
             expect(preview).toHaveAttribute('data-line-clamp', 'true')
             expect(preview.style.getPropertyValue('--text-line-clamp')).toBe('2')
@@ -297,9 +295,8 @@ describe('ProposalSection', () => {
 
             await user.hover(screen.getByText(study.createdBy))
 
-            // The popover it replaced hung off an unlabeled icon and rendered `withRoles={false}`,
-            // so neither the trigger nor the dropdown had an accessible name to query: the Mantine
-            // class is what shows that hovering the name no longer opens anything.
+            // The removed popover had no accessible name on either trigger or dropdown, so the
+            // Mantine class is the only way to assert it no longer opens.
             expect(document.querySelector('.mantine-Popover-dropdown')).toBeNull()
             expect(screen.getAllByRole('link', { name: /Professional profile/ })).toHaveLength(1)
         })

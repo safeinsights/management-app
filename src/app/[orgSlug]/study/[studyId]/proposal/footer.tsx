@@ -22,9 +22,7 @@ interface ProposalFooterProps {
     researcherName: string
     researcherId: string
     enclaveOrgSlug?: string
-    /** The persisted `study.title`, which Step 1 owns for drafts (OTTER-690). */
     studyTitle?: string | null
-    /** Display name of the Data Partner the proposal goes to. Interpolated into the modal. */
     orgName: string
 }
 
@@ -38,31 +36,28 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, submitProposal, isSubmitting } = useProposal()
-    // titleMode 'omit': Step 1 owns study.title on a DRAFT, and this form's copy is only a seed
-    // for the reviewer preview. Sending it back would let a stale value overwrite the Step 1 one.
+    // titleMode 'omit': this form's title is only a seed for the preview, so sending it back
+    // would let a stale value overwrite the one Step 1 persisted.
     const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omit' })
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt(form, isSubmitting)
 
     const isBusy = isSubmitting || isSaving
-    // lexical fields store JSON even when empty, so extract the text to detect real content.
+    // Lexical fields store JSON even when empty, so extract the text to detect real content.
     const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
     const handlePrevious = async () => {
-        // Flush Step 2 fields to the study row so draftHasStep2Progress resolves
-        // correctly on the dashboard. In single-user mode (CI / PR envs) Yjs
-        // autosave is inactive, so this is the only write path.
+        // Yjs autosave is inactive in single-user mode, so this is the only write path.
         const saved = await saveDraft()
         if (!saved) return
         router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     const handleOpenReviewer = async () => {
-        // Flush the form first: the preview's PI popover fetches the profile server-side, and
-        // the server only serves ids the persisted study row names — an unsaved piUserId would
-        // be denied and render as "Profile not available".
+        // The server only serves PI profiles the persisted study row names, so an unsaved
+        // piUserId would render as "Profile not available".
         const saved = await saveDraft()
         if (!saved) return
         openReviewer()
@@ -86,8 +81,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
-                    {/* Never disabled on validity. Clicking it is what surfaces the errors, and a
-                        disabled button explains nothing (OTTER-691). */}
+                    {/* Never disabled on validity: clicking it is what surfaces the errors
+                        (OTTER-691). */}
                     <Button
                         id={SUBMIT_BUTTON_ID}
                         size="md"

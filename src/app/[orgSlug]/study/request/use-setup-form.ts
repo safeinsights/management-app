@@ -19,19 +19,14 @@ interface UseSetupFormArgs extends SetupFormLocks {
 }
 
 export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocked }: UseSetupFormArgs) {
-    // The form runs in `mode: 'uncontrolled'`, so reading `form.values.title` during render would
-    // not re-render on a keystroke and the character counter would sit frozen at 0/60. Subscribing
-    // is the documented way to mirror one field into render state.
+    // The form is uncontrolled, so reading form.values during render would freeze the counter.
     const [titleValue, setTitleValue] = useState(form.getValues().title ?? '')
     form.watch('title', ({ value }) => setTitleValue(value ?? ''))
 
     const [isConfirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    // Only the over-limit half of the title rule is live. The blank rule belongs to blur and to
-    // the Continue click: running it on change would flash "Enter a study title before
-    // continuing." the moment the user clears the box, which the spec forbids.
-    // Mantine's clearInputErrorOnChange has already dropped any previous message by the time
-    // this runs, so the <= 60 case needs no branch of its own.
+    // Only the over-limit half of the rule is live; the blank rule belongs to blur and Continue,
+    // so clearing the box does not flash an error mid-edit.
     const onTitleChange = useCallback(
         (event: ChangeEvent<HTMLInputElement>) => {
             const raw = event.currentTarget.value
@@ -45,9 +40,8 @@ export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocke
 
     const onTitleBlur = useCallback(() => form.validateField('title'), [form])
 
-    // Rebuilt per click, never a static list: the programming-language field is absent until a
-    // Data Partner is chosen, and a locked field renders text with nothing focusable inside it.
-    // A stale id here would send focus nowhere and leave the click looking dead.
+    // Rebuilt per click: the language field is absent until a partner is chosen and a locked
+    // field has nothing focusable, so a stale id would leave the click looking dead.
     const visibleFieldIds = useCallback(() => {
         const ids: string[] = []
         if (!isTitleLocked) ids.push(TITLE_INPUT_ID)
@@ -56,18 +50,8 @@ export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocke
         return ids
     }, [form, isTitleLocked, isOrgLocked, isLanguageLocked])
 
-    // Flags every problem at once rather than stopping at the first: the user should see the full
-    // set on one click, even though focus can only land on one of them. The errors object read
-    // here is the one `validate()` returns, not `form.errors`, so the decision cannot race the
-    // state update that populates it.
-    //
-    // The gate is "did a field the user can act on fail", not `validate()`'s schema-wide
-    // `hasErrors`. The resolver covers locked fields too, and a locked field renders read-only
-    // text with no error slot and nothing focusable. Gating on the schema-wide flag would let a
-    // locked failure stop the click with no message anywhere and no field to correct, which is the
-    // OTTER-647 dead-button shape the rest of this hook avoids. A locked value is the persisted
-    // server one and authoritative, so it is not the user's to fix; `focusFirstInvalid` returning
-    // null is exactly "nothing on this page is failing".
+    // Gated on "did a field the user can act on fail", not schema-wide hasErrors: a locked field
+    // has no error slot, so gating on it is the OTTER-647 dead button.
     const attemptContinue = useCallback(() => {
         const { errors } = form.validate()
 

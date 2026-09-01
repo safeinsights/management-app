@@ -17,7 +17,6 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
 
-// One record by construction, so a read-out rather than a one-row table.
 const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
     <Stack gap="xs" align="flex-start">
         <Text>Effective on: {formatDayString(agreement.signedAt)}</Text>
@@ -40,7 +39,7 @@ const EmptyState: FC<{ label: string }> = ({ label }) => (
 )
 
 // isError first: a refused read leaves data undefined, and falling through would claim nothing is
-// on file when we never managed to look.
+// on file.
 const AgreementBody: FC<{
     isLoading: boolean
     isError: boolean

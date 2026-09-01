@@ -12,7 +12,6 @@ export const getResearcherProfileAction = new Action('getResearcherProfileAction
     .handler(async ({ session, db }) => {
         const userId = session.user.id
 
-        // Ensure row exists so UI can treat missing profile as empty.
         await db
             .insertInto('researcherProfile')
             .values({ userId })
@@ -61,7 +60,6 @@ export const updatePersonalInfoAction = new Action('updatePersonalInfoAction', {
     .handler(async ({ session, params, db }) => {
         const userId = session.user.id
 
-        // Update Clerk first - if this fails, the database won't be updated
         await updateClerkUserName(userId, params.firstName, params.lastName)
 
         await db
@@ -107,7 +105,6 @@ export const updatePositionsAction = new Action('updatePositionsAction', { perfo
     .handler(async ({ session, params, db }) => {
         const userId = session.user.id
 
-        // Ensure profile exists first (positions have FK to profile)
         await db
             .insertInto('researcherProfile')
             .values({ userId })
@@ -159,9 +156,8 @@ export const updateResearchDetailsAction = new Action('updateResearchDetailsActi
 export const getResearcherProfileByUserIdAction = new Action('getResearcherProfileByUserIdAction')
     .params(z.object({ userId: z.string(), studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
-        // Deliberately excludes researcherId/piUserId: everything returned here is merged into
-        // the CASL ability args, and requireAbilityTo echoes those args in its denial message —
-        // including them would leak the study's real researcher/PI ids to unauthorized callers.
+        // Excludes researcherId/piUserId: this is merged into the CASL ability args, which
+        // requireAbilityTo echoes in its denial message.
         const study = await db
             .selectFrom('study')
             .select(['orgId', 'submittedByOrgId', 'status'])
@@ -178,14 +174,8 @@ export const getResearcherProfileByUserIdAction = new Action('getResearcherProfi
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('Study'))
 
-        // The study's view ability says nothing about whose profile is being requested, so without
-        // this anyone able to view any single study could read every user's email and PII by
-        // editing the userId in the URL. Only the two people the study actually names are exposed.
-        // This must run after the view-Study check above: callers without access to the study get
-        // only the generic CASL denial, never a distinguishable "not associated" answer that would
-        // confirm whether an arbitrary user is the study's researcher or PI. The denial is returned
-        // rather than thrown so id enumeration cannot flood Sentry (only thrown errors are
-        // captured), and logged at info because warn/error console output is forwarded to Sentry.
+        // Without this, anyone who can view one study could read any user's PII by editing userId.
+        // Must run after the view-Study check, so a caller without access cannot probe the ids.
         if (userId !== study.researcherId && userId !== study.piUserId) {
             const msg = `getResearcherProfileByUserIdAction: user ${userId} is not associated with study ${studyId}`
             logger.info(msg)

@@ -20,13 +20,9 @@ import { SignedOnInput } from '../signed-on-input'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
-// What it takes to name the org being published against. A row from the table and an org picked
-// from the dropdown both satisfy it, so the rest of the form does not care which one it has.
 type Signatory = { orgId: string; orgName: string; versionNumber: number | null }
 
-// Every org of this type is offered, including ones that have already signed: renewing is a new
-// version of the same document. The version a chosen org is on comes from the agreements query the
-// table behind this modal already loaded, rather than a second round trip.
+// Orgs that have already signed are still offered: renewing is a new version of the same document.
 const useSignatoryChoice = ({ type, fixed }: { type: ParticipationAgreementType; fixed?: Signatory }) => {
     const [orgId, setOrgId] = useState<string | null>(null)
     const { data: signatories = [], isLoading } = useQuery({
@@ -65,7 +61,6 @@ const invalidateKeysFor = (type: ParticipationAgreementType) => [
     legalDocumentQueryKeys.versionsForType(type),
 ]
 
-// Only shown when the org is not already fixed by the row that opened the form.
 const SignatorySelect: FC<{
     isVisible: boolean
     orgLabel: string
@@ -86,7 +81,6 @@ const SignatorySelect: FC<{
     )
 }
 
-// Only shown when the org is fixed; the dropdown above already names the chosen one.
 const ChosenSignatory: FC<{ orgLabel: string; signatory: Signatory | undefined }> = ({ orgLabel, signatory }) => {
     if (!signatory) return null
     return <ReadOnlyField label={orgLabel} value={signatory.orgName} />
@@ -103,13 +97,11 @@ const VersionNote: FC<{ versionNumber: number | null | undefined }> = ({ version
     )
 }
 
-// Says nothing about acknowledgement: a ropa/dopa is filed here, not enforced — only tos/pn are in
-// enforcedLegalDocumentTypes, and org-scoped enforcement is SHRMP-302.
+// Says nothing about acknowledgement: only tos/pn are in enforcedLegalDocumentTypes; org-scoped
+// enforcement is SHRMP-302.
 const publishConsequence = (documentLabel: string, orgName: string) =>
     `This becomes the current ${documentLabel} on record for ${orgName}. Earlier versions stay in the record. This cannot be undone.`
 
-// Given a `signatory`, this adds a version to that org: only a new date and file are collected.
-// Without one, the org is picked from the dropdown.
 export const UploadParticipationAgreementForm: FC<{
     type: ParticipationAgreementType
     signatory?: Signatory

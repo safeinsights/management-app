@@ -22,39 +22,25 @@ import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './editab
 export interface EditableTextProps {
     /** Serialized Lexical JSON state */
     value?: string
-    /** Callback when content changes, receives serialized Lexical JSON */
     onChange?: (value: string) => void
-    /** Called when editor gains focus */
     onFocus?: () => void
-    /** Called when editor loses focus */
     onBlur?: () => void
-    /** Validation error to display */
     error?: ReactNode
-    /** Placeholder text shown when editor is empty */
     placeholder?: string
-    /** Disable editing */
     disabled?: boolean
-    /** Make content read-only */
     readOnly?: boolean
     /** Remove border and padding for inline display */
     borderless?: boolean
-    /** Minimum height of the editor */
     minHeight?: number | string
-    /** Maximum height of the editor (enables scrolling) */
     maxHeight?: number | string
-    /** Allow user to manually resize the editor vertically */
     resizable?: boolean
-    /** HTML id attribute for the editor */
     id?: string
-    /** Accessible label for the editor */
     'aria-label'?: string
 }
 
 function createInitialConfig(value: string | undefined, disabled: boolean, readOnly: boolean): InitialConfigType {
     let editorState: SerializedEditorState | undefined
-    // Defends against legacy rows where empty-root JSON ({"root":{"children":[]}})
-    // was persisted before the save-boundary filter in EditorChangePlugin. Lexical
-    // throws if initialized with an empty root, so fall back to its default state.
+    // Lexical throws if initialized with an empty root, which legacy rows can hold.
     if (isValidLexicalState(value)) {
         editorState = JSON.parse(value!)
     }
@@ -87,8 +73,7 @@ export const EditableText: FC<EditableTextProps> = ({
     id,
     'aria-label': ariaLabel,
 }) => {
-    // Use useState with lazy initializer - computed once on mount
-    // Lexical manages its own state after initialization
+    // Computed once on mount; Lexical owns its state from there.
     const [initialConfig] = useState<InitialConfigType>(() => createInitialConfig(value, disabled, readOnly))
 
     const [isFocused, setIsFocused] = useState(false)

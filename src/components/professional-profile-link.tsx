@@ -6,10 +6,7 @@ import { LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 
 type ProfessionalProfileLinkProps = {
-    /**
-     * Omitted for a PI recorded by name only: `study.piUserId` is nullable, and a link with an
-     * empty id would resolve to the wrong person's profile page.
-     */
+    /** Omitted for a PI recorded by name only; an empty id would link to the wrong profile. */
     userId?: string | null
     studyId: string
     orgSlug: string

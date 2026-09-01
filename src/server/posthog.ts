@@ -10,8 +10,7 @@ async function getPostHogClient(): Promise<PostHog | null> {
     const postHogProjectToken = await getConfigValue('POSTHOG_PROJECT_TOKEN', false)
     if (!postHogProjectToken) return null
 
-    // flushAt and flushInterval are set per https://posthog.com/docs/libraries/node#short-lived-processes-like-serverless-environments ,
-    // but they shouldn't matter if we consistently use captureImmediate
+    // flushAt/flushInterval follow PostHog's serverless guidance; captureImmediate makes them moot.
     client = new PostHog(postHogProjectToken, {
         host: POSTHOG_HOST,
         flushAt: 1,

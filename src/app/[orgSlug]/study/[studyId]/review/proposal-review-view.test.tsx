@@ -93,9 +93,8 @@ describe('ProposalReviewView', () => {
         })
     })
 
-    // Submit-wiring coverage (approve/needs-clarification/reject → mutation call with right decision + feedback)
-    // lives in server/actions/study.actions.test.ts. The UI path will be covered here once OTTER-491
-    // replaces the feedback <Skeleton> with a real editor that tests can type into.
+    // Submit-wiring coverage lives in server/actions/study.actions.test.ts until OTTER-491
+    // replaces the feedback Skeleton with a real editor.
 
     describe('round-N history (prior entries)', () => {
         it('does not render the feedback-and-notes section when there is no prior history', () => {

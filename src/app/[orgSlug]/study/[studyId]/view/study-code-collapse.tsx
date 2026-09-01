@@ -22,17 +22,11 @@ interface StudyCodeToggleProps {
     isVisible?: boolean
     mt?: MantineSpacing
     labels?: StudyCodeToggleLabels
-    /** Override the test id so multiple toggles on one page stay distinct. */
     testId?: string
 }
 
-/**
- * The study code toggle: a label pair over the shared `CollapseToggleLink`.
- *
- * It keeps the default link color rather than the navy of the proposal and the feedback toggles,
- * because OTTER-755 recolors those two only. When the ticket for `View full study code` lands, this
- * wrapper loses its color and then its reason to exist.
- */
+// Keeps the default link color rather than the navy of the proposal and feedback toggles, which
+// OTTER-755 recolors on their own.
 export const StudyCodeToggle = forwardRef<HTMLButtonElement, StudyCodeToggleProps>(function StudyCodeToggle(
     {
         expanded,

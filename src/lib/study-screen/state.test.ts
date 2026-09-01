@@ -32,7 +32,7 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     ...overrides,
 })
 
-// v7 ids are insertion-ordered; use lexically-increasing ids so max(id) === latest round.
+// v7 ids are insertion-ordered, so lexically-increasing ids make max(id) the latest round.
 const ID1 = '019000000000-0000-0000-0000-000000000001'
 const ID2 = '019000000000-0000-0000-0000-000000000002'
 
@@ -67,10 +67,8 @@ describe('projectStudyState', () => {
         expect(s.submissionRound).toBe(2)
     })
 
-    // Same-job resubmit after CODE-CHANGES-REQUESTED: the round-boundary fix reuses the job, and a
-    // resubmit now appends a SECOND CODE-SUBMITTED (CODE-SUBMITTED is an append-only submission
-    // event). submittedCount(2) > decisionCount(1), so the prior decision is no longer live — the
-    // researcher is back under review, not stuck on the edit/feedback screen.
+    // A same-job resubmit appends a second CODE-SUBMITTED, so submittedCount exceeds decisionCount
+    // and the prior decision is no longer live.
     it('same-job resubmit after changes-requested → awaiting decision, decision no longer live', () => {
         const resubmitted = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [resubmitted] }))
@@ -78,9 +76,7 @@ describe('projectStudyState', () => {
         expect(s.codeAwaitingDecision).toBe(true)
     })
 
-    // OTTER-641: after the resubmit is approved the same job carries a stale CODE-CHANGES-REQUESTED
-    // alongside the live CODE-APPROVED. displayStatus must follow the live decision, not the stale
-    // earlier round (which used to win by DISPLAY_STATUS_PRIORITY order).
+    // OTTER-641: the stale CODE-CHANGES-REQUESTED used to win by DISPLAY_STATUS_PRIORITY order.
     it('same-job resubmit then approved → displayStatus is CODE-APPROVED, not the stale changes-requested', () => {
         const approved = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [approved] }))
@@ -89,10 +85,7 @@ describe('projectStudyState', () => {
         expect(s.displayStatus).toBe('CODE-APPROVED')
     })
 
-    // OTTER-641 symmetry: the same stale-decision drop applies when the resubmit is rejected. The job
-    // carries a round-1 CODE-CHANGES-REQUESTED alongside the live terminal CODE-REJECTED, and
-    // displayStatus must follow the live rejection (codeDecision ranks CODE-REJECTED above the stale
-    // change request), matching the pill's "reads Rejected" case.
+    // The same stale-decision drop applies when the resubmit is rejected (OTTER-641).
     it('same-job resubmit then rejected → displayStatus is CODE-REJECTED, not the stale changes-requested', () => {
         const rejected = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'])
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [rejected] }))
@@ -135,11 +128,8 @@ describe('projectStudyState', () => {
         expect(s.latestJobStatuses).toContain('FILES-APPROVED')
     })
 
-    // isExecuting is the LIVE execution window only. Status changes are append-only, so a JOB-RUNNING
-    // row survives forever — gating on results keeps "ever ran" from reading as "executing", which had
-    // kept the approved/will-run banner showing after the run. A bare JOB-ERRORED stays hidden from the
-    // researcher (reviewer triages it), so it must NOT end the window; only a researcher-visible result
-    // (RUN-COMPLETE / FILES-APPROVED / FILES-REJECTED) does.
+    // Status changes are append-only, so a JOB-RUNNING row survives forever; gating on results
+    // stops "ever ran" reading as "executing".
     describe('isExecuting (live execution window)', () => {
         it('running, no results yet → executing', () => {
             const s = projectStudyState(
@@ -168,8 +158,7 @@ describe('projectStudyState', () => {
             expect(s.isExecuting).toBe(false)
         })
 
-        // A bare JOB-ERRORED is hidden from the researcher until a reviewer files a decision, so the
-        // window stays live for them — they hold on the code-approved page, not the results screen.
+        // A bare JOB-ERRORED is hidden from the researcher until a reviewer files a decision.
         it('ran then errored, no reviewer decision → still executing (errored result hidden)', () => {
             const s = projectStudyState(
                 raw({
@@ -212,25 +201,22 @@ describe('projectStudyState', () => {
         })
     })
 
-    // OTTER-572: hasStep2Progress is true when any Step 2 field is written, false otherwise.
     it('hasStep2Progress: false for a fresh draft, true once any Step 2 field is set', () => {
         expect(projectStudyState(raw({ status: 'DRAFT' })).hasStep2Progress).toBe(false)
         expect(projectStudyState(raw({ status: 'DRAFT', piUserId: 'pi-1' })).hasStep2Progress).toBe(true)
         expect(projectStudyState(raw({ status: 'DRAFT', datasets: ['ds-1'] })).hasStep2Progress).toBe(true)
         expect(projectStudyState(raw({ status: 'DRAFT', researchQuestions: { q: 1 } })).hasStep2Progress).toBe(true)
-        // empty datasets array is not progress
         expect(projectStudyState(raw({ status: 'DRAFT', datasets: [] })).hasStep2Progress).toBe(false)
     })
 
-    // OTTER-572 follow-up: in collaborative mode Step 2 autosaves into Yjs and leaves every column
-    // empty until an explicit flush, so the document alone has to count as progress.
+    // In collaborative mode Step 2 autosaves into Yjs and leaves every column empty until an
+    // explicit flush, so the document alone has to count as progress (OTTER-572).
     it('hasStep2Progress: true from the collaborative document with every Step 2 column empty', () => {
         const s = projectStudyState(raw({ status: 'DRAFT', hasStep2CollabDoc: true }))
         expect(s.hasStep2Progress).toBe(true)
     })
 
-    // Neither persistence layer clears itself on submit, so the projection has to do the gating:
-    // a submitted or decided study is out of the wizard and has no Step 2 to resume.
+    // Neither persistence layer clears itself on submit, so the projection has to gate.
     it('hasStep2Progress: false for every non-DRAFT status, from either layer', () => {
         const statuses: RawStudyState['status'][] = ['PENDING-REVIEW', 'APPROVED', 'REJECTED', 'CHANGE-REQUESTED']
         for (const status of statuses) {
@@ -241,8 +227,7 @@ describe('projectStudyState', () => {
 })
 
 describe('runErrored', () => {
-    // Narrower than resultsErrored on purpose: a packaging JOB-ERRORED before a good run must not
-    // read as a failed run.
+    // Narrower than resultsErrored: a packaging JOB-ERRORED before a good run is not a failed run.
     it('separates a failed run from a packaging error that a RUN-COMPLETE followed', () => {
         expect(runErrored(job(ID1, ['JOB-ERRORED']).statusChanges)).toBe(true)
         expect(runErrored(job(ID1, ['JOB-ERRORED', 'RUN-COMPLETE']).statusChanges)).toBe(false)

@@ -1,15 +1,11 @@
 import { useField } from '@mantine/form'
 import type { Decision } from '@/lib/review-decision'
 
-/**
- * Required review decision. Backed by `useField` rather than plain state so leaving the
- * radio group untouched raises a visible error instead of only disabling Submit
- * (OTTER-647). `selected` / `onSelect` are unchanged for existing callers.
- */
+// `useField` rather than plain state so an untouched radio group raises a visible error instead of
+// only disabling Submit (OTTER-647).
 export function useReviewDecision() {
-    // No `validateOnBlur`: Mantine reads that option only inside `useField`'s own
-    // `getInputProps`, which this hook does not use. Blur validation is wired by the consumer
-    // through the exposed `onBlur`, so the option would imply wiring that does not exist.
+    // No `validateOnBlur`: Mantine reads it only from `useField`'s own `getInputProps`, which this
+    // hook does not use; consumers wire blur through the exposed `onBlur` instead.
     const field = useField<Decision | null>({
         initialValue: null,
         validate: (value) => (value === null ? 'Select an option before submitting.' : null),

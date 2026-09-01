@@ -5,7 +5,7 @@ import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { NavbarProfileMenu } from './navbar-profile-menu'
 
-// Menu rows mount in a collapsed AppShellSection, so wrap in AppShell and query with `hidden: true`.
+// Menu rows mount in a collapsed AppShellSection, so queries need `hidden: true`.
 const renderMenu = () =>
     renderWithProviders(
         <AppShell>
@@ -64,8 +64,7 @@ describe('NavbarProfileMenu SI Admin submenu', () => {
     })
 
     it('toggles the sub-pages open when SI Admin is clicked', async () => {
-        // userKey is a pinned route, so the outer profile menu is open but the admin
-        // submenu starts collapsed (not an /admin/ page) — isolating the toggle behavior.
+        // userKey is pinned, so the outer menu is open while the admin submenu starts collapsed.
         mockPathname(Routes.userKey)
         mockClerkSession({ clerkUserId: 'c7', userId: 'u7', orgSlug: 'si', orgType: 'enclave', isSiAdmin: true })
         renderMenu()

@@ -31,9 +31,8 @@ const ErrorLine: React.FC<{ error: React.ReactNode }> = ({ error }) => {
 
 interface ProgrammingLanguageFieldProps {
     form: UseFormReturnType<StudyProposalFormValues>
-    /** True once the draft has a persisted language: it cannot be changed after Step 1. */
+    // True once the draft has a persisted language: it cannot be changed after Step 1.
     isLocked: boolean
-    /** Display label of the locked language, e.g. "Python" rather than the stored `PYTHON`. */
     lockedLanguageLabel?: string
 }
 
@@ -48,9 +47,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
         queryFn: () => getLanguagesForOrgAction({ orgSlug: selectedOrgSlug }),
-        // A stale session can leave orgSlug empty (new org missing from the
-        // user's JWT). Without this guard the query fires with '' and the org
-        // lookup throws "no result", 500-ing the whole request page.
+        // A stale session can leave orgSlug empty; without this the org lookup throws "no result"
+        // and 500s the request page.
         enabled: !!selectedOrgSlug,
     })
 
@@ -67,10 +65,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     }
 
     useEffect(() => {
-        // A locked field renders read-only text with no error slot, and `visibleFieldIds` skips
-        // locked ids, so a value this effect changed could be neither seen nor corrected: the
-        // resulting required-error would leave Continue with nothing to focus and no way to pass
-        // validation (OTTER-647). The persisted value is authoritative once locked.
+        // A locked field has no error slot and is skipped when focusing, so a value changed here
+        // could be neither seen nor corrected (OTTER-647).
         if (isLocked || !data) return
 
         if (data.languages.length === 1) {
@@ -78,17 +74,14 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
             return
         }
 
-        // A language the newly chosen partner cannot run must not survive the switch: it still
-        // satisfies the enum, so validation would pass on an environment that does not exist.
-        // The error is cleared with it, because the user has not failed anything yet.
+        // A language the new partner cannot run still satisfies the enum, so leaving it would let
+        // validation pass on an environment that does not exist.
         const current = form.getValues().language
         if (current && !data.languages.some((option) => option.value === current)) {
             form.setFieldValue('language', null)
             form.clearFieldError('language')
         }
-        // form intentionally excluded: Mantine rebuilds it every render, so listing it would re-run
-        // this every render, with only setFieldValue's no-op-on-unchanged-value standing between
-        // that and a loop. Stable via Mantine ref semantics, as in use-yjs-form-map.
+        // form intentionally excluded: Mantine rebuilds it every render, so listing it would loop.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrgSlug, data, isLocked])
 
@@ -97,13 +90,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     const error = form.errors.language
     const describedBy = [HELPER_ID, error ? ERROR_ID : null].filter(Boolean).join(' ')
 
-    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
-    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
-    // applies Mantine's error styling without adding a second message (OTTER-647).
-    //
-    // `aria-invalid` sits on the inputs rather than on the role="radiogroup" element, which
-    // Mantine renders itself and passes nothing through to, so the inputs are the only reachable
-    // target for it.
+    // Radio.Group's context does not carry `error` to its children, so a boolean `error` restyles
+    // the circles without a second message (OTTER-647).
     const languageRadios = languages.map((opt) => (
         <Radio
             key={opt.value}
@@ -134,15 +122,10 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
             <>
                 <Text id={HELPER_ID}>{helperText}</Text>
 
-                {/* Radio.Group's blur is a bubbled focusout, so tabbing between the radios
-                    would validate a still-empty group. useWidgetBlur waits for the user to
-                    leave the group entirely (OTTER-647). */}
-                {/* Radio.Group puts role="radiogroup" on an inner element that takes its
-                    name from `labelProps.id` and its description from Mantine's own
-                    `description` / `error` props. Hand-passed aria-* attributes land on
-                    the outer wrapper, which has no role, so they were reaching nothing.
-                    `inputWrapperOrder` keeps Mantine from rendering a second copy of the
-                    helper text and message that this component already renders below. */}
+                {/* Blur is a bubbled focusout, so tabbing between radios would validate a
+                    still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
+                {/* Radio.Group puts role="radiogroup" on an inner element named by
+                    `labelProps.id`; hand-passed aria-* lands on the roleless outer wrapper. */}
                 <Radio.Group
                     id={GROUP_ID}
                     labelProps={{ id: TITLE_ID }}
@@ -162,9 +145,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     }
 
     return (
-        // The focus target for a failed Continue click. It is a wrapper rather than the group's
-        // own id because Mantine consumes that id internally and never renders it, so
-        // getElementById would find nothing and the jump would silently do nothing.
+        // A wrapper rather than the group's own id: Mantine consumes that id internally and
+        // never renders it, so getElementById would find nothing.
         <Box id={LANGUAGE_FIELD_ID}>
             <Text id={TITLE_ID} fw={600} fz="sm" c="charcoal.9">
                 {LABEL}

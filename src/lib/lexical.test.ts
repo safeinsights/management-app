@@ -9,7 +9,6 @@ import {
     normalizeFeedbackToLexical,
 } from './lexical'
 
-// The shape the two predicates used to disagree about: valid Lexical, but holding nothing.
 const EMPTY_ROOT = JSON.stringify({ root: { type: 'root', children: [] } })
 
 describe('extractTextFromLexical', () => {
@@ -234,9 +233,8 @@ describe('hasLexicalContent', () => {
         expect(hasLexicalContent()).toBe(false)
     })
 
-    // Lexical only, and the four proposal rich-text fields depend on it: they have no plain-text
-    // path, so a value that is not Lexical has to read as empty and fail their required rule rather
-    // than pass as prose. A field that does accept both shapes reads `lexicalToText` instead.
+    // The proposal rich-text fields have no plain-text path, so a non-Lexical value must read as
+    // empty and fail their required rule rather than pass as prose.
     it('reads a value that is not Lexical as empty', () => {
         expect(hasLexicalContent('not valid json')).toBe(false)
         expect(hasLexicalContent('{"a":1}')).toBe(false)
@@ -247,13 +245,6 @@ describe('hasLexicalContent', () => {
     })
 })
 
-/**
- * The single shape decision the rest of the app builds on (OTTER-737 review).
- *
- * It replaced `isValidLexicalState` and an inline check inside `normalizeFeedbackToLexical`, which
- * had already drifted: given an empty-root document the first said plain text and the second said
- * Lexical, so the same value was wrapped on one path and passed through on the other.
- */
 describe('lexicalToText', () => {
     it('reads a Lexical document as its text', () => {
         expect(lexicalToText(lexicalJson('hello world'))).toBe('hello world')
@@ -270,9 +261,8 @@ describe('lexicalToText', () => {
         expect(lexicalToText('')).toBe('')
     })
 
-    // An empty-root document is Lexical (so it reads as no text) but is not a usable initial state
-    // for the editor (so `isValidLexicalState` still rejects it). The two answers are allowed to
-    // differ; what must not differ is the shape decision underneath them.
+    // An empty-root document is Lexical but is not a usable initial editor state, so the two
+    // answers are allowed to differ.
     it('agrees with the editor-state check on what is Lexical', () => {
         expect(lexicalToText(EMPTY_ROOT)).toBe('')
         expect(isValidLexicalState(EMPTY_ROOT)).toBe(false)
@@ -285,7 +275,6 @@ describe('countCharactersFromLexical', () => {
         expect(countCharactersFromLexical(lexicalJson('hello world'))).toBe(11)
     })
 
-    // The card excludes whitespace at either end of the content and counts everything between.
     it('excludes surrounding whitespace and counts interior whitespace', () => {
         expect(countCharactersFromLexical(lexicalJson('  hi  '))).toBe(2)
         expect(countCharactersFromLexical(lexicalJson('a b'))).toBe(3)
@@ -299,9 +288,6 @@ describe('countCharactersFromLexical', () => {
         expect(countCharactersFromLexical('not json')).toBe(0)
     })
 
-    // Counts what the user sees, because `countCharacters` does. The proposal fields are 3000 and
-    // 6000 characters, so this matters less here than on the 60-character title, but one field
-    // cannot measure a paste differently from another.
     it('counts a grapheme cluster once', () => {
         expect(countCharactersFromLexical(lexicalJson('caf\u0065\u0301'))).toBe(4)
     })
@@ -317,7 +303,6 @@ describe('normalizeFeedbackToLexical', () => {
         expect(normalizeFeedbackToLexical('plain text')).toBe(lexicalJson('plain text'))
     })
 
-    // Non-Lexical JSON parses but carries no text, so the caller's required rule rejects it.
     it('wraps JSON that is not a Lexical root', () => {
         expect(extractTextFromLexical(normalizeFeedbackToLexical('{"a":1}'))).toBe('{"a":1}')
     })

@@ -48,19 +48,17 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: async () => actionResult(await onJoinTeamAccountAction({ inviteId })),
         onSuccess: async (result) => {
-            setIsDisabled(true) // disable button after successful join
+            setIsDisabled(true)
 
-            // forces Clerk to regenerate the JWT session token with the latest user metadata
             await auth.getToken({ skipCache: true })
 
-            // short delay to ensure the token is propagated before navigation
+            // Give the token time to propagate before navigating.
             await new Promise((resolve) => setTimeout(resolve, 500))
 
             markOrgJoined(org!.name)
 
             const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
             if (result?.needsUserKey) {
-                // First-time key generation: land them on the inviting org's dashboard afterwards.
                 router.push(keyGenerationUrl(orgDashboard))
             } else {
                 router.push(orgDashboard)
@@ -79,8 +77,8 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onError: reportMutationError('Unable to decline invitation'),
     })
 
-    // A claimed or deleted invite no longer resolves; without this the page would show the
-    // loading spinner forever (org stays undefined after the query errors).
+    // A claimed or deleted invite no longer resolves; org stays undefined after the query errors,
+    // so without this the spinner never stops.
     if (isError) {
         return <InvalidInvitePanel />
     }

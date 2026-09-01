@@ -27,7 +27,6 @@ vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
 
-// Undated headings go in as props; the panel appends the shared decision date to both phases.
 const LOCKED_HEADING = 'Decrypt outputs to view code error'
 const UNLOCKED_HEADING = 'Outputs and feedback available'
 const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
@@ -46,8 +45,8 @@ const PREVIOUS_HREF = '/test-lab/study/abc/view/code' as Route
 const EDIT_CODE_HREF = '/test-lab/study/abc/resubmit' as Route
 const DASHBOARD_HREF = '/dashboard' as Route
 
-// Stands in for the server-rendered feedback section. Counting mounts is the only way to prove the
-// banner swap did not remount it — a remount silently resets each entry's expand/collapse state.
+// Counting mounts is the only way to prove the banner swap did not remount it; a remount
+// silently resets each entry's expand/collapse state.
 const mountCount = { current: 0 }
 const FeedbackProbe = () => {
     const counted = useRef(false)
@@ -60,7 +59,7 @@ const FeedbackProbe = () => {
 }
 
 describe('SharedOutputsPanel', () => {
-    // The panel reads only job.id; a real row still has to exist for the seeded artifact to hang off.
+    // A real row still has to exist for the seeded artifact to hang off.
     let job: { id: string }
 
     const renderPanel = () =>
@@ -187,8 +186,7 @@ describe('SharedOutputsPanel', () => {
             expect(before).toHaveAttribute('aria-live', 'polite')
             await decrypt()
             const after = screen.getByTestId('status-alert')
-            // Same DOM node: a screen reader only announces a content change inside a region that
-            // was already mounted, so swapping two banner components would drop the announcement.
+            // Same DOM node: swapping two banner components would drop the announcement.
             expect(after).toBe(before)
             expect(after).toHaveAttribute('aria-live', 'polite')
             expect(after).toHaveAttribute('aria-atomic', 'true')

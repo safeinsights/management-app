@@ -14,8 +14,6 @@ import { SignedOnInput } from '../signed-on-input'
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingSlaAction>[number]
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
 
-// What it takes to name the study being published against. A row from the table and a study picked
-// through the cascade both satisfy it, so the rest of the form does not care which one it has.
 type StudyDetails = Pick<Sla, 'studyId' | 'studyTitle' | 'researchLabName' | 'dataPartnerName'>
 
 const toOptions = (pairs: [string, string][]) =>
@@ -25,7 +23,6 @@ const toOptions = (pairs: [string, string][]) =>
         R.map(([value, label]) => ({ value, label })),
     )
 
-// Fetched once and narrowed in memory as the Data Partner > Research Lab > study cascade is used.
 const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
     const { data: candidates = [], isLoading } = useQuery({
         queryKey: legalDocumentQueryKeys.studiesAwaitingSla(),
@@ -50,7 +47,6 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
         forResearchLab.map((c: Candidate) => [c.studyId, c.studyTitle || c.studyId] as [string, string]),
     )
 
-    // A different parent invalidates the choices below it.
     const chooseDataPartner = (value: string | null) => {
         setDataPartnerId(value)
         setResearchLabId(null)
@@ -63,8 +59,6 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
 
     return {
         isLoading,
-        // An SLA hangs off an approved study, so with none waiting the cascade has nothing to offer
-        // and would otherwise render as three empty dropdowns that look broken.
         isEmpty: !isLoading && candidates.length === 0,
         dataPartnerId,
         researchLabId,
@@ -75,7 +69,6 @@ const useSlaCandidates = ({ enabled }: { enabled: boolean }) => {
         chooseDataPartner,
         chooseResearchLab,
         setStudyId,
-        // The chosen row already carries the names, so nothing has to be looked up to describe it.
         selected: candidates.find((c: Candidate) => c.studyId === studyId),
     }
 }
@@ -94,8 +87,6 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
     </>
 )
 
-// Says why the cascade is empty. Both causes are ordinary states rather than faults: nothing has
-// been approved yet, or every approved study already has one.
 const NoStudiesWaiting: FC = () => (
     <Text c="dimmed">
         No approved studies are waiting for a study agreement. A study becomes available here once its proposal has been
@@ -103,7 +94,6 @@ const NoStudiesWaiting: FC = () => (
     </Text>
 )
 
-// Only shown when the study is not already fixed by the row that opened the form.
 const StudySelect: FC<{
     isVisible: boolean
     candidates: ReturnType<typeof useSlaCandidates>
@@ -155,19 +145,15 @@ const VersionNote: FC<{ sla: Sla | undefined }> = ({ sla }) => {
     )
 }
 
-// Read back only for a study that came from the table; the cascade above already names the chosen one.
 const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details }) => {
     if (!details) return null
     return <StudyFields details={details} />
 }
 
-// Says nothing about acknowledgement: an sla is filed here, not enforced — only tos/pn are in
-// enforcedLegalDocumentTypes.
+// Says nothing about acknowledgement: only tos/pn are in enforcedLegalDocumentTypes.
 const PUBLISH_CONSEQUENCE =
     'This becomes the current Study Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
 
-// Given an `sla`, this adds a version to that study: the study and its orgs carry over from the row
-// and only a new date and file are collected. Without one, the study is picked from the cascade.
 export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({ onCompleteAction, sla }) => {
     const candidates = useSlaCandidates({ enabled: !sla })
     const details = sla ?? candidates.selected
@@ -178,7 +164,6 @@ export const UploadSlaForm: FC<{ onCompleteAction: () => void; sla?: Sla }> = ({
         onComplete: onCompleteAction,
     })
 
-    // Nothing to publish against, so the form is replaced rather than shown unfillable.
     if (!sla && candidates.isEmpty) return <NoStudiesWaiting />
 
     return (

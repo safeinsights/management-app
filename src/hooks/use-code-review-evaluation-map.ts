@@ -22,8 +22,7 @@ export const CODE_REVIEW_CRITERIA_KEYS: readonly CodeReviewCriteriaKey[] = [
 
 const FIELDS_MAP_NAME = 'evaluationCriteria'
 
-// Module-local; never share across hooks. Distinguishes locally-originated updates
-// (which should not be re-applied to the form) from remote updates.
+// Module-local; never share across hooks. Marks updates that must not be re-applied to the form.
 const LOCAL_ORIGIN = Symbol('use-code-review-evaluation-map.local')
 
 const VALID_VALUES: ReadonlySet<CodeReviewCriteriaValue> = new Set(['yes', 'no', 'not-sure'])
@@ -36,7 +35,6 @@ type FormShape = { criteria: CodeReviewCriteriaDraft }
 type Args = {
     form: UseFormReturnType<FormShape>
     provider: HocuspocusProvider | null
-    /** When false the hook is inert; lets callers gate the bridge on editable status. */
     enabled: boolean
 }
 
@@ -61,12 +59,8 @@ export function useCodeReviewEvaluationMap({ form, provider, enabled }: Args): R
         const onSynced = () => {
             if (cancelled) return
 
-            // Pre-sync writes (user clicked a radio while the provider was still
-            // connecting) updated the form but the prior pushCriterion no-op'd
-            // because fieldsMap was null. Without this seed pass, the immediately
-            // following applyRemoteToForm would treat absent map keys as null and
-            // wipe those local selections. On first sync, copy any local non-null
-            // values into the map so they propagate instead of being clobbered.
+            // Pre-sync radio clicks updated the form while pushCriterion no-op'd on a null
+            // fieldsMap, so without seeding them the applyRemoteToForm below wipes the selections.
             const localCriteria = form.getValues().criteria
             doc.transact(() => {
                 for (const key of CODE_REVIEW_CRITERIA_KEYS) {
@@ -94,7 +88,6 @@ export function useCodeReviewEvaluationMap({ form, provider, enabled }: Args): R
             setFieldsMap(null)
             setIsSynced(false)
         }
-        // form excluded: Mantine ref semantics keep it stable across renders.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, provider])
 
@@ -117,9 +110,8 @@ export function useCodeReviewEvaluationMap({ form, provider, enabled }: Args): R
                 if (!fieldsMap) return
                 if (isApplyingRemoteRef.current) return
                 fieldsMap.doc?.transact(() => {
-                    // null = unanswered = "key absent". Delete rather than set(key, null) so
-                    // the AC "A sets, B unsets, peer ends up unselected" is satisfied by
-                    // Y.Map LWW ordering (delete-after-set beats set-after-delete).
+                    // Delete rather than set(key, null) so Y.Map LWW ordering resolves a concurrent
+                    // set/unset as unselected (delete-after-set beats set-after-delete).
                     if (value === null) {
                         fieldsMap.delete(key)
                     } else {

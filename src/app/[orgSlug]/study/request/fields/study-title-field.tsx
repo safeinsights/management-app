@@ -17,7 +17,6 @@ interface StudyTitleFieldProps {
     error: string | undefined
     onChange: (event: ChangeEvent<HTMLInputElement>) => void
     onBlur: () => void
-    /** True once the proposal has been submitted: the title is then permanently read-only. */
     isLocked: boolean
 }
 
@@ -31,8 +30,8 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
             required
             description={DESCRIPTION}
             error={error}
-            // The character-limit message appears while the user is still typing, before any blur
-            // or click moves focus, so this is the one field whose error has to announce itself.
+            // The character-limit message appears mid-typing, before focus moves, so it has to
+            // announce itself.
             errorLive
             footer={
                 <CharacterCounter
@@ -46,8 +45,8 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
                 id={TITLE_INPUT_ID}
                 maw={620}
                 placeholder="Ex. Impact of highlighting on student learning outcomes."
-                // Deliberately no maxLength: the spec requires typing past the cap to stay
-                // possible, with the error shown, rather than the input silently swallowing keys.
+                // Deliberately no maxLength: typing past the cap must stay possible, with the
+                // error shown, rather than the input swallowing keys.
                 value={value}
                 onChange={onChange}
                 onBlur={onBlur}

@@ -26,29 +26,18 @@ type PostFeedbackViewProps = {
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
-    /** AI summary + security scan, fetched alongside the job for the CODE post-decision section. */
     review?: StudyReviewWithMeta | null
     scan?: JobScanResult | null
-    /**
-     * Render the decision banner + timestamp from this when `entries` carries no decision. Proposal
-     * approve/reject can write a CODE-* job status without a code-review comment, so the page would
-     * otherwise blank out; the fallback keeps the code decision page.
-     */
+    // Proposal approve/reject can write a CODE-* job status with no code-review comment, so
+    // without this the page would blank out.
     fallback?: {
         decision: ReviewDecision
         timestamp: Date | string
     }
-    /**
-     * Set only on the read-only /review/code walk-back step (OTTER-643) to render a "Previous" link back
-     * through the flow. Omitted for the live code-decision screen and every proposal usage, which show
-     * only "Go to dashboard" (matching the live DO design, which hides Previous).
-     */
+    // Set only on the read-only /review/code walk-back step (OTTER-643).
     previousHref?: Route
-    /**
-     * Forward link to the next step of the flow; set only when /review resolves past this screen
-     * (OTTER-687). When set, the primary action reads "Next step" instead of "Go to dashboard".
-     * Never set by the proposal usages, whose flow ends here.
-     */
+    // Set only when /review resolves past this screen (OTTER-687); the primary action then reads
+    // "Next step" instead of "Go to dashboard".
     nextStepHref?: Route
     /**
      * Current proposal-review iteration, sourced from `currentReviewVersion`. Drives the
@@ -246,8 +235,8 @@ export function PostFeedbackView({
     const isCode = kind === 'CODE'
     // CODE keeps its static heading; PROPOSAL versions per iteration to match the editable page.
     const heading = isCode ? 'Review study code' : proposalReviewHeading(reviewVersion)
-    // The row splits only when there is a left button: the forward link and the dashboard button are
-    // mutually exclusive and both sit on the right, so a lone one right-aligns either way.
+    // The forward link and the dashboard button are mutually exclusive and both sit right, so the
+    // row only splits when there is a left button.
     const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
 
     return (

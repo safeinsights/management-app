@@ -6,8 +6,7 @@ import { useSubmissionRedirectListener } from './use-submission-redirect-listene
 
 type Listener = (data: { payload: unknown }) => void
 
-// Minimal Hocuspocus-like provider stand-in for the listener hook. Only implements
-// the surface the hook actually touches: `on('stateless', ...)` and `off`.
+// Implements only the surface the hook touches: `on('stateless', ...)` and `off`.
 function createFakeProvider() {
     const listeners = new Set<Listener>()
     return {
@@ -122,8 +121,8 @@ describe('useSubmissionRedirectListener', () => {
         expect(arg.message).toBe(
             'Carol has proceeded to submit a decision on this study code. No further edits are allowed at this point.',
         )
-        // Bare /review: the reviewer state machine resolves it to the code post-feedback screen
-        // once a decision exists (codeDecision !== null), so the kicked-out user lands there.
+        // The reviewer state machine resolves bare /review to the post-feedback screen once a
+        // decision exists.
         expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
     })
 

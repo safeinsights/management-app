@@ -40,8 +40,7 @@ vi.mock('@/server/aws', async () => {
 
 const workspaceRoots: string[] = []
 
-// Submission no longer touches study.status; the durable submit marker is the
-// job's CODE-SUBMITTED status change.
+// The durable submit marker is the job's CODE-SUBMITTED status change, not study.status.
 const codeSubmittedCount = async (studyId: string) => {
     const row = await db
         .selectFrom('jobStatusChange')
@@ -130,8 +129,6 @@ describe('StudyCode component', () => {
 
         const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
         await user.click(helperStar)
-        // The override is synchronous useState, but the re-render can lag the click under parallel
-        // load — wait for the aria-pressed flip rather than asserting it synchronously.
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
                 'aria-pressed',
@@ -142,8 +139,7 @@ describe('StudyCode component', () => {
             'aria-pressed',
             'false',
         )
-        // Submit-enable also depends on the async last-job query (filesChanged is false
-        // until it resolves), so this must be awaited rather than asserted synchronously.
+        // Submit-enable depends on the async last-job query, so it cannot be asserted synchronously.
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
@@ -176,8 +172,7 @@ describe('StudyCode component', () => {
         expect(within(dialog).getByRole('button', { name: 'Yes, submit study code' })).toBeInTheDocument()
     })
 
-    // Submitting reuses the open round job, whose cleanup hits real S3
-    // (deleteFolderContents) — skip when SeaweedFS isn't running locally; CI has it.
+    // Job cleanup hits real S3, which is not running locally by default; CI has it.
     it.skipIf(!s3Available)('submits IDE files and persists study job records', async () => {
         const user = userEvent.setup()
         const { study } = await renderIDE('openstax-lab', {

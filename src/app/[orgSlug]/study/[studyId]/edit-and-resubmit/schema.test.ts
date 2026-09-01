@@ -40,8 +40,6 @@ describe('resubmitNoteSchema', () => {
         ])
     })
 
-    // Characters, not words: 400 short words is past the old 300-word cap and well inside 1800
-    // characters, so this fails if word counting survived.
     it('measures characters rather than words', () => {
         const manyShortWords = Array.from({ length: 400 }, () => 'ab').join(' ')
         expect(resubmitNoteSchema.safeParse({ resubmissionNote: manyShortWords }).success).toBe(true)

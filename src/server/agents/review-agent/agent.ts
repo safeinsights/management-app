@@ -4,18 +4,14 @@ import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
-// A ceiling, not the length control — the schema property `description` strings carry the real length guidance.
+// A ceiling, not the length control: the schema property descriptions carry that.
 const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
 
 const ANALYSIS_TOOL_NAME = 'submit_analysis'
 
-// `strict: true` opts into Anthropic's constrained-decoding tool mode. The
-// model can no longer emit a shape that violates `input_schema` — the class of
-// "alignmentCheck came back as an XML-tag string fragment" prod bug is fixed
-// at the API boundary, not in our app. Requires `additionalProperties: false`
-// at every object level. Docs:
-//   https://platform.claude.com/docs/en/build-with-claude/structured-outputs
+// `strict: true` opts into constrained decoding, which requires `additionalProperties: false` at
+// every object level.
 const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
     name: ANALYSIS_TOOL_NAME,
     description:
@@ -106,11 +102,7 @@ function buildPromptForContent(content: ReviewContent, templateOverride?: string
 }
 
 function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
-    // Structured-outputs doc explicitly calls out two degenerate paths where the
-    // response can be 200 OK but the tool_use block is missing or partial:
-    //   - `stop_reason: 'refusal'` — safety refusal takes precedence over schema
-    //   - `stop_reason: 'max_tokens'` — output truncated mid-tool-call
-    // Surface both with specific messages so Sentry alerts are actionable.
+    // A refusal and a mid-tool-call truncation both return 200 OK with the tool_use block missing.
     if (response.stop_reason === 'refusal') {
         throw new Error('The model refused to generate an analysis.')
     }

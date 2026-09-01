@@ -30,8 +30,6 @@ const renderForm = (data: ProposalDraftData = draftData, props: Partial<Paramete
         </ProposalProvider>,
     )
 
-// OTTER-690 moved the study title to Step 1. The AC asks for this as an explicit regression
-// test: the field must be gone from its prior location, not merely unused.
 describe('ProposalForm study title removal (OTTER-690)', () => {
     it('does not render a Study title field', () => {
         renderForm()
@@ -49,11 +47,8 @@ describe('ProposalForm study title removal (OTTER-690)', () => {
 })
 
 describe('ProposalForm autosave announcements', () => {
-    // Title, datasets and PI all mirror one Yjs provider, so a live region on each would have a
-    // screen reader read "All changes saved" three times per save cycle. The isolated save-status
-    // tests cannot catch that; only the assembled page can. Counted by the announcer's own testid
-    // rather than page-wide: the collaborative text editors below own separate providers, so their
-    // regions are correct, and they mount asynchronously behind an ssr:false import.
+    // Title, datasets and PI mirror one Yjs provider, so a live region on each would announce
+    // "All changes saved" three times per save cycle.
     it('announces a save once for the whole fields form (OTTER-675)', () => {
         renderForm()
         expect(screen.getAllByTestId('autosave-announcer')).toHaveLength(1)
@@ -75,7 +70,6 @@ describe('ProposalForm section header and body copy (OTTER-691)', () => {
         expect(screen.getByTestId('proposal-header-divider')).toBeInTheDocument()
     })
 
-    // The card is explicit that this step must not repeat the study title as body text.
     it('does not render the study title in the header', () => {
         renderForm()
 
@@ -138,8 +132,8 @@ describe('ProposalForm researcher field (OTTER-691)', () => {
         expect(screen.getByRole('link', { name: /Update profile/i })).toBeInTheDocument()
     })
 
-    // Scoped to "did this person create the draft", not "is this person a researcher": a co-author
-    // on the same proposal is also a researcher, and the link edits the viewer's own profile.
+    // Scoped to the draft creator, not any researcher: a co-author is a researcher too, and the
+    // link edits the viewer's own profile.
     it('hides both from anyone who is not the draft creator', () => {
         renderForm(draftData, { isDraftCreator: false })
 
@@ -183,7 +177,6 @@ describe('ProposalForm submit-click validation (OTTER-691)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
 
-        // Datasets sits above the four editors and the PI select, so it owns the jump.
         expect(document.activeElement?.closest('#datasets')).not.toBeNull()
     })
 
@@ -197,10 +190,8 @@ describe('ProposalForm submit-click validation (OTTER-691)', () => {
         expect(screen.queryByText('Select a dataset of interest before continuing.')).not.toBeInTheDocument()
     })
 
-    // A persisted NULL column reaches the provider as `undefined`, and an explicit `undefined` wins
-    // in an object spread. Left unfiltered it blanks out the matching initial value, and validation
-    // answers with a zod type message instead of the card's copy on exactly the untouched draft
-    // that needs the copy most.
+    // A persisted NULL reaches the provider as `undefined`, which wins in an object spread and
+    // blanks the matching initial value, yielding a zod type message instead of the card's copy.
     it('still uses the card wording when the draft has never been filled in', async () => {
         const user = userEvent.setup()
         renderForm({
@@ -224,10 +215,8 @@ describe('ProposalForm submit-click validation (OTTER-691)', () => {
     })
 })
 
-// Focus is the half of the rule the block above cannot reach: behind a null websocket the editors
-// render as skeletons, so every jump stops at the dataset field and a wrong editor id, a wrong PI
-// mapping or an unfocusable contenteditable would all still pass. Single-user mode renders the real
-// surfaces.
+// Behind a null websocket the editors render as skeletons, so every jump stops at the dataset
+// field; single-user mode renders the real surfaces the focus rule needs.
 describe('ProposalForm first-invalid focus (OTTER-691)', () => {
     const filled = {
         researchQuestions: JSON.stringify({ root: { type: 'text', text: 'A question?' } }),

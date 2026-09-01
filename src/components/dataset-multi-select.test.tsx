@@ -1,15 +1,6 @@
 import { describe, expect, it, renderWithProviders, vi } from '@/tests/unit.helpers'
 import { DatasetMultiSelect } from './dataset-multi-select'
 
-/**
- * Guards the placeholder-free rendering Step 2 asks for (OTTER-691).
- *
- * Mantine types this MultiSelect's inner field with `!searchable && !placeholder ? 'hidden' :
- * 'visible'`, and the component is never searchable. A falsy placeholder therefore used to
- * collapse the field to a 1px, `opacity: 0`, `pointer-events: none` box. That field carries the
- * DOM id the "jump to the first flagged field" rule looks up, so a hidden one sends the caret to
- * an invisible element and takes the click target away with it.
- */
 describe('DatasetMultiSelect', () => {
     const renderField = (placeholder?: string) =>
         renderWithProviders(

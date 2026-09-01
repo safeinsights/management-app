@@ -1,9 +1,7 @@
 import { renderWithProviders, screen, describe, it, expect } from '@/tests/unit.helpers'
 import { SingleUserEditor } from './single-user-editor'
 
-// Driven through SingleUserEditor rather than EditorSurface directly: the surface only works
-// inside a LexicalComposer, and going through a real editor is what the project's testing
-// guidance asks for anyway.
+// Driven through SingleUserEditor because the surface only works inside a LexicalComposer.
 const surface = () => document.querySelector('.collaborative-editor-container') as HTMLElement
 const editable = () => screen.getByRole('textbox')
 
@@ -14,8 +12,6 @@ describe('EditorSurface', () => {
         expect(surface().style.resize).toBe('vertical')
     })
 
-    // The surface is shared with the reviewer-feedback, code-review and outputs-decision editors,
-    // which never had a handle. Opting in is what keeps OTTER-691's handle on Step 2 only.
     it('renders no resize handle unless the caller opts in', () => {
         renderWithProviders(<SingleUserEditor id="doc-default-resize" ariaLabel="Impact" />)
 
@@ -41,8 +37,6 @@ describe('EditorSurface', () => {
         expect(editable().style.minHeight).toBe('200px')
     })
 
-    // Callers that predate `contentHeight` size themselves through contentStyle. Letting the
-    // default overwrite that silently resized every such editor in the app.
     it('keeps a caller-supplied minHeight when no content height is given', () => {
         renderWithProviders(
             <SingleUserEditor id="doc-style-height" ariaLabel="Feedback" contentStyle={{ minHeight: 600 }} />,
@@ -64,9 +58,6 @@ describe('EditorSurface', () => {
         expect(editable().style.minHeight).toBe('105px')
     })
 
-    // Without this the editable surface is unfocusable in the test environment, so
-    // `focusFirstInvalid` would silently no-op and the "jump to the first flagged field" rule
-    // would look covered while never being exercised.
     it('makes the editable surface focusable', () => {
         renderWithProviders(<SingleUserEditor id="doc-focus" ariaLabel="Research questions" />)
 

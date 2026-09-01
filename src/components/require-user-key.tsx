@@ -13,7 +13,6 @@ export const RequireUserKey = () => {
 
     useLayoutEffect(() => {
         const checkForUserKey = async () => {
-            // Every user needs a key.
             if (!session) return
 
             const hasKey = actionResult(await userKeyExistsAction())

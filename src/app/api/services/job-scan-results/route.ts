@@ -45,9 +45,8 @@ export const POST = createWebhookHandler({
                 job,
             })
 
-            // The two halves of one scan log move together. If the encrypted half was refused because
-            // its keys are already shared, replacing the plaintext half would leave the reviewer's
-            // parsed statuses reporting different findings than the log the researcher can decrypt.
+            // Both halves move together: replacing only the plaintext would show the reviewer
+            // findings from a log the researcher cannot open.
             if (!encrypted || encrypted.stored) {
                 const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
                     type: 'text/plain',
@@ -60,12 +59,8 @@ export const POST = createWebhookHandler({
             }
         }
 
-        // CODE-SUBMITTED is recorded by the submission action (markCodeSubmitted), not by the scanner:
-        // the scan trigger sends no ON_START_PAYLOAD (see buildTriggerScanForStudyJobCommandInput), so
-        // this webhook only ever reports CODE-SCANNED / JOB-ERRORED in practice. A stray CODE-SUBMITTED
-        // echo from an older scanner would corrupt the append-only submission log (each row is a real
-        // round), so reject it rather than dropping-as-duplicate (the old dedup is wrong now that a
-        // change-requested resubmit legitimately appends a second CODE-SUBMITTED).
+        // CODE-SUBMITTED is owned by markCodeSubmitted; a stray scanner echo would corrupt the
+        // append-only submission log.
         if (body.status === 'CODE-SUBMITTED') return
 
         const last = await db

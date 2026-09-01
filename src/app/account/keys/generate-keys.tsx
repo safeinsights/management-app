@@ -20,15 +20,9 @@ interface Keys {
     fingerprint: string
 }
 
-// AC: a reset returns to "My dashboard"; the first key ever generated returns to the landing the
-// page resolved for this account. An explicit redirect_url (invite flows, deep links) overrides it.
-// Keyed off account state rather than off the presence of that parameter: the RequireUserKey guard
-// is the entry point most first keys arrive through, and it passes none (OTTER-655).
-//
-// firstKeyRedirect is the fallback argument on purpose, so a redirect_url that fails validation
-// falls back to the resolved landing rather than to Routes.dashboard. Passing Routes.dashboard here
-// instead would look equivalent and would quietly demote a first key to "My dashboard" whenever the
-// parameter is malformed, which is the bug this function exists to fix.
+// Keyed off account state, not the parameter's presence, because RequireUserKey passes none.
+// firstKeyRedirect is the fallback so a malformed redirect_url cannot demote a first key
+// to Routes.dashboard (OTTER-655).
 export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
     if (isRegenerating) return Routes.dashboard
 
@@ -37,7 +31,6 @@ export function postKeyRedirect(isRegenerating: boolean, redirectParam: string |
 
 type GenerateKeysProps = {
     isRegenerating?: boolean
-    /** Where a first key lands when no redirect_url is supplied; ignored for a reset. */
     firstKeyRedirect?: Route
 }
 
@@ -53,11 +46,8 @@ const COPY_FAILED: CopyIndication = {
     text: 'Copy did not work. Select the key above and copy it manually.',
 }
 
-// The AC allows exactly one indicator at a time, which rules out Mantine's useClipboard: it folds
-// every attempt into one pair of flags, so a slow rejection (a permission prompt left open) can
-// land after a later success and light the green check and the red failure together. Each attempt
-// aborts the one before it and an aborted attempt writes no state, because a copy the user has
-// already superseded says nothing about what is on their clipboard now (OTTER-655).
+// Not Mantine's useClipboard: it folds every attempt into one pair of flags, so a slow rejection
+// can land after a later success and light both (OTTER-655).
 function useCopyIndication() {
     const [indication, setIndication] = useState<CopyIndication | null>(null)
     const pending = useRef<AbortController>(undefined)
@@ -81,8 +71,6 @@ function useCopyIndication() {
             }, COPIED_VISIBLE_MS)
         } catch {
             if (attempt.signal.aborted) return
-            // The message tells the user to select the key manually, so the reason does not matter
-            // and there is nothing actionable to report.
             setIndication(COPY_FAILED)
         }
     }

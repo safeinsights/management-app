@@ -12,8 +12,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ReviewDecisionSection } from './review-decision-section'
 
-// `withLeaveButton` is opt-in so the cases that only read the rendered options keep the DOM they
-// have always had; a control present in every case would widen what any broad query here sees.
+// Opt-in so a control present in every case does not widen what the broad queries here see.
 function Wrapper({
     study,
     labName = 'Rice University',
@@ -32,7 +31,6 @@ function Wrapper({
     )
 }
 
-// Drives the error state through the component's own blur path rather than reaching into the form.
 function LeaveGroupButton({ isVisible, onLeave }: { isVisible: boolean; onLeave: () => void }) {
     if (!isVisible) return null
     return (

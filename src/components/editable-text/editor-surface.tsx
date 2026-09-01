@@ -17,16 +17,10 @@ import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { Toolbar } from './toolbar'
 import type { WidgetBlurProps } from '@/components/form-field'
 
-/** Content-area height used by any caller that specifies neither `contentHeight` nor a `minHeight`. */
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
-/**
- * The editable area's starting height.
- *
- * `contentHeight` is the explicit prop and wins. Callers that predate it express the same thing as
- * `minHeight` inside `contentStyle`, so that is the fallback: overwriting it with the default
- * would silently resize every editor in the app that never opted into per-field heights.
- */
+// `contentStyle.minHeight` is a fallback because callers predating `contentHeight` express the
+// same thing that way.
 export const resolveContentHeight = (contentHeight?: number, contentStyle?: CSSProperties) =>
     contentHeight ?? contentStyle?.minHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
 
@@ -40,30 +34,9 @@ const PLACEHOLDER_BASE_STYLE: CSSProperties = {
     pointerEvents: 'none',
 }
 
-/**
- * Tracks the height the editor would take with no manual sizing, so it can be applied as the
- * resize floor (OTTER-691).
- *
- * The card asks for two floors: a manual resize may not shrink a field below its default height,
- * nor below its current auto-resized height, and says in as many words that the two combine to
- * "cannot go below whichever is currently taller". Both are expressed here at once, because the
- * measured wrapper already sits on top of the default: the editable surface carries
- * `minHeight: startingHeight`, so what this measures is `max(default, actual content)` and the
- * floor is that plus the toolbar.
- *
- * `min-height` rather than `height` is deliberate, and the two coexist rather than compete.
- * Dragging the native handle writes an inline `height` on this element (verified in Chromium),
- * which is the user's manual size; `min-height` is the floor the drag cannot cross. Because React
- * only ever writes `minHeight` here, re-rendering does not clobber the height the browser wrote,
- * so a manual size survives every subsequent render. That is also what keeps auto-growth working
- * after a manual resize: typing raises the floor above the dragged height and pushes the box back
- * open, and deleting that text lowers the floor again, leaving the manual height in charge.
- *
- * What is measured matters. `contentRef` wraps the editable surface but is never stretched (the
- * scroll container is the flex child that absorbs slack), so its height is the content's own
- * height. Measuring the scroll container instead would feed the floor back its own value after a
- * manual enlarge and the field could never be shrunk again.
- */
+// A drag may not shrink the field below its content (OTTER-691). Applied as `min-height` so it
+// coexists with the inline `height` a native drag writes; measuring the scroll container instead
+// of `contentRef` would feed the floor its own value.
 function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef: RefObject<HTMLDivElement | null>) {
     const contentRef = useRef<HTMLDivElement>(null)
     const chromeRef = useRef<HTMLDivElement>(null)
@@ -71,15 +44,13 @@ function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef
 
     useEffect(() => {
         const content = contentRef.current
-        // happy-dom and older browsers: without an observer the box still auto-grows, it just
-        // cannot be resize-clamped. Degrading to "no floor" beats crashing the editor.
+        // Without an observer the box still auto-grows, it just cannot be resize-clamped.
         if (!content || typeof ResizeObserver === 'undefined') return
 
         const measure = () => {
             const host = hostRef.current
-            // The floor lands on the bordered host, which is border-box, so the border has to be
-            // added back. Without it the floor is a border's worth short of what the content needs
-            // and dragging down to it leaves a permanent scrollbar in the scroll area.
+            // The bordered host is border-box, so without adding the border back the floor falls
+            // a border short and dragging to it leaves a permanent scrollbar.
             const border = host ? host.offsetHeight - host.clientHeight : 0
             setFloor(content.offsetHeight + (chromeRef.current?.offsetHeight ?? 0) + border)
         }
@@ -105,31 +76,16 @@ export interface EditorSurfaceProps {
     ariaRequired?: boolean
     /** Presence drives the red border and `aria-invalid`; the caller renders the message. */
     error?: string | null
-    /** Click-outside plumbing from `useWidgetBlur`, applied to the surface root. */
     widgetBlur: WidgetBlurProps<HTMLDivElement>
-    /**
-     * Height of the editable area before any typing or dragging. Falls back to
-     * `contentStyle.minHeight`, then to {@link DEFAULT_EDITOR_CONTENT_HEIGHT}.
-     */
     contentHeight?: number
-    /**
-     * Opt-in, and false everywhere it is not passed. OTTER-691 asks for a drag handle on the
-     * Step 2 proposal fields; the reviewer-feedback, code-review and outputs-decision editors that
-     * share this surface never had one, and turning it on for them is a UI change no card asked
-     * for. Read-only fields simply never opt in, which is what keeps a dead grip off a submitted
-     * proposal.
-     */
+    /** Opt-in: OTTER-691 asks for a drag handle only on the Step 2 proposal fields. */
     isResizable?: boolean
-    /** Lexical plugins. They differ between the collaborative and single-user editors. */
+    /** Lexical plugins, which differ between the collaborative and single-user editors. */
     children?: ReactNode
 }
 
-/**
- * The editor chrome shared by `CollaborativeEditor` and `SingleUserEditor`: the bordered box, the
- * editable surface, the placeholder and the toolbar. Extracted so the resize behavior above exists
- * once. The two editors previously carried near-identical copies of this markup, and CI runs
- * single-user mode, so a defect in the collaborative copy had nowhere to show up.
- */
+// Shared chrome because CI only runs single-user mode, so a defect in a duplicated collaborative
+// copy would have nowhere to show up.
 export function EditorSurface({
     inputId,
     contentClassName,
@@ -147,9 +103,8 @@ export function EditorSurface({
     const startingHeight = resolveContentHeight(contentHeight, contentStyle)
     const { contentRef, chromeRef, floor } = useEditorHeightFloor(startingHeight, widgetBlur.ref)
 
-    // Dragging the box taller leaves slack under the text, and a click there would otherwise do
-    // nothing. Only a press on the scroll container itself counts, so presses that land on the
-    // text keep their own caret placement.
+    // Dragging the box taller leaves slack under the text where a click would otherwise do
+    // nothing. Presses landing on the text itself keep their own caret placement.
     const focusFromSlack = useCallback(
         (event: MouseEvent<HTMLDivElement>) => {
             if (event.target !== event.currentTarget) return
@@ -178,10 +133,8 @@ export function EditorSurface({
                                 id={inputId}
                                 className={contentClassName}
                                 style={editableStyle}
-                                // Lexical sets no tabindex of its own. A browser still focuses a
-                                // contenteditable, but happy-dom does not, so `focusFirstInvalid`
-                                // would silently no-op in tests and the "jump to the first
-                                // flagged field" rule would look covered while being untested.
+                                // Lexical sets no tabindex. Browsers still focus a contenteditable
+                                // but happy-dom does not, so tests would silently no-op.
                                 tabIndex={0}
                                 ariaLabel={ariaLabel}
                                 ariaDescribedBy={ariaDescribedBy}

@@ -7,30 +7,17 @@ import { CharacterCounter } from '@/components/character-counter'
 import { Editor, type EditorProps } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 
-/**
- * The Data Partner's Decision editor, shared by the proposal review and the code review.
- *
- * The two pages had a copy each, differing only in the document name, the ids and the copy. What
- * they had in common was the part worth keeping in one place: the error slot, the counter, and the
- * ARIA wiring that ties the two to the editor. That wiring had already drifted once, because every
- * change to it (the counter id, the live region, `hasCounter`) had to be made twice by hand
- * (OTTER-737).
- *
- * Outputs review is deliberately not a caller. It carries its own decision radios and its own
- * error derivation, and shares only the components below.
- */
+// Shared by the proposal and code reviews so the error slot, counter and ARIA wiring cannot
+// drift apart again (OTTER-737). Outputs review deliberately owns its own.
 type DecisionFeedbackEditorProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     studyId: string
-    /** Yjs document name. NOT a DOM id; `inputId` is that. */
     docName: string
     inputId: string
     ariaLabel: string
     placeholder?: string
-    /** Owned by the caller: the two pages give the editor different heights and font sizes. */
     contentStyle: CSSProperties
     skeletonHeight: number
-    /** Opt-in vertical drag handle; off unless a caller asks for one. */
     isResizable?: boolean
     onProviderReady: EditorProps['onProviderReady']
 }

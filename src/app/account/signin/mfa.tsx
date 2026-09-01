@@ -22,12 +22,8 @@ import { VerifyCode } from './verify-code'
 export type Step = 'select' | 'verify' | 'recovery'
 type Method = 'sms' | 'totp'
 
-// The session token is what carries fresh org metadata to the next page, but a stale token is a
-// far smaller problem than losing the invite or the key detour that follows it, so a refresh
-// failure is logged rather than thrown. The caller is named in the log because the two differ in
-// what the user is left holding: after sign-in nothing has been committed yet, while after an
-// invite accept the membership row already exists, so a stale token there means a joined user
-// whose session cannot see the org.
+// A stale token matters less than losing the invite or key detour that follows, so a refresh
+// failure is logged, not thrown.
 async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invite-accepted') {
     try {
         await getToken({ skipCache: true })
@@ -36,9 +32,7 @@ async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invi
     }
 }
 
-// Clerk has already established the session by the time this runs, so a failure here must not
-// abort the rest of the sequence: a pending invite still needs accepting, and the client key guard
-// still catches a keyless account wherever it lands.
+// The session is already established, so a failure here must not abort the rest of the sequence.
 async function completeServerSignIn(getToken: GetToken) {
     try {
         const result = actionResult(await onUserSignInAction())
@@ -50,43 +44,34 @@ async function completeServerSignIn(getToken: GetToken) {
     }
 }
 
-// Always resolves to a destination rather than throwing, so the key detour still runs on top of
-// whatever this decides.
+// Always resolves to a destination rather than throwing, so the key detour still runs on top.
 async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToken): Promise<Route> {
     const joinTeamPage = Routes.accountInvitationJoinTeam({ inviteId }) as Route
 
     let org: { slug: string; name: string }
     try {
-        // Read the org before joining: accepting marks the invite claimed,
-        // and the lookup only resolves unclaimed invites.
+        // Read before joining: the lookup only resolves unclaimed invites.
         org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
     } catch (error) {
-        // A claimed or deleted invite, so retrying can never succeed, which is
-        // distinct from a join failure that is worth retrying. The join-team
-        // page renders a persistent "no longer valid" panel for this state, so
-        // land there rather than on a dashboard where only the transient toast
-        // explains what happened.
+        // Retrying can never succeed, and the join-team page has a persistent "no longer valid"
+        // panel where a dashboard would only flash a toast.
         reportError(error, 'This invitation is no longer valid')
         return joinTeamPage
     }
 
     try {
-        // actionResult, despite the discarded value: it is what turns an
-        // action failure into a throw, so the catch below can run.
+        // actionResult despite the discarded value: it turns an action failure into a throw.
         actionResult(await onJoinTeamAccountAction({ inviteId }))
     } catch (error) {
-        // A join that fails inside its transaction rolls the claim back, leaving the invite live,
-        // so return to the join-team page where Accept can be retried instead of silently landing
-        // elsewhere.
+        // A failed join rolls the claim back, leaving the invite live, so return where Accept can
+        // be retried.
         reportError(error, 'Failed to accept your invitation. Please try again.')
         return joinTeamPage
     }
 
-    // Same one-shot flag the join-team page sets, so this path lands on
-    // the dashboard banner.
     markOrgJoined(org.name)
-    // Deliberately after the landing is settled: nothing that runs once the membership exists may
-    // turn a successful join into a retry prompt.
+    // After the landing is settled: nothing past this point may turn a successful join into a
+    // retry prompt.
     await refreshSessionToken(getToken, 'invite-accepted')
 
     return Routes.orgDashboard({ orgSlug: org.slug }) as Route
@@ -101,7 +86,6 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const { isSignedIn } = useUser()
     const auth = useAuth()
 
-    // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
     const hasBoth = Boolean(hasSMS && hasTOTP)
@@ -143,30 +127,26 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     const rawRedirect = searchParams.get('redirect_url')
                     let redirectUrl = rawRedirect ? safeRedirectUrl(rawRedirect, Routes.dashboard) : null
                     const inviteId = searchParams.get('invite_id')
-                    // An invite outranks redirect_url when both are present. Joining is the thing
-                    // that just changed, and its landing is the only one that reflects it: the
-                    // dashboard confirms the membership and carries the joined-org banner, while a
-                    // deep link captured before the join may still be unreachable to this account.
+                    // An invite outranks redirect_url: a deep link captured before the join may
+                    // still be unreachable to this account.
                     if (inviteId) {
                         redirectUrl = await acceptInviteAndResolveLanding(inviteId, auth.getToken)
                     }
 
                     // Key generation last, so a keyless user still accepts their invite on the way
-                    // through and resumes where they were headed afterwards (OTTER-655).
+                    // through (OTTER-655).
                     router.push(
                         result?.redirectToKeyGeneration
                             ? keyGenerationUrl(redirectUrl)
                             : (redirectUrl ?? Routes.dashboard),
                     )
                 } catch (error) {
-                    // Last resort: both steps above resolve their own failures to a destination,
-                    // so reaching this means something unexpected threw. The user is signed in
-                    // either way, so navigate rather than stranding them on the MFA form.
+                    // Both steps above resolve their own failures, so reaching this means something
+                    // unexpected threw. The user is signed in either way.
                     console.error('post sign-in navigation failed:', error)
                     router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
                 }
             } else {
-                // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({
                     code: `Unknown signIn status: ${signInAttempt?.status || 'unknown'}`,
                 })
@@ -194,14 +174,12 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
             await mfa.signIn.reload()
             setMethod(null)
             setStep('select')
-            // Clear the code input when returning to options
             form.setFieldValue('code', '')
             form.clearErrors()
         }
     }
 
-    // Get phone number from signIn resource if SMS method is selected
-    // clerk masks phone number during mfa signin
+    // Clerk masks the phone number during MFA sign-in.
     const phoneNumber =
         method === 'sms' && mfa
             ? mfa.signIn.supportedSecondFactors?.find((f) => f.strategy === 'phone_code')

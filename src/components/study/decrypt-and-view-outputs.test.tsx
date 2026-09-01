@@ -52,8 +52,8 @@ describe('DecryptAndViewOutputs', () => {
         expect(screen.queryByTestId('outputs-files-section')).not.toBeInTheDocument()
     })
 
-    // A run closed out with nothing to decrypt (OTTER-524) would otherwise be asked for a key that
-    // could never open anything, because there is nothing to open.
+    // Otherwise a run with nothing to decrypt asks for a key that could never open anything
+    // (OTTER-524).
     it('renders nothing when the job holds no artifact a key could open', async () => {
         renderWithProviders(<DecryptAndViewOutputs job={job} isVisible={false} />)
 

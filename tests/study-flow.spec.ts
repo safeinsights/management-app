@@ -502,13 +502,8 @@ async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 }
 
-// OTTER-688: a clean run whose outputs the reviewer shared routes the researcher to their own
-// outputs step, replacing the old inline "results have been approved" panel. Unlike the errored
-// sibling this drives the decrypt all the way through: the reviewer leg above shares for real, so
-// insertSharedFileKeys has written keys wrapped to the lab's public key, and every seeded role
-// shares public_key.pem (bin/seed-environment.ts) — so private_key.pem genuinely opens them. That
-// makes this the only end-to-end check of the server/client boundary on this screen; the unit tests
-// render the server component in-process, with no serialization step to get wrong.
+// The only end-to-end check of the server/client boundary on this screen: the reviewer leg shares
+// for real, so private_key.pem genuinely opens the wrapped keys (OTTER-688).
 async function verifyOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
     await viewStudyDetails(page, studyTitle)

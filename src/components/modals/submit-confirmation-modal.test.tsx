@@ -34,13 +34,8 @@ describe('SubmitConfirmationModal', () => {
             expect(screen.queryByRole('button', { name: 'Submit proposal' })).not.toBeInTheDocument()
         })
 
-        /**
-         * The regression this exists for: the loading state was first built with Mantine's
-         * `loading` prop, which renders the Loader as a centered overlay *on top of* the label and
-         * marks the button `data-loading`. The accessible name stayed "Submitting", so a
-         * name-based assertion passed while the button rendered as a blank rectangle on screen.
-         * Asserting the attribute is absent pins the mechanism, not just the text.
-         */
+        // Mantine's `loading` overlays the Loader on the label, leaving the accessible name
+        // intact, so a name-based assertion would pass on a blank button.
         it("does not use Mantine's label-covering loading treatment", () => {
             renderSubmitting()
 
@@ -50,13 +45,11 @@ describe('SubmitConfirmationModal', () => {
         it('shows a spinner beside the label', () => {
             renderSubmitting()
 
-            // document, not the render container: Mantine renders the modal into a portal.
+            // document, not the container: Mantine renders the modal into a portal.
             expect(document.querySelector('[class*="mantine-Loader"]')).toBeInTheDocument()
         })
     })
 
-    // Callers that never pass a loading label (the Step 1 "Continue to the next step?" modal) keep
-    // the default treatment, so this change stays scoped to the proposal submit modal.
     it("keeps Mantine's default loading treatment when no loading label is given", () => {
         renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting />)
 

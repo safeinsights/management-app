@@ -7,14 +7,12 @@ import { TosPnPanel } from './tos-pn/tos-pn'
 import { ParticipationAgreements } from './participation/participation-agreements'
 import { StudyLevelAgreements } from './sla/study-level-agreements'
 
-// keepMounted={false} so a tab's queries only run once its panel is opened.
 export const LegalTabs: FC = () => (
     <Tabs defaultValue="TOS" keepMounted={false}>
         <Tabs.List>
             <Tabs.Tab value="TOS">{legalDocumentTypeLabels.TOS}</Tabs.Tab>
             <Tabs.Tab value="PN">{legalDocumentTypeLabels.PN}</Tabs.Tab>
-            {/* Acronyms: the full participation-agreement names run to 40+ characters, which no tab
-                strip survives. Each panel's own heading carries the full name. */}
+            {/* Acronyms: the full names run to 40+ characters, which no tab strip survives. */}
             <Tabs.Tab value="DOPA">DOPA</Tabs.Tab>
             <Tabs.Tab value="ROPA">ROPA</Tabs.Tab>
             <Tabs.Tab value="SLA">Study Agreements</Tabs.Tab>

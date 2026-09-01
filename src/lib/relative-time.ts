@@ -1,6 +1,3 @@
-// Human-friendly relative time that works for both past ("5 minutes ago") and future ("in 5
-// minutes") instants, down to seconds ("in 5 seconds"). Returns null only for a missing or invalid
-// date.
 export function formatRelativeTime(date: Date | null, now: Date = new Date()): string | null {
     if (!date || Number.isNaN(date.getTime())) return null
 
@@ -25,7 +22,6 @@ export function formatRelativeTime(date: Date | null, now: Date = new Date()): s
     return `on ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 }
 
-// Past-only relative time: null for future instants (where "ago" phrasing is assumed).
 export function formatTimeAgo(date: Date | null, now: Date = new Date()): string | null {
     if (!date || Number.isNaN(date.getTime())) return null
     if (date.getTime() > now.getTime()) return null

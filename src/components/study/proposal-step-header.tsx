@@ -5,17 +5,11 @@ import dayjs from 'dayjs'
 type ProposalStepHeaderProps = {
     stepLabel: string
     heading: string
-    /**
-     * Omit entirely to drop the "Title:" line. Step 1 (OTTER-690) reuses this header before a
-     * study exists, and its spec forbids the title as body text; every other step passes one.
-     */
+    /** Omitted by Step 1, which reuses this header before a study exists (OTTER-690). */
     studyTitle?: string | null
     timestampDate?: Date | string | null
     timestampLabel?: string
-    /**
-     * Pass `null` rather than an element that renders nothing: the header cannot tell the two
-     * apart, and it draws its rule only when a banner or children come after it.
-     */
+    /** Pass `null`, not an element that renders nothing: the header cannot tell the two apart. */
     banner?: ReactNode
     children?: ReactNode
 }
@@ -73,9 +67,8 @@ export function ProposalStepHeader({
     banner,
     children,
 }: ProposalStepHeaderProps) {
-    // The rule separates the header from what follows it inside the same card, so a header with
-    // nothing below must not end in one. The proposal now lives in its own card, which left the
-    // header ending in a stray rule for a status with no banner copy (OTTER-755).
+    // The rule separates the header from what follows inside the same card, so a header with
+    // nothing below must not end in one (OTTER-755).
     const hasContentBelowRule = Boolean(banner) || Boolean(children)
 
     return (

@@ -23,12 +23,7 @@ type Args = {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
     websocketProvider: HocuspocusProviderWebsocket | null
-    /**
-     * Which fields this surface co-edits. Defaults to every collaborative key, which is what the
-     * CHANGE-REQUESTED resubmit flow needs. The DRAFT Step 2 editor passes a reduced set that
-     * leaves `title` out, because Step 1 owns that column now (OTTER-690) and seeding or applying
-     * a Yjs `title` there would let the collaborative copy overwrite the Step 1 one.
-     */
+    /** The DRAFT Step 2 editor omits `title` because Step 1 owns that column (OTTER-690). */
     collabKeys?: readonly CollabFieldKey[]
 }
 
@@ -57,19 +52,15 @@ const DEFAULT_SEEDS: Record<CollabFieldKey, (values: ProposalFormValues) => unkn
 }
 
 export function useYjsFormMap({ studyId, form, websocketProvider, collabKeys = COLLAB_FIELD_KEYS }: Args): Return {
-    // The effects below key on the contents rather than on the array identity, so a caller passing
-    // a fresh literal each render does not tear down and rebuild the provider on every render. The
-    // effect bodies still read `collabKeys` itself, which is the value from the render that
-    // scheduled them.
+    // Keyed on contents, not array identity, so a caller passing a fresh literal each render does
+    // not tear down and rebuild the provider.
     const collabKeysKey = collabKeys.join(',')
     const { getToken } = useAuth()
     const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
     const [fieldsMap, setFieldsMap] = useState<Y.Map<unknown> | null>(null)
     const [isSynced, setIsSynced] = useState(false)
-    // Tracks which fields the user has locally edited via pushField/pushPI.
-    // The initial-value seeding on first sync writes through the map directly,
-    // not through push*, so it never counts as an edit — this is what keeps the
-    // autosave indicator hidden under fields the user hasn't touched.
+    // Seeding on first sync writes through the map directly rather than push*, so it never counts
+    // as an edit and the autosave indicator stays hidden on untouched fields.
     const [editedKeys, setEditedKeys] = useState<ReadonlySet<CollabFieldKey>>(new Set())
     const isApplyingRemoteRef = useRef(false)
 
@@ -95,20 +86,15 @@ export function useYjsFormMap({ studyId, form, websocketProvider, collabKeys = C
             document: doc,
             token: async () => (await getToken()) ?? '',
             onAuthenticationFailed: () => {
-                // Auth failures here mean the proposal-fields Y.Doc never connects.
-                // Local form values keep working uncollaboratively; log and let cleanup
-                // tear the provider down on unmount or next dep change.
+                // The Y.Doc never connects, but local form values keep working uncollaboratively.
                 console.warn(`HocuspocusProvider auth failed for ${docName}`)
             },
         } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
-        // With a shared websocketProvider the constructor leaves manageSocket=false and
-        // does NOT register the provider. Without this attach() the document never
-        // syncs (no SYNC_STEP1 ever leaves the client).
+        // With a shared websocketProvider the constructor leaves manageSocket=false and does not
+        // register the provider, so without attach() no SYNC_STEP1 ever leaves the client.
         next.attach()
 
-        // The Hocuspocus provider is an external resource created and torn down by this
-        // effect; storing the instance in state is how consumers re-render once it exists.
         // eslint-disable-next-line react-hooks/set-state-in-effect -- exposing an effect-created external resource
         setProvider(next)
 
@@ -145,9 +131,8 @@ export function useYjsFormMap({ studyId, form, websocketProvider, collabKeys = C
             setProvider(null)
             setFieldsMap(null)
             setIsSynced(false)
-            // Edits are scoped to a provider session; a reconnect swaps in a fresh
-            // provider whose status starts idle, so stale edited flags would only
-            // resurface the indicator without a new local edit.
+            // Edits are scoped to a provider session; stale flags would resurface the indicator
+            // after a reconnect without a new local edit.
             setEditedKeys(new Set())
         }
         // form intentionally excluded: it's recreated each render but stable via Mantine ref semantics.
@@ -209,8 +194,8 @@ function applyRemoteToForm(
             if (value === undefined) continue
             const currentValue = form.getValues()[key] as unknown
             if (valuesEqual(currentValue, value)) continue
-            // Mantine's setFieldValue marks the form dirty even for programmatic writes.
-            // Reset dirty after the batch so passive readers don't see the form as edited.
+            // Mantine's setFieldValue marks the form dirty even for programmatic writes, hence the
+            // resetDirty() after the batch.
             form.setFieldValue(key, value as ProposalFormValues[typeof key])
         }
         form.resetDirty()

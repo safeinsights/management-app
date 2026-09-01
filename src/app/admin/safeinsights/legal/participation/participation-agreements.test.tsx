@@ -18,8 +18,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations go to vi.fn, not mockResolvedValue: mockReset would wipe a value set after.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
@@ -36,7 +35,6 @@ const seedSignedDopa = async (signedAt: string) => {
     return org
 }
 
-// Scoped to one org's row: the table lists every agreement the suite has seeded.
 const rowFor = async (orgName: string) => {
     await waitFor(() => expect(screen.getByText(orgName)).toBeDefined())
     const row = screen.getByText(orgName).closest('tr')
@@ -44,7 +42,6 @@ const rowFor = async (orgName: string) => {
     return row
 }
 
-// The dropzone keeps a real file input behind it, so the file goes in directly.
 const chooseFile = (name: string) => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     fireEvent.change(input, { target: { files: [new File(['pdf bytes'], name, { type: 'application/pdf' })] } })
@@ -65,7 +62,6 @@ describe('ParticipationAgreements', () => {
         renderWithProviders(<ParticipationAgreements type="DOPA" />)
 
         const row = await rowFor(org.name)
-        // Guards the off-by-one: the day entered must be the day rendered.
         expect(within(row).getByText('Jul 27, 2026')).toBeDefined()
         expect(within(row).getByText('1')).toBeDefined()
         expect(within(row).getByRole('link', { name: 'View PDF' })).toBeDefined()
@@ -83,9 +79,8 @@ describe('ParticipationAgreements', () => {
         expect(screen.queryByText(unsigned.name)).toBeNull()
     })
 
-    // Which orgs the picker offers is asserted against fetchParticipationSignatoriesAction; opening
-    // the dropdown is left to the e2e spec, because Mantine's Combobox needs layout APIs happy-dom
-    // does not provide and its options never render here.
+    // Opening the dropdown is left to the e2e spec: Mantine's Combobox needs layout APIs happy-dom
+    // does not provide, so its options never render here.
     it('asks for an org when opened from the header, with Publish held until one is chosen', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const user = userEvent.setup()
@@ -98,7 +93,6 @@ describe('ParticipationAgreements', () => {
             expect(screen.getByText('Upload a signed Data Organization Participation Agreement')).toBeDefined(),
         )
         expect(screen.getByPlaceholderText('Select a Data Partner')).toBeDefined()
-        // A date and file alone are not enough while the org is still unset.
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
         chooseFile('signed-dopa.pdf')
 
@@ -134,21 +128,18 @@ describe('ParticipationAgreements', () => {
         fireEvent.click(within(row).getByRole('button', { name: 'Upload new version' }))
 
         await waitFor(() => expect(screen.getByLabelText('Signed on')).toBeDefined())
-        // The org came from the row, so there is nothing to select.
         expect(screen.queryByPlaceholderText('Select a Data Partner')).toBeNull()
 
         fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
         chooseFile('signed-dopa.pdf')
         fireEvent.click(await screen.findByRole('button', { name: 'Publish' }))
 
-        // Both modals are open at once, so the assertions are scoped to the confirmation.
         const dialog = await confirmation()
 
         expect(within(dialog).getAllByText(org.name).length).toBeGreaterThan(0)
         expect(within(dialog).getByText('Aug 03, 2026')).toBeDefined()
         expect(within(dialog).getByText('signed-dopa.pdf')).toBeDefined()
         expect(within(dialog).getByText(/becomes the current Data Organization Participation Agreement/)).toBeDefined()
-        // Nothing enforces a ropa/dopa yet, so the confirmation must not say anyone will be asked.
         expect(within(dialog).queryByText(/acknowledge/i)).toBeNull()
     })
 
@@ -167,8 +158,7 @@ describe('ParticipationAgreements', () => {
             return dialog
         })
 
-        // findByText, not getByText: the table header renders before the versions arrive, so the
-        // dialog is on screen while it is still fetching.
+        // findByText: the table header renders before the versions arrive.
         expect(await within(history).findByText('Jul 27, 2026')).toBeDefined()
     })
 

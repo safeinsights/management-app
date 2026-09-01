@@ -10,7 +10,7 @@ import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID, OutputsDecisionSection } from './
 const LAB = 'Rice Lab'
 
 // singleUserEditing renders the standalone Lexical surface, so the editor is interactive here
-// instead of held behind the collaborative skeleton (which needs a live websocket).
+// rather than held behind the collaborative skeleton, which needs a live websocket.
 const renderSection = (overrides: Record<string, unknown> = {}) => {
     const props = {
         jobId: faker.string.uuid(),
@@ -64,7 +64,6 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(await screen.findByLabelText('Decision feedback')).toHaveAttribute('aria-required', 'true')
     })
 
-    // No unit beside the count, matching every other capped field in the app (OTTER-737).
     it('renders the character counter against the 1800 cap', () => {
         renderSection({ characterCount: 12 })
 
@@ -93,8 +92,6 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(screen.getByText(OUTPUTS_DECISION_ERRORS.feedbackTooLong)).toBeInTheDocument()
     })
 
-    // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and
-    // an assertive region would interrupt the user mid-sentence.
     it('announces field messages politely', () => {
         renderSection({ feedbackError: OUTPUTS_DECISION_ERRORS.feedbackTooLong })
 
@@ -103,10 +100,8 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(region).not.toHaveAttribute('aria-live', 'assertive')
     })
 
-    // The editor owns the autosave indicator (it renders one next to this counter in
-    // collaborative mode), so this section must not draw a second. Asserting on the counter's own
-    // slot rather than a global count, because a global "at most one" also passes when there are
-    // none and would prove nothing.
+    // Asserted on the counter's own slot rather than a global count, since "at most one" also
+    // passes when there are none.
     it('puts the counter in the editor footer and adds no autosave indicator of its own', async () => {
         renderSection({ characterCount: 7 })
 
@@ -127,7 +122,6 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(screen.getByText('Enter your feedback for Rice Lab before submitting.')).toBeInTheDocument()
     })
 
-    // A real list, so a screen reader announces two items rather than one run-on sentence.
     it('renders the guidance clauses as a list', () => {
         renderSection()
 
@@ -136,12 +130,8 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(items[1]).toHaveTextContent('If they do not, share the outputs along with your feedback.')
     })
 
-    // The "focus is not trapped in the editor" AC row is covered in tests/study-flow.spec.ts, not
-    // here. jsdom cannot fail that assertion: Lexical's Tab handler returns early unless
-    // $getSelection() is a RangeSelection, and calling focus() on the contenteditable never
-    // establishes one, so the keydown is never cancelled and userEvent.tab() always moves focus.
-    // A version of this test lived here and passed for the whole time the real browser was
-    // trapping (OTTER-675).
+    // "Focus is not trapped in the editor" lives in tests/study-flow.spec.ts: jsdom cannot fail
+    // it, since Lexical's Tab handler returns early without a RangeSelection (OTTER-675).
 })
 
 describe('OutputsDecisionSection radio buttons', () => {
@@ -169,8 +159,6 @@ describe('OutputsDecisionSection radio buttons', () => {
         }
     })
 
-    // Native inputs sharing one `name`, not two JS-coordinated buttons: that is what gives the
-    // group real AT semantics and arrow-key navigation for free.
     it('uses native radio inputs that share a name', () => {
         renderSection()
 
@@ -190,9 +178,8 @@ describe('OutputsDecisionSection radio buttons', () => {
         expect(group).toHaveAccessibleName('Sharing decision')
     })
 
-    // The submit-time focus jump resolves this id with document.getElementById, so it has to be on
-    // a real element that actually contains the radios. Mantine's Radio.Group swallows an `id` prop
-    // without rendering it, which made the jump a silent no-op until the id moved to a wrapper.
+    // Mantine's Radio.Group swallows an `id` prop without rendering it, which made the
+    // submit-time focus jump a silent no-op until the id moved to a wrapper.
     it('exposes a resolvable anchor element containing the radios', () => {
         renderSection()
 

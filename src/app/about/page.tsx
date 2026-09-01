@@ -1,7 +1,6 @@
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
 
-// this page must be dynamically rendered to access env
 export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
@@ -35,17 +34,13 @@ const TagLink = () => {
     return <GithubLink repo="management-app" path={path} label={tag || sha || ''} />
 }
 
-// The commit of the infrastructure repo that deployed this environment. Advances only on an infra
-// deploy, so it intentionally lags the application release above.
 const IacVersionLink = () => {
     const version = process.env.IAC_VERSION
     if (!version) {
         return 'not deployed'
     }
-    // `git describe --always --dirty` emits a bare short SHA today, but grows a `-N-g<sha>` suffix
-    // once the repo carries tags, a `-dirty` suffix when deployed from a modified working copy, and
-    // the literal 'unknown' when git was unavailable at synth. Link the commit only for a plain
-    // SHA — the decorated forms are not valid refs, so a link would 404.
+    // `git describe` can decorate the SHA (`-N-g<sha>`, `-dirty`, or 'unknown'); those are not
+    // valid refs, so only link a plain SHA.
     if (!/^[0-9a-f]{7,40}$/.test(version)) {
         return version
     }
@@ -53,9 +48,8 @@ const IacVersionLink = () => {
     return <GithubLink repo="iac" path={`commit/${version}`} label={version} />
 }
 
-// Which release built the editor image this environment is serving. Diverges from the release above
-// whenever the editor was unchanged: its image is tagged by a content hash, so an untouched editor
-// keeps serving the image an earlier release built.
+// Diverges from the release above when the editor was unchanged: its image is tagged by content
+// hash, so an untouched editor keeps serving an earlier release's image.
 const EditorReleaseLink = () => {
     const sha = process.env.EDITOR_RELEASE_SHA
     if (!sha) {

@@ -4,14 +4,11 @@ import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 
-// Presentational security-key screen; kept navigation-free so it renders in isolation (e.g. Ladle).
 export type RegenerateKeyViewProps = {
-    /** Date the current key was generated, preformatted (MMM DD, YYYY). */
     generatedOn: string
     isModalOpen: boolean
     onOpenModal: () => void
     onCloseModal: () => void
-    /** Confirms the destructive regenerate flow (navigates in the container). */
     onConfirmGenerate: () => void
 }
 

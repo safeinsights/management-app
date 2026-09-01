@@ -9,7 +9,6 @@ type ImagePreviewModalProps = {
     contents: ArrayBuffer
     mime: string | null
     onClose: () => void
-    /** Notified when this modal's own download link is used, so callers can log the download. */
     onDownload?: () => void
 }
 

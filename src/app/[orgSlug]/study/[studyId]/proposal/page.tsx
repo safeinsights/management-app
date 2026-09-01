@@ -24,32 +24,20 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
-    // OTTER-690: /proposal is the DRAFT Step 2 editor and nothing routes a CHANGE-REQUESTED study
-    // here (the dashboard sends it to /edit-and-resubmit, which is the page built for that state:
-    // it carries the reviewer feedback and the resubmission note this one has no UI for). Making
-    // that explicit lets ProposalProvider below be unconditionally DRAFT, so the title ownership
-    // split does not have to be re-derived by every consumer. A stale bookmark now lands on the
-    // working page instead of a half-working one.
+    // A CHANGE-REQUESTED study belongs on /edit-and-resubmit; redirecting here lets
+    // ProposalProvider below be unconditionally DRAFT (OTTER-690).
     if (result.status === 'CHANGE-REQUESTED') {
         redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
     }
 
-    // A DRAFT predating OTTER-690 can carry a title this page cannot fix: it may have none (the
-    // migration that made the column nullable cleared every 'Untitled Draft' placeholder) or one
-    // longer than the OTTER-737 cap, and Step 2 has no title field to put either right. Submitting
-    // would then fail on the far side - the check constraint study_title_required_when_not_draft for
-    // a blank title, finalizeStudySubmissionAction's cap for a long one - and report it against a
-    // field that is not on the screen, which is a dead end rather than a message. The dashboard
-    // routes any draft with Step 2 progress straight here, so Step 1, which owns the title and is
-    // revisitable, is the only way out. Its counter and its error then show the researcher the
-    // problem on the field itself.
+    // Step 2 has no title field, so a blank or over-cap title can only be fixed on Step 1
+    // (OTTER-690, OTTER-737).
     if (!result.title?.trim() || countCharacters(result.title) > STUDY_TITLE_MAX_CHARACTERS) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
-    // Resolved here rather than on the client: the Researcher row keys off the study's creator,
-    // and the browser only knows the viewer's Clerk id, not the database user id `researcherId`
-    // records. Same approach the edit-and-resubmit page already takes.
+    // Resolved server-side: the browser only knows the viewer's Clerk id, not the database user
+    // id researcherId records.
     const session = await sessionFromClerk()
     const isDraftCreator = !!session && session.user.id === result.researcherId
 

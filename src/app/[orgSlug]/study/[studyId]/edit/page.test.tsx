@@ -39,16 +39,14 @@ const LEXICAL_BODY = JSON.stringify({ root: { children: [{ type: 'paragraph', ch
 describe('StudyEditPage', () => {
     it('renders the Step 1 form when the draft has no Step 2 fields populated', async () => {
         const { org, study } = await setupDraft()
-        // <StudyProposal /> calls useStudyRequest(); production wires the provider in
-        // /[orgSlug]/study/layout.tsx (which the test render does not exercise).
+        // StudyProposal calls useStudyRequest(); production wires that provider in the study
+        // layout, which this render does not exercise.
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         const page = await renderRoute(org.slug, study.id)
         renderWithProviders(<StudyRequestProvider submittingOrgSlug={org.slug}>{page!}</StudyRequestProvider>)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        // The Step 1 form's "Save & continue" footer button is the cheapest, most stable proof
-        // that we rendered <StudyProposal /> (Step 1) rather than redirecting away.
         expect(screen.getByRole('button', { name: /Save & continue/i })).toBeInTheDocument()
     })
 
@@ -67,9 +65,8 @@ describe('StudyEditPage', () => {
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
-    // /edit is a revisitable step: it always renders Step 1 for an authorized DRAFT researcher and
-    // never resume-redirects to Step 2, regardless of how far the draft has progressed. The screen
-    // authority (resolveScreen) — not this page — decides the canonical screen.
+    // /edit is a revisitable step: it never resume-redirects to Step 2. resolveScreen, not this
+    // page, decides the canonical screen.
     it('renders Step 1 even when the draft has Step 2 fields populated', async () => {
         const { org, study } = await setupDraft()
         const { user: piUser } = await insertTestUser({ org })
