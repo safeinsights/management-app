@@ -704,6 +704,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         // Round = study-wide submission version, so each round gets its own row under the
         // (studyJobId, reviewKind, round) unique index (OTTER-316/638).
+        // codeSubmissionVersion does not count CODE-REJECTED, which is safe only while reject stays
+        // terminal; a resubmittable reject must count it too (and in canResearcherResubmitCode), or
+        // the round stalls and the next decision collides on that index (OTTER-638).
         const round = await codeSubmissionVersion(studyId, db)
 
         try {

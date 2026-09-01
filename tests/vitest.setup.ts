@@ -49,6 +49,9 @@ mockState.setRunWithLocalStorage((cb) => {
 
 // Deferred side effects must land before a test continues — e.g. a deferred CODE-SCANNED insert
 // must commit before the next status change, or the time-ordered v7 ids invert.
+// Snapshot-then-clear is deliberate: callbacks scheduled during the drain stay queued for
+// afterEach instead of being dropped. Relies on runDeferredTestCallback pushing the promise
+// synchronously; if that ever became async, this would snapshot empty and silently no-op.
 export async function flushDeferred() {
     const toRun = mockState.pendingDeferredCallbacks.slice()
     mockState.pendingDeferredCallbacks.length = 0

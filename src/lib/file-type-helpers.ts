@@ -64,6 +64,9 @@ const ENCRYPTED_ERROR_LOG_TYPES: FileType[] = ['ENCRYPTED-CODE-RUN-LOG', 'ENCRYP
 
 // Overlaps the encrypted set on a packaging failure, so only errorLogSentence's
 // decryptable-first ordering stops a readable log reading as unopenable.
+// APPROVED-SECURITY-SCAN-LOG is left out on purpose, like its ENCRYPTED twin: a scan log says
+// nothing about a failed run (OTTER-524), so completing the APPROVED-* trio would make a legacy
+// scan-log-only errored job falsely claim an error log was recorded.
 const UNDECRYPTABLE_ERROR_LOG_TYPES: FileType[] = [
     'PACKAGING-ERROR-LOG',
     'APPROVED-CODE-RUN-LOG',

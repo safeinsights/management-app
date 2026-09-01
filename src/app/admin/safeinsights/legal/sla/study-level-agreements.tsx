@@ -72,6 +72,8 @@ export const StudyLevelAgreements: FC = () => {
                 closeOnClickOutside={false}
             >
                 <UploadSlaForm
+                    // Keyed by study to force a fresh form per row: a reused mounted form can carry
+                    // the previous row's chosen file and signed date into an irreversible publish.
                     key={newVersionFor?.studyId}
                     onCompleteAction={closeNewVersion}
                     sla={newVersionFor ?? undefined}

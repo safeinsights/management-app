@@ -49,6 +49,9 @@ export default async function globalSetup(config: FullConfig) {
     // block every other worker's user.
     await seedLegalDocuments()
 
+    // Warms heavy routes once so the first spec to hit a cold server does not pay one-time init
+    // (module load, DB pool, S3 client) inside its own timeout. Errors are ignored on purpose;
+    // the specs re-assert everything.
     const browser = await chromium.launch()
     try {
         const context = await browser.newContext({ storageState: authFileFor('admin') })
