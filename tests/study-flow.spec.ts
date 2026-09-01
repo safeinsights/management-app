@@ -785,8 +785,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await studyRow.getByRole('link', { name: 'View' }).first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByText(/Rejected on/)).toBeVisible()
 
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
@@ -806,7 +805,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
     })
 })
 
