@@ -12,13 +12,14 @@ import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
@@ -1181,4 +1182,31 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
         },
         orgs: orgsRecord,
     }
+}
+
+type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }
+
+/**
+ * Plays one autosave round trip on a collaborative editor's Yjs provider, so a save indicator
+ * driven by it reaches "All changes saved".
+ *
+ * Needed because the Hocuspocus mock never emits on its own: without this, a test asserting the
+ * save label is absent passes whatever the component does, and proves nothing.
+ *
+ * Call it only once the editor has mounted (await the surface by its label first) — it drives the
+ * most recently created provider, and a surface that has not mounted yet has not made one.
+ * `docName` picks a single field on a page that mounts several editors.
+ */
+export const simulateEditorSave = async (docName?: string) => {
+    const { __instances } = HocuspocusProvider as unknown as { __instances: FakeCollaborativeProvider[] }
+    const matching = docName ? __instances.filter((p) => p.configuration.name === docName) : __instances
+    const provider = matching.at(-1)
+
+    if (!provider) {
+        throw new Error(`No collaborative editor provider${docName ? ` named "${docName}"` : ''} has been created`)
+    }
+
+    await act(async () => {
+        provider.__simulateSave()
+    })
 }

@@ -6,7 +6,7 @@ import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { CharacterCounter } from '@/components/character-counter'
-import { fieldCounterId, fieldDescribedBy, fieldErrorId } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
@@ -159,23 +159,15 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
 }
 
 // Carries the counter id so the count reaches the editor's aria-describedby. Rendered through
-// the Editor's own `footerRight` slot, beside the save indicator the editor already draws. A
-// second SaveStatusIndicator here would show the user two "All changes saved" messages in
-// collaborative mode, and could contradict the error below when validation fails.
+// the Editor's own `footerRight` slot, opposite the error and the save indicator that share the
+// row's left edge. A second SaveStatusIndicator here would show the user two "All changes saved"
+// messages in collaborative mode, and would contradict the error beside it when validation fails.
 const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
     <CharacterCounter
         id={fieldCounterId(FEEDBACK_INPUT_ID)}
         count={characterCount}
         maxCharacters={OUTPUTS_FEEDBACK_MAX_CHARACTERS}
     />
-)
-
-// Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and an
-// assertive region would interrupt the user mid-sentence.
-const FeedbackError: FC<{ error: string | undefined }> = ({ error }) => (
-    <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
-        <InputError error={error} />
-    </Box>
 )
 
 export type OutputsDecisionSectionProps = {
@@ -233,9 +225,11 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
+                    // The error takes exactly the slot the save indicator vacates, so it sits
+                    // directly under the input instead of a row below the character counter.
+                    footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}
                     footerRight={<FeedbackCounter characterCount={characterCount} />}
                 />
-                <FeedbackError error={feedbackError} />
                 <DecisionRadioGroup
                     value={selected}
                     onChange={onSelect}

@@ -68,6 +68,11 @@ export function CollaborativeProposalTextField({
         setCharacterCount(countCharactersFromLexical(json))
     }
 
+    // An emptied optional field has no saved work to point at, and no required error ever arrives
+    // to take the slot, so the save label would sit under an empty box on its own. A required
+    // field keeps it until that error replaces it.
+    const isSaveStatusVisible = !!field.required || characterCount > 0
+
     return (
         <Paper p="xxl">
             <Stack gap="xxl">
@@ -103,6 +108,7 @@ export function CollaborativeProposalTextField({
                         onChange={onTextChange}
                         onBlur={onBlur}
                         error={error}
+                        isSaveStatusVisible={isSaveStatusVisible}
                         ariaRequired={field.required}
                         ariaDescribedBy={fieldDescribedBy(inputId, {
                             hasError: !!error,

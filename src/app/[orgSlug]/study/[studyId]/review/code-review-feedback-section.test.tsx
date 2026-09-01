@@ -1,4 +1,13 @@
-import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    renderWithProviders,
+    screen,
+    simulateEditorSave,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { fieldErrorId } from '@/components/form-field'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -6,6 +15,7 @@ import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/l
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { lexicalJson } from '@/lib/lexical'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
+import { SAVED_LABEL } from '@/components/save-status'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 
 vi.mock('@/server/actions/editor.actions', () => ({
@@ -89,5 +99,27 @@ describe('CodeReviewFeedbackSection character limit', () => {
 
         const message = await screen.findByText(OVER_LIMIT_ERROR)
         expect(message.closest('[aria-live="polite"]')).not.toBeNull()
+    })
+})
+
+// See the matching block in review-feedback-section.test.tsx: the save is driven for real first,
+// so this cannot pass by virtue of the indicator never having shown anything.
+describe('CodeReviewFeedbackSection save label and error exclusivity', () => {
+    it('replaces the save label with the empty-field error rather than showing both', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<CodeFeedbackTestWrapper />)
+
+        await screen.findByLabelText('Code review feedback')
+        await simulateEditorSave()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+
+        await user.click(screen.getByTestId('simulate-blur'))
+
+        await waitFor(() => {
+            expect(document.getElementById(fieldErrorId('code-review-feedback'))).toHaveTextContent(
+                'Feedback is required.',
+            )
+        })
+        expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
 })

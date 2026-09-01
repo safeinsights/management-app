@@ -1,9 +1,21 @@
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
-import { describe, expect, faker, it, render, screen, userEvent, vi, within } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    faker,
+    it,
+    render,
+    screen,
+    simulateEditorSave,
+    userEvent,
+    vi,
+    within,
+} from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
+import { SAVED_LABEL } from '@/components/save-status'
 import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID, OutputsDecisionSection } from './outputs-decision-section'
 
@@ -35,6 +47,35 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
         </MantineProvider>,
     )
     return props
+}
+
+// The collaborative branch, the only one that draws a save indicator: the single-user surface
+// above has no Yjs provider, so exclusivity could only be asserted there vacuously. Returns a
+// re-render that raises the error, which is how the submit attempt surfaces it in production.
+const renderCollaborativeSection = () => {
+    const props = {
+        jobId: faker.string.uuid(),
+        studyId: faker.string.uuid(),
+        labName: LAB,
+        characterCount: 0,
+        onFeedbackChange: vi.fn(),
+        selected: null,
+        onSelect: vi.fn(),
+        decisionError: undefined,
+    }
+
+    const tree = (feedbackError?: string) => (
+        <MantineProvider theme={theme}>
+            <YjsWebsocketProvider>
+                <ModalsProvider>
+                    <OutputsDecisionSection {...props} feedbackError={feedbackError} />
+                </ModalsProvider>
+            </YjsWebsocketProvider>
+        </MantineProvider>
+    )
+
+    const { rerender } = render(tree())
+    return { showFeedbackError: (message: string) => rerender(tree(message)) }
 }
 
 describe('OutputsDecisionSection header', () => {
@@ -125,6 +166,23 @@ describe('OutputsDecisionSection feedback field', () => {
         renderSection({ feedbackError: 'Enter your feedback for Rice Lab before submitting.' })
 
         expect(screen.getByText('Enter your feedback for Rice Lab before submitting.')).toBeInTheDocument()
+    })
+
+    // The error has to take the exact slot the save indicator vacates, directly under the input,
+    // rather than a row below the counter. Pinned by what the error's row does and does not hold:
+    // a plain "the counter is somewhere under the same ancestor" also passes when the error is
+    // stranded a row below it, because the section wrapper contains both either way.
+    it('renders the empty-field error in the same footer row as the character counter', async () => {
+        const emptyError = OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB)
+        renderSection({ feedbackError: emptyError })
+
+        const editor = await screen.findByLabelText('Decision feedback')
+        const errorBox = document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))!
+        expect(errorBox).toHaveTextContent(emptyError)
+
+        const footerRow = errorBox.parentElement!
+        expect(footerRow).toContainElement(document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID)))
+        expect(footerRow).not.toContainElement(editor)
     })
 
     // A real list, so a screen reader announces two items rather than one run-on sentence.
@@ -256,5 +314,24 @@ describe('OutputsDecisionSection radio buttons', () => {
         for (const option of screen.getAllByRole('radio')) {
             expect(option).not.toHaveAttribute('aria-invalid')
         }
+    })
+})
+
+// See the matching blocks in the two reviewer feedback sections. The save is driven for real
+// before the error is raised, so this cannot pass by virtue of the indicator never having shown.
+describe('OutputsDecisionSection save label and error exclusivity', () => {
+    it('replaces the save label with the empty-field error rather than showing both', async () => {
+        const { showFeedbackError } = renderCollaborativeSection()
+
+        await screen.findByLabelText('Decision feedback')
+        await simulateEditorSave()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+
+        showFeedbackError(OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB))
+
+        expect(document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))).toHaveTextContent(
+            OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB),
+        )
+        expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
 })

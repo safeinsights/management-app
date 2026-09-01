@@ -1,4 +1,13 @@
-import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    renderWithProviders,
+    screen,
+    simulateEditorSave,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
 import { fieldErrorId } from '@/components/form-field'
@@ -6,6 +15,7 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
+import { SAVED_LABEL } from '@/components/save-status'
 import { ReviewFeedbackSection } from './review-feedback-section'
 
 vi.mock('@/server/actions/editor.actions', () => ({
@@ -120,5 +130,26 @@ describe('ReviewFeedbackSection character limit', () => {
         await user.click(screen.getByTestId('simulate-input'))
 
         await waitFor(() => expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument())
+    })
+})
+
+// The two are competing claims about the same field, so they must never share the screen. Driving
+// a real save first is what makes this worth running: with the save indicator stuck at idle the
+// assertion below would hold no matter what the component did.
+describe('ReviewFeedbackSection save label and error exclusivity', () => {
+    it('replaces the save label with the empty-field error rather than showing both', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        await screen.findByLabelText('Initial request review feedback')
+        await simulateEditorSave()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+
+        await user.click(screen.getByTestId('simulate-blur'))
+
+        await waitFor(() => {
+            expect(document.getElementById(fieldErrorId('review-feedback'))).toHaveTextContent('Feedback is required.')
+        })
+        expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
 })

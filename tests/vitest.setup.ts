@@ -210,15 +210,40 @@ vi.mock('@hocuspocus/provider', async () => {
         unsyncedChanges = 0
         // Surfaced so tests can assert which document name a provider was created for.
         configuration: { name?: string } = {}
+        _observers = new Map<string, Set<(...args: unknown[]) => void>>()
         attach = vi.fn()
         detach = vi.fn()
         destroy = vi.fn()
         disconnect = vi.fn()
         connect = vi.fn()
-        on = vi.fn()
-        off = vi.fn()
+        // Registers for real so tests can drive the provider's own events, and stays a spy so
+        // the tests that assert which events were subscribed keep working.
+        on = vi.fn((event: string, fn: (...args: unknown[]) => void) => {
+            if (!this._observers.has(event)) this._observers.set(event, new Set())
+            this._observers.get(event)!.add(fn)
+        })
+        off = vi.fn((event: string, fn: (...args: unknown[]) => void) => {
+            this._observers.get(event)?.delete(fn)
+        })
         send = vi.fn()
         sendStateless = vi.fn()
+        // Test helper: drives the connection-phase events in unit tests.
+        __emit(event: string, ...args: unknown[]) {
+            this._observers.get(event)?.forEach((fn) => fn(...args))
+        }
+        // Test helper: plays one autosave round trip, so a save indicator driven by this
+        // provider reaches "saved". The first sync has to land before the edit, or the status
+        // hook treats the settle as the initial document load rather than a save.
+        __simulateSave() {
+            if (!this.isSynced) {
+                this.isSynced = true
+                this.__emit('synced')
+            }
+            this.unsyncedChanges = 1
+            this.__emit('unsyncedChanges')
+            this.unsyncedChanges = 0
+            this.__emit('unsyncedChanges')
+        }
         constructor(opts?: { document?: InstanceType<typeof Y.Doc>; name?: string }) {
             this.document = opts?.document ?? new Y.Doc()
             this.configuration = { name: opts?.name }
