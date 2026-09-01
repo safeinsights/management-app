@@ -216,24 +216,27 @@ vi.mock('@hocuspocus/provider', async () => {
         destroy = vi.fn()
         disconnect = vi.fn()
         connect = vi.fn()
-        // Registers for real so tests can drive the provider's own events, and stays a spy so
-        // the tests that assert which events were subscribed keep working.
-        on = vi.fn((event: string, fn: (...args: unknown[]) => void) => {
-            if (!this._observers.has(event)) this._observers.set(event, new Set())
-            this._observers.get(event)!.add(fn)
-        })
-        off = vi.fn((event: string, fn: (...args: unknown[]) => void) => {
-            this._observers.get(event)?.delete(fn)
-        })
         send = vi.fn()
         sendStateless = vi.fn()
-        // Test helper: drives the connection-phase events in unit tests.
+        on(event: string, fn: (...args: unknown[]) => void) {
+            if (!this._observers.has(event)) this._observers.set(event, new Set())
+            this._observers.get(event)!.add(fn)
+        }
+        off(event: string, fn: (...args: unknown[]) => void) {
+            this._observers.get(event)?.delete(fn)
+        }
+        // Test helper, matching the websocket fake above: a real emitter rather than a no-op spy,
+        // because the provider's own lifecycle events are the only way a test can move a surface's
+        // save status off idle. Nothing emits on its own, so a test that ignores this sees the same
+        // inert provider as before.
         __emit(event: string, ...args: unknown[]) {
             this._observers.get(event)?.forEach((fn) => fn(...args))
         }
-        // Test helper: plays one autosave round trip, so a save indicator driven by this
-        // provider reaches "saved". The first sync has to land before the edit, or the status
-        // hook treats the settle as the initial document load rather than a save.
+        // Plays a whole autosave round trip in one call, for a surface whose indicator follows a
+        // single editor's provider. The first sync has to land before the edit or the status hook
+        // reads the settle as the initial document load rather than a save. A surface that draws
+        // several fields from one provider drives `__emit` directly instead, because it needs the
+        // sync and the edit as separate steps.
         __simulateSave() {
             if (!this.isSynced) {
                 this.isSynced = true

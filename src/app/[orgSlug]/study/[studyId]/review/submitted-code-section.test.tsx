@@ -40,7 +40,7 @@ const ORG_SLUG = 'test-org-submitted'
 async function insertStudyJobFile(
     studyJobId: string,
     name: string,
-    fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' | 'ENCRYPTED-SECURITY-SCAN-LOG',
+    fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' | 'ENCRYPTED-SECURITY-SCAN-LOG' | 'SECURITY-SCAN-LOG',
 ) {
     return db
         .insertInto('studyJobFile')
@@ -540,6 +540,32 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(trivy.querySelector('[data-icon="warning"]')).toBeNull()
         expect(sonar.querySelector('[data-icon="warning"]')).toBeNull()
         expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-scan-log-view')).not.toBeInTheDocument()
+    })
+
+    it('opens the file viewer modal with the log contents when View is clicked', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyJobFile(fixture.job.id, 'security-scan-log.txt', 'SECURITY-SCAN-LOG')
+        vi.mocked(fetchFileContents).mockResolvedValueOnce(
+            new Blob(['Trivy Filesystem Scan: no vulnerabilities found']),
+        )
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+
+        await userEvent.click(screen.getByTestId('security-scan-log-view'))
+
+        expect(await screen.findByText('Trivy Filesystem Scan: no vulnerabilities found')).toBeInTheDocument()
+    })
+
+    it('reports failure inside the viewer when the log cannot be read', async () => {
+        const fixture = await setupBaseFixture()
+        vi.mocked(fetchFileContents).mockRejectedValueOnce(new Error('s3 is down'))
+        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+
+        await userEvent.click(screen.getByTestId('security-scan-log-view'))
+
+        expect(await screen.findByText('Unable to load the security scan log.')).toBeInTheDocument()
+        // The direct download path doesn't depend on the in-app fetch, so it stays available.
+        expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
     })
 })
 

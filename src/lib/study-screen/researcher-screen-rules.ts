@@ -1,5 +1,10 @@
 import type { ScreenRuleEntry } from './screen-rules'
-import { awaitingFilesDecisionOnError, isErroredOutputsSharedOutcome, isFeedbackOnlyOutcome } from './state'
+import {
+    awaitingFilesDecisionOnError,
+    isErroredOutputsSharedOutcome,
+    isFeedbackOnlyOutcome,
+    isOutputsSharedOutcome,
+} from './state'
 
 // Researcher Tier-2 rules. Order = display precedence. First match wins. Each entry pairs the screen
 // it routes to with the condition that selects it; the leaf view owns its own back/forward buttons.
@@ -18,10 +23,19 @@ export const RESEARCHER_SCREEN_RULES = [
     // Out-ranks study-results, which would otherwise claim any FILES-* decision.
     ['outputs-feedback', { when: isFeedbackOnlyOutcome }],
 
+    // Clean run whose outputs the reviewer shared along with feedback (OTTER-688) — the researcher
+    // decrypts and reads them. Out-ranks study-results for the same reason as the two rules above.
+    // All three outputs-decision predicates are mutually disjoint (see isOutputsSharedOutcome), so
+    // their order relative to each other carries no meaning; only their position above study-results
+    // does.
+    ['outputs-shared', { when: isOutputsSharedOutcome }],
+
     // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
     // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher sits on
     // outputs-pending below (the job's JOB-* statuses keep isExecuting true), or on code-under-review
     // after a resubmission drops the decision. Neither discloses the error (OTTER-598, 43898).
+    // With the three rules above claiming every FILES-* decision, this now serves exactly one
+    // researcher state: an undecided RUN-COMPLETE, waiting on the reviewer.
     ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
 
     // Code approved and executing in the enclave: researcher outputs-pending screen (OTTER-686).

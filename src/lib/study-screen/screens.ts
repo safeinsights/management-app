@@ -9,11 +9,17 @@ export type ScreenId =
     | 'outputs-pending'
     | 'outputs-feedback'
     | 'outputs-errored-shared'
+    // The clean-run counterpart. Named for the reviewer's decision, not for availability:
+    // 'reviewer-outputs-available' already means a completed run still awaiting one.
+    | 'outputs-shared'
     | 'study-results'
     | 'study-overview'
     // reviewer
     | 'reviewer-proposal-review'
     | 'reviewer-proposal-feedback'
+    // Unreachable since OTTER-727 hid the Agreements step: no rule in REVIEWER_SCREEN_RULES resolves
+    // to it. Kept (with its registry entry and component) so the gate can be restored by re-adding
+    // the single rule entry.
     | 'reviewer-agreements'
     | 'reviewer-code-review'
     | 'reviewer-code-feedback'

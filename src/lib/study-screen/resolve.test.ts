@@ -44,11 +44,44 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-feedback')
     })
-    it('OTTER-695: share-outputs decision (resultsApproved) still → study-results', () => {
+    it('OTTER-688: share-outputs decision on a clean run → outputs-shared (out-ranks study-results)', () => {
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' }),
+            ).screen,
+        ).toBe('outputs-shared')
+    })
+    it('OTTER-688: a job carrying both FILES-* rows → outputs-feedback, never outputs-shared', () => {
+        // Unreachable via submitOutputsDecisionAction, but the QA status route and the legacy
+        // approve/reject actions can write both. Decided by isOutputsSharedOutcome excluding
+        // resultsRejected — NOT by these rules' order — so the screen agrees with the pill, which
+        // reads Rejected.
+        const screen = resolveScreen(
+            'researcher',
+            state({
+                hasResults: true,
+                resultsApproved: true,
+                resultsRejected: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        ).screen
+        expect(screen).toBe('outputs-feedback')
+        expect(screen).not.toBe('outputs-shared')
+    })
+    it('OTTER-688: the clean and errored shares route to their own screens', () => {
+        const shared = { hasResults: true, resultsApproved: true, codeDecision: 'CODE-APPROVED' } as const
+        expect(resolveScreen('researcher', state({ ...shared, resultsErrored: false })).screen).toBe('outputs-shared')
+        expect(resolveScreen('researcher', state({ ...shared, resultsErrored: true })).screen).toBe(
+            'outputs-errored-shared',
+        )
+    })
+    it('OTTER-688: an undecided completed run stays on study-results', () => {
+        // The one researcher state study-results still serves once every FILES-* decision is claimed.
+        expect(
+            resolveScreen(
+                'researcher',
+                state({ hasResults: true, resultsDisplayStatus: 'RUN-COMPLETE', codeDecision: 'CODE-APPROVED' }),
             ).screen,
         ).toBe('study-results')
     })
@@ -295,7 +328,9 @@ describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
         expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-review', readOnlyCodeStep: true })
     })
 
-    it('awaiting decision, agreements NOT acked → reviewer-agreements', () => {
+    // OTTER-727: the agreements gate is no longer a candidate code screen, so the walk-back route
+    // lands on the code-review editor whether or not the reviewer ever acked.
+    it('awaiting decision, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         const s = state({
             status: 'APPROVED',
             isDraft: false,
@@ -303,7 +338,7 @@ describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
             codeAwaitingDecision: true,
             reviewerAgreementsAcked: false,
         })
-        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-agreements', readOnlyCodeStep: true })
+        expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-review', readOnlyCodeStep: true })
     })
 
     it('cannot jump ahead: approved proposal with no code → undefined (route 404s)', () => {

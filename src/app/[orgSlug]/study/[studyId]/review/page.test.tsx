@@ -8,8 +8,6 @@ import {
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
-    renderWithProviders,
-    screen,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
@@ -132,7 +130,9 @@ describe('StudyReviewPage', () => {
         expect(page?.props.kind).not.toBe('CODE')
     })
 
-    it('renders the reviewer agreements gate when code is submitted but agreements are not acked', async () => {
+    // OTTER-727 hid the agreements gate that used to claim this state, so an unacked reviewer goes
+    // straight to the code-review editor.
+    it('renders CodeReview when code is submitted even though agreements are not acked', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -143,8 +143,7 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        renderWithProviders(page!)
-        expect(screen.getByText('Study request')).toBeInTheDocument()
+        expect(page?.type).toBe(CodeReview)
     })
 
     it('renders CodeReview when code is submitted and agreements are acked', async () => {

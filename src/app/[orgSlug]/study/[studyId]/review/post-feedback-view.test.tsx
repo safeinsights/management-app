@@ -287,7 +287,7 @@ describe('PostFeedbackView', () => {
 
         it('renders Previous and navigates to previousHref when provided', async () => {
             const user = userEvent.setup()
-            const previousHref = Routes.studyReviewerAgreements({ orgSlug: ORG_SLUG, studyId: study.id })
+            const previousHref = Routes.studyReviewProposal({ orgSlug: ORG_SLUG, studyId: study.id })
             renderWithProviders(
                 <PostFeedbackView
                     orgSlug={ORG_SLUG}
