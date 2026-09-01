@@ -6,12 +6,8 @@ import { LegalDocumentContent } from '@/components/legal/document-content'
 import { LoadingMessage } from '@/components/loading'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 
-// Markdown documents have no browser viewer: a signed URL to a .md opens as raw source or a
-// download, so the file is fetched and rendered here instead of linked. Shared by the upload flow's
-// review step and by every read-side link to a tos/pn version.
-//
-// Cached against the version, never the url: the bytes of a version are immutable, while its signed
-// url is re-minted on every read of the versions query.
+// A signed URL to a .md opens as raw source or a download, so fetch and render it here. Cached
+// against the version, not the url, which is re-minted on every read of the versions query.
 export function PreviewDocument({ versionId, url, label }: { versionId: string; url: string; label: string }) {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: legalDocumentQueryKeys.documentContent(versionId),

@@ -3,11 +3,8 @@
 import { createContext, useContext, useEffect, useState, type FC, type ReactNode } from 'react'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
 
-// Mirror of review-feedback-provider-context for the code-review-feedback document.
-// A distinct React context (and therefore distinct share state) per document name is
-// required: HocuspocusProviderWebsocket dispatches inbound messages by document name,
-// and the share is what lets the editor and listener (and criteria bridge) reuse a
-// single HocuspocusProvider for that name without colliding in providerMap.
+// Mirror of review-feedback-provider-context for the code-review-feedback document. A distinct
+// context per document name is required: HocuspocusProviderWebsocket dispatches by document name.
 
 type Subscriber = (provider: HocuspocusProvider | null) => void
 

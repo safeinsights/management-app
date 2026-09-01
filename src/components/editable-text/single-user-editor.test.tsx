@@ -25,8 +25,7 @@ function lexicalJson(text: string) {
     })
 }
 
-// Captures the live Lexical editor so the test can drive real edits through the
-// editor's own API — jsdom can't dispatch the beforeinput events Lexical relies on.
+// jsdom cannot dispatch the beforeinput events Lexical relies on, so edits go through its API.
 function CaptureEditor({ onReady }: { onReady: (editor: LexicalEditor) => void }) {
     const [editor] = useLexicalComposerContext()
     onReady(editor)

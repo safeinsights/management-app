@@ -38,13 +38,8 @@ interface EnvVarLineProps {
     onRemove: () => void
 }
 
-// Errors are derived from the value, not from per-row `touched` state. These rows are keyed
-// by index, so state living in the row component transfers to whichever row slides into that
-// index when one is deleted, flagging a field the admin never visited and un-flagging the
-// broken one. Deriving keeps the message pinned to the offending row.
-//
-// This cannot fire on a freshly added row: `addEnvVar` now rejects an empty half rather than
-// inserting a blank pair, so any empty row on screen is genuinely invalid (OTTER-647).
+// Derived from the value, not per-row touched state: rows are keyed by index, so touched state
+// would transfer to whichever row slides into that index on delete.
 function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
     return (
         <Group gap="xs" align="flex-start">
@@ -86,9 +81,8 @@ function StarterCodeSection({
     removeStarterCode: (fileName: string) => void
     error?: string
 }) {
-    // Required on create. It has no input to blur, so "left incomplete" is modeled as
-    // visited-then-left-empty: the dropzone is focusable, and leaving it without files shows
-    // the requirement rather than waiting for submit (OTTER-647).
+    // The dropzone has no input to blur, so "left incomplete" is visited-then-left-empty
+    // (OTTER-647).
     const [touched, setTouched] = useState(false)
     const isMissing = !isEditMode && touched && starterCodes.length === 0
 
@@ -162,8 +156,8 @@ interface CommandLineRowProps {
     onRemove: () => void
 }
 
-// Value-derived for the same reason as EnvVarLine, and because a command row loaded from an
-// existing environment can arrive empty, which per-row touched state would never flag.
+// Value-derived for the same reason as EnvVarLine, and because a row loaded from an existing
+// environment can arrive empty, which touched state would never flag.
 function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps) {
     return (
         <Group gap="xs" align="flex-start">
@@ -198,8 +192,8 @@ function CommandLinesSection({
     newExtProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
     newCmdProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
 }) {
-    // No early return on empty: onAdd flags the missing half, and bailing here meant the
-    // "+" button did nothing with no reason given (OTTER-647).
+    // No early return on empty: onAdd flags the missing half, and bailing left "+" doing nothing
+    // with no reason given (OTTER-647).
     const handleAdd = () => {
         const ext = (newExtProps.value as string).trim().toLowerCase().replace(/^\./, '')
         const cmd = (newCmdProps.value as string).trim()

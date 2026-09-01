@@ -41,7 +41,6 @@ import {
 
 export type { CodeFile } from './study-code-files'
 
-// 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
 const MAX_VISIBLE_TABS_BEFORE_OVERFLOW = 4
 
@@ -54,8 +53,6 @@ export function splitVisibleFiles(files: CodeFile[]) {
     if (files.length <= MAX_VISIBLE_TABS_BEFORE_OVERFLOW) {
         return { visible: files, hidden: [] as CodeFile[], hiddenCount: 0 }
     }
-    // When overflowing, the last visible slot becomes the "+N more files" indicator,
-    // so we keep three real tabs and roll the remainder into the overflow menu.
     const visibleSlots = MAX_VISIBLE_TABS_BEFORE_OVERFLOW - 1
     const hidden = files.slice(visibleSlots)
     return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
@@ -66,10 +63,9 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-// Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
 const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
 
-// Panda's preflight zeroes list-style globally, so restore markers explicitly (values match .editable-text-ul/-ol in globals.css).
+// Panda's preflight zeroes list-style globally, so restore markers explicitly.
 const MARKDOWN_LIST_COMPONENTS: Components = {
     ul: ({ node: _node, ...props }) => (
         <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
@@ -98,22 +94,12 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
 
 const REVIEW_POLL_INTERVAL_MS = 5_000
 
-// A genuine failure now persists a row (summaryFailedAt) and is surfaced
-// immediately. This backstop only catches the rarer case where generation
-// hangs without ever throwing — measured from submission, not page open, so a
-// reviewer opening the page late doesn't reset the clock. 3 minutes is well
-// above a normal generation; past it with no row we assume it's stuck.
+// Backstop for a generation that hangs without throwing; a real failure persists summaryFailedAt.
+// Measured from submission, not page open, so opening late does not reset the clock.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
 
-// Returns `{ elapsed, reset }`: `elapsed` becomes true once `ms` have passed
-// since the start time, and `reset()` re-arms the timer from now. Used as a
-// backstop so a generation that hangs without writing a (success or failure)
-// row eventually surfaces as an error instead of spinning forever, while a
-// retry can restart the clock. `since` is read once on mount to seed the start
-// time; later prop changes are ignored, so a new submission must arrive via a
-// fresh server render (or an explicit reset()), not a changed `since`. `since`
-// may be a string — timestamps serialize to ISO strings across the
-// server/client boundary.
+// `since` is read once on mount and later prop changes are ignored, so a new submission must
+// arrive via a fresh server render or an explicit reset().
 function useElapsedSince(since: Date | string, ms: number) {
     const initialSinceMs = new Date(since).getTime()
     const [startedAt, setStartedAt] = useState(initialSinceMs)
@@ -132,11 +118,6 @@ function useElapsedSince(since: Date | string, ms: number) {
     }
 }
 
-// The review row is written by a deferred background task triggered at code
-// submission (onStudyReviewRequested). Seed with the server-fetched value and
-// poll until a row lands so a reviewer who opens the page mid-generation sees
-// the summary appear without a manual refresh. A row — even one with a blank
-// codeExplanation — is terminal and stops the poll.
 function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
     return useQuery({
         queryKey: ['study-review', studyJobId],
@@ -226,8 +207,6 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
-// Clears the failed row server-side, re-fires generation, then resets the
-// cached review to null so the poll resumes and the UI drops back to pending.
 function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -242,9 +221,7 @@ function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
 type AiSummaryProps = {
     studyJobId: string
     initialReview: StudyReviewWithMeta | null
-    // When generation was requested — anchors the stuck-generation backstop so
-    // opening the page late doesn't restart the clock. May arrive as an ISO
-    // string once serialized across the server/client boundary.
+    // Anchors the stuck-generation backstop so opening the page late does not restart the clock.
     submittedAt: Date | string
     // Overridable so tests can exercise the backstop without faking timers.
     timeoutMs?: number
@@ -258,8 +235,6 @@ export function AiSummaryCollapsible({
 }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
     const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    // A successful retry is a new generation request, so it needs its own
-    // timeout window instead of inheriting the original submission's age.
     const timeout = useElapsedSince(submittedAt, timeoutMs)
     const retry = useRetryStudyReview(studyJobId, timeout.reset)
     const timedOut = timeout.elapsed
@@ -268,11 +243,6 @@ export function AiSummaryCollapsible({
     const onRetry = () => retry.mutate()
     const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
 
-    // Failure is terminal and explicit: a poll rejection, or a persisted
-    // failure row (summaryFailedAt) — surfaced with a Retry. A landed success
-    // row shows the summary, or the empty state for the no-API-key /
-    // disabled-review placeholder path. Otherwise we're genuinely still
-    // generating (spinner), with the backstop catching a silent hang.
     const renderBody = () => {
         if (error != null) return errorState
         if (review != null) {
@@ -443,8 +413,7 @@ function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
     })
 }
 
-// stopPropagation: in the overflow menu this icon sits inside a selectable row,
-// so a download click shouldn't also switch the active file.
+// stopPropagation: in the overflow menu this icon sits inside a selectable row.
 function CodeFileDownloadButton({
     studyJobId,
     fileName,
@@ -521,11 +490,8 @@ type StudyCodeViewerProps = {
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
-    /**
-     * Whole-section collapse mode (post-decision reviewer page): when set, the parent owns the
-     * expand/collapse state. The code + tabs are always shown here and the toggle becomes the
-     * section's single "Hide full study code" closer that collapses the entire card.
-     */
+    // When set, the parent owns expand/collapse and the toggle becomes the closer for the whole
+    // section.
     onCollapse?: () => void
 }
 
@@ -543,8 +509,6 @@ export function StudyCodeViewer({
     const expanded = onCollapse ? true : isExpanded
     const handleToggle = onCollapse ?? toggleExpanded
     const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
-    // In onCollapse mode the toggle is the section's only collapse control, so it must stay
-    // reachable even with no displayable code files; the plain viewer still hides it when empty.
     const toggleVisible = onCollapse ? true : hasFiles
 
     return (

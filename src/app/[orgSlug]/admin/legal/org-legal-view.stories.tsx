@@ -3,8 +3,7 @@ import { Paper, Stack, Text, Title } from '@mantine/core'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { OrgLegalView } from './org-legal-view'
 
-// The tabs are a stand-in; the real ones are query- and session-coupled, and this story is for the
-// page shell around them.
+// The tabs are a stand-in; the real ones are query- and session-coupled.
 const meta = { title: 'Pages / Org legal center', argTypes: pageBackgroundArgTypes }
 export default meta
 

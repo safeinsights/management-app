@@ -12,9 +12,8 @@ import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
 
-// Results are job output and therefore attacker-controlled, so they must never be written as
-// markup. FileOrImagePreviewModal renders them through the same escaped viewers the encrypted
-// path uses, and handles the image/text split itself (OTTER-721).
+// Results are attacker-controlled job output, so they must never be written as markup; the
+// preview modal renders them through escaped viewers (OTTER-721).
 const ViewResultsLink: FC<{ content: ArrayBuffer; path: string }> = ({ content, path }) => {
     const [previewing, setPreviewing] = useState(false)
 
@@ -31,10 +30,8 @@ const ViewResultsLink: FC<{ content: ArrayBuffer; path: string }> = ({ content, 
     )
 }
 
-// Pre-PR #764 results: stored as plaintext APPROVED-RESULT / approved-log rows that were never
-// encrypted for the researcher, so there is no key to ask for. This is the original JobResults view,
-// retained for studies that finished before researcher result encryption shipped. JobResults routes
-// only legacy jobs here; encrypted jobs go through EncryptedFilesPanel.
+// Pre-PR #764 results are plaintext and were never encrypted for the researcher, so there is no
+// key to ask for. Encrypted jobs go through EncryptedFilesPanel instead.
 export const LegacyJobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const {
         data: approvedFiles,

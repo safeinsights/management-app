@@ -49,8 +49,8 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     const bodyRef = useRef<HTMLDivElement>(null)
     const [isTruncated, setIsTruncated] = useState(false)
 
-    // scrollHeight vs clientHeight only reflects overflow while line-clamp is on; once expanded,
-    // that comparison stays stale — measure against a fixed collapsed height (lineHeight × clamp) instead.
+    // scrollHeight vs clientHeight only reflects overflow while line-clamp is on, so it goes
+    // stale once expanded; measure against a fixed collapsed height instead.
     useEffect(() => {
         const node = bodyRef.current
         if (!node) return
@@ -110,9 +110,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
 
 function useExpandedEntries(entries: FeedbackEntryShape[], alwaysExpandLatest: boolean) {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-        // The newest entry is expanded by default, the rest collapsed. On proposal surfaces a
-        // newest resubmission note stays collapsed (the researcher just wrote it); code surfaces
-        // opt in via alwaysExpandLatest to expand the newest entry regardless of type (OTTER-558).
+        // A newest resubmission note stays collapsed: the researcher just wrote it (OTTER-558).
         const latest = entries[0]
         if (!latest) return new Set()
         if (!alwaysExpandLatest && latest.entryType === 'RESUBMISSION-NOTE') return new Set()
@@ -143,10 +141,7 @@ export function FeedbackAndNotesSection({
 }: {
     entries: FeedbackEntryShape[]
     alwaysExpandLatest?: boolean
-    /**
-     * The fetch failed. Swaps in the shared notice rather than hiding the section, so a reader
-     * never takes "no feedback" from what was only a failed query.
-     */
+    /** Shows a notice rather than hiding the section, so a failed query never reads as "no feedback". */
     loadError?: boolean
 }) {
     const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest)

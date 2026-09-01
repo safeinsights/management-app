@@ -19,13 +19,11 @@ import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import { ReviewerOutputsDecidedScreen } from './reviewer-outputs-decided-screen'
 
-// Screens may be async server components (they load their own data). Returned node is awaited
-// at the page dispatch (see view/page.tsx) — NOT rendered as a JSX child (which the test harness
-// would not resolve).
+// Screens may be async server components, so the returned node is awaited at the page dispatch
+// rather than rendered as a JSX child, which the test harness would not resolve.
 export type ScreenComponent = (props: ScreenComponentProps) => React.ReactNode | Promise<React.ReactNode>
 
-// Total: every ScreenId maps to a component, so the dispatch in view/page.tsx is exhaustive and a
-// missing screen is a compile error (not a runtime throw).
+// Total, so a missing screen is a compile error rather than a runtime throw.
 export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'code-approved': CodeDecisionScreen,
     'code-feedback': CodeDecisionScreen,

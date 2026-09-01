@@ -44,8 +44,6 @@ describe('SaveStatusIndicator', () => {
     })
 
     it('keeps the live region mounted and empty while idle, so the save is announced (OTTER-675)', () => {
-        // A live region is only announced when content it already owns changes, so the region
-        // has to be in the DOM before the label lands in it.
         renderWithProviders(<SaveStatusIndicator status="idle" />)
         expect(screen.getByRole('status')).toBeEmptyDOMElement()
     })
@@ -62,9 +60,6 @@ describe('SaveStatusIndicator', () => {
     })
 
     it('leaves the live region unnamed, so the name is not spoken ahead of the save (OTTER-675)', () => {
-        // Several screen readers read a live region's accessible name before its content, which
-        // would turn each save into "<name>, All changes saved". Tests select the region by
-        // data-testid instead.
         renderWithProviders(<SaveStatusIndicator status="saved" />)
         const region = screen.getByTestId('autosave-live-region')
         expect(region).not.toHaveAttribute('aria-label')

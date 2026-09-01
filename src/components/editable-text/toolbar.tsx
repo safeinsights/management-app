@@ -52,7 +52,6 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     const openLinkEditor = useCallback((currentUrl: string | null) => {
         setUrl(currentUrl ?? 'https://')
         setIsEditing(true)
-        // Focus the input after React renders it
         setTimeout(() => inputRef.current?.focus(), 0)
     }, [])
 
@@ -129,9 +128,8 @@ export const Toolbar = () => {
         )
     }, [editor, updateToolbar])
 
-    // Lexical re-renders the surface a command touched, which can drop the caret and with it DOM
-    // focus, leaving the user typing nowhere and the container's blur validation reading the
-    // toolbar click as "left the field incomplete" (OTTER-647). Restoring focus fixes both.
+    // Lexical re-renders the surface a command touched, dropping the caret and DOM focus, which
+    // the container's blur validation reads as "left the field incomplete" (OTTER-647).
     const runOnEditor = (dispatch: () => void) => {
         dispatch()
         editor.focus()
@@ -141,11 +139,8 @@ export const Toolbar = () => {
         runOnEditor(() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format))
     }
 
-    // The decision is read out of the editor state, but the dispatch happens after the read
-    // closes: unlinking has to go through runOnEditor like every other command, or it leaves the
-    // caret wherever Lexical dropped it and the field reads the toolbar click as "left incomplete"
-    // (OTTER-647). Opening the link editor is the one command that should move focus, so it does
-    // not restore it.
+    // Unlinking dispatches after the read closes, through runOnEditor; opening the link editor is
+    // the one command that should move focus (OTTER-647).
     const toggleLink = () => {
         const selected = editor.getEditorState().read(() => {
             const selection = $getSelection()

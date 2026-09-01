@@ -321,9 +321,8 @@ describe('Data Source Actions', () => {
         expect(stillExists).toBeDefined()
     })
 
-    // Pins the flow that made `view Org` unconditioned in the first place (97c118b1): on the
-    // study-proposal page a lab researcher picks a dataset from an ENCLAVE org they do not belong
-    // to. OTTER-724 moved the credential-bearing reads off `view Org`; this one must stay put.
+    // The flow that made `view Org` unconditioned (97c118b1): a lab researcher picks a dataset
+    // from an enclave org they do not belong to.
     it('stays readable cross-org: proposal dataset picker (97c118b1)', async () => {
         const enclaveOrg = await insertTestOrg({ slug: 'unrelated-enclave-catalog', type: 'enclave' })
         await insertTestDataSource({

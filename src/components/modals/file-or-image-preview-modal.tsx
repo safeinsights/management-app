@@ -7,8 +7,8 @@ type PreviewFile = {
     contents: ArrayBuffer | null
 }
 
-// Callers hand over raw bytes so binary files like png plots survive the trip intact;
-// decoding to utf-8 happens here and only for non-image files (OTTER-516).
+// Callers hand over raw bytes so binary files survive intact; utf-8 decoding happens here and
+// only for non-image files (OTTER-516).
 export function FileOrImagePreviewModal({
     file,
     onClose,
@@ -16,7 +16,6 @@ export function FileOrImagePreviewModal({
 }: {
     file: PreviewFile | null
     onClose: () => void
-    /** Notified when the preview's own download link is used (OTTER-675 activity logging). */
     onDownload?: () => void
 }) {
     if (!file) return null

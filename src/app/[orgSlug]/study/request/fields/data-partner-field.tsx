@@ -17,9 +17,7 @@ const DESCRIPTION = 'Select a Data Partner to see the programming languages they
 
 interface DataPartnerFieldProps {
     form: UseFormReturnType<StudyProposalFormValues>
-    /** True once the draft has a persisted Data Partner: it cannot be changed after Step 1. */
     isLocked: boolean
-    /** Display name of the locked partner. Falls back to the slug only if the caller has none. */
     lockedOrgName?: string
 }
 
@@ -30,8 +28,7 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
     const { data: orgs = [], isLoading } = useQuery({
         queryKey: ['orgs-with-languages'],
         queryFn: () => getStudyCapableEnclaveOrgsAction(),
-        // The action requires an authenticated ability check, so it must not fire before Clerk
-        // has resolved the session.
+        // The action's ability check needs a resolved Clerk session.
         enabled: isSessionReady,
     })
 
@@ -49,10 +46,8 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
                 allowDeselect={false}
                 data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                 placeholder="Select a Data Partner"
-                // `isSessionReady` as well as `isLoading`: a query held back by `enabled` reports
-                // fetchStatus 'idle', so `isLoading` is false and the Select would otherwise be
-                // openable with an empty list, offering "Nothing found" for the one required
-                // choice on the page.
+                // A query held back by `enabled` reports isLoading false, so the Select would
+                // otherwise open with an empty list.
                 disabled={isLoading || !isSessionReady}
                 {...form.getInputProps('orgSlug')}
                 {...nativeFieldProps(error, { required: true, description: DESCRIPTION })}

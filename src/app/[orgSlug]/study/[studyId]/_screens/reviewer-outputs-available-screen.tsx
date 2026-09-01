@@ -19,9 +19,7 @@ const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string 
     )
 }
 
-// OTTER-676: same two-phase panel as the errored screen (OTTER-675), the security key gate, then
-// the decrypted outputs table, feedback and sharing decision. Only the locked banner copy differs.
-// The feedback cap used to differ too, until OTTER-737 put both run outcomes on one number.
+// OTTER-676: the same two-phase panel as the errored screen; only the locked banner copy differs.
 export async function ReviewerOutputsAvailableScreen({
     study,
     raw,
@@ -32,9 +30,7 @@ export async function ReviewerOutputsAvailableScreen({
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    // Guards the same fact rule 1b routes on (reviewer-screen-rules), so routing and rendering
-    // cannot disagree about whether outputs are available (#922 review). The query above supplies
-    // only the panel's job payload.
+    // The same predicate the routing rules use, so routing and rendering cannot disagree.
     const state = projectStudyState(raw)
     if (state.resultsDisplayStatus !== 'RUN-COMPLETE') {
         return (

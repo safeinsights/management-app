@@ -57,8 +57,7 @@ describe('effectiveProposalStatus', () => {
 })
 
 describe('PROPOSAL_STATUS_TO_REVIEW_DECISION', () => {
-    // The map is derived by inverting REVIEW_DECISION_TO_STATUS. A future decision colliding on
-    // the same status would silently drop an entry. Guard the 1:1 assumption.
+    // Derived by inverting REVIEW_DECISION_TO_STATUS, so a collision would silently drop an entry.
     it('inverts every decision without collisions', () => {
         expect(PROPOSAL_STATUS_TO_REVIEW_DECISION).toEqual({
             APPROVED: 'APPROVE',

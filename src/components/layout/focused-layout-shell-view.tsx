@@ -6,17 +6,11 @@ import { type ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
 
-// Presentational centered/focused shell (sign-in, reset-password, etc.). It owns the purple
-// AppShell chrome, the clickable header logo, and the centered main pane — but NOT the
-// session/path: the sign-in-flow header behavior is passed in, and the session-coupled
-// ActivityContext is injected via the `activityContext` slot (omitted in isolation, e.g.
-// Ladle). The FocusedLayoutShell container (./focused-layout-shell) wires up the real hooks.
+// Session-free so it renders in isolation; ./focused-layout-shell wires up the real hooks.
 export type FocusedLayoutShellViewProps = {
     children: ReactNode
-    /** True on sign-in / reset-password flows: makes the header logo clickable. */
     isSignInFlow: boolean
     onHeaderClick: () => void
-    /** Clerk-coupled inactivity watcher; injected by the container. */
     activityContext?: ReactNode
 }
 

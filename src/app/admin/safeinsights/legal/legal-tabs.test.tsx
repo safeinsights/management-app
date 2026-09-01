@@ -17,7 +17,6 @@ describe('LegalTabs', () => {
 
         renderWithProviders(<LegalTabs />)
 
-        // Every tab's upload control is labelled just "Upload"; the panel says which document.
         expect(await screen.findByRole('button', { name: 'Upload' })).toBeDefined()
 
         fireEvent.click(screen.getByRole('tab', { name: 'Study Agreements' }))

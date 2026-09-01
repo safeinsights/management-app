@@ -4,8 +4,7 @@ import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { readTestSupportFile } from './unit.helpers'
 
-// Job artifact fixtures. Kept beside unit.helpers rather than inside it so the si-encryption import
-// only loads for the suites that actually seed artifacts.
+// Kept out of unit.helpers so the si-encryption import only loads for suites that seed artifacts.
 
 const toArrayBuffer = (str: string): ArrayBuffer => {
     const buf = Buffer.from(str, 'utf-8')
@@ -15,14 +14,8 @@ const toArrayBuffer = (str: string): ArrayBuffer => {
 const artifactPath = (jobId: string, name: string) => `test-org/${jobId}/results/${name}`
 
 /**
- * One `studyJobFile` row with no encrypted body behind it.
- *
- * A real shape rather than a shortcut: the containerizer stores a plaintext PACKAGING-ERROR-LOG
- * beside the encrypted one (and alone when the org has no key holders), and pre-#764 jobs hold
- * plaintext APPROVED-* results.
- *
- * Idempotent, because the artifact-slot unique index forbids a second row for a slot the job
- * already has, and a suite may seed the same artifact twice across a setup helper and a test.
+ * A row with no encrypted body is a real shape, not a shortcut: the containerizer stores a
+ * plaintext PACKAGING-ERROR-LOG, and pre-#764 jobs hold plaintext APPROVED-* results.
  */
 export async function seedJobFileRow(jobId: string, fileType: FileType, name: string) {
     const path = artifactPath(jobId, name)
@@ -48,17 +41,12 @@ export async function seedJobFileRow(jobId: string, fileType: FileType, name: st
 type SeedEncryptedArtifactOptions = {
     fileType: FileType
     files: { name: string; content: string }[]
-    /** Defaults per type, so seeding two artifact types against one job cannot collide on path. */
     name?: string
 }
 
 /**
- * Encrypts an artifact the way the enclave does, whole zip with an embedded manifest, against the
- * test public key. A suite that then enters the matching private key drives a genuine decryption
- * rather than a stubbed callback, which is what makes the reviewer's phase flip worth asserting.
- *
- * Returns the shape `fetchEncryptedJobFilesAction` hands the UI, so a suite can mock that action
- * with the result and have the row and the payload describe the same artifact.
+ * Encrypts the way the enclave does, so entering the matching private key drives a genuine
+ * decryption. Returns the shape `fetchEncryptedJobFilesAction` hands the UI.
  */
 export async function seedEncryptedArtifact(
     jobId: string,

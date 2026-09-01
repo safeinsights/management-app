@@ -3,10 +3,8 @@ export type CoderBaseEntity = {
     name: string
 }
 
-// Branded (nominal) string identifiers, so a function signature makes clear which kind of id it
-// expects and the compiler rejects passing e.g. an AgentId where a BuildId is required. The brand
-// is phantom (type-only) — at runtime these are plain strings; construct them via a typed
-// `coderFetch<T>` response or an explicit cast.
+// Branded string ids so the compiler rejects passing e.g. an AgentId where a BuildId is required.
+// The brand is phantom: at runtime these are plain strings.
 declare const coderIdBrand: unique symbol
 type Brand<T, B extends string> = T & { readonly [coderIdBrand]: B }
 
@@ -15,7 +13,6 @@ export type BuildId = Brand<string, 'BuildId'>
 export type AgentId = Brand<string, 'AgentId'>
 export type CoderUsername = Brand<string, 'CoderUsername'>
 
-// Coder workspace build status (the computed workspace state) and provisioner job status.
 export type WorkspaceStatus =
     | 'canceled'
     | 'canceling'
@@ -27,13 +24,12 @@ export type WorkspaceStatus =
     | 'starting'
     | 'stopped'
     | 'stopping'
-    | 'unknown' // Not defined as part of Coder API, but used internally
+    | 'unknown'
 
 export type JobStatus = 'canceled' | 'canceling' | 'failed' | 'pending' | 'running' | 'succeeded' | 'unknown'
 
 export type BuildTransition = 'start' | 'stop' | 'delete'
 
-// Coder agent lifecycle (provisioning/boot) and connection status.
 export type AgentLifecycleState =
     | 'created'
     | 'starting'
@@ -56,12 +52,7 @@ export interface CoderWorkspaceEvent {
         id?: BuildId
         resources?: CoderResource[]
         status?: WorkspaceStatus
-        // workspace_owner_name?: string // unused
-        // workspace_name?: string // unused
     }
-    // id?: WorkspaceId // unused
-    // url?: string // unused
-    // message?: string // unused
 }
 
 export interface CoderResource {
@@ -81,23 +72,16 @@ export interface CoderWorkspaceBuild {
         status: JobStatus
         error?: string
     }
-    // id: BuildId // unused
-    // transition?: BuildTransition // unused
-    // resources?: CoderResource[] // unused
 }
 
-// Build (provisioner) and agent logs share the fields we read; the level key differs
-// between the two endpoints, so accept either.
+// The level key differs between the build and agent endpoints, so accept either.
 export interface CoderLog {
     id: number
     created_at: string
     output: string
-    // log_level?: LogLevel // unused
-    // level?: LogLevel // unused
 }
 
-// The single workspace agent's lifecycle/connection/code-server health. The template provisions
-// exactly one agent; getCoderWorkspaceLaunchStatus throws if Coder ever reports more.
+// The template provisions exactly one agent; getCoderWorkspaceLaunchStatus throws if Coder reports more.
 export interface WorkspaceAgentStatus {
     lifecycle: AgentLifecycleState | null
     status: AgentStatus | null
@@ -106,19 +90,18 @@ export interface WorkspaceAgentStatus {
 
 export interface WorkspaceLaunchStatus {
     buildStatus: WorkspaceStatus
-    // New log lines fetched this poll (since the cursor); the client accumulates them into a full log.
     buildLogLines: string[]
     agentStatus: WorkspaceAgentStatus | null
     agentLogLines: string[]
     ready: boolean
     failed: boolean
     reason: string
-    cursors: { build: number | null; agent: number | null } // last log id seen per stream
+    cursors: { build: number | null; agent: number | null }
     url: string | null
 }
 
 export interface CoderApp {
-    slug: string // "code-server"
+    slug: string
     health?: AppHealth
 }
 
@@ -128,18 +111,11 @@ export interface CoderUserQueryResponse {
 
 export interface CoderUser {
     username: CoderUsername
-    // id: string // unused
-    // email: string // unused
-    // name: string // unused
-    // status: string // unused
 }
 
 export interface CoderWorkspace {
     id: WorkspaceId
     latest_build?: {
         status: WorkspaceStatus
-        // resources?: CoderResource[] // unused
     }
-    // name: string // unused
-    // owner_id: string // unused
 }

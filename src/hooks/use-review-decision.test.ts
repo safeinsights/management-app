@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@/tests/unit.helpers'
 import { useReviewDecision } from './use-review-decision'
 
-// OTTER-647: the decision radio group is required but was plain useState, with no way to
-// surface that the reviewer left it unanswered.
+// OTTER-647: the radio group was plain useState, with no way to surface that it was unanswered.
 describe('useReviewDecision', () => {
     it('starts unselected with no error', () => {
         const { result } = renderHook(() => useReviewDecision())

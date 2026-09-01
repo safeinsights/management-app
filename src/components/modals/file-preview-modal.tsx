@@ -10,7 +10,6 @@ export function FilePreviewModal({
 }: {
     file: { name: string; contents: string | null } | null
     onClose: () => void
-    /** Notified when the in-modal download link is used, so callers can log the download. */
     onDownload?: () => void
 }) {
     if (!file) return null

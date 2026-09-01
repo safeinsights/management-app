@@ -26,14 +26,7 @@ type QaAuditEntry = {
     metadata?: Record<string, unknown>
 }
 
-/**
- * Record a QA or admin route invocation. These routes run against production data, so
- * every call is written to the audit trail attributed to the SI admin who made it,
- * tagged with `via` so the activity can be told apart from ordinary app mutations.
- *
- * Awaited rather than deferred: the audit row is the record that this happened, so it
- * must be durable before the response goes out.
- */
+// Awaited rather than deferred: the row must be durable before the response goes out.
 export async function auditQaInvocation({
     actorUserId,
     eventType,

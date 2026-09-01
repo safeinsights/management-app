@@ -12,8 +12,7 @@ describe('resolveScreen (researcher)', () => {
         )
     })
     it('errored job, no reviewer files decision → outputs-pending, NOT study-results (OTTER-598, 43898)', () => {
-        // hasResults is true (JOB-ERRORED ∈ STUDY_RESULTS_JOB_STATUSES) but the error is still hidden
-        // from the researcher, so routing must NOT jump to the results screen.
+        // hasResults is true, but the error is still hidden from the researcher.
         expect(
             resolveScreen(
                 'researcher',
@@ -127,10 +126,6 @@ describe('resolveScreen (researcher)', () => {
         ).toBe('study-results')
     })
     it('errored job with a stale code decision (resubmission) → code-under-review, NOT study-results (OTTER-598)', () => {
-        // Edge case raised in PR #837: resultsErrored excludes from study-results, the prior
-        // CODE-APPROVED was dropped by dropStale (so codeDecision is null and codeAwaitingDecision
-        // is true), and isExecuting is false. It must NOT fall through to study-results; it lands on
-        // code-under-review, which is the right next-step screen for a re-reviewed resubmission.
         expect(
             resolveScreen(
                 'researcher',
@@ -189,9 +184,6 @@ describe('resolveScreen (researcher)', () => {
     })
 })
 
-// OTTER-614: resolveResearcherCodeScreen backs the read-only /view/code route — it returns the
-// matching code screen, or undefined when the study hasn't reached the code stage (route 404s, no
-// forward jumps).
 describe('resolveResearcherCodeScreen (read-only /view/code)', () => {
     it('results study → approved-code screen (results imply approved code)', () => {
         const resultsStudy = state({
@@ -288,9 +280,6 @@ describe('resolveScreen (reviewer)', () => {
     })
 })
 
-// OTTER-643: resolveReviewerCodeScreen backs the read-only /review/code route — the DO counterpart to
-// resolveResearcherCodeScreen. It returns the matching code screen (skipping reviewer-outputs-decided so
-// a decided study doesn't loop), or undefined when the study hasn't reached the code stage (route 404s).
 describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
     it('results study → reviewer-code-feedback (results imply an approved code decision)', () => {
         const resultsStudy = state({
@@ -328,8 +317,7 @@ describe('resolveReviewerCodeScreen (read-only /review/code)', () => {
         expect(resolveReviewerCodeScreen(s)).toEqual({ screen: 'reviewer-code-review', readOnlyCodeStep: true })
     })
 
-    // OTTER-727: the agreements gate is no longer a candidate code screen, so the walk-back route
-    // lands on the code-review editor whether or not the reviewer ever acked.
+    // OTTER-727 removed the agreements gate from the candidate code screens.
     it('awaiting decision, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         const s = state({
             status: 'APPROVED',

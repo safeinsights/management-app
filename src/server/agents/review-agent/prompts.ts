@@ -1,7 +1,3 @@
-/**
- * Default system instruction. Sourced from CRATE DO Review Agent.
- * Override via `ReviewAgentConfig.systemPrompt` (e.g. SI Admin org-level config).
- */
 export const DEFAULT_SYSTEM_INSTRUCTION = `You are a strict and meticulous Code & Compliance Auditor for an education research Data Partner.
 Your primary function is to analyze a researcher's submission, which includes a research proposal and associated code, focusing on education data.
 You must compare this submission against the Data Partner's compliance requirements and documentation for handling student and school data.
@@ -19,11 +15,6 @@ When generating an analysis, you must return a structured JSON object adhering t
 Do not add any commentary outside of the requested JSON structure.
 `
 
-/**
- * Default analysis prompt template. Override via `ReviewAgentConfig.analysisPromptTemplate`.
- * Placeholders (single-pass replaced — no cross-injection): {{proposal}}, {{code}},
- * {{requirements}}, {{brcDocs}}, {{dataDocs}}, {{otherDocs}}, {{testResultsSection}}.
- */
 export const DEFAULT_ANALYSIS_PROMPT_TEMPLATE = `
 Please perform a full analysis of the provided research submission.
 The output must be a single JSON object that conforms to the AnalysisReport interface.
@@ -70,11 +61,7 @@ interface PromptData {
     testResultsSection: string
 }
 
-/**
- * Populate the analysis prompt template using a single-pass replacement strategy.
- * Prevents user content containing placeholder strings (e.g. "{{code}}") from
- * being substituted by a later replacement.
- */
+// Single-pass, so user content containing a placeholder string is not itself substituted.
 export function buildAnalysisPrompt(data: PromptData, templateOverride?: string): string {
     const template = templateOverride ?? DEFAULT_ANALYSIS_PROMPT_TEMPLATE
 

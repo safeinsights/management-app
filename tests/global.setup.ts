@@ -1,15 +1,3 @@
-// Playwright globalSetup: runs once (in the main process, after the webServer is up)
-// before any spec. Replaces the former `auth setup` *project* — which spun up a whole
-// worker pool + browser-launch phase as a barrier — with a single fast pass:
-//
-//   1. Write each role's storageState (just the __e2e_role cookie) directly as JSON. Auth
-//      is faked, so "signing in" is writing that cookie — no browser needed.
-//   2. Warm the heavy routes once with a single browser so the first spec to hit a route
-//      on a cold server doesn't pay one-time init (module load, DB pool, S3 client) and
-//      risk its timeout.
-//
-// Removing the separate project removes a full worker-pool/barrier phase from the run.
-
 import { chromium, type FullConfig } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
@@ -51,18 +39,16 @@ function storageStateFor(role: TestingRole) {
 export default async function globalSetup(config: FullConfig) {
     const baseURL = config.projects[0]?.use?.baseURL ?? process.env.E2E_BASE_URL ?? 'http://localhost:4100'
 
-    // 1. Write storageState files directly (no browser).
     for (const role of ROLES) {
         const file = authFileFor(role)
         await fs.promises.mkdir(path.dirname(file), { recursive: true })
         await fs.promises.writeFile(file, JSON.stringify(storageStateFor(role), null, 2))
     }
 
-    // 2. Put ToS/PN acknowledgement state into a known shape. Must happen here, not in a spec: the
-    //    documents are global, so publishing one mid-run blocks every other worker's user.
+    // Cannot happen in a spec: legal documents are global, so publishing one mid-run would
+    // block every other worker's user.
     await seedLegalDocuments()
 
-    // 3. Warm routes with a single admin-cookie browser context.
     const browser = await chromium.launch()
     try {
         const context = await browser.newContext({ storageState: authFileFor('admin') })

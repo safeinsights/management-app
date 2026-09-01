@@ -34,14 +34,8 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         validateInputOnBlur: true,
     })
 
-    // Seed the form from the persisted profile, decide the initial edit mode, and clear any
-    // stale interest draft, but never while the user is editing, so a background refetch
-    // (15-min interval / window focus) can never overwrite unsaved input. Seeding the form
-    // (an external Mantine store) and the coupled edit-mode / draft resets must run together
-    // in this effect: they have to happen in the same pass so the form is populated before it
-    // opens, and "not editing" is the only reliable divergence guard. form.isDirty() is not
-    // dependable here: committed interest edits go through Mantine list ops and an uncommitted
-    // draft is separate state, so neither reliably marks the form dirty.
+    // Guarded on "not editing" rather than isDirty(), which list ops and the separate draft leave
+    // false, so a background refetch cannot overwrite unsaved input.
     useEffect(() => {
         if (isEditing) return
         form.setValues(defaults)
@@ -69,8 +63,8 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
 
     const addInterest = () => {
         const v = interestDraft.trim()
-        // Still validate on an empty draft: this runs from the input's blur, and skipping it
-        // meant leaving the required field untouched never surfaced an error (OTTER-647).
+        // Validated even when empty: this runs from blur, and skipping it meant an untouched
+        // required field never surfaced an error (OTTER-647).
         if (!v) {
             form.validateField('researchInterests')
             return
@@ -101,11 +95,8 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         })
     }
 
-    // Folds any interest the user typed but never committed with Enter into the form
-    // value before validating, so a visible-but-uncommitted interest is not silently
-    // dropped and does not leave the user with a permanently disabled Save button.
-    // insertListItem updates the ref synchronously, so form.validate/getValues below
-    // see the just-added interest even in controlled mode.
+    // Folds in an interest typed but never committed with Enter, so it is not silently dropped.
+    // insertListItem updates the ref synchronously, so validate/getValues below see it.
     const submitWithDraft = () => {
         addInterest()
         const { hasErrors } = form.validate()

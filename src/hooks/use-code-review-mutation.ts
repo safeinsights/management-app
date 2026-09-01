@@ -24,10 +24,9 @@ export type SubmitCodeReviewArgs = {
 
 interface UseCodeReviewMutationOptions {
     studyId: string
-    /** Latest study_job id; used to key the broadcast doc name. */
+    /** Keys the broadcast doc name. */
     jobId: string
     orgSlug: string
-    /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
 }
 
@@ -37,8 +36,8 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
     const { getToken } = useAuth()
     const { user } = useUser()
 
-    // Standalone broadcast provider on its own websocket. Standalone so the broadcast
-    // survives the mutation tearing down the editor's shared connection.
+    // On its own websocket, so the broadcast survives the mutation tearing down the editor's
+    // shared connection.
     const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
     useEffect(() => {
         const doc = new Y.Doc()
@@ -86,8 +85,6 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
                 broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
-            // A decision was just recorded; bare /review re-resolves via the reviewer state machine
-            // (outputs-pending once the approved code is executing, else code post-feedback) — no ?from= needed.
             router.push(Routes.studyReview({ orgSlug, studyId }))
         },
     })

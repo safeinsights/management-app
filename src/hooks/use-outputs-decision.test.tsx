@@ -18,9 +18,8 @@ const renderDecision = () =>
         { wrapper: createTestQueryWrapper() },
     )
 
-// OTTER-675: a failed submit must flag every unresolved field on the FIRST click. Flagging the
-// feedback field on blur instead moved the submit button between mousedown and mouseup, which cost
-// the click that caused it, so the reviewer saw one problem per click.
+// OTTER-675: flagging the feedback field on blur moved the submit button between mousedown and
+// mouseup, costing the click that caused it, so the reviewer saw one problem per click.
 describe('useOutputsDecision', () => {
     it('opens with nothing flagged', () => {
         const { result } = renderDecision()
@@ -66,8 +65,8 @@ describe('useOutputsDecision', () => {
         expect(result.current.characterCount).toBe(OUTPUTS_FEEDBACK_MAX_CHARACTERS)
     })
 
-    // Characters, not words: 400 short words is past the old 300-word errored-run cap and inside
-    // 1800 characters, so this fails if word counting survived.
+    // 400 short words is past the old 300-word cap but inside 1800 characters, so this fails if
+    // word counting survived.
     it('measures characters rather than words', () => {
         const { result } = renderDecision()
 

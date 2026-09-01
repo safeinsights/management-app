@@ -5,8 +5,7 @@ import { Button, Divider, Group, Paper, Stack, Table, Text } from '@mantine/core
 import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { OutputsFileRow, type OutputFileRowData } from './outputs-file-row'
 
-// Two files is the threshold: with one file the row's own download icon already does the job, so
-// a "Download all" would be a second control for the same action.
+// With one file the row's own download icon already does the job.
 const DOWNLOAD_ALL_MIN_FILES = 2
 
 type DownloadAllButtonProps = {
@@ -16,8 +15,7 @@ type DownloadAllButtonProps = {
 }
 
 const DownloadAllButton: FC<DownloadAllButtonProps> = ({ isVisible, isPreparing, onClick }) => {
-    // Returns null rather than hiding with CSS so the button leaves the tab order entirely when
-    // there are fewer than two files.
+    // Null rather than CSS-hidden, so the button leaves the tab order entirely.
     if (!isVisible) return null
 
     return (
@@ -25,8 +23,7 @@ const DownloadAllButton: FC<DownloadAllButtonProps> = ({ isVisible, isPreparing,
             variant="outline"
             onClick={onClick}
             loading={isPreparing}
-            // Decorative here: the button already has a visible text label, so announcing the
-            // icon too would double up. Contrast with the per-row icon, which is the only control.
+            // Decorative: the button already has a visible label, unlike the per-row icon.
             rightSection={<DownloadSimpleIcon size={16} aria-hidden="true" />}
             data-testid="outputs-download-all"
         >

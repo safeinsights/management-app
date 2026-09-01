@@ -2,8 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { after } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 
-// after() schedules work post-response; run it inline so the test can observe
-// the failure-reporting path synchronously.
+// Run after() inline so the failure-reporting path is observable synchronously.
 vi.mock('next/server', () => ({
     after: vi.fn((cb: () => unknown) => cb()),
 }))
@@ -34,10 +33,8 @@ describe('deferred', () => {
         })
 
         run()
-        // Let the inline after() callback's async catch settle.
         await vi.waitFor(() => expect(captureExceptionMock).toHaveBeenCalledWith(boom))
-        // The flush is the actual fix — without it the event is dropped when the
-        // serverless instance freezes after the response.
+        // Without the flush the event is dropped when the instance freezes after the response.
         expect(flushMock).toHaveBeenCalled()
     })
 

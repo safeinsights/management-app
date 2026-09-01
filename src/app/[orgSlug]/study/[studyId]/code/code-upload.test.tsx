@@ -63,8 +63,7 @@ const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setu
     await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 }
 
-// Submission no longer touches study.status; the durable submit marker is the
-// job's CODE-SUBMITTED status change.
+// The durable submit marker is the job's CODE-SUBMITTED status change, not study.status.
 const codeSubmittedCount = async (studyId: string) => {
     const row = await db
         .selectFrom('jobStatusChange')
@@ -114,8 +113,7 @@ describe('CodeUploadPage', () => {
         })
     })
 
-    // Submitting reuses the open round job, whose cleanup hits real S3
-    // (deleteFolderContents) — skip when SeaweedFS isn't running locally; CI has it.
+    // Cleanup hits real S3, so skip when SeaweedFS is not running locally; CI has it.
     it.skipIf(!s3Available)('shows workspace files and allows submission', async () => {
         const { study } = await setupStudy()
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })

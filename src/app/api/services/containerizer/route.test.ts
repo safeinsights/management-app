@@ -119,8 +119,8 @@ async function erroredReasons(jobId: string) {
     return rows.map((r) => r.message)
 }
 
-// OTTER-524: a packaging failure has no log to send, so a classified failure class is the only thing
-// that can explain it. It has to survive the round trip into jobStatusChange.
+// OTTER-524: a packaging failure has no log, so the failure class is the only thing that can
+// explain it.
 test('containerizer records a known failure reason alongside JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -134,8 +134,8 @@ test('containerizer records a known failure reason alongside JOB-ERRORED', async
     expect(await erroredReasons(jobId)).toContain('BASE_IMAGE_UNAVAILABLE')
 })
 
-// The containerizer deploys independently of this app. A code we do not recognize yet must not fail
-// validation, or that deploy would stop jobs being marked errored at all. It is dropped, not stored.
+// The containerizer deploys independently, so an unrecognized code must not fail validation — that
+// would stop jobs being marked errored at all.
 test('containerizer accepts an unknown failure reason without storing it', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -149,8 +149,8 @@ test('containerizer accepts an unknown failure reason without storing it', async
     expect(await erroredReasons(jobId)).not.toContain('SOMETHING_WE_DO_NOT_KNOW')
 })
 
-// Nothing a build script writes may be stored verbatim, so infrastructure detail cannot reach the
-// database and be surfaced later by accident.
+// Nothing a build script writes is stored verbatim, so infrastructure detail cannot reach the
+// database.
 test('containerizer discards raw text sent as a failure reason', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -165,9 +165,8 @@ test('containerizer discards raw text sent as a failure reason', async () => {
     expect(reasons.every((r) => !r?.includes('s3://'))).toBe(true)
 })
 
-// A classified failure is delivered twice: the build script posts the reason from its own handler,
-// then the buildspec's post_build fallback fires and posts the bare payload. The script always goes
-// first, so the status dedup has to leave the classified row alone rather than the bare one winning.
+// A classified failure is delivered twice — the build script's handler, then the buildspec's
+// post_build fallback — so the status dedup must leave the classified row alone.
 test('containerizer keeps the recorded reason when the bare fallback follows it', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -183,10 +182,8 @@ test('containerizer keeps the recorded reason when the bare fallback follows it'
     expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
 })
 
-// The reverse order of the test above, which the buildspec is not required to guarantee: a CodeBuild
-// abort can fire the bare fallback before the script's own handler ever posts. The status dedup
-// discards the duplicate row, so the code has to be recorded against the row already there rather
-// than dropped with it.
+// The reverse order, which the buildspec does not guarantee: a CodeBuild abort can fire the bare
+// fallback first, so the code must be recorded against the row already there.
 test('containerizer records a reason that arrives after the bare failure', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -202,8 +199,7 @@ test('containerizer records a reason that arrives after the bare failure', async
     expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
 })
 
-// Backfilling a code-less row must not turn into clearing a recorded one when the follow-up delivery
-// carries something this app cannot classify.
+// Backfilling a code-less row must not clear a recorded one when the follow-up cannot be classified.
 test('containerizer keeps a recorded reason when an unknown code follows it', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -218,23 +214,15 @@ test('containerizer keeps a recorded reason when an unknown code follows it', as
     expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
 })
 
-// Another producer can get to JOB-ERRORED first: `/api/job/[jobId]` and the enclave both write free
-// text into this column. The dedup then lands on their row, so backfilling has to key on whether a
-// CLASSIFIED code is already recorded rather than on the column being empty, or the one value the
-// errored screen can explain is lost to text that is never displayed anyway.
+// Another producer can reach JOB-ERRORED first and write free text into this column, so backfilling
+// keys on whether a CLASSIFIED code is recorded rather than on the column being empty.
 test('containerizer records a reason against an errored row holding unclassified text', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    // createdAt is set rather than defaulted, so this row is unambiguously the job's latest status.
-    // Every row a test writes otherwise carries the same created_at: the suite runs each test inside
-    // one transaction (tests/vitest.setup.ts) and the column defaults to now(), which is that
-    // transaction's start time, not the moment of the insert. The route picks the last status by
-    // created_at then id, so with the timestamps tied the winner is decided by two v7uuid() values,
-    // and their order below a millisecond is random. Left to the default, the route intermittently
-    // read INITIATED as the last status and inserted a second JOB-ERRORED row instead of
-    // backfilling this one.
+    // createdAt is set explicitly: each test runs in one transaction where now() is frozen, so
+    // every row would tie and the winner would fall to random v7uuid() ordering.
     await db
         .insertInto('jobStatusChange')
         .values({
@@ -253,8 +241,7 @@ test('containerizer records a reason against an errored row holding unclassified
     expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
 })
 
-// The buildspec's fallback path posts the payload raw when the build dies before its own handler
-// runs, so a reason-less failure webhook has to stay valid permanently.
+// The buildspec's fallback posts the payload raw, so a reason-less failure webhook must stay valid.
 test('containerizer still accepts a failure webhook with no reason', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -295,8 +282,7 @@ test('returns 404 job-not-found for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-// Persists log files through real S3 (storeStudyEncrypted*/storeStudyLogFile),
-// so this skips when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+// Real S3, so skipped without SeaweedFS locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('containerizer stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })

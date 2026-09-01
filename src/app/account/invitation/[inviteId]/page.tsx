@@ -47,14 +47,13 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
-    // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
+    // getUserList matches merged emails as well as primary ones.
     let matchingUser = pendingInvite?.matchingUser
     if (!matchingUser && pendingInvite?.email) {
         const clerk = await clerkClient()
         const clerkUsers = await clerk.users.getUserList({ emailAddress: [pendingInvite.email] })
 
         if (clerkUsers.data.length > 0) {
-            // Check if this Clerk user has a corresponding user in our database
             const userWithClerkId = await db
                 .selectFrom('user')
                 .select(['id'])
@@ -70,16 +69,13 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
 
     if (session) {
-        // The invitee is already signed in — accept directly, no need to sign out and back in.
         if (matchingUser && session.user.id === matchingUser) {
             redirect(joinTeamUrl, RedirectType.replace)
         }
-        // Signed in as another user: must sign out before accepting.
         return <SignOutPanel />
     }
 
     if (matchingUser) {
-        // redirect to the join team page after signing in
         redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     }
 

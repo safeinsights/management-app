@@ -29,8 +29,6 @@ describe('ProposalStepHeader', () => {
         expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
     })
 
-    // Guards the OTTER-666 call sites: making studyTitle optional must not stop the steps that
-    // pass one from rendering it.
     it('still renders the title line when a studyTitle is passed', () => {
         renderWithProviders(<ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" studyTitle="My study" />)
 

@@ -9,8 +9,7 @@ type GuardSuccess = {
     stage: NonNullable<ReturnType<typeof currentExecutionStage>>
 }
 
-// Returns { job, stage } on success, or a ReactElement alert on failure.
-// Callers discriminate with `!('job' in result)` to catch all three failure paths.
+// Returns { job, stage } or a ReactElement alert; callers discriminate with `!('job' in result)`.
 export async function guardExecutionStage(
     study: SelectedStudy,
     { noJobMessage }: { noJobMessage: string },

@@ -2,12 +2,6 @@ import React from 'react'
 import { Input, Text, Title } from '@mantine/core'
 import { RequiredIndicator } from './required-indicator'
 
-/**
- * Mantine-compliant, accessible label for form fields.
- * - Uses Mantine's Input.Label for proper htmlFor/id linkage.
- * - Keeps original design: bold, small, red asterisk for required.
- * - Accepts className and style for further customization.
- */
 export interface FormFieldLabelProps {
     label: string
     required?: boolean
@@ -34,7 +28,6 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
             </Text>
         )
     }
-    //Style labels for optional fields
     if (variant === 'optional') {
         labelContent = (
             <Title order={3} size="h5" fw={550} style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>

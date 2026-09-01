@@ -4,7 +4,7 @@ test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
         test(`login as ${role}`, async ({ page }) => {
             await page.goto('/account/signin')
-            await e2eSignOut(page) // probably not needed
+            await e2eSignOut(page)
 
             const fillForm = async () => {
                 await page.getByLabel('email').fill(props.identifier)
@@ -25,7 +25,7 @@ test.describe('user sign in', async () => {
             await expect(verifyBtn).toBeEnabled()
             await verifyBtn.click()
 
-            // Success = a dashboard, or the security-key page for keyless roles.
+            // Keyless roles land on the security-key page instead of the dashboard.
             await expect(page.getByText(/dashboard|security key/i).first()).toBeVisible({ timeout: E2E_TIMEOUT })
         })
     }

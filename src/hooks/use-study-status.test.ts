@@ -102,7 +102,6 @@ describe('useStudyStatus', () => {
             const researcherResult = useStudyStatus(params1)
             const reviewerResult = useStudyStatus(params2)
 
-            // Labels should be the same for this status since both audiences have it
             expect(researcherResult?.label).toBe('Approved')
             expect(reviewerResult?.label).toBe('Approved')
         })
@@ -116,8 +115,6 @@ describe('useStudyStatus', () => {
             ])
             const result = useStudyStatus(params)
 
-            // Researcher should continue to see the last clean state (CODE-APPROVED → "Approved")
-            // until the reviewer posts a FILES-APPROVED or FILES-REJECTED decision.
             expect(result?.label).toBe('Approved')
             expect(result.stage).toBe('Code')
         })
@@ -161,7 +158,6 @@ describe('useStudyStatus', () => {
             ])
             const result = useStudyStatus(params)
 
-            // Should find the most relevant status based on priority order
             expect(result.stage).toBe('Results')
         })
 
@@ -174,14 +170,12 @@ describe('useStudyStatus', () => {
             ])
             const result = useStudyStatus(params)
 
-            // Should prioritize based on the status keys order
             expect(result?.label).toBe('Ready')
         })
     })
 
     describe('edge cases', () => {
         it('returns DRAFT status as fallback when no matching status is found', () => {
-            // Create a scenario where no status matches the status keys
             const params = createTestParams('UNKNOWN' as unknown as StudyStatus, 'researcher', [])
             const result = useStudyStatus(params)
 
@@ -197,11 +191,9 @@ describe('useStudyStatus', () => {
         })
 
         it('handles undefined status label gracefully', () => {
-            // Test with a status that might not have a corresponding label
             const params = createTestParams('REJECTED', 'researcher')
             const result = useStudyStatus(params)
 
-            // Should still return the result even if label might be undefined
             expect(result).toBeDefined()
             expect(result?.label).toBe('Rejected')
         })
@@ -209,25 +201,22 @@ describe('useStudyStatus', () => {
 
     describe('status priority and ordering', () => {
         it('respects the reversed order of status keys for priority', () => {
-            // Test that later statuses in the original definition take priority
             const params = createTestParams('APPROVED', 'researcher', [
                 { status: 'CODE-APPROVED' },
                 { status: 'RUN-COMPLETE' },
             ])
             const result = useStudyStatus(params)
 
-            // RUN-COMPLETE should have higher priority than CODE-APPROVED
             expect(result.stage).toBe('Results')
         })
 
         it('finds the first matching status in priority order, not chronological order', () => {
             const params = createTestParams('APPROVED', 'researcher', [
-                { status: 'CODE-APPROVED' }, // Latest chronologically
-                { status: 'RUN-COMPLETE' }, // Earlier chronologically
+                { status: 'CODE-APPROVED' },
+                { status: 'RUN-COMPLETE' },
             ])
             const result = useStudyStatus(params)
 
-            // Should prioritize RUN-COMPLETE despite being chronologically earlier
             expect(result.stage).toBe('Results')
         })
     })
@@ -240,16 +229,12 @@ describe('useStudyStatus', () => {
             ])
             const result = useStudyStatus(params)
 
-            // Should show FILES-REJECTED since it has highest priority
             expect(result?.label).toBe('Rejected')
         })
     })
 
-    // OTTER-552: a code resubmission opens a NEW job, and the dashboard query returns only the
-    // latest job's statuses — so a resubmitted study's latest job carries a fresh CODE-SUBMITTED
-    // (then CODE-SCANNED), NOT the prior round's decision. The pill must read the fresh submission
-    // ("Needs Review" / "Under Review"). (A single job never holds a decision followed by a new
-    // submission — see getOrCreateCurrentRoundJob.)
+    // OTTER-552: a resubmission opens a new job whose statuses carry a fresh CODE-SUBMITTED rather
+    // than the prior round's decision.
     describe('code resubmission recency', () => {
         it('reviewer: resubmitted code after a change request reads "Needs Review", not "Change requested"', () => {
             const params = createTestParams('APPROVED', 'reviewer', [
@@ -294,7 +279,6 @@ describe('useStudyStatus', () => {
             ])
             const result = useStudyStatus(params)
 
-            // JOB-RUNNING is newest and is not a decision; CODE-APPROVED must not be dropped.
             expect(result.label).toBe('Processing')
         })
     })

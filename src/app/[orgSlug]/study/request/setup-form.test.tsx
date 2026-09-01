@@ -34,14 +34,6 @@ const LANGUAGE_ERROR = 'Select a programming language before continuing.'
 
 type Fixtures = Awaited<ReturnType<typeof setupFixtures>>
 
-/**
- * A lab session plus two real enclave partners: one that supports a single language and one that
- * supports two. Both are real rows, so the Data Partner and programming-language fields run their
- * actual server actions against the test database rather than a mock of them.
- *
- * Enclaves are inserted before the session, matching createTestProposalDraft: insertTestOrg stamps
- * an Authorization header, and the lab's has to be the one left standing.
- */
 const setupFixtures = async () => {
     const suffix = faker.string.alpha(8).toLowerCase()
 
@@ -60,8 +52,6 @@ const setupFixtures = async () => {
     await insertTestCodeEnv({ orgId: multiLanguagePartner.id, language: 'R' })
     await insertTestCodeEnv({ orgId: multiLanguagePartner.id, language: 'PYTHON' })
 
-    // A second single-language partner, so switching between partners can be tested without the
-    // destination auto-selecting whatever the source already had.
     const pythonOnlyPartner = await insertTestOrg({
         type: 'enclave',
         slug: `setup-python-${suffix}`,
@@ -69,9 +59,6 @@ const setupFixtures = async () => {
     })
     await insertTestCodeEnv({ orgId: pythonOnlyPartner.id, language: 'PYTHON' })
 
-    // No code environments at all, standing in for a partner that had one when the draft was saved
-    // and has since lost it. It is deliberately absent from the Data Partner list, which only
-    // offers study-capable orgs, and is reachable only as a draft's already-persisted partner.
     const retiredPartner = await insertTestOrg({
         type: 'enclave',
         slug: `setup-retired-${suffix}`,
@@ -127,7 +114,6 @@ describe('Set Up page section header', () => {
         expect(screen.getByTestId('proposal-header-divider')).toBeInTheDocument()
     })
 
-    // The card's own spec forbids the title as body text: this is the step where it is entered.
     it('does not render the study title as body text', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures, { studyId: 'draft-1', draftData: null })
@@ -135,7 +121,6 @@ describe('Set Up page section header', () => {
         expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
     })
 
-    // Out of scope for this card: the page H1 belongs to the header refactor.
     it('leaves the existing page heading alone', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
@@ -154,8 +139,6 @@ describe('Set Up page copy', () => {
         expect(screen.getByText(PARTNER_DESCRIPTION)).toBeInTheDocument()
     })
 
-    // Both words capitalized is an intentional product exception, so it is pinned rather than
-    // left to whatever casing a stylesheet applies.
     it('capitalizes both words of the Data Partner label', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
@@ -190,7 +173,6 @@ describe('Study title character limit', () => {
         expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
     })
 
-    // Proves the limit counts characters, not words: a 20-word rule would have failed this.
     it('accepts a 60-character multi-word title', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -228,8 +210,6 @@ describe('Study title character limit', () => {
         expect(titleInput()).toHaveValue('a'.repeat(60))
     })
 
-    // Whitespace at either end is excluded from the count, and the counter and the validator read
-    // the same number, so a 60-character title plus a trailing space shows 60/60 and validates.
     it('excludes a trailing space from the counter and from validation', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -241,7 +221,6 @@ describe('Study title character limit', () => {
         expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
     })
 
-    // Interior whitespace is content, so a space between words does count.
     it('counts a space between words toward the limit', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -252,7 +231,6 @@ describe('Study title character limit', () => {
         expect(screen.getByText('3/60')).toBeInTheDocument()
     })
 
-    // The count is what the field announces, so it has to be reachable from the input itself.
     it('names the counter in the title input aria-describedby', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -264,7 +242,6 @@ describe('Study title character limit', () => {
         expect(titleInput().getAttribute('aria-describedby')).toContain(counter.id)
     })
 
-    // The form runs uncontrolled, so a counter reading form.values directly would sit frozen.
     it('keeps the counter live while typing and on paste', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -321,7 +298,6 @@ describe('Study title blank error', () => {
         await waitFor(() => expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument())
     })
 
-    // Clearing the box must not flash the error mid-edit: blank is a blur error, not a typing one.
     it('does not raise the blank error while the user is still typing', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -369,8 +345,6 @@ describe('Data Partner and programming language fields', () => {
         expect(screen.getByRole('radio', { name: 'Python' })).not.toBeChecked()
     })
 
-    // Regression pin for the "no changes to this field" requirement: the helper strings and the
-    // horizontal layout are the ones OTTER-350 specified, and only the container moved.
     it('keeps the single-language helper copy verbatim', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -399,8 +373,6 @@ describe('Data Partner and programming language fields', () => {
         ).toBeInTheDocument()
     })
 
-    // A language the new partner cannot run still satisfies the enum, so leaving it in place would
-    // let validation pass on an environment that does not exist.
     it('clears a language the newly chosen Data Partner does not support', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -416,8 +388,6 @@ describe('Data Partner and programming language fields', () => {
         expect(screen.queryByRole('radio', { name: 'R' })).not.toBeInTheDocument()
     })
 
-    // "Appropriately" cuts both ways: a selection the new partner still supports is the
-    // researcher's answer, not stale data, so switching partners must not silently discard it.
     it('keeps a language the newly chosen Data Partner still supports', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -472,8 +442,6 @@ describe('Save & continue button', () => {
 })
 
 describe('Save & continue validation', () => {
-    // Two, not three: the programming-language field is not on the page until a Data Partner is
-    // chosen, and its rule is conditional so it cannot error while hidden.
     it('flags every visible required field at once and focuses the first', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -640,8 +608,6 @@ describe('Footer left action', () => {
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })
 
-    // Nothing is discarded once a row exists: this button resets client state and navigates, and
-    // the only real delete lives behind the dashboard's delete-draft button.
     it('reads Cancel once the draft is persisted', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures, { studyId: faker.string.uuid(), draftData: null })
@@ -673,8 +639,6 @@ describe('Locked fields', () => {
         ...overrides,
     })
 
-    // State B, revisiting a draft that already passed Step 1: the Data Partner and language are
-    // settled, but the title is still the researcher's to change until they submit.
     it('locks the partner and language on a revisited draft, leaving the title editable', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures)
@@ -687,8 +651,6 @@ describe('Locked fields', () => {
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     })
 
-    // Display labels, not stored values: the researcher chose "Single Language Partner" and "R",
-    // not a slug and a SQL enum.
     it('shows the locked values as the labels the researcher chose', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures)
@@ -700,8 +662,6 @@ describe('Locked fields', () => {
         expect(screen.queryByText('PYTHON')).not.toBeInTheDocument()
     })
 
-    // Locking on the studyId alone would strand a draft that never got a language: nothing to fix,
-    // and a Continue click that can never pass validation.
     it('leaves a field editable when the draft never got a value for it', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures, { language: null })
@@ -710,8 +670,6 @@ describe('Locked fields', () => {
         expect(await screen.findByRole('radio', { name: 'R' })).toBeInTheDocument()
     })
 
-    // State C. Not reachable through the app yet, because /edit still 404s for non-DRAFT studies,
-    // so the rule is proven by rendering the view directly with a submitted study.
     it('locks the title too once the proposal has been submitted', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures, { status: 'PENDING-REVIEW' })
@@ -723,8 +681,6 @@ describe('Locked fields', () => {
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     })
 
-    // The lock is derived from the persisted status, never from anything the session holds, which
-    // is what makes it survive navigation and a reload rather than depending on a guard.
     it('keeps the title editable for a DRAFT and locks it for every later status', async () => {
         const fixtures = await setupFixtures()
 
@@ -738,10 +694,6 @@ describe('Locked fields', () => {
         await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
     })
 
-    // A partner's supported languages are server state and can change after the draft was saved.
-    // A locked field renders read-only text with no error slot, and a failed Continue skips locked
-    // ids when it looks for something to focus, so a value cleared here would leave the draft
-    // permanently uncompletable with nothing on screen to explain it.
     it('keeps a locked language when the Data Partner no longer supports any', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -750,10 +702,8 @@ describe('Locked fields', () => {
             orgName: fixtures.retiredPartner.name,
             language: 'R',
         })
-        // Primed rather than fetched. The effect under test fires when the languages query
-        // resolves, and a locked field renders nothing derived from it, so there is no DOM signal
-        // to wait on and a live fetch would race the Continue click. Seeding the cache (the test
-        // client does not refetch on mount) makes the effect run before the click, every time.
+        // Primed rather than fetched: a locked field renders no DOM signal to wait on, so a live
+        // fetch would race the Continue click.
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(['languages-for-org', fixtures.retiredPartner.slug], {
             orgName: fixtures.retiredPartner.name,
@@ -768,8 +718,6 @@ describe('Locked fields', () => {
 
         await user.click(continueButton())
 
-        // The modal only opens when every Step 1 field validates, so it is the proof that the
-        // persisted language survived the partner's language set emptying underneath it.
         expect(await screen.findByText('Continue to the next step?')).toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
         expect(screen.getByText('R')).toBeInTheDocument()
@@ -788,12 +736,8 @@ describe('Locked fields', () => {
         expect(document.activeElement).toBe(titleInput())
     })
 
-    // The resolver validates locked fields as well, but a locked field is server state rendered as
-    // read-only text: no error slot to show a message in, and no id in the list a failed click
-    // searches for something to focus. Gating Continue on the schema-wide error flag would
-    // therefore stop the click with nothing on screen and nothing the researcher could fix, which
-    // is the OTTER-647 dead button. An existing title over the cap is the reachable shape of that,
-    // because a stored title is never truncated.
+    // Locked fields have no error slot and nothing focusable, so gating Continue on the
+    // schema-wide flag is the OTTER-647 dead button.
     it('still continues when the only failing field is locked', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()

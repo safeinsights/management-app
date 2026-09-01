@@ -42,9 +42,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
 
     const hasExistingPositions = defaults.positions.some((p) => p.affiliation || p.position)
 
-    // Auto-open the form when there are no existing positions yet. Derived during
-    // render (keyed on the persisted positions) instead of in an effect to avoid a
-    // cascading set-state-in-effect.
+    // Derived during render rather than in an effect, to avoid a cascading set-state-in-effect.
     if (data && positionsKey !== autoOpenKey) {
         setAutoOpenKey(positionsKey)
         if (!hasExistingPositions && editingIndex === null) {

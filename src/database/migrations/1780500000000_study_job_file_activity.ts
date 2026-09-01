@@ -1,16 +1,7 @@
 import { type Kysely, sql } from 'kysely'
 
-// OTTER-675: the reviewer's "Last activity" column on the outputs table. One row per
-// view/download of one decrypted output file, so the column can render
-// "{Reviewer} · {action} · {date}" for the most recent action on each file.
-//
-// Addressed by (study_job_file_id, file_path), following study_job_file_recipient_key: a
-// study_job_file row is the encrypted *archive*, and what the reviewer views or downloads is one
-// inner file within it. Keying on the archive alone would smear one file's activity across every
-// sibling extracted from the same zip.
-//
-// Rows are the audit of who looked at what, not a cache: "Download all" writes one row per
-// file rather than a single aggregate row, because the column reports per-file activity.
+// OTTER-675: per-file activity for the reviewer's "Last activity" column. Keyed on
+// (study_job_file_id, file_path) because a study_job_file row is the whole encrypted archive.
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.createType('study_job_file_action').asEnum(['VIEWED', 'DOWNLOADED']).execute()
 
@@ -26,8 +17,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .execute()
 
-    // The read is always "latest activity for these files", so lead with the file identity and
-    // order the timestamp descending to let the planner walk the index backwards.
     await db.schema
         .createIndex('study_job_file_activity_file_created_idx')
         .on('study_job_file_activity')

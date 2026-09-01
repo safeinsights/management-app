@@ -20,16 +20,13 @@ import { PATCH } from './route'
 
 const storedFiles = vi.hoisted(() => new Map<string, Blob>())
 
-// The upload is stubbed at the storage layer rather than at @/server/aws: the helper
-// under test reaches S3 through @/server/storage, and mocking the lower module leaves
-// storage.ts bound to the real S3 client. Everything below the upload is left real, so
-// the study_job_file row is still written and asserted against the database.
+// Stubbed at @/server/storage, not @/server/aws: mocking the lower module leaves storage.ts bound
+// to the real S3 client.
 vi.mock('@/server/storage', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/storage')>()
     const { db } = await import('@/database')
     const { pathForStudyJob } = await import('@/lib/paths')
 
-    // Mirrors storeJobFile: capture the bytes in place of the S3 PUT, then insert the row.
     const store = async (info: MinimalJobInfo, path: string, file: File, fileType: FileType) => {
         storedFiles.set(path, new Blob([await file.arrayBuffer()]))
         return await db
@@ -38,8 +35,7 @@ vi.mock('@/server/storage', async (importOriginal) => {
             .executeTakeFirstOrThrow()
     }
 
-    // Plain functions, not vi.fn: vitest.config sets mockReset, which would strip these
-    // implementations before each test and silently skip the row insert.
+    // Plain functions, not vi.fn: mockReset would strip these implementations before each test.
     return {
         ...actual,
         storeStudyEncryptedResultsFile: (info: MinimalJobInfo, file: File) =>
@@ -62,13 +58,8 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
     return mocks
 }
 
-/**
- * A study owned by a qa- researcher, in an enclave org with a real keypair enrolled —
- * insertTestUser only creates user_public_key rows for enclave orgs, and reviewers in
- * that org are who an uploaded artifact is encrypted for.
- *
- * studyStatus is DRAFT so a test asserting a move to APPROVED starts somewhere else.
- */
+// Enclave org because insertTestUser only creates user_public_key rows for those, and its reviewers
+// are who an uploaded artifact is encrypted for.
 async function insertQaStudy() {
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const { user } = await insertTestUser({ org, email: qaEmail(), useRealKeys: true })
@@ -132,8 +123,7 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(body).toMatchObject({ studyStatus: 'PENDING-REVIEW', jobStatus: 'JOB-RUNNING' })
     })
 
-    // The endpoint takes plaintext and encrypts it, so the stored object must be a real
-    // encrypted envelope the researcher's key can open — not the bytes that were posted.
+    // The endpoint encrypts, so the stored object must be a real envelope, not the posted bytes.
     it('encrypts an attached result for the reviewing org', async () => {
         await authenticateAsSiAdmin()
         const { study, job } = await insertQaStudy()
@@ -147,8 +137,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(response.status).toBe(200)
         expect(body.files).toEqual([{ key: 'result', fileType: 'ENCRYPTED-RESULT', name: 'results.csv' }])
 
-        // The row names the encrypted envelope, as in production; the plaintext filename
-        // survives inside the manifest, which is what the reader below recovers.
         const file = await db
             .selectFrom('studyJobFile')
             .select(['path', 'fileType', 'name'])
@@ -157,8 +145,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
             .executeTakeFirstOrThrow()
         expect(file.name).toBe('encrypted-results.zip')
 
-        // Round-trips with the reviewer's key: proves the endpoint stored real ciphertext
-        // the review UI can open, not the plaintext that was posted.
         const stored = storedFiles.get(file.path)
         if (!stored) throw new Error(`nothing uploaded to ${file.path}`)
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
@@ -199,8 +185,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect((await response.json()).error).toContain('public keys')
     })
 
-    // A study has no job until work begins, so a fresh QA study needs one opened before a
-    // job status or artifact has anywhere to live.
     it('opens a round job when the study has none', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -222,7 +206,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
             .select(['status'])
             .where('studyJobId', '=', body.studyJobId)
             .execute()
-        // INITIATED comes from opening the round; RUN-COMPLETE is what was requested.
         expect(changes.map((c) => c.status)).toEqual(expect.arrayContaining(['INITIATED', 'RUN-COMPLETE']))
 
         const file = await db
@@ -233,8 +216,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(file?.fileType).toBe('ENCRYPTED-RESULT')
     })
 
-    // Only mint a job when something actually needs one; a status-only call should leave
-    // the study job-less rather than fabricating an empty round.
     it('does not open a job when only the study status is set', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })

@@ -1,7 +1,6 @@
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { authFileFor, e2eSignOut, expect, goto, test } from './e2e.helpers'
 
-// Opening the sign-in page with an active session should offer continue/switch, not error.
 test.describe('sign in while already signed in', () => {
     test.use({ storageState: authFileFor('admin') })
 

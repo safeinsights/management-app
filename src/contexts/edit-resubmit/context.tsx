@@ -47,9 +47,7 @@ export function useEditResubmit(): EditResubmitContextValue {
     return ctx
 }
 
-// Matches OTTER-558's debounce window. Long enough that a steady typist isn't
-// firing a save on every keystroke, short enough that a 1-second pause feels
-// like "saved" to the user.
+// Matches OTTER-558's debounce window.
 const AUTOSAVE_DEBOUNCE_MS = 800
 
 interface EditResubmitProviderProps {
@@ -66,8 +64,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         validateInputOnChange: true,
     })
 
-    // The note form holds Lexical JSON; legacy plain-text drafts are normalized
-    // up front so dirty-tracking and submit operate in one shape.
+    // Legacy plain-text drafts are normalized up front so dirty-tracking and submit see one shape.
     const normalizedInitialNote = resubmissionNoteToLexicalJson(initialNote)
 
     const noteForm = useForm<ResubmitNoteValue>({
@@ -78,21 +75,16 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
 
     const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
 
-    // OTTER-521 follow-up: persist the resubmission note via the same debounced
-    // autosave the code-resubmission flow uses (OTTER-558). Single in-flight
-    // save tracked by refs so a flurry of keystrokes collapses into one network
-    // call, and flushNote() can flush the latest typed value synchronously.
+    // Refs track a single in-flight save so a flurry of keystrokes collapses into one call
+    // (OTTER-521, OTTER-558).
     const [noteLastSavedAt, setNoteLastSavedAt] = useState<Date | null>(null)
     const lastSavedNoteRef = useRef<string>(normalizedInitialNote)
     const pendingNoteRef = useRef<string>(normalizedInitialNote)
     const savingNoteRef = useRef<string | null>(null)
     const inFlightNoteSaveRef = useRef<Promise<boolean> | null>(null)
 
-    // A Server Action posts to whatever route is current when the request goes out, so an autosave
-    // still in flight when the researcher navigates away resolves against the new route. That route
-    // has no matching action, so Next returns a non-RSC 200 and the client throws "An unexpected
-    // response was received from the server." Reporting it would show an "unable to save" toast on
-    // a page the researcher already left, about a save they did not ask for and cannot retry.
+    // A Server Action posts to whatever route is current, so an autosave in flight across a
+    // navigation rejects; reporting it would toast on a page the researcher already left.
     const isMountedRef = useRef(true)
     useEffect(() => {
         isMountedRef.current = true
@@ -146,10 +138,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     const currentNote = noteForm.values.resubmissionNote
     const singleUserEditing = useSingleUserEditing()
 
-    // In collaborative mode the Yjs doc is the live persistence, so skip the
-    // per-keystroke column save (Save-as-draft still refreshes the column as
-    // the cold-seed fallback). In single-user mode this debounce is the only
-    // persistence.
+    // In collaborative mode the Yjs doc is the live persistence; in single-user mode this debounce
+    // is the only persistence.
     useEffect(() => {
         pendingNoteRef.current = currentNote
         if (!singleUserEditing) return
@@ -160,9 +150,8 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         return () => clearTimeout(handle)
     }, [currentNote, singleUserEditing, flushNoteSave])
 
-    // Proposal fields autosave through Yjs; only the debounced note needs an explicit
-    // flush before navigating away, otherwise a note typed inside the last debounce
-    // window would be lost. Returns false on failure so Back can block navigation.
+    // Without this a note typed inside the last debounce window is lost on navigation. Returns
+    // false on failure so Back can block.
     const flushNote = useCallback(() => flushNoteSave(pendingNoteRef.current), [flushNoteSave])
 
     const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
