@@ -49,9 +49,8 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
     return props
 }
 
-// The collaborative branch, the only one that draws a save indicator: the single-user surface
-// above has no Yjs provider, so exclusivity could only be asserted there vacuously. Returns a
-// re-render that raises the error, which is how the submit attempt surfaces it in production.
+// The collaborative branch, the only one that draws a save indicator; the single-user surface above
+// has no provider. The returned re-render raises the error, as a submit attempt does.
 const renderCollaborativeSection = () => {
     const props = {
         jobId: faker.string.uuid(),
@@ -168,10 +167,8 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(screen.getByText('Enter your feedback for Rice Lab before submitting.')).toBeInTheDocument()
     })
 
-    // The error has to take the exact slot the save indicator vacates, directly under the input,
-    // rather than a row below the counter. Pinned by what the error's row does and does not hold:
-    // a plain "the counter is somewhere under the same ancestor" also passes when the error is
-    // stranded a row below it, because the section wrapper contains both either way.
+    // Asserted on what the error's row does and does not hold: merely sharing an ancestor with the
+    // counter also passes while the error is stranded a row below it.
     it('renders the empty-field error in the same footer row as the character counter', async () => {
         const emptyError = OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB)
         renderSection({ feedbackError: emptyError })
@@ -317,8 +314,7 @@ describe('OutputsDecisionSection radio buttons', () => {
     })
 })
 
-// See the matching blocks in the two reviewer feedback sections. The save is driven for real
-// before the error is raised, so this cannot pass by virtue of the indicator never having shown.
+// See the matching blocks in the two reviewer feedback sections.
 describe('OutputsDecisionSection save label and error exclusivity', () => {
     it('replaces the save label with the empty-field error rather than showing both', async () => {
         const { showFeedbackError } = renderCollaborativeSection()

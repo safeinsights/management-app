@@ -102,8 +102,7 @@ describe('CodeReviewFeedbackSection character limit', () => {
     })
 })
 
-// See the matching block in review-feedback-section.test.tsx: the save is driven for real first,
-// so this cannot pass by virtue of the indicator never having shown anything.
+// See the matching block in review-feedback-section.test.tsx.
 describe('CodeReviewFeedbackSection save label and error exclusivity', () => {
     it('replaces the save label with the empty-field error rather than showing both', async () => {
         const user = userEvent.setup()

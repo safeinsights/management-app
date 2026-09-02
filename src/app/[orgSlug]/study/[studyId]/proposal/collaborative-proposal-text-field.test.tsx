@@ -1,4 +1,16 @@
-import { describe, expect, faker, it, renderWithProviders, screen, simulateEditorSave, vi } from '@/tests/unit.helpers'
+import {
+    act,
+    describe,
+    expect,
+    faker,
+    it,
+    lexicalEditorFor,
+    renderWithProviders,
+    screen,
+    simulateEditorSave,
+    vi,
+} from '@/tests/unit.helpers'
+import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { CollaborativeProposalTextField } from './collaborative-proposal-text-field'
 import { editableTextFields, type EditableTextField } from './field-config'
@@ -23,9 +35,8 @@ const renderField = (field: EditableTextField, { initialValue = '', error }: Ren
 
 type RenderOptions = { initialValue?: string; error?: string }
 
-// The collaborative branch, which is the only one that draws a save indicator. Takes the socket
-// from the context rather than building one, so the editor sees the same connected phase the
-// provider stack reports and renders past its skeleton.
+// The collaborative branch, the only one that draws a save indicator. Takes the socket from the
+// context so the editor sees a connected phase and renders past its skeleton.
 const renderCollaborativeField = (field: EditableTextField, { initialValue = '', error }: RenderOptions = {}) => {
     const Field = () => (
         <CollaborativeProposalTextField
@@ -97,9 +108,8 @@ describe('CollaborativeProposalTextField character counter', () => {
     })
 })
 
-// The save label reports work the user can see confirmed on screen. A required field that is
-// emptied raises its own error, which takes the label's slot; an optional one never does, so
-// without a rule of its own "All changes saved" would sit under an empty box on its own.
+// An emptied required field raises an error that takes the label's slot; an optional one never
+// does, so it needs a rule of its own or the label sits alone under an empty box.
 describe('CollaborativeProposalTextField save status', () => {
     it('reports the save on an optional field that still holds text', async () => {
         const field = fieldWhere((f) => !f.required, 'optional')
@@ -121,8 +131,7 @@ describe('CollaborativeProposalTextField save status', () => {
         expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
 
-    // The boundary of the rule above: a required field keeps reporting the save until its own
-    // required error arrives to replace it, which is the behaviour the empty-state error relies on.
+    // The boundary of the rule above: a required field reports the save until its error replaces it.
     it('keeps reporting the save on an emptied required field with no error yet', async () => {
         const field = fieldWhere((f) => !!f.required, 'required')
         renderCollaborativeField(field)
@@ -131,5 +140,36 @@ describe('CollaborativeProposalTextField save status', () => {
         await simulateEditorSave()
 
         expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+    })
+})
+
+// The tests above start at their end state, pinning the rule against the seeded count. This pins it
+// against the count following real edits, which is what decides the outcome mid-session.
+describe('CollaborativeProposalTextField save status through an edit', () => {
+    const setEditorText = (surface: HTMLElement, text: string) => {
+        const editor = lexicalEditorFor(surface)
+        act(() => {
+            editor.update(() => {
+                const paragraph = $createParagraphNode()
+                if (text) paragraph.append($createTextNode(text))
+                $getRoot().clear().append(paragraph)
+            })
+        })
+    }
+
+    it('reports the save while an optional field holds text, then drops the label once it is emptied', async () => {
+        const field = fieldWhere((f) => !f.required, 'optional')
+        renderCollaborativeField(field)
+
+        const surface = await screen.findByLabelText(field.label)
+
+        setEditorText(surface, 'a note for the data partner')
+        await simulateEditorSave()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+
+        // A save lands while the box is empty, so the label is suppressed rather than merely stale.
+        setEditorText(surface, '')
+        await simulateEditorSave()
+        expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
 })

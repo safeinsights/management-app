@@ -20,6 +20,7 @@ import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render } from '@testing-library/react'
+import type { LexicalEditor } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
@@ -1187,15 +1188,10 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }
 
 /**
- * Plays one autosave round trip on a collaborative editor's Yjs provider, so a save indicator
- * driven by it reaches "All changes saved".
+ * Drives one autosave round trip so a save indicator reaches "All changes saved". Without it the
+ * Hocuspocus mock never emits, and a test asserting the label is absent proves nothing.
  *
- * Needed because the Hocuspocus mock never emits on its own: without this, a test asserting the
- * save label is absent passes whatever the component does, and proves nothing.
- *
- * Call it only once the editor has mounted (await the surface by its label first) — it drives the
- * most recently created provider, and a surface that has not mounted yet has not made one.
- * `docName` picks a single field on a page that mounts several editors.
+ * Call once the editor has mounted: it takes the newest provider. `docName` picks one of several.
  */
 export const simulateEditorSave = async (docName?: string) => {
     const { __instances } = HocuspocusProvider as unknown as { __instances: FakeCollaborativeProvider[] }
@@ -1209,4 +1205,16 @@ export const simulateEditorSave = async (docName?: string) => {
     await act(async () => {
         provider.__simulateSave()
     })
+}
+
+/**
+ * The live Lexical editor behind a mounted collaborative surface, given its contenteditable root.
+ *
+ * Edits must go through Lexical's API because happy-dom cannot dispatch the `beforeinput` events it
+ * listens for, and the collaborative editor has no `children` slot to take a CaptureEditor plugin.
+ */
+export const lexicalEditorFor = (surface: HTMLElement) => {
+    const editor = (surface as unknown as { __lexicalEditor?: LexicalEditor }).__lexicalEditor
+    if (!editor) throw new Error('that element is not a mounted Lexical surface')
+    return editor
 }

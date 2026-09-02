@@ -63,10 +63,8 @@ export type EditorProps = {
     /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
     onBlur?: () => void
     /**
-     * False to stand the save indicator down while the field is otherwise clean, for a field
-     * where a save label would have nothing to point at — an emptied optional field, whose
-     * empty box never raises an error to take the slot. The editor's own rule (no indicator
-     * while an error is showing) still applies on top of this. Defaults to true.
+     * False hides the save indicator on a field with nothing to report — an emptied optional one,
+     * which never raises an error to take the slot. ANDed with the editor's own error rule.
      */
     isSaveStatusVisible?: boolean
     /**

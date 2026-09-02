@@ -232,11 +232,8 @@ vi.mock('@hocuspocus/provider', async () => {
         __emit(event: string, ...args: unknown[]) {
             this._observers.get(event)?.forEach((fn) => fn(...args))
         }
-        // Plays a whole autosave round trip in one call, for a surface whose indicator follows a
-        // single editor's provider. The first sync has to land before the edit or the status hook
-        // reads the settle as the initial document load rather than a save. A surface that draws
-        // several fields from one provider drives `__emit` directly instead, because it needs the
-        // sync and the edit as separate steps.
+        // One autosave round trip. The sync has to land before the edit, or the status hook reads
+        // the settle as the initial document load rather than a save.
         __simulateSave() {
             if (!this.isSynced) {
                 this.isSynced = true
@@ -309,6 +306,12 @@ afterEach(async () => {
     delete process.env.UPLOAD_TMP_DIRECTORY
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
+    // `__instances` is module-scoped, so without this a helper asking for "this test's provider"
+    // gets the newest of every provider built in the file. Guarded because a test file may swap in
+    // its own fake (tests/hocuspocus.mock.ts), which has no `__instances`.
+    const { HocuspocusProvider } = await import('@hocuspocus/provider')
+    const providerCtor = HocuspocusProvider as unknown as { __instances?: unknown[] }
+    if (providerCtor.__instances) providerCtor.__instances.length = 0
     // Unmount React trees first so query observers (and their refetchInterval timers) are removed,
     // then clear every test QueryClient so no in-flight refetch or cached state crosses into the
     // next test (which would read the per-test process.env.CODER_FILES after it's been reassigned).

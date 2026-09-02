@@ -133,9 +133,8 @@ describe('ReviewFeedbackSection character limit', () => {
     })
 })
 
-// The two are competing claims about the same field, so they must never share the screen. Driving
-// a real save first is what makes this worth running: with the save indicator stuck at idle the
-// assertion below would hold no matter what the component did.
+// Competing claims about one field, so they must never share the screen. The save is driven for
+// real first, or the assertion would hold with the indicator simply stuck at idle.
 describe('ReviewFeedbackSection save label and error exclusivity', () => {
     it('replaces the save label with the empty-field error rather than showing both', async () => {
         const user = userEvent.setup()

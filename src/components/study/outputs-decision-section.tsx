@@ -158,10 +158,9 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
     )
 }
 
-// Carries the counter id so the count reaches the editor's aria-describedby. Rendered through
-// the Editor's own `footerRight` slot, opposite the error and the save indicator that share the
-// row's left edge. A second SaveStatusIndicator here would show the user two "All changes saved"
-// messages in collaborative mode, and would contradict the error beside it when validation fails.
+// Carries the counter id so the count reaches the editor's aria-describedby. No SaveStatusIndicator
+// here: the editor draws one already, and a second would both duplicate it and contradict the error
+// sharing its row.
 const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => (
     <CharacterCounter
         id={fieldCounterId(FEEDBACK_INPUT_ID)}
@@ -225,8 +224,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
-                    // The error takes exactly the slot the save indicator vacates, so it sits
-                    // directly under the input instead of a row below the character counter.
+                    // Takes the slot the save indicator vacates, not a row below the counter.
                     footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}
                     footerRight={<FeedbackCounter characterCount={characterCount} />}
                 />
