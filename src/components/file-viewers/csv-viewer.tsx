@@ -2,10 +2,6 @@ import { parseCsv } from '@/lib/file-content-helpers'
 import { DataTable } from 'mantine-datatable'
 import type { ReactNode } from 'react'
 
-// height would stretch a short file's rows to fill the viewer; maxHeight lets the table
-// keep its natural height and only scroll once it outgrows the modal.
-const MAX_HEIGHT = 500
-
 const NOWRAP = { whiteSpace: 'nowrap' } as const
 
 export function csvViewer(path: string, text: string): ReactNode | null {
@@ -28,7 +24,9 @@ export function csvViewer(path: string, text: string): ReactNode | null {
     return (
         <DataTable
             idAccessor="_id"
-            maxHeight={MAX_HEIGHT}
+            // height would stretch a short file's rows to fill the viewer; maxHeight lets the
+            // table keep its natural height and only scroll once it outgrows the modal.
+            maxHeight={500}
             pinFirstColumn
             withColumnBorders
             striped
