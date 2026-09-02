@@ -112,6 +112,10 @@ describe('useProposalReviewMutation', () => {
         expect(typeof payload.submittedByName).toBe('string')
         expect(payload.submittedByName.length).toBeGreaterThan(0)
 
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ color: 'green', title: 'Decision submitted' }),
+        )
+
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
         )
@@ -217,9 +221,10 @@ describe('useProposalReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit review',
+            ([arg]) => arg && (arg as { title?: string }).title === 'Decision could not be submitted',
         )
         expect(errorCall).toBeDefined()
+        expect(errorCall![0]).toMatchObject({ message: 'Your work is saved. Try again.' })
         expect(provider.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
 

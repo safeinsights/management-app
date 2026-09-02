@@ -77,7 +77,15 @@ function useProposalReview({
         if (decision.selected === null) {
             return
         }
-        submitReview({ decision: decision.selected, feedback: feedback.value })
+        submitReview(
+            { decision: decision.selected, feedback: feedback.value },
+            {
+                onError: () => {
+                    closeModal()
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                },
+            },
+        )
     }
 
     return {
