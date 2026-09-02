@@ -138,12 +138,12 @@ declare module '@mantine/core' {
     }
 
     export interface ButtonProps {
-        variant?: ButtonVariant | 'danger'
+        variant?: ButtonVariant | 'error'
     }
 }
 
 const variantColorResolver: VariantColorsResolver = (input) => {
-    if (input.variant === 'danger') {
+    if (input.variant === 'error') {
         return {
             background: 'var(--mantine-color-error-filled)',
             hover: 'var(--mantine-color-error)',

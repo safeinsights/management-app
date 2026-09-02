@@ -9,7 +9,7 @@ interface ReviewConfirmationModalProps {
     isPending: boolean
     title: string
     confirmLabel: string
-    variant?: 'default' | 'danger'
+    variant?: 'default' | 'error'
     children: ReactNode
 }
 
@@ -23,7 +23,7 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
     variant = 'default',
     children,
 }) => {
-    const confirmVariant = variant === 'danger' ? 'danger' : 'filled'
+    const confirmVariant = variant === 'error' ? 'error' : 'filled'
 
     return (
         <AppModal

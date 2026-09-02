@@ -7,7 +7,7 @@ type DecisionModalConfig = {
     title: string
     body: (labName: string) => string
     confirmLabel: string
-    variant: 'default' | 'danger'
+    variant: 'default' | 'error'
 }
 
 export const DECISION_MODAL_CONTENT: Record<Decision, DecisionModalConfig> = {
@@ -30,7 +30,7 @@ export const DECISION_MODAL_CONTENT: Record<Decision, DecisionModalConfig> = {
         body: (lab) =>
             `Your decision and feedback will be sent to ${lab}. Declining ends this study and cannot be undone.`,
         confirmLabel: 'Decline and end study',
-        variant: 'danger',
+        variant: 'error',
     },
 }
 
