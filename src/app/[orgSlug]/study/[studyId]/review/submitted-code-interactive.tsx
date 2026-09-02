@@ -119,15 +119,28 @@ function useElapsedSince(since: Date | string, ms: number) {
     }
 }
 
-function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
+// A change-requested resubmit reuses the job, so the row for last round's code sits under the same
+// query key. attachCodeToRoundJob deletes it, which is what makes createdAt trustworthy here: the
+// replacement is a fresh insert, never a rename that carries the old timestamp forward (OTTER-775).
+function isReviewForCurrentRound(review: StudyReviewWithMeta | null | undefined, submittedAt: Date | string) {
+    if (!review) return false
+    // A failure row is only ever written by this round's generation attempt, and it can land in the
+    // same millisecond as the submission, so it is trusted without the timestamp comparison.
+    if (review.summaryFailedAt != null) return true
+    return new Date(review.createdAt).getTime() >= new Date(submittedAt).getTime()
+}
+
+function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null, submittedAt: Date | string) {
     return useQuery({
         queryKey: ['study-review', studyJobId],
         queryFn: () => getStudyReviewAction({ studyJobId }),
         initialData: initialReview,
+        // The server render is already stale by the time it reaches the browser; without this the
+        // seeded value counts as fresh and the first interval tick is skipped (OTTER-775).
+        initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
-            if (query.state.data != null) return false
-            return REVIEW_POLL_INTERVAL_MS
+            return isReviewForCurrentRound(query.state.data, submittedAt) ? false : REVIEW_POLL_INTERVAL_MS
         },
     })
 }
@@ -236,7 +249,9 @@ export function AiSummaryCollapsible({
     timeoutMs = AI_SUMMARY_TIMEOUT_MS,
 }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
-    const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
+    const { data, error } = useStudyReviewPoll(studyJobId, initialReview, submittedAt)
+    // Last round's summary must not stand in for this one while the new report is generating.
+    const review = isReviewForCurrentRound(data, submittedAt) ? data : null
     const timeout = useElapsedSince(submittedAt, timeoutMs)
     const retry = useRetryStudyReview(studyJobId, timeout.reset)
     const timedOut = timeout.elapsed

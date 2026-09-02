@@ -309,6 +309,42 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
 
+    it("does not show the previous round's summary after a resubmission reuses the job (OTTER-775)", async () => {
+        const staleFixture = await setupBaseFixture()
+        await insertStudyReview(staleFixture.job.id, 'Summary of the code submitted last round')
+        const initialReview = await getStudyReviewForJob(staleFixture.job.id)
+
+        // The resubmission lands after the stale review was written, exactly as a change-requested
+        // round does: same job id, same query key, a report that predates this round's code.
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={staleFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={new Date(Date.now() + 1000)}
+            />,
+        )
+
+        expect(await screen.findByTestId('ai-summary-pending')).toBeInTheDocument()
+        expect(screen.queryByText('Summary of the code submitted last round')).not.toBeInTheDocument()
+    })
+
+    it('shows a summary generated after the current submission', async () => {
+        const freshFixture = await setupBaseFixture()
+        await insertStudyReview(freshFixture.job.id, 'Summary of the resubmitted code')
+        const initialReview = await getStudyReviewForJob(freshFixture.job.id)
+
+        renderWithProviders(
+            <AiSummaryCollapsible
+                studyJobId={freshFixture.job.id}
+                initialReview={initialReview}
+                submittedAt={new Date(Date.now() - 1000)}
+            />,
+        )
+
+        expect(await screen.findByText('Summary of the resubmitted code')).toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
     it('surfaces the error + retry state immediately when a failed review row exists', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
