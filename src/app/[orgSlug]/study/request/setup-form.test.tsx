@@ -707,6 +707,44 @@ describe('Locked fields', () => {
         expect(screen.queryByText('PYTHON')).not.toBeInTheDocument()
     })
 
+    it('announces each locked field as a named, disabled group', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = draftFor(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        const partner = await screen.findByRole('group', { name: 'Data Partner' })
+        expect(within(partner).getByText(fixtures.singleLanguagePartner.name)).toBeInTheDocument()
+        expect(partner).toHaveAttribute('aria-disabled', 'true')
+        expect(partner).toHaveAttribute('tabindex', '-1')
+
+        const language = screen.getByRole('group', { name: 'Programming language' })
+        expect(within(language).getByText('R')).toBeInTheDocument()
+        expect(language).toHaveAttribute('aria-disabled', 'true')
+        expect(language).toHaveAttribute('tabindex', '-1')
+
+        // The title is still a real control here, so it is not one of the disabled groups.
+        expect(screen.queryByRole('group', { name: 'Study title' })).not.toBeInTheDocument()
+    })
+
+    it('announces every field as a named, disabled group once the proposal is submitted', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        const expected = [
+            ['Study title', 'A previously saved title'],
+            ['Data Partner', fixtures.singleLanguagePartner.name],
+            ['Programming language', 'R'],
+        ] as const
+
+        for (const [label, value] of expected) {
+            const field = await screen.findByRole('group', { name: label })
+            expect(within(field).getByText(value)).toBeInTheDocument()
+            expect(field).toHaveAttribute('aria-disabled', 'true')
+            expect(field).toHaveAttribute('tabindex', '-1')
+        }
+    })
+
     it('leaves a field editable when the draft never got a value for it', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures, { language: null })
