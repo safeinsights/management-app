@@ -27,11 +27,14 @@ export default async function StudyEditPage(props: {
 
     const session = await sessionFromClerk()
     // `view Study` answers audience, not persona: the Data Partner's members hold it for every
-    // submitted study. Step 1 is the Research Lab's page, so scope to the submitting lab the way
+    // submitted study. Step 1 is the Research Lab's page, so scope to the submitting org the way
     // agreements/researcher does. OTTER-768 shares this with the routes that still lack it.
-    const isResearchLabMember = !!session?.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))
+    const isMemberOfSubmittingOrg = !!session?.can(
+        'view',
+        toRecord('Study', { submittedByOrgId: study.submittedByOrgId }),
+    )
 
-    if (!isResearchLabMember) {
+    if (!isMemberOfSubmittingOrg) {
         // A reviewer here is on the wrong surface, not locked out: send them to the study they can
         // legitimately see, so the submitted page's "Previous step" link is never a dead end.
         if (session?.can('review', toRecord('Study', { orgId: study.orgId }))) {
