@@ -2,9 +2,9 @@ import { AlertNotFound } from '@/components/errors'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
 import { Routes } from '@/lib/routes'
-import { displayLabName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
 import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
@@ -47,10 +47,10 @@ export async function ReviewerOutputsErroredScreen({
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title ?? ''}
+            studyTitle={study.title}
             job={job}
             labName={labName}
-            eyebrow={displayLabName(study.submittingLabName, study.submittedByOrgSlug)}
+            header={<StudyPageHeader study={study} />}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

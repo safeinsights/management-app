@@ -7,6 +7,7 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
@@ -51,7 +52,10 @@ describe('ProposalReviewView', () => {
     it('renders the study title in proposal section', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getAllByText(/Test Study Title/).length).toBeGreaterThan(1)
+        // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
+        // OTTER-754 takes the title out of this header.
+        const sectionHeader = within(screen.getByTestId('proposal-section-header'))
+        expect(sectionHeader.getByText(/Test Study Title/)).toBeInTheDocument()
     })
 
     it('renders the back button', () => {

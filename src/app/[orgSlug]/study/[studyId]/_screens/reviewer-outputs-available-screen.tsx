@@ -2,8 +2,8 @@ import { AlertNotFound } from '@/components/errors'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
-import { displayLabName } from '@/lib/string'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
@@ -49,10 +49,10 @@ export async function ReviewerOutputsAvailableScreen({
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title ?? ''}
+            studyTitle={study.title}
             job={job}
             labName={labName}
-            eyebrow={displayLabName(study.submittingLabName, study.submittedByOrgSlug)}
+            header={<StudyPageHeader study={study} />}
             lockedBanner={<AvailableBanner availableAt={availableAt} labName={labName} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}

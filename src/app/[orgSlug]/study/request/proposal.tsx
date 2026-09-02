@@ -92,6 +92,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({
             form,
+            initialTitle: draftData?.title,
             ...locks,
             // Derived from the same locks rather than from navMode, so the modal cannot go quiet
             // while a choice it warns about is still editable.

@@ -54,7 +54,9 @@ export default async function StudyEditPage(props: {
                 status: study.status,
                 orgSlug: study.orgSlug,
                 orgName: study.orgName,
-                submittingLabName: study.submittingLabName ?? study.submittedByOrgSlug,
+                // Never the slug: displayLabName owns that fallback, and a slug sent through
+                // displayOrgName loses its trailing word (OTTER-619).
+                submittingLabName: study.submittingLabName,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,
                 agreementDocPath: study.agreementDocPath,

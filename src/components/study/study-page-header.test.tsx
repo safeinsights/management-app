@@ -26,14 +26,8 @@ describe('StudyPageHeader', () => {
         expect(screen.getByText('genius')).toBeInTheDocument()
     })
 
-    it('shows the same eyebrow whichever role is reading the page', () => {
-        const { unmount } = renderWithProviders(<StudyPageHeader study={study} />)
-        expect(screen.getByText('Genius')).toBeInTheDocument()
-        unmount()
-
-        renderWithProviders(<StudyPageHeader study={study} />)
-        expect(screen.getByText('Genius')).toBeInTheDocument()
-    })
+    // Role independence cannot be shown here: this reads only the study it is handed. The two
+    // personas are driven through their real routes in study-header-personas.test.tsx.
 
     it('names an untitled study rather than rendering an empty heading', () => {
         renderWithProviders(<StudyPageHeader study={{ ...study, title: null }} />)

@@ -14,6 +14,8 @@ const meta = { title: 'Pages / Review study', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const ORG_SLUG = 'mars-university'
+// One title for the page: the header and the proposal body describe the same study.
+const PROPOSAL_STUDY_TITLE = 'Reading comprehension cohort analysis'
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 function LabelValue({ label, value }: { label: string; value: ReactNode }) {
@@ -54,7 +56,7 @@ function ProposalBodyFixture() {
             </Title>
             <Divider mb="md" />
             <Stack gap="md">
-                <LabelValue label="Study title" value="Reading comprehension cohort analysis" />
+                <LabelValue label="Study title" value={PROPOSAL_STUDY_TITLE} />
                 <Divider />
                 <LabelValue
                     label="Dataset(s) of interest"
@@ -139,7 +141,7 @@ export const ReviewProposal: Story = () => (
         header={
             <StudyPageHeader
                 study={{
-                    title: 'Impact of highlighting on student learning outcomes',
+                    title: PROPOSAL_STUDY_TITLE,
                     submittingLabName: 'Genius Lab',
                     submittedByOrgSlug: 'genius',
                 }}
