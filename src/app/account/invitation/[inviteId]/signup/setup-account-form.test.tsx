@@ -80,15 +80,22 @@ const inviteWithoutParticipationAgreement = async () => {
 const renderForm = (inviteId: string) =>
     renderWithProviders(<SetupAccountForm inviteId={inviteId} email="invitee@test.com" orgName="Openstax Lab" />)
 
-const fillValidForm = async () => {
+const fillNameAndPassword = async () => {
     await userEvent.type(screen.getByLabelText('First name'), 'Test')
     await userEvent.type(screen.getByLabelText('Last name'), 'User')
     await userEvent.type(screen.getByLabelText('Enter password'), 'Testing1234!')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'Testing1234!')
+}
+
+const fillValidForm = async () => {
+    await fillNameAndPassword()
     for (const checkbox of screen.getAllByRole('checkbox')) {
         await userEvent.click(checkbox)
     }
 }
+
+const participationCheckbox = () =>
+    screen.getByRole('checkbox', { name: /Research Organization Participation Agreement/ })
 
 const createAccountButton = () => screen.getByRole('button', { name: 'Create Account' })
 
@@ -121,6 +128,25 @@ describe('SetupAccountForm legal documents', () => {
         ).not.toBeInTheDocument()
         await fillValidForm()
 
+        await waitFor(() => expect(createAccountButton()).toBeEnabled())
+    })
+
+    // The conditional schema must relax the participation tick only for orgs that have no
+    // agreement -- an org that has one is still owed it.
+    it('blocks submission until an existing participation agreement is ticked', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithParticipationAgreement()
+
+        renderForm(inviteId)
+
+        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        await fillNameAndPassword()
+        await userEvent.click(screen.getByRole('checkbox', { name: /Terms of Service/ }))
+
+        expect(createAccountButton()).toBeDisabled()
+
+        await userEvent.click(participationCheckbox())
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 

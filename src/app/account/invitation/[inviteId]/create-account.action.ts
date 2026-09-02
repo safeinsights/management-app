@@ -9,7 +9,7 @@ import { onUserAcceptInvite } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
-import { owedDocValidatorEb } from '@/server/actions/legal-document.actions'
+import { owedDocValidatorEb } from '@/server/db/legal-document'
 
 // Runs inside the account-creation transaction so an account never exists without this evidence.
 // Submitted ids are re-checked, not trusted: the form only shows the global tos/pn and the invite

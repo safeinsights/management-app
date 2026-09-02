@@ -24,7 +24,7 @@ import {
     TosPnPreview,
 } from '@/components/legal/signup-acknowledgement/acknowledgement-checkbox'
 import { useRouter } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
+import { FC, useMemo, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     fetchGlobalLegalDocumentsAction,
@@ -34,24 +34,29 @@ import { onCreateAccountAction, onPendingUserLoginAction } from '../create-accou
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 
-const formSchema = z
-    .object({
-        firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        password: (() => {
-            let schema = z.string().max(64)
-            PASSWORD_REQUIREMENTS.forEach((req) => {
-                schema = schema.regex(req.re, req.message)
-            })
-            return schema
-        })(),
-        confirmPassword: z.string(),
-        // In the form so leaving it unchecked raises a visible error rather than only disabling
-        // the button (OTTER-647). Stripped before the action.
-        termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
-        participationAccepted: z.literal(true, { message: 'You must accept the participation agreement to continue' }),
-    })
-    .superRefine(({ confirmPassword, password }, ctx) => {
+const baseSchema = z.object({
+    firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
+    lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
+    password: (() => {
+        let schema = z.string().max(64)
+        PASSWORD_REQUIREMENTS.forEach((req) => {
+            schema = schema.regex(req.re, req.message)
+        })
+        return schema
+    })(),
+    confirmPassword: z.string(),
+    // In the form so leaving one unchecked raises a visible error rather than only disabling the
+    // button (OTTER-647). Stripped before the action.
+    termsAccepted: z.boolean(),
+    participationAccepted: z.boolean(),
+})
+
+type FormValues = z.infer<typeof baseSchema>
+
+// The participation tick is only owed when the invite's org has published an agreement: with none,
+// AcknowledgementCheckbox renders nothing, so requiring it would be unsatisfiable.
+const formSchemaFor = (isParticipationRequired: boolean) =>
+    baseSchema.superRefine(({ password, confirmPassword, termsAccepted, participationAccepted }, ctx) => {
         if (confirmPassword !== password) {
             ctx.addIssue({
                 code: 'custom',
@@ -59,9 +64,17 @@ const formSchema = z
                 path: ['confirmPassword'],
             })
         }
+        if (!termsAccepted) {
+            ctx.addIssue({ code: 'custom', message: 'You must accept the terms to continue', path: ['termsAccepted'] })
+        }
+        if (isParticipationRequired && !participationAccepted) {
+            ctx.addIssue({
+                code: 'custom',
+                message: 'You must accept the participation agreement to continue',
+                path: ['participationAccepted'],
+            })
+        }
     })
-
-type FormValues = z.infer<typeof formSchema>
 
 const LegalDocumentsError: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
@@ -84,23 +97,6 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const theme = useMantineTheme()
     const router = useRouter()
 
-    const form = useForm({
-        validate: zodResolver(formSchema),
-        validateInputOnBlur: true,
-        validateInputOnChange: ['password'],
-        initialValues: {
-            firstName: '',
-            lastName: '',
-            password: '',
-            confirmPassword: '',
-            termsAccepted: false as true,
-            participationAccepted: false as true,
-        },
-    })
-
-    const [passwordTouched, setPasswordTouched] = useState(false)
-    const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
-
     // Public: the form must show these before an account exists.
     const {
         data: tosPn = [],
@@ -121,14 +117,27 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
         queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
     })
 
-    // An org with no participation agreement has nothing to tick, so the field satisfies itself once
-    // the query has *loaded* a null.
-    const hasParticipationAgreement = participationAgreement !== null
-    useEffect(() => {
-        if (isPendingParticipationAgreement || hasParticipationAgreement || participationAgreementError) return
-        if (form.values.participationAccepted === true) return
-        form.setFieldValue('participationAccepted', true as const)
-    }, [isPendingParticipationAgreement, hasParticipationAgreement, participationAgreementError, form])
+    // Fail closed: only a loaded, error-free null means there is genuinely nothing to acknowledge.
+    const isParticipationRequired =
+        isPendingParticipationAgreement || participationAgreementError || participationAgreement !== null
+    const schema = useMemo(() => formSchemaFor(isParticipationRequired), [isParticipationRequired])
+
+    const form = useForm<FormValues>({
+        validate: zodResolver(schema),
+        validateInputOnBlur: true,
+        validateInputOnChange: ['password'],
+        initialValues: {
+            firstName: '',
+            lastName: '',
+            password: '',
+            confirmPassword: '',
+            termsAccepted: false,
+            participationAccepted: false,
+        },
+    })
+
+    const [passwordTouched, setPasswordTouched] = useState(false)
+    const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
     const canSubmit =
         form.isValid() &&
@@ -286,7 +295,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         <AcknowledgementCheckbox
                             label={globalDocAgreementLabel(tosPn)}
                             checked={form.values.termsAccepted}
-                            onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
+                            onChange={(checked) => form.setFieldValue('termsAccepted', checked)}
                             onBlur={() => form.validateField('termsAccepted')}
                             error={form.errors.termsAccepted}
                         />
@@ -294,7 +303,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         <AcknowledgementCheckbox
                             label={participationAgreementLabel(participationAgreement)}
                             checked={form.values.participationAccepted}
-                            onChange={(checked) => form.setFieldValue('participationAccepted', checked as true)}
+                            onChange={(checked) => form.setFieldValue('participationAccepted', checked)}
                             onBlur={() => form.validateField('participationAccepted')}
                             error={form.errors.participationAccepted}
                         />

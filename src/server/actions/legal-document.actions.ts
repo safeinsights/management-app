@@ -31,11 +31,11 @@ import {
     findOrCreateLegalDocument,
     orgParticipationAgreement,
     orgStudyAgreements,
+    owedDocValidatorEb,
 } from '../db/legal-document'
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
-import { ExpressionBuilder, ReferenceExpression } from 'kysely'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
@@ -262,22 +262,6 @@ type GenericVersion = {
 type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
 
 export type GlobalVersion = GenericVersion & { type: GlobalLegalDocumentType }
-
-export const owedDocValidatorEb = <T>(
-    eb: ExpressionBuilder<T, keyof T>,
-    dbOrgRef: ReferenceExpression<T, keyof T>,
-    dbStudyRef: ReferenceExpression<T, keyof T>,
-    orgIds: string[],
-    // TBD add study ID for SLA
-) => {
-    const branches = [eb.and([eb(dbOrgRef, 'is', null), eb(dbStudyRef, 'is', null)])] // TOS/PN case
-    if (orgIds.length > 0) {
-        branches.push(
-            eb.and([eb(dbOrgRef, 'in', orgIds), eb(dbStudyRef, 'is', null)]), // ROPA/DOPA case
-        )
-    }
-    return eb.or(branches)
-}
 
 // Current published version of each document of the given types, ordered as `types` lists them.
 const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
