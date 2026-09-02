@@ -1,5 +1,5 @@
 import { type FC, type ReactNode } from 'react'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 
 interface ReviewConfirmationModalProps {
@@ -49,10 +49,3 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
         </AppModal>
     )
 }
-
-export const REJECTION_WARNING = (
-    <Text size="md" fw={600} c="red.9">
-        Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
-        action cannot be undone.
-    </Text>
-)

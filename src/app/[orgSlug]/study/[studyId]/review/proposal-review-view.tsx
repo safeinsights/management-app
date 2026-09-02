@@ -21,6 +21,20 @@ import { type StudyForReview } from './review-types'
 
 const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 
+const FEEDBACK_INPUT_ID = 'review-feedback'
+const DECISION_SECTION_ID = 'review-decision-section'
+
+function scrollToFirstError(feedbackFlagged: boolean) {
+    const target = feedbackFlagged
+        ? document.getElementById(FEEDBACK_INPUT_ID)
+        : document.querySelector(`[data-testid="${DECISION_SECTION_ID}"] input[type="radio"]`)
+
+    if (!target) return
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+
+    if (target instanceof HTMLElement) target.focus({ preventScroll: true })
+}
+
 type ProposalReviewViewProps = {
     orgSlug: string
     study: StudyForReview
@@ -52,6 +66,7 @@ function useProposalReview({
         const decisionError = await decision.onBlur()
 
         if (feedbackError || !feedback.isValid || decisionError || decision.selected === null) {
+            scrollToFirstError(!!feedbackError || !feedback.isValid)
             return
         }
 

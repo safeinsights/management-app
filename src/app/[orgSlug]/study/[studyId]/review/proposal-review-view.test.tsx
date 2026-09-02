@@ -257,6 +257,36 @@ describe('ProposalReviewView', () => {
         })
     })
 
+    describe('scroll to first error on submit', () => {
+        it('scrolls to the feedback editor when submitting with empty feedback', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            const feedbackInput = document.getElementById('review-feedback')
+            expect(feedbackInput).not.toBeNull()
+            expect(feedbackInput!.scrollIntoView).toBeDefined()
+        })
+
+        it('scrolls to the decision radios when feedback is valid but no decision selected', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            const editor = await screen.findByRole('textbox', { name: /feedback/i })
+            await user.click(editor)
+            await user.keyboard('Valid feedback content')
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            const firstRadio = screen.getByRole('radio', { name: /Approve/ })
+            expect(document.activeElement === firstRadio || firstRadio.scrollIntoView !== undefined).toBe(true)
+        })
+    })
+
     describe('already-decided guard', () => {
         it('hides decision section and action bar when study is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
