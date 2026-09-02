@@ -84,8 +84,6 @@ export const SignInForm: FC<{
                 await onComplete({ signIn: attempt, usingSMS: false })
             }
         } catch (err: unknown) {
-            reportError(err, 'Failed Signin Attempt')
-
             const errorMessage = errorToString(err, clerkErrorOverrides)
 
             // A session was restored in another tab between mount and submit.
@@ -102,6 +100,11 @@ export const SignInForm: FC<{
                 form.setFieldError('password', errorMessage)
                 return
             }
+
+            // Only what the branches above did not already answer. Reporting every failure up front
+            // put a red toast in front of the two outcomes that are not errors to the user: the
+            // redirect above, and a mistyped password whose feedback is the field error (OTTER-745).
+            reportError(err, 'Failed Signin Attempt')
 
             let title = 'Sign-in Error'
             if (err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)) {
