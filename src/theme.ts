@@ -47,6 +47,7 @@ const red: MantineColorsTuple = [
     '#E60000',
     '#C70000',
     '#7E241E',
+    '#A83028',
 ]
 const green: MantineColorsTuple = [
     '#E8F8EB',
@@ -137,14 +138,12 @@ declare module '@mantine/core' {
     }
 
     export interface ButtonProps {
-        variant?: ButtonVariant | 'error'
+        variant?: ButtonVariant | 'danger'
     }
 }
 
-const ERROR_BG_DARK = '#A83028'
-
 const variantColorResolver: VariantColorsResolver = (input) => {
-    if (input.variant === 'error') {
+    if (input.variant === 'danger') {
         return {
             background: 'var(--mantine-color-error-filled)',
             hover: 'var(--mantine-color-error)',
@@ -222,7 +221,7 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
         '--mantine-color-placeholder': theme.colors.grey[7],
         '--mantine-color-dimmed': theme.colors.gray[7],
         '--mantine-color-error': theme.colors.red[10],
-        '--mantine-color-error-filled': ERROR_BG_DARK,
+        '--mantine-color-error-filled': theme.colors.red[11],
     },
     dark: {},
     light: {},
