@@ -22,7 +22,7 @@ import {
     globalDocAgreementLabel,
     participationAgreementLabel,
     TosPnPreview,
-} from '@/components/legal/signup-acknowledegment/acknowledgement-checkbox'
+} from '@/components/legal/signup-acknowledgement/acknowledgement-checkbox'
 import { useRouter } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
