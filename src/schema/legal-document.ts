@@ -134,6 +134,13 @@ export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
 })
 
+// Not enforcedLegalDocumentTypes: that is the login gate's list and will grow to include org-scoped types.
+export const userGlobalDocumentParams = z.object({
+    type: z.enum(['TOS', 'PN']),
+})
+
+export type UserGlobalDocumentType = z.infer<typeof userGlobalDocumentParams>['type']
+
 export const fetchLegalDocumentAcknowledgementsSchema = z.object({
     type: legalDocumentTypeSchema,
     orgId: z.string().optional(),
@@ -170,4 +177,7 @@ export const legalDocumentQueryKeys = {
     studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
     orgStudyAgreements: (orgSlug: string) => ['orgStudyAgreements', orgSlug] as const,
     orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
+    userStudyAgreements: () => ['userStudyAgreements'] as const,
+    userParticipationAgreements: (type: ParticipationAgreementType) => ['userParticipationAgreements', type] as const,
+    userGlobalDocument: (type: UserGlobalDocumentType) => ['userGlobalDocument', type] as const,
 }

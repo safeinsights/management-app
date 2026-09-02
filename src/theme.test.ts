@@ -30,6 +30,12 @@ describe('button colors', () => {
         expect(buttonVars({}, { variant }).root).toEqual({ '--button-hover': '#E6E9EF' })
     })
 
+    // A nested selector in `styles` is silently dropped, so the disabled paint never applied.
+    it('carries the disabled paint as a class, not an inline style object', () => {
+        expect(theme.components?.Button?.styles).toBeUndefined()
+        expect(theme.components?.Button?.classNames).toBeDefined()
+    })
+
     it.each<ButtonVariant>(['filled', 'default', 'gradient', 'transparent', 'white'])(
         'leaves the %s hover to Mantine',
         (variant) => {

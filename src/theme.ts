@@ -7,6 +7,7 @@ import {
     DefaultMantineSize,
     MantineColorsTuple,
 } from '@mantine/core'
+import classes from './theme.module.css'
 
 const charcoal: MantineColorsTuple = [
     '#E6E6E6',
@@ -177,15 +178,7 @@ export const theme = createTheme({
                 color: 'navy',
             },
             vars: buttonVars,
-            styles: () => ({
-                root: {
-                    '&:disabled, &[data-disabled]': {
-                        backgroundColor: grey[1],
-                        color: charcoal[6],
-                        borderColor: 'transparent',
-                    },
-                },
-            }),
+            classNames: { root: classes.button },
         },
     },
     primaryShade: 5,

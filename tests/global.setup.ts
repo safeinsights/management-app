@@ -16,6 +16,7 @@ const WARMUP_ROUTES = [
     '/account/signin',
     '/account/mfa',
     '/dashboard',
+    '/legal',
 ]
 
 function storageStateFor(role: TestingRole) {

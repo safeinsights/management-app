@@ -1,0 +1,307 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { db } from '@/database'
+import type { OrgType } from '@/database/types'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    insertTestStudyOnly,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+    resetLegalDocuments,
+} from '@/tests/unit.helpers'
+import {
+    acknowledgeLegalDocumentAction,
+    createLegalDocumentDraftAction,
+    fetchUserGlobalDocumentAction,
+    fetchUserParticipationAgreementsAction,
+    fetchUserStudyAgreementsAction,
+    publishLegalDocumentVersionAction,
+} from './legal-document.actions'
+
+vi.mock('@/server/aws', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/aws')>()
+    return {
+        ...actual,
+        // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
+        signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
+        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+    }
+})
+
+// Mocking `@/server/aws` does not reach storage's own import of it. Echoing the key back as the
+// body means a content assertion proves the right version's file was read.
+vi.mock('@/server/storage', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/storage')>()),
+    fetchFileContents: vi.fn(async (path: string) => new Blob([`content of ${path}`])),
+}))
+
+// The seeded documents on a dev database would break assertions about the tos/pn singletons.
+beforeEach(resetLegalDocuments)
+
+type TestUser = { id: string; clerkId: string; email: string | null }
+type TestOrg = { id: string; slug: string; type: OrgType }
+
+// Publishing replaces the session with an SI admin's, so the reader's is restored before acking:
+// the ack must belong to the user who then reads it.
+const asUser = (user: TestUser, org: TestOrg) =>
+    mockClerkSession({
+        userId: user.id,
+        clerkUserId: user.clerkId,
+        email: user.email ?? undefined,
+        orgSlug: org.slug,
+        orgId: org.id,
+        roles: { isAdmin: false },
+        orgType: org.type,
+    })
+
+const publishAsSiAdmin = async (
+    scope: { type: 'SLA'; studyId: string } | { type: 'DOPA' | 'ROPA'; orgId: string } | { type: 'TOS' | 'PN' },
+    signedAt?: string,
+) => {
+    await mockSessionWithTestData({ isSiAdmin: true })
+    const { version } = actionResult(await createLegalDocumentDraftAction({ ...scope, fileName: 'agreement.pdf' }))
+    return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
+}
+
+const insertReader = async (orgType: OrgType) => {
+    const { user, org } = await mockSessionWithTestData({ orgType })
+    return { user, org: { id: org.id, slug: org.slug, type: org.type }, orgName: org.name }
+}
+
+describe('fetchUserStudyAgreementsAction', () => {
+    // Distinct orgs on each side, so a swapped From/To join cannot pass.
+    const insertStudyForReader = async (reader: { org: TestOrg }, title = 'A study') => {
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyOnly({
+            org: reader.org,
+            submittedByOrg: researchLab,
+            title,
+            status: 'APPROVED',
+        })
+        return { study, researchLab }
+    }
+
+    it('returns nothing until the user acknowledges', async () => {
+        const reader = await insertReader('enclave')
+        const { study } = await insertStudyForReader(reader)
+        await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
+        await asUser(reader.user, reader.org)
+
+        const rows = actionResult(await fetchUserStudyAgreementsAction())
+
+        expect(rows).toEqual([])
+    })
+
+    it('names the Research Lab as From and the Data Partner as To', async () => {
+        const reader = await insertReader('enclave')
+        const { study, researchLab } = await insertStudyForReader(reader, 'Teacher feedback timing')
+        const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+
+        const rows = actionResult(await fetchUserStudyAgreementsAction())
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({
+            studyId: study.id,
+            studyTitle: 'Teacher feedback timing',
+            fromName: researchLab.name,
+            toName: reader.orgName,
+            signedAt: '2026-06-17',
+            downloadUrl: 'https://mock-signed-url.example.com/file',
+        })
+        expect(rows[0]?.ackedAt).toBeInstanceOf(Date)
+    })
+
+    it('keeps one row per study, carrying the latest version the user acknowledged', async () => {
+        const reader = await insertReader('enclave')
+        const { study } = await insertStudyForReader(reader)
+
+        const first = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-01-01')
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
+
+        const second = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-05-05')
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: second.id }))
+
+        const rows = actionResult(await fetchUserStudyAgreementsAction())
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0]?.signedAt).toBe('2026-05-05')
+    })
+
+    it('shows the version the user acknowledged, not a newer published one', async () => {
+        const reader = await insertReader('enclave')
+        const { study } = await insertStudyForReader(reader)
+
+        const first = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-01-01')
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
+
+        await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-08-08')
+        await asUser(reader.user, reader.org)
+
+        const rows = actionResult(await fetchUserStudyAgreementsAction())
+
+        expect(rows[0]?.signedAt).toBe('2026-01-01')
+    })
+
+    it('does not leak another user in the same org', async () => {
+        const reader = await insertReader('enclave')
+        const { study } = await insertStudyForReader(reader)
+        const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
+
+        const { user: colleague } = await insertTestUser({ org: reader.org })
+        await db
+            .insertInto('legalDocumentAcknowledgement')
+            .values({ legalDocumentVersionId: version.id, userId: colleague.id })
+            .execute()
+
+        await asUser(reader.user, reader.org)
+
+        expect(actionResult(await fetchUserStudyAgreementsAction())).toEqual([])
+    })
+
+    it('keeps the agreement listed after the study leaves APPROVED', async () => {
+        const reader = await insertReader('enclave')
+        const { study } = await insertStudyForReader(reader)
+        const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-03-03')
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+        await db.updateTable('study').set({ status: 'ARCHIVED' }).where('id', '=', study.id).execute()
+
+        const rows = actionResult(await fetchUserStudyAgreementsAction())
+
+        expect(rows[0]?.signedAt).toBe('2026-03-03')
+    })
+
+    // The mocked auth() returns undefined where Clerk's returns an object, so this throws rather
+    // than denying permission. What matters is that it never returns rows.
+    it('refuses a caller with no session', async () => {
+        mockClerkSession(null)
+
+        expect(await fetchUserStudyAgreementsAction()).toEqual({ error: expect.anything() })
+    })
+})
+
+describe('fetchUserParticipationAgreementsAction', () => {
+    const acknowledgeParticipation = async (
+        reader: { user: TestUser; org: TestOrg },
+        type: 'DOPA' | 'ROPA',
+        signedAt: string,
+    ) => {
+        const version = await publishAsSiAdmin({ type, orgId: reader.org.id }, signedAt)
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+        return version
+    }
+
+    it('returns the acknowledged DOPA with the organization name', async () => {
+        const reader = await insertReader('enclave')
+        await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
+
+        const rows = actionResult(await fetchUserParticipationAgreementsAction({ type: 'DOPA' }))
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({
+            orgId: reader.org.id,
+            orgName: reader.orgName,
+            signedAt: '2026-04-04',
+            downloadUrl: 'https://mock-signed-url.example.com/file',
+        })
+    })
+
+    it('keeps the two types apart', async () => {
+        const reader = await insertReader('enclave')
+        await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
+
+        expect(actionResult(await fetchUserParticipationAgreementsAction({ type: 'ROPA' }))).toEqual([])
+    })
+
+    it('returns a ROPA for a lab member', async () => {
+        const reader = await insertReader('lab')
+        await acknowledgeParticipation(reader, 'ROPA', '2026-02-02')
+
+        const rows = actionResult(await fetchUserParticipationAgreementsAction({ type: 'ROPA' }))
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0]?.signedAt).toBe('2026-02-02')
+    })
+
+    it('still lists an agreement signed at an org the user has since left', async () => {
+        const reader = await insertReader('enclave')
+        await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
+        await db.deleteFrom('orgUser').where('userId', '=', reader.user.id).execute()
+        await asUser(reader.user, reader.org)
+
+        expect(actionResult(await fetchUserParticipationAgreementsAction({ type: 'DOPA' }))).toHaveLength(1)
+    })
+
+    it('rejects a type that is not a participation agreement', async () => {
+        await insertReader('enclave')
+
+        // @ts-expect-error the schema rejects it; this proves the runtime does too.
+        const result = await fetchUserParticipationAgreementsAction({ type: 'TOS' })
+
+        expect(result).toEqual({ error: expect.anything() })
+    })
+})
+
+describe('fetchUserGlobalDocumentAction', () => {
+    it('returns null when nothing is published', async () => {
+        await insertReader('enclave')
+
+        expect(actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))).toBeNull()
+    })
+
+    it('returns the latest published version with its content and the acknowledgement date', async () => {
+        const reader = await insertReader('enclave')
+        const version = await publishAsSiAdmin({ type: 'TOS' })
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+
+        const document = actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))
+
+        expect(document?.versionId).toBe(version.id)
+        expect(document?.content).toBe(`content of ${version.filePath}`)
+        expect(document?.publishedAt).toBeInstanceOf(Date)
+        expect(document?.ackedAt).toBeInstanceOf(Date)
+    })
+
+    // The login gate is client-side and fails open on a read error, so this state is reachable.
+    it('reports a null acknowledgement date when the user owes the current version', async () => {
+        const reader = await insertReader('enclave')
+        const first = await publishAsSiAdmin({ type: 'TOS' })
+        await asUser(reader.user, reader.org)
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
+
+        const second = await publishAsSiAdmin({ type: 'TOS' })
+        await asUser(reader.user, reader.org)
+
+        const document = actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))
+
+        expect(document?.versionId).toBe(second.id)
+        expect(document?.ackedAt).toBeNull()
+    })
+
+    it('keeps the Terms of Service and the Privacy Notice apart', async () => {
+        const reader = await insertReader('enclave')
+        const tos = await publishAsSiAdmin({ type: 'TOS' })
+        await asUser(reader.user, reader.org)
+
+        expect(actionResult(await fetchUserGlobalDocumentAction({ type: 'PN' }))).toBeNull()
+        expect(actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))?.versionId).toBe(tos.id)
+    })
+
+    it('rejects an org-scoped type', async () => {
+        await insertReader('enclave')
+
+        // @ts-expect-error the schema rejects it; this proves the runtime does too.
+        const result = await fetchUserGlobalDocumentAction({ type: 'DOPA' })
+
+        expect(result).toEqual({ error: expect.anything() })
+    })
+})

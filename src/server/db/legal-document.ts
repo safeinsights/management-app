@@ -1,6 +1,10 @@
 import { type DBExecutor } from '@/database'
 import type { OrgType } from '@/database/types'
-import { type LegalDocumentTypeValue, type ParticipationAgreementType } from '@/schema/legal-document'
+import {
+    type LegalDocumentTypeValue,
+    type ParticipationAgreementType,
+    type UserGlobalDocumentType,
+} from '@/schema/legal-document'
 
 type DocumentScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
 
@@ -25,6 +29,88 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
 
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
+
+// Starts from the acknowledgement, so these read what the user signed, not what their orgs are party to.
+const latestAcknowledgedVersions = (
+    db: DBExecutor,
+    { userId, type }: { userId: string; type: LegalDocumentTypeValue },
+) =>
+    db
+        .selectFrom('legalDocumentAcknowledgement')
+        .innerJoin(
+            'legalDocumentVersion',
+            'legalDocumentVersion.id',
+            'legalDocumentAcknowledgement.legalDocumentVersionId',
+        )
+        .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+        .where('legalDocumentAcknowledgement.userId', '=', userId)
+        .where('legalDocument.type', '=', type)
+        .distinctOn('legalDocument.id')
+        .orderBy('legalDocument.id')
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+
+const acknowledgedVersionFields = [
+    'legalDocumentVersion.filePath as filePath',
+    'legalDocumentVersion.fileName as fileName',
+    'legalDocumentVersion.format as format',
+    'legalDocumentVersion.signedAt as signedAt',
+    'legalDocumentAcknowledgement.ackedAt as ackedAt',
+] as const
+
+// Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
+export const userStudyAgreements = (db: DBExecutor, { userId }: { userId: string }) =>
+    latestAcknowledgedVersions(db, { userId, type: 'SLA' })
+        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+        .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
+        .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
+        .select([
+            'study.id as studyId',
+            'study.title as studyTitle',
+            'researchLab.name as fromName',
+            'dataPartner.name as toName',
+            ...acknowledgedVersionFields,
+        ])
+        .execute()
+
+export const userParticipationAgreements = (
+    db: DBExecutor,
+    { userId, type }: { userId: string; type: ParticipationAgreementType },
+) =>
+    latestAcknowledgedVersions(db, { userId, type })
+        .innerJoin('org', 'org.id', 'legalDocument.orgId')
+        .select(['org.id as orgId', 'org.name as orgName', ...acknowledgedVersionFields])
+        .execute()
+
+// Latest PUBLISHED version, not the latest acked, so the page shows the terms in force.
+// Left join on the ack: the login gate is client-side and fails open, so the user may owe this one.
+export const userGlobalDocument = (
+    db: DBExecutor,
+    { userId, type }: { userId: string; type: UserGlobalDocumentType },
+) =>
+    db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        // userId belongs in the ON clause: in a WHERE it would drop the row instead of the ack.
+        .leftJoin('legalDocumentAcknowledgement', (join) =>
+            join
+                .onRef('legalDocumentAcknowledgement.legalDocumentVersionId', '=', 'legalDocumentVersion.id')
+                .on('legalDocumentAcknowledgement.userId', '=', userId),
+        )
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.publishedAt as publishedAt',
+            'legalDocumentAcknowledgement.ackedAt as ackedAt',
+        ])
+        .where('legalDocument.type', '=', type)
+        // Redundant against the CHECK constraint, but the planner cannot infer it, so without
+        // them only `type` bounds the legal_document_scope_unique scan.
+        .where('legalDocument.orgId', 'is', null)
+        .where('legalDocument.studyId', 'is', null)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .limit(1)
+        .executeTakeFirst()
 
 // Both directions come from here so they cannot point at the same org.
 const studyAgreementSides = {

@@ -17,7 +17,8 @@ const MARKDOWN_LIST_COMPONENTS: Components = {
 
 type Props = {
     content: string
-    maxHeight?: number
+    // A string so a full-page reader can pass 'none' rather than nest a second scrollbar.
+    maxHeight?: number | string
     label?: string
 }
 

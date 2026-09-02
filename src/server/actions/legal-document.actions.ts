@@ -18,6 +18,7 @@ import {
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
+    userGlobalDocumentParams,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
 import {
@@ -25,6 +26,9 @@ import {
     findOrCreateLegalDocument,
     orgParticipationAgreement,
     orgStudyAgreements,
+    userGlobalDocument,
+    userParticipationAgreements,
+    userStudyAgreements,
 } from '../db/legal-document'
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
@@ -615,5 +619,47 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
                 signedAt: agreement.signedAt,
                 downloadUrl: await legalDocumentDownloadUrl(agreement),
             },
+        }
+    })
+
+// Every row already carries a published version, so there is no null file to guard against.
+const withPdfUrl = async <T extends { filePath: string; fileName: string; format: LegalDocumentFormat }>({
+    filePath,
+    fileName,
+    format,
+    ...rest
+}: T) => ({ ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) })
+
+export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreementsAction')
+    .requireAbilityTo('view', 'UserLegalDocuments')
+    // Unordered on purpose: the table sorts from its first paint.
+    .handler(async ({ db, session }) => {
+        const rows = await userStudyAgreements(db, { userId: session.user.id })
+
+        return await Promise.all(rows.map(withPdfUrl))
+    })
+
+export const fetchUserParticipationAgreementsAction = new Action('fetchUserParticipationAgreementsAction')
+    .params(participationAgreementTypeParams)
+    .requireAbilityTo('view', 'UserLegalDocuments')
+    .handler(async ({ db, session, params: { type } }) => {
+        const rows = await userParticipationAgreements(db, { userId: session.user.id, type })
+
+        return await Promise.all(rows.map(withPdfUrl))
+    })
+
+export const fetchUserGlobalDocumentAction = new Action('fetchUserGlobalDocumentAction')
+    .params(userGlobalDocumentParams)
+    .requireAbilityTo('view', 'UserLegalDocuments')
+    .handler(async ({ db, session, params: { type } }) => {
+        const document = await userGlobalDocument(db, { userId: session.user.id, type })
+        if (!document) return null
+
+        return {
+            versionId: document.versionId,
+            // tos/pn never carry a signed_at, so the day it went live is the only effective date.
+            publishedAt: document.publishedAt,
+            ackedAt: document.ackedAt,
+            content: await contentOf(document.filePath),
         }
     })
