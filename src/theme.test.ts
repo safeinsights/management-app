@@ -1,4 +1,5 @@
 import type { ButtonVariant } from '@mantine/core'
+import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { buttonVars, theme } from './theme'
 
@@ -6,6 +7,7 @@ import { buttonVars, theme } from './theme'
 // hand-copied from Figma, so drift would otherwise be invisible in review.
 describe('button colors', () => {
     const navy = theme.colors?.navy ?? []
+    const mantineTheme = mergeMantineTheme(DEFAULT_THEME, theme)
 
     it('carries the library brand ramp', () => {
         expect(navy[5]).toBe('#01215E')
@@ -44,7 +46,7 @@ describe('button colors', () => {
             theme.variantColorResolver?.({
                 variant: 'error',
                 color: 'navy',
-                theme,
+                theme: mantineTheme,
                 autoContrast: false,
             }),
         ).toEqual({
