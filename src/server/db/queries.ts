@@ -556,6 +556,7 @@ export type JobScanResult = {
 const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
     ['no vulnerabilities found', 'PASSED'],
     ['vulnerabilities found', 'FAILED'],
+    ['exposed secrets found', 'FAILED'],
 ])
 
 const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i

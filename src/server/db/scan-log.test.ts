@@ -12,6 +12,11 @@ const TRIVY_FINDINGS = [
     'Target: package-lock.json',
     '  HIGH CVE-2024-1234 lodash 4.17.0 (fix: 4.17.21) - Prototype pollution',
 ].join('\n')
+const TRIVY_SECRETS = [
+    'Trivy Filesystem Scan: exposed secrets found',
+    'Target: vulnerable.r',
+    '  CRITICAL aws-access-key-id:12 - AWS Access Key ID',
+].join('\n')
 const TRIVY_LEGACY_FINDINGS = [
     'Trivy Filesystem Scan Results',
     'Target: package-lock.json',
@@ -43,6 +48,10 @@ describe('parseTrivyStatus', () => {
 
     it('fails when Trivy reports findings', () => {
         expect(parseTrivyStatus(`${TRIVY_FINDINGS}\n\n${SONAR_OK}`)).toBe('FAILED')
+    })
+
+    it('fails when Trivy reports an exposed secret', () => {
+        expect(parseTrivyStatus(`${TRIVY_SECRETS}\n\n${SONAR_OK}`)).toBe('FAILED')
     })
 
     it('still reads findings from logs stored before the status phrase existed', () => {
