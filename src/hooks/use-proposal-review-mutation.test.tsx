@@ -256,10 +256,7 @@ describe('useProposalReviewMutation', () => {
         )
 
         await act(async () => {
-            result.current.submitReview(
-                { decision: 'approve', feedback: validFeedback },
-                { onError: callerOnError },
-            )
+            result.current.submitReview({ decision: 'approve', feedback: validFeedback }, { onError: callerOnError })
         })
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 

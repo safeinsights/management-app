@@ -312,9 +312,7 @@ describe('ProposalReviewView', () => {
             )
 
             await user.click(screen.getByRole('button', { name: 'Submit decision' }))
-            await waitFor(() =>
-                expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument(),
-            )
+            await waitFor(() => expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument())
 
             await user.click(screen.getByRole('button', { name: 'Submit decision' }))
 
@@ -352,9 +350,7 @@ describe('ProposalReviewView', () => {
 
             await user.click(screen.getByRole('button', { name: 'Submit decision' }))
 
-            await waitFor(() =>
-                expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument(),
-            )
+            await waitFor(() => expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument())
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
     })
