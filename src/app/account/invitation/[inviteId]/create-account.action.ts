@@ -5,7 +5,7 @@ import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
-import { onUserAcceptInvite } from '@/server/events'
+import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -49,6 +49,10 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
     .requireAbilityTo('claim', 'PendingUser')
     .handler(async ({ params: { inviteId }, session, db }) => {
+        // Before the claim: the session already exists by now, so the login is true whatever the
+        // invite row turns out to say.
+        onUserLogIn({ userId: session.user.id })
+
         await db
             .updateTable('pendingUser')
             .set({ claimedByUserId: session.user.id })

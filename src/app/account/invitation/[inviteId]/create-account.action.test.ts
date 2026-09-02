@@ -13,6 +13,7 @@ import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import logger from '@/lib/logger'
+import { onUserLogIn } from '@/server/events'
 import {
     getOrgInfoForInviteAction,
     onCreateAccountAction,
@@ -741,6 +742,21 @@ describe('Create Account Actions', () => {
             .executeTakeFirst()
 
         expect(updatedInvite?.claimedByUserId).toBe(user.id)
+    })
+
+    // Signup skips the shared sequence, so without this a new account's first sign-in is never audited.
+    it('onPendingUserLoginAction records the login', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: testEmail(), isAdmin: false })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onPendingUserLoginAction({ inviteId: invite.id })
+
+        expect(onUserLogIn).toHaveBeenCalledWith({ userId: user.id })
     })
 
     it('onPendingUserLoginAction is a no-op success when the same user already claimed the invite', async () => {

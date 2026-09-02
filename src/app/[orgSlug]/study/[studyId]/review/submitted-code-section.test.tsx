@@ -24,8 +24,23 @@ import {
     type LatestJobForStudy,
 } from '@/server/db/queries'
 import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
-import { AiSummaryCollapsible, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import {
+    AiSummaryCollapsible,
+    SecurityScanLog,
+    splitVisibleFiles,
+    truncateFileName,
+} from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
+import { getJobScanResultAction } from '@/server/actions/study-job.actions'
+
+// Only the scan poll is faked; the summary and file actions stay real so their tests still
+// exercise the database.
+vi.mock('@/server/actions/study-job.actions', async () => {
+    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
+        '@/server/actions/study-job.actions',
+    )
+    return { ...actual, getJobScanResultAction: vi.fn(actual.getJobScanResultAction) }
+})
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -528,6 +543,81 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(await screen.findByText('Unable to load the security scan log.')).toBeInTheDocument()
         // The direct download path doesn't depend on the in-app fetch, so it stays available.
         expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
+    })
+
+    it('replaces the pending rows with statuses once the scan reports, without a reload', async () => {
+        const fixture = await setupBaseFixture()
+        // The component reads the scan through this action, so resolving it is what a completed
+        // enclave run looks like from the browser's side.
+        vi.mocked(getJobScanResultAction).mockResolvedValue(actionResult(scanResult('FAILED', 'PASSED')))
+
+        renderWithProviders(
+            <SecurityScanLog
+                studyJobId={fixture.job.id}
+                initialScan={scanInProgress}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Scan in progress…')
+
+        await waitFor(() => {
+            expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Vulnerabilities found')
+        })
+        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('Passed')
+        expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
+    })
+
+    it('stops polling once statuses arrive', async () => {
+        const fixture = await setupBaseFixture()
+        vi.mocked(getJobScanResultAction).mockResolvedValue(actionResult(scanResult('PASSED', 'PASSED')))
+
+        renderWithProviders(
+            <SecurityScanLog
+                studyJobId={fixture.job.id}
+                initialScan={scanInProgress}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+        await waitFor(() => {
+            expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
+        })
+
+        const settled = vi.mocked(getJobScanResultAction).mock.calls.length
+        await waitFor(() => expect(screen.getByTestId('security-scan-sonarqube')).toBeInTheDocument())
+        expect(vi.mocked(getJobScanResultAction).mock.calls.length).toBe(settled)
+    })
+
+    it('stops polling and reports unavailability once the backstop elapses with no scan', async () => {
+        const fixture = await setupBaseFixture()
+        renderWithProviders(
+            <SecurityScanLog
+                studyJobId={fixture.job.id}
+                initialScan={scanInProgress}
+                submittedAt={new Date()}
+                timeoutMs={50}
+            />,
+        )
+
+        const timedOut = await screen.findByTestId('security-scan-timeout')
+        expect(timedOut).toHaveTextContent('Scan results are unavailable.')
+        expect(screen.queryByTestId('security-scan-trivy')).not.toBeInTheDocument()
+    })
+
+    it('keeps showing reported statuses rather than the timeout message when the backstop elapses', async () => {
+        const fixture = await setupBaseFixture()
+        renderWithProviders(
+            <SecurityScanLog
+                studyJobId={fixture.job.id}
+                initialScan={scanResult('PASSED', 'PASSED')}
+                submittedAt={new Date(Date.now() - 10 * 60_000)}
+                timeoutMs={50}
+            />,
+        )
+
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
+        expect(screen.queryByTestId('security-scan-timeout')).not.toBeInTheDocument()
     })
 })
 

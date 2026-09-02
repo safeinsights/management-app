@@ -16,9 +16,24 @@ export interface SetupFormLocks {
 
 interface UseSetupFormArgs extends SetupFormLocks {
     form: UseFormReturnType<StudyProposalFormValues>
+    /**
+     * True only on the first visit. The modal's warning is that the Data Partner and the language
+     * cannot be changed after this step, so by the time the researcher navigates back to a persisted
+     * draft there is nothing left to warn about and a valid click proceeds straight away (OTTER-764).
+     */
+    requiresConfirmation: boolean
+    /** Runs on a valid click when no confirmation is required. */
+    onProceed: () => void
 }
 
-export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocked }: UseSetupFormArgs) {
+export function useSetupForm({
+    form,
+    isTitleLocked,
+    isOrgLocked,
+    isLanguageLocked,
+    requiresConfirmation,
+    onProceed,
+}: UseSetupFormArgs) {
     // The form is uncontrolled, so reading form.values during render would freeze the counter.
     const [titleValue, setTitleValue] = useState(form.getValues().title ?? '')
     form.watch('title', ({ value }) => setTitleValue(value ?? ''))
@@ -62,8 +77,13 @@ export function useSetupForm({ form, isTitleLocked, isOrgLocked, isLanguageLocke
 
         if (invalidFieldId) return
 
-        openConfirm()
-    }, [form, visibleFieldIds, openConfirm])
+        if (requiresConfirmation) {
+            openConfirm()
+            return
+        }
+
+        onProceed()
+    }, [form, visibleFieldIds, openConfirm, requiresConfirmation, onProceed])
 
     return {
         titleValue,
