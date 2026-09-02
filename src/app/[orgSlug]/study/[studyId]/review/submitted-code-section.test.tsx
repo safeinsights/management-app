@@ -564,7 +564,36 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
     })
 
-    it('stops polling once statuses arrive', async () => {
+    // One poll feeds both panels, so it settles only once both results are in.
+    it('stops polling once the scan and the summary have both arrived', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = await getStudyReviewForJob(fixture.job.id)
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(
+            actionResult({ review, scan: scanResult('PASSED', 'PASSED') }),
+        )
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+        await waitFor(() => {
+            expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
+        })
+        await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
+
+        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled))
+        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
+    })
+
+    // The scan can report long before the summary does; stopping then would strand the summary
+    // on its spinner until a manual reload.
+    it('keeps polling when the scan has reported but the summary has not', async () => {
         const fixture = await setupBaseFixture()
         vi.mocked(getJobAnalysisAction).mockResolvedValue(
             actionResult({ review: null, scan: scanResult('PASSED', 'PASSED') }),
@@ -582,9 +611,9 @@ describe('SubmittedCodeSection — Security scan log', () => {
             expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
         })
 
-        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await waitFor(() => expect(screen.getByTestId('security-scan-sonarqube')).toBeInTheDocument())
-        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
+        const afterScan = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterScan))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 
     it('stops polling and reports unavailability once the backstop elapses with no scan', async () => {
