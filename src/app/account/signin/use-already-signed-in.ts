@@ -64,12 +64,9 @@ function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
     return searchParams.get(BOUNCE_PARAM) === BOUNCE_VALUE
 }
 
-// Offline, Clerk's signOut promise never settles: it neither resolves nor rejects, so awaiting it
-// bare leaves switchAccount's catch and finally unreachable and the panel keeps its spinner with no
-// exit (OTTER-745). Racing a timer is what makes the failure reachable.
-//
-// race attaches handlers to both promises, so a signOut that rejects after the timer already won is
-// consumed here rather than escaping as an unhandled rejection.
+// Offline, Clerk's signOut settles neither way, which left switchAccount's catch and finally
+// unreachable and the panel stuck on its spinner (OTTER-745). race also consumes a signOut that
+// rejects after the timer won, so a late failure cannot escape as an unhandled rejection.
 export const SIGN_OUT_TIMEOUT_MS = 5_000
 
 function signOutOrTimeout(signOut: () => Promise<unknown>) {
@@ -144,12 +141,9 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         leaveForApp(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
     }, [searchParams])
 
-    // Two places write 'signed-out' after the latch, and they cover different cases: the downgrade
-    // above needs Clerk to have flipped isSignedIn, while this one reaches the form however the
-    // sign-out ends, because that is what the user asked for. The three endings are a clean resolve,
-    // a rejection, and no answer at all; the timeout is what turns the third into the second.
-    // What keeps the two writers from diverging is that every post-latch write moves status the same
-    // direction: toward 'signed-out'. Nothing re-opens the prompt.
+    // Both post-latch writers move status the same direction, so nothing re-opens the prompt: the
+    // downgrade above waits for Clerk to flip isSignedIn, while this one reaches the form however
+    // the sign-out ends, timeout included.
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
         try {

@@ -49,9 +49,8 @@ describe('SignInForm', () => {
         await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
     })
 
-    // OTTER-745 QA rejection: reportError runs before the session_exists branch is reached, so the
-    // redirect the test above asserts is preceded by a red "Failed Signin Attempt" toast. The bounce
-    // mark made this reachable by design: it is what puts the form on screen with a live session.
+    // OTTER-745: reportError ran before the session_exists branch, so the redirect the test above
+    // asserts arrived behind a red "Failed Signin Attempt" toast.
     it('does not report an error when it redirects an already-signed-in submit', async () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
         const create = vi.fn().mockRejectedValue({

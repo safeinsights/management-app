@@ -101,9 +101,8 @@ export const SignInForm: FC<{
                 return
             }
 
-            // Only what the branches above did not already answer. Reporting every failure up front
-            // put a red toast in front of the two outcomes that are not errors to the user: the
-            // redirect above, and a mistyped password whose feedback is the field error (OTTER-745).
+            // Only failures the branches above did not already answer. Reporting up front put a red
+            // toast in front of the redirect and of a mistyped password (OTTER-745).
             reportError(err, 'Failed Signin Attempt')
 
             let title = 'Sign-in Error'

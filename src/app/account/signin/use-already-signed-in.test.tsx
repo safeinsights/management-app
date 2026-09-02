@@ -257,9 +257,8 @@ describe('useAlreadySignedIn', () => {
         expect(result.current.isSwitching).toBe(false)
     })
 
-    // OTTER-745 QA rejection: offline, Clerk's signOut promise never settles at all, so neither the
-    // catch nor the finally below it ever ran. Rejecting and hanging are different failures, and only
-    // the first was covered; this one left the user on a spinner with no way off the panel.
+    // OTTER-745: rejecting and never settling are different failures, and only the first was
+    // covered. Offline this left the user on a spinner with no way off the panel.
     it('switchAccount reveals the form even when signOut never settles', async () => {
         vi.useFakeTimers()
         const signOut = vi.fn().mockReturnValue(new Promise<void>(() => {}))
