@@ -261,7 +261,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await dialog.getByRole('button', { name: /^Approve proposal$/i }).click()
     await expect(dialog).toBeHidden()
 
     await expect(page.getByText(/Approved on/)).toBeVisible()
@@ -762,7 +762,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Reject initial request$/i }).click()
+        await dialog.getByRole('button', { name: /^Decline and end study$/i }).click()
         await expect(dialog).toBeHidden()
 
         await expect(page.getByText(/Rejected on/)).toBeVisible()
@@ -836,7 +836,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
         await expect(page.getByText(/Clarification requested on/)).toBeVisible()
