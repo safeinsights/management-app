@@ -97,6 +97,7 @@ const NON_ORG_PREFIXES = [
     'dashboard',
     'researcher',
     'user-key',
+    'legal',
     'admin',
     '404',
 ]
