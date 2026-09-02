@@ -46,8 +46,8 @@ const red: MantineColorsTuple = [
     '#FF0505',
     '#E60000',
     '#C70000',
-    '#7E241E',
     '#A83028',
+    '#7E241E',
 ]
 const green: MantineColorsTuple = [
     '#E8F8EB',
@@ -220,8 +220,8 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
     variables: {
         '--mantine-color-placeholder': theme.colors.grey[7],
         '--mantine-color-dimmed': theme.colors.gray[7],
-        '--mantine-color-error': theme.colors.red[10],
-        '--mantine-color-error-filled': theme.colors.red[11],
+        '--mantine-color-error': theme.colors.red[11],
+        '--mantine-color-error-filled': theme.colors.red[10],
     },
     dark: {},
     light: {},

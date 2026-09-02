@@ -40,8 +40,8 @@ describe('button colors', () => {
     )
 
     it('resolves error idle and hover to the library error tokens', () => {
-        expect(theme.colors?.red?.[10]).toBe('#7E241E')
-        expect(theme.colors?.red?.[11]).toBe('#A83028')
+        expect(theme.colors?.red?.[10]).toBe('#A83028')
+        expect(theme.colors?.red?.[11]).toBe('#7E241E')
         expect(
             theme.variantColorResolver?.({
                 variant: 'error',
