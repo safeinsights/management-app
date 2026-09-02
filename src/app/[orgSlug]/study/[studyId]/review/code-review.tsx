@@ -76,7 +76,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const [review, scan] = await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job.id, job), jobScanResultForJob(job.id)])
     // Not /review, which would re-resolve to this very screen (OTTER-643, OTTER-727).
     const previousHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null

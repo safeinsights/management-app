@@ -87,3 +87,34 @@ export const latestSubmittedJobHasLiveCodeDecision = (
 // A resubmission tips this back to true while study.status stays APPROVED (OTTER-552).
 export const latestCodeChangeIsSubmission = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>
     hasJobStatus(statusChanges, CODE_UNDER_REVIEW_JOB_STATUSES) && !latestSubmittedJobHasLiveCodeDecision(statusChanges)
+
+// A resubmission reuses its study job, so the job's own createdAt can predate the current round by
+// days. The latest CODE-SUBMITTED event is the only timestamp that anchors what "this round" means
+// — for the generation timeout, the "Submitted/Resubmitted on" label, and whether a stored review
+// belongs to the code on screen. Scanned for the max rather than trusting array order, so an
+// unsorted caller still gets the newest submission back.
+export function latestCodeSubmittedAt(job: {
+    createdAt: Date | string
+    // Deliberately `string`, not StudyJobStatus: callers pass rows from queries whose status union
+    // is wider than the job statuses, and only CODE-SUBMITTED is matched here.
+    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
+}): Date | string {
+    const submissions = job.statusChanges.filter((change) => change.status === 'CODE-SUBMITTED')
+    if (submissions.length === 0) return job.createdAt
+    return submissions.reduce((latest, change) =>
+        new Date(change.createdAt).getTime() > new Date(latest.createdAt).getTime() ? change : latest,
+    ).createdAt
+}
+
+// attachCodeToRoundJob deletes the review row on resubmit, which is what makes createdAt
+// trustworthy: the replacement is a fresh insert, never a rename carrying the old timestamp
+// forward. A failure row is only ever written by this round's attempt and can land in the same
+// millisecond as the submission, so it is kept without the comparison.
+export function reviewForCurrentRound<T extends { createdAt: Date | string; summaryFailedAt: Date | string | null }>(
+    review: T | null,
+    submittedAt: Date | string,
+): T | null {
+    if (!review) return null
+    if (review.summaryFailedAt != null) return review
+    return new Date(review.createdAt).getTime() >= new Date(submittedAt).getTime() ? review : null
+}

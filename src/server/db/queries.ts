@@ -6,6 +6,7 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -608,7 +609,12 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
     }
 }
 
-export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+// Takes the job rather than re-reading it: every caller already holds one, and passing it keeps the
+// round rule on the single path that answers "is there a summary for this code?" (OTTER-775).
+export async function getStudyReviewForJob(
+    studyJobId: string,
+    job?: { createdAt: Date | string; statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }> },
+): Promise<StudyReviewWithMeta | null> {
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
@@ -630,5 +636,8 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .limit(1)
         .executeTakeFirst()
 
-    return row ?? null
+    if (!row) return null
+
+    const forRound = job ?? (await getStudyJobInfo(studyJobId))
+    return reviewForCurrentRound(row, latestCodeSubmittedAt(forRound))
 }

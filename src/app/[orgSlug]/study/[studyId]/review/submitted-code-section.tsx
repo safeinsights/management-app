@@ -3,7 +3,7 @@ import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { AiSummaryCollapsible, SecurityScanLog, StudyCodeViewer } from './submitted-code-interactive'
+import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
@@ -103,18 +103,11 @@ export function SubmittedCodeSection({
                 <DatasetPills names={datasetNames} />
                 <Divider />
                 <Stack gap="xxl">
-                    <Group align="stretch" grow gap="xl" wrap="nowrap">
-                        <Paper withBorder p="lg" radius={0}>
-                            <AiSummaryCollapsible
-                                studyJobId={job.id}
-                                initialReview={review}
-                                submittedAt={submittedAt}
-                            />
-                        </Paper>
-                        <Paper withBorder p="lg" radius={0}>
-                            <SecurityScanLog studyJobId={job.id} initialScan={scan} submittedAt={submittedAt} />
-                        </Paper>
-                    </Group>
+                    <JobAnalysisPanels
+                        studyJobId={job.id}
+                        initialAnalysis={{ review, scan }}
+                        submittedAt={submittedAt}
+                    />
                     <Divider />
                     <StudyCodeViewer
                         studyJobId={job.id}

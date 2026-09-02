@@ -30,7 +30,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
     // The post-decision page shows the same full "Submitted code" section as active review, so it
     // needs the review and scan rows too (OTTER-613).
     const [review, scan] = job
-        ? await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
+        ? await Promise.all([getStudyReviewForJob(job.id, job), jobScanResultForJob(job.id)])
         : [null, null]
     const entries = await getCodeReviewFeedbackAction({ studyId: study.id })
     const safeEntries = isActionError(entries) ? [] : entries
