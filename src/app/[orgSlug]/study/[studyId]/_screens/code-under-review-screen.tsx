@@ -5,7 +5,6 @@ import { actionResult } from '@/lib/utils'
 import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { CodePostSubmissionView } from '../view/code-post-submission-view'
 import type { ScreenComponentProps } from './types'
-import type { Route } from 'next'
 
 export async function CodeUnderReviewScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
@@ -20,7 +19,7 @@ export async function CodeUnderReviewScreen({ study, raw, orgSlug, dashboardHref
     const nav = resolveStepNav('code-under-review', projectStudyState(raw), {
         orgSlug,
         studyId: study.id,
-        dashboardHref: dashboardHref as Route,
+        dashboardHref,
         returnTo,
     })
 

@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import type { Route } from 'next'
 import { codeDecisionForScreen, projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
@@ -30,7 +29,7 @@ export async function CodeDecisionScreen({
     const nav = resolveStepNav(decision.screen, state, {
         orgSlug,
         studyId: study.id,
-        dashboardHref: dashboardHref as Route,
+        dashboardHref,
         returnTo,
     })
 

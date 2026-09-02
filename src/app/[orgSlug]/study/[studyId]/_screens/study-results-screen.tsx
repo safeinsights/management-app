@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import type { Route } from 'next'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
 import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcher } from '../view/study-details-researcher'
@@ -13,7 +12,7 @@ export async function StudyResultsScreen({ study, raw, orgSlug, dashboardHref, r
     const nav = resolveStepNav('study-results', projectStudyState(raw), {
         orgSlug,
         studyId: study.id,
-        dashboardHref: dashboardHref as Route,
+        dashboardHref,
         returnTo,
     })
 
