@@ -107,6 +107,10 @@ describe('AcknowledgementsTable', () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
         await sortNearFront(user.id)
         await publishTos()
+        // Midday UTC, and the expectation is derived with the same local formatting the cell uses:
+        // a midnight-UTC instant renders as the previous day west of Greenwich, so hardcoding the
+        // date passed only in CI.
+        const loggedInAt = new Date('2026-04-02T12:00:00Z')
         await db
             .insertInto('audit')
             .values({
@@ -114,14 +118,14 @@ describe('AcknowledgementsTable', () => {
                 recordId: user.id,
                 recordType: 'USER',
                 eventType: 'LOGGED_IN',
-                createdAt: new Date('2026-04-02T00:00:00Z'),
+                createdAt: loggedInAt,
             })
             .execute()
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
 
         const row = (await screen.findByText(user.email!)).closest('tr')!
-        expect(within(row).getByText('Apr 02, 2026')).toBeDefined()
+        expect(within(row).getByText(dayjs(loggedInAt).format('MMM DD, YYYY'))).toBeDefined()
     })
 
     it('shows a dash for a user the login trail has never seen', async () => {
