@@ -15,19 +15,18 @@ import { useState, type FC } from 'react'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalSection } from './proposal-section'
-import { ReviewDecisionSection } from './review-decision-section'
+import { DECISION_RADIO_NAME, ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
 import { type StudyForReview } from './review-types'
 
 const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 
 const FEEDBACK_INPUT_ID = 'review-feedback'
-const DECISION_SECTION_ID = 'review-decision-section'
 
-function scrollToFirstError(feedbackFlagged: boolean) {
+function scrollToFirstInvalidField(feedbackFlagged: boolean) {
     const target = feedbackFlagged
         ? document.getElementById(FEEDBACK_INPUT_ID)
-        : document.querySelector(`[data-testid="${DECISION_SECTION_ID}"] input[type="radio"]`)
+        : document.querySelector(`input[name="${DECISION_RADIO_NAME}"]`)
 
     if (!target) return
     target.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -66,7 +65,7 @@ function useProposalReview({
         const decisionError = await decision.onBlur()
 
         if (feedbackError || !feedback.isValid || decisionError || decision.selected === null) {
-            scrollToFirstError(!!feedbackError || !feedback.isValid)
+            scrollToFirstInvalidField(!!feedbackError || !feedback.isValid)
             return
         }
 

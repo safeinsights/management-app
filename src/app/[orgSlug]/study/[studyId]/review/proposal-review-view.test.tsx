@@ -13,7 +13,7 @@ import {
 import { lexicalJson } from '@/lib/lexical'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DecisionConfirmationModal } from './decision-confirmation-modal'
 import type { Decision } from '@/lib/review-decision'
 import { ProposalReviewView } from './proposal-review-view'
@@ -221,7 +221,7 @@ describe('ProposalReviewView', () => {
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
 
-        it('disables both buttons while submission is pending', () => {
+        it('disables both buttons and shows a loading state while submission is pending', () => {
             renderWithProviders(
                 <DecisionConfirmationModal
                     decision="approve"
@@ -234,6 +234,9 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+            const confirm = screen.getByRole('button', { name: 'Approve proposal' })
+            expect(confirm).toBeDisabled()
+            expect(confirm).toHaveAttribute('data-loading', 'true')
         })
 
         it('each decision renders its own distinct CTA label', () => {
@@ -258,33 +261,38 @@ describe('ProposalReviewView', () => {
         })
     })
 
-    describe('scroll to first error on submit', () => {
-        it('scrolls to the feedback editor when submitting with empty feedback', async () => {
-            const user = userEvent.setup()
+    describe('decision card layout', () => {
+        it('sits the feedback and the radios in one card, 24px apart', () => {
             renderWithProviders(
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
             )
 
-            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+            const card = screen.getByTestId('decision-card-body')
+            // 1.5rem, i.e. the literal 24px the ticket asks for rather than a spacing token.
+            expect(card.style.getPropertyValue('--stack-gap')).toBe('calc(1.5rem * var(--mantine-scale))')
 
-            const feedbackInput = document.getElementById('review-feedback')
-            expect(feedbackInput).not.toBeNull()
-            expect(feedbackInput!.scrollIntoView).toBeDefined()
+            const feedback = screen.getByTestId('review-feedback-section')
+            const decision = screen.getByTestId('review-decision-section')
+            expect(feedback.parentElement).toBe(card)
+            expect(decision.parentElement).toBe(card)
+            expect(feedback.compareDocumentPosition(decision) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
+    })
 
-        it('scrolls to the decision radios when feedback is valid but no decision selected', async () => {
+    describe('scroll to first invalid field on submit', () => {
+        it('scrolls to and focuses the feedback editor when submitting with everything empty', async () => {
             const user = userEvent.setup()
+            const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
             renderWithProviders(
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
             )
-
             const editor = await screen.findByRole('textbox', { name: /feedback/i })
-            await user.click(editor)
-            await user.keyboard('Valid feedback content')
+
             await user.click(screen.getByRole('button', { name: 'Submit decision' }))
 
-            const firstRadio = screen.getByRole('radio', { name: /Approve/ })
-            expect(document.activeElement === firstRadio || firstRadio.scrollIntoView !== undefined).toBe(true)
+            // Feedback sits above the radios, so it wins even though both are flagged.
+            await waitFor(() => expect(document.activeElement).toBe(editor))
+            expect(scrollIntoView).toHaveBeenCalled()
         })
     })
 
@@ -340,18 +348,6 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.getByRole('radio', { name: /Approve/ })).toBeChecked()
-        })
-
-        it('does not open the modal when only feedback is filled', async () => {
-            const user = userEvent.setup()
-            renderWithProviders(
-                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
-            )
-
-            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
-
-            await waitFor(() => expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument())
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
     })
 

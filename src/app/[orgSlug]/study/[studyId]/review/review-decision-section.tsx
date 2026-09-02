@@ -20,6 +20,8 @@ const RADIO_STYLES = {
     description: { fontSize: 14 },
 }
 
+export const DECISION_RADIO_NAME = 'review-decision'
+
 export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisionSectionProps) {
     return (
         <DecisionPanel
@@ -66,7 +68,7 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
                 value={decision.selected ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
-                name="review-decision"
+                name={DECISION_RADIO_NAME}
                 label={<VisuallyHidden>Decision</VisuallyHidden>}
                 styles={{ label: { position: 'absolute' }, error: { marginBottom: 24 } }}
                 error={errorNode}
