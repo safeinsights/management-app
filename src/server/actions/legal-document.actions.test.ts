@@ -431,6 +431,12 @@ describe('fetchPublicLegalDocumentsAction', () => {
     })
 })
 
+const insertLogin = (userId: string, createdAt: Date) =>
+    db
+        .insertInto('audit')
+        .values({ userId, recordId: userId, recordType: 'USER', eventType: 'LOGGED_IN', createdAt })
+        .execute()
+
 describe('fetchLegalDocumentAcknowledgementsAction', () => {
     it('lists a user with no acknowledgement as null', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
@@ -521,6 +527,82 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
 
         expect(rows).toHaveLength(1)
         expect(rows[0]!.orgs.map((org) => org.name).sort()).toEqual([firstOrg.name, secondOrg.name].sort())
+    })
+
+    it('keeps both affiliations when two orgs share a name', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const name = faker.company.name()
+        const firstOrg = await insertTestOrg({ slug: faker.string.alpha(10), name, type: 'lab' })
+        const secondOrg = await insertTestOrg({ slug: faker.string.alpha(10), name, type: 'enclave' })
+        const { user } = await insertTestUser({
+            org: { id: firstOrg.id, slug: firstOrg.slug, type: firstOrg.type },
+        })
+        await db.insertInto('orgUser').values({ orgId: secondOrg.id, userId: user.id, isAdmin: false }).execute()
+
+        const { users } = actionResult(await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' }))
+        const row = users.find((candidate) => candidate.userId === user.id)
+
+        expect(row?.orgs.map((org) => org.id).sort()).toEqual([firstOrg.id, secondOrg.id].sort())
+    })
+
+    it('reports the most recent login', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await insertLogin(user.id, new Date('2026-01-01T00:00:00Z'))
+        const newest = new Date('2026-06-01T00:00:00Z')
+        await insertLogin(user.id, newest)
+
+        const { users } = actionResult(await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' }))
+        const row = users.find((candidate) => candidate.userId === user.id)
+
+        expect(row?.lastLoginAt).toEqual(newest)
+    })
+
+    it('reports no login for a user the audit trail has never seen', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+
+        const { users } = actionResult(await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' }))
+        const row = users.find((candidate) => candidate.userId === user.id)
+
+        expect(row?.lastLoginAt).toBeNull()
+    })
+
+    // Every user event shares recordType USER, so the read is only as correct as its event filter.
+    it('does not read another user event as a login', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        await db
+            .insertInto('audit')
+            .values({
+                userId: user.id,
+                recordId: user.id,
+                recordType: 'USER',
+                eventType: 'RESET_PASSWORD',
+                createdAt: new Date('2026-03-01T00:00:00Z'),
+            })
+            .execute()
+
+        const { users } = actionResult(await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' }))
+        const row = users.find((candidate) => candidate.userId === user.id)
+
+        expect(row?.lastLoginAt).toBeNull()
+    })
+
+    it('sorts users with no recorded login last in both directions', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user: signedIn } = await insertTestUser({ org: { id: org.id, slug: org.slug, type: org.type } })
+        const { user: neverSeen } = await insertTestUser({ org: { id: org.id, slug: org.slug, type: org.type } })
+        await insertLogin(signedIn.id, new Date('2026-05-01T00:00:00Z'))
+
+        for (const direction of ['asc', 'desc'] as const) {
+            const { users } = actionResult(
+                await fetchLegalDocumentAcknowledgementsAction({
+                    type: 'TOS',
+                    sort: { columnAccessor: 'lastLoginAt', direction },
+                }),
+            )
+            const order = users.map((candidate) => candidate.userId)
+            expect(order.indexOf(signedIn.id)).toBeLessThan(order.indexOf(neverSeen.id))
+        }
     })
 
     it('denies a user who is not an SI admin', async () => {

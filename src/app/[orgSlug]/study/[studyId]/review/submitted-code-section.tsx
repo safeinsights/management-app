@@ -1,9 +1,9 @@
 import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOut, WarningCircle } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import type { JobScanResult, ScanToolStatus, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { AiSummaryCollapsible, ScanLogActions, StudyCodeViewer } from './submitted-code-interactive'
+import { AiSummaryCollapsible, SecurityScanLog, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
@@ -45,111 +45,6 @@ function DatasetPills({ names }: { names: string[] }) {
                 Dataset(s) associated with the study
             </Text>
             <Group gap="xs">{names.length === 0 ? empty : pills}</Group>
-        </Stack>
-    )
-}
-
-type ScanStatusLabels = Record<ScanToolStatus, string>
-
-// "Needs review" is the card's own phrasing for the case where we cannot state an outcome with
-// confidence. Trivy reaches it two ways: it examined nothing (no analyzer for R, no lockfile to
-// read), or it produced no report at all. Neither is a finding and neither is a clean bill of
-// health. Pending UX sign-off on whether those two should read differently to a Data Partner.
-const TRIVY_LABELS: ScanStatusLabels = {
-    PASSED: 'No vulnerabilities found',
-    FAILED: 'Vulnerabilities found',
-    INDETERMINATE: 'Needs review',
-}
-
-// SonarQube has no third label: a failing gate and an unresolvable one both need the same human look.
-const SONARQUBE_LABELS: ScanStatusLabels = {
-    PASSED: 'Passed',
-    FAILED: 'Needs review',
-    INDETERMINATE: 'Needs review',
-}
-
-// A passed row carries no icon at all. The other two are visually distinct on purpose: red reads as
-// a reported problem, and an indeterminate result is not one. Amber reuses the "action needed"
-// pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
-// rather than introducing a new treatment. Provisional along with the labels above.
-const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
-    FAILED: 'var(--mantine-color-red-9)',
-    INDETERMINATE: 'var(--mantine-color-yellow-10)',
-}
-
-type ScanRowProps = {
-    label: string
-    status: ScanToolStatus | null
-    labels: ScanStatusLabels
-    testId: string
-}
-
-function ScanWarningIcon({ color }: { color?: string }) {
-    if (!color) return null
-    return <WarningCircle size={20} color={color} data-icon="warning" aria-hidden="true" />
-}
-
-// A tool's result: plain text when it passed, a warning icon plus the relevant phrasing when it did
-// not, and a neutral pending note while the scan has not reported (status null). Deliberately no
-// "pass" icon, and never a fabricated pass/fail when the status is unknown; we only flag what needs
-// a human (OTTER-649).
-function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; labels: ScanStatusLabels }) {
-    if (status === null) {
-        return (
-            <Text size="sm" c="dimmed">
-                Scan in progress…
-            </Text>
-        )
-    }
-    return (
-        <Group gap={4} wrap="nowrap" align="center">
-            <ScanWarningIcon color={SCAN_ICON_COLORS[status]} />
-            <Text size="sm" fw={600}>
-                {labels[status]}
-            </Text>
-        </Group>
-    )
-}
-
-function ScanRow({ label, status, labels, testId }: ScanRowProps) {
-    return (
-        <Group gap="xs" wrap="nowrap" align="center" data-testid={testId}>
-            <Text size="sm">{label}</Text>
-            <ScanRowValue status={status} labels={labels} />
-        </Group>
-    )
-}
-
-// The two labeled rows are always shown (the AC lists them as static elements).
-// Their values come from the parsed log; when no log has been read yet, each row
-// shows a pending note rather than a status.
-function ScanLogBody({ scan }: { scan: JobScanResult }) {
-    return (
-        <Stack gap="sm">
-            <ScanRow
-                label="Trivy Filesystem Scan:"
-                status={scan.trivy}
-                labels={TRIVY_LABELS}
-                testId="security-scan-trivy"
-            />
-            <ScanRow
-                label="SonarQube Quality Gate:"
-                status={scan.sonarqube}
-                labels={SONARQUBE_LABELS}
-                testId="security-scan-sonarqube"
-            />
-        </Stack>
-    )
-}
-
-function SecurityScanLog({ scan, jobId }: { scan: JobScanResult; jobId: string }) {
-    return (
-        <Stack gap="lg" data-testid="security-scan-log">
-            <Text fw={700} fz={16}>
-                Security scan log
-            </Text>
-            <ScanLogBody scan={scan} />
-            <ScanLogActions studyJobId={jobId} isVisible={scan.logFile != null} />
         </Stack>
     )
 }
@@ -217,7 +112,7 @@ export function SubmittedCodeSection({
                             />
                         </Paper>
                         <Paper withBorder p="lg" radius={0}>
-                            <SecurityScanLog scan={scan} jobId={job.id} />
+                            <SecurityScanLog studyJobId={job.id} initialScan={scan} submittedAt={submittedAt} />
                         </Paper>
                     </Group>
                     <Divider />
