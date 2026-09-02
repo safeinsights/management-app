@@ -7,6 +7,7 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
@@ -284,6 +285,77 @@ describe('ProposalReviewView', () => {
 
             const firstRadio = screen.getByRole('radio', { name: /Approve/ })
             expect(document.activeElement === firstRadio || firstRadio.scrollIntoView !== undefined).toBe(true)
+        })
+    })
+
+    describe('simultaneous errors and re-click', () => {
+        it('displays both feedback and decision errors simultaneously when both fields are empty', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            await waitFor(() => {
+                expect(
+                    screen.getByText(`Enter your decision for ${study.submittingLabName} before submitting.`),
+                ).toBeInTheDocument()
+                expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+            })
+        })
+
+        it('does not duplicate errors on repeated Submit clicks', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+            await waitFor(() =>
+                expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument(),
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            expect(screen.getAllByText('Select an option before submitting.')).toHaveLength(1)
+            expect(
+                screen.getAllByText(`Enter your decision for ${study.submittingLabName} before submitting.`),
+            ).toHaveLength(1)
+        })
+    })
+
+    describe('form state after validation error', () => {
+        it('preserves the radio selection after a validation error', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('radio', { name: /Approve/ }))
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            await waitFor(() =>
+                expect(
+                    screen.getByText(`Enter your decision for ${study.submittingLabName} before submitting.`),
+                ).toBeInTheDocument(),
+            )
+
+            expect(screen.getByRole('radio', { name: /Approve/ })).toBeChecked()
+        })
+
+        it('does not open the modal when only feedback is filled', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            await waitFor(() =>
+                expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument(),
+            )
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
     })
 

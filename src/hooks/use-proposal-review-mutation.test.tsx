@@ -231,4 +231,38 @@ describe('useProposalReviewMutation', () => {
         const after = await db.selectFrom('study').select('status').where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(after.status).toBe('APPROVED')
     })
+
+    it('fires the caller-supplied onError callback alongside the hook-level one', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        await setTestStudyStatus(study.id, 'APPROVED')
+        const provider = createStubProvider()
+
+        const callerOnError = vi.fn()
+
+        const { result } = renderHook(
+            () =>
+                useProposalReviewMutation({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    tabSessionId,
+                    reviewVersion: REVIEW_VERSION,
+                }),
+            { wrapper: makeWrapper(provider) },
+        )
+
+        await act(async () => {
+            result.current.submitReview(
+                { decision: 'approve', feedback: validFeedback },
+                { onError: callerOnError },
+            )
+        })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
+
+        expect(callerOnError).toHaveBeenCalledTimes(1)
+    })
 })
