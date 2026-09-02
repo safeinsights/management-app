@@ -125,10 +125,10 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     // the query has *loaded* a null.
     const hasParticipationAgreement = participationAgreement !== null
     useEffect(() => {
-        if (isPendingParticipationAgreement || hasParticipationAgreement) return
+        if (isPendingParticipationAgreement || hasParticipationAgreement || participationAgreementError) return
         if (form.values.participationAccepted === true) return
         form.setFieldValue('participationAccepted', true as const)
-    }, [isPendingParticipationAgreement, hasParticipationAgreement, form])
+    }, [isPendingParticipationAgreement, hasParticipationAgreement, participationAgreementError, form])
 
     const canSubmit =
         form.isValid() &&

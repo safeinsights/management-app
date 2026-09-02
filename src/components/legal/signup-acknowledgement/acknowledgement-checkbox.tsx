@@ -2,7 +2,7 @@
 
 import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Checkbox, Stack } from '@mantine/core'
-import { FC, ReactNode } from 'react'
+import { FC, ReactNode, useId } from 'react'
 import { LegalMarkdownSections } from '../markdown-sections'
 import { PdfLink } from '../pdf-link'
 import { ParticipationData } from '@/server/actions/legal-document.actions'
@@ -39,10 +39,8 @@ export const participationAgreementLabel = (document: ParticipationData | null) 
     )
 }
 
-const TERMS_ERROR_ID = 'terms-accepted-error'
-
-// Hand-wire `aria-invalid` and `aria-describedby` errors for accessibility
 export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, onChange, onBlur, error }) => {
+    const errorId = useId()
     if (!label) return null
 
     return (
@@ -52,9 +50,10 @@ export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, 
             onBlur={onBlur}
             label={label}
             // Nicely pass error as span for Mantine formatting reasons
-            error={error ? <span id={TERMS_ERROR_ID}>{error}</span> : undefined}
+            error={error ? <span id={errorId}>{error}</span> : undefined}
+            // Hand-wire `aria-invalid` and `aria-describedby` errors for accessibility
             aria-invalid={error ? true : undefined}
-            aria-describedby={error ? TERMS_ERROR_ID : undefined}
+            aria-describedby={error ? errorId : undefined}
         />
     )
 }

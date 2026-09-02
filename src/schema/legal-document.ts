@@ -15,13 +15,12 @@ export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// Types the gate enforces, in ask order: global tos/pn before org-scoped ropa/dopa. Adding SLA
-// would also mean retiring study.researcherAgreementsAckedAt/reviewerAgreementsAckedAt, as two
-// gates on one study disagree.
+// List of documents whos acknowledgments are currently required.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
-// One document each, no org or study scope, so the audience is simply everybody.
+// ONLY tos/pn are global documents. It's important not to conflate these two with other types
+// because they are less gated/more visible permissions wise.
 export const globalLegalDocumentTypes = ['TOS', 'PN'] as const
 export type GlobalLegalDocumentType = (typeof globalLegalDocumentTypes)[number]
 
@@ -159,7 +158,7 @@ export const orgLegalParams = z.object({
 })
 
 export const inviteParams = z.object({
-    inviteId: z.string(),
+    inviteId: z.uuid(),
 })
 
 export const participationAgreementTypeParams = z.object({

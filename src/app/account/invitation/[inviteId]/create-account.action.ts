@@ -9,11 +9,18 @@ import { onUserAcceptInvite } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
+import { owedDocValidatorEb } from '@/server/actions/legal-document.actions'
 
 // Runs inside the account-creation transaction so an account never exists without this evidence.
 // Submitted ids are re-checked, not trusted: the form only shows the global tos/pn and the invite
 // org's own ropa/dopa, so only published versions of those are accepted.
-async function recordSignupAcknowledgements(db: DBExecutor, userId: string, orgId: string, versionIds: string[]) {
+async function recordSignupAcknowledgements(
+    db: DBExecutor,
+    userId: string,
+    orgId: string,
+    versionIds: string[],
+    // TBD: include studyIDs for SLA case
+) {
     if (!versionIds.length) return
 
     const eligible = await db
@@ -23,9 +30,8 @@ async function recordSignupAcknowledgements(db: DBExecutor, userId: string, orgI
         .where('legalDocumentVersion.id', 'in', versionIds)
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
-        // Global tos/pn are org-neutral (orgId null); the only org-scoped rows the form shows belong
-        // to the invite's own org. Anything scoped to another org was never displayed here.
-        .where((eb) => eb.or([eb('legalDocument.orgId', 'is', null), eb('legalDocument.orgId', '=', orgId)]))
+        // Enforce that the acknowledgement recorded is a valid type & scope
+        .where((eb) => owedDocValidatorEb(eb, 'legalDocument.orgId', 'legalDocument.studyId', [orgId]))
         .execute()
 
     if (!eligible.length) return

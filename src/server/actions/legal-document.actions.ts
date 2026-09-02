@@ -35,6 +35,7 @@ import {
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { Action, ActionFailure } from './action'
+import { ExpressionBuilder, ReferenceExpression } from 'kysely'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
@@ -262,10 +263,28 @@ type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
 
 export type GlobalVersion = GenericVersion & { type: GlobalLegalDocumentType }
 
+export const owedDocValidatorEb = <T>(
+    eb: ExpressionBuilder<T, keyof T>,
+    dbOrgRef: ReferenceExpression<T, keyof T>,
+    dbStudyRef: ReferenceExpression<T, keyof T>,
+    orgIds: string[],
+    // TBD add study ID for SLA
+) => {
+    const branches = [eb.and([eb(dbOrgRef, 'is', null), eb(dbStudyRef, 'is', null)])] // TOS/PN case
+    if (orgIds.length > 0) {
+        branches.push(
+            eb.and([eb(dbOrgRef, 'in', orgIds), eb(dbStudyRef, 'is', null)]), // ROPA/DOPA case
+        )
+    }
+    return eb.or(branches)
+}
+
 // Current published version of each document of the given types, ordered as `types` lists them.
 const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
     db: DBExecutor,
     types: readonly T[],
+    orgIds: string[],
+    // TBD: include study IDs for SLA case
 ): Promise<(GenericVersion & { type: T })[]> => {
     const rows = await db
         .selectFrom('legalDocument')
@@ -281,6 +300,8 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
         ])
         .where('legalDocument.type', 'in', [...types])
         .where('legalDocumentVersion.publishedAt', 'is not', null)
+        // filter by relevant orgs - tbd add studyIds
+        .where((eb) => owedDocValidatorEb(eb, 'legalDocument.orgId', 'legalDocument.studyId', orgIds))
         .distinctOn('legalDocument.id')
         .orderBy('legalDocument.id')
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
@@ -296,15 +317,11 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
 }
 
 const latestGlobalVersions = (db: DBExecutor): Promise<GlobalVersion[]> =>
-    latestVersionsOfTypes(db, globalLegalDocumentTypes)
+    latestVersionsOfTypes(db, globalLegalDocumentTypes, [])
 
 const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise<EnforcedVersion[] | null> => {
-    const usersOrgIds = new Set(Object.values(session.orgs).map((org) => org.id))
-    const owed = (await latestVersionsOfTypes(db, enforcedLegalDocumentTypes)).filter(
-        (version) =>
-            (version.orgId === null && version.studyId === null) || // TOS/PN
-            (version.orgId !== null && usersOrgIds.has(version.orgId)), // ROPA/DOPA by user
-    )
+    const usersOrgIds = Object.values(session.orgs).map((org) => org.id)
+    const owed = await latestVersionsOfTypes(db, enforcedLegalDocumentTypes, usersOrgIds)
     if (!owed.length) return null
     return owed
 }
@@ -679,22 +696,23 @@ export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchPa
     // Unauthenticated by necessity. We only have the invite ID to go on.
     // Won't work for a claimed invite.
     .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData | null> => {
-        const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } = await db
+        const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } | undefined = await db
             .selectFrom('pendingUser')
             .innerJoin('org', 'org.id', 'pendingUser.orgId')
             .select(['pendingUser.id as inviteId', 'org.type', 'org.id as orgId'])
             .where('pendingUser.id', '=', inviteId)
             .where('pendingUser.claimedByUserId', 'is', null)
-            .executeTakeFirstOrThrow()
+            .executeTakeFirst()
+
+        if (!inviteOrgDetails) return null
 
         const doctype = participationAgreementTypeForOrgType[inviteOrgDetails.type]
 
         const agreement = await orgParticipationAgreement(db, { orgId: inviteOrgDetails.orgId, type: doctype })
         if (!agreement) return null
 
-        // ropa/dopa are always pdfs (legalDocumentFormats). if the returned thing isn't pdf, we just skip it
         const body = await bodyForVersion({ type: doctype, filePath: agreement.filePath, fileName: agreement.fileName })
-        if (body.format !== 'pdf') return null
+        if (body.format !== 'pdf') throw new ActionFailure({ agreement: 'is not a pdf' }) // ropa/dopa are always pdfs; this is mainly a type guard
 
         return {
             versionId: agreement.versionId,

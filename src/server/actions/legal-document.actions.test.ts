@@ -697,6 +697,6 @@ describe('fetchParticipationAgreementFromInviteIdAction', () => {
 
         const result = await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id })
 
-        expect(result).toHaveProperty('error')
+        expect(result).toBeNull()
     })
 })
