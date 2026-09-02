@@ -1,7 +1,7 @@
 import {
     db,
     faker,
-    insertTestOrg,
+    insertKeylessInvitedUser,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -40,24 +40,9 @@ const submitTotpCode = async (mfa: ReturnType<typeof mockSecondFactor>) => {
     await userEvent.click(screen.getByRole('button', { name: /verify code/i }))
 }
 
-// The key detour must not swallow the invite or the user's destination (OTTER-655).
-const keylessInvitedUser = async () => {
-    const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
-    await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
-
-    const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-    const invite = await db
-        .insertInto('pendingUser')
-        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    return { user, org, invitingOrg, invite }
-}
-
 describe('RequestMFA', () => {
     it('accepts a pending invite before sending a keyless user to key generation', async () => {
-        const { user, invitingOrg, invite } = await keylessInvitedUser()
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
 
         await submitTotpCode(mockSecondFactor())
@@ -102,7 +87,7 @@ describe('RequestMFA', () => {
     // Both parameters arrive together when an invite link is opened after a captured deep link;
     // pinned so a refactor cannot flip the order silently.
     it('prefers the invite landing over an explicit redirect_url when both are present', async () => {
-        const { invitingOrg, invite } = await keylessInvitedUser()
+        const { invitingOrg, invite } = await insertKeylessInvitedUser()
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}&redirect_url=%2Fopenstax-lab%2Fdashboard`)
 
         await submitTotpCode(mockSecondFactor())
