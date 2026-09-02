@@ -336,7 +336,29 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
             .selectFrom('user')
             .leftJoin('orgUser', 'orgUser.userId', 'user.id')
             .leftJoin('org', 'org.id', 'orgUser.orgId')
-            .select(['user.id', 'user.fullName', 'user.email', 'org.id as orgId', 'org.name as orgName'])
+            // recordId, not userId: same value for a login, but recordId is the event's subject (userId is
+            // the actor, and an invite records the inviter) and it is the indexed column.
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('audit')
+                        .select('audit.createdAt as lastLoginAt')
+                        .whereRef('audit.recordId', '=', 'user.id')
+                        .where('audit.recordType', '=', 'USER')
+                        .where('audit.eventType', '=', 'LOGGED_IN')
+                        .orderBy('audit.createdAt', 'desc')
+                        .limit(1)
+                        .as('lastLogin'),
+                (join) => join.onTrue(),
+            )
+            .select([
+                'user.id',
+                'user.fullName',
+                'user.email',
+                'org.id as orgId',
+                'org.name as orgName',
+                'lastLogin.lastLoginAt',
+            ])
             .execute()
 
         const acknowledgements = legalDocument
@@ -362,20 +384,6 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 
         const latestByUser = new Map(acknowledgements.map((ack) => [ack.userId, ack]))
 
-        // recordId, not userId: same value for a login, but recordId is the event's subject (userId is
-        // the actor, and an invite records the inviter) and it is the indexed column.
-        const logins = await db
-            .selectFrom('audit')
-            .select(['recordId', 'createdAt'])
-            .where('recordType', '=', 'USER')
-            .where('eventType', '=', 'LOGGED_IN')
-            .distinctOn('recordId')
-            .orderBy('recordId')
-            .orderBy('createdAt', 'desc')
-            .execute()
-
-        const lastLoginByUser = new Map(logins.map((login) => [login.recordId, login.createdAt]))
-
         const byUser = new Map<string, ReturnType<typeof buildRow>>()
         function buildRow(row: (typeof memberships)[number]) {
             const ack = latestByUser.get(row.id)
@@ -387,7 +395,7 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                 acknowledgedVersionNumber: ack?.versionNumber ?? null,
                 ackedAt: ack?.ackedAt ?? null,
                 // Absent means no record, not "never signed in" — the trail starts partway through.
-                lastLoginAt: lastLoginByUser.get(row.id) ?? null,
+                lastLoginAt: row.lastLoginAt ?? null,
             }
         }
 
