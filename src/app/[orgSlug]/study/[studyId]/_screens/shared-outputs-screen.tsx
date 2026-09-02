@@ -103,7 +103,7 @@ export async function SharedOutputsScreen({
                 {/* Banner titles are undated on purpose — the panel appends the shared decision date
                     to both, so the two phases can never disagree about when it was made. */}
                 <SharedOutputsPanel
-                    studyTitle={study.title!}
+                    studyTitle={study.title}
                     decidedAt={decidedAt}
                     banner={{
                         locked: {

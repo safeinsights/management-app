@@ -22,6 +22,16 @@ describe('Security key page', () => {
         expect(screen.getByText(/A new key cannot decrypt your current outputs\./).tagName).toBe('B')
     })
 
+    // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
+    it('heads the page with no eyebrow above it', async () => {
+        renderPage()
+
+        const heading = await screen.findByRole('heading', { level: 1, name: 'Security key' })
+
+        expect(heading.parentElement?.firstElementChild?.textContent).toBe('')
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    })
+
     it('opens the confirm modal and cancelling leaves the page intact', async () => {
         renderPage()
 

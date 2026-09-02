@@ -11,10 +11,8 @@ export type StudyHeaderStudy = {
 }
 
 export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
-    return (
-        <PageHeader
-            eyebrow={displayLabName(study.submittingLabName, study.submittedByOrgSlug)}
-            title={study.title ?? 'Untitled study'}
-        />
-    )
+    const eyebrow = displayLabName(study.submittingLabName, study.submittedByOrgSlug)
+    const title = study.title ?? 'Untitled study'
+
+    return <PageHeader eyebrow={eyebrow} title={title} />
 }

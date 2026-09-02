@@ -39,7 +39,7 @@ export async function OutputsPendingScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title!}
+                    studyTitle={study.title}
                     banner={<ProcessingBanner approvedAt={approvedAt} />}
                 />
                 <Group justify="space-between">

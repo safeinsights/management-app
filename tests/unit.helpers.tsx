@@ -779,6 +779,11 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
     return { enclave, lab, studyId: draft.studyId, user: session.user }
 }
 
+// Test orgs get a faker name. Rename when a test asserts on the name itself, so two orgs cannot
+// collide on one generated value.
+export const renameTestOrg = (orgId: string, name: string) =>
+    db.updateTable('org').set({ name }).where('id', '=', orgId).execute()
+
 export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
     db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
 

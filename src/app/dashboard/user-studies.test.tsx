@@ -81,6 +81,18 @@ describe('UserStudiesDashboard', () => {
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
     })
 
+    // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
+    it('heads the page with no eyebrow above it', async () => {
+        await mockDualRoleSessionWithTestData()
+
+        renderWithProviders(<UserStudiesDashboard />)
+
+        const heading = await screen.findByRole('heading', { level: 1, name: 'My dashboard' })
+
+        expect(heading.parentElement?.firstElementChild?.textContent).toBe('')
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    })
+
     it('keeps the toggle visible after switching from a populated researcher tab to an empty reviewer tab', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
         await insertStudy({
