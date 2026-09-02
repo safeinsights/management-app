@@ -61,10 +61,12 @@ const setupStudy = async (orgSlug = 'openstax-lab') => {
 
 const DATA_PARTNER = 'Test Data Partner'
 
+// isFirstVisit defaults false so the FAQ starts collapsed, which is the state most of these
+// tests care nothing about. The page decides the real value; see code/page.test.tsx.
 const renderIDE = async (
     studyOrgSlug = 'openstax-lab',
     files?: Record<string, string>,
-    dataPartnerName = DATA_PARTNER,
+    { dataPartnerName = DATA_PARTNER, isFirstVisit = false }: { dataPartnerName?: string; isFirstVisit?: boolean } = {},
 ) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
@@ -75,10 +77,19 @@ const renderIDE = async (
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(<StudyCode studyId={study.id} dataPartnerName={dataPartnerName} previousHref={previousHref} />)
+    renderWithProviders(
+        <StudyCode
+            studyId={study.id}
+            dataPartnerName={dataPartnerName}
+            isFirstVisit={isFirstVisit}
+            previousHref={previousHref}
+        />,
+    )
 
     return { study, previousHref, dataPartnerName }
 }
+
+const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
 
 describe('StudyCode component', () => {
     beforeEach(() => {
@@ -341,11 +352,95 @@ describe('StudyCode component', () => {
 
         it('interpolates the Data Partner rather than hardcoding one', async () => {
             // A second, different name: the assertion above alone would pass on a hardcoded string.
-            await renderIDE('openstax-lab', undefined, 'Rice University')
+            await renderIDE('openstax-lab', undefined, { dataPartnerName: 'Rice University' })
 
             expect(await screen.findByTestId('submit-code-intro')).toHaveTextContent(
                 'preloaded example data from Rice University.',
             )
+        })
+    })
+
+    describe('FAQ section (OTTER-693)', () => {
+        const FAQ_COPY: [question: string, answer: string][] = [
+            [
+                'What is the SafeInsights IDE?',
+                'It is a research workspace built on VS Code. You can explore preloaded example data, build and test code with the same libraries as a Data Partner’s secure enclave, ask an AI assistant about the datasets, and preview your outputs. Because previews run on example data, they confirm your code works, not what your findings will be.',
+            ],
+            [
+                'Who can use the SafeInsights IDE for a study?',
+                'Each study’s IDE is assigned to the first person who launches it. Once launched, access cannot be shared or transferred. Confirm with your team who will be coding before anyone launches the IDE. If the assigned person becomes unavailable, contact support to discuss your options.',
+            ],
+            [
+                'What is example data?',
+                'It is an example dataset from a Data Partner that mirrors the structure of the real data in their secure enclave but uses made-up values. You can test your code against it safely, without accessing real data or using an enclave run. Because the values are not real, your example outputs will be different from your actual findings.',
+            ],
+            [
+                'What is the main file?',
+                'It is the file that runs first in the secure enclave. It can call other files in your study. Select your main file before submitting.',
+            ],
+            [
+                'What is the main file template?',
+                `It is a template from ${DATA_PARTNER} that connects to their dataset. You’ll see it listed below, and it’s pre-loaded as your starting point when you click Launch IDE. Leave the fixed setup code unchanged, or your code will not work correctly. The rest is a working example with reference notes you can edit or replace with your own code.`,
+            ],
+            [
+                'Is my work saved if I close this tab or the IDE?',
+                'Yes. Your work is automatically saved here in your study’s workspace, so you can safely log out or close either the SI tab or IDE tab and pick up right where you left off.',
+            ],
+            [
+                'What happens after I submit my code?',
+                `${DATA_PARTNER} will review your code before it runs in their secure enclave against real data. Once the analysis is complete, ${DATA_PARTNER} will review the outputs and share them with you. You will receive an email when your outputs are available.`,
+            ],
+        ]
+
+        it('renders the accordion under the body copy', async () => {
+            await renderIDE()
+
+            expect(await screen.findByTestId('submit-code-faq')).toBeInTheDocument()
+            expect(faqControl()).toBeInTheDocument()
+        })
+
+        it('opens expanded on a first visit', async () => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'true')
+        })
+
+        it('opens collapsed on a return visit', async () => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: false })
+
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
+        })
+
+        it('toggles on click, in both directions', async () => {
+            const user = userEvent.setup()
+            await renderIDE()
+
+            await user.click(faqControl())
+            await waitFor(() => expect(faqControl()).toHaveAttribute('aria-expanded', 'true'))
+
+            await user.click(faqControl())
+            await waitFor(() => expect(faqControl()).toHaveAttribute('aria-expanded', 'false'))
+        })
+
+        it.each(FAQ_COPY)('answers "%s"', async (question, answer) => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+
+            const section = await screen.findByTestId(`faq-section-${question}`)
+            expect(section).toHaveTextContent(question)
+            expect(section).toHaveTextContent(answer)
+        })
+
+        it('interpolates the Data Partner into the answers that name them', async () => {
+            await renderIDE('openstax-lab', undefined, { dataPartnerName: 'Rice University', isFirstVisit: true })
+
+            const faq = await screen.findByTestId('submit-code-faq')
+            expect(faq).toHaveTextContent('It is a template from Rice University that connects to their dataset.')
+            expect(faq).toHaveTextContent(
+                'Rice University will review your code before it runs in their secure enclave against real data. ' +
+                    'Once the analysis is complete, Rice University will review the outputs',
+            )
+            // The card words this one generically, so it must NOT pick up the partner name.
+            expect(faq).toHaveTextContent('It is an example dataset from a Data Partner that mirrors')
         })
     })
 
@@ -365,7 +460,12 @@ describe('StudyCode component', () => {
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
             )
             return { study }
         }
@@ -423,7 +523,12 @@ describe('StudyCode component', () => {
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
             const { unmount } = renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
             )
 
             await waitFor(() => {
@@ -433,7 +538,12 @@ describe('StudyCode component', () => {
             unmount()
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
             )
 
             await waitFor(() => {

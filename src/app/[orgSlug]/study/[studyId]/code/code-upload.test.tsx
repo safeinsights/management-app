@@ -54,6 +54,7 @@ const renderPage = async (orgSlug = 'openstax') => {
             orgSlug={orgSlug}
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
+            isFirstVisit={false}
             previousHref={'/test' as Route}
         />,
     )
@@ -134,6 +135,7 @@ describe('CodeUploadPage', () => {
                 orgSlug="openstax"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )
@@ -185,6 +187,7 @@ describe('CodeUploadPage', () => {
                 orgSlug={orgSlug}
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )
@@ -222,6 +225,7 @@ describe('CodeUploadPage', () => {
                 orgSlug="openstax"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )

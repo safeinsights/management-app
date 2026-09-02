@@ -9,6 +9,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { ProposalStepHeader } from './proposal-step-header'
+import { SubmitCodeFaq } from './submit-code-faq'
 import { StudyCodeFilesSection } from './study-code-files'
 
 const STEP_LABEL = 'STEP 3'
@@ -20,6 +21,7 @@ const CARD_SECTION_GAP = 24
 interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
+    isFirstVisit: boolean
     previousHref: Route
     onSubmitSuccess?: () => void
 }
@@ -73,7 +75,13 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
     </Group>
 )
 
-export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSuccess }: StudyCodeProps) => {
+export const StudyCode = ({
+    studyId,
+    dataPartnerName,
+    isFirstVisit,
+    previousHref,
+    onSubmitSuccess,
+}: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
@@ -90,11 +98,11 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
                     No studyTitle: the card forbids repeating the title as body text here, and
                     StudyCode no longer receives one so it cannot drift back. The rule draws only
                     when something follows it inside the card, so the content below is what makes it
-                    appear; row 5 adds the FAQ under the intro, and row 6 lifts the files into their
-                    own "Your files" card. */}
+                    appear; row 6 lifts the files into their own "Your files" card. */}
                 <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
                     <Stack gap={CARD_SECTION_GAP}>
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
+                        <SubmitCodeFaq dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} />
                         <StudyCodeFilesSection ide={ide} />
                     </Stack>
                 </ProposalStepHeader>

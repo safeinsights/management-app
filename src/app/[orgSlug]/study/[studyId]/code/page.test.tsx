@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
 import {
+    db,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -24,7 +25,7 @@ const renderRoute = async (orgSlug: string, studyId: string) => {
     const page = await StudyCodeUploadRoute({
         params: Promise.resolve({ orgSlug, studyId }),
     })
-    renderWithProviders(page!)
+    return renderWithProviders(page!)
 }
 
 describe('StudyCodeUploadRoute', () => {
@@ -89,6 +90,74 @@ describe('StudyCodeUploadRoute', () => {
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+        })
+    })
+
+    // The component tests drive the expanded/collapsed states off a prop; these own the part the
+    // prop comes from — a per-user marker that has to outlive the render and not be per-study.
+    describe('FAQ first-visit detection (OTTER-693)', () => {
+        const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
+
+        type TestOrg = NonNullable<Parameters<typeof insertTestStudyJobData>[0]>['org']
+
+        const seedDraftStudy = async (org: TestOrg, userId: string) => {
+            const { study } = await insertTestStudyJobData({ org, researcherId: userId, studyStatus: 'DRAFT' })
+            return study
+        }
+
+        const faqSeenAt = async (userId: string) => {
+            const row = await db
+                .selectFrom('user')
+                .select('submitCodeFaqSeenAt')
+                .where('id', '=', userId)
+                .executeTakeFirstOrThrow()
+            return row.submitCodeFaqSeenAt
+        }
+
+        it('expands on a never-visited user and records the visit', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const study = await seedDraftStudy(org, user.id)
+
+            expect(await faqSeenAt(user.id)).toBeNull()
+
+            await renderRoute(org.slug, study.id)
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'true')
+
+            // Written by the client on mount, so it lands after the render settles.
+            await waitFor(async () => {
+                expect(await faqSeenAt(user.id)).not.toBeNull()
+            })
+        })
+
+        it('collapses once the marker is set, and does not move it', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const study = await seedDraftStudy(org, user.id)
+
+            const firstSeen = new Date('2026-01-01T00:00:00Z')
+            await db.updateTable('user').set({ submitCodeFaqSeenAt: firstSeen }).where('id', '=', user.id).execute()
+
+            await renderRoute(org.slug, study.id)
+
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
+            // Write-once: a return visit must not overwrite when they first saw it.
+            expect(await faqSeenAt(user.id)).toEqual(firstSeen)
+        })
+
+        it('is scoped to the user, not the study', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const firstStudy = await seedDraftStudy(org, user.id)
+            const secondStudy = await seedDraftStudy(org, user.id)
+
+            const firstView = await renderRoute(org.slug, firstStudy.id)
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'true')
+            await waitFor(async () => {
+                expect(await faqSeenAt(user.id)).not.toBeNull()
+            })
+            firstView.unmount()
+
+            // A different study, same researcher: already seen it, so it stays shut.
+            await renderRoute(org.slug, secondStudy.id)
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
         })
     })
 })
