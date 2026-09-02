@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import {
-    db,
     insertTestStudyOnly,
     mockDualRoleSessionWithTestData,
+    pageHeaderEyebrow,
+    renameTestOrg,
     renderWithProviders,
     screen,
     type Mock,
@@ -18,12 +19,6 @@ const LAB_NAME = 'Genius Lab'
 const DATA_PARTNER_NAME = 'Mars University'
 const STUDY_TITLE = 'Impact of highlighting on student learning outcomes'
 
-const renameOrg = (id: string, name: string) => db.updateTable('org').set({ name }).where('id', '=', id).execute()
-
-// The eyebrow is a paragraph, not a heading, so it is read as the node above the h1.
-const eyebrowAbove = (headingName: string) =>
-    screen.getByRole('heading', { level: 1, name: headingName }).parentElement?.firstElementChild?.textContent
-
 /**
  * The eyebrow names the lab that submitted the study, never the org whose page is being read, so
  * the Research Lab and the Data Partner see the same header (OTTER-619). Both personas go through
@@ -33,8 +28,8 @@ describe('study page header across personas', () => {
     it('names the submitting research lab for the researcher and for the reviewer', async () => {
         memoryRouter.setCurrentUrl('/')
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        await renameOrg(labOrg.id, LAB_NAME)
-        await renameOrg(enclaveOrg.id, DATA_PARTNER_NAME)
+        await renameTestOrg(labOrg.id, LAB_NAME)
+        await renameTestOrg(enclaveOrg.id, DATA_PARTNER_NAME)
 
         const { study } = await insertTestStudyOnly({
             org: enclaveOrg,
@@ -51,7 +46,8 @@ describe('study page header across personas', () => {
         })
         const researcherView = renderWithProviders(researcherPage)
 
-        expect(eyebrowAbove(STUDY_TITLE)).toBe(displayOrgName(LAB_NAME))
+        expect(screen.getByRole('heading', { level: 1, name: STUDY_TITLE })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe(displayOrgName(LAB_NAME))
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
         researcherView.unmount()
         ;(useParams as Mock).mockReturnValue({ orgSlug: enclaveOrg.slug, studyId: study.id })
@@ -61,7 +57,8 @@ describe('study page header across personas', () => {
         })) as ReactElement
         renderWithProviders(reviewerPage)
 
-        expect(eyebrowAbove(STUDY_TITLE)).toBe(displayOrgName(LAB_NAME))
+        expect(screen.getByRole('heading', { level: 1, name: STUDY_TITLE })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe(displayOrgName(LAB_NAME))
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 })

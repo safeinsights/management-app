@@ -1,7 +1,7 @@
 import { Org } from '@/schema/org'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { pageHeaderEyebrow, renderWithProviders } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 import { faker } from '@faker-js/faker'
@@ -86,7 +86,7 @@ describe('Org Dashboard', () => {
 
         expect(heading).toBeInTheDocument()
         // "Lab" is stripped by displayOrgName, so the eyebrow is the display form of the name.
-        expect(heading.parentElement?.firstElementChild?.textContent).toBe('Mars University')
+        expect(pageHeaderEyebrow()).toBe('Mars University')
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 })

@@ -1,4 +1,4 @@
-import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
+import { mockClerkSession, pageHeaderEyebrow, renderWithProviders } from '@/tests/unit.helpers'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import router from 'next-router-mock'
 import { describe, expect, it } from 'vitest'
@@ -26,9 +26,8 @@ describe('Security key page', () => {
     it('heads the page with no eyebrow above it', async () => {
         renderPage()
 
-        const heading = await screen.findByRole('heading', { level: 1, name: 'Security key' })
-
-        expect(heading.parentElement?.firstElementChild?.textContent).toBe('')
+        expect(await screen.findByRole('heading', { level: 1, name: 'Security key' })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe('')
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 

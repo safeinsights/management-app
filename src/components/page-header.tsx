@@ -6,7 +6,7 @@ import { Stack, Text, Title } from '@mantine/core'
 const EYEBROW_MIN_HEIGHT = 21
 
 const Eyebrow: FC<{ text?: string | null }> = ({ text }) => (
-    <Text fz="sm" fw={600} c="charcoal.6" tt="uppercase" mih={EYEBROW_MIN_HEIGHT}>
+    <Text fz="sm" fw={600} c="charcoal.6" tt="uppercase" mih={EYEBROW_MIN_HEIGHT} data-testid="page-header-eyebrow">
         {text}
     </Text>
 )

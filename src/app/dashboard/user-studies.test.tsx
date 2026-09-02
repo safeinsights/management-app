@@ -4,6 +4,7 @@ import {
     mockDualRoleSessionWithTestData,
     mockPathname,
     mockSessionWithTestData,
+    pageHeaderEyebrow,
     renderWithProviders,
     screen,
     userEvent,
@@ -87,9 +88,8 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        const heading = await screen.findByRole('heading', { level: 1, name: 'My dashboard' })
-
-        expect(heading.parentElement?.firstElementChild?.textContent).toBe('')
+        expect(await screen.findByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe('')
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 

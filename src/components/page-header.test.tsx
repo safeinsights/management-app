@@ -1,4 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, pageHeaderEyebrow, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { PageHeader } from './page-header'
 
 describe('PageHeader', () => {
@@ -27,20 +27,17 @@ describe('PageHeader', () => {
 
     // The slot stays in the DOM so the heading keeps its position on every page, but it must carry
     // no text a screen reader would announce.
-    const eyebrowSlotOf = (headingName: string) =>
-        screen.getByRole('heading', { level: 1, name: headingName }).parentElement?.firstElementChild
-
     it('reserves an empty eyebrow slot when none is given', () => {
         renderWithProviders(<PageHeader title="My dashboard" />)
 
         expect(screen.getByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
-        expect(eyebrowSlotOf('My dashboard')?.textContent).toBe('')
+        expect(pageHeaderEyebrow()).toBe('')
     })
 
     it('treats a null eyebrow the same as an absent one', () => {
         renderWithProviders(<PageHeader eyebrow={null} title="Security key" />)
 
-        expect(eyebrowSlotOf('Security key')?.textContent).toBe('')
+        expect(pageHeaderEyebrow()).toBe('')
     })
 
     it('renders exactly one level-1 heading', () => {
