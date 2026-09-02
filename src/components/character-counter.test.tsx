@@ -1,8 +1,7 @@
 import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { CharacterCounter } from './character-counter'
 
-// Mantine's `c` prop resolves to an inline `color` referencing a theme variable, so the
-// over-limit state is read from there rather than from a class name.
+// Mantine's `c` prop resolves to an inline `color`, not a class name.
 const colorOf = (node: HTMLElement) => node.style.color
 
 describe('CharacterCounter', () => {

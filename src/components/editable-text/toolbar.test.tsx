@@ -25,8 +25,7 @@ function lexicalJson(text: string) {
     })
 }
 
-// Captures the live Lexical editor so the test can drive real edits through the
-// editor's own API — jsdom can't dispatch the beforeinput events Lexical relies on.
+// jsdom cannot dispatch the beforeinput events Lexical relies on, so edits go through its API.
 function CaptureEditor({ onReady }: { onReady: (editor: LexicalEditor) => void }) {
     const [editor] = useLexicalComposerContext()
     onReady(editor)
@@ -45,8 +44,7 @@ async function renderEditorWithText(id: string, text: string) {
     return { container, editor: editor! }
 }
 
-// The toolbar reads the selection out of the editor state rather than the DOM, so
-// selecting programmatically is enough to stand in for a user drag.
+// The toolbar reads the selection from editor state, not the DOM, so this stands in for a drag.
 function selectAllText(editor: LexicalEditor) {
     act(() => {
         editor.update(() => {

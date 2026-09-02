@@ -4,8 +4,6 @@ import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import DashboardSkeleton, { TableSkeleton } from './dashboard'
 import NavbarSkeleton from './navbar'
 
-// The loading-state skeletons. The dashboard/table skeletons render over the app's grey page
-// canvas; the navbar skeleton renders over the purple sidebar background it appears on in-app.
 const meta = { title: 'Layout / Skeletons', argTypes: pageBackgroundArgTypes }
 export default meta
 

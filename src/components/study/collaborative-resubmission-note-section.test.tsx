@@ -30,12 +30,10 @@ function Harness({ initialNote = '', initialError }: { initialNote?: string; ini
         validateInputOnChange: true,
     })
 
-    // lastSavedAt is non-null so the saved indicator WOULD render were it not
-    // for the collaborative-mode gate — keeps the absence assertion meaningful.
+    // lastSavedAt is non-null so the saved indicator WOULD render were it not for the
+    // collaborative-mode gate, which keeps the absence assertion meaningful.
     const savedAutosaveStatus = { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') }
 
-    // With a null websocketProvider the Editor renders its skeleton — as far as
-    // jsdom can take a Yjs editor; live behavior is covered by e2e.
     return (
         <CollaborativeResubmissionNoteSection
             studyId={STUDY_ID}
@@ -107,8 +105,6 @@ describe('CollaborativeResubmissionNoteSection', () => {
     })
 
     it('keeps the live region mounted through a validation error, so a later save is announced (OTTER-675)', () => {
-        // The error must empty the region rather than unmount it: a region handed back with its
-        // text already inside is silent in most AT/browser pairs.
         renderSingleUserSection({ initialError: 'A resubmission note is required.' })
         expect(screen.getByTestId('autosave-live-region')).toBeEmptyDOMElement()
     })
@@ -119,8 +115,6 @@ describe('CollaborativeResubmissionNoteSection', () => {
     })
 })
 
-// OTTER-737: this note is one of the ten capped fields, so the count has to be reachable from the
-// editor and the over-limit message has to announce itself.
 describe('CollaborativeResubmissionNoteSection character limit', () => {
     const OVER_LIMIT_ERROR = overCharacterLimitError('Resubmission note', RESUBMIT_NOTE_MAX_CHARACTERS)
 

@@ -3,14 +3,8 @@ import { Box } from '@mantine/core'
 import { useForm } from '@/common'
 import OtpInput from './otp-input'
 
-// Each digit is a Mantine `Input`, which spreads its own aria attributes *after* the caller's and
-// sets `aria-describedby` from its `Input.Wrapper` context. `PinInput` renders the digits outside
-// any wrapper, so that context is undefined and a hand-passed `aria-describedby` was silently
-// overwritten with `undefined`. Asserting per digit, because the first one passing proves nothing
-// about the other five.
 function Harness({ error }: { error?: string }) {
     // `initialErrors` rather than assigning to `form.errors`, which Mantine exposes as read-only.
-    // Stands in for the server rejection that installs this message via `setFieldError`.
     const form = useForm<{ code: string }>({
         initialValues: { code: '' },
         initialErrors: error ? { code: error } : {},

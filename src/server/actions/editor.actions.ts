@@ -24,9 +24,7 @@ export const getYjsDocumentUpdatedAtAction = new Action('getYjsDocumentUpdatedAt
         return row?.updatedAt?.toISOString() ?? null
     })
 
-// Status-poll fallback for the multi-user kick-out flow. Used by clients that miss
-// the live stateless event (e.g. fully disconnected from the editor service) to
-// detect that a proposal has been submitted.
+// Status-poll fallback for clients that miss the live stateless kick-out event.
 export const getStudyStatusAction = new Action('getStudyStatusAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
@@ -45,10 +43,7 @@ export const getStudyStatusAction = new Action('getStudyStatusAction')
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
 
-        // Used by callers that gate editability on both study status AND the latest
-        // job's status (e.g. code review). Backward-compatible: existing callers read
-        // only `status`. Ordering matches latestJobForStudyQuery so both agree on
-        // what "latest" means.
+        // Ordering matches latestJobForStudyQuery so both agree on what "latest" means.
         const latestJobStatusRow = await db
             .selectFrom('jobStatusChange')
             .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')

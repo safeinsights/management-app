@@ -41,10 +41,8 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
     const radioOptions = OPTIONS.map((option) => <Radio key={option.value} value={option.value} label={option.label} />)
     const widgetBlur = useWidgetBlur(onBlur)
 
-    // Radio.Group strands a hand-passed `aria-label` on its outer wrapper, which carries no role.
-    // The element with role="radiogroup" takes its name from `labelProps.id`, so pointing that at
-    // the visible criterion text is what actually names the group. Without it every row is an
-    // unnamed radiogroup and a screen reader cannot say which criterion is being answered.
+    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper; the
+    // role="radiogroup" element takes its name from labelProps.id instead.
     const labelId = `criteria-${descriptor.key}-label`
 
     return (
@@ -52,8 +50,8 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
             <Text id={labelId} fz={14} w={320}>
                 {descriptor.label}
             </Text>
-            {/* Guarded blur: the radios are siblings, so an unguarded handler would error
-                while the user is still tabbing across this row's options (OTTER-647). */}
+            {/* Guarded blur: the radios are siblings, so an unguarded handler would error while
+                the user is still tabbing across the row (OTTER-647). */}
             <Radio.Group
                 value={value ?? ''}
                 onChange={handleChange}

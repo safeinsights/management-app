@@ -13,11 +13,8 @@ const DEFAULT_TITLE = 'Security key'
 const DEFAULT_DESCRIPTION = 'This key is required to access the outputs. It was issued to you during sign-up.'
 
 interface SecurityKeyFormProps {
-    /** Only the id is read; see useSecurityKeyForm. */
     job: { id: string }
-    /** Which role's key set to decrypt against; see useSecurityKeyForm. */
     type: 'researcher' | 'reviewer'
-    /** Fires once the key decrypts the job's artifacts; the caller swaps in the review view. */
     onDecrypted: (files: JobFileInfo[]) => void
     title?: string
     description?: string

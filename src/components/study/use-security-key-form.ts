@@ -37,8 +37,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         isLoading: isLoadingFiles,
         isSuccess: isFileListLoaded,
     } = useQuery({
-        // The role is part of the key: the action returns a different key set per role, so a
-        // dual-role user switching views must not be served the other's cache.
+        // Role is part of the key so a dual-role user is not served the other role's cache.
         queryKey: ['encrypted-files', job.id, type],
         queryFn: async () => {
             try {

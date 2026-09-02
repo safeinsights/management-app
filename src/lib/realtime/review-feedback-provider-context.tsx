@@ -3,36 +3,20 @@
 import { createContext, useContext, useEffect, useState, type FC, type ReactNode } from 'react'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
 
-// HocuspocusProviderWebsocket dispatches inbound messages by document name via
-// `providerMap.set(name, provider)` / `.get(name)`. If two HocuspocusProvider
-// instances attach to the same shared websocket with the same name, the second
-// `attach()` overwrites the first in the map and the first goes deaf.
-//
-// On the review page the editor and the submission listener both wanted a
-// HocuspocusProvider for `review-feedback-${studyId}`. To avoid the collision,
-// the editor publishes its provider here and the listener subscribes to it
-// rather than constructing a second provider for the same name.
+// HocuspocusProviderWebsocket dispatches inbound messages by document name, so a second provider
+// attaching under the same name overwrites the first and the first goes deaf.
 
 type Subscriber = (provider: HocuspocusProvider | null) => void
 
 type ReviewFeedbackProviderShareState = {
-    /** Latest published HocuspocusProvider for `review-feedback-${studyId}`, or null before the editor has mounted / after teardown. */
     getProvider: () => HocuspocusProvider | null
-    /**
-     * Editor-side: publish (or clear) the provider for siblings to consume.
-     * Identity is stable for the lifetime of the enclosing
-     * `ReviewFeedbackProviderShare`, so callers can safely include it in
-     * `useEffect`/`useCallback` dep arrays without thrashing.
-     */
+    // Identity is stable for the lifetime of the enclosing share, so it is dep-array safe.
     publish: (provider: HocuspocusProvider | null) => void
-    /** Listener-side: receive updates whenever publish() is called. */
     subscribe: (notify: Subscriber) => () => void
 }
 
-// Sentinel `null` default rather than a no-op object. The hooks below throw if
-// they're called outside a `ReviewFeedbackProviderShare`, so we fail loudly
-// instead of silently never delivering kick-out (the original Bug 1 failure
-// mode, just relocated).
+// Sentinel `null` rather than a no-op default, so the hooks below throw outside a share instead
+// of silently never delivering kick-out.
 const ReviewFeedbackProviderShareContext = createContext<ReviewFeedbackProviderShareState | null>(null)
 
 export const ReviewFeedbackProviderShare: FC<{ children: ReactNode }> = ({ children }) => {
@@ -73,18 +57,12 @@ function useReviewFeedbackProviderShareContext(): ReviewFeedbackProviderShareSta
     return ctx
 }
 
-/**
- * Editor-side hook: returns a `publish` function suitable for passing to
- * `CollaborativeEditor`'s `onProviderReady` prop. The editor calls it with the
- * provider on creation and with null on teardown; subscribers (the listener)
- * receive both edges. Identity is stable for the lifetime of the enclosing
- * `ReviewFeedbackProviderShare`.
- */
+// For `CollaborativeEditor`'s `onProviderReady` prop: called with the provider on creation and
+// null on teardown, and subscribers receive both edges.
 export function usePublishReviewFeedbackProvider(): (provider: HocuspocusProvider | null) => void {
     return useReviewFeedbackProviderShareContext().publish
 }
 
-/** Listener-side hook: returns the editor's provider, updating on publish/clear. */
 export function useReviewFeedbackProvider(): HocuspocusProvider | null {
     const { getProvider, subscribe } = useReviewFeedbackProviderShareContext()
     const [provider, setProvider] = useState<HocuspocusProvider | null>(() => getProvider())

@@ -9,11 +9,9 @@ vi.mock('./config', () => ({
 
 const currentUserMock = currentUser as unknown as Mock
 
-// Import after mocking
 const { syncCurrentClerkUser } = await import('./clerk')
 
-// vitest.setup.ts stubs updateClerkUserMetadata for every other suite; this one exercises the real
-// implementation, so reach past the stub.
+// vitest.setup.ts stubs this for every other suite; reach past the stub for the real implementation.
 const { updateClerkUserMetadata } = await vi.importActual<typeof import('./clerk')>('./clerk')
 
 describe('syncCurrentClerkUser', () => {
@@ -21,7 +19,6 @@ describe('syncCurrentClerkUser', () => {
 
     beforeEach(() => {
         process.env = { ...ORIGINAL_ENV }
-        // Set to non-production environment by default
         process.env.ENVIRONMENT_ID = 'development'
     })
 
@@ -40,7 +37,7 @@ describe('syncCurrentClerkUser', () => {
         const { user } = await insertTestUser({ org })
 
         const clerkUser = {
-            id: user.clerkId, // Same clerkId as existing user
+            id: user.clerkId,
             firstName: 'Updated',
             lastName: 'Name',
             primaryEmailAddress: { emailAddress: user.email },
@@ -51,7 +48,6 @@ describe('syncCurrentClerkUser', () => {
 
         await syncCurrentClerkUser()
 
-        // Verify user was updated in database
         const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
@@ -70,10 +66,10 @@ describe('syncCurrentClerkUser', () => {
         const newClerkId = faker.string.alpha(10)
 
         const clerkUser = {
-            id: newClerkId, // Different clerkId
+            id: newClerkId,
             firstName: 'New',
             lastName: 'User',
-            primaryEmailAddress: { emailAddress: originalEmail }, // Same email as existing user
+            primaryEmailAddress: { emailAddress: originalEmail },
             publicMetadata: {},
         }
 
@@ -81,10 +77,8 @@ describe('syncCurrentClerkUser', () => {
 
         const result = await syncCurrentClerkUser()
 
-        // Should return the existing user's ID (not create a new one)
         expect(result.id).toBe(existingUser.id)
 
-        // Existing user should have updated clerkId and name
         const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
@@ -94,7 +88,7 @@ describe('syncCurrentClerkUser', () => {
         expect(updatedUser.clerkId).toBe(newClerkId)
         expect(updatedUser.firstName).toBe('New')
         expect(updatedUser.lastName).toBe('User')
-        expect(updatedUser.email).toBe(originalEmail) // Email preserved
+        expect(updatedUser.email).toBe(originalEmail)
     })
 
     it('should create new user when clerk user does not exist in database', async () => {
@@ -110,7 +104,6 @@ describe('syncCurrentClerkUser', () => {
 
         await syncCurrentClerkUser()
 
-        // Verify user was created in database
         const createdUser = await db
             .selectFrom('user')
             .selectAll('user')
@@ -149,7 +142,6 @@ describe('syncCurrentClerkUser', () => {
 
         await syncCurrentClerkUser()
 
-        // Verify user was created in database
         const createdUser = await db
             .selectFrom('user')
             .selectAll('user')
@@ -160,16 +152,11 @@ describe('syncCurrentClerkUser', () => {
         expect(createdUser.lastName).toBe('')
         expect(createdUser.email).toBe('test@example.com')
     })
-
-    // Note: Org membership sync from Clerk metadata has been removed.
-    // App DB is now the source of truth for org memberships.
-    // syncCurrentClerkUser only syncs user profile data (name, email).
 })
 
 describe('updateClerkUserMetadata', () => {
-    // Regression: this used to call users.updateUserMetadata, which PATCHes /users/:id/metadata and
-    // deep-merges. orgs is keyed by slug, so a revoked membership's key survived every rewrite and
-    // kept granting access through the JWT claim. updateUser replaces the object outright.
+    // updateUserMetadata deep-merges, so a revoked membership's slug key survived every rewrite
+    // and kept granting access through the JWT claim. updateUser replaces the object outright.
     it('replaces publicMetadata rather than merging it', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org })

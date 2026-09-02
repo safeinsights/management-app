@@ -30,28 +30,13 @@ type OutputsReviewPanelProps = {
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
     previousHref: Route
-    /**
-     * Opt in to letting the reviewer decide when the job carries no encrypted artifact (OTTER-524).
-     *
-     * Only the errored screen sets this. For a completed run, no artifacts is not an expected
-     * outcome but a sign that delivery went wrong, and skipping the key step there would quietly
-     * present a broken hand-off as a reviewable one. For an errored run it is routine: a packaging
-     * failure produces nothing, and AWS emits no container log when a task never starts.
-     */
+    /** Only the errored screen sets this: for a completed run, no artifacts means delivery
+     * went wrong, so the key step must not be skipped (OTTER-524). */
     allowDecisionWithoutArtifacts?: boolean
 }
 
-/**
- * The reviewer's outputs step, in its two phases.
- *
- * Decryption happens in the browser and changes no server state, so "advancing" to the review
- * view is a local phase flip, not a route change or a new screen: the study is still
- * JOB-ERRORED / RUN-COMPLETE either side of it. Holding both phases in one component is what
- * lets the decrypted plaintext stay in memory and never travel back to the server.
- *
- * The page and section headers are identical across both phases; only the banner below the
- * divider and the body beneath it change.
- */
+// Both phases live in one component so the decrypted plaintext stays in memory and never
+// reaches the server; advancing is a local flip, not a route change.
 export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     orgSlug,
     studyId,
@@ -65,29 +50,18 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
 
-    // OTTER-524: a run can fail without producing anything about its own outcome, and there is then
-    // nothing for a key to open. The old flow left the reviewer stuck at the key form with no way to
-    // record a decision, which in turn left the researcher on "code is running" forever.
-    //
-    // Read from the job's own files, NEVER from an empty result out of fetchEncryptedJobFilesAction:
-    // that action also returns [] when the caller has no registered public key or when the fetch
-    // failed, and treating those as "nothing to decrypt" would let a reviewer without a key skip
-    // decryption entirely and decide on outputs they never saw. That is exactly the hole OTTER-675
-    // closed. The predicate still covers every ENCRYPTED-RESULT, so no run's outputs can be decided
-    // on unseen; it excludes only the submission-time security scan log, which no run produced.
+    // Read from the job's own files, never from an empty fetchEncryptedJobFiles result, which
+    // also returns [] with no registered key and would let decryption be skipped (OTTER-675).
     const requiresKey = !allowDecisionWithoutArtifacts || jobHasDecryptableRunOutcome(job.files ?? [])
 
     const isLocked = requiresKey && isUndecrypted
-    // Non-null with no key step, which is what flips UnlockedPhase on: with nothing to decrypt the
-    // reviewer goes straight to the decision, and there are no files to list.
+    // Non-null with no key step, which flips UnlockedPhase on so the reviewer goes straight to
+    // the decision.
     const reviewableFiles = requiresKey ? decryptedFiles : NO_FILES
-    // Stays on the errored banner when there is nothing to decrypt: the unlocked banner warns about
-    // sharing outputs, and there are none.
+    // The unlocked banner warns about sharing outputs, so it is wrong when there are none.
     const banner = requiresKey && !isLocked ? unlockedBanner : lockedBanner
-    // The same value as requiresKey, named for the different question it answers: with no key step
-    // nothing is ever decrypted, so there is nothing to share. Said here rather than left for the
-    // reader to derive from UnlockedPhase's null guard two components away, so that a later change to
-    // that guard cannot quietly turn "has a key step" into a sharing permission.
+    // Same value as requiresKey, named separately so a later change to UnlockedPhase's null
+    // guard cannot quietly turn "has a key step" into a sharing permission.
     const canShareOutputs = requiresKey
 
     return (
@@ -126,9 +100,8 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
     if (!isVisible) return null
     return (
         <>
-            {/* The reviewer decrypts via the zip's embedded manifest, which is encrypted to the
-                enclave keys; they hold no re-wrapped per-file keys, so the researcher key set
-                would come back empty. */}
+            {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
+                keys, so the researcher key set would come back empty. */}
             <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
             <Group>
                 <PreviousStepLink previousHref={previousHref} />
@@ -138,7 +111,7 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDec
 }
 
 type UnlockedPhaseProps = {
-    /** null until a key has successfully decrypted; the whole review view is gated on it. */
+    /** null until a key has successfully decrypted. */
     decryptedFiles: JobFileInfo[] | null
     /** False when the job has no artifacts, so there is no key step and nothing to share. */
     canShareOutputs: boolean
@@ -149,8 +122,8 @@ type UnlockedPhaseProps = {
     previousHref: Route
 }
 
-// Split from the panel so the hooks below run only once decryption has happened: mounting the
-// collaborative editor (and its websocket) behind a still-locked key would be wasted work.
+// Split from the panel so mounting the collaborative editor and its websocket waits until
+// decryption has happened.
 const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     decryptedFiles,
     canShareOutputs,
@@ -176,8 +149,7 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
 
 type ReviewBodyProps = Omit<UnlockedPhaseProps, 'decryptedFiles'> & { decryptedFiles: JobFileInfo[] }
 
-// No artifacts means no table to draw. Rendering an empty "Outputs files" section would imply the
-// reviewer is looking at a complete listing of what the run produced.
+// An empty "Outputs files" section would imply a complete listing of what the run produced.
 const OutputsSection: FC<{ isVisible: boolean; jobId: string; decryptedFiles: JobFileInfo[] }> = ({
     isVisible,
     jobId,
@@ -215,8 +187,8 @@ const ReviewBody: FC<ReviewBodyProps> = ({
             />
             <Group justify="space-between">
                 <PreviousStepLink previousHref={previousHref} />
-                {/* Enabled from the start by design: pressing it is how the user learns what is
-                    still missing, rather than being left with a dead button and no explanation. */}
+                {/* Enabled from the start: pressing it is how the user learns what is still
+                    missing, rather than facing a dead button with no explanation. */}
                 <Button
                     onClick={decision.attemptSubmit}
                     disabled={decision.isSubmitting}

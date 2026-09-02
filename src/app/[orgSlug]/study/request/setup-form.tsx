@@ -34,11 +34,8 @@ export const SetupForm: FC<SetupFormProps> = ({
     lockedOrgName,
     lockedLanguageLabel,
 }) => (
-    // ProposalStepHeader supplies the card, the eyebrow, the heading and the 24px divider, which
-    // is the "reuse the section header component" requirement. No studyTitle: this step is where
-    // the title is entered, so it must not also appear as body text.
-    // Literal 24 rather than gap="lg": this app's Mantine `lg` is 20px, while the design token is
-    // 24px. Once the theme scale is aligned these can switch to the token.
+    // Literal 24 rather than gap="lg": this app's Mantine `lg` is 20px while the design token is
+    // 24px.
     <ProposalStepHeader stepLabel="STEP 1" heading="Set up study">
         <Stack gap={24}>
             <Text>{INTRO}</Text>

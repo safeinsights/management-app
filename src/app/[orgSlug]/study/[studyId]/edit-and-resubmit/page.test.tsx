@@ -1,6 +1,4 @@
-// OTTER-497: the edit-and-resubmit page must be reachable by any member of the
-// submitting lab (not only the original researcher), and must stay closed to
-// users outside that lab.
+// OTTER-497: reachable by any member of the submitting lab, closed to everyone outside it.
 import { describe, it, expect } from 'vitest'
 import { insertTestStudyJobData, insertTestUser, mockClerkSession, mockSessionWithTestData } from '@/tests/unit.helpers'
 import StudyEditAndResubmitRoute from './page'
@@ -14,7 +12,6 @@ describe('StudyEditAndResubmitRoute', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        // a different member of the same lab opens the page
         const { user: teammate } = await insertTestUser({ org })
         mockClerkSession({
             userId: teammate.id,
@@ -29,8 +26,6 @@ describe('StudyEditAndResubmitRoute', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
         })
 
-        // Access is gated on lab membership, not authorship: a same-lab teammate
-        // reaches the rendered page instead of being bounced to notFound().
         expect(page).toBeDefined()
     })
 
@@ -42,11 +37,8 @@ describe('StudyEditAndResubmitRoute', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        // a user from a different lab tries to open the page
         await mockSessionWithTestData({ orgType: 'lab' })
 
-        // notFound() is a no-op mock in the test env (tests/vitest.setup.ts), so
-        // a gated page resolves to undefined instead of rendering the form.
         const page = await StudyEditAndResubmitRoute({
             params: Promise.resolve({ orgSlug: labA.slug, studyId: study.id }),
         })

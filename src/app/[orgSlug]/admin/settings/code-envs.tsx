@@ -149,8 +149,7 @@ const CodeEnvRow: React.FC<{
         onError: reportMutationError('Failed to delete code environment'),
     })
 
-    // Deferred until the modal opens so listing the environments does not also fetch
-    // every row's history.
+    // Deferred until the modal opens so listing environments does not fetch every row's history.
     const {
         entries: history,
         isLoading: isLoadingHistory,
@@ -286,9 +285,8 @@ const SCAN_PASSED_STATUS: ScanStatus = 'SCAN-COMPLETE'
 
 const hasPassedScan = (env: CodeEnv) => env.latestScanStatus === SCAN_PASSED_STATUS
 
-// OTTER-527: deleting the last non-testing env for a language — or the only one that
-// passed scanning — would leave the language without a usable default image, so the
-// delete control is hidden for those. The server action enforces the same rules.
+// OTTER-527: deleting the last non-testing or last passing env for a language would leave it
+// without a usable default image. The server action enforces the same rules.
 const canDeleteCodeEnv = (env: CodeEnv, allEnvs: CodeEnv[]): boolean => {
     if (env.isTesting) return true
     const siblings = allEnvs.filter(

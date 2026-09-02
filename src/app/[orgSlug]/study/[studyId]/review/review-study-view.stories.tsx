@@ -7,19 +7,13 @@ import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
 import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 
-// Page-views for the reviewer (enclave / DO) "Review study" screen. Both *View components are
-// presentational: they own page chrome (titles, layout, action links) while the
-// real containers inject the data/session-driven sections. Here those sections are supplied as
-// inline, session-free fixtures so the two meaningful states render in isolation (no QueryClient
-// or Clerk in Ladle): (1) the proposal review with its label/value pairs + decision + action bar,
-// and (2) the results review "Study Details" page with the Approved status and files table.
+// The View components own page chrome only, so session-free fixtures stand in for the
+// data-driven sections.
 const meta = { title: 'Pages / Review study', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const ORG_SLUG = 'mars-university'
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
-
-// --- Shared fixture helpers ---------------------------------------------------------------
 
 function LabelValue({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -47,8 +41,6 @@ function DatasetPills({ names }: { names: string[] }) {
         </Group>
     )
 }
-
-// --- State 1: Review study proposal -------------------------------------------------------
 
 function ProposalBodyFixture() {
     return (
@@ -157,8 +149,6 @@ export const ReviewProposal: Story = () => (
         actions={<ProposalActionsFixture />}
     />
 )
-
-// --- State 2: Review results (Study Details) ----------------------------------------------
 
 type ResultFile = { type: string; name: string; size: string }
 

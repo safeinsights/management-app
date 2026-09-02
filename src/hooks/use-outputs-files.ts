@@ -19,8 +19,6 @@ const activityQueryKey = (jobId: string) => ['job-file-activity', jobId]
 
 const rowKey = (file: JobFileInfo) => `${file.sourceId}:${file.path}`
 
-// The inner path can carry directories ("results/summary.csv"); the table shows the leaf, which
-// is what the reviewer recognizes.
 const displayName = (path: string) => path.split('/').pop() || path
 
 type UseOutputsFilesOptions = {
@@ -50,10 +48,8 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
                     action: variables.action,
                 }),
             ),
-        // Deliberately not surfaced to the user. This is an audit side effect of an action that
-        // already succeeded: the file was viewed or downloaded either way, so a toast reading
-        // "Failed to record file activity" would report a failure the reviewer cannot act on and
-        // did not cause. Sentry still sees it.
+        // Not surfaced: an audit side effect of an action that already succeeded, so a toast would
+        // report a failure the reviewer cannot act on and did not cause.
         onError: (error) => captureException(error),
         // Refetch rather than optimistically patch: the row shows the actor's name and the
         // server's timestamp, neither of which the client can produce accurately.
@@ -68,9 +64,8 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
             filePath: file.path,
             name: displayName(file.path),
             contents: file.contents,
-            // Distinguishes "asked, nothing came back" from "haven't asked yet". Without it, a
-            // pending or failed query renders as a confident "No activity yet" on every row, which
-            // is a false statement about who has accessed the outputs.
+            // Distinguishes "asked, nothing came back" from "haven't asked yet": without it a
+            // pending query renders as a confident "No activity yet" on every row.
             isActivityKnown: isActivityLoaded,
             activity:
                 activityRows.find((row) => row.studyJobFileId === file.sourceId && row.filePath === file.path) ?? null,
@@ -93,16 +88,13 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         [recordActivity],
     )
 
-    // The reused preview modal carries its own download link, which does the transfer itself. Log
-    // it anyway, or a reviewer who opens a file and downloads it from there would keep showing as
-    // having only "Viewed" it.
+    // The preview modal's own download link does the transfer itself, so without this a reviewer
+    // who downloads from there still shows as having only "Viewed".
     const onViewerDownload = useCallback(() => {
         if (!viewing) return
         recordActivity({ files: [viewing], action: 'DOWNLOADED' })
     }, [viewing, recordActivity])
 
-    // "Download all" counts as a download of every file, so each row's Last activity updates,
-    // not just one aggregate row.
     const onDownloadAll = useCallback(async () => {
         if (!rows.length) return
         setIsPreparingZip(true)
@@ -111,9 +103,8 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
             downloadBlob('outputs.zip', blob)
             recordActivity({ files: rows, action: 'DOWNLOADED' })
         } catch (error) {
-            // Zipping happens in the browser over in-memory plaintext; a failure here (out of
-            // memory on a large result set) would otherwise surface as an unhandled rejection from
-            // the click handler and leave the user with no feedback at all.
+            // Zipping runs in-browser over in-memory plaintext, so an OOM on a large result set
+            // would otherwise be an unhandled rejection with no user feedback.
             reportMutationError('Failed to prepare the download')(error as Error)
         } finally {
             setIsPreparingZip(false)

@@ -6,8 +6,7 @@ import { ResubmissionNoteSection } from '@/components/study/resubmission-note-se
 import { resubmitStudyCodeAction } from '@/server/actions/study-request'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
-// Renders the real note textarea wired to the same form context as the footer, so a test can type a
-// genuine session edit (and exercise the isDirty-based Cancel/Save-and-exit toggle).
+// The real note textarea on the footer's form context, so a test can make a genuine session edit.
 const NoteInput = () => {
     const { noteForm } = useEditCodeResubmit()
     return <ResubmissionNoteSection noteForm={noteForm} orgName="Reviewing Org" />
@@ -134,18 +133,15 @@ describe('EditStudyCodeFooter', () => {
         )
     })
 
-    // OTTER-558 regression: on initial load the user has made no edits this session, so Cancel must
-    // show. The footer keys on `filesEdited` (real session edits), not the mtime-based `filesChanged`
-    // that is already true on load — which is what previously hid Cancel and only showed "Save and exit".
+    // OTTER-558: the footer keys on filesEdited (real session edits), not the mtime-based
+    // filesChanged that is already true on load.
     it('shows Cancel (not Save and exit) when no changes have been made', () => {
         renderFooter()
         expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Save and exit' })).not.toBeInTheDocument()
     })
 
-    // OTTER-558 (PR #822 review): the note form is seeded from a persisted draft, so content present
-    // on load is NOT a session edit. Reopening a saved-but-unsubmitted draft must still show Cancel,
-    // mirroring how `filesEdited` (not the mtime-based `filesChanged`) gates the files path.
+    // OTTER-558: note content seeded from a persisted draft is not a session edit.
     it('shows Cancel (not Save and exit) when the note is loaded from a saved draft with no session edit', () => {
         renderFooter({ initialNote: wordsString(3) })
         expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()

@@ -1,5 +1,6 @@
 import {
     db,
+    insertKeylessInvitedUser,
     renderWithProviders,
     screen,
     fireEvent,
@@ -17,8 +18,7 @@ import { SignInForm } from './sign-in-form'
 const mockSignInCreate = (create: Mock) =>
     (useSignIn as Mock).mockReturnValue({ isLoaded: true, signIn: { create }, setActive: vi.fn() })
 
-// The no-MFA counterpart of the MFA flow: sign-in completes in one step, so the key detour is
-// applied here instead (OTTER-655).
+// No-MFA counterpart: sign-in completes in one step, so the key detour applies here (OTTER-655).
 const keylessUserSigningIn = async () => {
     const { user } = await mockSessionWithTestData({ orgType: 'lab' })
     await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
@@ -78,8 +78,7 @@ describe('SignInForm', () => {
         )
     })
 
-    // Emitting the fallback as a parameter would pin the key page to "My dashboard" and defeat the
-    // landing it resolves for a first key.
+    // Emitting the fallback as a parameter would pin the key page to "My dashboard".
     it('sends a keyless user with no destination to a bare key page', async () => {
         memoryRouter.setCurrentUrl('/account/signin')
         await keylessUserSigningIn()
@@ -104,8 +103,8 @@ describe('SignInForm', () => {
         expect(memoryRouter.asPath).toBe('/account/signin')
     })
 
-    // A blank email fails both `min(1)` and `email()`. The resolver keeps the last issue by
-    // default, so an untouched field read "Invalid email" (OTTER-647).
+    // A blank email fails both `min(1)` and `email()`; the resolver keeps the last by default,
+    // so an untouched field read "Invalid email" (OTTER-647).
     it('says the email is required when it is left blank, not that it is invalid', async () => {
         mockSignInCreate(vi.fn())
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
@@ -127,8 +126,7 @@ describe('SignInForm', () => {
         expect(await screen.findByText('Invalid email')).toBeInTheDocument()
     })
 
-    // Mantine renders PasswordInput's inner <input> with ARIA wiring disabled, so its `error`
-    // alone leaves the control unmarked for assistive tech (OTTER-647).
+    // Mantine renders PasswordInput's inner <input> with ARIA wiring disabled (OTTER-647).
     it('marks the password input invalid when it is left blank', async () => {
         mockSignInCreate(vi.fn())
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
@@ -140,5 +138,32 @@ describe('SignInForm', () => {
         await userEvent.tab()
 
         await waitFor(() => expect(password).toHaveAttribute('aria-invalid', 'true'))
+    })
+    // An invited user who has not enrolled MFA completes sign-in in one step and lands here, where
+    // invite_id used to be ignored — so the invite that brought them was silently lost.
+    it('accepts a pending invite for a keyless user who signs in without MFA', async () => {
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
+        memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
+        ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
+        mockSignInCreate(vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }))
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        await waitFor(async () => {
+            const membership = await db
+                .selectFrom('orgUser')
+                .select('id')
+                .where('userId', '=', user.id)
+                .where('orgId', '=', invitingOrg.id)
+                .executeTakeFirst()
+            expect(membership).toBeDefined()
+        })
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
+            ),
+        )
     })
 })

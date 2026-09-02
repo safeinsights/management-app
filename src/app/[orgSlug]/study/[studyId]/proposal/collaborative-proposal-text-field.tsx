@@ -30,19 +30,11 @@ type Props = {
     onChange: (val: string) => void
     onBlur: () => void
     websocketProvider: HocuspocusProviderWebsocket | null
-    /**
-     * Opt-in, because Step 2 renders no placeholders (OTTER-691) while the resubmit page still
-     * does. Reading `field.placeholder` here instead would tie the two pages together, and the
-     * card's scope is Step 2.
-     */
+    // Opt-in: Step 2 renders no placeholders (OTTER-691) while the resubmit page still does.
     placeholder?: string
-    /**
-     * Opt-in for the same reason `placeholder` is: Figma gives Step 2 a per-field box height
-     * (OTTER-691) while the resubmit page shares this component and keeps one uniform height.
-     * Reading `field.contentHeight` here would resize the resubmit page too.
-     */
+    // Opt-in: Step 2 has per-field heights (OTTER-691) while the resubmit page keeps one uniform
+    // height.
     contentHeight?: number
-    /** Opt-in drag handle. Step 2 asks for one; the resubmit page was never in the card's scope. */
     isResizable?: boolean
 }
 
@@ -60,7 +52,7 @@ export function CollaborativeProposalTextField({
 }: Props) {
     const [characterCount, setCharacterCount] = useState(() => countCharactersFromLexical(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
-    // The editor surface needs its own DOM id: `docName` is the Yjs document key.
+    // The editor surface needs its own DOM id; `docName` is the Yjs document key.
     const inputId = textFieldInputId(field.id)
 
     const onTextChange = (json: string) => {
@@ -88,9 +80,8 @@ export function CollaborativeProposalTextField({
                             maxCharacters={field.maxCharacters}
                         />
                     }
-                    // The character-limit error can appear while the user is still typing, before
-                    // any blur or click moves focus, so it has to announce itself (OTTER-690's
-                    // errorLive, built for the Step 1 title's identical case).
+                    // The character-limit error appears mid-typing, before focus moves, so it has
+                    // to announce itself (OTTER-690).
                     errorLive
                 >
                     <Editor
@@ -121,15 +112,6 @@ export function CollaborativeProposalTextField({
     )
 }
 
-/**
- * Binds one `editableTextFields` entry to the Mantine form that owns it.
- *
- * Both the Step 2 proposal form and the change-requested resubmit form render the same list of
- * rich-text fields against the same form shape, and each used to carry its own copy of this
- * wrapper. The copies only ever differed in props that {@link CollaborativeProposalTextField}
- * already takes, so the flows stay separated by what they pass rather than by having two
- * components (OTTER-691).
- */
 export const ProposalTextFieldEntry: FC<{
     field: EditableTextField
     form: UseFormReturnType<ProposalFormValues>
@@ -138,15 +120,8 @@ export const ProposalTextFieldEntry: FC<{
     placeholder?: string
     contentHeight?: number
     isResizable?: boolean
-    /**
-     * Raises the over-limit error while the user is still typing.
-     *
-     * Only the over-limit half of the rule is live. The required half belongs to blur and to the
-     * Submit click: running it on change would flash "Enter your project summary before
-     * continuing." the moment the user clears the box, which the card forbids. Mantine's
-     * clearInputErrorOnChange has already dropped any previous message by the time this runs, so
-     * the within-limit case needs no branch of its own.
-     */
+    // Only the over-limit half of the rule is live; the required half belongs to blur and Submit,
+    // so clearing the box does not flash an error mid-edit.
     liveCharacterLimit?: boolean
 }> = ({
     field,

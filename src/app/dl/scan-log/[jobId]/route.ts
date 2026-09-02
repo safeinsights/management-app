@@ -4,8 +4,7 @@ import { getStudyJobFileOfType, jobInfoForJobId } from '@/server/db/queries'
 import { canViewStudyJob } from '@/server/auth'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 
-// Serves the plaintext SECURITY-SCAN-LOG .txt for a job. The encrypted zip is
-// intentionally not downloadable here (OTTER-649: ZIPs are not offered).
+// The encrypted zip is intentionally not downloadable here (OTTER-649).
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const { jobId } = await params
 
@@ -13,9 +12,8 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
         return NextResponse.json({ error: 'no job id provided' }, { status: 400 })
     }
 
-    // Authorize before touching the file, so a denied requester can't infer from a
-    // 404-vs-401 whether another org's job produced a scan log. An unknown job and an
-    // unauthorized one both return 401 rather than disclosing which case applied.
+    // Authorize before touching the file: an unknown job and an unauthorized one both return 401,
+    // so a denied requester learns nothing about another org's job.
     const job = await jobInfoForJobId(jobId).catch(() => null)
 
     if (!job || !(await canViewStudyJob(job))) {
@@ -28,9 +26,8 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
         return NextResponse.json({ error: 'scan log not found' }, { status: 404 })
     }
 
-    // Pin the download: the anchor's `download` attribute doesn't survive the cross-origin
-    // redirect to S3, so force a Content-Disposition rather than relying on the stored
-    // object's content type (uploads set none today, but that could change).
+    // The anchor's `download` attribute doesn't survive the cross-origin redirect to S3, so force
+    // a Content-Disposition.
     const url = await urlForFile(file.path, {
         ResponseContentDisposition: `attachment; filename="${SCAN_LOG_FILE_NAME}"`,
     })

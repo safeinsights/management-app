@@ -5,7 +5,6 @@ import { JobResultsStatusMessage } from './job-results-status-message'
 import { type LatestJobForStudy } from '@/server/db/queries'
 import { type FileType, type StudyJobStatus } from '@/database/types'
 
-// Mock child components
 vi.mock('@/components/job-results', () => ({
     JobResults: () => <div data-testid="job-results">Job Results</div>,
 }))
@@ -231,7 +230,6 @@ describe('JobResultsStatusMessage', () => {
 
             renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
-            // Should show files rejected message as it's checked first in the component logic
             expect(
                 screen.getByText(
                     'The results of your study have not been released by the Data Partner, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',

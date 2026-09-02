@@ -12,8 +12,8 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 type Org = ActionSuccessType<typeof fetchUsersOrgsAction>[number]
 
-// Org admin routes are org-scoped (/{orgSlug}/admin/...) while the SafeInsights
-// admin tree is top-level (/admin/safeinsights), so match the segment anywhere.
+// Org admin routes are org-scoped while the SafeInsights admin tree is top-level, so the
+// segment is matched anywhere.
 const isAdminPathname = (pathname: string) => /(^|\/)admin(\/|$)/.test(pathname)
 
 interface OrgAdminDashboardLinkProps {
@@ -29,9 +29,8 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
 
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
-    // Re-sync the menu's open state to the route during render (rather than in an
-    // effect) so navigating into/out of /admin opens or closes it without a
-    // cascading re-render, while a manual toggle still holds between navigations.
+    // Re-synced during render, not in an effect, so navigation opens or closes the menu without
+    // a cascading re-render while a manual toggle still holds.
     const [prevIsAdminPage, setPrevIsAdminPage] = useState(isAdminPage)
     if (isAdminPage !== prevIsAdminPage) {
         setPrevIsAdminPage(isAdminPage)
@@ -69,7 +68,6 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     url={Routes.adminSettings({ orgSlug })}
                     pl="xl"
                 />
-                {/* Both org types: a lab reads its ROPA and study agreements here, an enclave its DOPA. */}
                 <NavbarLink
                     isVisible
                     label="Legal center"

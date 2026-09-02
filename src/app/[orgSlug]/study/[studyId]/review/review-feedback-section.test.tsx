@@ -99,8 +99,8 @@ describe('ReviewFeedbackSection', () => {
     })
 })
 
-// OTTER-737: the counter has to be reachable from the editor, and the over-limit message has to
-// appear on the keystroke that crosses the cap rather than waiting for a blur.
+// OTTER-737: the counter must be reachable from the editor, and the over-limit message must appear
+// on the keystroke that crosses the cap.
 describe('ReviewFeedbackSection character limit', () => {
     it('names the counter in the editor aria-describedby', async () => {
         renderWithProviders(<FeedbackTestWrapper />)

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from '@/tests/unit.helpers'
 import { NextRequest } from 'next/server'
 
-// vitest.setup.ts auto-mocks @clerk/nextjs/server, so pull in the real implementation: the whole
-// point of this suite is to exercise Clerk's actual path-to-regexp compilation, not a stub.
+// vitest.setup.ts auto-mocks @clerk/nextjs/server, but this suite must exercise Clerk's real
+// path-to-regexp compilation rather than a stub.
 const realCreateRouteMatcher = async () => {
     const actual = await vi.importActual<typeof import('@clerk/nextjs/server')>('@clerk/nextjs/server')
     return actual.createRouteMatcher
@@ -31,9 +31,8 @@ describe('org admin route matcher', () => {
         expect(isOrgAdminRoute(req('/researcher/x'))).toBe(false)
     })
 
-    // Regression guard for MA-11: the Next.js filesystem `[param]` convention is NOT path-to-regexp
-    // syntax. Clerk's bundled fork treats the brackets as literal characters and silently matches
-    // nothing rather than throwing, so this dead guard is invisible without an explicit assertion.
+    // MA-11: Clerk's path-to-regexp fork treats Next's `[param]` brackets as literal characters and
+    // silently matches nothing rather than throwing, so the dead guard is invisible without this.
     it('confirms the bracket convention matches nothing, which is why it must never come back', async () => {
         const createRouteMatcher = await realCreateRouteMatcher()
         const bracketMatcher = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
@@ -55,8 +54,8 @@ describe('org admin route matcher', () => {
         expect(isResearcherRoute(req('/acme/dashboard'))).toBe(false)
     })
 
-    // A `/:orgSlug` matcher looks like the natural org-membership guard but a single colon segment
-    // also captures every top-level route, so the proxy gates on extractOrgSlugFromPath instead.
+    // A single `/:orgSlug` colon segment also captures every top-level route, so the proxy gates on
+    // extractOrgSlugFromPath instead.
     it('shows why a bare /:orgSlug matcher cannot gate org membership', async () => {
         const createRouteMatcher = await realCreateRouteMatcher()
         const bareOrgMatcher = createRouteMatcher(['/:orgSlug'])

@@ -37,7 +37,6 @@ describe('canResearcherResubmitCode', () => {
     })
 
     it('false when CODE-CHANGES-REQUESTED is stale (a fresh CODE-SUBMITTED was appended)', () => {
-        // Already resubmitted, now awaiting a new decision, so not resubmittable again.
         expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])])).toBe(false)
     })
 
@@ -65,8 +64,7 @@ describe('canResearcherResubmitCode', () => {
         expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'CODE-SCANNED'])])).toBe(false)
     })
 
-    // AC "code errored": a bare JOB-ERRORED run is NOT resubmittable on its own. The reviewer triages
-    // the errored run and records a FILES-* decision first; only then is the researcher offered resubmit.
+    // The reviewer must record a FILES-* decision on the errored run before resubmit is offered.
     it('false for a bare JOB-ERRORED run awaiting the reviewer files decision', () => {
         expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'JOB-ERRORED'])])).toBe(false)
     })
@@ -82,8 +80,6 @@ describe('canResearcherResubmitCode', () => {
     })
 
     it('true from the latest submitted round when a prior round closed with FILES-APPROVED', () => {
-        // A results decision closes a round; the resubmit opens a new job. Eligibility keys on the
-        // latest submitted job, so a fresh CODE-CHANGES-REQUESTED in the new round is resubmittable.
         expect(
             canResubmit([
                 job(ID, ['CODE-SUBMITTED', 'FILES-APPROVED']),
@@ -92,10 +88,8 @@ describe('canResearcherResubmitCode', () => {
         ).toBe(true)
     })
 
-    // OTTER-601 masking guard: a mid-resubmit file upload opens a fresh baseline (INITIATED-only) job
-    // after the results decision. latestJob's prefer-submitted filter must skip that baseline job so
-    // eligibility still reads FILES-APPROVED on the last submitted round. Pins the filter for the
-    // eligibility path (only the e2e exercised it before).
+    // A mid-resubmit upload opens a baseline INITIATED-only job, which latestJob's prefer-submitted
+    // filter must skip so eligibility still reads the last submitted round (OTTER-601).
     it('true when a later baseline-only INITIATED job trails a FILES-APPROVED round', () => {
         expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'FILES-APPROVED']), job(ID2, ['INITIATED'])])).toBe(true)
     })

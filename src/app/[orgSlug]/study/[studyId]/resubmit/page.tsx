@@ -18,9 +18,8 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
         return notFound()
     }
 
-    // Resubmit eligibility is a projected-state fact (order-independent: statuses as a Set, latest job by
-    // max(id); and liveness-aware) and is the SAME predicate the autosave + resubmit server actions gate
-    // on, so the page never renders a state those actions would reject. See canResearcherResubmitCode.
+    // The same predicate the autosave and resubmit actions gate on, so the page never renders a
+    // state those actions would reject.
     const raw = await rawStudyStateForStudy(studyId)
     if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) return notFound()
 

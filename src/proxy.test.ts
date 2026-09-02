@@ -10,14 +10,13 @@ type ProxyHandler = (auth: Mock, req: NextRequest) => Promise<Response>
 
 const nonceFrom = (policy: string) => policy.match(/'nonce-([^']+)'/)?.[1]
 
-// NextResponse.next({ request: { headers } }) exposes the forwarded request headers as
-// x-middleware-request-* on the response, which is exactly what Next's server consumes.
+// NextResponse.next({ request: { headers } }) exposes forwarded request headers as
+// x-middleware-request-*, which is what Next's server consumes.
 const forwardedHeader = (res: Response, name: string) => res.headers.get(`x-middleware-request-${name}`)
 
 describe('continueWithNonce', () => {
-    // Next only stamps its inline scripts with a nonce it can parse back out of the
-    // content-security-policy REQUEST header (parseRequestHeaders in app-render). A test over the
-    // policy string alone cannot fail when that wiring breaks; this one can.
+    // Next stamps inline scripts only with a nonce it can parse back out of the request header, so
+    // a test over the policy string alone could not catch that wiring breaking.
     it('forwards a CSP request header whose script-src nonce matches the response header', () => {
         vi.stubEnv('NODE_ENV', 'production')
 
@@ -94,7 +93,7 @@ describe('proxy session marshaling failures', () => {
         ;(createRouteMatcher as unknown as Mock).mockReturnValue(() => false)
     })
 
-    // sessionClaims without v3 metadata force a metadata sync, which hits clerk's getUser
+    // sessionClaims without v3 metadata force a metadata sync, which hits clerk's getUser.
     const authenticatedAuth = () =>
         vi.fn().mockResolvedValue({
             userId: 'clerk_proxy_test_user',
@@ -128,7 +127,7 @@ describe('proxy session marshaling failures', () => {
 
         expect(getUser).toHaveBeenCalledTimes(2)
         // The metadata rewrite is the last step of the re-sync, so reaching it proves the retry ran
-        // to completion. vitest.setup.ts stubs the export, hence asserting on it rather than the SDK.
+        // to completion.
         expect(updateClerkUserMetadata).toHaveBeenCalledTimes(1)
         expect(res.headers.get('location')).toBeNull()
     })
@@ -143,7 +142,6 @@ describe('proxy session marshaling failures', () => {
         const res = await (proxy as unknown as ProxyHandler)(authenticatedAuth(), req)
 
         expect(getUser).toHaveBeenCalledTimes(2)
-        // never bounce an authenticated user to signin — they proceed with a blank session
         expect(res.headers.get('location')).toBeNull()
     })
 

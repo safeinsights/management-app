@@ -100,12 +100,8 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
             const json = editorState.toJSON()
-            // On mount, before Yjs syncs, Lexical's root briefly has no children.
-            // That state is valid in memory but Lexical rejects it on re-hydration,
-            // so persisting it would crash the non-collaborative views (EditableText,
-            // ReadOnlyLexicalContent) the next time the data is read. User-cleared
-            // input still keeps an empty paragraph in children, so this only filters
-            // the pre-sync state.
+            // Before Yjs syncs, Lexical's root briefly has no children, a state it rejects on
+            // re-hydration. User-cleared input keeps an empty paragraph, so it is unaffected.
             if (!json.root?.children?.length) return
             onChange(JSON.stringify(json))
         })
@@ -138,8 +134,8 @@ function useCollaborationProvider(
                 onAuthenticationFailed: ({ reason }: { reason: string }) => onAuthError(reason),
             } as ConstructorParameters<typeof HocuspocusProvider>[0])
 
-            // With a shared websocketProvider the constructor leaves manageSocket=false.
-            // Without this attach() the document never registers in providerMap.
+            // With a shared websocketProvider the constructor leaves manageSocket=false, so
+            // without this the document never registers in providerMap.
             provider.attach()
 
             providerRef.current = provider
@@ -160,57 +156,32 @@ const initialConfig = {
 }
 
 export type CollaborativeEditorProps = {
-    /**
-     * id = globally unique document name; used as the primary key in the `yjs_document` table
-     * Include the studyId to prevent collisions across studies, e.g. `review-feedback-${studyId}`.
-     */
+    /** Primary key in `yjs_document`; include the studyId to avoid collisions across studies. */
     id: string
-    /** Retained for call-site identity/collision context; not read by the editor itself. */
+    /** Not read by the editor itself; retained for call-site identity. */
     studyId: string
-    /**
-     * Tab-singleton Hocuspocus websocket from `useYjsWebsocket()`. Callers must
-     * gate render until this is non-null (the singleton is created on first
-     * client render, so this is only null during SSR or before hydration).
-     */
+    /** Callers must gate render until this is non-null (SSR and pre-hydration only). */
     websocketProvider: HocuspocusProviderWebsocket
     contentClassName?: string
     contentStyle?: React.CSSProperties
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
-    /** See EditorProps.footerLeft. */
     footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
-    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    /** DOM id for the focusable surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
-    /**
-     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
-     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
-     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
-     */
+    /** `string` not `ReactNode`, so a falsy node cannot read as "no error". */
     error?: string | null
-    /** Id(s) of the description/error nodes describing this editor. */
     ariaDescribedBy?: string
-    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
     /** See EditorProps.isSaveStatusVisible. */
     isSaveStatusVisible?: boolean
-    /**
-     * Height of the editable area before any typing or dragging. Falls back to
-     * `contentStyle.minHeight`, then to the shared default.
-     */
     contentHeight?: number
-    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
     isResizable?: boolean
-    /**
-     * Called once Lexical's CollaborationPlugin instantiates the provider, and
-     * again with null on teardown. Consumers (e.g. siblings that need to
-     * subscribe to stateless events on the same document) use this to share
-     * the editor's provider rather than constructing their own — two providers
-     * with the same name on the shared websocket collide in providerMap.
-     */
+    /** Siblings must share the provider: two with the same name collide in providerMap. */
     onProviderReady?: (provider: HocuspocusProvider | null) => void
 }
 
@@ -230,12 +201,8 @@ function ReconnectingBanner() {
     )
 }
 
-// Auth-failure codes that are NOT a "study no longer editable" kick-out. Anything
-// in this set means the editor genuinely cannot show — wrong user, missing token,
-// wrong document name. STUDY_NOT_EDITABLE intentionally falls through to the
-// kick-out flow handled by useSubmissionRedirectListener / useStudyStatusOnReconnect.
-// INFRA_UNAVAILABLE is deliberately absent: it is recoverable and drives a retry,
-// not a terminal banner (OTTER-626).
+// STUDY_NOT_EDITABLE is absent so it falls through to the page-level kick-out; INFRA_UNAVAILABLE
+// is absent because it is recoverable and drives a retry (OTTER-626).
 const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
     'MISSING_TOKEN',
     'INVALID_TOKEN',
@@ -246,8 +213,7 @@ const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
     'UNKNOWN',
 ])
 
-// How long to wait before re-attempting a connection that failed with
-// INFRA_UNAVAILABLE, giving the editor service time to self-heal its DB pool.
+// Gives the editor service time to self-heal its DB pool before we retry.
 const INFRA_RETRY_DELAY_MS = 5000
 
 export function CollaborativeEditor({
@@ -274,9 +240,8 @@ export function CollaborativeEditor({
     const { getToken } = useAuth()
     const widgetBlur = useWidgetBlur<HTMLDivElement>(onBlur)
     const providerRef = useRef<HocuspocusProvider | null>(null)
-    // State mirror of providerRef — the ref is needed for synchronous access in
-    // the factory callback; state is needed so the cleanup effect can depend on
-    // the provider value.
+    // Mirrors providerRef: the ref gives the factory synchronous access, the state lets the
+    // cleanup effect depend on the provider value.
     const [activeProvider, setActiveProvider] = useState<HocuspocusProvider | null>(null)
     const [authFailureCode, setAuthFailureCode] = useState<AuthFailureCode | null>(null)
     const infraRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -292,15 +257,11 @@ export function CollaborativeEditor({
             const { code, message } = parseAuthFailureReason(reason)
             console.error('[collaborative-editor] auth failed', { documentName: id, code, message, reason })
             setAuthFailureCode(code)
-            // Belt-and-braces: a per-document auth failure can fire without the shared
-            // websocket dropping (server forcibly closes one handshake), so the page-level
-            // reconnect listener wouldn't run. Drive the kick-out check from here too.
+            // A per-document failure can fire without the shared websocket dropping, so the
+            // page-level reconnect listener would not run.
             if (code === 'STUDY_NOT_EDITABLE') triggerKickOut()
-            // INFRA_UNAVAILABLE means the server's DB was momentarily unreachable, not
-            // that we're unauthorized. The handshake closed this one provider while the
-            // shared transport stayed up, so nothing else will retry it — re-attempt the
-            // connection after a backoff. Clearing the code drops the banner once the
-            // retry's handshake succeeds.
+            // The handshake closed this one provider while the shared transport stayed up, so
+            // nothing else will retry it.
             if (code === 'INFRA_UNAVAILABLE') {
                 if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
                 infraRetryTimer.current = setTimeout(() => {
@@ -326,9 +287,8 @@ export function CollaborativeEditor({
         publishProvider,
     )
 
-    // Strict-mode cleanup detaches the provider; re-attach and re-publish so
-    // the provider stays in providerMap and subscribers don't stay on null.
-    // attach() is idempotent — on first mount this is a no-op.
+    // Strict-mode cleanup detaches the provider, so re-attach to keep it in providerMap.
+    // attach() is idempotent, making this a no-op on first mount.
     useEffect(() => {
         if (providerRef.current) {
             providerRef.current.attach()
@@ -339,8 +299,8 @@ export function CollaborativeEditor({
         }
     }, [publishProvider])
 
-    // Clean up the per-document subscription so re-entering peers get a fresh
-    // server Connection with full awareness of who's already editing.
+    // Dropping the per-document subscription gives re-entering peers a fresh server Connection
+    // with full awareness of who is already editing.
     useEffect(() => {
         if (!activeProvider) return
         return () => {
@@ -349,7 +309,6 @@ export function CollaborativeEditor({
         }
     }, [activeProvider])
 
-    // Cancel any pending INFRA_UNAVAILABLE retry on unmount.
     useEffect(
         () => () => {
             if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
@@ -357,19 +316,16 @@ export function CollaborativeEditor({
         [],
     )
 
-    // STUDY_NOT_EDITABLE: a peer submitted while we were disconnected. The kick-out
-    // flow (toast + redirect) is wired up at the page level; render nothing here so
-    // we don't flash a red error before the navigation completes.
+    // The kick-out flow runs at the page level; render nothing so no red error flashes before
+    // the navigation completes.
     if (authFailureCode === 'STUDY_NOT_EDITABLE') return null
 
-    // Any other auth failure is genuinely terminal — wrong user, missing token,
-    // unknown document. Replace the editor.
     if (authFailureCode && TERMINAL_AUTH_CODES.has(authFailureCode)) return <EditorUnavailable />
 
     if (phase === 'failed') return <EditorUnavailable />
 
-    // Same resolution the surface uses, so the pre-connect skeleton is the height the editor
-    // mounts at and the page does not jump.
+    // Same resolution the surface uses, so the skeleton matches the mounted height and the
+    // page does not jump.
     if (phase === 'initial') return <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
 
     return (

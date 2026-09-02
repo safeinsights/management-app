@@ -21,9 +21,7 @@ const renderRoute = (orgSlug: string, studyId: string) =>
         params: Promise.resolve({ orgSlug, studyId }),
     })
 
-// OTTER-727 hid the Agreements step. This route now exists only to catch stale bookmarks/history: it
-// always redirects to bare /review (which re-resolves to the code-review screen) and never renders the
-// placeholder.
+// OTTER-727 hid the Agreements step; the route exists only to catch stale bookmarks and history.
 describe('ReviewerAgreementsRoute (hidden — redirects)', () => {
     it('redirects to /review when code is submitted and not yet acknowledged', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -57,8 +55,7 @@ describe('ReviewerAgreementsRoute (hidden — redirects)', () => {
         expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/review`)
     })
 
-    // Dual-role counterpart: reaching this route via the reviewing (enclave) org's slug redirects into
-    // the reviewer flow, not the researcher one.
+    // Reaching this route via the enclave org's slug must redirect into the reviewer flow.
     it('redirects a dual-role user into the reviewer flow via the enclave org slug', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
         const study = await db

@@ -55,9 +55,8 @@ describe('DeleteDraftButton', () => {
         await user1.click(screen.getByLabelText(/delete draft study/i))
         const confirm = await screen.findByRole('button', { name: /yes, delete proposal draft/i })
 
-        // Mantine v7 maps `color="red.9"` to an inline CSS variable on the button.
-        // Asserting on the variable rather than the resolved color keeps the test
-        // resilient to theme changes while pinning the red.9 contract from the spec.
+        // Mantine v7 maps `color="red.9"` to an inline CSS variable, so the resolved color is
+        // not assertable.
         expect(confirm.getAttribute('style') || '').toContain('--button-bg: var(--mantine-color-red-9)')
     })
 
@@ -75,7 +74,6 @@ describe('DeleteDraftButton', () => {
         await user1.click(screen.getByLabelText(/delete draft study/i))
         await screen.findByText('Confirm proposal draft deletion?')
 
-        // Mantine's Modal close button uses aria-label="Close" by default
         await user1.click(screen.getByRole('button', { name: /^close$/i }))
 
         await waitFor(() => {
@@ -149,13 +147,11 @@ describe('DeleteDraftButton', () => {
             />,
         )
 
-        // aria-label uses the fallback
         expect(screen.getByLabelText('Delete draft study Untitled Draft')).toBeInTheDocument()
 
         await user1.click(screen.getByLabelText('Delete draft study Untitled Draft'))
         await user1.click(await screen.findByRole('button', { name: /yes, delete proposal draft/i }))
 
-        // success toast uses the same fallback
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -171,7 +167,6 @@ describe('DeleteDraftButton', () => {
             enclaveSlug: 'delete-draft-error-enclave',
             studyInfo: { title: 'Already Submitted' },
         })
-        // Flip status to a non-draft state so the server action rejects with ActionFailure
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
         const user1 = userEvent.setup()
@@ -190,7 +185,6 @@ describe('DeleteDraftButton', () => {
             )
         })
 
-        // ensure success toast was not also fired
         const calls = (notifications.show as unknown as ReturnType<typeof vi.fn>).mock.calls
         expect(calls.some(([arg]) => arg?.color === 'green')).toBe(false)
     })

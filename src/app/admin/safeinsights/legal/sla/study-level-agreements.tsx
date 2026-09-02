@@ -14,8 +14,6 @@ import { VersionHistoryModal } from '../version-history-modal'
 
 type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
 
-// Built here rather than inline in the JSX, and DataTable rather than a bare Table so that fetching
-// and noRecordsText come from the component the rest of this admin section already uses.
 const slaColumns = ({
     onNewVersion,
     onViewHistory,
@@ -24,7 +22,6 @@ const slaColumns = ({
     onViewHistory: (sla: Sla) => void
 }): DataTableColumn<Sla>[] => [
     { accessor: 'studyId', title: 'Study ID' },
-    // study.title is nullable, and the upload cascade already falls back to the id.
     { accessor: 'studyTitle', title: 'Study', render: (sla) => sla.studyTitle || sla.studyId },
     { accessor: 'researchLabName', title: 'Research Lab' },
     { accessor: 'dataPartnerName', title: 'Data Partner' },
@@ -74,7 +71,6 @@ export const StudyLevelAgreements: FC = () => {
                 title="Upload a new version"
                 closeOnClickOutside={false}
             >
-                {/* Keyed by study so a second row opens a fresh form rather than the last one's file. */}
                 <UploadSlaForm
                     key={newVersionFor?.studyId}
                     onCompleteAction={closeNewVersion}

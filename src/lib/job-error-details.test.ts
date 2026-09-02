@@ -16,14 +16,14 @@ const at = (status: StudyJobStatus) => ({ status })
 const files = (...fileTypes: FileType[]) => fileTypes.map((fileType) => ({ fileType }))
 
 describe('jobFailureStage', () => {
-    // JOB-READY is the containerizer reporting success, so its absence is what identifies a
-    // packaging failure. This is the case OTTER-524 was reported for.
+    // JOB-READY is the containerizer reporting success, so its absence identifies a packaging
+    // failure (OTTER-524).
     it('reads a missing JOB-READY as a packaging failure', () => {
         expect(jobFailureStage([at('CODE-APPROVED'), at('JOB-PACKAGING'), at('JOB-ERRORED')])).toBe('packaging')
     })
 
-    // The scan webhook and /api/job/[jobId] both accept JOB-ERRORED, so a job can error before the
-    // containerizer ever posts JOB-PACKAGING. Blaming the image would name a step that never ran.
+    // A job can error before the containerizer ever posts JOB-PACKAGING, and blaming the image
+    // would name a step that never ran.
     it('names no stage when the job errored before packaging started', () => {
         expect(jobFailureStage([at('CODE-SUBMITTED'), at('JOB-ERRORED')])).toBe('unknown')
     })
@@ -38,7 +38,7 @@ describe('jobFailureStage', () => {
         expect(jobFailureStage([at('JOB-READY'), at('JOB-RUNNING'), at('JOB-ERRORED')])).toBe('run')
     })
 
-    // Order is not significant: statusChanges arrives desc from one query and unsorted from another.
+    // statusChanges arrives desc from one query and unsorted from another.
     it('does not depend on the order of the status history', () => {
         const changes = [at('JOB-ERRORED'), at('JOB-RUNNING'), at('JOB-READY')]
         expect(jobFailureStage(changes)).toBe('run')
@@ -68,16 +68,12 @@ describe('jobErrorDetails', () => {
         expect(details.logSentence).toBe(KEY_PROMPT_TEXT)
     })
 
-    // The reported job: the source scan succeeded so a scan log exists, packaging then failed and
-    // produced nothing. The scan log is not an error log, and nothing here is worth a key.
     it('treats a security-scan-log-only job as having nothing to open', () => {
         const details = jobErrorDetails(packagingFailure, files('ENCRYPTED-SECURITY-SCAN-LOG'))
 
         expect(details.logSentence).toBe(NO_ERROR_LOG_TEXT)
     })
 
-    // A run that errored after producing results. No error log to read, but the results still need a
-    // key, so the sentence has to carry both facts without contradicting either.
     it('states both the missing log and the key step when results exist', () => {
         const details = jobErrorDetails([at('JOB-RUNNING'), at('JOB-ERRORED')], files('ENCRYPTED-RESULT'))
 
@@ -86,9 +82,8 @@ describe('jobErrorDetails', () => {
         expect(details.logSentence).toContain('security key')
     })
 
-    // encryptAndStoreLog returns null when the org has no key holders, and the route then stores the
-    // plaintext log on its own. Claiming there is no log would be false; promising a key form would
-    // send the reviewer to a form that is not rendered.
+    // encryptAndStoreLog returns null when the org has no key holders, and the route then
+    // stores the plaintext log on its own.
     it('does not deny a plaintext error log, nor promise a key that cannot open it', () => {
         const details = jobErrorDetails(packagingFailure, files('PACKAGING-ERROR-LOG'))
 
@@ -96,8 +91,8 @@ describe('jobErrorDetails', () => {
         expect(details.logSentence).not.toContain('security key')
     })
 
-    // A key holder registering between the log write and the results write leaves the job holding
-    // both. Reaching for the results sentence alone would deny a log that is sitting right there.
+    // A key holder registering between the log write and the results write leaves the job
+    // holding both.
     it('does not deny a plaintext log just because the run also produced results', () => {
         const details = jobErrorDetails(
             [at('JOB-RUNNING'), at('JOB-ERRORED')],
@@ -123,8 +118,8 @@ describe('jobErrorDetails', () => {
     })
 })
 
-// OTTER-524: the reviewer may see only sentences this app authored. Everything a service recorded is
-// classified first, so no AWS or deployment detail can reach a screen another organization reads.
+// OTTER-524: the reviewer may see only sentences this app authored, so no AWS or deployment
+// detail can reach a screen another organization reads.
 describe('recorded failure reasons', () => {
     const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
 
@@ -141,7 +136,7 @@ describe('recorded failure reasons', () => {
         )
     })
 
-    // A containerizer deploy can introduce a code before this app knows it. Unknown means silent.
+    // A containerizer deploy can introduce a code before this app knows it.
     it('drops an unrecognized code rather than showing it', () => {
         const details = jobErrorDetails(packagingFailure, [], 'SOMETHING_WE_DO_NOT_KNOW')
 
@@ -149,8 +144,8 @@ describe('recorded failure reasons', () => {
         expect(details.explanation).toBe(jobErrorDetails(packagingFailure, []).explanation)
     })
 
-    // The enclave writes a raw thrown AWS error into this same column today. This is the guard that
-    // stops bucket names, ARNs, and account ids reaching the screen from any producer.
+    // The enclave writes a raw thrown AWS error into this same column, so bucket names, ARNs
+    // and account ids must never reach the screen.
     it.each([
         'Command "aws s3 sync s3://si-prod-bucket/studies/x/y/jobs/z/code" exited with code 1',
         'User: arn:aws:sts::123456789012:assumed-role/MgmntAppContainerizer/abc is not authorized',
@@ -171,9 +166,8 @@ describe('recorded failure reasons', () => {
     })
 })
 
-// The invariant the whole fix rests on: the banner mentions a security key in exactly the cases where
-// the panel renders the key form, which it gates on jobHasDecryptableRunOutcome over the same files.
-// Asserted over every combination rather than trusting a reading of the two call sites.
+// The banner must mention a security key in exactly the cases where the panel renders the key
+// form, which it gates on jobHasDecryptableRunOutcome over the same files.
 describe('banner and key gate agree', () => {
     const CANDIDATES: FileType[] = [
         'ENCRYPTED-RESULT',
@@ -182,8 +176,6 @@ describe('banner and key gate agree', () => {
         'ENCRYPTED-SECURITY-SCAN-LOG',
         'PACKAGING-ERROR-LOG',
         'SECURITY-SCAN-LOG',
-        // Excluded from both error-log sets, the same as its encrypted counterpart. Swept here so
-        // that exclusion is pinned by a test rather than only stated in a comment.
         'APPROVED-SECURITY-SCAN-LOG',
         'MAIN-CODE',
     ]
@@ -201,8 +193,6 @@ describe('banner and key gate agree', () => {
         },
     )
 
-    // The other half of the same honesty rule: whatever else the job holds, the banner never denies a
-    // log the job is carrying. Asserted over the same combinations for the same reason.
     it.each(combinations(CANDIDATES).map((combo) => [combo.join(', ') || '(no files)', combo] as const))(
         'never denies a log the job holds: %s',
         (_label, combo) => {

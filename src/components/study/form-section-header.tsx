@@ -7,7 +7,7 @@ interface FormSectionHeaderProps {
     required?: boolean
 }
 
-/** `order={3}` assumes a `ProposalStepHeader` h2 above it — check the outline before using elsewhere. */
+/** `order={3}` assumes a `ProposalStepHeader` h2 above it. */
 export const FormSectionHeader: FC<FormSectionHeaderProps> = ({ title, description, required }) => (
     <Stack gap="md">
         <Title fz="xl" fw={700} c="charcoal.9" order={3}>

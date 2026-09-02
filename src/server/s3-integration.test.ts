@@ -1,10 +1,5 @@
-// Exercises S3 operations (checksums, presigned URLs, batch deletes) against
-// the SeaweedFS S3-compatible API. MinIO was previously used but removed (unmaintained).
-//
-// Locally: tests skip cleanly when SeaweedFS isn't reachable so devs without
-// `docker compose up seaweedfs` aren't blocked. On CI (CI env var set), the
-// probe instead throws — a missing service is a CI setup bug, not a
-// "skip and move on" condition. See tests/s3.helpers.ts.
+// Skips locally when SeaweedFS is unreachable; on CI the probe throws, since a missing service
+// is a setup bug.
 
 import { describe, it, expect, afterAll } from 'vitest'
 import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'
@@ -44,9 +39,8 @@ async function readableToString(readable: Readable): Promise<string> {
     return Buffer.concat(chunks).toString('utf-8')
 }
 
-// The policy is signed against S3_BROWSER_ENDPOINT, which is host-facing and not routable from in
-// here. A POST policy's signature covers the policy document, not the Host header, so re-pointing
-// the same form at the internal endpoint exercises the real signed policy over a reachable route.
+// A POST policy's signature covers the policy document, not the Host header, so re-pointing the
+// host-facing form at the internal endpoint still exercises the real signed policy.
 function reachableFromTests(url: string) {
     const internal = process.env.S3_ENDPOINT
     if (!internal) return url
@@ -56,7 +50,6 @@ function reachableFromTests(url: string) {
     return target.toString()
 }
 
-// Posts the presigned form the way a browser would, so the policy is exercised rather than inspected.
 async function postSignedUpload(upload: PresignedPost, body: string) {
     const form = new FormData()
     for (const [name, value] of Object.entries(upload.fields)) {
@@ -150,9 +143,7 @@ describe.skipIf(!s3Available)('S3 integration', () => {
         expect(result.fields).toBeDefined()
     })
 
-    // The legal-document upload signs the whole key rather than a prefix, because the stored
-    // file_path is itself the record of what was filed — the browser must not be able to put the
-    // object anywhere else. Every unit test stubs this, so the round trip is only covered here.
+    // Every unit test stubs the whole-key signing, so the round trip is only covered here.
     it('signs an upload for one exact key and lands the object there', async () => {
         const path = `${TEST_PREFIX}exact-key/agreement.pdf`
         const upload = await createSignedUploadUrlForKey(path)

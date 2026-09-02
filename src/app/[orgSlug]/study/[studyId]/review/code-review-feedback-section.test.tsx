@@ -55,11 +55,10 @@ describe('CodeReviewFeedbackSection', () => {
     it('displays the character counter and an empty error box while the field is clean', async () => {
         renderWithProviders(<CodeFeedbackTestWrapper />)
 
-        // findByText: the collaborative editor is a lazy chunk, so the footer is not in the first render.
+        // The collaborative editor is a lazy chunk, so the footer is not in the first render.
         expect(
             await screen.findByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`, {}, { timeout: 5000 }),
         ).toBeInTheDocument()
-        // Mounted but empty: the live region has to exist before the message it announces does.
         expect(document.getElementById(fieldErrorId('code-review-feedback'))).toBeEmptyDOMElement()
     })
 
@@ -78,8 +77,7 @@ describe('CodeReviewFeedbackSection', () => {
     })
 })
 
-// OTTER-737: the code review Decision field is a separate instance of the same rule, so it gets its
-// own boundary coverage rather than inheriting the proposal review's.
+// OTTER-737: a separate instance of the same rule, so it gets its own boundary coverage.
 describe('CodeReviewFeedbackSection character limit', () => {
     const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS)
 

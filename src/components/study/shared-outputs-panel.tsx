@@ -12,15 +12,8 @@ import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/component
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import type { JobFileInfo } from '@/lib/types'
 
-/**
- * Per-phase banner copy, supplied by the screen.
- *
- * Copy rather than two ReactNodes (which is how OutputsReviewPanel takes its banners): this panel
- * announces the phase change, and announcing only works while the live region stays mounted across
- * the swap. Two nodes swapped by a conditional would remount it and drop the announcement, so the
- * panel keeps ONE StatusAlert and varies its props. Titles are undated — the panel appends the
- * shared decision date to both.
- */
+// Copy rather than two ReactNodes: announcing the phase change needs ONE StatusAlert whose props
+// vary, since a remount drops the announcement.
 export type SharedOutputsBannerCopy = {
     locked: { title: string; body: ReactNode }
     unlocked: { title: string; body: ReactNode }
@@ -28,29 +21,16 @@ export type SharedOutputsBannerCopy = {
 
 type SharedOutputsPanelProps = {
     studyTitle: string
-    /** When the reviewer submitted the decision; dates BOTH phases. Null degrades to undated. */
     decidedAt: Date | string | null
     banner: SharedOutputsBannerCopy
-    /** Only the id is read, by the key form's fetch and the outputs table. */
     job: { id: string }
-    /**
-     * Rendered by the server screen and handed down as a node so the phase flip cannot remount it:
-     * a remount would reset each entry's expand/collapse state mid-read.
-     */
+    /** A node, not a render, so the phase flip cannot remount it and reset expand/collapse state. */
     feedbackSection: ReactNode
     previousHref: Route
     editCodeHref: Route
     dashboardHref: Route
 }
 
-/**
- * The researcher's step for outputs a reviewer chose to share, in its two phases (OTTER-696).
- *
- * Shared by the errored and clean-run screens: they differ only in banner copy and their routing
- * predicate, so everything below — the decryption lifecycle, the outputs table, and the navigation
- * that changes across the flip — lives here once. Mirrors OutputsReviewPanel's locked/unlocked
- * split over the same useDecryptPhase flip.
- */
 export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
     studyTitle,
     decidedAt,
@@ -100,17 +80,14 @@ type LockedPhaseProps = {
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-// Unmounted rather than hidden: the input, its error state and the decrypt handler must all leave
-// the DOM and the tab order once the key has done its job (OTTER-696 AC).
+// Unmounted rather than hidden so the input leaves the tab order once used (OTTER-696 AC).
 const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted }) => {
     if (!isVisible) return null
-    // The researcher key set: 'share-outputs' re-wraps the artifacts to the lab's public keys, so
-    // unlike the reviewer's manifest path there ARE per-file keys to fetch here.
     return <SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />
 }
 
 type UnlockedPhaseProps = {
-    /** null until a key has successfully decrypted; the table is gated on it. */
+    /** null until a key has successfully decrypted. */
     decryptedFiles: JobFileInfo[] | null
     jobId: string
 }

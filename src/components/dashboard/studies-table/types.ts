@@ -4,7 +4,6 @@ import { Json, StudyJobStatus, StudyStatus } from '@/database/types'
 export type Audience = 'researcher' | 'reviewer'
 export type Scope = 'org' | 'user'
 
-// Unified study type that works with all server actions
 export type StudyRow = {
     id: string
     title: string
@@ -18,19 +17,17 @@ export type StudyRow = {
     createdBy: string | null // researcher.fullName
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
     researcherAgreementsAckedAt: Date | null
-    // Step 2 proposal fields — used to resume a reopened DRAFT on the step it was last left (OTTER-572).
+    // Used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null
     datasets: string[] | null
     researchQuestions: Json | null
     projectSummary: Json | null
     impact: Json | null
     additionalNotes: Json | null
-    // Same purpose, for the Step 2 edits that live only in Yjs because no flush wrote the columns above.
+    // Same purpose, for Step 2 edits living only in Yjs because no flush wrote the columns.
     hasStep2CollabDoc: boolean
-    // Org actions return these
     reviewingEnclaveName?: string
     submittingLabName?: string
-    // User actions return these
     orgName?: string
     orgSlug?: string
     submittedByOrgSlug?: string
@@ -48,13 +45,10 @@ export type StudiesTableProps = {
     headerActions?: React.ReactNode
 }
 
-// Status changes that indicate job is in a final state (no refresh needed)
 export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
-// Proposal statuses where the researcher is awaiting a DO decision — keep auto-refresh polling.
 export const ACTIVE_PROPOSAL_STATUSES: StudyStatus[] = ['PENDING-REVIEW']
 
-// Status changes that represent reviewer approval/rejection actions (for filtering user's reviewed studies)
 export const REVIEWER_ACTION_STATUSES: StudyJobStatus[] = [
     'CODE-APPROVED',
     'CODE-REJECTED',

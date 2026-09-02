@@ -7,7 +7,6 @@ type ColumnDef = {
     width?: string
 }
 
-// Researcher columns (5)
 const RESEARCHER_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name', width: '30%' },
     { id: 'lastUpdated', header: 'Last updated' },
@@ -25,7 +24,6 @@ const REVIEWER_ORG_COLUMNS: ColumnDef[] = [
     { id: 'details', header: 'Details' },
 ]
 
-// Reviewer user columns (6) - has "Organization" which shows orgName
 const REVIEWER_USER_COLUMNS: ColumnDef[] = [
     { id: 'studyName', header: 'Study Name', width: '30%' },
     { id: 'lastUpdated', header: 'Last updated' },

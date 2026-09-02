@@ -4,15 +4,13 @@ import { useForm, useMutation, useState, z, zodResolver } from '@/common'
 import { ClerkErrorAlert } from '@/components/clerk-errors'
 import { InputError } from '@/components/errors'
 import { errorToString, isClerkApiError } from '@/lib/errors'
-import { safeRedirectUrl } from '@/lib/utils'
 import { onUserResetPWAction } from '@/server/actions/user.actions'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
+import { useCompleteSignIn } from '../signin/use-complete-sign-in'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
 
 const verificationFormSchema = z
@@ -47,10 +45,9 @@ interface PendingResetProps {
 export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps) {
     const { isLoaded, setActive, signIn } = useSignIn()
     const [needsMFA, setNeedsMFA] = useState<MFAState>(false)
+    const completeSignIn = useCompleteSignIn()
     const [verificationError, setVerificationError] = useState<string | null>(null)
     const [canResend, setCanResend] = useState(true)
-    const router = useRouter()
-    const searchParams = useSearchParams()
 
     const verificationForm = useForm<VerificationFormValues>({
         validate: zodResolver(verificationFormSchema),
@@ -86,13 +83,11 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
 
             const clerkErr = error.errors[0]
 
-            // If the verification code is incorrect, show inline error instead of alert
             if (clerkErr.code === 'form_code_incorrect') {
                 setVerificationError('Incorrect verification code. Please try again.')
                 return
             }
 
-            // Clerk error, show alert (e.g. too many attempts/compromised password)
             verificationForm.setErrors({
                 form: error as unknown as string,
             })
@@ -108,12 +103,12 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 await onUserResetPWAction()
-                router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
+                // A reset hands back a live session, so the same post-sign-in sequence applies.
+                await completeSignIn()
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)
                 setNeedsMFA(state)
             } else {
-                // clerk did not throw an error but also did not return a signIn object
                 verificationForm.setErrors({
                     password: 'An unknown error occurred, please try again later.',
                 })
@@ -126,7 +121,6 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (!pendingReset || !signIn) return
             const identifier = pendingReset.identifier
             if (!identifier) {
-                // email account not found
                 verificationForm.setFieldError('code', 'An unknown error occurred, please try again later.')
                 return
             }
@@ -140,7 +134,6 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             console.error('Failed to resend code:', error)
         },
         onSuccess: (newSignIn) => {
-            // use the latest sign-in instance
             if (newSignIn && onResetUpdate) {
                 onResetUpdate(newSignIn)
             }
@@ -203,15 +196,13 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                         placeholder="********"
                         aria-label="New password"
                         mb="xs"
-                        // Error is suppressed in favor of the requirements list below, which
-                        // now also appears when the field is left empty.
+                        // Suppressed in favor of the requirements list below.
                         error={undefined}
                         aria-invalid={!!verificationForm.errors.password || undefined}
-                        // Rendered as the input's description so Mantine owns the
-                        // aria-describedby wiring; a hand-passed value is overwritten.
+                        // Rendered as the description so Mantine owns the aria-describedby wiring.
                         description={requirementsDescription}
-                        // Description below the input, not Mantine's default position above it:
-                        // this is live validation feedback, and it sat under the field before.
+                        // Below the input, not Mantine's default above: this is live validation
+                        // feedback.
                         inputWrapperOrder={['label', 'input', 'description', 'error']}
                     />
 
@@ -227,8 +218,8 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                                 <InputError error={verificationForm.errors.confirmPassword} />
                             )
                         }
-                        // PasswordInput's inner <input> is rendered with withAria disabled, so
-                        // `error` alone never marks it invalid to assistive tech (OTTER-647).
+                        // PasswordInput's inner <input> has withAria disabled, so `error` alone
+                        // never marks it invalid to assistive tech (OTTER-647).
                         aria-invalid={!!verificationForm.errors.confirmPassword || undefined}
                     />
                     <ClerkErrorAlert

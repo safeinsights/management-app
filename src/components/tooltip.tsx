@@ -1,5 +1,5 @@
-// lightweight wrapper around the Mantine Tooltip component - ensures children are contained in a single element
-// reference: https://mantine.dev/core/tooltip/#tooltip-children
+// Mantine requires a Tooltip's children to be a single element:
+// https://mantine.dev/core/tooltip/#tooltip-children
 import { Tooltip, TooltipProps } from '@mantine/core'
 
 type InfoTooltipProps = TooltipProps & {

@@ -4,7 +4,6 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
 
-// study-overview: the generic Study Details layout — a draft-no-job study, or any unmapped state.
 export function StudyOverviewScreen({ study }: ScreenComponentProps) {
     return (
         <Stack p="xl" gap="xxl">

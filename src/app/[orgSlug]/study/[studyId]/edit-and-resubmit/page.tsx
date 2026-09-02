@@ -18,11 +18,8 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in study) return notFound()
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
-    // OTTER-497: any member of the submitting lab may edit/resubmit a
-    // change-requested proposal, so gate on lab membership (not the original
-    // author). getStudyAction only requires `view Study`, which reviewer-org
-    // users also hold, so this explicit lab check is required. Server writes
-    // are scoped the same way.
+    // OTTER-497: gate on lab membership, not authorship. getStudyAction only requires `view
+    // Study`, which reviewer-org users also hold.
     const session = await sessionFromClerk()
     if (!session) return notFound()
     const isLabMember = Object.values(session.orgs).some((o) => o.id === study.submittedByOrgId)

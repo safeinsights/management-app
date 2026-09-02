@@ -6,9 +6,6 @@ import { apiRequestingOrg } from '@/server/api-context'
 
 const schema = z.object({
     message: z.string().optional(),
-    // it's tempting to try to type this, but doesn't seem to work.
-    // not really needed though because the where clause below will error if an invalid status is present in the list below
-    // TODO: consider removing the RESULTS status since we're reviewing in the BMA now
     status: z.enum([
         'JOB-PROVISIONING',
         'JOB-RUNNING',
