@@ -336,7 +336,29 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
             .selectFrom('user')
             .leftJoin('orgUser', 'orgUser.userId', 'user.id')
             .leftJoin('org', 'org.id', 'orgUser.orgId')
-            .select(['user.id', 'user.fullName', 'user.email', 'org.name as orgName', 'org.type as orgType'])
+            // recordId, not userId: same value for a login, but recordId is the event's subject (userId is
+            // the actor, and an invite records the inviter) and it is the indexed column.
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('audit')
+                        .select('audit.createdAt as lastLoginAt')
+                        .whereRef('audit.recordId', '=', 'user.id')
+                        .where('audit.recordType', '=', 'USER')
+                        .where('audit.eventType', '=', 'LOGGED_IN')
+                        .orderBy('audit.createdAt', 'desc')
+                        .limit(1)
+                        .as('lastLogin'),
+                (join) => join.onTrue(),
+            )
+            .select([
+                'user.id',
+                'user.fullName',
+                'user.email',
+                'org.id as orgId',
+                'org.name as orgName',
+                'lastLogin.lastLoginAt',
+            ])
             .execute()
 
         const acknowledgements = legalDocument
@@ -369,16 +391,19 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                 userId: row.id,
                 fullName: row.fullName,
                 email: row.email,
-                orgs: [] as { name: string; type: string }[],
+                orgs: [] as { id: string; name: string }[],
                 acknowledgedVersionNumber: ack?.versionNumber ?? null,
                 ackedAt: ack?.ackedAt ?? null,
+                // Absent means no record, not "never signed in" — the trail starts partway through.
+                lastLoginAt: row.lastLoginAt ?? null,
             }
         }
 
         for (const row of memberships) {
             const existing = byUser.get(row.id) ?? buildRow(row)
-            if (row.orgName && row.orgType && !existing.orgs.some((org) => org.name === row.orgName)) {
-                existing.orgs.push({ name: row.orgName, type: row.orgType })
+            // Deduped on id: org names carry no unique constraint.
+            if (row.orgId && row.orgName && !existing.orgs.some((org) => org.id === row.orgId)) {
+                existing.orgs.push({ id: row.orgId, name: row.orgName })
             }
             byUser.set(row.id, existing)
         }
@@ -387,10 +412,12 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         const { columnAccessor = 'fullName', direction = 'asc' } = sort ?? {}
         const flip = direction === 'asc' ? 1 : -1
         users.sort((a, b) => {
-            if (columnAccessor === 'ackedAt') {
-                // Never-acked users sort last whichever way the column is pointed.
-                if (!a.ackedAt || !b.ackedAt) return Number(Boolean(b.ackedAt)) - Number(Boolean(a.ackedAt))
-                return (a.ackedAt.getTime() - b.ackedAt.getTime()) * flip
+            if (columnAccessor === 'ackedAt' || columnAccessor === 'lastLoginAt') {
+                // Rows with no date sort last whichever way the column is pointed.
+                const left = a[columnAccessor]
+                const right = b[columnAccessor]
+                if (!left || !right) return Number(Boolean(right)) - Number(Boolean(left))
+                return (left.getTime() - right.getTime()) * flip
             }
             return (a[columnAccessor] ?? '').localeCompare(b[columnAccessor] ?? '') * flip
         })

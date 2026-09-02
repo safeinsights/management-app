@@ -22,7 +22,7 @@ export const ACKNOWLEDGEMENTS_PAGE_SIZE = 25
 // mantine-datatable reports the accessor as a bare string, so an unsortable column would otherwise
 // reach the server as a bad param.
 const isSortable = (accessor: string): accessor is LegalDocumentAcknowledgementSort['columnAccessor'] =>
-    accessor === 'fullName' || accessor === 'email' || accessor === 'ackedAt'
+    accessor === 'fullName' || accessor === 'email' || accessor === 'ackedAt' || accessor === 'lastLoginAt'
 
 const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
     { accessor: 'fullName', title: 'Name', sortable: true },
@@ -42,6 +42,14 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
         title: 'Agreed on',
         sortable: true,
         render: (row) => formatInstant(row.ackedAt),
+    },
+    {
+        accessor: 'lastLoginAt',
+        title: 'Last login',
+        sortable: true,
+        // A dash, not "Never": the trail does not reach back to the start of the app, so an absent
+        // value means no record rather than no logins.
+        render: (row) => formatInstant(row.lastLoginAt),
     },
 ]
 
