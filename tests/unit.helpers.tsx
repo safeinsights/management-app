@@ -20,7 +20,7 @@ import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render } from '@testing-library/react'
-import type { LexicalEditor } from 'lexical'
+import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
@@ -1152,13 +1152,13 @@ export const simulateEditorSave = async (docName?: string) => {
 }
 
 /**
- * The live Lexical editor behind a mounted collaborative surface, given its contenteditable root.
+ * The live Lexical editor behind a mounted collaborative surface, given its root or any node in it.
  *
  * Edits must go through Lexical's API because happy-dom cannot dispatch the `beforeinput` events it
  * listens for, and the collaborative editor has no `children` slot to take a CaptureEditor plugin.
  */
 export const lexicalEditorFor = (surface: HTMLElement) => {
-    const editor = (surface as unknown as { __lexicalEditor?: LexicalEditor }).__lexicalEditor
+    const editor = getNearestEditorFromDOMNode(surface)
     if (!editor) throw new Error('that element is not a mounted Lexical surface')
     return editor
 }
