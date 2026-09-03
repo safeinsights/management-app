@@ -130,14 +130,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         <>
                             <Stack gap="xl">
                                 {hasSMS && (
-                                    <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
+                                    <Button w="100%" size="lg" onClick={() => onSelectMethod('sms')}>
                                         SMS Verification
                                     </Button>
                                 )}
                                 {hasTOTP && (
                                     <Button
                                         w="100%"
-                                        variant={hasBoth ? 'outline' : 'primary'}
+                                        variant={hasBoth ? 'outline' : 'filled'}
                                         size="lg"
                                         onClick={() => onSelectMethod('totp')}
                                     >
