@@ -72,13 +72,23 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
 
     // Which partner the defaults below were applied for. React Query hands back a fresh `data`
     // object on every background refetch, and re-applying then would wipe a choice just made.
-    const appliedOrgSlug = useRef<string | null>(null)
+    // Seeded from a language the form already holds, so remounting the field (Step 2 and back) is
+    // not mistaken for a change of partner.
+    const appliedOrgSlug = useRef<string | null>(form.getValues().language ? form.getValues().orgSlug : null)
 
     useEffect(() => {
         // A locked field has no error slot and is skipped when focusing, so a value changed here
         // could be neither seen nor corrected (OTTER-647).
         if (isLocked || !data) return
-        if (appliedOrgSlug.current === selectedOrgSlug) return
+
+        const current = form.getValues().language
+        const isNewPartner = appliedOrgSlug.current !== selectedOrgSlug
+        // A language the partner cannot run still satisfies the enum, so leaving it would let
+        // validation pass on an environment that does not exist. Re-checked on every refetch, since
+        // a partner can lose a language while it is selected.
+        const isUnsupported = !!current && !data.languages.some((option) => option.value === current)
+        if (!isNewPartner && !isUnsupported) return
+
         appliedOrgSlug.current = selectedOrgSlug
 
         // A new partner starts the choice over: the design's default for a multi-language partner
@@ -147,7 +157,9 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     descriptionProps={{ id: HELPER_ID }}
                     error={error}
                     inputWrapperOrder={['input']}
-                    value={selectedLanguage ?? ''}
+                    // The sole option of a single-language partner is checked from the first paint;
+                    // the effect that writes it to the form only runs after it.
+                    value={selectedLanguage ?? (isSingleLanguage ? languages[0].value : '')}
                     onChange={(value) => form.setFieldValue('language', value as Language)}
                     {...widgetBlur}
                 >

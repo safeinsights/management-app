@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { memoryRouter } from 'next-router-mock'
 import {
     beforeEach,
@@ -121,6 +122,23 @@ const renderSetup = (
         </StudyRequestProvider>,
         { queryClient },
     )
+
+/**
+ * Step 1 and Step 2 sit under the same study layout, so moving between them remounts the page while
+ * the form provider stays alive. Changing the key reproduces that without driving a router.
+ */
+const RemountableSetup = ({ fixtures }: { fixtures: Fixtures }) => {
+    const [instance, setInstance] = useState(0)
+
+    return (
+        <StudyRequestProvider submittingOrgSlug={fixtures.lab.slug}>
+            <button type="button" onClick={() => setInstance((n) => n + 1)}>
+                Remount Step 1
+            </button>
+            <StudyProposal key={instance} />
+        </StudyRequestProvider>
+    )
+}
 
 const titleInput = () => screen.getByLabelText(/study title/i)
 const continueButton = () => screen.getByRole('button', { name: 'Save & continue' })
@@ -478,6 +496,42 @@ describe('Data Partner and programming language fields', () => {
 
         await waitFor(() => expect(screen.getAllByRole('radio')[0]).toHaveAccessibleName('Python'))
         expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
+    })
+
+    // The partner is unchanged, so the guard above would otherwise skip this refetch and leave the
+    // form holding a language the partner can no longer run.
+    it('drops a chosen language the same Data Partner has stopped supporting', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const queryClient = createTestQueryClient()
+        renderSetup(fixtures, {}, queryClient)
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await user.click(await screen.findByRole('radio', { name: 'Python' }))
+
+        queryClient.setQueryData(['languages-for-org', fixtures.multiLanguagePartner.slug], {
+            orgName: fixtures.multiLanguagePartner.name,
+            languages: [{ value: 'R', label: 'R' }],
+        })
+
+        // R is the sole survivor, so the single-language rule picks it. That it is checked is what
+        // proves the form moved off Python: a form still holding it would leave the group matching
+        // no rendered radio, and nothing checked at all.
+        await waitFor(() => expect(screen.queryByRole('radio', { name: 'Python' })).not.toBeInTheDocument())
+        expect(screen.getByRole('radio', { name: 'R' })).toBeChecked()
+    })
+
+    it('keeps the chosen language when Step 1 remounts with the form still alive', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderWithProviders(<RemountableSetup fixtures={fixtures} />)
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await user.click(await screen.findByRole('radio', { name: 'Python' }))
+
+        await user.click(screen.getByRole('button', { name: 'Remount Step 1' }))
+
+        expect(await screen.findByRole('radio', { name: 'Python' })).toBeChecked()
     })
 })
 
