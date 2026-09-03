@@ -62,6 +62,10 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     const languages = data?.languages || []
     const isSingleLanguage = data?.languages?.length === 1
 
+    // The sole option of a single-language partner is checked from the first paint; the effect that
+    // writes it to the form only runs after it.
+    const checkedLanguage = selectedLanguage ?? (isSingleLanguage ? languages[0].value : '')
+
     let helperText: string
 
     if (isSingleLanguage) {
@@ -70,10 +74,9 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
         helperText = `${orgName} will use the language you select to set up the right environment for you.`
     }
 
-    // Which partner the defaults below were applied for. React Query hands back a fresh `data`
-    // object on every background refetch, and re-applying then would wipe a choice just made.
-    // Seeded from a language the form already holds, so remounting the field (Step 2 and back) is
-    // not mistaken for a change of partner.
+    // Which partner the defaults below were applied for: a background refetch hands back a fresh
+    // `data` every time, and re-applying then would wipe a choice just made. Seeded from a language
+    // the form already holds, so a remount (Step 2 and back) is not read as a change of partner.
     const appliedOrgSlug = useRef<string | null>(form.getValues().language ? form.getValues().orgSlug : null)
 
     useEffect(() => {
@@ -157,9 +160,7 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     descriptionProps={{ id: HELPER_ID }}
                     error={error}
                     inputWrapperOrder={['input']}
-                    // The sole option of a single-language partner is checked from the first paint;
-                    // the effect that writes it to the form only runs after it.
-                    value={selectedLanguage ?? (isSingleLanguage ? languages[0].value : '')}
+                    value={checkedLanguage}
                     onChange={(value) => form.setFieldValue('language', value as Language)}
                     {...widgetBlur}
                 >
