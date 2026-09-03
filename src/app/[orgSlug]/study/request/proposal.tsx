@@ -17,6 +17,8 @@ import type { DraftStudyData } from '@/contexts/study-request'
 interface StudyProposalProps {
     studyId?: string
     draftData?: DraftStudyData | null
+    /** The route org, which is the submitting lab. Names the eyebrow before a study row exists. */
+    submittingLabName?: string | null
     /** Set when the researcher entered from an org dashboard, so the step forward can hand it back. */
     returnTo?: 'org'
 }
@@ -60,7 +62,7 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, returnTo }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName, returnTo }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
@@ -121,10 +123,10 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     const lockedLanguageLabel = draftData?.language ? languageLabels[draftData.language] : undefined
 
-    // Until the row exists there is no lab to name, so the eyebrow says so; every later visit
-    // arrives with a studyId and names the lab (OTTER-619). The heading mirrors the live field, so
-    // it keeps up with the title as it is typed.
-    const eyebrow = navMode === 'create' ? 'Untitled' : displayLabName(draftData?.submittingLabName, submittingOrgSlug)
+    // A researcher only creates for their own lab, so the eyebrow names the route org before a row
+    // exists and the study's own lab once one does (OTTER-619). The heading mirrors the live field,
+    // so it keeps up with the title as it is typed.
+    const eyebrow = displayLabName(draftData?.submittingLabName ?? submittingLabName, submittingOrgSlug)
     const headingTitle = titleValue.trim() || UNTITLED_STUDY_TITLE
 
     // "Discard study" belongs to the state where no row exists yet, when leaving really does make the

@@ -30,6 +30,6 @@ export const NoEyebrow: Story = () => (
 
 export const UntitledStudy: Story = () => (
     <Frame>
-        <PageHeader eyebrow="Untitled" title="Untitled study" />
+        <PageHeader eyebrow="Genius Research" title="Untitled study" />
     </Frame>
 )

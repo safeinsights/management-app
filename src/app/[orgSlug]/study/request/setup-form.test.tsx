@@ -112,7 +112,12 @@ const submittedDraft = (fixtures: Fixtures, overrides: Partial<DraftStudyData> =
 
 const renderSetup = (
     fixtures: Fixtures,
-    props: { studyId?: string; draftData?: DraftStudyData | null; returnTo?: 'org' } = {},
+    props: {
+        studyId?: string
+        draftData?: DraftStudyData | null
+        submittingLabName?: string | null
+        returnTo?: 'org'
+    } = {},
     queryClient?: ReturnType<typeof createTestQueryClient>,
 ) =>
     renderWithProviders(
@@ -169,12 +174,19 @@ describe('Set Up page section header', () => {
 })
 
 describe('Set Up page header', () => {
-    it('names the study Untitled before the row exists', async () => {
+    it('names the research lab before the row exists, heading the page Untitled study', async () => {
         const fixtures = await setupFixtures()
-        renderSetup(fixtures)
+        renderSetup(fixtures, { submittingLabName: 'Genius Lab' })
 
-        expect(screen.getByText('Untitled')).toBeInTheDocument()
+        expect(screen.getByText('Genius')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Untitled study', level: 1 })).toBeInTheDocument()
+    })
+
+    it('falls back to the lab slug before the row exists when the org has no name', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures, { submittingLabName: null })
+
+        expect(screen.getByText(fixtures.lab.slug)).toBeInTheDocument()
     })
 
     it('mirrors the title into the heading as it is typed', async () => {
@@ -206,7 +218,7 @@ describe('Set Up page header', () => {
         expect(screen.getByRole('heading', { name: 'A saved title', level: 1 })).toBeInTheDocument()
     })
 
-    it('keeps the research lab after a submission, never reverting to Untitled', async () => {
+    it('keeps naming the research lab after a submission', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures, {
             studyId: faker.string.uuid(),
