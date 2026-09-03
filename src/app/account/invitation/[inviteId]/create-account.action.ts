@@ -9,10 +9,18 @@ import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { clerkClient } from '@clerk/nextjs/server'
+import { owedDocValidatorEb } from '@/server/db/legal-document'
 
 // Runs inside the account-creation transaction so an account never exists without this evidence.
-// Submitted ids are re-checked, not trusted.
-async function recordSignupAcknowledgements(db: DBExecutor, userId: string, versionIds: string[]) {
+// Submitted ids are re-checked, not trusted: the form only shows the global tos/pn and the invite
+// org's own ropa/dopa, so only published versions of those are accepted.
+async function recordSignupAcknowledgements(
+    db: DBExecutor,
+    userId: string,
+    orgId: string,
+    versionIds: string[],
+    // TBD: include studyIDs for SLA case
+) {
     if (!versionIds.length) return
 
     const eligible = await db
@@ -22,6 +30,8 @@ async function recordSignupAcknowledgements(db: DBExecutor, userId: string, vers
         .where('legalDocumentVersion.id', 'in', versionIds)
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        // Enforce that the acknowledgement recorded is a valid type & scope
+        .where((eb) => owedDocValidatorEb(eb, 'legalDocument.orgId', 'legalDocument.studyId', [orgId]))
         .execute()
 
     if (!eligible.length) return
@@ -311,7 +321,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 .returning('id')
                 .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-            await recordSignupAcknowledgements(trx, user.id, acknowledgedVersionIds)
+            await recordSignupAcknowledgements(trx, user.id, invite.orgId, acknowledgedVersionIds)
 
             return user
         })
