@@ -3,10 +3,10 @@ import type { LegalDocumentType, OrgType } from '@/database/types'
 import { type ParticipationAgreementType } from '@/schema/legal-document'
 import type { ExpressionBuilder, ReferenceExpression } from 'kysely'
 
-// The scope a reader is entitled to, as one predicate: global tos/pn (both scope columns null) plus
-// the ropa/dopa of the orgs passed in. Shared by the app-wide gate and signup so the two cannot
-// drift; the study-null clause matters because an sla is org-null with a study, so without it an
-// sla joining enforcedLegalDocumentTypes would ride in on the global branch.
+// The scope a reader is entitled to, by document.
+// - Global tos/pn (both scope columns null)
+// - The ropa/dopa of the orgs passed in
+// Shared by the app-wide gate and signup so the two cannot drift.
 export const owedDocValidatorEb = <T>(
     eb: ExpressionBuilder<T, keyof T>,
     dbOrgRef: ReferenceExpression<T, keyof T>,
@@ -15,7 +15,8 @@ export const owedDocValidatorEb = <T>(
     // TBD add study ID for SLA
 ) => {
     const branches = [eb.and([eb(dbOrgRef, 'is', null), eb(dbStudyRef, 'is', null)])] // TOS/PN case
-    // An empty `in` list is a Postgres syntax error, so the branch is omitted rather than emptied.
+    // Check for list emptiness before running any SQL,
+    // since checking 'in' against an empty list is a Postgres error.
     if (orgIds.length > 0) {
         branches.push(
             eb.and([eb(dbOrgRef, 'in', orgIds), eb(dbStudyRef, 'is', null)]), // ROPA/DOPA case

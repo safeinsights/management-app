@@ -105,6 +105,16 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
     .handler(async ({ db, params: { type, orgId, studyId, fileName } }) => {
         const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
+        // For participation agreements: Make sure agreement type matches org's type
+        if (orgId) {
+            const org = await db.selectFrom('org').select('type').where('id', '=', orgId).executeTakeFirstOrThrow()
+            const acceptableDocType = participationAgreementTypeForOrgType[org.type]
+            if (type !== acceptableDocType)
+                throw new ActionFailure({
+                    orgId: `Cannot create draft of type ${type}. Participation agreement type must be ${acceptableDocType}`,
+                })
+        }
+
         // The old S3 object is left orphaned: deleting it could not roll back with the transaction.
         await db
             .deleteFrom('legalDocumentVersion')

@@ -166,7 +166,7 @@ export const participationAgreementTypeParams = z.object({
 })
 
 export const fetchLegalDocumentAcknowledgementsSchema = z.object({
-    type: legalDocumentTypeSchema,
+    type: z.enum(globalLegalDocumentTypes),
     orgId: z.string().optional(),
     studyId: z.string().optional(),
     sort: z
