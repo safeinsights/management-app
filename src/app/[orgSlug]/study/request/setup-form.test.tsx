@@ -732,33 +732,22 @@ describe('Next step confirmation modal', () => {
 })
 
 describe('Footer left action', () => {
-    it('offers to discard while nothing has been saved yet', async () => {
+    // "Discard study" was taken out of scope by the OTTER-690 design review, and deleting a draft
+    // lives behind the dashboard instead.
+    it('offers no left action before anything is saved', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
 
-        expect(screen.getByRole('button', { name: 'Discard study' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })
 
-    // Discarding belongs to the state where no row exists yet; once one is persisted, deleting it
-    // lives behind the dashboard's delete-draft button (OTTER-764).
     it('offers no left action once the draft is persisted', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures, { studyId: faker.string.uuid(), draftData: null })
 
         expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
-    })
-
-    it('returns to the dashboard', async () => {
-        const user = userEvent.setup()
-        const fixtures = await setupFixtures()
-        memoryRouter.setCurrentUrl('/start')
-        renderSetup(fixtures)
-
-        await user.click(screen.getByRole('button', { name: 'Discard study' }))
-
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
     })
 })
 

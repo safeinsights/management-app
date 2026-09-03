@@ -62,7 +62,7 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, returnTo }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
-    const { form, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
+    const { form, saveDraft, isSaving, initFromDraft } = useStudyRequest()
     const [isProceeding, setIsProceeding] = useState(false)
 
     const { navMode, locks } = deriveSetupState(studyId, draftData)
@@ -110,18 +110,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         saveAndAdvance()
     }
 
-    // Does not delete a persisted row, which is why "Discard study" wording is confined to the
-    // case where nothing has been saved yet.
-    const handleCancel = () => {
-        reset()
-        router.push(Routes.dashboard)
-    }
-
     const lockedLanguageLabel = draftData?.language ? languageLabels[draftData.language] : undefined
 
-    // "Discard study" belongs to the state where no row exists yet, when leaving really does make the
-    // study never have existed. Once it is persisted, deleting it belongs to the dashboard.
-    const onCancel = navMode === 'create' ? handleCancel : undefined
     const onProceed = navMode === 'submitted' ? goToSubmitted : attemptContinue
 
     return (
@@ -138,12 +128,11 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 {...locks}
             />
 
+            {/* No left action in any state: OTTER-690 review took "Discard study" out of scope.
+                Deleting a draft lives behind the dashboard. */}
             <ProposalFooterActions
                 isSaving={isSaving || isProceeding}
                 onProceed={onProceed}
-                onCancel={onCancel}
-                cancelLabel="Discard study"
-                cancelVariant="outline"
                 proceedLabel={CTA_LABELS[navMode]}
             />
 
