@@ -11,7 +11,7 @@ import { SetupForm } from './setup-form'
 import { useSetupForm, type SetupFormLocks } from './use-setup-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
 import { PageHeader } from '@/components/page-header'
-import { displayLabName } from '@/lib/string'
+import { displayLabName, UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
@@ -125,7 +125,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     // arrives with a studyId and names the lab (OTTER-619). The heading mirrors the live field, so
     // it keeps up with the title as it is typed.
     const eyebrow = navMode === 'create' ? 'Untitled' : displayLabName(draftData?.submittingLabName, submittingOrgSlug)
-    const headingTitle = titleValue.trim() || 'Untitled study'
+    const headingTitle = titleValue.trim() || UNTITLED_STUDY_TITLE
 
     // "Discard study" belongs to the state where no row exists yet, when leaving really does make the
     // study never have existed. Once it is persisted, deleting it belongs to the dashboard.

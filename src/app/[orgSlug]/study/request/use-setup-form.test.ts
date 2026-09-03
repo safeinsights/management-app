@@ -38,6 +38,12 @@ describe('useSetupForm', () => {
         expect(result.current.titleValue).toBe('')
     })
 
+    it('treats a persisted empty title the same as no persisted study', () => {
+        const { result } = renderSetupForm({ initialTitle: '' })
+
+        expect(result.current.titleValue).toBe('')
+    })
+
     it('prefers a form value that is already populated', () => {
         const { result } = renderSetupForm({ initialTitle: 'A saved title', formTitle: 'Edited title' })
 

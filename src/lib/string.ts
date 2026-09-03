@@ -122,6 +122,10 @@ export function displayLabName(labName: string | null | undefined, fallbackSlug:
     return (labName ? displayOrgName(labName) : '') || fallbackSlug
 }
 
+// A study reaches its own page before it has a title, both while it is being set up and once it is
+// saved with the field left empty, so both places head it with these words.
+export const UNTITLED_STUDY_TITLE = 'Untitled study'
+
 export function toSentence(items: string[], conjunction: string = 'and'): string {
     if (items.length === 0) return ''
     if (items.length === 1) return items[0]
