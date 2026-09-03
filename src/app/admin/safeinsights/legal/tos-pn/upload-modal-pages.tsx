@@ -4,7 +4,7 @@ import { useMutation, useState, type FC } from '@/common'
 import { reportError } from '@/components/errors'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
-import { legalDocumentTypeLabels, type EnforcedLegalDocumentType } from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type GlobalLegalDocumentType } from '@/schema/legal-document'
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
@@ -37,7 +37,7 @@ export function DraftForm({
     draftName,
     onDraftSaved,
 }: {
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
     draftName: string | null
     onDraftSaved: () => void
 }) {
@@ -124,7 +124,7 @@ export function ReviewPrePublishForm({
     onBack,
     onConfirm,
 }: {
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
     draftId: string
     draftUrl: string
     onBack: () => void
