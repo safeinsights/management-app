@@ -894,12 +894,13 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         await waitFor(async () => {
             const row = await db
                 .selectFrom('study')
-                .select(['title', 'language'])
+                .select(['title', 'language', 'orgId'])
                 .where('id', '=', study.id)
                 .executeTakeFirst()
             expect(row?.title).toBe('A title changed on the way back')
             // The click must not touch the settled choices, which stay uneditable throughout.
             expect(row?.language).toBe('R')
+            expect(row?.orgId).toBe(study.orgId)
         })
 
         await waitFor(() =>
@@ -928,6 +929,21 @@ describe('Step 1 navigation state: revisiting a draft', () => {
 
         const row = await db.selectFrom('study').select(['title']).where('id', '=', study.id).executeTakeFirst()
         expect(row?.title).toBe('A previously saved title')
+    })
+
+    // The blur rule survives the state change too: emptying the field and leaving it raises the
+    // error here, before any click.
+    it('raises the blank title error on blur', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const { draftData } = await insertRevisitableDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
+        await user.clear(titleInput())
+        await user.tab()
+
+        expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
     })
 
     // Dropping the modal drops the modal only. The title rules still gate the click.
@@ -1046,6 +1062,36 @@ describe('Step 1 navigation state: a submitted proposal', () => {
                 Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
             ),
         )
+    })
+})
+
+// One button carries all three states, and assistive tech reads its accessible name. Each state is
+// its own render in the app, so each state is its own mount here.
+describe('Step 1 navigation state: the CTA across states', () => {
+    it('renames the CTA on the way from a draft to a submitted proposal', async () => {
+        const fixtures = await setupFixtures()
+        const { draftData } = await insertRevisitableDraft(fixtures)
+
+        const { unmount } = renderSetup(fixtures, { studyId: draftData.id, draftData })
+        await waitFor(() => expect(saveAndContinueButton()).toHaveTextContent('Save and continue'))
+        expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
+        unmount()
+
+        const submitted: DraftStudyData = { ...draftData, status: 'PENDING-REVIEW' }
+        renderSetup(fixtures, { studyId: submitted.id, draftData: submitted })
+
+        await waitFor(() => expect(nextStepButton()).toHaveTextContent('Next step'))
+        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
+    })
+
+    it('names the first-visit CTA after its own copy, not a later state', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        expect(continueButton()).toHaveTextContent('Save & continue')
+        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
     })
 })
 
