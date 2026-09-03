@@ -118,7 +118,7 @@ describe('ParticipationAgreements', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
     })
 
-    it('names the org, date and file in the confirmation, and promises no acknowledgement', async () => {
+    it('names the org, date and file in the confirmation, and promises re-acknowledgement', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await seedSignedDopa('2026-07-27')
 
@@ -140,7 +140,9 @@ describe('ParticipationAgreements', () => {
         expect(within(dialog).getByText('Aug 03, 2026')).toBeDefined()
         expect(within(dialog).getByText('signed-dopa.pdf')).toBeDefined()
         expect(within(dialog).getByText(/becomes the current Data Organization Participation Agreement/)).toBeDefined()
-        expect(within(dialog).queryByText(/acknowledge/i)).toBeNull()
+        expect(
+            within(dialog).getByText(/prompt all users to whom this document applies to re-acknowledge/i),
+        ).toBeDefined()
     })
 
     it('opens the version history for an org that has published one', async () => {

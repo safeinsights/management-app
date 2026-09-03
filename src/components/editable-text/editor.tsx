@@ -38,6 +38,8 @@ export type EditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included (OTTER-647). */
     onBlur?: () => void
+    /** False also hides the save indicator on a clean field — an emptied optional one. */
+    isSaveStatusVisible?: boolean
     contentHeight?: number
     isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void

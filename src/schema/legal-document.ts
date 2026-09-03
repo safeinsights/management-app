@@ -1,11 +1,12 @@
 import { z } from 'zod'
-import type { LegalDocumentFormat, OrgType } from '@/database/types'
+import type { LegalDocumentFormat, LegalDocumentType, OrgType } from '@/database/types'
 
-export const legalDocumentTypeSchema = z.enum(['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'])
+// Restate enum (but enforce parity with DB) for zod validation
+const legalDocumentTypeValues = ['TOS', 'PN', 'ROPA', 'DOPA', 'SLA'] as const satisfies readonly LegalDocumentType[]
 
-export type LegalDocumentTypeValue = z.infer<typeof legalDocumentTypeSchema>
+export const legalDocumentTypeSchema = z.enum(legalDocumentTypeValues)
 
-export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
+export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     TOS: 'Terms of Service',
     PN: 'Privacy Notice',
     SLA: 'Study Agreement',
@@ -14,11 +15,37 @@ export const legalDocumentTypeLabels: Record<LegalDocumentTypeValue, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// Global types only. Adding SLA here would also mean retiring
-// study.researcherAgreementsAckedAt/reviewerAgreementsAckedAt, as two gates on one study disagree.
-export const enforcedLegalDocumentTypes = ['TOS', 'PN'] as const
-
+// List of documents whos acknowledgments are currently required.
+export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
+
+// ONLY tos/pn are global documents. It's important not to conflate these two with other types
+// because they are less gated/more visible permissions wise.
+export const globalLegalDocumentTypes = ['TOS', 'PN'] as const
+export type GlobalLegalDocumentType = (typeof globalLegalDocumentTypes)[number]
+
+// How a resolved document renders: markdown is inlined, a pdf is a signed-url link. A tagged union,
+// not two optional fields, so exactly one payload is representable.
+export type LegalDocumentBody = { format: 'markdown'; content: string } | { format: 'pdf'; url: string }
+
+// A published document with its body resolved. Scope-neutral instead of `global` or `enforced`
+export type ResolvedLegalDocument = {
+    type: LegalDocumentType
+    versionId: string
+} & LegalDocumentBody
+
+// The tos/pn shown at signup, readable without a session.
+export type GlobalLegalDocument = ResolvedLegalDocument & { type: GlobalLegalDocumentType }
+
+// What the app-wide gate is blocking on — keyed off *enforced*, not global/public (ropa/dopa are
+// enforced but never public).
+export type PendingLegalDocument = ResolvedLegalDocument & {
+    type: EnforcedLegalDocumentType
+    /** True if the user acknowledged an earlier version, false if never. */
+    isUpdate: boolean
+    /** The org an org-scoped ropa/dopa binds, for the copy to name; null for global tos/pn. */
+    orgName: string | null
+}
 
 // `satisfies` enforces parity with the DB enum.
 const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
@@ -27,7 +54,7 @@ export const legalDocumentFormatSchema = z.enum(legalDocumentFormatValues)
 
 // Fixed per type rather than chosen per upload, so a document can never be stored in a format its
 // viewer cannot render.
-export const legalDocumentFormats: Record<LegalDocumentTypeValue, LegalDocumentFormat> = {
+export const legalDocumentFormats: Record<LegalDocumentType, LegalDocumentFormat> = {
     TOS: 'markdown',
     PN: 'markdown',
     SLA: 'pdf',
@@ -130,17 +157,21 @@ export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })
 
+export const inviteParams = z.object({
+    inviteId: z.uuid(),
+})
+
 export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
 })
 
 export const fetchLegalDocumentAcknowledgementsSchema = z.object({
-    type: legalDocumentTypeSchema,
+    type: z.enum(globalLegalDocumentTypes),
     orgId: z.string().optional(),
     studyId: z.string().optional(),
     sort: z
         .object({
-            columnAccessor: z.enum(['fullName', 'email', 'ackedAt']),
+            columnAccessor: z.enum(['fullName', 'email', 'ackedAt', 'lastLoginAt']),
             direction: z.enum(['asc', 'desc']),
         })
         .optional(),
@@ -152,17 +183,19 @@ export type LegalDocumentAcknowledgementSort = NonNullable<
 
 // Not beside the actions because a server actions module may only export async functions.
 export const legalDocumentQueryKeys = {
-    versions: (scope: { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }) =>
+    versions: (scope: { type: LegalDocumentType; orgId?: string; studyId?: string }) =>
         ['legalDocumentVersions', scope.type, scope.orgId, scope.studyId] as const,
     // A prefix of the above, so invalidating after a publish reaches every scope of that type.
-    versionsForType: (type: LegalDocumentTypeValue) => ['legalDocumentVersions', type] as const,
+    versionsForType: (type: LegalDocumentType) => ['legalDocumentVersions', type] as const,
     nextPendingAcknowledgement: () => ['nextPendingLegalAcknowledgement'] as const,
     // Read by the signup form before an account exists, so there is no session to key it by.
-    publicDocuments: () => ['publicLegalDocuments'] as const,
+    globalDocuments: () => ['globalLegalDocuments'] as const,
+    // Keyed by invite id, the only thing the signup form has to key it by.
+    participationAgreementForInvite: (inviteId: string) => ['participationAgreement', inviteId] as const,
     // Keyed by version, not the presigned URL: that is re-minted per read, so it never cache-hits.
     documentContent: (versionId: string) => ['legalDocumentContent', versionId] as const,
     // Sort is part of the key because the action orders the rows, so a re-sort is a new read.
-    acknowledgements: (type: LegalDocumentTypeValue, sort: LegalDocumentAcknowledgementSort) =>
+    acknowledgements: (type: LegalDocumentType, sort: LegalDocumentAcknowledgementSort) =>
         ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
