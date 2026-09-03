@@ -56,6 +56,9 @@ const insertReader = async (orgType: OrgType) => {
     return { user, org, orgName: org.name, restoreSession }
 }
 
+const STUDY_SORT = { columnAccessor: 'ackedAt', direction: 'desc' } as const
+const PARTICIPATION_SORT = { columnAccessor: 'ackedAt', direction: 'desc' } as const
+
 describe('fetchUserStudyAgreementsAction', () => {
     // Distinct orgs on each side, so a swapped From/To join cannot pass.
     const insertStudyForReader = async (reader: Reader, title = 'A study') => {
@@ -75,7 +78,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
         reader.restoreSession()
 
-        const rows = actionResult(await fetchUserStudyAgreementsAction())
+        const rows = actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))
 
         expect(rows).toEqual([])
     })
@@ -87,7 +90,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
 
-        const rows = actionResult(await fetchUserStudyAgreementsAction())
+        const rows = actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))
 
         expect(rows).toHaveLength(1)
         expect(rows[0]).toMatchObject({
@@ -113,7 +116,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: second.id }))
 
-        const rows = actionResult(await fetchUserStudyAgreementsAction())
+        const rows = actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))
 
         expect(rows).toHaveLength(1)
         expect(rows[0]?.signedAt).toBe('2026-05-05')
@@ -130,7 +133,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-08-08')
         reader.restoreSession()
 
-        const rows = actionResult(await fetchUserStudyAgreementsAction())
+        const rows = actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))
 
         expect(rows[0]?.signedAt).toBe('2026-01-01')
     })
@@ -148,7 +151,7 @@ describe('fetchUserStudyAgreementsAction', () => {
 
         reader.restoreSession()
 
-        expect(actionResult(await fetchUserStudyAgreementsAction())).toEqual([])
+        expect(actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))).toEqual([])
     })
 
     it('keeps the agreement listed after the study leaves APPROVED', async () => {
@@ -159,9 +162,27 @@ describe('fetchUserStudyAgreementsAction', () => {
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
         await db.updateTable('study').set({ status: 'ARCHIVED' }).where('id', '=', study.id).execute()
 
-        const rows = actionResult(await fetchUserStudyAgreementsAction())
+        const rows = actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))
 
         expect(rows[0]?.signedAt).toBe('2026-03-03')
+    })
+
+    it('breaks a tie on title ascending whichever way the chosen column points', async () => {
+        const reader = await insertReader('enclave')
+        for (const title of ['Zulu study', 'Alpha study']) {
+            const { study } = await insertStudyForReader(reader, title)
+            const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-04-04')
+            reader.restoreSession()
+            actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+        }
+
+        const titlesSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(await fetchUserStudyAgreementsAction({ sort: { columnAccessor: 'signedAt', direction } })).map(
+                (row) => row.studyTitle,
+            )
+
+        expect(await titlesSortedBy('asc')).toEqual(['Alpha study', 'Zulu study'])
+        expect(await titlesSortedBy('desc')).toEqual(['Alpha study', 'Zulu study'])
     })
 
     // The mocked auth() returns undefined where Clerk's returns an object, so this throws rather
@@ -169,7 +190,7 @@ describe('fetchUserStudyAgreementsAction', () => {
     it('refuses a caller with no session', async () => {
         mockClerkSession(null)
 
-        expect(await fetchUserStudyAgreementsAction()).toEqual({ error: expect.anything() })
+        expect(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT })).toEqual({ error: expect.anything() })
     })
 })
 
@@ -185,7 +206,9 @@ describe('fetchUserParticipationAgreementsAction', () => {
         const reader = await insertReader('enclave')
         await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
 
-        const rows = actionResult(await fetchUserParticipationAgreementsAction({ type: 'DOPA' }))
+        const rows = actionResult(
+            await fetchUserParticipationAgreementsAction({ type: 'DOPA', sort: PARTICIPATION_SORT }),
+        )
 
         expect(rows).toHaveLength(1)
         expect(rows[0]).toMatchObject({
@@ -200,14 +223,18 @@ describe('fetchUserParticipationAgreementsAction', () => {
         const reader = await insertReader('enclave')
         await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
 
-        expect(actionResult(await fetchUserParticipationAgreementsAction({ type: 'ROPA' }))).toEqual([])
+        expect(
+            actionResult(await fetchUserParticipationAgreementsAction({ type: 'ROPA', sort: PARTICIPATION_SORT })),
+        ).toEqual([])
     })
 
     it('returns a ROPA for a lab member', async () => {
         const reader = await insertReader('lab')
         await acknowledgeParticipation(reader, 'ROPA', '2026-02-02')
 
-        const rows = actionResult(await fetchUserParticipationAgreementsAction({ type: 'ROPA' }))
+        const rows = actionResult(
+            await fetchUserParticipationAgreementsAction({ type: 'ROPA', sort: PARTICIPATION_SORT }),
+        )
 
         expect(rows).toHaveLength(1)
         expect(rows[0]?.signedAt).toBe('2026-02-02')
@@ -219,7 +246,9 @@ describe('fetchUserParticipationAgreementsAction', () => {
         await db.deleteFrom('orgUser').where('userId', '=', reader.user.id).execute()
         reader.restoreSession()
 
-        expect(actionResult(await fetchUserParticipationAgreementsAction({ type: 'DOPA' }))).toHaveLength(1)
+        expect(
+            actionResult(await fetchUserParticipationAgreementsAction({ type: 'DOPA', sort: PARTICIPATION_SORT })),
+        ).toHaveLength(1)
     })
 
     it('rejects a type that is not a participation agreement', async () => {

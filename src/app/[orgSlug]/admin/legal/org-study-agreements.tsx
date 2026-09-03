@@ -1,15 +1,15 @@
 'use client'
 
-import { useQuery, type FC } from '@/common'
+import { keepPreviousData, useQuery, type FC } from '@/common'
 import type { OrgType } from '@/database/types'
 import { formatDayString } from '@/lib/dates'
-import { sortAgreements, type SortValues } from '@/lib/sort-agreements'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     studyAgreementCounterpartyLabels,
     studyAgreementDisplayTitle,
+    type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
@@ -17,14 +17,14 @@ import { LegalPanel } from '@/components/legal/legal-panel'
 import { PdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-// The action returns rows unordered, so this decides what an admin sees first.
-const DEFAULT_SORT: DataTableSortStatus<StudyAgreement> = { columnAccessor: 'signedAt', direction: 'desc' }
+const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt'] as const
 
-// Stable identity so the sort memo survives renders while the query is loading.
+const DEFAULT_SORT: OrgStudyAgreementSort = { columnAccessor: 'signedAt', direction: 'desc' }
+
 const EMPTY_ROWS: StudyAgreement[] = []
 
 // The counterparty column is unsortable: it names the same org on most rows.
@@ -41,12 +41,6 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
     { accessor: 'downloadUrl', title: 'View', render: (agreement) => <PdfLink url={agreement.downloadUrl} /> },
 ]
 
-const sortValues: SortValues<StudyAgreement> = {
-    studyId: (row) => row.studyId,
-    studyTitle: studyAgreementDisplayTitle,
-    signedAt: (row) => row.signedAt ?? '',
-}
-
 const EmptyState: FC = () => (
     <Stack gap={4} align="center" py="xl">
         <Text>No Study Agreement yet.</Text>
@@ -55,34 +49,33 @@ const EmptyState: FC = () => (
 )
 
 const useOrgStudyAgreements = (orgSlug: string) => {
+    const [sort, setSort] = useState<OrgStudyAgreementSort>(DEFAULT_SORT)
     const {
-        data: agreements = EMPTY_ROWS,
+        data: records = EMPTY_ROWS,
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: legalDocumentQueryKeys.orgStudyAgreements(orgSlug),
-        queryFn: () => fetchOrgStudyAgreementsAction({ orgSlug }),
+        queryKey: legalDocumentQueryKeys.orgStudyAgreements(orgSlug, sort),
+        queryFn: () => fetchOrgStudyAgreementsAction({ orgSlug, sort }),
+        // Rows hold still through a re-sort, so the table never flashes its empty state mid-click.
+        placeholderData: keepPreviousData,
     })
-    const [sortStatus, setSortStatus] = useState<DataTableSortStatus<StudyAgreement>>(DEFAULT_SORT)
 
-    const records = useMemo(
-        () =>
-            sortAgreements(agreements, sortStatus, {
-                sortValues,
-                tieBreakBy: 'studyTitle',
-                sinkEmpty: sortStatus.columnAccessor === 'signedAt' ? (row) => row.signedAt ?? '' : undefined,
-            }),
-        [agreements, sortStatus],
-    )
+    // mantine-datatable widens columnAccessor to string, so an unsortable column would otherwise
+    // reach the server as a bad param.
+    const onSortStatusChange = ({ columnAccessor, direction }: DataTableSortStatus<StudyAgreement>) => {
+        const accessor = SORTABLE_COLUMNS.find((column) => column === columnAccessor)
+        if (accessor) setSort({ columnAccessor: accessor, direction })
+    }
 
-    return { records, isLoading, isError, error, sortStatus, setSortStatus }
+    return { records, isLoading, isError, error, sort, onSortStatusChange }
 }
 
 // A refused read must not fall through to the table, where it looks like an org with no
 // agreements yet.
 const StudyAgreementsTable: FC<{ orgSlug: string; counterpartyLabel: string }> = ({ orgSlug, counterpartyLabel }) => {
-    const { records, isLoading, isError, error, sortStatus, setSortStatus } = useOrgStudyAgreements(orgSlug)
+    const { records, isLoading, isError, error, sort, onSortStatusChange } = useOrgStudyAgreements(orgSlug)
 
     if (isError) return <ErrorAlert error={error} />
 
@@ -96,8 +89,8 @@ const StudyAgreementsTable: FC<{ orgSlug: string; counterpartyLabel: string }> =
             emptyState={<EmptyState />}
             records={records}
             columns={agreementColumns(counterpartyLabel)}
-            sortStatus={sortStatus}
-            onSortStatusChange={setSortStatus}
+            sortStatus={sort}
+            onSortStatusChange={onSortStatusChange}
         />
     )
 }

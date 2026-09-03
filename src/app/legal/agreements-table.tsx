@@ -1,44 +1,40 @@
 'use client'
 
-import { useQuery, type FC } from '@/common'
+import { keepPreviousData, useQuery, type FC } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import type { ActionResponse } from '@/lib/errors'
-import { formatDayString, formatInstant } from '@/lib/dates'
+import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { PdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { useMemo, useState } from 'react'
-import { sortAgreements, type SortColumn, type SortValues } from '@/lib/sort-agreements'
+import { useState } from 'react'
 
 type AgreementRow = { signedAt: string | null; ackedAt: Date; downloadUrl: string | null }
 
-// The page is about what the user signed, so every table leads with when they signed it.
-const DEFAULT_SORT = { columnAccessor: 'ackedAt', direction: 'desc' } as const
+export type AgreementSort<Column extends string> = { columnAccessor: Column; direction: 'asc' | 'desc' }
 
-// Shared by every table here: only the identifying columns differ per type.
+// Both dates read as UTC days, matching the global document panel: on mixed bases an ack can show
+// as a day earlier than the document it acknowledges.
 export const agreementDateColumns = <T extends AgreementRow>(): DataTableColumn<T>[] => [
     { accessor: 'signedAt', title: 'Effective on', sortable: true, render: (row) => formatDayString(row.signedAt) },
-    { accessor: 'ackedAt', title: 'Acknowledged on', sortable: true, render: (row) => formatInstant(row.ackedAt) },
+    {
+        accessor: 'ackedAt',
+        title: 'Acknowledged on',
+        sortable: true,
+        render: (row) => formatInstantAsUtcDay(row.ackedAt),
+    },
     { accessor: 'downloadUrl', title: 'View', render: (row) => <PdfLink url={row.downloadUrl} /> },
 ]
 
-// Typed against AgreementRow rather than each table's row: the accessors only read the shared
-// fields, so they spread into any row that has them. A server timestamp can cross a server action
-// as an ISO string, so ackedAt is re-wrapped rather than read as a Date.
-export const agreementDateSortValues: SortValues<AgreementRow> = {
-    signedAt: (row) => row.signedAt ?? '',
-    ackedAt: (row) => new Date(row.ackedAt).toISOString(),
-}
-
-type Props<T> = {
+type Props<T, Column extends string> = {
     label: string
     idAccessor: string
     columns: DataTableColumn<T>[]
-    sortValues: SortValues<T>
-    tieBreakBy: SortColumn<T>
-    queryKey: readonly unknown[]
-    queryFn: () => Promise<ActionResponse<T[]>>
+    sortableColumns: readonly Column[]
+    defaultSort: AgreementSort<Column>
+    queryKey: (sort: AgreementSort<Column>) => readonly unknown[]
+    queryFn: (sort: AgreementSort<Column>) => Promise<ActionResponse<T[]>>
 }
 
 // All three agreement labels pluralise with a bare 's'.
@@ -48,24 +44,40 @@ const EmptyState: FC<{ label: string }> = ({ label }) => (
     </Stack>
 )
 
-// Stable identity so the sort memo survives renders while the query is loading.
 const EMPTY_ROWS: never[] = []
 
-const useSortedAgreements = <T,>({ queryKey, queryFn, sortValues, tieBreakBy }: Props<T>) => {
-    const { data = EMPTY_ROWS as T[], isLoading, isError, error } = useQuery({ queryKey, queryFn })
-    const [sortStatus, setSortStatus] = useState<DataTableSortStatus<T>>(DEFAULT_SORT)
+const useAgreements = <T, Column extends string>({
+    sortableColumns,
+    defaultSort,
+    queryKey,
+    queryFn,
+}: Props<T, Column>) => {
+    const [sort, setSort] = useState(defaultSort)
+    const {
+        data: records = EMPTY_ROWS as T[],
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: queryKey(sort),
+        queryFn: () => queryFn(sort),
+        // Rows hold still through a re-sort, so the table never flashes its empty state mid-click.
+        placeholderData: keepPreviousData,
+    })
 
-    const records = useMemo(
-        () => sortAgreements(data, sortStatus, { sortValues, tieBreakBy }),
-        [data, sortStatus, sortValues, tieBreakBy],
-    )
+    // mantine-datatable widens columnAccessor to string, so an unsortable column would otherwise
+    // reach the server as a bad param.
+    const onSortStatusChange = ({ columnAccessor, direction }: DataTableSortStatus<T>) => {
+        const accessor = sortableColumns.find((column) => column === columnAccessor)
+        if (accessor) setSort({ columnAccessor: accessor, direction })
+    }
 
-    return { records, isLoading, isError, error, sortStatus, setSortStatus }
+    return { records, isLoading, isError, error, sort, onSortStatusChange }
 }
 
 // A refused read must not fall through to the table, where it looks like nothing was signed.
-export const AgreementsTable = <T,>(props: Props<T>) => {
-    const { records, isLoading, isError, error, sortStatus, setSortStatus } = useSortedAgreements(props)
+export const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
+    const { records, isLoading, isError, error, sort, onSortStatusChange } = useAgreements(props)
 
     if (isError) return <ErrorAlert error={error} />
 
@@ -81,13 +93,13 @@ export const AgreementsTable = <T,>(props: Props<T>) => {
             emptyState={<EmptyState label={props.label} />}
             records={records}
             columns={props.columns}
-            sortStatus={sortStatus}
-            onSortStatusChange={setSortStatus}
+            sortStatus={sort}
+            onSortStatusChange={onSortStatusChange}
         />
     )
 }
 
-export const AgreementsPanel = <T,>(props: Props<T>) => (
+export const AgreementsPanel = <T, Column extends string>(props: Props<T, Column>) => (
     <LegalPanel title={props.label}>
         <AgreementsTable {...props} />
     </LegalPanel>

@@ -12,7 +12,10 @@ import {
     type EnforcedLegalDocumentType,
     fetchLegalDocumentAcknowledgementsSchema,
     orgLegalParams,
+    orgStudyAgreementParams,
     participationAgreementTypeParams,
+    userParticipationAgreementParams,
+    userStudyAgreementParams,
     participationAgreementTypeForOrgType,
     legalDocumentFormats,
     legalDocumentScopeSchema,
@@ -658,15 +661,6 @@ const withPdfUrl = async <T extends { filePath: string; fileName: string; format
     ...rest
 }: T) => ({ ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) })
 
-// An unsigned row carries nulls through, so the table has one shape and no sentinel value.
-const withAgreementDownloadUrl = async (row: Awaited<ReturnType<typeof orgStudyAgreements>>[number]) => {
-    const { filePath, fileName, format, ...rest } = row
-    // Null together, all three being NOT NULL; an empty name would reach the browser as filename="".
-    if (!filePath || !fileName || !format) return { ...rest, downloadUrl: null }
-
-    return await withPdfUrl({ ...rest, filePath, fileName, format })
-}
-
 // An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin
 // would reach the handler and index a Record with undefined. TypeScript cannot see it.
 function requireResolvedOrg(ctx: {
@@ -677,16 +671,23 @@ function requireResolvedOrg(ctx: {
 }
 
 export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
-    .params(orgLegalParams)
+    .params(orgStudyAgreementParams)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'OrgLegalDocuments')
-    // Unordered on purpose: the table sorts from its first paint.
-    .handler(async ({ db, orgId, orgType }) => {
+    .handler(async ({ db, orgId, orgType, params: { sort } }) => {
         requireResolvedOrg({ orgId, orgType })
 
-        const rows = await orgStudyAgreements(db, { orgId, orgType })
+        const rows = await orgStudyAgreements(db, { orgId, orgType, sort })
 
-        return await Promise.all(rows.map(withAgreementDownloadUrl))
+        // An unsigned row carries nulls through, so the table has one shape and no sentinel. All
+        // three are null together; an empty name would reach the browser as filename="".
+        return await Promise.all(
+            rows.map(async ({ filePath, fileName, format, ...rest }) =>
+                filePath && fileName && format
+                    ? await withPdfUrl({ ...rest, filePath, fileName, format })
+                    : { ...rest, downloadUrl: null },
+            ),
+        )
     })
 
 export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
@@ -711,19 +712,19 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
     })
 
 export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreementsAction')
+    .params(userStudyAgreementParams)
     .requireAbilityTo('view', 'UserLegalDocuments')
-    // Unordered on purpose: the table sorts from its first paint.
-    .handler(async ({ db, session }) => {
-        const rows = await userStudyAgreements(db, { userId: session.user.id })
+    .handler(async ({ db, session, params: { sort } }) => {
+        const rows = await userStudyAgreements(db, { userId: session.user.id, sort })
 
         return await Promise.all(rows.map(withPdfUrl))
     })
 
 export const fetchUserParticipationAgreementsAction = new Action('fetchUserParticipationAgreementsAction')
-    .params(participationAgreementTypeParams)
+    .params(userParticipationAgreementParams)
     .requireAbilityTo('view', 'UserLegalDocuments')
-    .handler(async ({ db, session, params: { type } }) => {
-        const rows = await userParticipationAgreements(db, { userId: session.user.id, type })
+    .handler(async ({ db, session, params: { type, sort } }) => {
+        const rows = await userParticipationAgreements(db, { userId: session.user.id, type, sort })
 
         return await Promise.all(rows.map(withPdfUrl))
     })

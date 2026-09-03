@@ -8,11 +8,12 @@ import {
     type UseMutationResult,
     useQueryClient,
     skipToken,
+    keepPreviousData,
 } from '@tanstack/react-query'
 
 import { type ActionResponse, isActionError, ActionFailure } from '@/lib/errors'
 
-export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken }
+export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }
 
 function processResponse<T>(response: ActionResponse<T>): T {
     if (isActionError(response)) {

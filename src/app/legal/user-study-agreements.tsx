@@ -2,10 +2,15 @@
 
 import type { FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels, studyAgreementDisplayTitle } from '@/schema/legal-document'
+import {
+    legalDocumentQueryKeys,
+    legalDocumentTypeLabels,
+    studyAgreementDisplayTitle,
+    type UserStudyAgreementSort,
+} from '@/schema/legal-document'
 import { fetchUserStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import type { DataTableColumn } from 'mantine-datatable'
-import { agreementDateColumns, agreementDateSortValues, AgreementsPanel } from './agreements-table'
+import { agreementDateColumns, AgreementsPanel } from './agreements-table'
 
 type StudyAgreement = ActionSuccessType<typeof fetchUserStudyAgreementsAction>[number]
 
@@ -18,20 +23,19 @@ const columns: DataTableColumn<StudyAgreement>[] = [
     ...agreementDateColumns<StudyAgreement>(),
 ]
 
-const sortValues = {
-    ...agreementDateSortValues,
-    studyId: (row: StudyAgreement) => row.studyId,
-    studyTitle: studyAgreementDisplayTitle,
-}
+const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt', 'ackedAt'] as const
+
+// The page is about what the user signed, so every table leads with when they signed it.
+const DEFAULT_SORT: UserStudyAgreementSort = { columnAccessor: 'ackedAt', direction: 'desc' }
 
 export const UserStudyAgreements: FC = () => (
     <AgreementsPanel
         label={legalDocumentTypeLabels.SLA}
         idAccessor="studyId"
         columns={columns}
-        sortValues={sortValues}
-        tieBreakBy="studyTitle"
-        queryKey={legalDocumentQueryKeys.userStudyAgreements()}
-        queryFn={fetchUserStudyAgreementsAction}
+        sortableColumns={SORTABLE_COLUMNS}
+        defaultSort={DEFAULT_SORT}
+        queryKey={legalDocumentQueryKeys.userStudyAgreements}
+        queryFn={(sort) => fetchUserStudyAgreementsAction({ sort })}
     />
 )
