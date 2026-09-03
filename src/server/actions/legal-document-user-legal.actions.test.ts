@@ -99,7 +99,7 @@ describe('fetchUserStudyAgreementsAction', () => {
             fromName: researchLab.name,
             toName: reader.orgName,
             signedAt: '2026-06-17',
-            downloadUrl: 'https://mock-signed-url.example.com/file',
+            versionId: version.id,
         })
         expect(rows[0]?.ackedAt).toBeInstanceOf(Date)
     })
@@ -204,7 +204,7 @@ describe('fetchUserParticipationAgreementsAction', () => {
 
     it('returns the acknowledged DOPA with the organization name', async () => {
         const reader = await insertReader('enclave')
-        await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
+        const version = await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
 
         const rows = actionResult(
             await fetchUserParticipationAgreementsAction({ type: 'DOPA', sort: PARTICIPATION_SORT }),
@@ -215,7 +215,7 @@ describe('fetchUserParticipationAgreementsAction', () => {
             orgId: reader.org.id,
             orgName: reader.orgName,
             signedAt: '2026-04-04',
-            downloadUrl: 'https://mock-signed-url.example.com/file',
+            versionId: version.id,
         })
     })
 

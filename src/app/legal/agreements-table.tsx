@@ -5,12 +5,12 @@ import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import type { ActionResponse } from '@/lib/errors'
 import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
-import { PdfLink } from '@/components/legal/pdf-link'
+import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useState } from 'react'
 
-type AgreementRow = { signedAt: string | null; ackedAt: Date; downloadUrl: string | null }
+type AgreementRow = { signedAt: string | null; ackedAt: Date; versionId: string | null }
 
 export type AgreementSort<Column extends string> = { columnAccessor: Column; direction: 'asc' | 'desc' }
 
@@ -24,7 +24,7 @@ export const agreementDateColumns = <T extends AgreementRow>(): DataTableColumn<
         sortable: true,
         render: (row) => formatInstantAsUtcDay(row.ackedAt),
     },
-    { accessor: 'downloadUrl', title: 'View', render: (row) => <PdfLink url={row.downloadUrl} /> },
+    { accessor: 'versionId', title: 'View', render: (row) => <LegalDocumentPdfLink versionId={row.versionId} /> },
 ]
 
 type Props<T, Column extends string> = {

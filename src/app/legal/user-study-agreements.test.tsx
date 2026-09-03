@@ -84,10 +84,7 @@ describe('UserStudyAgreements', () => {
         expect(within(row).getByText(dataPartnerName)).toBeDefined()
         expect(within(row).getByText('Jun 17, 2026')).toBeDefined()
         expect(within(row).getByText('Jun 20, 2026')).toBeDefined()
-        expect(within(row).getByRole('link', { name: /PDF/ })).toHaveProperty(
-            'href',
-            'https://mock-signed-url.example.com/file',
-        )
+        expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
     it('renders the empty state for a user who has acknowledged nothing', async () => {

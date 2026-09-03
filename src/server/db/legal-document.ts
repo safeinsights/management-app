@@ -102,13 +102,32 @@ const latestAcknowledgedVersions = (db: DBExecutor, { userId, type }: { userId: 
         .orderBy('legalDocument.id')
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
 
+// The version id, not the file columns: the browser follows /dl/legal/<id> and the S3 key never
+// leaves the server.
 const acknowledgedVersionFields = [
-    'legalDocumentVersion.filePath as filePath',
-    'legalDocumentVersion.fileName as fileName',
-    'legalDocumentVersion.format as format',
+    'legalDocumentVersion.id as versionId',
     'legalDocumentVersion.signedAt as signedAt',
     'legalDocumentAcknowledgement.ackedAt as ackedAt',
 ] as const
+
+// Published only: a draft is reachable through the admin preview, not through a pasteable link.
+export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: string) =>
+    db
+        .selectFrom('legalDocumentVersion')
+        .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+        .leftJoin('study', 'study.id', 'legalDocument.studyId')
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
+            'legalDocumentVersion.format as format',
+            'legalDocument.orgId as orgId',
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+        ])
+        .where('legalDocumentVersion.id', '=', versionId)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .executeTakeFirst()
 
 // Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
 export const userStudyAgreements = (
@@ -174,12 +193,7 @@ export const orgStudyAgreements = (
                     eb
                         .selectFrom('legalDocument')
                         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
-                        .select([
-                            'legalDocumentVersion.filePath as filePath',
-                            'legalDocumentVersion.fileName as fileName',
-                            'legalDocumentVersion.format as format',
-                            'legalDocumentVersion.signedAt as signedAt',
-                        ])
+                        .select(['legalDocumentVersion.id as versionId', 'legalDocumentVersion.signedAt as signedAt'])
                         .whereRef('legalDocument.studyId', '=', 'study.id')
                         .where('legalDocument.type', '=', 'SLA')
                         // Redundant against the CHECK constraint, but the planner cannot infer it,
@@ -195,15 +209,13 @@ export const orgStudyAgreements = (
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'counterparty.name as counterpartyName',
-                'agreement.filePath',
-                'agreement.fileName',
-                'agreement.format',
+                'agreement.versionId',
                 'agreement.signedAt',
             ])
             .where('study.deletedAt', 'is', null)
             .where(party, '=', orgId)
             // Second arm: once signed, a study stays listed whatever its status becomes.
-            .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.filePath', 'is not', null)]))
+            .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.versionId', 'is not', null)]))
             .orderBy(orgStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
             .orderBy(orgStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
             .execute()
@@ -219,10 +231,11 @@ export const orgParticipationAgreement = (
         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
         .select([
             'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.signedAt as signedAt',
+            // The signup flow reads the body before an account exists, so it cannot follow a
+            // /dl/legal link and needs the key.
             'legalDocumentVersion.filePath as filePath',
             'legalDocumentVersion.fileName as fileName',
-            'legalDocumentVersion.format as format',
-            'legalDocumentVersion.signedAt as signedAt',
         ])
         .where('legalDocument.type', '=', type)
         .where('legalDocument.orgId', '=', orgId)

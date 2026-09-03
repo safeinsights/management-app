@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { extractOrgSlugFromPath } from '@/lib/paths'
+import { extractOrgSlugFromPath, legalDocumentDownloadURL } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
 
 describe('extractOrgSlugFromPath', () => {
@@ -28,5 +28,13 @@ describe('extractOrgSlugFromPath', () => {
 
     it.each(flatRoutes.filter((route) => route.split('/')[1]))('reserves %s', (route) => {
         expect(extractOrgSlugFromPath(route)).toBeNull()
+    })
+})
+
+describe('legalDocumentDownloadURL', () => {
+    it('addresses a version by id under the download prefix', () => {
+        expect(legalDocumentDownloadURL('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b')).toBe(
+            '/dl/legal/0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b',
+        )
     })
 })

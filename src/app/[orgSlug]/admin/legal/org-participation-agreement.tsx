@@ -11,7 +11,7 @@ import {
 import { fetchOrgParticipationAgreementAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
-import { PdfLink } from '@/components/legal/pdf-link'
+import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { LoadingMessage } from '@/components/loading'
 import { Stack, Text } from '@mantine/core'
 
@@ -20,7 +20,7 @@ type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgree
 const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
     <Stack gap="xs" align="flex-start">
         <Text>Effective on: {formatDayString(agreement.signedAt)}</Text>
-        <PdfLink url={agreement.downloadUrl} />
+        <LegalDocumentPdfLink versionId={agreement.versionId} />
     </Stack>
 )
 

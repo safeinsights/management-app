@@ -14,7 +14,7 @@ import {
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
-import { PdfLink } from '@/components/legal/pdf-link'
+import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useState } from 'react'
@@ -38,7 +38,11 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
         sortable: true,
         render: (agreement) => formatDayString(agreement.signedAt),
     },
-    { accessor: 'downloadUrl', title: 'View', render: (agreement) => <PdfLink url={agreement.downloadUrl} /> },
+    {
+        accessor: 'versionId',
+        title: 'View',
+        render: (agreement) => <LegalDocumentPdfLink versionId={agreement.versionId} />,
+    },
 ]
 
 const EmptyState: FC = () => (

@@ -2,7 +2,7 @@
 
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentFormat, LegalDocumentType, OrgType } from '@/database/types'
+import type { LegalDocumentType, OrgType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
@@ -30,7 +30,7 @@ import {
     type ResolvedLegalDocument,
     type LegalDocumentBody,
 } from '@/schema/legal-document'
-import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
+import { createSignedUploadUrlForKey } from '../aws'
 import {
     findLegalDocument,
     findOrCreateLegalDocument,
@@ -42,32 +42,11 @@ import {
 } from '../db/legal-document'
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
+import { urlForLegalDocumentVersion } from '../legal-document'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
-
-const legalDocumentMimeTypes: Record<LegalDocumentFormat, string> = {
-    pdf: 'application/pdf',
-    markdown: 'text/markdown; charset=utf-8',
-}
-
-// Both overrides are load-bearing: the presigned POST leaves the object as octet-stream, and
-// the key is a bare versionId so the download would be named after a uuid with no extension.
-const legalDocumentDownloadUrl = ({
-    filePath,
-    fileName,
-    format,
-}: {
-    filePath: string
-    fileName: string
-    format: LegalDocumentFormat
-}) =>
-    signedUrlForFile(filePath, {
-        ResponseContentType: legalDocumentMimeTypes[format],
-        // S3 echoes this into the response header verbatim.
-        ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
-    })
 
 const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
     (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
@@ -226,7 +205,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
             .execute()
 
         const withUrls = await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await urlForLegalDocumentVersion(row) })),
         )
         const published = withUrls.filter(
             (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
@@ -343,7 +322,7 @@ const bodyForVersion = async ({
     fileName: string
 }): Promise<LegalDocumentBody> =>
     legalDocumentFormats[type] === 'pdf'
-        ? { format: 'pdf', url: await legalDocumentDownloadUrl({ filePath, fileName, format: 'pdf' }) }
+        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
         : { format: 'markdown', content: await contentOf(filePath) }
 
 // The next document the signed-in user still owes. Superseded versions are not backfilled: the
@@ -547,7 +526,7 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
         rows.sort((a, b) => a.orgName.localeCompare(b.orgName))
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await urlForLegalDocumentVersion(row) })),
         )
     })
 
@@ -606,7 +585,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await legalDocumentDownloadUrl(row) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await urlForLegalDocumentVersion(row) })),
         )
     })
 
@@ -653,14 +632,6 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .execute()
     })
 
-// Strips the file columns as it goes, so a presigned url reaches the client and the S3 key does not.
-const withPdfUrl = async <T extends { filePath: string; fileName: string; format: LegalDocumentFormat }>({
-    filePath,
-    fileName,
-    format,
-    ...rest
-}: T) => ({ ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) })
-
 // An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin
 // would reach the handler and index a Record with undefined. TypeScript cannot see it.
 function requireResolvedOrg(ctx: {
@@ -677,17 +648,8 @@ export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreements
     .handler(async ({ db, orgId, orgType, params: { sort } }) => {
         requireResolvedOrg({ orgId, orgType })
 
-        const rows = await orgStudyAgreements(db, { orgId, orgType, sort })
-
-        // An unsigned row carries nulls through, so the table has one shape and no sentinel. All
-        // three are null together; an empty name would reach the browser as filename="".
-        return await Promise.all(
-            rows.map(async ({ filePath, fileName, format, ...rest }) =>
-                filePath && fileName && format
-                    ? await withPdfUrl({ ...rest, filePath, fileName, format })
-                    : { ...rest, downloadUrl: null },
-            ),
-        )
+        // An unsigned study carries a null versionId, so the table has one shape and no sentinel.
+        return await orgStudyAgreements(db, { orgId, orgType, sort })
     })
 
 export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
@@ -702,31 +664,21 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
 
         if (!agreement) return { type, agreement: null }
 
-        return {
-            type,
-            agreement: {
-                signedAt: agreement.signedAt,
-                downloadUrl: await legalDocumentDownloadUrl(agreement),
-            },
-        }
+        return { type, agreement: { signedAt: agreement.signedAt, versionId: agreement.versionId } }
     })
 
 export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreementsAction')
     .params(userStudyAgreementParams)
     .requireAbilityTo('view', 'UserLegalDocuments')
     .handler(async ({ db, session, params: { sort } }) => {
-        const rows = await userStudyAgreements(db, { userId: session.user.id, sort })
-
-        return await Promise.all(rows.map(withPdfUrl))
+        return await userStudyAgreements(db, { userId: session.user.id, sort })
     })
 
 export const fetchUserParticipationAgreementsAction = new Action('fetchUserParticipationAgreementsAction')
     .params(userParticipationAgreementParams)
     .requireAbilityTo('view', 'UserLegalDocuments')
     .handler(async ({ db, session, params: { type, sort } }) => {
-        const rows = await userParticipationAgreements(db, { userId: session.user.id, type, sort })
-
-        return await Promise.all(rows.map(withPdfUrl))
+        return await userParticipationAgreements(db, { userId: session.user.id, type, sort })
     })
 
 // The terms in force, not the version the user acked. Those coincide whenever the login gate has

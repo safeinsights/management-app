@@ -30,12 +30,12 @@ const seedAcknowledgedAgreement = async (type: 'DOPA' | 'ROPA', signedAt: string
     restoreSession()
     actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
 
-    return { org }
+    return { org, version }
 }
 
 describe('UserParticipationAgreements', () => {
     it('shows the organization, the effective date and a PDF link for an acknowledged DOPA', async () => {
-        const { org } = await seedAcknowledgedAgreement('DOPA', '2026-04-04')
+        const { org, version } = await seedAcknowledgedAgreement('DOPA', '2026-04-04')
 
         renderWithProviders(<UserParticipationAgreements type="DOPA" />)
 
@@ -43,10 +43,7 @@ describe('UserParticipationAgreements', () => {
         const row = screen.getByText(org.name).closest('tr')
         if (!row) throw new Error('no row for the org')
         expect(within(row).getByText('Apr 04, 2026')).toBeDefined()
-        expect(within(row).getByRole('link', { name: /PDF/ })).toHaveProperty(
-            'href',
-            'https://mock-signed-url.example.com/file',
-        )
+        expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
     it('does not show a DOPA on the ROPA tab', async () => {

@@ -63,6 +63,10 @@ export const studyCodeURL = (jobId: string, fileName: string) => `${DOWNLOAD_PRE
 
 export const scanLogDownloadURL = (jobId: string) => `${DOWNLOAD_PREFIX}scan-log/${jobId}`
 
+// The version id alone: the route presigns on request, so a table can list a hundred agreements
+// without minting a hundred signatures that expire in an hour.
+export const legalDocumentDownloadURL = (versionId: string) => `${DOWNLOAD_PREFIX}legal/${versionId}`
+
 // Stored objects carry an opaque S3 key, so the name the reviewer sees — in the download's
 // Content-Disposition and as the in-app viewer's title — is supplied here rather than by storage.
 export const SCAN_LOG_FILE_NAME = 'security-scan-log.txt'

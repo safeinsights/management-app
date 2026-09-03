@@ -82,7 +82,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         expect(row?.studyTitle).toBe('Awaiting signature')
         expect(row?.counterpartyName).toBe(researchLab.name)
         expect(row?.signedAt).toBeNull()
-        expect(row?.downloadUrl).toBeNull()
+        expect(row?.versionId).toBeNull()
     })
 
     it('names the Data Partner as the counterparty for the Research Lab admin', async () => {
@@ -94,16 +94,16 @@ describe('fetchOrgStudyAgreementsAction', () => {
         expect(rows.find((candidate) => candidate.studyId === study.id)?.counterpartyName).toBe(dataPartner.name)
     })
 
-    it('carries the signed date and a download url once an agreement is published', async () => {
+    it('carries the signed date and the downloadable version once an agreement is published', async () => {
         const { study, dataPartner } = await insertStudyWithDistinctOrgs()
-        await publishAgreementAsSiAdmin({ studyId: study.id }, '2026-06-17')
+        const version = await publishAgreementAsSiAdmin({ studyId: study.id }, '2026-06-17')
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
         const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
         const row = rows.find((candidate) => candidate.studyId === study.id)
 
         expect(row?.signedAt).toBe('2026-06-17')
-        expect(row?.downloadUrl).toBe('https://mock-signed-url.example.com/file')
+        expect(row?.versionId).toBe(version.id)
     })
 
     it('shows only the latest published version, and one row per study', async () => {
@@ -129,7 +129,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         const row = rows.find((candidate) => candidate.studyId === study.id)
 
         expect(row).toBeDefined()
-        expect(row?.downloadUrl).toBeNull()
+        expect(row?.versionId).toBeNull()
     })
 
     it('omits a study that has not reached the agreement stage', async () => {
@@ -227,14 +227,14 @@ describe('fetchOrgParticipationAgreementAction', () => {
             orgType: 'lab',
             isAdmin: true,
         })
-        await publishAgreementAsSiAdmin({ orgId: org.id, type: 'ROPA' }, '2026-04-04')
+        const version = await publishAgreementAsSiAdmin({ orgId: org.id, type: 'ROPA' }, '2026-04-04')
         await asOrgAdmin(org.slug, 'lab')
 
         const result = actionResult(await fetchOrgParticipationAgreementAction({ orgSlug: org.slug }))
 
         expect(result.type).toBe('ROPA')
         expect(result.agreement?.signedAt).toBe('2026-04-04')
-        expect(result.agreement?.downloadUrl).toBe('https://mock-signed-url.example.com/file')
+        expect(result.agreement?.versionId).toBe(version.id)
     })
 
     it('returns the latest published version', async () => {
