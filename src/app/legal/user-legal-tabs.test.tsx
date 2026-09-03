@@ -1,23 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { mockSessionWithTestData, renderWithProviders, userEvent } from '@/tests/unit.helpers'
 import { UserLegalTabs } from './user-legal-tabs'
 
-vi.mock('@/server/aws', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/server/aws')>()
-    return {
-        ...actual,
-        signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
-    }
-})
-
 const TAB_NAMES = [
-    'Study Agreement',
-    'Data Organization Participation Agreement',
-    'Research Organization Participation Agreement',
-    'Terms of Service',
-    'Privacy Notice',
+    legalDocumentTypeLabels.SLA,
+    legalDocumentTypeLabels.DOPA,
+    legalDocumentTypeLabels.ROPA,
+    legalDocumentTypeLabels.TOS,
+    legalDocumentTypeLabels.PN,
 ]
 
 describe('UserLegalTabs', () => {

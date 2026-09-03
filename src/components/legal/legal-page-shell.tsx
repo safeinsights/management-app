@@ -4,15 +4,16 @@ import { Stack, Title } from '@mantine/core'
 import type { ReactNode } from 'react'
 
 // The tabs are injected as a slot so a story cannot drift from the real page.
-export type OrgLegalViewProps = {
+export type LegalPageShellProps = {
+    title: string
     tabs: ReactNode
 }
 
-export function OrgLegalView({ tabs }: OrgLegalViewProps) {
+export function LegalPageShell({ title, tabs }: LegalPageShellProps) {
     return (
         <Stack p="md">
             <Title order={1} mb="xl">
-                Legal center
+                {title}
             </Title>
             {tabs}
         </Stack>

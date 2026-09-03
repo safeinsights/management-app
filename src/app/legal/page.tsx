@@ -1,6 +1,6 @@
-import { UserLegalView } from './user-legal-view'
+import { LegalPageShell } from '@/components/legal/legal-page-shell'
 import { UserLegalTabs } from './user-legal-tabs'
 
-export default async function LegalPage() {
-    return <UserLegalView tabs={<UserLegalTabs />} />
+export default function LegalPage() {
+    return <LegalPageShell title="Legal" tabs={<UserLegalTabs />} />
 }

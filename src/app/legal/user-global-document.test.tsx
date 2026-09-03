@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { db } from '@/database'
-import {
-    actionResult,
-    mockClerkSession,
-    mockSessionWithTestData,
-    renderWithProviders,
-    resetLegalDocuments,
-} from '@/tests/unit.helpers'
+import { actionResult, mockSessionWithTestData, renderWithProviders, resetLegalDocuments } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
@@ -38,20 +32,9 @@ const publishTos = async () => {
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 
-const asReader = (user: { id: string; clerkId: string; email: string | null }, org: { id: string; slug: string }) =>
-    mockClerkSession({
-        userId: user.id,
-        clerkUserId: user.clerkId,
-        email: user.email ?? undefined,
-        orgSlug: org.slug,
-        orgId: org.id,
-        roles: { isAdmin: false },
-        orgType: 'enclave',
-    })
-
 describe('UserGlobalDocument', () => {
     it('renders the markdown with both dates once acknowledged', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { restoreSession } = await mockSessionWithTestData({ orgType: 'enclave' })
         const version = await publishTos()
         // A fixed publish date, so the assertion is not on today.
         await db
@@ -59,7 +42,7 @@ describe('UserGlobalDocument', () => {
             .set({ publishedAt: new Date('2026-05-03T12:00:00Z') })
             .where('id', '=', version.id)
             .execute()
-        await asReader(user, org)
+        restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
         await db
             .updateTable('legalDocumentAcknowledgement')
@@ -75,9 +58,9 @@ describe('UserGlobalDocument', () => {
     })
 
     it('dashes the acknowledgement date when the user owes the current version', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { restoreSession } = await mockSessionWithTestData({ orgType: 'enclave' })
         await publishTos()
-        await asReader(user, org)
+        restoreSession()
 
         renderWithProviders(<UserGlobalDocument type="TOS" />)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
-import { actionResult, mockClerkSession, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import { actionResult, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
@@ -17,10 +17,9 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-// Publishing replaces the session with an SI admin's, so the reader's is restored before acking.
 const seedAcknowledgedAgreement = async (type: 'DOPA' | 'ROPA', signedAt: string) => {
     const orgType = type === 'DOPA' ? 'enclave' : 'lab'
-    const { user, org } = await mockSessionWithTestData({ orgType })
+    const { org, restoreSession } = await mockSessionWithTestData({ orgType })
 
     await mockSessionWithTestData({ isSiAdmin: true })
     const { version } = actionResult(
@@ -28,15 +27,7 @@ const seedAcknowledgedAgreement = async (type: 'DOPA' | 'ROPA', signedAt: string
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 
-    mockClerkSession({
-        userId: user.id,
-        clerkUserId: user.clerkId,
-        email: user.email ?? undefined,
-        orgSlug: org.slug,
-        orgId: org.id,
-        roles: { isAdmin: false },
-        orgType,
-    })
+    restoreSession()
     actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
 
     return { org }

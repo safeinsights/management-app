@@ -40,22 +40,6 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 // The seeded documents on a dev database would break assertions about the tos/pn singletons.
 beforeEach(resetLegalDocuments)
 
-type TestUser = { id: string; clerkId: string; email: string | null }
-type TestOrg = { id: string; slug: string; type: OrgType }
-
-// Publishing replaces the session with an SI admin's, so the reader's is restored before acking:
-// the ack must belong to the user who then reads it.
-const asUser = (user: TestUser, org: TestOrg) =>
-    mockClerkSession({
-        userId: user.id,
-        clerkUserId: user.clerkId,
-        email: user.email ?? undefined,
-        orgSlug: org.slug,
-        orgId: org.id,
-        roles: { isAdmin: false },
-        orgType: org.type,
-    })
-
 const publishAsSiAdmin = async (
     scope: { type: 'SLA'; studyId: string } | { type: 'DOPA' | 'ROPA'; orgId: string } | { type: 'TOS' | 'PN' },
     signedAt?: string,
@@ -65,14 +49,16 @@ const publishAsSiAdmin = async (
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
+type Reader = Awaited<ReturnType<typeof insertReader>>
+
 const insertReader = async (orgType: OrgType) => {
-    const { user, org } = await mockSessionWithTestData({ orgType })
-    return { user, org: { id: org.id, slug: org.slug, type: org.type }, orgName: org.name }
+    const { user, org, restoreSession } = await mockSessionWithTestData({ orgType })
+    return { user, org, orgName: org.name, restoreSession }
 }
 
 describe('fetchUserStudyAgreementsAction', () => {
     // Distinct orgs on each side, so a swapped From/To join cannot pass.
-    const insertStudyForReader = async (reader: { org: TestOrg }, title = 'A study') => {
+    const insertStudyForReader = async (reader: Reader, title = 'A study') => {
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { study } = await insertTestStudyOnly({
             org: reader.org,
@@ -87,7 +73,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         const reader = await insertReader('enclave')
         const { study } = await insertStudyForReader(reader)
         await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
 
         const rows = actionResult(await fetchUserStudyAgreementsAction())
 
@@ -98,7 +84,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         const reader = await insertReader('enclave')
         const { study, researchLab } = await insertStudyForReader(reader, 'Teacher feedback timing')
         const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
 
         const rows = actionResult(await fetchUserStudyAgreementsAction())
@@ -120,11 +106,11 @@ describe('fetchUserStudyAgreementsAction', () => {
         const { study } = await insertStudyForReader(reader)
 
         const first = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-01-01')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
 
         const second = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-05-05')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: second.id }))
 
         const rows = actionResult(await fetchUserStudyAgreementsAction())
@@ -138,11 +124,11 @@ describe('fetchUserStudyAgreementsAction', () => {
         const { study } = await insertStudyForReader(reader)
 
         const first = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-01-01')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
 
         await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-08-08')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
 
         const rows = actionResult(await fetchUserStudyAgreementsAction())
 
@@ -160,7 +146,7 @@ describe('fetchUserStudyAgreementsAction', () => {
             .values({ legalDocumentVersionId: version.id, userId: colleague.id })
             .execute()
 
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
 
         expect(actionResult(await fetchUserStudyAgreementsAction())).toEqual([])
     })
@@ -169,7 +155,7 @@ describe('fetchUserStudyAgreementsAction', () => {
         const reader = await insertReader('enclave')
         const { study } = await insertStudyForReader(reader)
         const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-03-03')
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
         await db.updateTable('study').set({ status: 'ARCHIVED' }).where('id', '=', study.id).execute()
 
@@ -188,13 +174,9 @@ describe('fetchUserStudyAgreementsAction', () => {
 })
 
 describe('fetchUserParticipationAgreementsAction', () => {
-    const acknowledgeParticipation = async (
-        reader: { user: TestUser; org: TestOrg },
-        type: 'DOPA' | 'ROPA',
-        signedAt: string,
-    ) => {
+    const acknowledgeParticipation = async (reader: Reader, type: 'DOPA' | 'ROPA', signedAt: string) => {
         const version = await publishAsSiAdmin({ type, orgId: reader.org.id }, signedAt)
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
         return version
     }
@@ -235,7 +217,7 @@ describe('fetchUserParticipationAgreementsAction', () => {
         const reader = await insertReader('enclave')
         await acknowledgeParticipation(reader, 'DOPA', '2026-04-04')
         await db.deleteFrom('orgUser').where('userId', '=', reader.user.id).execute()
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
 
         expect(actionResult(await fetchUserParticipationAgreementsAction({ type: 'DOPA' }))).toHaveLength(1)
     })
@@ -260,7 +242,7 @@ describe('fetchUserGlobalDocumentAction', () => {
     it('returns the latest published version with its content and the acknowledgement date', async () => {
         const reader = await insertReader('enclave')
         const version = await publishAsSiAdmin({ type: 'TOS' })
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
 
         const document = actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))
@@ -275,11 +257,11 @@ describe('fetchUserGlobalDocumentAction', () => {
     it('reports a null acknowledgement date when the user owes the current version', async () => {
         const reader = await insertReader('enclave')
         const first = await publishAsSiAdmin({ type: 'TOS' })
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
 
         const second = await publishAsSiAdmin({ type: 'TOS' })
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
 
         const document = actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))
 
@@ -290,7 +272,7 @@ describe('fetchUserGlobalDocumentAction', () => {
     it('keeps the Terms of Service and the Privacy Notice apart', async () => {
         const reader = await insertReader('enclave')
         const tos = await publishAsSiAdmin({ type: 'TOS' })
-        await asUser(reader.user, reader.org)
+        reader.restoreSession()
 
         expect(actionResult(await fetchUserGlobalDocumentAction({ type: 'PN' }))).toBeNull()
         expect(actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))?.versionId).toBe(tos.id)

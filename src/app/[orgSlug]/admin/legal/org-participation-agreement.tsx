@@ -10,24 +10,16 @@ import {
 } from '@/schema/legal-document'
 import { fetchOrgParticipationAgreementAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
-import { LinkWithIcon } from '@/components/links'
+import { PdfLink } from '@/components/links'
 import { LoadingMessage } from '@/components/loading'
 import { Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
 
 const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
     <Stack gap="xs" align="flex-start">
         <Text>Effective on: {formatDayString(agreement.signedAt)}</Text>
-        <LinkWithIcon
-            href={agreement.downloadUrl}
-            target="_blank"
-            rel="noreferrer"
-            icon={<ArrowSquareOutIcon size={14} />}
-        >
-            PDF
-        </LinkWithIcon>
+        <PdfLink downloadUrl={agreement.downloadUrl} />
     </Stack>
 )
 

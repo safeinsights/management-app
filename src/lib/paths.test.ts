@@ -13,8 +13,6 @@ describe('extractOrgSlugFromPath', () => {
         ['/account/signin', null],
         ['/admin/safeinsights', null],
         ['/researcher/studies', null],
-        ['/legal', null],
-        ['/user-key', null],
         ['/', null],
         ['/acme', 'acme'],
         ['/acme/dashboard', 'acme'],

@@ -7,7 +7,7 @@ describe('formatInstantAsUtcDay', () => {
     })
 
     it('accepts an ISO string, which is how a timestamp can cross a server action', () => {
-        expect(formatInstantAsUtcDay('2026-05-04T00:30:00Z' as unknown as Date)).toBe('May 04, 2026')
+        expect(formatInstantAsUtcDay('2026-05-04T00:30:00Z')).toBe('May 04, 2026')
     })
 
     it('dashes a missing value', () => {

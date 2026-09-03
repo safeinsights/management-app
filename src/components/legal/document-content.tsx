@@ -1,7 +1,7 @@
 'use client'
 
 import { Paper, ScrollArea, Typography } from '@mantine/core'
-import type { FC } from 'react'
+import { memo, type FC } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -17,22 +17,43 @@ const MARKDOWN_LIST_COMPONENTS: Components = {
 
 type Props = {
     content: string
-    // A string so a full-page reader can pass 'none' rather than nest a second scrollbar.
-    maxHeight?: number | string
+    maxHeight?: number
+    // Skips the scroll area entirely. A full-page reader wants the page to scroll, and a
+    // never-scrolling ScrollArea still leaves a focusable dead tab stop.
+    unbounded?: boolean
     label?: string
 }
 
 export const LEGAL_DOCUMENT_MAX_HEIGHT = 280
 
+// Hoisted so react-markdown does not rebuild its processor and re-parse the whole document on
+// every render.
+const REMARK_PLUGINS = [remarkGfm]
+
 // No `rehype-raw`: this content reaches every user, so embedded HTML stays escaped.
-export const LegalDocumentContent: FC<Props> = ({ content, maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT, label }) => (
-    <Paper withBorder p="md">
-        <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
-            <Typography fz="sm">
-                <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
-                    {content}
-                </Markdown>
-            </Typography>
-        </ScrollArea.Autosize>
-    </Paper>
+const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
+    <Typography fz="sm">
+        <Markdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_LIST_COMPONENTS}>
+            {content}
+        </Markdown>
+    </Typography>
 )
+
+export const LegalDocumentContent: FC<Props> = memo(function LegalDocumentContent({
+    content,
+    maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT,
+    unbounded,
+    label,
+}) {
+    return (
+        <Paper withBorder p="md">
+            {unbounded ? (
+                <DocumentMarkdown content={content} />
+            ) : (
+                <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
+                    <DocumentMarkdown content={content} />
+                </ScrollArea.Autosize>
+            )}
+        </Paper>
+    )
+})

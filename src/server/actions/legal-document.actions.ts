@@ -566,17 +566,21 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .execute()
     })
 
-// An unsigned row carries nulls through, so the table has one shape and no sentinel value.
-const withAgreementDownloadUrl = async ({
+// The one place a row's file columns become a download url.
+const withPdfUrl = async <T extends { filePath: string; fileName: string; format: LegalDocumentFormat }>({
     filePath,
     fileName,
     format,
     ...rest
-}: Awaited<ReturnType<typeof orgStudyAgreements>>[number]) => {
+}: T) => ({ ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) })
+
+// An unsigned row carries nulls through, so the table has one shape and no sentinel value.
+const withAgreementDownloadUrl = async (row: Awaited<ReturnType<typeof orgStudyAgreements>>[number]) => {
+    const { filePath, fileName, format, ...rest } = row
     // Null together, all three being NOT NULL; an empty name would reach the browser as filename="".
     if (!filePath || !fileName || !format) return { ...rest, downloadUrl: null }
 
-    return { ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) }
+    return await withPdfUrl({ ...rest, filePath, fileName, format })
 }
 
 // An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin
@@ -621,14 +625,6 @@ export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticip
             },
         }
     })
-
-// Every row already carries a published version, so there is no null file to guard against.
-const withPdfUrl = async <T extends { filePath: string; fileName: string; format: LegalDocumentFormat }>({
-    filePath,
-    fileName,
-    format,
-    ...rest
-}: T) => ({ ...rest, downloadUrl: await legalDocumentDownloadUrl({ filePath, fileName, format }) })
 
 export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreementsAction')
     .requireAbilityTo('view', 'UserLegalDocuments')

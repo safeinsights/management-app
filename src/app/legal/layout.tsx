@@ -2,6 +2,6 @@ import { UserLayout } from '@/components/layout/user-layout'
 
 export const dynamic = 'force-dynamic'
 
-export default async function LegalLayout({ children }: { children: React.ReactNode }) {
+export default function LegalLayout({ children }: { children: React.ReactNode }) {
     return <UserLayout>{children}</UserLayout>
 }

@@ -2,7 +2,7 @@
 
 import { useQuery, type FC } from '@/common'
 import type { OrgType } from '@/database/types'
-import { EMPTY_CELL, formatDayString } from '@/lib/dates'
+import { formatDayString } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
@@ -11,9 +11,8 @@ import {
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
-import { LinkWithIcon } from '@/components/links'
+import { PdfLink } from '@/components/links'
 import { Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useMemo, useState } from 'react'
 
@@ -24,21 +23,6 @@ const DEFAULT_SORT: DataTableSortStatus<StudyAgreement> = { columnAccessor: 'sig
 
 // Stable identity so the sort memo survives renders while the query is loading.
 const EMPTY_ROWS: StudyAgreement[] = []
-
-const AgreementLink: FC<{ agreement: StudyAgreement }> = ({ agreement }) => {
-    if (!agreement.downloadUrl) return <Text c="dimmed">{EMPTY_CELL}</Text>
-
-    return (
-        <LinkWithIcon
-            href={agreement.downloadUrl}
-            target="_blank"
-            rel="noreferrer"
-            icon={<ArrowSquareOutIcon size={14} />}
-        >
-            PDF
-        </LinkWithIcon>
-    )
-}
 
 // The counterparty column is unsortable: it names the same org on most rows.
 const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgreement>[] => [
@@ -51,7 +35,7 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
         sortable: true,
         render: (agreement) => formatDayString(agreement.signedAt),
     },
-    { accessor: 'downloadUrl', title: 'View', render: (agreement) => <AgreementLink agreement={agreement} /> },
+    { accessor: 'downloadUrl', title: 'View', render: (agreement) => <PdfLink downloadUrl={agreement.downloadUrl} /> },
 ]
 
 const sortValues: Record<string, (row: StudyAgreement) => string> = {

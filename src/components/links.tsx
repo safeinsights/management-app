@@ -1,6 +1,8 @@
 'use client'
 
-import { Anchor as MantineAnchor, AnchorProps, ElementProps, Button, ButtonProps } from '@mantine/core'
+import { Anchor as MantineAnchor, AnchorProps, ElementProps, Button, ButtonProps, Text } from '@mantine/core'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
+import { EMPTY_CELL } from '@/lib/dates'
 import { FC, ReactNode } from 'react'
 import NextLink from 'next/link'
 import type { Route } from 'next'
@@ -58,3 +60,15 @@ export const ButtonLink: FC<ButtonLinkProps> = ({ href, target, children, ...anc
         {children}
     </Button>
 )
+
+// One rendering of "open the agreement PDF", shared by every legal table and panel. Null carries
+// through from an unsigned row, so callers need no guard of their own.
+export const PdfLink: FC<{ downloadUrl: string | null }> = ({ downloadUrl }) => {
+    if (!downloadUrl) return <Text c="dimmed">{EMPTY_CELL}</Text>
+
+    return (
+        <LinkWithIcon href={downloadUrl} target="_blank" rel="noreferrer" icon={<ArrowSquareOutIcon size={14} />}>
+            PDF
+        </LinkWithIcon>
+    )
+}
