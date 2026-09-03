@@ -734,7 +734,8 @@ export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchPa
         if (!agreement) return null
 
         const body = await bodyForVersion({ type: doctype, filePath: agreement.filePath, fileName: agreement.fileName })
-        if (body.format !== 'pdf') throw new ActionFailure({ agreement: 'is not a pdf' }) // ropa/dopa are always pdfs; this is mainly a type guard
+        // `legalDocumentFormats` fixes ropa/dopa as pdf, so this narrowing cannot fail.
+        if (body.format !== 'pdf') throw new Error('participation agreement is not a pdf')
 
         return {
             versionId: agreement.versionId,
