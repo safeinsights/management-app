@@ -533,6 +533,23 @@ describe('Data Partner and programming language fields', () => {
 
         expect(await screen.findByRole('radio', { name: 'Python' })).toBeChecked()
     })
+
+    // The reset rewrites the whole errors object to drop the language key. A rewrite that dropped
+    // the rest with it would silently clear an error on a field the reset has no business touching.
+    it('leaves the title error alone when the Data Partner changes', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'a'.repeat(61))
+        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await screen.findByRole('radio', { name: 'Python' })
+
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+    })
 })
 
 describe('Save & continue button', () => {
