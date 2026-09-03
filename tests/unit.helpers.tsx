@@ -571,7 +571,7 @@ export const mockClerkSession = (values: MockSession | null) => {
 
     if (values.isSiAdmin) {
         orgs[CLERK_ADMIN_ORG_SLUG] = {
-            id: 'si-org-id-mock',
+            id: BLANK_UUID,
             slug: CLERK_ADMIN_ORG_SLUG,
             type: 'enclave',
             isAdmin: true,

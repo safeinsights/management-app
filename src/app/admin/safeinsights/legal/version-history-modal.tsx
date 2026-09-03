@@ -3,12 +3,8 @@
 import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentFormats,
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type LegalDocumentTypeValue,
-} from '@/schema/legal-document'
+import type { LegalDocumentType } from '@/database/types'
+import { legalDocumentFormats, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -16,7 +12,7 @@ import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { formatInstant, formatDayString } from '@/lib/dates'
 import { PreviewDocument } from './preview-document'
 
-type Scope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
+type Scope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -40,7 +36,7 @@ const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ ve
     )
 }
 
-const documentColumnFor = (type: LegalDocumentTypeValue): DataTableColumn<Version> => {
+const documentColumnFor = (type: LegalDocumentType): DataTableColumn<Version> => {
     if (legalDocumentFormats[type] === 'markdown') {
         return {
             accessor: 'downloadUrl',
