@@ -714,8 +714,9 @@ export type ParticipationData = {
  */
 export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchParticipationAgreementFromInviteIdAction')
     .params(inviteParams)
-    // Unauthenticated by necessity. We only have the invite ID to go on.
-    // Won't work for a claimed invite.
+    // Unauthenticated by necessity: the signup form has only the invite id. That makes an
+    // unclaimed invite id a bearer token for this org's executed agreement, and invites
+    // have no TTL - revoking means deleting the row.
     .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData | null> => {
         const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } | undefined = await db
             .selectFrom('pendingUser')
