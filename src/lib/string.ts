@@ -115,6 +115,10 @@ export function displayOrgName(orgName: string): string {
         .trim()
 }
 
+export function plural(count: number, noun: string, pluralNoun = `${noun}s`): string {
+    return `${count} ${count === 1 ? noun : pluralNoun}`
+}
+
 export function toSentence(items: string[], conjunction: string = 'and'): string {
     if (items.length === 0) return ''
     if (items.length === 1) return items[0]
