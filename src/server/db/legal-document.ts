@@ -1,5 +1,5 @@
 import { type DBExecutor } from '@/database'
-import { type ParticipationAgreementType, type UserGlobalDocumentType } from '@/schema/legal-document'
+import { type ParticipationAgreementType } from '@/schema/legal-document'
 import type { LegalDocumentType, OrgType } from '@/database/types'
 import type { ExpressionBuilder, ReferenceExpression } from 'kysely'
 
@@ -96,37 +96,6 @@ export const userParticipationAgreements = (
         .innerJoin('org', 'org.id', 'legalDocument.orgId')
         .select(['org.id as orgId', 'org.name as orgName', ...acknowledgedVersionFields])
         .execute()
-
-// Latest PUBLISHED version, not the latest acked, so the page shows the terms in force.
-// Left join on the ack: the login gate is client-side and fails open, so the user may owe this one.
-export const userGlobalDocument = (
-    db: DBExecutor,
-    { userId, type }: { userId: string; type: UserGlobalDocumentType },
-) =>
-    db
-        .selectFrom('legalDocument')
-        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
-        // userId belongs in the ON clause: in a WHERE it would drop the row instead of the ack.
-        .leftJoin('legalDocumentAcknowledgement', (join) =>
-            join
-                .onRef('legalDocumentAcknowledgement.legalDocumentVersionId', '=', 'legalDocumentVersion.id')
-                .on('legalDocumentAcknowledgement.userId', '=', userId),
-        )
-        .select([
-            'legalDocumentVersion.id as versionId',
-            'legalDocumentVersion.filePath as filePath',
-            'legalDocumentVersion.publishedAt as publishedAt',
-            'legalDocumentAcknowledgement.ackedAt as ackedAt',
-        ])
-        .where('legalDocument.type', '=', type)
-        // Redundant against the CHECK constraint, but the planner cannot infer it, so without
-        // them only `type` bounds the legal_document_scope_unique scan.
-        .where('legalDocument.orgId', 'is', null)
-        .where('legalDocument.studyId', 'is', null)
-        .where('legalDocumentVersion.publishedAt', 'is not', null)
-        .orderBy('legalDocumentVersion.versionNumber', 'desc')
-        .limit(1)
-        .executeTakeFirst()
 
 // Both directions come from here so they cannot point at the same org.
 const studyAgreementSides = {

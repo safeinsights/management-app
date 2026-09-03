@@ -4,8 +4,6 @@ import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 // Any role but `legal`, whose user is left owing ToS v2 and meets a blocking modal on every page.
 test.use({ storageState: authFileFor('reviewer') })
 
-const LEGAL = '/legal'
-
 const TAB_NAMES = [
     'Study Agreement',
     'Data Organization Participation Agreement',
@@ -14,7 +12,7 @@ const TAB_NAMES = [
     'Privacy Notice',
 ]
 
-// Table contents are not asserted: nothing acknowledges an SLA or DOPA/ROPA yet.
+// Study agreement rows are not asserted: nothing acknowledges an SLA yet.
 test.describe('Personal legal page', () => {
     test('a user reaches their legal page from the profile menu and reads the terms they signed', async ({ page }) => {
         await visitAsRole(page, '/dashboard')
@@ -37,7 +35,7 @@ test.describe('Personal legal page', () => {
     })
 
     test('the privacy notice panel renders its own document', async ({ page }) => {
-        await visitAsRole(page, LEGAL)
+        await visitAsRole(page, '/legal')
 
         await page.getByRole('tab', { name: 'Privacy Notice' }).click()
 

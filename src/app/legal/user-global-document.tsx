@@ -4,16 +4,17 @@ import { useQuery, type FC } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { LegalMarkdownContent } from '@/components/legal/markdown-content'
 import { LegalPanel } from '@/components/legal/legal-panel'
+import { PdfLink } from '@/components/legal/pdf-link'
 import { LoadingMessage } from '@/components/loading'
 import { formatInstantAsUtcDay } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels, type UserGlobalDocumentType } from '@/schema/legal-document'
+import { type GlobalLegalDocumentType, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchUserGlobalDocumentAction } from '@/server/actions/legal-document.actions'
 import { Stack, Text } from '@mantine/core'
 
 type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocumentAction>>
 
-type Props = { type: UserGlobalDocumentType }
+type Props = { type: GlobalLegalDocumentType }
 
 // Both dates are UTC because both are real instants: on mixed bases an ack can read as a day
 // earlier than the effective date. Acknowledged on is a left join, so it dashes for a user who
@@ -33,6 +34,8 @@ const DocumentDates: FC<{ document?: GlobalDocument | null }> = ({ document }) =
     )
 }
 
+// A global document is markdown today, but the format rides the payload, so a pdf renders as a
+// link rather than as its own bytes.
 const DocumentBody: FC<{ isLoading: boolean; document?: GlobalDocument | null; label: string }> = ({
     isLoading,
     document,
@@ -40,8 +43,10 @@ const DocumentBody: FC<{ isLoading: boolean; document?: GlobalDocument | null; l
 }) => {
     if (isLoading) return <LoadingMessage message={`Loading ${label}`} />
     if (!document) return <Text c="dimmed">Not available</Text>
+    if (document.format === 'pdf') return <PdfLink url={document.url} label={label} />
 
-    return <LegalMarkdownContent content={document.content} unbounded label={label} />
+    // No label: LegalPanel's heading already names it, and unbounded has no scroll region to name.
+    return <LegalMarkdownContent content={document.content} unbounded />
 }
 
 export const UserGlobalDocument: FC<Props> = ({ type }) => {

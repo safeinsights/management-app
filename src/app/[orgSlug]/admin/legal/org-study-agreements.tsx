@@ -3,16 +3,19 @@
 import { useQuery, type FC } from '@/common'
 import type { OrgType } from '@/database/types'
 import { formatDayString } from '@/lib/dates'
+import { sortAgreements, type SortValues } from '@/lib/sort-agreements'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
+    legalDocumentTypeLabels,
     studyAgreementCounterpartyLabels,
     studyAgreementDisplayTitle,
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
-import { PdfLink } from '@/components/links'
-import { Paper, Stack, Text, Title } from '@mantine/core'
+import { LegalPanel } from '@/components/legal/legal-panel'
+import { PdfLink } from '@/components/legal/pdf-link'
+import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useMemo, useState } from 'react'
 
@@ -35,33 +38,13 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
         sortable: true,
         render: (agreement) => formatDayString(agreement.signedAt),
     },
-    { accessor: 'downloadUrl', title: 'View', render: (agreement) => <PdfLink downloadUrl={agreement.downloadUrl} /> },
+    { accessor: 'downloadUrl', title: 'View', render: (agreement) => <PdfLink url={agreement.downloadUrl} /> },
 ]
 
-const sortValues: Record<string, (row: StudyAgreement) => string> = {
+const sortValues: SortValues<StudyAgreement> = {
     studyId: (row) => row.studyId,
     studyTitle: studyAgreementDisplayTitle,
     signedAt: (row) => row.signedAt ?? '',
-}
-
-// Unsigned studies stay at the bottom whichever way the column points. signedAt is YYYY-MM-DD,
-// so it sorts chronologically as text.
-const sortAgreements = (rows: StudyAgreement[], { columnAccessor, direction }: DataTableSortStatus<StudyAgreement>) => {
-    const flip = direction === 'asc' ? 1 : -1
-    const valueOf = sortValues[columnAccessor as string] ?? (() => '')
-
-    return [...rows].sort((a, b) => {
-        if (columnAccessor === 'signedAt' && (!a.signedAt || !b.signedAt)) {
-            // Two unsigned rows fall through to the title; returning 0 would leave them in
-            // whatever order the planner produced.
-            const bySignedPresence = Number(Boolean(b.signedAt)) - Number(Boolean(a.signedAt))
-            if (bySignedPresence !== 0) return bySignedPresence
-        } else {
-            const byColumn = valueOf(a).localeCompare(valueOf(b)) * flip
-            if (byColumn !== 0) return byColumn
-        }
-        return studyAgreementDisplayTitle(a).localeCompare(studyAgreementDisplayTitle(b)) * flip
-    })
 }
 
 const EmptyState: FC = () => (
@@ -83,7 +66,15 @@ const useOrgStudyAgreements = (orgSlug: string) => {
     })
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<StudyAgreement>>(DEFAULT_SORT)
 
-    const records = useMemo(() => sortAgreements(agreements, sortStatus), [agreements, sortStatus])
+    const records = useMemo(
+        () =>
+            sortAgreements(agreements, sortStatus, {
+                sortValues,
+                tieBreakBy: 'studyTitle',
+                sinkEmpty: sortStatus.columnAccessor === 'signedAt' ? (row) => row.signedAt ?? '' : undefined,
+            }),
+        [agreements, sortStatus],
+    )
 
     return { records, isLoading, isError, error, sortStatus, setSortStatus }
 }
@@ -112,10 +103,7 @@ const StudyAgreementsTable: FC<{ orgSlug: string; counterpartyLabel: string }> =
 }
 
 export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ orgSlug, orgType }) => (
-    <Paper shadow="xs" p="xl">
-        <Title order={3} mb="lg">
-            Study Agreement
-        </Title>
+    <LegalPanel title={legalDocumentTypeLabels.SLA}>
         <StudyAgreementsTable orgSlug={orgSlug} counterpartyLabel={studyAgreementCounterpartyLabels[orgType]} />
-    </Paper>
+    </LegalPanel>
 )

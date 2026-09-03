@@ -5,11 +5,11 @@ import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import type { ActionResponse } from '@/lib/errors'
 import { formatDayString, formatInstant } from '@/lib/dates'
-import { PdfLink } from '@/components/links'
+import { PdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useMemo, useState } from 'react'
-import { sortAgreements, type SortValues } from './sort-agreements'
+import { sortAgreements, type SortColumn, type SortValues } from '@/lib/sort-agreements'
 
 type AgreementRow = { signedAt: string | null; ackedAt: Date; downloadUrl: string | null }
 
@@ -20,22 +20,23 @@ const DEFAULT_SORT = { columnAccessor: 'ackedAt', direction: 'desc' } as const
 export const agreementDateColumns = <T extends AgreementRow>(): DataTableColumn<T>[] => [
     { accessor: 'signedAt', title: 'Effective on', sortable: true, render: (row) => formatDayString(row.signedAt) },
     { accessor: 'ackedAt', title: 'Acknowledged on', sortable: true, render: (row) => formatInstant(row.ackedAt) },
-    { accessor: 'downloadUrl', title: 'View', render: (row) => <PdfLink downloadUrl={row.downloadUrl} /> },
+    { accessor: 'downloadUrl', title: 'View', render: (row) => <PdfLink url={row.downloadUrl} /> },
 ]
 
-// A server timestamp can cross a server action as an ISO string, so it is re-wrapped rather than
-// read as a Date.
-export const agreementDateSortValues = <T extends AgreementRow>(): SortValues<T> => ({
+// Typed against AgreementRow rather than each table's row: the accessors only read the shared
+// fields, so they spread into any row that has them. A server timestamp can cross a server action
+// as an ISO string, so ackedAt is re-wrapped rather than read as a Date.
+export const agreementDateSortValues: SortValues<AgreementRow> = {
     signedAt: (row) => row.signedAt ?? '',
     ackedAt: (row) => new Date(row.ackedAt).toISOString(),
-})
+}
 
 type Props<T> = {
     label: string
     idAccessor: string
     columns: DataTableColumn<T>[]
     sortValues: SortValues<T>
-    tieBreakBy: string
+    tieBreakBy: SortColumn<T>
     queryKey: readonly unknown[]
     queryFn: () => Promise<ActionResponse<T[]>>
 }
@@ -55,7 +56,7 @@ const useSortedAgreements = <T,>({ queryKey, queryFn, sortValues, tieBreakBy }: 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<T>>(DEFAULT_SORT)
 
     const records = useMemo(
-        () => sortAgreements(data, sortStatus, sortValues, tieBreakBy),
+        () => sortAgreements(data, sortStatus, { sortValues, tieBreakBy }),
         [data, sortStatus, sortValues, tieBreakBy],
     )
 

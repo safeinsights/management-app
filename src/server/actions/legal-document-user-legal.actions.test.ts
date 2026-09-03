@@ -248,7 +248,8 @@ describe('fetchUserGlobalDocumentAction', () => {
         const document = actionResult(await fetchUserGlobalDocumentAction({ type: 'TOS' }))
 
         expect(document?.versionId).toBe(version.id)
-        expect(document?.content).toBe(`content of ${version.filePath}`)
+        expect(document?.format).toBe('markdown')
+        expect(document && 'content' in document && document.content).toBe(`content of ${version.filePath}`)
         expect(document?.publishedAt).toBeInstanceOf(Date)
         expect(document?.ackedAt).toBeInstanceOf(Date)
     })

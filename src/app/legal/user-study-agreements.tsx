@@ -19,7 +19,7 @@ const columns: DataTableColumn<StudyAgreement>[] = [
 ]
 
 const sortValues = {
-    ...agreementDateSortValues<StudyAgreement>(),
+    ...agreementDateSortValues,
     studyId: (row: StudyAgreement) => row.studyId,
     studyTitle: studyAgreementDisplayTitle,
 }

@@ -10,16 +10,17 @@ import {
 } from '@/schema/legal-document'
 import { fetchOrgParticipationAgreementAction } from '@/server/actions/legal-document.actions'
 import { ErrorAlert } from '@/components/errors'
-import { PdfLink } from '@/components/links'
+import { LegalPanel } from '@/components/legal/legal-panel'
+import { PdfLink } from '@/components/legal/pdf-link'
 import { LoadingMessage } from '@/components/loading'
-import { Paper, Stack, Text, Title } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
 
 const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
     <Stack gap="xs" align="flex-start">
         <Text>Effective on: {formatDayString(agreement.signedAt)}</Text>
-        <PdfLink downloadUrl={agreement.downloadUrl} />
+        <PdfLink url={agreement.downloadUrl} />
     </Stack>
 )
 
@@ -58,10 +59,7 @@ export const OrgParticipationAgreement: FC<{ orgSlug: string; type: Participatio
     const label = legalDocumentTypeLabels[type]
 
     return (
-        <Paper shadow="xs" p="xl">
-            <Title order={3} mb="lg">
-                {label}
-            </Title>
+        <LegalPanel title={label}>
             <AgreementBody
                 isLoading={isLoading}
                 isError={isError}
@@ -69,6 +67,6 @@ export const OrgParticipationAgreement: FC<{ orgSlug: string; type: Participatio
                 agreement={data?.agreement}
                 label={label}
             />
-        </Paper>
+        </LegalPanel>
     )
 }

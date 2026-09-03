@@ -18,12 +18,13 @@ import {
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
-    userGlobalDocumentParams,
+    globalDocumentTypeParams,
     inviteParams,
     GlobalLegalDocumentType,
     globalLegalDocumentTypes,
     type GlobalLegalDocument,
     type PendingLegalDocument,
+    type ResolvedLegalDocument,
     type LegalDocumentBody,
 } from '@/schema/legal-document'
 import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
@@ -32,7 +33,6 @@ import {
     findOrCreateLegalDocument,
     orgParticipationAgreement,
     orgStudyAgreements,
-    userGlobalDocument,
     userParticipationAgreements,
     userStudyAgreements,
     owedDocValidatorEb,
@@ -271,6 +271,7 @@ type GenericVersion = {
     fileName: string // names the download; a pdf key is a bare uuid without it
     orgId: string | null // not null only for ropa/dopa
     studyId: string | null // not null only for sla
+    publishedAt: Date | null // tos/pn carry no signed_at, so this is their only effective date
 }
 
 type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
@@ -295,6 +296,7 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
             'legalDocumentVersion.fileName as fileName',
+            'legalDocumentVersion.publishedAt as publishedAt',
         ])
         .where('legalDocument.type', 'in', [...types])
         .where('legalDocumentVersion.publishedAt', 'is not', null)
@@ -648,7 +650,7 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .execute()
     })
 
-// The one place a row's file columns become a download url.
+// Strips the file columns as it goes, so a presigned url reaches the client and the S3 key does not.
 const withPdfUrl = async <T extends { filePath: string; fileName: string; format: LegalDocumentFormat }>({
     filePath,
     fileName,
@@ -726,21 +728,37 @@ export const fetchUserParticipationAgreementsAction = new Action('fetchUserParti
         return await Promise.all(rows.map(withPdfUrl))
     })
 
+// The terms in force, not the version the user acked. Those coincide whenever the login gate has
+// done its job; ackedAt is looked up separately so it reads null for a user who reached the page
+// still owing this version.
 export const fetchUserGlobalDocumentAction = new Action('fetchUserGlobalDocumentAction')
-    .params(userGlobalDocumentParams)
+    .params(globalDocumentTypeParams)
     .requireAbilityTo('view', 'UserLegalDocuments')
-    .handler(async ({ db, session, params: { type } }) => {
-        const document = await userGlobalDocument(db, { userId: session.user.id, type })
-        if (!document) return null
+    .handler(
+        async ({
+            db,
+            session,
+            params: { type },
+        }): Promise<(ResolvedLegalDocument & { publishedAt: Date | null; ackedAt: Date | null }) | null> => {
+            const [version] = await latestVersionsOfTypes(db, [type], [])
+            if (!version) return null
 
-        return {
-            versionId: document.versionId,
-            // tos/pn never carry a signed_at, so the day it went live is the only effective date.
-            publishedAt: document.publishedAt,
-            ackedAt: document.ackedAt,
-            content: await contentOf(document.filePath),
-        }
-    })
+            const ack = await db
+                .selectFrom('legalDocumentAcknowledgement')
+                .select('ackedAt')
+                .where('legalDocumentVersionId', '=', version.versionId)
+                .where('userId', '=', session.user.id)
+                .executeTakeFirst()
+
+            return {
+                type,
+                versionId: version.versionId,
+                publishedAt: version.publishedAt,
+                ackedAt: ack?.ackedAt ?? null,
+                ...(await bodyForVersion(version)),
+            }
+        },
+    )
 
 export type ParticipationData = {
     versionId: string
