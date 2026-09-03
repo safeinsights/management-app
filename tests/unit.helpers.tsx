@@ -137,9 +137,11 @@ export function renderWithProviders(
     )
 }
 
-// The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,
-// so there is no role or text to find it by.
-export const pageHeaderEyebrow = () => screen.getByTestId('page-header-eyebrow').textContent
+// The eyebrow above a page's h1 is a paragraph, so there is no role to find it by. An absent one
+// renders a non-breaking space to hold its height; that placeholder is stripped here so a page
+// with no eyebrow still reads as ''.
+export const pageHeaderEyebrow = () =>
+    screen.getByTestId('page-header-eyebrow').textContent?.replace(/\u00a0/g, '') ?? ''
 
 export * from './common.helpers'
 

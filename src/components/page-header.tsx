@@ -1,22 +1,12 @@
 import type { FC, ReactNode } from 'react'
 import { Stack, Text, Title } from '@mantine/core'
 
-const EYEBROW_FONT_SIZE = 'sm'
-// Reserved even when empty so the H1 sits at the same height on every page, matching the library
-// component's hidden-eyebrow variant. Derived from the eyebrow's own font size so the two cannot
-// drift. An empty Text is invisible to screen readers.
-const EYEBROW_MIN_HEIGHT = `calc(var(--mantine-font-size-${EYEBROW_FONT_SIZE}) * var(--mantine-line-height))`
-
+// An empty block box has no inline content to build a line box from, so it measures zero. A
+// non-breaking space gives the slot the exact height a real eyebrow takes, with no value to keep in
+// sync, and hiding the empty slot stops a screen reader announcing the blank line it introduces.
 const Eyebrow: FC<{ text?: string | null }> = ({ text }) => (
-    <Text
-        fz={EYEBROW_FONT_SIZE}
-        fw={600}
-        c="charcoal.6"
-        tt="uppercase"
-        mih={EYEBROW_MIN_HEIGHT}
-        data-testid="page-header-eyebrow"
-    >
-        {text}
+    <Text fz="sm" fw={600} c="charcoal.6" tt="uppercase" data-testid="page-header-eyebrow" aria-hidden={!text}>
+        {text || '\u00a0'}
     </Text>
 )
 

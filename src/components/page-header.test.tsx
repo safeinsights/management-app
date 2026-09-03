@@ -25,13 +25,20 @@ describe('PageHeader', () => {
         expect(screen.queryByText('GENIUS RESEARCH LAB')).not.toBeInTheDocument()
     })
 
-    // The slot stays in the DOM so the heading keeps its position on every page, but it must carry
-    // no text a screen reader would announce.
-    it('reserves an empty eyebrow slot when none is given', () => {
+    // The slot stays in the DOM so the heading keeps its position on every page. It holds a
+    // non-breaking space to have any height at all, so it must be hidden rather than merely empty.
+    it('reserves an empty eyebrow slot when none is given, hidden from screen readers', () => {
         renderWithProviders(<PageHeader title="My dashboard" />)
 
         expect(screen.getByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
         expect(pageHeaderEyebrow()).toBe('')
+        expect(screen.getByTestId('page-header-eyebrow')).toHaveAttribute('aria-hidden', 'true')
+    })
+
+    it('leaves a filled eyebrow visible to screen readers', () => {
+        renderWithProviders(<PageHeader eyebrow="Genius Research Lab" title="Manage team" />)
+
+        expect(screen.getByTestId('page-header-eyebrow')).not.toHaveAttribute('aria-hidden', 'true')
     })
 
     it('treats a null eyebrow the same as an absent one', () => {
