@@ -16,13 +16,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-    getStudyReviewForJob,
-    type JobScanResult,
-    jobScanResultForJob,
-    latestJobForStudy,
-    type LatestJobForStudy,
-} from '@/server/db/queries'
+import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
 import { JobAnalysisPanels, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
@@ -117,12 +111,14 @@ async function refreshFixtureJob(fixture: Fixture): Promise<Fixture> {
 }
 
 async function renderSection(fixture: Fixture, scanOverride?: JobScanResult) {
-    const [review, scan] = await Promise.all([
-        getStudyReviewForJob(fixture.job.id),
-        scanOverride ? Promise.resolve(scanOverride) : jobScanResultForJob(fixture.job.id),
-    ])
+    const analysis = await jobAnalysisForJob(fixture.job)
     return renderWithProviders(
-        <SubmittedCodeSection orgSlug={ORG_SLUG} study={fixture.study} job={fixture.job} review={review} scan={scan} />,
+        <SubmittedCodeSection
+            orgSlug={ORG_SLUG}
+            study={fixture.study}
+            job={fixture.job}
+            analysis={scanOverride ? { ...analysis, scan: scanOverride } : analysis}
+        />,
     )
 }
 
@@ -314,7 +310,7 @@ describe('SubmittedCodeSection — AI summary', () => {
     it('surfaces the error + retry state immediately when a failed review row exists', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
-        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(failedFixture.job)).review
         // submittedAt anchored to now so the backstop has not elapsed: the error can only come
         // from the persisted failure row.
         renderWithProviders(
@@ -335,7 +331,7 @@ describe('SubmittedCodeSection — AI summary', () => {
     it('retrying a failed summary clears the failure row and drops back to pending', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
-        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(failedFixture.job)).review
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={failedFixture.job.id}
@@ -348,13 +344,13 @@ describe('SubmittedCodeSection — AI summary', () => {
         await user.click(await screen.findByTestId('ai-summary-retry'))
 
         await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
-        const remaining = await getStudyReviewForJob(failedFixture.job.id)
+        const remaining = (await jobAnalysisForJob(failedFixture.job)).review
         expect(remaining?.summaryFailedAt ?? null).toBeNull()
     })
 
     it('flips the spinner to an error once the backstop elapses past submission with no row', async () => {
         const noReviewFixture = await setupBaseFixture()
-        const initialReview = await getStudyReviewForJob(noReviewFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(noReviewFixture.job)).review
         // A short backstop exercises the escalation without fake timers, which break the shared
         // DB pool mid-file.
         renderWithProviders(
@@ -374,7 +370,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 
     it('errors immediately when the page is opened long after a submission that never produced a row', async () => {
         const staleFixture = await setupBaseFixture()
-        const initialReview = await getStudyReviewForJob(staleFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(staleFixture.job)).review
         // Beyond the backstop: the spinner must not even flash.
         const longAgo = new Date(Date.now() - 10 * 60_000)
         renderWithProviders(
@@ -392,7 +388,7 @@ describe('SubmittedCodeSection — AI summary', () => {
     it('keeps the blank-summary empty-state and never errors once a row exists, even past the backstop', async () => {
         const blankFixture = await setupBaseFixture()
         await insertStudyReview(blankFixture.job.id, '')
-        const initialReview = await getStudyReviewForJob(blankFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(blankFixture.job)).review
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={blankFixture.job.id}
@@ -568,7 +564,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
     it('stops polling once the scan and the summary have both arrived', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
-        const review = await getStudyReviewForJob(fixture.job.id)
+        const review = (await jobAnalysisForJob(fixture.job)).review
         vi.mocked(getJobAnalysisAction).mockResolvedValue(
             actionResult({ review, scan: scanResult('PASSED', 'PASSED') }),
         )
@@ -769,18 +765,14 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 
     it('shows the code body up front and calls onCollapse from the closer toggle in onCollapse mode', async () => {
         const fixture = await setupFilesFixture(['main.R'])
-        const [review, scan] = await Promise.all([
-            getStudyReviewForJob(fixture.job.id),
-            jobScanResultForJob(fixture.job.id),
-        ])
+        const analysis = await jobAnalysisForJob(fixture.job)
         const onCollapse = vi.fn()
         renderWithProviders(
             <SubmittedCodeSection
                 orgSlug={ORG_SLUG}
                 study={fixture.study}
                 job={fixture.job}
-                review={review}
-                scan={scan}
+                analysis={analysis}
                 onCollapse={onCollapse}
             />,
         )
@@ -796,18 +788,14 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 
     it('keeps the closer toggle visible in onCollapse mode when there are no code files', async () => {
         const fixture = await setupBaseFixture()
-        const [review, scan] = await Promise.all([
-            getStudyReviewForJob(fixture.job.id),
-            jobScanResultForJob(fixture.job.id),
-        ])
+        const analysis = await jobAnalysisForJob(fixture.job)
         const onCollapse = vi.fn()
         renderWithProviders(
             <SubmittedCodeSection
                 orgSlug={ORG_SLUG}
                 study={fixture.study}
                 job={fixture.job}
-                review={review}
-                scan={scan}
+                analysis={analysis}
                 onCollapse={onCollapse}
             />,
         )

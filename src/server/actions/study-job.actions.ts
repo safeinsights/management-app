@@ -11,7 +11,7 @@ import {
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
-import { type ActionSuccessType, JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
+import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { FileType } from '@/database/types'
 import {
     codeSubmissionVersion,
@@ -20,8 +20,7 @@ import {
     getSharedFileIdsForJob,
     getStudyJobFileOfType,
     getStudyJobInfo,
-    getStudyReviewForJob,
-    jobScanResultForJob,
+    jobAnalysisForJob,
     latestJobForStudy,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
@@ -273,8 +272,6 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
 
-export type JobAnalysis = ActionSuccessType<typeof getJobAnalysisAction>
-
 // The review panel and the scan panel describe the same submission, so they are fetched together:
 // one authorization, one getStudyJobInfo, one round-trip per poll tick instead of two.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
@@ -284,13 +281,7 @@ export const getJobAnalysisAction = new Action('getJobAnalysisAction')
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId }, studyJob }) => {
-        const [review, scan] = await Promise.all([
-            getStudyReviewForJob(studyJobId, studyJob),
-            jobScanResultForJob(studyJobId),
-        ])
-        return { review, scan }
-    })
+    .handler(async ({ studyJob }) => await jobAnalysisForJob(studyJob))
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))

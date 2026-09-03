@@ -609,12 +609,18 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
     }
 }
 
-// Takes the job rather than re-reading it: every caller already holds one, and passing it keeps the
-// round rule on the single path that answers "is there a summary for this code?" (OTTER-775).
-export async function getStudyReviewForJob(
-    studyJobId: string,
-    job?: { createdAt: Date | string; statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }> },
-): Promise<StudyReviewWithMeta | null> {
+// The round rule needs the job's submission history, so the job is the argument rather than a bare
+// id: passing both let a caller pair one job's id with another's statuses (OTTER-775). The id key
+// differs by query — getStudyJobInfo aliases it to studyJobId — so either spelling is accepted.
+export type JobForRound = {
+    createdAt: Date | string
+    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
+} & ({ id: string } | { studyJobId: string })
+
+const jobRowId = (job: JobForRound) => ('id' in job ? job.id : job.studyJobId)
+
+export async function getStudyReviewForJob(job: JobForRound): Promise<StudyReviewWithMeta | null> {
+    const studyJobId = jobRowId(job)
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
@@ -638,6 +644,14 @@ export async function getStudyReviewForJob(
 
     if (!row) return null
 
-    const forRound = job ?? (await getStudyJobInfo(studyJobId))
-    return reviewForCurrentRound(row, latestCodeSubmittedAt(forRound))
+    return reviewForCurrentRound(row, latestCodeSubmittedAt(job))
+}
+
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
+
+// The summary and the scan always travel together — both server renders of the code section and the
+// poll that keeps it current need the pair — so they are fetched as one thing.
+export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
+    return { review, scan }
 }

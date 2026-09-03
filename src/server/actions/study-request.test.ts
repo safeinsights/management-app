@@ -34,7 +34,7 @@ import {
 } from '@/server/actions/study-request'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { getStudyReviewForJob } from '@/server/db/queries'
+import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
@@ -1456,7 +1456,7 @@ describe('Request Study Actions', () => {
 
             await flushDeferred()
 
-            const review = await getStudyReviewForJob(result.studyJobId)
+            const review = await getStudyReviewForJob(await latestJobForStudy(study.id))
             expect(review?.report?.codeExplanation).not.toBe(staleExplanation)
         })
 

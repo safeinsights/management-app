@@ -5,7 +5,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
-import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudyOrNull } from '@/server/db/queries'
+import { jobAnalysisForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
@@ -76,7 +76,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const [review, scan] = await Promise.all([getStudyReviewForJob(job.id, job), jobScanResultForJob(job.id)])
+    const analysis = await jobAnalysisForJob(job)
     // Not /review, which would re-resolve to this very screen (OTTER-643, OTTER-727).
     const previousHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
@@ -95,8 +95,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
-                    review={review}
-                    scan={scan}
+                    analysis={analysis}
                     stepLabel="STEP 3"
                     heading={heading}
                     timestampDate={latestCodeSubmittedAt(job)}

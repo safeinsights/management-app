@@ -30,10 +30,9 @@ import {
     fetchScanLogAction,
     fetchStudyJobCodeFileAction,
     getJobAnalysisAction,
-    type JobAnalysis,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,

@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
@@ -25,8 +25,7 @@ type PostFeedbackViewProps = {
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
-    review?: StudyReviewWithMeta | null
-    scan?: JobScanResult | null
+    analysis?: JobAnalysis | null
     // Proposal approve/reject can write a CODE-* job status with no code-review comment, so
     // without this the page would blank out.
     fallback?: {
@@ -206,8 +205,7 @@ export function PostFeedbackView({
     entries,
     kind = 'PROPOSAL',
     job = null,
-    review = null,
-    scan = null,
+    analysis = null,
     fallback,
     previousHref,
     nextStepHref,
@@ -238,8 +236,7 @@ export function PostFeedbackView({
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
-                    review={review}
-                    scan={scan}
+                    analysis={analysis}
                     stepLabel={kindCopy.stepLabel}
                     heading={kindCopy.heading}
                     timestampLabel={timestampLabel}

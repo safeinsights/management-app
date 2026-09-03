@@ -1,7 +1,7 @@
 import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
@@ -53,8 +53,7 @@ type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
     job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
-    review: StudyReviewWithMeta | null
-    scan: JobScanResult
+    analysis: JobAnalysis
     codeInitiallyExpanded?: boolean
     /**
      * When set, the parent owns whole-section expand/collapse (post-decision reviewer page). The
@@ -85,8 +84,7 @@ export function SubmittedCodeSection({
     orgSlug,
     study,
     job,
-    review,
-    scan,
+    analysis,
     codeInitiallyExpanded = true,
     onCollapse,
 }: SubmittedCodeSectionProps) {
@@ -103,11 +101,7 @@ export function SubmittedCodeSection({
                 <DatasetPills names={datasetNames} />
                 <Divider />
                 <Stack gap="xxl">
-                    <JobAnalysisPanels
-                        studyJobId={job.id}
-                        initialAnalysis={{ review, scan }}
-                        submittedAt={submittedAt}
-                    />
+                    <JobAnalysisPanels studyJobId={job.id} initialAnalysis={analysis} submittedAt={submittedAt} />
                     <Divider />
                     <StudyCodeViewer
                         studyJobId={job.id}
