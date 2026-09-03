@@ -2,9 +2,8 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { Decision } from '@/lib/review-decision'
 import type { Submitted } from '@/schema/study'
 
-// Review flows always operate on a submitted study (status != DRAFT), so the
-// title is guaranteed non-null by the DB CHECK constraint. Route entry points
-// must narrow with isSubmittedStudy() before rendering review components.
+// A submitted study's title is non-null by DB CHECK constraint, so route entry points must narrow
+// with isSubmittedStudy() first.
 export type StudyForReview = Submitted<SelectedStudy>
 
 export type DecisionOption = {

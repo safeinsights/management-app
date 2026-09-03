@@ -106,7 +106,6 @@ describe('View Study Results', () => {
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResults job={job} />)
 
-        // One row per file; the shared file shows by name (content needs decryption).
         await waitFor(() => {
             expect(screen.getByText('approved.csv')).toBeDefined()
         })

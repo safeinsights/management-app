@@ -17,13 +17,7 @@ import { EditorSurface } from './editor-surface'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
 
-/**
- * Non-collaborative editor used when NEXT_PUBLIC_SINGLE_USER_EDITING is set.
- * Accepts the same prop surface as CollaborativeEditor (collaboration-only props
- * are accepted and ignored) so callers can swap between the two transparently.
- * Content is seeded from `initialValue` and persisted through the parent's
- * `onChange` to the existing Lexical JSON columns — no Yjs, no websocket.
- */
+// Mirrors CollaborativeEditor's prop surface so callers swap transparently.
 export type SingleUserEditorProps = {
     id: string
     /** Serialized Lexical JSON to seed the editor with. */
@@ -33,37 +27,23 @@ export type SingleUserEditorProps = {
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
-    /** See EditorProps.footerLeft. */
     footerLeft?: React.ReactNode
     footerRight?: React.ReactNode
-    /** DOM id for the focusable editor surface. Distinct from `id`, which names the Yjs document. */
+    /** DOM id of the focusable surface. Distinct from `id`, which names the Yjs document. */
     inputId?: string
-    /**
-     * Presence drives the red border, `aria-invalid`, and hiding the save indicator; the message
-     * itself is rendered by the caller. Typed `string`, not `ReactNode`, so presence stays a plain
-     * truthiness check — a falsy-but-present node (`0`, `''`) can't read as "no error".
-     */
+    /** `string` not `ReactNode`, so a falsy node cannot read as "no error". */
     error?: string | null
-    /** Id(s) of the description/error nodes describing this editor. */
     ariaDescribedBy?: string
-    /** Marks the editor required to assistive tech; the label asterisk is visual only. */
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
-    /**
-     * Height of the editable area before any typing or dragging. Falls back to
-     * `contentStyle.minHeight`, then to the shared default.
-     */
     contentHeight?: number
-    /** Opt-in drag handle. Off unless passed, so only the fields a card asks for get one. */
     isResizable?: boolean
-    /** Extra plugins/children rendered inside the Lexical composer context. */
     children?: React.ReactNode
 }
 
 function createInitialConfig(id: string, initialValue: string | undefined) {
-    // Lexical throws if initialized with empty-root JSON (legacy rows predate the
-    // EditorChangePlugin save-boundary filter), so fall back to its default state.
+    // Lexical throws if initialized with the empty-root JSON that legacy rows hold.
     const editorState = isValidLexicalState(initialValue) ? initialValue : undefined
     return {
         namespace: `single-user-editor-${id}`,
@@ -80,8 +60,7 @@ function EditorChangePlugin({ onChange }: { onChange: (json: string) => void }) 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }: { editorState: EditorState }) => {
             const json = editorState.toJSON()
-            // Mirror the collaborative editor: never persist an empty root, which
-            // Lexical rejects on re-hydration and would crash the read-only views.
+            // Never persist an empty root, which Lexical rejects on re-hydration.
             if (!json.root?.children?.length) return
             onChange(JSON.stringify(json))
         })

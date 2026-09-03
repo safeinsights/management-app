@@ -20,14 +20,12 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { invite }, orgId, db, session }) => {
         const invitedByUserId = session.user.id
-        // clerk normalizes the email to lowercase, do the same here to avoid case-insensitive matching issues
+        // Clerk normalizes the email to lowercase, so match it.
         invite.email = invite.email.toLowerCase()
-        // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
         const clerk = await clerkClient()
         const clerkUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
 
         if (clerkUsers.data.length > 0) {
-            // Check if this Clerk user is already a member of this org
             const existingOrgMember = await db
                 .selectFrom('orgUser')
                 .innerJoin('user', 'user.id', 'orgUser.userId')
@@ -39,10 +37,8 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             if (existingOrgMember) {
                 throw new ActionFailure({ email: 'This team member is already in this organization.' })
             }
-            // User exists but not in this org - allow invite to proceed
         }
 
-        // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
             .select(['id'])
@@ -79,9 +75,8 @@ export const getPendingUsersAction = new Action('getPendingUsersAction')
             .executeTakeFirstOrThrow()
         return { orgId: org.orgId }
     })
-    // `pendingUser.id` IS the live invite token, so this returns claimable invites plus invitee
-    // emails. Gated on the same verb as its siblings above/below rather than a read verb, since
-    // reading the outstanding invites is part of administering them (OTTER-724 / MA-6).
+    // pendingUser.id is the live invite token, so this returns claimable invites; gated on
+    // `invite` rather than a read verb (OTTER-724 / MA-6).
     .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { orgSlug }, db }) => {
         return await db

@@ -21,16 +21,16 @@ const renderField = (field: EditableTextField, { initialValue = '', error }: Ren
 
 type RenderOptions = { initialValue?: string; error?: string }
 
-// Selected on the property under test rather than by label, so renaming the copy does not fail a
-// test about ARIA. The throw keeps the failure legible if the config ever loses one of the two.
+// Selected on the property under test rather than by label, so renaming copy does not fail a test
+// about ARIA.
 const fieldWhere = (predicate: (field: EditableTextField) => boolean, description: string) => {
     const field = editableTextFields.find(predicate)
     if (!field) throw new Error(`no ${description} editable text field in the proposal config`)
     return field
 }
 
-// OTTER-647: `ariaRequired` was passed bare while the asterisk correctly followed
-// `field.required`, so the one optional field announced as required to a screen reader.
+// OTTER-647: ariaRequired was passed bare while the asterisk followed field.required, so the one
+// optional field announced as required.
 describe('CollaborativeProposalTextField required state', () => {
     it('marks a required field required for assistive tech', async () => {
         const field = fieldWhere((f) => !!f.required, 'required')
@@ -47,8 +47,8 @@ describe('CollaborativeProposalTextField required state', () => {
     })
 })
 
-// OTTER-737: the count has to be reachable from the field, not merely visible beside it, and the
-// over-limit message has to announce itself because it can appear with the caret still in the box.
+// OTTER-737: the count must be reachable from the field, and the over-limit message must announce
+// itself because it can appear with the caret still in the box.
 describe('CollaborativeProposalTextField character counter', () => {
     it('seeds the counter from the initial value, excluding whitespace at its ends', async () => {
         const field = fieldWhere((f) => !!f.required, 'required')

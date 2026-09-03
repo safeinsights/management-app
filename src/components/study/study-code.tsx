@@ -63,12 +63,7 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
         </ButtonLink>
         <Stack align="flex-end" gap="xs">
             <SubmitBlockedReason reason={ide.submitDisabledReason} />
-            <Button
-                variant="primary"
-                disabled={!ide.canSubmit}
-                loading={ide.isDirectSubmitting}
-                onClick={onSubmitClick}
-            >
+            <Button disabled={!ide.canSubmit} loading={ide.isDirectSubmitting} onClick={onSubmitClick}>
                 Submit code
             </Button>
         </Stack>

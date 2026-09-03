@@ -8,13 +8,12 @@ import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import { useRouter } from 'next/navigation'
 import { Step } from './mfa'
-import { Routes } from '@/lib/routes'
+import { useCompleteSignIn } from './use-complete-sign-in'
 
 export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
-    const router = useRouter()
+    const completeSignIn = useCompleteSignIn()
 
     const form = useForm({
         initialValues: { code: '' },
@@ -35,15 +34,14 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                 throw new Error('Verification failed')
             }
 
-            // activate the session verified by backup code
             await setActive?.({ session: result.createdSessionId })
         },
-        onSuccess: () => {
+        onSuccess: async () => {
             notifications.show({
                 message: 'You have signed in using a recovery code.',
                 color: 'green',
             })
-            router.push(Routes.dashboard)
+            await completeSignIn()
         },
         onError: (err) => {
             form.setFieldError(
@@ -79,8 +77,8 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         placeholder="Each code can only be used once"
                         key={form.key('code')}
                         {...form.getInputProps('code')}
-                        // Handed to Mantine rather than rendered beside a suppressed error, so the
-                        // message lands in the input's `aria-describedby` instead of being visual only.
+                        // Handed to Mantine so the message lands in `aria-describedby` rather than
+                        // being visual only.
                         error={form.errors.code ? <InputError error={form.errors.code} /> : undefined}
                         autoComplete="one-time-code"
                     />

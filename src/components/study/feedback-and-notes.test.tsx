@@ -20,8 +20,7 @@ const noteEntry = {
     body: JSON.parse(lexicalJson('Addressed all the requested changes.')),
 }
 
-// Entries arrive newest-first from getCodeReviewFeedbackAction.
-// happy-dom has no layout, so force overflow to make the View more/less toggle render.
+// happy-dom has no layout, so overflow must be forced for the View more/less toggle to render.
 const forceOverflow = () => vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
 
 describe('FeedbackAndNotesSection', () => {

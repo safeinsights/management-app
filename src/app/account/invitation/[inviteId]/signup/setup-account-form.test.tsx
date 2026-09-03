@@ -23,8 +23,6 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-// The storage read is the only failure this form has to survive: the action itself is fine, the
-// object behind a published version is not readable.
 const { fetchFileContents } = vi.hoisted(() => ({ fetchFileContents: vi.fn() }))
 
 vi.mock('@/server/storage', async (importOriginal) => ({
@@ -34,7 +32,6 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 
 const TERMS_BODY = 'The published terms.'
 
-// useSignIn is automocked with no return value, and only the post-submit path uses what it returns.
 beforeEach(async () => {
     ;(useSignIn as Mock).mockReturnValue({ isLoaded: true, signIn: null, setActive: null })
     await resetLegalDocuments()
@@ -49,7 +46,6 @@ const publishTos = async () => {
 const renderForm = () =>
     renderWithProviders(<SetupAccountForm inviteId="an-invite" email="invitee@test.com" orgName="Openstax Lab" />)
 
-// Everything the schema needs, so only the legal documents decide whether Create Account is live.
 const fillValidForm = async () => {
     await userEvent.type(screen.getByLabelText('First name'), 'Test')
     await userEvent.type(screen.getByLabelText('Last name'), 'User')
@@ -73,8 +69,8 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // Empty documents fall back to the "Once implemented" placeholder, which is a false statement
-    // once something is published — so a tick against it must not be able to create an account.
+    // Empty documents fall back to a placeholder that contradicts what is published, so a tick
+    // against it must not create an account.
     it('refuses to submit when the documents cannot be loaded, and says so', async () => {
         fetchFileContents.mockImplementation(async () => {
             throw new Error('S3 is unavailable')

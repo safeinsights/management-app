@@ -24,8 +24,7 @@ const renderRoute = (orgSlug: string, studyId: string, searchParams: Record<stri
         searchParams: Promise.resolve(searchParams),
     })
 
-// OTTER-727 hid the Agreements step. This route now exists only to catch stale bookmarks/history: it
-// must always redirect onward to the code step and never render the placeholder.
+// OTTER-727 hid the Agreements step; the route exists only to catch stale bookmarks and history.
 describe('ResearcherAgreementsRoute (hidden — redirects)', () => {
     it('redirects an APPROVED study with no code to the code upload page', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -36,8 +35,6 @@ describe('ResearcherAgreementsRoute (hidden — redirects)', () => {
         expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/code`)
     })
 
-    // Inherits what the page's own Proceed used to compute: the read-only code step, NOT plain /view
-    // (which would jump an advanced study straight to results).
     it('redirects to /view/code once code has been submitted', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
@@ -80,9 +77,7 @@ describe('ResearcherAgreementsRoute (hidden — redirects)', () => {
         expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/code`)
     })
 
-    // Dual-role regression (kept from the pre-OTTER-727 suite): a user who is both reviewer (enclave)
-    // and researcher (their own lab) must stay in the researcher flow — the redirect goes to the lab's
-    // code step, never into the reviewer's /review flow.
+    // A user who is both reviewer and researcher must stay in the researcher flow.
     it('keeps a dual-role user in the researcher flow', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
         const study = await db

@@ -30,16 +30,10 @@ interface CodePostDecisionViewProps {
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
     dashboardHref: Route
-    /** Org-scoped entry: threaded onto the "Previous step" → researcher agreements link so org scope survives. */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
-    /**
-     * Forward link to the next step of the flow; set only when /view resolves past this screen
-     * (OTTER-614, OTTER-687). When set, the primary action reads "Next step" instead of "Go to
-     * dashboard".
-     */
+    // Set only when /view resolves past this screen (OTTER-614, OTTER-687).
     nextStepHref?: Route
-    /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
 }
 
@@ -74,8 +68,7 @@ const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
     },
 }
 
-// Date is sourced from the decision's own status-change row so it stays correct (and present)
-// even when feedback entries are empty or belong to a different review round.
+// Dated from the decision's own status-change row so it survives empty or stale feedback entries.
 function deriveCodePostDecision({
     job,
     entries,
@@ -137,8 +130,7 @@ const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisi
 
 function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, nextStepHref }: DecisionActionsProps) {
     const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
-    // When the flow continues past this screen, carry the user forward instead of ending at the
-    // dashboard. Resubmit outranks it: a change request is the flow, not a step to skip.
+    // Resubmit outranks the forward link: a change request is the flow, not a step to skip.
     const showNextStep = !showResubmit && !!nextStepHref
     return (
         <Group justify="space-between">
@@ -174,8 +166,7 @@ function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: St
     )
 }
 
-// Broken out into its own card per design (OTTER-590): collapsed, only the in-step toggle shows; expanded,
-// this card reveals the proposal link, file table, and the matching "Hide" toggle.
+// Its own card per OTTER-590: collapsed, only the in-step toggle shows.
 type SubmittedCodePanelProps = {
     expanded: boolean
     jobId: string

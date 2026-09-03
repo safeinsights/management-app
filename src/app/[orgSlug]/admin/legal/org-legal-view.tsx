@@ -3,8 +3,7 @@
 import { Stack, Title } from '@mantine/core'
 import type { ReactNode } from 'react'
 
-// The shell legal/page.tsx renders, with the tabs injected as a slot so the story cannot drift from
-// the real page. No breadcrumbs: they are being removed app-wide.
+// The tabs are injected as a slot so a story cannot drift from the real page.
 export type OrgLegalViewProps = {
     tabs: ReactNode
 }

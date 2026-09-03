@@ -72,17 +72,15 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
     return mocks
 }
 
-// getAuditEntries omits metadata, which is the part that matters here.
-// Destructive routes write an `attempted` row before the work and a `succeeded`/`failed`
-// row after, so assertions have to name which outcome they mean.
+// getAuditEntries omits metadata, which is the part that matters here. Destructive routes write
+// both an `attempted` and a `succeeded`/`failed` row, so assertions must name the outcome.
 const auditRowsFor = async (recordId: string) =>
     await db
         .selectFrom('audit')
         .select(['eventType', 'recordType', 'recordId', 'userId', 'metadata'])
         .where('recordId', '=', recordId)
         .orderBy('createdAt')
-        // Both rows are written inside the same clock tick, so createdAt alone leaves
-        // their order undefined; v7 ids are time-ordered and break the tie.
+        // Both rows land in the same clock tick, so createdAt ties; v7 ids break it.
         .orderBy('id')
         .execute()
 
@@ -189,8 +187,7 @@ describe('QA account guard and audit trail', () => {
         expect((await response.json()).error).toContain('qa')
     })
 
-    // These routes run on production, so every invocation must leave a record
-    // attributed to the SI admin who made it.
+    // These routes run on production, so every invocation must be attributed to an SI admin.
     it('audits a provisioning call against the acting admin', async () => {
         const { user: admin } = await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -203,7 +200,6 @@ describe('QA account guard and audit trail', () => {
         expect(entry.metadata).toMatchObject({ via: 'qa-api', passwordSet: true })
     })
 
-    // The audit row records that a password was set, never the password itself.
     it('never records the password in the audit metadata', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -229,8 +225,7 @@ describe('QA account guard and audit trail', () => {
         expect(entry.metadata).toMatchObject({ email: user.email, via: 'qa-api' })
     })
 
-    // The attempt row is what survives a crash between the DB commit and the S3/Clerk
-    // cleanup — without it a half-finished deletion leaves no trace at all.
+    // The attempt row is what survives a crash between the DB commit and the S3/Clerk cleanup.
     it('records the attempt before the destructive work and the outcome after', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -249,7 +244,6 @@ describe('QA account guard and audit trail', () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
         ;(deleteFolderContents as Mock).mockRejectedValueOnce(new Error('s3 is down'))
-        // A study forces the S3 cleanup path that is being made to fail.
         await insertTestStudyData({ org, researcherId: user.id })
 
         await expect(

@@ -8,11 +8,10 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 
 export type FieldDividerVariant = 'subtle' | 'default' | 'none'
 
-/** The one divider between proposal sections: a `variant` of `none` renders nothing. */
+/** A `variant` of `none` renders nothing. */
 export const FieldDivider: FC<{ variant: FieldDividerVariant }> = ({ variant }) => {
     if (variant === 'none') return null
 
-    // A default Divider between two fields, a lighter one where the field leads a group.
     const color = variant === 'subtle' ? 'gray.1' : undefined
     return <Divider color={color} />
 }
@@ -65,7 +64,7 @@ export function DatasetsField({
     if (!datasets.length) return null
 
     const nameMap = Object.fromEntries(orgDataSources.map((ds) => [ds.id, ds.name]))
-    // The id stands in for a data source the org no longer lists, which is still worth showing.
+    // Stands in for a data source the org no longer lists, which is still worth showing.
     const named = datasets.map((id) => ({ id, name: nameMap[id] || id }))
 
     return (

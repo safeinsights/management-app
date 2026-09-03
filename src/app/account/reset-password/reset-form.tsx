@@ -32,7 +32,7 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
             })
         },
         onError(error: unknown) {
-            // If Clerk returns email not found, do not show an error
+            // Clerk reporting email-not-found must not confirm whether an address is registered.
             const message = errorToString(error)
             if (message.includes('find your account')) {
                 onCompleteAction({} as SignInResource)
@@ -44,7 +44,6 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
             if (info) {
                 onCompleteAction(info)
             } else {
-                // clerk did not throw an error but also did not return a signIn object
                 emailForm.setErrors({
                     email: 'An unknown error occurred, please try again later.',
                 })

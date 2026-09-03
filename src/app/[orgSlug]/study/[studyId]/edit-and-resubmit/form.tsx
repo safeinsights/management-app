@@ -13,8 +13,8 @@ import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
 import { EditResubmitFooter } from './footer'
 
-// Change-requested proposals are co-editable by the whole lab; once any member
-// resubmits, the study leaves CHANGE-REQUESTED and the rest must be kicked out.
+// Co-editable by the whole lab; once any member resubmits the study leaves CHANGE-REQUESTED and
+// the rest must be kicked out.
 const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED'] as const
 
 interface EditResubmitFormProps {
@@ -24,9 +24,7 @@ interface EditResubmitFormProps {
     researcherId: string
     enclaveOrgSlug?: string
     feedbackEntries: ProposalFeedbackEntry[]
-    /** Version the RESUBMISSION-NOTE comment will take on submit; scopes the note's Yjs doc to this round. */
     noteVersion: number
-    /** Persisted note draft; seeds the single-user editor. */
     initialNote: string
 }
 

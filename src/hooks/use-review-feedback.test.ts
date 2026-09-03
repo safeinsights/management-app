@@ -91,8 +91,8 @@ describe('useReviewFeedback', () => {
             expect(result.current.isValid).toBe(false)
         })
 
-        // Characters, not words: 400 short words is past the old 300-word code-review cap and
-        // inside 1800 characters, so this fails if word counting survived.
+        // 400 short words is past the old 300-word cap but inside 1800 characters, so this fails
+        // if word counting survived.
         it('measures characters rather than words', () => {
             const { result } = renderHook(() => useReviewFeedback())
 
@@ -126,8 +126,7 @@ const lexicalText = (text: string) =>
         },
     })
 
-// OTTER-647: these two hooks back the required reviewer fields. Both were plain useState with
-// no way to surface "you left this incomplete", which is the whole point of the card.
+// OTTER-647: both hooks were plain useState, with no way to surface "you left this incomplete".
 describe('useReviewFeedback', () => {
     it('starts with no error, so an untouched editor is not pre-emptively flagged', () => {
         const { result } = renderHook(() => useReviewFeedback())
@@ -179,8 +178,8 @@ describe('useReviewFeedback', () => {
         expect(result.current.isValid).toBe(false)
     })
 
-    // The card asks for the error the moment the limit is passed. `useField` neither validates on
-    // change nor keeps an error across one, so a rule living in `validate` would be silent here.
+    // `useField` neither validates on change nor keeps an error across one, so a rule living in
+    // `validate` would be silent here.
     it('raises the over-limit error on the keystroke that crosses the cap, with no blur', () => {
         const { result } = renderHook(() => useReviewFeedback())
 
@@ -203,8 +202,8 @@ describe('useReviewFeedback', () => {
         expect(result.current.isValid).toBe(true)
     })
 
-    // Editing an over-limit value must not silence the message: Mantine's clearErrorOnChange would
-    // have dropped it on the next keystroke if the cap lived in `validate`.
+    // Mantine's clearErrorOnChange would drop the message on the next keystroke if the cap lived
+    // in `validate`.
     it('keeps the over-limit error while the value stays over the cap', async () => {
         const { result } = renderHook(() => useReviewFeedback())
 

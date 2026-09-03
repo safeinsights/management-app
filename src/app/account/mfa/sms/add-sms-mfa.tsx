@@ -19,8 +19,8 @@ import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
 import { AddSmsMfaView } from './add-sms-mfa-view'
 
-// Reference code: https://clerk.com/docs/custom-flows/add-phone
-// and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
+// https://clerk.com/docs/custom-flows/add-phone
+// https://clerk.com/docs/custom-flows/manage-sms-based-mfa
 
 export function AddSMSMFA() {
     const { isLoaded, user } = useUser()
@@ -37,14 +37,8 @@ export function AddSMSMFA() {
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
     const createBackupCode = useReverification(() => user?.createBackupCode())
 
-    // Previously had no validator at all, so an empty or malformed number only errored once
-    // Clerk rejected the submission (OTTER-647). Uses the phone library rather than a
-    // character/length regex, so it covers every country the input can produce.
-    //
-    // isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks the number against real
-    // numbering plans, which rejects Clerk's reserved test range (+1 555 555 0100-0199) that
-    // the MFA e2e depends on. "Possible" still catches the actual defect here (too short, too
-    // long, wrong shape) and is the strongest claim a client can honestly make anyway.
+    // OTTER-647. isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks real numbering
+    // plans and rejects Clerk's reserved test range the MFA e2e uses.
     const phoneForm = useForm({
         initialValues: {
             phoneNumber: user?.phoneNumbers[0]?.toString() || '',
@@ -88,20 +82,16 @@ export function AddSMSMFA() {
         setLastSentTime(Date.now())
         setIsSendingSms(true)
         try {
-            // Find the phone number from the form values, or create it if it doesn't exist.
             let res = user?.phoneNumbers.find((p) => p.phoneNumber === values.phoneNumber)
             if (!res) {
                 res = await createPhoneNumber(values.phoneNumber)
             }
 
-            // Reload user to get updated User object
             await user?.reload()
 
-            // Create a reference to the new phone number to use related methods
             const phoneNumber = user?.phoneNumbers.find((a) => a.id === res?.id)
             setPhoneObj(phoneNumber)
 
-            // Send the user an SMS with the verification code
             await phoneNumber?.prepareVerification()
             await sleep({ 3: 'seconds' })
             setIsSendingSms(false)
@@ -137,11 +127,9 @@ export function AddSMSMFA() {
         setIsVerifyingCode(true)
 
         try {
-            // Verify that the provided code matches the code sent to the user
             const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
 
             if (phoneVerifyAttempt.verification.status === 'verified') {
-                // First, enable this phone as a second factor
                 try {
                     await setReservedForSecondFactor(phoneObj)
                     await makeDefaultSecondFactor(phoneObj)
@@ -151,7 +139,6 @@ export function AddSMSMFA() {
                     otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
                     return
                 }
-                // Then, generate backup codes
                 try {
                     if (user && !user.backupCodeEnabled) {
                         const resource = await createBackupCode()
@@ -219,7 +206,6 @@ export function AddSMSMFA() {
                                             type="submit"
                                             w="100%"
                                             size="md"
-                                            variant="primary"
                                             radius="sm"
                                             loading={isVerifyingCode}
                                             disabled={!/\d{6,}/.test(otpForm.values.code)}

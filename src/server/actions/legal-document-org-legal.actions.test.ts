@@ -20,8 +20,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
         createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
     }
@@ -29,8 +28,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 
 beforeEach(resetLegalDocuments)
 
-// study.orgId is the enclave (Data Partner), study.submittedByOrgId is the lab (Research Lab). Kept
-// on two distinct orgs so a swapped join or a party/counterparty mix-up cannot pass.
+// Two distinct orgs, so a swapped join or party/counterparty mix-up cannot pass.
 const insertPartyOrgs = async () => ({
     dataPartner: await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' }),
     researchLab: await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' }),
@@ -51,8 +49,7 @@ const insertStudyWithDistinctOrgs = async ({
     return { study, dataPartner, researchLab }
 }
 
-// Publishing needs an SI admin; the org-admin session under test is mocked afterwards so the read
-// runs as the org admin rather than as the publisher.
+// Publishing needs an SI admin; the org-admin session is mocked afterwards for the read.
 const publishAgreementAsSiAdmin = async (
     scope: { studyId: string } | { orgId: string; type: 'DOPA' | 'ROPA' },
     signedAt: string,
@@ -176,7 +173,6 @@ describe('fetchOrgStudyAgreementsAction', () => {
 
         const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
 
-        // Order is the table's job, so this asserts membership only.
         expect(rows.map((row) => row.studyTitle).sort()).toEqual(['Has an agreement', 'Nothing signed'])
         expect(rows.find((row) => row.studyTitle === 'Has an agreement')?.signedAt).toBe('2026-02-02')
         expect(rows.find((row) => row.studyTitle === 'Nothing signed')?.signedAt).toBeNull()

@@ -6,8 +6,7 @@ import { provisionQaUser } from '@/server/qa-provision'
 import { qaErrorResponse } from '../../responses'
 import { auditQaOperation } from '../../audit'
 
-// Every field is optional; an omitted field is left untouched. `orgs: []` is meaningful —
-// it removes every membership.
+// An omitted field is left untouched; `orgs: []` removes every membership.
 const updateUserSchema = z.object({
     orgs: z.array(z.object({ slug: z.string().nonempty(), isAdmin: z.boolean().optional() })).optional(),
     publicKey: z.string().nonempty().optional(),
@@ -22,8 +21,7 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
 
     const { userId } = await params
     try {
-        // Resolved first so the attempt can be audited against the real user id — and so a
-        // 404/non-QA target is rejected before anything is written to the audit trail.
+        // Resolved first so a 404/non-QA target is rejected before an attempt is audited.
         const target = await findQaUser(db, userId)
 
         await auditQaOperation(
@@ -53,12 +51,10 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ userId
     const { userId } = await params
     try {
         const update = updateUserSchema.parse(await req.json())
-        // Resolved up front so a bad body or a non-QA target never reaches the audit trail,
-        // and so the attempt row carries the real user id.
+        // Resolved first so a bad body or a non-QA target never reaches the audit trail.
         const target = await findQaUser(db, userId)
 
-        // Records which fields were requested, never the password itself. The success row
-        // adds what actually landed.
+        // Records which fields were requested, never the password itself.
         const result = await auditQaOperation(
             {
                 actorUserId: auth.user.id,

@@ -5,15 +5,9 @@ export interface EditableTextField {
     id: keyof ProposalFormValues
     description: string
     placeholder: string
-    /** The field's cap, in characters. Every page that renders these fields uses it (OTTER-737). */
     maxCharacters: number
-    /**
-     * Height of the editable area before any typing or dragging, in px.
-     *
-     * Figma gives each field its own box height rather than one shared value (OTTER-691). These are
-     * the box heights from `403:20575` / `403:20588` / `403:20601` / `403:20614` less the toolbar
-     * row, which sits inside the box.
-     */
+    // Per-field, from the Figma box heights less the toolbar row, which sits inside the box
+    // (OTTER-691).
     contentHeight: number
     required?: boolean
 }

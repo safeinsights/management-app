@@ -32,12 +32,11 @@ function hasChangedSinceLastJob(
 ): boolean {
     if (!lastJob) return false
 
-    // Check if any file was modified after the job was created
     const jobCreatedAt = new Date(lastJob.createdAt).getTime()
     const filesModified = workspaceFiles.some((f) => new Date(f.mtime).getTime() > jobCreatedAt)
     if (filesModified) return true
 
-    // File set / main file comparison only applies after a real submission (not a baseline job)
+    // An empty fileNames marks a baseline job rather than a real submission.
     if (lastJob.fileNames.length > 0) {
         if (lastJob.mainFileName && mainFile !== lastJob.mainFileName) return true
 
@@ -56,11 +55,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
     const [viewingFile, setViewingFile] = useState<{ name: string; contents: ArrayBuffer } | null>(null)
-    // OTTER-558: tracks whether the user actually edited files THIS session (uploaded, deleted, or
-    // picked a main file). The resubmit footer keys its Cancel-vs-Save-and-exit toggle on this, NOT
-    // on `filesChanged` — the latter compares workspace mtimes to the last submission and is already
-    // true on initial load, which made "Cancel" never appear. `filesChanged` still drives submit-enable
-    // on the initial /code page.
+    // OTTER-558: `filesChanged` cannot drive the resubmit footer's Cancel toggle, because it
+    // compares mtimes and is already true on load.
     const [userEditedFiles, setUserEditedFiles] = useState(false)
 
     const onLaunchSuccess = useCallback(() => {
@@ -92,8 +88,6 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     })
 
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
-    // a main file must be picked explicitly when multiple files are present.
-    // a resubmit inherits the main file from the previous submission.
     const previousMainFile = lastJob?.mainFileName ?? null
     const mainFile = useMemo(() => {
         if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
@@ -111,10 +105,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    // OTTER-647: the main file is required but has no field to blur, being a star toggle.
-    // Derivation order: explicit override, then the sole file, then the previous submission's
-    // main file (resubmit only). With multiple files on first upload there is no auto-pick, so
-    // submitDisabledReason names what is missing next to the disabled button instead of useField.
+    // OTTER-647: the main file is required but is a star toggle with no field to blur, so the
+    // reason is named beside the disabled button instead of through useField.
     const submitDisabledReason = (() => {
         if (fileNames.length === 0) return null
         if (mainFile === '') return 'Select a main file to submit'

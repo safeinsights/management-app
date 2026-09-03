@@ -11,21 +11,15 @@ import { TableHeader } from './columns'
 import { EmptyState } from './empty-state'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
 
-// Presentational dashboard table. It owns the header (title / actions / refresher / CTA),
-// the table chrome, and the error/empty/populated states — but NOT data fetching or the
-// session. Rows are supplied via `renderRow` so the session-dependent action link
-// (StudyActionLink) stays in the data container; in isolation (e.g. Ladle) a story passes
-// a plain link instead. The StudiesTable container (./index) provides the real ones.
+// Rows come via `renderRow` so the session-dependent action link stays in the container.
 export type StudiesTableViewProps = {
     studies: StudyRowType[]
     audience: Audience
     scope: Scope
     title?: string
     description?: string
-    /** When set, renders the "Propose New Study" CTA pointing here. */
     newStudyHref?: Route
     headerActions?: ReactNode
-    /** Data-driven refresher control, injected by the container. */
     refresher?: ReactNode
     isError?: boolean
     errorMessage?: string
@@ -61,8 +55,8 @@ export function StudiesTableView({
         )
     }
 
-    // The header always renders so dual-role users keep their audience toggle even when the
-    // selected role has no studies; only the body reflects error / empty / populated state.
+    // The header always renders so dual-role users keep their audience toggle when the selected
+    // role has no studies.
     const content = (
         <Stack>
             <Group justify="space-between" align="center">

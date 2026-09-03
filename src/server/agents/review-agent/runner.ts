@@ -8,12 +8,8 @@ import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
 import { getAgentContextString } from '@/lib/agent-context'
 
-// Written when the API key is missing, before content assembly. This means a
-// no-code-files study with a missing key gets the placeholder too — fine, since
-// either condition prevents a real review. Sentinel is "automated review didn't
-// run," not strictly "key missing." Booleans are intentionally `false` so the
-// UI renders red Misaligned / Non-compliant badges — a missing review must NOT
-// look like a passing review to a reviewer.
+// Booleans are deliberately false so the UI renders red badges: a missing review must not look
+// like a passing one.
 const DISABLED_REPORT: AnalysisReport = {
     proposalSummary: 'Automated AI review did not run — CLAUDE_API_KEY is not configured for this environment.',
     codeExplanation: 'Manual review required.',
@@ -98,7 +94,6 @@ async function assembleReviewContent(
 
     const dataDocs = await generateDataSourcesContextString(job.orgId)
 
-    // orgId: null — global context is all the SI Admin page currently writes.
     const agentContext = await getAgentContextString(db, { language: job.language, orgId: null })
 
     const content: ReviewContent = {
@@ -106,17 +101,14 @@ async function assembleReviewContent(
         codeFiles,
         referenceDocs: {
             // TODO: wire up org-level compliance requirements doc (schema TBD).
-            // Drives compliance check findings — currently agent has nothing to compare against.
             requirements: PLACEHOLDER,
-            // TODO: wire up BRC (Base Research Container) docs — describes the technical
-            // environment / available libraries / data layout for the analysis code.
+            // TODO: wire up BRC (Base Research Container) docs.
             brcDocs: PLACEHOLDER,
             dataDocs,
             // TODO: wire up "other" docs bucket (free-form org reference material).
             otherDocs: PLACEHOLDER,
         },
-        // TODO: pass researcherTestResults once test-run output is captured per studyJob
-        // (StudyJobFile fileType for results / RUN logs). Enables `resultsSummary` field.
+        // TODO: pass researcherTestResults once test-run output is captured per studyJob.
     }
 
     return { content, agentContext }
@@ -130,8 +122,7 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
         .select(['id', 'summaryFailedAt'])
         .where('studyJobId', '=', studyJobId)
         .executeTakeFirst()
-    // A prior failure row is not terminal: a retry clears it and re-enters here.
-    // Only a successful (or placeholder) row short-circuits.
+    // A prior failure row is not terminal; only a successful row short-circuits.
     if (existing && existing.summaryFailedAt == null) {
         logger.info(`Study review already exists, skipping`, { studyJobId })
         return
@@ -140,9 +131,8 @@ export async function generateAndStoreStudyReview(studyJobId: string): Promise<v
     try {
         await runStudyReview(studyJobId)
     } catch (error) {
-        // Record the failure so the reviewer-side poll can tell "failed" from
-        // "still generating" and surface a retry. Re-throw so the deferred
-        // wrapper still captures + flushes to Sentry.
+        // Lets the reviewer-side poll tell "failed" from "still generating"; re-thrown so the
+        // deferred wrapper still flushes to Sentry.
         await persistFailure(studyJobId)
         throw error
     }
@@ -160,9 +150,7 @@ async function runStudyReview(studyJobId: string): Promise<void> {
     if (!assembled) return
     const { content, agentContext } = assembled
 
-    // TODO(chat): persist `messages` alongside `report` (e.g. add a
-    // `conversation jsonb` column on studyReview) once chat follow-up lands
-    // (target: before Oct 2026). Seed for `continueChat`.
+    // TODO(chat): persist `messages` alongside `report` once chat follow-up lands.
     const { report } = await generateAnalysis({ apiKey, additionalContext: agentContext }, content)
 
     await persistReport(studyJobId, report)

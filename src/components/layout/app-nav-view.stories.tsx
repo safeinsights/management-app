@@ -14,10 +14,6 @@ import { NavOrgsList } from './nav-orgs-list'
 import { NavbarProfileMenuView } from './navbar-profile-menu-view'
 import styles from './navbar-items.module.css'
 
-// The app-shell left sidebar, rendered TRUE TO LIFE inside the real <AppShell> chrome (so the
-// AppShellNavbar sits at the right width over the grey canvas). AppNavView is presentational;
-// the session/path-derived data is supplied here as fixtures and the Clerk-coupled profile menu
-// is replaced by a session-free NavbarProfileMenuView with plain fixture items.
 const meta = { title: 'Layout / App Sidebar' }
 export default meta
 
@@ -28,8 +24,7 @@ const ORGS: Orgs = [
     { id: 'org-enclave', name: 'OpenStax Data', slug: 'openstax-data', type: 'enclave' },
 ]
 
-// Session-free stand-in for NavbarProfileMenu: drives the pure view's open/closed state and
-// supplies fixture menu rows (the real container builds these from Clerk roles).
+// Session-free stand-in for NavbarProfileMenu.
 function ProfileMenuFixture({ defaultOpened = false }: { defaultOpened?: boolean }) {
     const [opened, setOpened] = useState(defaultOpened)
     const items = (
@@ -79,8 +74,7 @@ function ProfileMenuFixture({ defaultOpened = false }: { defaultOpened?: boolean
     )
 }
 
-// Session/route-free stand-in for OrgAdminDashboardLink (which reads useParams for the org
-// slug). Uses the fixture org's slug so the Routes are valid; shown expanded.
+// Session/route-free stand-in for OrgAdminDashboardLink, which reads useParams for the slug.
 function AdminLinkFixture({ org }: { org: Orgs[number] }) {
     return (
         <NavLink

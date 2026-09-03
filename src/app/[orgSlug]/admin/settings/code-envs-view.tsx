@@ -6,11 +6,8 @@ import { CaretDownIcon, CheckCircleIcon, PlusCircleIcon, WarningCircleIcon } fro
 import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
 
-// Presentational pieces for the "Code Environments" settings card. They own the card
-// chrome, the visible row line ("R / DEFAULT / SCAN PASSED"), and the scan badge — but
-// NOT data fetching, the add/edit modals, or the per-row mutations, which stay in the
-// CodeEnvs container (./code-envs). The body, refresher, and per-row action/detail nodes
-// are injected so these render in isolation (e.g. Ladle, which has no QueryClient).
+// Presentational only: the body, refresher and per-row nodes are injected so these render
+// without a QueryClient (e.g. Ladle).
 
 const SCAN_BADGE_CONFIG: Record<ScanStatus, { color: string; label: string }> = {
     'SCAN-PENDING': { color: 'dark', label: 'Scan Pending' },
@@ -57,9 +54,7 @@ export type CodeEnvRowViewProps = {
     onToggleDetail: () => void
     onLanguageBadgeClick: () => void
     onScanBadgeClick: () => void
-    /** Edit/delete controls — injected by the container (they own mutations + modals). */
     actions: ReactNode
-    /** Collapsible detail panel — injected by the container. */
     detail: ReactNode
 }
 

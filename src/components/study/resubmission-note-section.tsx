@@ -58,10 +58,8 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         value={value}
                         onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
                         onBlur={() => noteForm.validateField('resubmissionNote')}
-                        // nativeFieldProps rather than error={!!error} plus a hand-passed
-                        // aria-describedby: Mantine derives describedBy from the input's own
-                        // wrapper and spreads it after the caller's props, so a hand-passed
-                        // value is discarded. Passing the node lets it wire the id itself.
+                        // Mantine spreads its own derived describedBy after the caller's props,
+                        // so a hand-passed aria-describedby would be discarded.
                         {...nativeFieldProps(error, {
                             required: true,
                             describedBy: fieldDescribedBy('resubmissionNote', {

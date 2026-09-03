@@ -94,7 +94,6 @@ describe('CodeReview', () => {
             )
             expect(banner).not.toHaveTextContent('has resubmitted')
 
-            // The lab name should not be wrapped in <strong> / fw=700
             const strongs = banner.querySelectorAll('strong')
             for (const strong of strongs) {
                 expect(strong.textContent ?? '').not.toContain(labName)
@@ -149,8 +148,8 @@ describe('CodeReview', () => {
     })
 
     describe('resubmission (prior entries present)', () => {
-        // A resubmission means the current job is round v2: the prior round's reviewer
-        // decision plus the current round's RL note both surface as feedback entries.
+        // On a resubmission the prior round's reviewer decision and this round's note both
+        // surface as feedback entries.
         const reviewerEntry = buildEntry({
             id: 'reviewer-v1',
             authorName: 'Jessica Walters',
@@ -169,7 +168,6 @@ describe('CodeReview', () => {
             createdAt: ROUND_2_DATE,
             version: 2,
         })
-        // Action returns newest first (createdAt desc).
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
         it('renders "Resubmitted on {date}" in place of "Submitted on"', async () => {
@@ -214,7 +212,6 @@ describe('CodeReview', () => {
 
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
-            // DOM order: submitted code → feedback and notes → (evaluation form lives inside CodeReviewClient)
             expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 

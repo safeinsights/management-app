@@ -1,15 +1,9 @@
 'use client'
 
-// E2E Clerk fake — client shim.
-//
-// Aliased in for `@clerk/nextjs` when E2E_FAKE_CLERK is set (see next.config.ts).
-// Provides ClerkProvider + the client hooks the app uses, backed by the __e2e_role
-// cookie + fixtures. No clerk-js, no network. The 'use client' directive MUST stay at
-// the top of this file so Next registers the client boundary through the alias.
-//
-// Hook returns are memoized on the fixture so their references stay stable across
-// renders — consumers with effects keyed on user/session/auth must not see a new object
-// every render (that causes "Maximum update depth exceeded").
+// E2E Clerk fake, aliased in for `@clerk/nextjs` when E2E_FAKE_CLERK is set. The 'use client'
+// directive MUST stay at the top so Next registers the client boundary through the alias.
+// Hook returns are memoized: a new object every render makes effects keyed on user/session/auth
+// throw "Maximum update depth exceeded".
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { clearRoleCookieFromDocument, writeRoleCookieToDocument } from './cookie'
@@ -22,8 +16,8 @@ function useFixtureState(): FixtureState {
     return useSyncExternalStore(subscribe, getFixture, getServerFixture)
 }
 
-// Captured once so useSession().session.lastActiveAt is both stable across renders and
-// recent enough that the inactivity watcher in activity-context never trips during tests.
+// Stable across renders and recent enough that the inactivity watcher in activity-context
+// never trips during tests.
 const SESSION_ACTIVE_AT = new Date()
 
 function doSignOut() {
@@ -33,8 +27,8 @@ function doSignOut() {
 
 export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string; nonce?: string }) {
     useEffect(() => {
-        // After hydration, re-sync the store from the cookie so consumers that rendered
-        // signed-out during SSR flip to the real role.
+        // Re-sync from the cookie so consumers that rendered signed-out during SSR flip
+        // to the real role.
         notifyAuthChanged()
         ;(window as unknown as { isReactHydrated?: boolean }).isReactHydrated = true
     }, [])
@@ -90,18 +84,13 @@ export function useClerk() {
 }
 
 export function useSignIn() {
-    // One stable signIn resource per hook instance (lazy useState init, so it's safe to
-    // read during render — unlike a ref).
     const [signIn] = useState(createFakeSignIn)
     // setActive may be called from a different component (mfa.tsx) than the one that ran
-    // create() (sign-in-form.tsx), so derive the role from the session id
-    // (`e2e-session-<role>`) rather than this hook's own signIn.role.
+    // create() (sign-in-form.tsx), so derive the role from the session id, not signIn.role.
     const setActive = useCallback(
         async (params: { session?: unknown } | unknown) => {
             const session = (params as { session?: unknown })?.session ?? params
             const id = typeof session === 'string' ? session : (session as { id?: string })?.id
-            // Role names come from the fixture table rather than a literal list, so a new fixture
-            // does not silently fall through to signIn.role here.
             const match = id?.match(new RegExp(`^e2e-session-(${FAKE_ROLES.join('|')})$`))
             const role = (match?.[1] as FakeRole | undefined) ?? signIn.role
             if (role) {
@@ -114,8 +103,7 @@ export function useSignIn() {
     return useMemo(() => ({ isLoaded: true, signIn, setActive }), [signIn, setActive])
 }
 
-// useReverification wraps an async fn behind a re-auth challenge in real Clerk; in the
-// fake there's no challenge, so we pass the fn through unchanged.
+// Real Clerk puts a re-auth challenge in front of the fn; the fake has no challenge.
 export function useReverification<T extends (...args: never[]) => unknown>(fn: T): T {
     return fn
 }

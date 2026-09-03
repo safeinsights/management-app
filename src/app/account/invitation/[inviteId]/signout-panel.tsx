@@ -6,8 +6,7 @@ import { Paper } from '@mantine/core'
 import { usePathname } from 'next/navigation'
 
 export const SignOutPanel = () => {
-    // usePathname, not window.location.href: this client component is also
-    // server-rendered, and reading window during SSR crashes the whole route.
+    // usePathname, not window.location: this client component is also server-rendered.
     const pathname = usePathname()
     const signOut = useSignOut({ redirectAfterSignOut: pathname ?? '/' })
 

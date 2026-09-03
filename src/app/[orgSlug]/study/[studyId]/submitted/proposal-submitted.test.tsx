@@ -34,11 +34,8 @@ const buildEntry = (overrides: Partial<ProposalFeedbackEntry> = {}): ProposalFee
 
 describe('ProposalSubmitted', () => {
     let study: Submitted<SelectedStudy>
-    // These tests use `study` as a read-only base (each spreads it into a render); they
-    // never mutate the DB row. So seed the org/user/study ONCE in beforeAll (it lives in
-    // the outer transaction and survives per-test rollback) instead of paying the seed +
-    // insert per test. Only the Clerk mocks — cleared by mockReset between tests — are
-    // re-applied per test.
+    // Seeded once in beforeAll: the row lives in the outer transaction and survives per-test
+    // rollback. Only the Clerk mocks, which mockReset clears, are re-applied per test.
     let mockArgs: Parameters<typeof mockClerkSession>[0]
 
     beforeAll(async () => {
@@ -440,8 +437,6 @@ describe('ProposalSubmitted', () => {
             expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        // OTTER-727 hid Agreements, so Proceed now links straight to the code step. The fixture study
-        // has a JOB-READY job (no code submitted yet), so that is the upload page.
         it('shows a "Proceed to step 3" button linking to the code step when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
@@ -504,6 +499,80 @@ describe('ProposalSubmitted', () => {
 
             const dashboardLink = screen.getByRole('link', { name: /go to dashboard/i })
             expect(dashboardLink).toHaveAttribute('href', '/dashboard')
+        })
+
+        // OTTER-764: the states whose only action was the exit now also step back to the read-only
+        // Step 1 record, which is the researcher's way into it.
+        it('shows a "Previous step" link to Step 1 when status is PENDING-REVIEW', () => {
+            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={pendingStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const previousLink = screen.getByRole('link', { name: /previous step/i })
+            expect(previousLink).toHaveAttribute('href', Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id }))
+            expect(screen.getByRole('link', { name: /go to dashboard/i })).toBeInTheDocument()
+        })
+
+        // Step 1 is a leaf the researcher steps back to and forward from, so the org-scoped entry
+        // has to ride along or the round trip strands them on the personal dashboard.
+        it('keeps an org-scoped entry on the "Previous step" link', () => {
+            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={pendingStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                    returnTo="org"
+                />,
+            )
+
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id, returnTo: 'org' }),
+            )
+        })
+
+        it('shows a "Previous step" link to Step 1 when status is REJECTED', () => {
+            const rejectedStudy = { ...study, status: 'REJECTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={rejectedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id }),
+            )
+        })
+
+        // The two branches with a designed forward action keep the navigation they already had.
+        it('offers no "Previous step" link when a forward action exists', () => {
+            const changeRequestedStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={changeRequestedStudy}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.queryByRole('link', { name: /previous step/i })).not.toBeInTheDocument()
         })
 
         it('shows "Proceed to step 3" when status is PENDING-REVIEW but proposal was approved', () => {

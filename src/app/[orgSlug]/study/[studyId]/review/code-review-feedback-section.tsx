@@ -129,9 +129,8 @@ function DecisionRadioGroup({
     const handleChange = (next: string) => onChange(next as Decision)
     const widgetBlur = useWidgetBlur(onBlur)
 
-    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
-    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
-    // applies Mantine's error styling without adding a second message (OTTER-647).
+    // Radio.Group's context does not carry `error` to its children, so a boolean `error` restyles
+    // the circles without a second message (OTTER-647).
     const radioOptions = options.map((option) => (
         <Radio
             key={option.value}
@@ -145,10 +144,8 @@ function DecisionRadioGroup({
     ))
 
     return (
-        // Blur is a bubbled focusout, so moving between radios would validate a still-empty
-        // group; useWidgetBlur waits for the user to leave it (OTTER-647).
-        // A real `label`, not `aria-label`: see the note in review-decision-section. It names the
-        // role="radiogroup" element and makes `withAsterisk` render a visible required marker.
+        // Blur is a bubbled focusout, so moving between radios would validate a still-empty group;
+        // useWidgetBlur waits for the user to leave it (OTTER-647).
         <Radio.Group
             value={value ?? ''}
             onChange={handleChange}

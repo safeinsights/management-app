@@ -1,9 +1,3 @@
-// E2E Clerk fake — client-side reactive session store.
-//
-// A tiny external store so every useUser/useAuth/useSession consumer re-renders
-// together when setActive/signOut change the role. The source of truth is the
-// __e2e_role cookie; this store mirrors it and notifies subscribers on change.
-
 import { readRoleCookieFromDocument } from './cookie'
 import { fixtureForRole, type FakeFixture } from './fixtures'
 
@@ -24,12 +18,8 @@ export function getFixture(): FakeFixture | null {
     return cachedFixture
 }
 
-// A sentinel distinct from "signed out" (null). During SSR and the first client render
-// (used for hydration) the cookie isn't readable, so we report LOADING rather than
-// signed-out. This keeps the server HTML and first client render identical (no hydration
-// mismatch) AND prevents guards like RequireUser — which redirect only on isSignedIn ===
-// false — from bouncing to /account/signin during the pre-hydration flash. A post-
-// hydration effect (ClerkProvider) re-syncs to the real role.
+// Distinct from "signed out" (null): the cookie is unreadable during SSR, and reporting LOADING
+// keeps guards like RequireUser from bouncing to /account/signin in the pre-hydration flash.
 export const LOADING = Symbol('clerk-fake-loading')
 export type FixtureState = FakeFixture | null | typeof LOADING
 
@@ -49,7 +39,6 @@ export function subscribe(listener: Listener): () => void {
 
 export const AUTH_CHANGED_EVENT = 'e2e-clerk-changed'
 
-// Keep the store in sync if the cookie is changed by another tab/context.
 if (typeof window !== 'undefined') {
     window.addEventListener(AUTH_CHANGED_EVENT, () => notifyAuthChanged())
 }

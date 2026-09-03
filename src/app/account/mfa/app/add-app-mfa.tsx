@@ -72,7 +72,6 @@ function AddTotpScreenContent({
         setIsVerifying(true)
         try {
             await user?.verifyTOTP({ code: values.code })
-            // Generate backup codes after verification
             if (user && !user.backupCodeEnabled) {
                 try {
                     const resource = await createBackupCode()

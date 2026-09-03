@@ -34,7 +34,7 @@ const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Riverside University'
 
 // The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
-// would still match. study.orgId is the Data Partner, so give the study its own enclave.
+// would still match.
 const givenDataPartner = async (studyId: string) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave', name: DATA_PARTNER })
     await db.updateTable('study').set({ orgId: dataPartner.id }).where('id', '=', studyId).execute()
@@ -48,7 +48,6 @@ const renderScreen = async (
     returnTo?: 'org',
 ) => renderWithProviders(await OutputsFeedbackScreen({ study, raw, orgSlug, returnTo }))
 
-// Clean run + "Share feedback only": FILES-REJECTED plus a RESULTS decision comment (OTTER-695).
 const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     const { study: dbStudy, job } = await insertTestStudyJobData({

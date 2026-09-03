@@ -4,11 +4,8 @@ import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 
-// Presentational Study Details page (OTTER-538 results-stage view, RL). Owns the page chrome
-// — title, the "Study Status" card, and the "Previous" link — but receives the
-// status message via the `statusMessage` slot so it stays free of data fetching (JobResults'
-// useQuery + server action) and renders in isolation (e.g. Ladle). The StudyDetailsResearcher
-// container (./study-details-researcher) injects the real <JobResultsStatusMessage>.
+// The status message arrives via a slot, keeping this free of data fetching so it renders in
+// isolation (e.g. Ladle).
 export type StudyDetailsResearcherViewProps = {
     previousHref?: Route
     statusMessage: ReactNode

@@ -40,7 +40,6 @@ import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 
-// Shared middleware for feedback actions that need study org/permission context.
 const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
     const study = await db
         .selectFrom('study')
@@ -50,12 +49,8 @@ const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { stud
     return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
 }
 
-// NOT exported, for internal use by actions in this file.
-// Soft-delete filter (`deletedAt IS NULL`) is intentionally scoped to dashboard listings via this helper.
-// Direct study reads by ID elsewhere — editor polling, agreements/code-review middlewares, getInfoForStudyId —
-// stay lifecycle-agnostic. Because soft-delete only applies to DRAFTs and a deleted DRAFT is no longer surfaced
-// on any dashboard, the studyId is effectively undiscoverable. Stale editor tabs / direct URL bookmarks remain
-// a known gap.
+// Soft-delete applies to DRAFTs only and is scoped to dashboard listings; direct reads by id stay
+// lifecycle-agnostic, so stale editor tabs and bookmarked URLs remain a known gap.
 function fetchStudyQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
@@ -68,9 +63,7 @@ function fetchStudyQuery(db: DBExecutor) {
                     .distinctOn('studyId')
                     .orderBy('studyId')
                     .orderBy('createdAt', 'desc')
-                    // id (v7, insertion-ordered) breaks createdAt ties so the per-study job picked
-                    // here is deterministic when two jobs share a createdAt (e.g. inserted in one
-                    // transaction, where now() is constant). Mirrors latestJobForStudyQuery.
+                    // v7 id breaks createdAt ties so the job picked here is deterministic.
                     .orderBy('studyJob.id', 'desc')
                     .as('latestStudyJob'),
             (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
@@ -144,13 +137,9 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .handler(async ({ db, orgId, orgType }) => {
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
-            // Reviewer dashboards should not see draft studies
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
         if (orgType === 'lab') {
-            // Lab dashboards: show every study submitted by the lab (including drafts and
-            // change-requested proposals). Multi-user editing means any lab member can
-            // continue an in-progress draft authored by a colleague.
             query = query.where('study.submittedByOrgId', '=', orgId)
         }
         return query
@@ -166,7 +155,7 @@ export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudi
     .handler(async ({ db, session }) => {
         const userId = session.user.id
         return fetchStudyQuery(db)
-            .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)])) // Only show: non-draft studies OR drafts where user is the researcher
+            .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
             .innerJoin('org', 'org.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select(['org.name as orgName', 'org.slug as orgSlug', 'submittingOrg.slug as submittedByOrgSlug'])
@@ -183,7 +172,7 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
         }
         return fetchStudyQuery(db)
             .where('study.orgId', 'in', reviewerOrgIds)
-            .where('study.status', '!=', 'DRAFT') // Reviewers should not see draft studies
+            .where('study.status', '!=', 'DRAFT')
             .innerJoin('org', 'org.id', 'study.orgId')
             .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()
@@ -198,6 +187,7 @@ export const getStudyAction = new Action('getStudyAction')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select([
                 'org.slug as orgSlug',
+                'org.name as orgName',
                 'submittingOrg.slug as submittedByOrgSlug',
                 'submittingOrg.name as submittingLabName',
                 'study.descriptionDocPath',
@@ -229,15 +219,11 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
     .handler(async ({ study, params: { studyId, role }, db, session }) => {
         const userOrgIds = new Set(Object.values(session?.orgs ?? {}).map((org) => org.id))
 
-        // OTTER-546: scope the ack strictly to the role the agreements page was rendered for.
-        // A user who happens to belong to BOTH the reviewer enclave and the submitting lab
-        // (common in test accounts) would otherwise ack both columns when proceeding from
-        // the researcher view, silently consuming the reviewer's gate and skipping the
-        // Agreements page on their next visit.
+        // Scoped to the rendered role: a user in both orgs would otherwise ack both columns at
+        // once, silently consuming the reviewer's gate (OTTER-546).
         const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
-        // SI admins (manage/all) can review studies for orgs they don't belong to, so allow the
-        // reviewer ack on their behalf — mirroring the ability check the review/agreements pages use.
-        // The researcher path stays membership-only, preserving the OTTER-546 dual-member scoping.
+        // SI admins review studies for orgs they do not belong to; the researcher path stays
+        // membership-only.
         const canReviewStudy = role === 'reviewer' && session.can('review', toRecord('Study', { orgId: study.orgId }))
         if (!userOrgIds.has(requiredOrgId) && !canReviewStudy) {
             throw new ActionFailure({ user: `not a member of the study ${role} org` })
@@ -335,8 +321,7 @@ async function approveJobCode({
     }
 
     if (sharedFiles?.length) {
-        // Re-wrap: persist only the per-researcher wrapped AES keys the reviewer's browser
-        // produced. Ciphertext is untouched; no plaintext is stored.
+        // Persist only the per-researcher wrapped AES keys; ciphertext is untouched.
         await insertSharedFileKeys(db, job.id, sharedFiles)
     }
 }
@@ -360,12 +345,8 @@ async function performStudyProposalApproval({
     useTestImage?: boolean
     sharedFiles?: SharedFile[]
 }) {
-    // Proposal approval is strictly the first decision from PENDING-REVIEW; approving a later code
-    // (re)submission is submitCodeReviewDecisionAction's job. The PENDING-REVIEW + approvedAt IS NULL
-    // predicate is the server-side gate (mirrors claimInitialProposalReviewStudy): it blocks flipping
-    // a DRAFT (or any non-pending study) into a viewable status, which would otherwise let a DO
-    // reviewer read a draft it was never meant to see (OTTER-596). Atomic so it also settles the
-    // OTTER-471 race where two decisions land at once.
+    // PENDING-REVIEW + approvedAt IS NULL blocks flipping a DRAFT into a viewable status
+    // (OTTER-596), and being atomic settles the OTTER-471 concurrent-decision race.
     const claimed = await db
         .updateTable('study')
         .set({
@@ -402,10 +383,7 @@ async function performStudyProposalApproval({
 }
 
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    // Same PENDING-REVIEW gate as approval: a proposal can only be rejected while it is under review,
-    // so a DO reviewer can't flip a DRAFT to REJECTED to make it readable (OTTER-596). Atomic for the
-    // OTTER-471 race. Code-stage rejection is a separate path (submitCodeReviewDecisionAction) and does
-    // not go through here.
+    // Same PENDING-REVIEW gate as approval (OTTER-596); atomic for the OTTER-471 race.
     const claimed = await db
         .updateTable('study')
         .set({
@@ -524,16 +502,14 @@ async function claimInitialProposalReviewStudy({
         .set({ reviewerId: userId, lastUpdatedAt: new Date() })
         .where('id', '=', studyId)
         .where('status', '=', 'PENDING-REVIEW')
-        // approvedAt IS NULL excludes legacy/straggler rows left at PENDING-REVIEW
-        // by the retired code-submit status flip; those are code-stage, not
-        // proposal-stage, and must not be claimable for a proposal review.
+        // Excludes legacy rows left at PENDING-REVIEW by the retired code-submit status flip:
+        // those are code-stage and must not be claimable for a proposal review.
         .where('approvedAt', 'is', null)
         .returning(['status', 'approvedAt', 'orgId', 'containerLocation'])
         .executeTakeFirst()
 
     if (!study) {
-        // OTTER-471: race-loser when a peer tab/user already submitted a decision.
-        // User-facing wording — surfaces via errorToString → reportMutationError toast.
+        // OTTER-471 race-loser. User-facing wording: surfaces via errorToString to a toast.
         throw new ActionFailure({
             study: 'has already been decided. Refresh to see the updated status.',
         })
@@ -569,13 +545,8 @@ async function insertReviewerProposalComment({
         .executeTakeFirstOrThrow()
 }
 
-// Safety-net delete: an in-tx DELETE inside the action handles the common case,
-// but a Hocuspocus debounced persist for the review-feedback doc can still
-// commit between the management-app status flip and our in-tx delete (different
-// connections, READ COMMITTED snapshots). Wait long enough for any in-flight
-// persist to land, then re-delete the row only when its updatedAt predates the
-// captured submit timestamp. The bound preserves rows from a fast clarification
-// -> reopen cycle that lands inside the 5-second window.
+// A debounced Hocuspocus persist can commit after the in-tx delete; re-delete rows older than the
+// submit timestamp, so a fast clarification -> reopen cycle inside 5s survives.
 const purgeReviewFeedbackYjsDocAfterSubmit = deferred(
     async (args: { studyId: string; version: number; beforeAt: Date }) => {
         await sleep({ 5: 'seconds' })
@@ -590,10 +561,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             orgSlug: z.string(),
             feedback: z.string(),
             decision: z.enum(['approve', 'needs-clarification', 'reject']),
-            // Editable review round the client believed it was on at submit
-            // time. Recomputed server-side and validated against the current
-            // value so a stale tab can't write into the wrong round even if
-            // the editor-service gates somehow let it past.
+            // Revalidated server-side so a stale tab cannot write into the wrong round.
             reviewVersion: z.number().int().positive(),
         }),
     )
@@ -630,10 +598,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
 
-        // Drop the versioned review-feedback yjs_document so the next round
-        // (if any) starts fresh from its own `-v${N+1}` name. The deferred
-        // follow-up below catches any Hocuspocus persist that commits between
-        // status-flip and now.
+        // The next round starts fresh from its own -v{N+1} name.
         await db
             .deleteFrom('yjsDocument')
             .where('name', '=', reviewFeedbackDocNameForVersion(studyId, reviewVersion))
@@ -651,7 +616,6 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             return { submitterFullName: submitter.fullName }
         }
 
-        // Clarification requests only change the proposal status. Job status rows are reserved for code review.
         await db
             .updateTable('study')
             .set({
@@ -680,18 +644,8 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
 
 export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
 
-// Same safety-net rationale as purgeReviewFeedbackYjsDocAfterSubmit, but for the
-// code-review-feedback document. A debounced Hocuspocus persist can race the
-// in-tx delete on a different connection, so wait long enough for any in-flight
-// persist to land and re-delete only rows older than the captured submit time.
-// Safety-net: after the in-tx delete commits, a debounced Hocuspocus persist
-// from a stale connected client can still upsert a row at the job-keyed name
-// (the editor no longer gates code-review writes; the action is the single
-// enforcer). The delay must outlast Hocuspocus's MAX_SAVE_INTERVAL_MS (30s) so
-// the sweep runs *after* the worst-case debounced/maxDebounce store fires, and
-// after the disconnect-flush (which is also routed through the same debouncer
-// per the Hocuspocus 3.4.x server). Job-keyed names are never legitimately
-// re-used after submit, so unconditional delete is safe.
+// The delay must outlast Hocuspocus MAX_SAVE_INTERVAL_MS so the sweep runs after the worst-case
+// debounced store and disconnect-flush. Job-keyed names are never reused, so the delete is unconditional.
 const CODE_REVIEW_PURGE_DELAY_MS = MAX_SAVE_INTERVAL_MS + 5_000
 const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: string }) => {
     await sleep({ [CODE_REVIEW_PURGE_DELAY_MS]: 'ms' })
@@ -699,16 +653,8 @@ const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: 
 })
 
 async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
-    // Code-review eligibility is driven by the JOB status alone, not study.status.
-    // PENDING-REVIEW is a proposal-stage status; a study whose proposal was already
-    // approved stays APPROVED while its code is (re)submitted for review, so a latest
-    // job whose newest code change is a fresh submission is the only correct gate. Once a
-    // peer decides the current submission this gate fails (the newest code change is a
-    // decision, not a submission), and within the same round the unique
-    // (studyJobId, reviewKind, round) index blocks a true insert race — so this check is
-    // also the race-loser guard (OTTER-471). latestCodeChangeIsSubmission counts submissions
-    // vs decisions rather than reading statusChanges[0], so it is immune to the
-    // createdAt/v7-id tie ordering this file leans on being non-deterministic elsewhere.
+    // study.status stays APPROVED while code is (re)submitted, so job status is the only correct
+    // gate. Counting submissions vs decisions keeps it immune to createdAt/v7-id tie ordering.
     const job = await latestJobForStudyOrNull(studyId)
     if (!job || !job.statusChanges.some((c) => isCodeUnderReviewStatus(c.status))) {
         throw new ActionFailure({ study: 'has no code submission to review.' })
@@ -757,15 +703,8 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         const claimedJob = await claimInitialCodeReviewJob({ studyId })
 
-        // Round = study-wide submission version at decision time. A same-job resubmit (OTTER-316)
-        // keeps the same job, so uniqueness is scoped to (studyJobId, reviewKind, round) and each
-        // round gets its own decision row (OTTER-638). The round-1 decision is written before its
-        // CODE-CHANGES-REQUESTED status below, so round 1 → 1 and a post-resubmit decision → 2.
-        // Load-bearing: codeSubmissionVersion counts CODE-CHANGES-REQUESTED/FILES-APPROVED/FILES-REJECTED
-        // but NOT CODE-REJECTED, which is safe only because reject is terminal (not resubmittable) so no
-        // second decision can follow it. If reject ever becomes resubmittable, codeSubmissionVersion
-        // must count it too (and canResearcherResubmitCode must allow it), or the round won't advance and the
-        // next decision would collide on the round-scoped unique constraint.
+        // Round = study-wide submission version, so each round gets its own row under the
+        // (studyJobId, reviewKind, round) unique index (OTTER-316/638).
         const round = await codeSubmissionVersion(studyId, db)
 
         try {
@@ -784,12 +723,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 })
                 .executeTakeFirstOrThrow()
         } catch (err) {
-            // Postgres unique_violation (SQLSTATE 23505). The composite unique
-            // index on (studyJobId, reviewKind, round) fires when two reviewers
-            // race through claimInitialCodeReviewJob within the same round and
-            // both reach this insert before either commits. The race-loser sees
-            // this; the data is already safe, so surface a clean message instead
-            // of the raw duplicate-key error.
+            // Fires when two reviewers race through claimInitialCodeReviewJob in the same round.
             if (isPgUniqueViolation(err)) {
                 throw new ActionFailure({
                     study: 'another reviewer has already submitted a decision for this study code',
@@ -806,11 +740,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
-        // Each branch below re-asserts the APPROVED resting state. Code submission
-        // no longer flips study.status, so these writes are transitional
-        // self-healing for legacy rows (and old pods during a rolling deploy) that
-        // still sit at PENDING-REVIEW with approvedAt set; once those are gone they
-        // can shrink to { reviewerId, lastUpdatedAt }.
+        // Re-asserts APPROVED to self-heal legacy rows still at PENDING-REVIEW with approvedAt set.
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
             await db
@@ -820,10 +750,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .execute()
             onStudyCodeApproved({ studyId, userId })
         } else if (decision === 'reject') {
-            // Rejecting code only fails the job, not the proposal. Record
-            // CODE-REJECTED on the job and keep the study APPROVED so the
-            // proposal page keeps showing "approved" (OTTER-603). The study
-            // was already approved (approvedAt set) before code was reviewed.
+            // Rejecting code fails the job, not the proposal; the study stays APPROVED (OTTER-603).
             await db
                 .insertInto('jobStatusChange')
                 .values({ userId, status: 'CODE-REJECTED', studyJobId: claimedJob.id })
@@ -835,10 +762,6 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .execute()
             onStudyCodeRejected({ studyId, userId })
         } else {
-            // Clarification: append CODE-CHANGES-REQUESTED on the job (so the
-            // pill flips to "Change requested"). The proposal stays APPROVED;
-            // claimInitialCodeReviewJob's job-status gate blocks any further
-            // code-review submissions on this job until the researcher resubmits.
             await db
                 .insertInto('jobStatusChange')
                 .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
@@ -856,24 +779,14 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         return { submitterFullName: submitter.fullName }
     })
 
-// Reviewer DECISION rows of one reviewKind merged with resubmission notes, newest first. Shared by
-// the code and outputs feedback actions so entry shape, version labels, and ordering can't drift.
+// Shared by the code and outputs feedback actions so shape, version labels and ordering cannot drift.
 async function loadReviewFeedbackThread(
     db: DBExecutor,
     studyId: string,
     reviewKind: Extract<StudyReviewCommentKind, 'CODE' | 'RESULTS'>,
 ) {
-    // Both reviewer decisions and resubmission notes are versioned by the study-wide submission
-    // round (see codeSubmissionVersion): the decision stores it in studyReviewComment.round, the
-    // note in studyJob.resubmissionRound. This keeps a round's note and decision on the same
-    // label even when a same-job resubmit revises in place (OTTER-316/638) and the job ordinal
-    // would not advance. jobVersion (job creation order) is only a fallback for legacy rows whose
-    // resubmissionRound was not backfilled. studyJob has no userId column; the author of the
-    // resubmission note is the user recorded on the job's latest CODE-SUBMITTED (left-joined so
-    // the timestamp and author are independent: a null/deleted user does not lose the submission
-    // row). A same-job resubmit appends more than one CODE-SUBMITTED, so joining the rows directly
-    // would multiply the job into duplicate codeJobs rows (and duplicate note entries); a lateral
-    // join to the single latest submission keeps each job to one row.
+    // Versioned by the study-wide round so a same-job resubmit keeps the same label. Lateral join
+    // because a same-job resubmit appends several CODE-SUBMITTED rows and a direct join would duplicate.
     const codeJobs = await db
         .selectFrom('studyJob')
         .leftJoinLateral(
@@ -949,10 +862,7 @@ async function loadReviewFeedbackThread(
             decision: null,
             body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
             criteria: null,
-            // The note is written at resubmit time, not job creation: a same-job resubmit revises
-            // an old job in place, so use the latest CODE-SUBMITTED timestamp to position the note
-            // in the round it opened (newest-first sort below). Falls back to job creation only for
-            // a job with no submission (which never carries a note).
+            // Written at resubmit time, so the latest CODE-SUBMITTED timestamp positions it.
             createdAt: j.submittedAt ?? j.createdAt,
             authorName: j.authorName ?? '',
             version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
@@ -980,9 +890,7 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
-// OTTER-695: the researcher-facing outputs thread — RESULTS decisions plus resubmission notes.
-// Distinct from getOutputsDecisionFeedbackAction above, which returns the decisions alone for the
-// reviewer's post-review page.
+// Distinct from getOutputsDecisionFeedbackAction, which returns decisions alone for the reviewer.
 export const getOutputsFeedbackThreadAction = new Action('getOutputsFeedbackThreadAction')
     .params(z.object({ studyId: z.string().uuid() }))
     .middleware(studyViewMiddleware)
@@ -1014,8 +922,7 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
             .orderBy('studyReviewComment.createdAt', 'desc')
             .execute()
 
-        // Outputs decisions don't carry criteria (unlike code reviews), so entryType is mapped to the
-        // shared FeedbackAndNotesSection shape without it.
+        // Outputs decisions carry no criteria, unlike code reviews.
         return rows.map((row) => ({
             id: row.id,
             authorId: row.authorId,

@@ -59,9 +59,8 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
         decision.onSelect(value as Decision)
     }
 
-    // Radio.Group's context carries value/onChange/size/name/disabled to its children but not
-    // `error`, so the circles stay grey while the group's message turns red. A boolean `error`
-    // applies Mantine's error styling without adding a second message (OTTER-647).
+    // Radio.Group's context does not carry `error` to its children, so a boolean `error` restyles
+    // the circles without a second message (OTTER-647).
     const radioOptions = DECISION_OPTIONS.map((option) => (
         <Radio
             key={option.value}
@@ -86,10 +85,8 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still
                 empty group; useWidgetBlur waits for the user to leave it (OTTER-647). */}
-            {/* A real `label`, not `aria-label`: Radio.Group names the element carrying
-                role="radiogroup" from its rendered label, and strands a hand-passed `aria-label`
-                on the roleless outer wrapper. Using the prop also makes `withAsterisk` render,
-                which is the group's only visible required marker. */}
+            {/* A real `label`, not `aria-label`: Radio.Group names role="radiogroup" from its
+                rendered label and strands `aria-label` on the roleless outer wrapper. */}
             <Radio.Group
                 value={decision.selected ?? ''}
                 onChange={handleChange}
