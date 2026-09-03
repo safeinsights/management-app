@@ -50,10 +50,7 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
 }
 
 // Starts from the acknowledgement, so these read what the user signed, not what their orgs are party to.
-const latestAcknowledgedVersions = (
-    db: DBExecutor,
-    { userId, type }: { userId: string; type: LegalDocumentTypeValue },
-) =>
+const latestAcknowledgedVersions = (db: DBExecutor, { userId, type }: { userId: string; type: LegalDocumentType }) =>
     db
         .selectFrom('legalDocumentAcknowledgement')
         .innerJoin(

@@ -2,7 +2,7 @@
 
 import { useQuery, type FC } from '@/common'
 import { ErrorAlert } from '@/components/errors'
-import { LegalDocumentContent } from '@/components/legal/document-content'
+import { LegalMarkdownContent } from '@/components/legal/markdown-content'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import { LoadingMessage } from '@/components/loading'
 import { formatInstantAsUtcDay } from '@/lib/dates'
@@ -41,7 +41,7 @@ const DocumentBody: FC<{ isLoading: boolean; document?: GlobalDocument | null; l
     if (isLoading) return <LoadingMessage message={`Loading ${label}`} />
     if (!document) return <Text c="dimmed">Not available</Text>
 
-    return <LegalDocumentContent content={document.content} unbounded label={label} />
+    return <LegalMarkdownContent content={document.content} unbounded label={label} />
 }
 
 export const UserGlobalDocument: FC<Props> = ({ type }) => {

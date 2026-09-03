@@ -39,7 +39,7 @@ const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
     </Typography>
 )
 
-export const LegalDocumentContent: FC<Props> = memo(function LegalDocumentContent({
+export const LegalMarkdownContent: FC<Props> = memo(function LegalMarkdownContent({
     content,
     maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT,
     unbounded,
