@@ -12,13 +12,15 @@ import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
+import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
@@ -1139,4 +1141,38 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
         },
         orgs: orgsRecord,
     }
+}
+
+type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }
+
+/**
+ * Drives one autosave round trip so a save indicator reaches "All changes saved". Without it the
+ * Hocuspocus mock never emits, and a test asserting the label is absent proves nothing.
+ *
+ * Call once the editor has mounted: it takes the newest provider. `docName` picks one of several.
+ */
+export const simulateEditorSave = async (docName?: string) => {
+    const { __instances } = HocuspocusProvider as unknown as { __instances: FakeCollaborativeProvider[] }
+    const matching = docName ? __instances.filter((p) => p.configuration.name === docName) : __instances
+    const provider = matching.at(-1)
+
+    if (!provider) {
+        throw new Error(`No collaborative editor provider${docName ? ` named "${docName}"` : ''} has been created`)
+    }
+
+    await act(async () => {
+        provider.__simulateSave()
+    })
+}
+
+/**
+ * The live Lexical editor behind a mounted collaborative surface, given its root or any node in it.
+ *
+ * Edits must go through Lexical's API because happy-dom cannot dispatch the `beforeinput` events it
+ * listens for, and the collaborative editor has no `children` slot to take a CaptureEditor plugin.
+ */
+export const lexicalEditorFor = (surface: HTMLElement) => {
+    const editor = getNearestEditorFromDOMNode(surface)
+    if (!editor) throw new Error('that element is not a mounted Lexical surface')
+    return editor
 }

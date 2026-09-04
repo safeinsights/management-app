@@ -1,7 +1,0 @@
-/* A selector, not Mantine's `styles` prop, which takes inline style objects and cannot carry one. */
-.button:disabled,
-.button[data-disabled] {
-    background-color: var(--mantine-color-grey-1);
-    color: var(--mantine-color-charcoal-6);
-    border-color: transparent;
-}

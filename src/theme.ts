@@ -7,7 +7,6 @@ import {
     DefaultMantineSize,
     MantineColorsTuple,
 } from '@mantine/core'
-import classes from './theme.module.css'
 
 const charcoal: MantineColorsTuple = [
     '#E6E6E6',
@@ -140,8 +139,20 @@ declare module '@mantine/core' {
 // itself, so each needs brand/Light supplied explicitly.
 const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'light']
 
+// Mantine's own disabled rule reads these two variables, so overriding them on the button element
+// repaints the disabled state without touching disabled inputs, checkboxes or radios. They have to
+// travel as custom properties: `vars` reaches the DOM as an inline style, and an inline style cannot
+// carry the :disabled pseudo-class a `styles` callback would need.
+const DISABLED_VARS: Record<string, string> = {
+    '--mantine-color-disabled': grey[1],
+    '--mantine-color-disabled-color': charcoal[6],
+}
+
 export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
-    root: LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {},
+    root: {
+        ...DISABLED_VARS,
+        ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
+    },
 })
 
 export const theme = createTheme({
@@ -178,7 +189,6 @@ export const theme = createTheme({
                 color: 'navy',
             },
             vars: buttonVars,
-            classNames: { root: classes.button },
         },
     },
     primaryShade: 5,

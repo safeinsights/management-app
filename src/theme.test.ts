@@ -27,19 +27,31 @@ describe('button colors', () => {
     // light resolves its hover from the same alpha as outline and subtle, so it needs the override
     // too — missing it was the gap review caught.
     it.each<ButtonVariant>(['outline', 'subtle', 'light'])('supplies brand/Light as the %s hover', (variant) => {
-        expect(buttonVars({}, { variant }).root).toEqual({ '--button-hover': '#E6E9EF' })
-    })
-
-    // A nested selector in `styles` is silently dropped, so the disabled paint never applied.
-    it('carries the disabled paint as a class, not an inline style object', () => {
-        expect(theme.components?.Button?.styles).toBeUndefined()
-        expect(theme.components?.Button?.classNames).toBeDefined()
+        expect(buttonVars({}, { variant }).root['--button-hover']).toBe('#E6E9EF')
     })
 
     it.each<ButtonVariant>(['filled', 'default', 'gradient', 'transparent', 'white'])(
         'leaves the %s hover to Mantine',
         (variant) => {
-            expect(buttonVars({}, { variant }).root).toEqual({})
+            expect(buttonVars({}, { variant }).root).not.toHaveProperty('--button-hover')
         },
     )
+
+    // QA rejected the first attempt because these lived in a `styles` callback, which Mantine emits
+    // as an inline style — the :disabled selector it needed was dropped by the browser and every
+    // button kept Mantine's stock grey. Asserting the custom properties keeps the delivery
+    // mechanism, not just the hexes, under test.
+    it.each<ButtonVariant>(['filled', 'outline', 'subtle', 'light', 'default'])(
+        'paints the disabled %s button from the library greys',
+        (variant) => {
+            expect(buttonVars({}, { variant }).root).toMatchObject({
+                '--mantine-color-disabled': '#DADEE1',
+                '--mantine-color-disabled-color': '#595959',
+            })
+        },
+    )
+
+    it('no longer ships button colours through a styles callback', () => {
+        expect(theme.components?.Button).not.toHaveProperty('styles')
+    })
 })
