@@ -1,5 +1,6 @@
 import {
     db,
+    insertKeylessInvitedUser,
     renderWithProviders,
     screen,
     fireEvent,
@@ -137,5 +138,32 @@ describe('SignInForm', () => {
         await userEvent.tab()
 
         await waitFor(() => expect(password).toHaveAttribute('aria-invalid', 'true'))
+    })
+    // An invited user who has not enrolled MFA completes sign-in in one step and lands here, where
+    // invite_id used to be ignored — so the invite that brought them was silently lost.
+    it('accepts a pending invite for a keyless user who signs in without MFA', async () => {
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
+        memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
+        ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
+        mockSignInCreate(vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }))
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        await waitFor(async () => {
+            const membership = await db
+                .selectFrom('orgUser')
+                .select('id')
+                .where('userId', '=', user.id)
+                .where('orgId', '=', invitingOrg.id)
+                .executeTakeFirst()
+            expect(membership).toBeDefined()
+        })
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
+            ),
+        )
     })
 })

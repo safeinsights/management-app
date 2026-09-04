@@ -46,7 +46,6 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
                 type="submit"
                 w="100%"
                 size="lg"
-                variant="filled"
                 radius="sm"
                 mt="xs"
                 loading={isVerifyingCode}

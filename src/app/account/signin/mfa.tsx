@@ -1,90 +1,25 @@
 'use client'
 import { useForm, useMutation } from '@/common'
-import { reportError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
-import { markOrgJoined } from '@/lib/joined-org'
-import { Routes } from '@/lib/routes'
-import { actionResult, safeRedirectUrl } from '@/lib/utils'
-import { keyGenerationUrl } from '@/lib/user-key-redirect'
-import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
-import type { GetToken, SignInResource } from '@clerk/types'
+import { useSignIn, useUser } from '@clerk/nextjs'
+import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { isNotEmpty } from '@mantine/form'
-import type { Route } from 'next'
-import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
-import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
+import { useCompleteSignIn } from './use-complete-sign-in'
 import { VerifyCode } from './verify-code'
 
 export type Step = 'select' | 'verify' | 'recovery'
 type Method = 'sms' | 'totp'
 
-// A stale token matters less than losing the invite or key detour that follows, so a refresh
-// failure is logged, not thrown.
-async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invite-accepted') {
-    try {
-        await getToken({ skipCache: true })
-    } catch (error) {
-        console.error(`session token refresh failed after ${caller}:`, error)
-    }
-}
-
-// The session is already established, so a failure here must not abort the rest of the sequence.
-async function completeServerSignIn(getToken: GetToken) {
-    try {
-        const result = actionResult(await onUserSignInAction())
-        await refreshSessionToken(getToken, 'sign-in')
-        return result
-    } catch (error) {
-        console.error('onUserSignInAction failed:', error)
-        return null
-    }
-}
-
-// Always resolves to a destination rather than throwing, so the key detour still runs on top.
-async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToken): Promise<Route> {
-    const joinTeamPage = Routes.accountInvitationJoinTeam({ inviteId }) as Route
-
-    let org: { slug: string; name: string }
-    try {
-        // Read before joining: the lookup only resolves unclaimed invites.
-        org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-    } catch (error) {
-        // Retrying can never succeed, and the join-team page has a persistent "no longer valid"
-        // panel where a dashboard would only flash a toast.
-        reportError(error, 'This invitation is no longer valid')
-        return joinTeamPage
-    }
-
-    try {
-        // actionResult despite the discarded value: it turns an action failure into a throw.
-        actionResult(await onJoinTeamAccountAction({ inviteId }))
-    } catch (error) {
-        // A failed join rolls the claim back, leaving the invite live, so return where Accept can
-        // be retried.
-        reportError(error, 'Failed to accept your invitation. Please try again.')
-        return joinTeamPage
-    }
-
-    markOrgJoined(org.name)
-    // After the landing is settled: nothing past this point may turn a successful join into a
-    // retry prompt.
-    await refreshSessionToken(getToken, 'invite-accepted')
-
-    return Routes.orgDashboard({ orgSlug: org.slug }) as Route
-}
-
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const [step, setStep] = useState<Step>('select')
     const [method, setMethod] = useState<Method | null>(null)
     const { isLoaded, setActive } = useSignIn()
-    const router = useRouter()
-    const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
-    const auth = useAuth()
+    const completeSignIn = useCompleteSignIn()
 
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
@@ -120,32 +55,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
-
-                try {
-                    const result = await completeServerSignIn(auth.getToken)
-
-                    const rawRedirect = searchParams.get('redirect_url')
-                    let redirectUrl = rawRedirect ? safeRedirectUrl(rawRedirect, Routes.dashboard) : null
-                    const inviteId = searchParams.get('invite_id')
-                    // An invite outranks redirect_url: a deep link captured before the join may
-                    // still be unreachable to this account.
-                    if (inviteId) {
-                        redirectUrl = await acceptInviteAndResolveLanding(inviteId, auth.getToken)
-                    }
-
-                    // Key generation last, so a keyless user still accepts their invite on the way
-                    // through (OTTER-655).
-                    router.push(
-                        result?.redirectToKeyGeneration
-                            ? keyGenerationUrl(redirectUrl)
-                            : (redirectUrl ?? Routes.dashboard),
-                    )
-                } catch (error) {
-                    // Both steps above resolve their own failures, so reaching this means something
-                    // unexpected threw. The user is signed in either way.
-                    console.error('post sign-in navigation failed:', error)
-                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
-                }
+                await completeSignIn()
             } else {
                 form.setErrors({
                     code: `Unknown signIn status: ${signInAttempt?.status || 'unknown'}`,
@@ -220,14 +130,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         <>
                             <Stack gap="xl">
                                 {hasSMS && (
-                                    <Button w="100%" size="lg" variant="filled" onClick={() => onSelectMethod('sms')}>
+                                    <Button w="100%" size="lg" onClick={() => onSelectMethod('sms')}>
                                         SMS Verification
                                     </Button>
                                 )}
                                 {hasTOTP && (
                                     <Button
                                         w="100%"
-                                        variant={hasBoth ? 'outline' : 'primary'}
+                                        variant={hasBoth ? 'outline' : 'filled'}
                                         size="lg"
                                         onClick={() => onSelectMethod('totp')}
                                     >

@@ -26,7 +26,6 @@ export const TotpVerification = ({ form, isVerifyingCode, resetFlow }: TotpVerif
                 type="submit"
                 w="100%"
                 size="lg"
-                variant="filled"
                 radius="sm"
                 mt="xs"
                 loading={isVerifyingCode}

@@ -29,7 +29,7 @@ export const AlreadySignedInView: FC<AlreadySignedInViewProps> = ({
                     {describeSession(email)} Continue to where you were headed, or sign in with a different account.
                 </Text>
                 <Stack gap="md">
-                    <Button size="lg" variant="filled" onClick={onContinue} disabled={isSwitching}>
+                    <Button size="lg" onClick={onContinue} disabled={isSwitching}>
                         Continue
                     </Button>
                     <Button size="lg" variant="outline" onClick={onSwitchAccount} loading={isSwitching}>

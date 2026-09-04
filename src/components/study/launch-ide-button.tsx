@@ -31,7 +31,7 @@ export function LaunchIdeButton({ onClick, isLaunching, launchError, variant }: 
 
     if (variant === 'cta') {
         return (
-            <Button variant="filled" rightSection={<ArrowSquareOutIcon size={16} />} onClick={onClick}>
+            <Button rightSection={<ArrowSquareOutIcon size={16} />} onClick={onClick}>
                 Launch IDE
             </Button>
         )

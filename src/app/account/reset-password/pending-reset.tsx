@@ -4,15 +4,13 @@ import { useForm, useMutation, useState, z, zodResolver } from '@/common'
 import { ClerkErrorAlert } from '@/components/clerk-errors'
 import { InputError } from '@/components/errors'
 import { errorToString, isClerkApiError } from '@/lib/errors'
-import { safeRedirectUrl } from '@/lib/utils'
 import { onUserResetPWAction } from '@/server/actions/user.actions'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
+import { useCompleteSignIn } from '../signin/use-complete-sign-in'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
 
 const verificationFormSchema = z
@@ -47,10 +45,9 @@ interface PendingResetProps {
 export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps) {
     const { isLoaded, setActive, signIn } = useSignIn()
     const [needsMFA, setNeedsMFA] = useState<MFAState>(false)
+    const completeSignIn = useCompleteSignIn()
     const [verificationError, setVerificationError] = useState<string | null>(null)
     const [canResend, setCanResend] = useState(true)
-    const router = useRouter()
-    const searchParams = useSearchParams()
 
     const verificationForm = useForm<VerificationFormValues>({
         validate: zodResolver(verificationFormSchema),
@@ -106,7 +103,8 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 await onUserResetPWAction()
-                router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
+                // A reset hands back a live session, so the same post-sign-in sequence applies.
+                await completeSignIn()
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)
                 setNeedsMFA(state)

@@ -1,8 +1,31 @@
 import { type DBExecutor } from '@/database'
-import type { OrgType } from '@/database/types'
-import { type LegalDocumentTypeValue, type ParticipationAgreementType } from '@/schema/legal-document'
+import type { LegalDocumentType, OrgType } from '@/database/types'
+import { type ParticipationAgreementType } from '@/schema/legal-document'
+import type { ExpressionBuilder, ReferenceExpression } from 'kysely'
 
-type DocumentScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
+// The scope a reader is entitled to, by document.
+// - Global tos/pn (both scope columns null)
+// - The ropa/dopa of the orgs passed in
+// Shared by the app-wide gate and signup so the two cannot drift.
+export const owedDocValidatorEb = <T>(
+    eb: ExpressionBuilder<T, keyof T>,
+    dbOrgRef: ReferenceExpression<T, keyof T>,
+    dbStudyRef: ReferenceExpression<T, keyof T>,
+    orgIds: string[],
+    // TBD add study ID for SLA
+) => {
+    const branches = [eb.and([eb(dbOrgRef, 'is', null), eb(dbStudyRef, 'is', null)])] // TOS/PN case
+    // Check for list emptiness before running any SQL,
+    // since checking 'in' against an empty list is a Postgres error.
+    if (orgIds.length > 0) {
+        branches.push(
+            eb.and([eb(dbOrgRef, 'in', orgIds), eb(dbStudyRef, 'is', null)]), // ROPA/DOPA case
+        )
+    }
+    return eb.or(branches)
+}
+
+type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 const documentInScope = (db: DBExecutor, { type, orgId, studyId }: DocumentScope) =>
     db
@@ -88,6 +111,7 @@ export const orgParticipationAgreement = (
         .selectFrom('legalDocument')
         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
         .select([
+            'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
             'legalDocumentVersion.fileName as fileName',
             'legalDocumentVersion.format as format',

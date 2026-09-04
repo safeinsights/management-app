@@ -76,13 +76,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
-                    <Button
-                        size="md"
-                        variant="filled"
-                        disabled={!isFormValid || isBusy}
-                        loading={isSubmitting}
-                        onClick={openConfirm}
-                    >
+                    <Button size="md" disabled={!isFormValid || isBusy} loading={isSubmitting} onClick={openConfirm}>
                         Resubmit initial request
                     </Button>
                 </Group>

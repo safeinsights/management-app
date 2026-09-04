@@ -206,7 +206,6 @@ export function AddSMSMFA() {
                                             type="submit"
                                             w="100%"
                                             size="md"
-                                            variant="filled"
                                             radius="sm"
                                             loading={isVerifyingCode}
                                             disabled={!/\d{6,}/.test(otpForm.values.code)}

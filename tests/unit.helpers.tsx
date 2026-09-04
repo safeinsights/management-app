@@ -12,13 +12,15 @@ import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
+import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
@@ -571,7 +573,7 @@ export const mockClerkSession = (values: MockSession | null) => {
 
     if (values.isSiAdmin) {
         orgs[CLERK_ADMIN_ORG_SLUG] = {
-            id: 'si-org-id-mock',
+            id: BLANK_UUID,
             slug: CLERK_ADMIN_ORG_SLUG,
             type: 'enclave',
             isAdmin: true,
@@ -720,6 +722,22 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const session = { user, org: { id: org.id, slug: org.slug } }
 
     return { session, org, user, orgUser, ...mocks }
+}
+
+// A signed-in user holding no key, with a live invite to a second org. Every sign-in screen has to
+// accept the invite before the key detour redirects, or the membership is lost.
+export async function insertKeylessInvitedUser() {
+    const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+    await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+
+    const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const invite = await db
+        .insertInto('pendingUser')
+        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return { user, org, invitingOrg, invite }
 }
 
 type MockDualRoleSessionOptions = {
@@ -1109,4 +1127,38 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
         },
         orgs: orgsRecord,
     }
+}
+
+type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }
+
+/**
+ * Drives one autosave round trip so a save indicator reaches "All changes saved". Without it the
+ * Hocuspocus mock never emits, and a test asserting the label is absent proves nothing.
+ *
+ * Call once the editor has mounted: it takes the newest provider. `docName` picks one of several.
+ */
+export const simulateEditorSave = async (docName?: string) => {
+    const { __instances } = HocuspocusProvider as unknown as { __instances: FakeCollaborativeProvider[] }
+    const matching = docName ? __instances.filter((p) => p.configuration.name === docName) : __instances
+    const provider = matching.at(-1)
+
+    if (!provider) {
+        throw new Error(`No collaborative editor provider${docName ? ` named "${docName}"` : ''} has been created`)
+    }
+
+    await act(async () => {
+        provider.__simulateSave()
+    })
+}
+
+/**
+ * The live Lexical editor behind a mounted collaborative surface, given its root or any node in it.
+ *
+ * Edits must go through Lexical's API because happy-dom cannot dispatch the `beforeinput` events it
+ * listens for, and the collaborative editor has no `children` slot to take a CaptureEditor plugin.
+ */
+export const lexicalEditorFor = (surface: HTMLElement) => {
+    const editor = getNearestEditorFromDOMNode(surface)
+    if (!editor) throw new Error('that element is not a mounted Lexical surface')
+    return editor
 }

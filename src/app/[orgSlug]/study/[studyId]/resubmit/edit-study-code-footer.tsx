@@ -73,7 +73,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         <>
             <Group justify="flex-end" align="flex-start" mt="xs">
                 {exitButton}
-                <Button variant="filled" size="md" disabled={!canResubmit} loading={isSubmitting} onClick={openConfirm}>
+                <Button size="md" disabled={!canResubmit} loading={isSubmitting} onClick={openConfirm}>
                     Resubmit study code
                 </Button>
             </Group>
