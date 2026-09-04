@@ -19,7 +19,7 @@ import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
@@ -136,6 +136,10 @@ export function renderWithProviders(
         options,
     )
 }
+
+// The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,
+// so there is no role or text to find it by.
+export const pageHeaderEyebrow = () => screen.getByTestId('page-header-eyebrow').textContent
 
 export * from './common.helpers'
 
@@ -810,6 +814,11 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
 
     return { enclave, lab, studyId: draft.studyId, user: session.user }
 }
+
+// Test orgs get a faker name. Rename when a test asserts on the name itself, so two orgs cannot
+// collide on one generated value.
+export const renameTestOrg = (orgId: string, name: string) =>
+    db.updateTable('org').set({ name }).where('id', '=', orgId).execute()
 
 export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
     db.updateTable('study').set({ status }).where('id', '=', studyId).execute()

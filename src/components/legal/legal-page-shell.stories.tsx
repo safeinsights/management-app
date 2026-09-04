@@ -16,4 +16,6 @@ const TabsStandIn = () => (
 
 export const UserLegal: Story = () => <LegalPageShell title="Legal" tabs={<TabsStandIn />} />
 
-export const OrgLegalCenter: Story = () => <LegalPageShell title="Legal center" tabs={<TabsStandIn />} />
+export const OrgLegalCenter: Story = () => (
+    <LegalPageShell eyebrow="Genius" title="Legal center" tabs={<TabsStandIn />} />
+)

@@ -90,7 +90,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('Study Details')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByText('No code has been uploaded yet.')).toBeInTheDocument()
     })
 
@@ -206,7 +206,8 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
+            // returnTo=org still reaches the view — it now arrives as the nav's exit destination.
+            expect(page?.props.nav.forward.href).toBe(`/${org.slug}/dashboard`)
         })
 
         it('renders CodePostSubmissionView when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW gate)', async () => {
@@ -341,7 +342,7 @@ describe('StudyViewPage', () => {
                 })
 
                 renderWithProviders(page!)
-                expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+                expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
                 expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
                 expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
                 expect(screen.getByTestId('status-alert')).toBeInTheDocument()
@@ -396,7 +397,7 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.nextStepHref).toBeUndefined()
+            expect(page?.props.nav.forward.label).toBe('Back to my studies')
             renderWithProviders(page!)
             expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()
@@ -508,7 +509,7 @@ describe('StudyViewPage', () => {
             expect(page?.props.latestJobStatus).toBe('CODE-CHANGES-REQUESTED')
 
             renderWithProviders(page!)
-            expect(screen.getByTestId('cta-edit-and-resubmit')).toHaveTextContent('Edit and resubmit')
+            expect(screen.getByTestId('cta-edit-code')).toHaveTextContent('Edit code')
         })
 
         it('returns to CodePostSubmissionView when the round is resubmitted after changes requested', async () => {

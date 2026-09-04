@@ -1,14 +1,16 @@
+import type { ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
 import type { StudyJobStatus } from '@/database/types'
 import { ButtonLink } from '@/components/links'
 import { PreviousStepLink } from '@/components/study/previous-step-link'
-import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { OutputsStatusAlert } from './outputs-status-alert'
 
 export type SecondaryAnalysisViewProps = {
-    studyTitle: string
+    studyTitle: string | null
+    /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
+    header: ReactNode
     stageStatus: StudyJobStatus
     stageStartedAt: string | Date
     previousHref: Route
@@ -17,6 +19,7 @@ export type SecondaryAnalysisViewProps = {
 
 export function SecondaryAnalysisView({
     studyTitle,
+    header,
     stageStatus,
     stageStartedAt,
     previousHref,
@@ -25,7 +28,7 @@ export function SecondaryAnalysisView({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                {header}
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"

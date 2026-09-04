@@ -1,24 +1,22 @@
-import { Routes } from '@/lib/routes'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { JobResultsStatusMessage } from './job-results-status-message'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-
-// OTTER-614: returnTo is threaded so org scope survives the hop back to the code screen.
+import type { StepNav } from '@/lib/study-screen'
 
 type StudyDetailsResearcherProps = {
-    orgSlug: string
     study: SelectedStudy
     job: LatestJobForStudy
-    returnTo?: 'org'
+    nav: StepNav
 }
 
-export function StudyDetailsResearcher({ orgSlug, study, job, returnTo }: StudyDetailsResearcherProps) {
-    const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
+export function StudyDetailsResearcher({ study, job, nav }: StudyDetailsResearcherProps) {
     return (
         <StudyDetailsResearcherView
-            previousHref={previousHref}
-            statusMessage={<JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />}
+            header={<StudyPageHeader study={study} />}
+            nav={nav}
+            statusMessage={<JobResultsStatusMessage job={job} files={job.files} />}
         />
     )
 }

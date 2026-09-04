@@ -66,7 +66,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const { org, study, raw } = await setupErrored()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })

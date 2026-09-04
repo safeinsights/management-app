@@ -4,6 +4,7 @@ import {
     mockDualRoleSessionWithTestData,
     mockPathname,
     mockSessionWithTestData,
+    pageHeaderEyebrow,
     renderWithProviders,
     screen,
     userEvent,
@@ -79,6 +80,17 @@ describe('UserStudiesDashboard', () => {
         expect(screen.queryByText(/Review all the studies submitted to your organizations/i)).toBeNull()
         expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
+    })
+
+    // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
+    it('heads the page with no eyebrow above it', async () => {
+        await mockDualRoleSessionWithTestData()
+
+        renderWithProviders(<UserStudiesDashboard />)
+
+        expect(await screen.findByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe('')
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 
     it('keeps the toggle visible after switching from a populated researcher tab to an empty reviewer tab', async () => {

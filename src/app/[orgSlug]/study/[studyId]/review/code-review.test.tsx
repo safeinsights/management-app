@@ -59,7 +59,7 @@ describe('CodeReview', () => {
         it('renders the H1 page title "Study proposal"', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         })
 
         it('renders the STEP 3 sub-label and the section heading', async () => {
