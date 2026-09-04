@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run the e2e suite with Postgres + SeaweedFS provided by docker-compose.e2e.yml. The
+# counterpart is ./bin/local-e2e, for infrastructure run on the host. Both run the same host
+# Playwright process, so interactive debugging works either way:
+#
+#   ./bin/docker-e2e                 # full suite (headless)
+#   ./bin/docker-e2e -- --ui         # Playwright UI (interactive)
+#   ./bin/docker-e2e -- --headed     # watch the browser
+#   ./bin/docker-e2e -- study-flow   # subset (any Playwright args after --)
+#
+# Migrates and seeds the isolated test database inside Docker. The app also runs in Docker on
+# port 4101, while Playwright and its interactive UI remain on the host.
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+cd "$repo_root"
+
+# Re-enter this script after the TypeScript loader has merged .env + .env.test and applied
+# authoritative Docker database, S3, auth, and port values. Keeping the merge in TypeScript
+# avoids sourcing dotenv syntax in Bash and keeps its precedence rules unit-testable.
+if [[ "${1:-}" != "--environment-ready" ]]; then
+    unset CI AWS_PROFILE
+    exec pnpm exec tsx bin/docker-e2e-environment.ts ./bin/docker-e2e --environment-ready "$@"
+fi
+shift
+
+# This is a developer entrypoint only. CI runs `pnpm run test:e2e`; an inherited CI value
+# would prevent Playwright from starting the app server and select CI-specific timeouts.
+unset CI
+
+: "${DATABASE_URL:?docker-e2e environment was not initialized}"
+: "${S3_ENDPOINT:?docker-e2e environment was not initialized}"
+: "${E2E_BASE_URL:?docker-e2e environment was not initialized}"
+
+COMPOSE_FILE="$repo_root/docker-compose.e2e.yml"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-mgmt-app-e2e-local}"
+
+usage() {
+    cat <<EOF
+Usage: ./bin/docker-e2e [--clean | --down | --prune] [-- <playwright-args>]
+
+Bring up the dockerized e2e infrastructure, seed it, then run Playwright on the host.
+
+Options:
+  --clean               Fresh test DB + object storage (keep node_modules / pnpm store). Reseeds.
+  --down                Stop containers + network, keep volumes, then exit.
+  --prune               Stop and remove everything for this stack, including volumes, then exit.
+  --print-project-name  Print the Compose project name and exit.
+  --print-environment   Print non-secret Docker e2e endpoints and exit.
+  --help                Show this help.
+
+Examples:
+  ./bin/docker-e2e
+  ./bin/docker-e2e -- --ui
+  ./bin/docker-e2e -- --headed
+  ./bin/docker-e2e -- tests/signin.spec.ts
+EOF
+    exit 0
+}
+
+clean=false
+down=false
+prune=false
+pw_args=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --clean) clean=true; shift ;;
+        --down) down=true; shift ;;
+        --prune) prune=true; shift ;;
+        --print-project-name) echo "$COMPOSE_PROJECT_NAME"; exit 0 ;;
+        --print-environment)
+            echo "mode=${E2E_MODE}"
+            echo "app=${E2E_BASE_URL}"
+            echo "postgres=127.0.0.1:${E2E_PG_PORT}/si_test"
+            echo "s3=${S3_ENDPOINT}"
+            echo "bucket=${BUCKET_NAME}"
+            exit 0
+            ;;
+        --help | -h) usage ;;
+        --) shift; pw_args=("$@"); break ;;
+        *) echo "Unknown option: $1" >&2; usage ;;
+    esac
+done
+
+if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker is required (the e2e DB + S3 run via docker compose)." >&2
+    exit 1
+fi
+
+dc() { docker compose -f "$COMPOSE_FILE" "$@"; }
+
+cleanup_app() {
+    # The app and its anonymous .next volume are disposable. Waiting through Docker's graceful
+    # stop timeout adds ten seconds after every run without preserving any state.
+    dc kill app-e2e >/dev/null 2>&1 || true
+    dc rm -fv app-e2e >/dev/null 2>&1 || true
+}
+
+if [ "$down" = true ]; then
+    echo "Stopping e2e containers + network (volumes kept)..."
+    cleanup_app
+    dc down --remove-orphans
+    exit 0
+fi
+
+if [ "$prune" = true ]; then
+    echo "Pruning all e2e Docker resources for this stack..."
+    dc down -v --remove-orphans
+    leftover=$(docker volume ls -q --filter "name=^${COMPOSE_PROJECT_NAME}_" 2>/dev/null || true)
+    if [ -n "$leftover" ]; then
+        echo "$leftover" | xargs docker volume rm >/dev/null 2>&1 || true
+    fi
+    exit 0
+fi
+
+if [ "$clean" = true ]; then
+    echo "Cleaning test DB + object storage (dependencies preserved)..."
+    cleanup_app
+    dc down
+    docker volume rm "${COMPOSE_PROJECT_NAME}_pgdata-e2e" "${COMPOSE_PROJECT_NAME}_seaweedfs-data-e2e" 2>/dev/null || true
+else
+    # Rebuild the DB volume when an applied migration no longer exists after a branch switch.
+    dc up -d db-e2e --wait 2>/dev/null || true
+    applied=$(dc exec -T db-e2e psql -U si -d si_test -t -c "SELECT name FROM kysely_migration" 2>/dev/null | tr -d ' ' | grep -v '^$' || echo "")
+    filesystem=$(ls src/database/migrations/*.ts 2>/dev/null | xargs -n1 basename | sed 's/\.ts$//')
+    for migration in $applied; do
+        if [ -n "$migration" ] && ! echo "$filesystem" | grep -qx "$migration"; then
+            echo "Migration mismatch ('$migration' applied but not in codebase), rebuilding test DB..."
+            dc rm -f -s db-e2e 2>/dev/null || true
+            docker volume rm "${COMPOSE_PROJECT_NAME}_pgdata-e2e" 2>/dev/null || true
+            break
+        fi
+    done
+fi
+
+echo "Starting e2e infrastructure (Postgres + SeaweedFS)..."
+dc up -d --wait db-e2e seaweedfs-e2e
+dc run --rm create-buckets-e2e
+
+echo "Migrating + seeding the test DB (in Docker)..."
+dc run --rm seed-e2e
+
+echo "Building + starting the e2e app (in Docker)..."
+# Remove any interrupted run and its anonymous .next volume before creating a fresh build.
+cleanup_app
+trap cleanup_app EXIT
+if ! dc up -d --wait --wait-timeout 300 app-e2e; then
+    dc logs app-e2e
+    exit 1
+fi
+
+echo "Running Playwright on the host against the e2e stack..."
+if [ ${#pw_args[@]} -gt 0 ]; then
+    pnpm exec playwright test "${pw_args[@]}"
+else
+    pnpm exec playwright test
+fi
