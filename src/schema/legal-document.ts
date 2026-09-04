@@ -15,6 +15,16 @@ export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
+// Tabs, panel headings and empty states name a collection of documents; the modals and the admin
+// screens name one. The three agreement types pluralise with a bare 's'; tos/pn are already collective.
+export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = {
+    TOS: legalDocumentTypeLabels.TOS,
+    PN: legalDocumentTypeLabels.PN,
+    SLA: `${legalDocumentTypeLabels.SLA}s`,
+    DOPA: `${legalDocumentTypeLabels.DOPA}s`,
+    ROPA: `${legalDocumentTypeLabels.ROPA}s`,
+}
+
 // List of documents whos acknowledgments are currently required.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
@@ -168,12 +178,46 @@ export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })
 
+const sortDirection = z.enum(['asc', 'desc'])
+
+// One enum per table rather than a shared union: an accessor a query does not select would
+// otherwise reach its ORDER BY and throw.
+export const orgStudyAgreementSort = z.object({
+    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt']),
+    direction: sortDirection,
+})
+
+export const userStudyAgreementSort = z.object({
+    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
+    direction: sortDirection,
+})
+
+export const userParticipationAgreementSort = z.object({
+    columnAccessor: z.enum(['orgName', 'signedAt', 'ackedAt']),
+    direction: sortDirection,
+})
+
+export type OrgStudyAgreementSort = z.infer<typeof orgStudyAgreementSort>
+export type UserStudyAgreementSort = z.infer<typeof userStudyAgreementSort>
+export type UserParticipationAgreementSort = z.infer<typeof userParticipationAgreementSort>
+
+export const orgStudyAgreementParams = orgLegalParams.extend({ sort: orgStudyAgreementSort })
+export const userStudyAgreementParams = z.object({ sort: userStudyAgreementSort })
+
 export const inviteParams = z.object({
     inviteId: z.uuid(),
 })
 
 export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
+})
+
+export const userParticipationAgreementParams = participationAgreementTypeParams.extend({
+    sort: userParticipationAgreementSort,
+})
+
+export const globalDocumentTypeParams = z.object({
+    type: z.enum(globalLegalDocumentTypes),
 })
 
 export const fetchLegalDocumentAcknowledgementsSchema = z.object({
@@ -214,6 +258,12 @@ export const legalDocumentQueryKeys = {
     studiesAwaitingStudyAgreement: () => ['studiesAwaitingStudyAgreement'] as const,
     // Shared by the layout's gate and the proposal step's notice, so one request answers both.
     studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,
-    orgStudyAgreements: (orgSlug: string) => ['orgStudyAgreements', orgSlug] as const,
+    orgStudyAgreements: (orgSlug: string, sort: OrgStudyAgreementSort) =>
+        ['orgStudyAgreements', orgSlug, sort.columnAccessor, sort.direction] as const,
     orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
+    userStudyAgreements: (sort: UserStudyAgreementSort) =>
+        ['userStudyAgreements', sort.columnAccessor, sort.direction] as const,
+    userParticipationAgreements: (type: ParticipationAgreementType, sort: UserParticipationAgreementSort) =>
+        ['userParticipationAgreements', type, sort.columnAccessor, sort.direction] as const,
+    userGlobalDocument: (type: GlobalLegalDocumentType) => ['userGlobalDocument', type] as const,
 }

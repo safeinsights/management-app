@@ -51,11 +51,11 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
-                    studyTitle={study.title ?? ''}
+                    studyTitle={study.title}
                     banner={
                         <OutputsDecidedBanner
                             resultsErrored={state.resultsErrored}

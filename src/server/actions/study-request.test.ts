@@ -13,6 +13,7 @@ import {
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockSessionWithTestData,
+    renameTestOrg,
     setTestStudyStatus,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
@@ -936,6 +937,39 @@ describe('Request Study Actions', () => {
             const permissionDenied = (result as { error: { permission_denied: string } }).error.permission_denied
             expect(permissionDenied).toContain('in getDraftStudyAction action; cannot view Study.')
             expect(permissionDenied).toContain(`"studyId": "${studyId}"`)
+        })
+
+        // The page header eyebrow reads submittingLabName. Before OTTER-619 this select carried the
+        // Data Partner's name, which is a different organization on the same row.
+        it('names the submitting lab, never the Data Partner', async () => {
+            const { enclave, lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'getdraft-lab-name-enclave',
+            })
+            await renameTestOrg(lab.id, 'Genius Lab')
+            await renameTestOrg(enclave.id, 'Mars University')
+
+            const draft = actionResult(await getDraftStudyAction({ studyId }))
+
+            expect(draft.submittingLabName).toBe('Genius Lab')
+            expect(draft.submittedByOrgSlug).toBe(lab.slug)
+            expect(draft.orgName).toBe('Mars University')
+        })
+
+        it('keeps two labs apart, so no draft reads another lab name', async () => {
+            const first = await createTestProposalDraft({ enclaveSlug: 'getdraft-lab-one-enclave' })
+            await renameTestOrg(first.lab.id, 'Genius Lab')
+            const firstDraft = actionResult(await getDraftStudyAction({ studyId: first.studyId }))
+
+            // Creating the second draft re-mocks the session onto its own lab, so each draft is read
+            // by a member of the lab that submitted it.
+            const second = await createTestProposalDraft({ enclaveSlug: 'getdraft-lab-two-enclave' })
+            await renameTestOrg(second.lab.id, 'Aurora Lab')
+            const secondDraft = actionResult(await getDraftStudyAction({ studyId: second.studyId }))
+
+            expect(firstDraft.submittingLabName).toBe('Genius Lab')
+            expect(secondDraft.submittingLabName).toBe('Aurora Lab')
+            expect(firstDraft.submittedByOrgSlug).toBe(first.lab.slug)
+            expect(secondDraft.submittedByOrgSlug).toBe(second.lab.slug)
         })
 
         it('rejects studies whose status is not in DRAFT/CHANGE-REQUESTED/APPROVED', async () => {

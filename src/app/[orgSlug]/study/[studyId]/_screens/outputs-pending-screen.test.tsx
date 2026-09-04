@@ -9,6 +9,7 @@ import {
     renderWithProviders,
     screen,
 } from '@/tests/unit.helpers'
+import type { Route } from 'next'
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { db } from '@/database'
@@ -18,7 +19,7 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import { OutputsPendingScreen } from './outputs-pending-screen'
 import type { ScreenComponentProps } from './types'
 
-const DASHBOARD_HREF = '/dashboard'
+const DASHBOARD_HREF: Route = '/dashboard'
 
 const renderScreen = async (
     study: ScreenComponentProps['study'],
@@ -40,7 +41,7 @@ describe('OutputsPendingScreen', () => {
         const { org, study } = await setupExecuting('JOB-READY')
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent(study.title!)

@@ -1,7 +1,7 @@
 import { type DBExecutor } from '@/database'
 import { ActionFailure } from '@/lib/errors'
 import { type UserSession } from '@/lib/types'
-import { hasAcknowledgedLegalDocumentVersion, latestPublishedStudyAgreement } from './db/legal-document'
+import { userAcknowledgedVersion, latestPublishedStudyAgreement } from './db/legal-document'
 
 export const STUDY_AGREEMENT_REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
 
@@ -26,7 +26,7 @@ export const requireStudyAgreementAcknowledged = async (
 
     if (!isParty) return
 
-    if (!(await hasAcknowledgedLegalDocumentVersion(db, { versionId: agreement.versionId, userId }))) {
+    if (!(await userAcknowledgedVersion(db, { versionId: agreement.versionId, userId }))) {
         throw new ActionFailure({ studyAgreement: STUDY_AGREEMENT_REQUIRED_MESSAGE })
     }
 }

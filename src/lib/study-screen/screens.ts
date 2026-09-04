@@ -1,6 +1,9 @@
 import type { Route } from 'next'
 
-export type ScreenId =
+// Split by role so each role's nav table (see ./nav) can be a total Record and a missing screen is a
+// compile error, the same guarantee SCREEN_COMPONENTS gives the screen registry. 'study-overview' is
+// researcher-owned; the reviewer table reuses it only as its exhaustive fallback.
+export type ResearcherScreenId =
     | 'proposal-feedback'
     | 'code-under-review'
     | 'code-approved'
@@ -13,6 +16,8 @@ export type ScreenId =
     | 'outputs-shared'
     | 'study-results'
     | 'study-overview'
+
+export type ReviewerScreenId =
     | 'reviewer-proposal-review'
     | 'reviewer-proposal-feedback'
     // Unreachable since OTTER-727 hid the Agreements step; kept so the gate can be restored by
@@ -24,6 +29,8 @@ export type ScreenId =
     | 'reviewer-outputs-errored'
     | 'reviewer-outputs-available'
     | 'reviewer-outputs-decided'
+
+export type ScreenId = ResearcherScreenId | ReviewerScreenId
 
 export type ScreenDescriptor = {
     screen: ScreenId

@@ -20,7 +20,7 @@ export type SharedOutputsBannerCopy = {
 }
 
 type SharedOutputsPanelProps = {
-    studyTitle: string
+    studyTitle: string | null
     decidedAt: Date | string | null
     banner: SharedOutputsBannerCopy
     job: { id: string }
