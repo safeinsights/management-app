@@ -2,6 +2,7 @@ import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
 import { Box, Button, Divider, Flex, Group, Paper, Radio, Stack, Table, Text, Textarea, Title } from '@mantine/core'
 import { CaretLeftIcon, DownloadSimpleIcon, EyeIcon, TrophyIcon } from '@phosphor-icons/react/dist/ssr'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
@@ -13,6 +14,8 @@ const meta = { title: 'Pages / Review study', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const ORG_SLUG = 'mars-university'
+// One title for the page: the header and the proposal body describe the same study.
+const PROPOSAL_STUDY_TITLE = 'Reading comprehension cohort analysis'
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 function LabelValue({ label, value }: { label: string; value: ReactNode }) {
@@ -53,7 +56,7 @@ function ProposalBodyFixture() {
             </Title>
             <Divider mb="md" />
             <Stack gap="md">
-                <LabelValue label="Study title" value="Reading comprehension cohort analysis" />
+                <LabelValue label="Study title" value={PROPOSAL_STUDY_TITLE} />
                 <Divider />
                 <LabelValue
                     label="Dataset(s) of interest"
@@ -130,6 +133,15 @@ function ProposalActionsFixture() {
 
 export const ReviewProposal: Story = () => (
     <ProposalReviewLayoutView
+        header={
+            <StudyPageHeader
+                study={{
+                    title: PROPOSAL_STUDY_TITLE,
+                    submittingLabName: 'Genius Lab',
+                    submittedByOrgSlug: 'genius',
+                }}
+            />
+        }
         proposal={<ProposalBodyFixture />}
         feedbackAndNotes={null}
         feedback={

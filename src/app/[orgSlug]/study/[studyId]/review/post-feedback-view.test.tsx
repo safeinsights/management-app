@@ -22,6 +22,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -111,7 +112,7 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
         })
 
@@ -119,7 +120,9 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.queryByText(/Effect of Reading Comprehension Tools/)).not.toBeInTheDocument()
+            // Scoped to the section: the page h1 also carries the title (OTTER-619).
+            const sectionHeader = within(screen.getByTestId('proposal-section-header'))
+            expect(sectionHeader.queryByText(/Effect of Reading Comprehension Tools/)).not.toBeInTheDocument()
         })
 
         it('renders the versioned heading on a resubmission (reviewVersion > 1)', () => {

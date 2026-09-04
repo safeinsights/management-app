@@ -14,7 +14,7 @@ import {
     Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRightIcon, DownloadSimpleIcon, EyeIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, DownloadSimpleIcon, EyeIcon, WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
@@ -28,10 +28,11 @@ import { SCAN_LOG_FILE_NAME, scanLogDownloadURL, studyCodeURL } from '@/lib/path
 import {
     fetchScanLogAction,
     fetchStudyJobCodeFileAction,
+    getJobScanResultAction,
     getStudyReviewAction,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
@@ -223,8 +224,9 @@ type AiSummaryProps = {
     initialReview: StudyReviewWithMeta | null
     // Anchors the stuck-generation backstop so opening the page late does not restart the clock.
     submittedAt: Date | string
-    // Overridable so tests can exercise the backstop without faking timers.
+    // Both overridable so tests can exercise polling and the backstop without faking timers.
     timeoutMs?: number
+    pollIntervalMs?: number
 }
 
 export function AiSummaryCollapsible({
@@ -564,7 +566,7 @@ const SCAN_LOG_LINK_PROPS = {
 
 // View opens the shared file viewer modal; Download goes straight to the signed S3 URL, so the
 // two paths stay independent — the log stays downloadable even when the in-app fetch fails.
-export function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisible: boolean }) {
+function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisible: boolean }) {
     const viewer = useScanLogViewer(studyJobId)
     if (!isVisible) return null
 
@@ -593,5 +595,174 @@ export function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; 
             </Anchor>
             <FilePreviewModal file={file} onClose={viewer.close} />
         </Group>
+    )
+}
+type ScanStatusLabels = Record<ScanToolStatus, string>
+
+// "Needs review" is the card's own phrasing for the case where we cannot state an outcome with
+// confidence. Trivy reaches it two ways: it examined nothing (no analyzer for R, no lockfile to
+// read), or it produced no report at all. Neither is a finding and neither is a clean bill of
+// health. Pending UX sign-off on whether those two should read differently to a Data Partner.
+const TRIVY_LABELS: ScanStatusLabels = {
+    PASSED: 'No vulnerabilities found',
+    FAILED: 'Vulnerabilities found',
+    INDETERMINATE: 'Needs review',
+}
+
+// SonarQube has no third label: a failing gate and an unresolvable one both need the same human look.
+const SONARQUBE_LABELS: ScanStatusLabels = {
+    PASSED: 'Passed',
+    FAILED: 'Needs review',
+    INDETERMINATE: 'Needs review',
+}
+
+// A passed row carries no icon at all. The other two are visually distinct on purpose: red reads as
+// a reported problem, and an indeterminate result is not one. Amber reuses the "action needed"
+// pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
+// rather than introducing a new treatment. Provisional along with the labels above.
+const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
+    FAILED: 'var(--mantine-color-red-9)',
+    INDETERMINATE: 'var(--mantine-color-yellow-10)',
+}
+
+type ScanRowProps = {
+    label: string
+    status: ScanToolStatus | null
+    labels: ScanStatusLabels
+    testId: string
+}
+
+function ScanWarningIcon({ color }: { color?: string }) {
+    if (!color) return null
+    return <WarningCircle size={20} color={color} data-icon="warning" aria-hidden="true" />
+}
+
+// A tool's result: plain text when it passed, a warning icon plus the relevant phrasing when it did
+// not, and a neutral pending note while the scan has not reported (status null). Deliberately no
+// "pass" icon, and never a fabricated pass/fail when the status is unknown; we only flag what needs
+// a human (OTTER-649).
+function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; labels: ScanStatusLabels }) {
+    if (status === null) {
+        return (
+            <Text size="sm" c="dimmed">
+                Scan in progress…
+            </Text>
+        )
+    }
+    return (
+        <Group gap={4} wrap="nowrap" align="center">
+            <ScanWarningIcon color={SCAN_ICON_COLORS[status]} />
+            <Text size="sm" fw={600}>
+                {labels[status]}
+            </Text>
+        </Group>
+    )
+}
+
+function ScanRow({ label, status, labels, testId }: ScanRowProps) {
+    return (
+        <Group gap="xs" wrap="nowrap" align="center" data-testid={testId}>
+            <Text size="sm">{label}</Text>
+            <ScanRowValue status={status} labels={labels} />
+        </Group>
+    )
+}
+
+// The two labeled rows are always shown (the AC lists them as static elements).
+// Their values come from the parsed log; when no log has been read yet, each row
+// shows a pending note rather than a status.
+function ScanLogBody({ scan }: { scan: JobScanResult }) {
+    return (
+        <Stack gap="sm">
+            <ScanRow
+                label="Trivy Filesystem Scan:"
+                status={scan.trivy}
+                labels={TRIVY_LABELS}
+                testId="security-scan-trivy"
+            />
+            <ScanRow
+                label="SonarQube Quality Gate:"
+                status={scan.sonarqube}
+                labels={SONARQUBE_LABELS}
+                testId="security-scan-sonarqube"
+            />
+        </Stack>
+    )
+}
+
+const SCAN_POLL_INTERVAL_MS = 5_000
+
+// Same backstop shape as the AI summary, but a longer clock: the scan log is written by the
+// enclave pipeline at the end of a run, not generated on request.
+const SCAN_TIMEOUT_MS = 600_000
+
+// Unlike the review row, this query always resolves to an object, so "still running" is both
+// statuses being null rather than a missing result. A log that parsed to unknown statuses still
+// reports a logFile, which is why that alone does not stop the poll.
+function isScanPending(scan: JobScanResult | undefined) {
+    if (!scan) return true
+    return scan.trivy === null && scan.sonarqube === null
+}
+
+function useJobScanResultPoll(
+    studyJobId: string,
+    initialScan: JobScanResult,
+    stopPolling: boolean,
+    intervalMs: number,
+) {
+    return useQuery({
+        queryKey: ['job-scan-result', studyJobId],
+        queryFn: () => getJobScanResultAction({ studyJobId }),
+        initialData: initialScan,
+        // The server render is already stale by the time it reaches the browser; without this the
+        // seeded value counts as fresh and the first interval tick is skipped.
+        initialDataUpdatedAt: 0,
+        refetchInterval: (query) => {
+            if (query.state.error || stopPolling) return false
+            return isScanPending(query.state.data) ? intervalMs : false
+        },
+    })
+}
+
+// There is no scan equivalent of the summary's Retry: the log comes from the enclave run, so the
+// app cannot re-request one. A scan that never reports says so instead of spinning forever.
+function ScanTimedOut() {
+    return (
+        <Text size="sm" c="dimmed" data-testid="security-scan-timeout">
+            Scan results are unavailable. Refresh the page to check again.
+        </Text>
+    )
+}
+
+type SecurityScanLogProps = {
+    studyJobId: string
+    initialScan: JobScanResult
+    // Anchors the backstop so opening the page late does not restart the clock.
+    submittedAt: Date | string
+    // Both overridable so tests can exercise polling and the backstop without faking timers.
+    timeoutMs?: number
+    pollIntervalMs?: number
+}
+
+export function SecurityScanLog({
+    studyJobId,
+    initialScan,
+    submittedAt,
+    timeoutMs = SCAN_TIMEOUT_MS,
+    pollIntervalMs = SCAN_POLL_INTERVAL_MS,
+}: SecurityScanLogProps) {
+    const timeout = useElapsedSince(submittedAt, timeoutMs)
+    const { data, error } = useJobScanResultPoll(studyJobId, initialScan, timeout.elapsed, pollIntervalMs)
+    const scan = data ?? initialScan
+    const givenUp = (timeout.elapsed || error != null) && isScanPending(scan)
+
+    return (
+        <Stack gap="lg" data-testid="security-scan-log">
+            <Text fw={700} fz={16}>
+                Security scan log
+            </Text>
+            {givenUp ? <ScanTimedOut /> : <ScanLogBody scan={scan} />}
+            <ScanLogActions studyJobId={studyJobId} isVisible={scan.logFile != null} />
+        </Stack>
     )
 }

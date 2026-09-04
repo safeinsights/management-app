@@ -133,7 +133,7 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })

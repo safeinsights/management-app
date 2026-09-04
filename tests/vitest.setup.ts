@@ -188,6 +188,7 @@ vi.mock('@hocuspocus/provider', async () => {
         isSynced = false
         unsyncedChanges = 0
         configuration: { name?: string } = {}
+        _observers = new Map<string, Set<(...args: unknown[]) => void>>()
         attach = vi.fn()
         detach = vi.fn()
         destroy = vi.fn()
@@ -195,7 +196,6 @@ vi.mock('@hocuspocus/provider', async () => {
         connect = vi.fn()
         send = vi.fn()
         sendStateless = vi.fn()
-        _observers = new Map<string, Set<(...args: unknown[]) => void>>()
         on(event: string, fn: (...args: unknown[]) => void) {
             if (!this._observers.has(event)) this._observers.set(event, new Set())
             this._observers.get(event)!.add(fn)
@@ -209,6 +209,18 @@ vi.mock('@hocuspocus/provider', async () => {
         // inert provider as before.
         __emit(event: string, ...args: unknown[]) {
             this._observers.get(event)?.forEach((fn) => fn(...args))
+        }
+        // One autosave round trip. The sync has to land before the edit, or the status hook reads
+        // the settle as the initial document load rather than a save.
+        __simulateSave() {
+            if (!this.isSynced) {
+                this.isSynced = true
+                this.__emit('synced')
+            }
+            this.unsyncedChanges = 1
+            this.__emit('unsyncedChanges')
+            this.unsyncedChanges = 0
+            this.__emit('unsyncedChanges')
         }
         constructor(opts?: { document?: InstanceType<typeof Y.Doc>; name?: string }) {
             this.document = opts?.document ?? new Y.Doc()
@@ -272,6 +284,11 @@ afterEach(async () => {
     delete process.env.UPLOAD_TMP_DIRECTORY
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
+    // `__instances` is module-scoped, so a helper asking for "this test's provider" would otherwise
+    // get the newest in the file. Guarded: a file may swap in its own fake that has none.
+    const { HocuspocusProvider } = await import('@hocuspocus/provider')
+    const providerCtor = HocuspocusProvider as unknown as { __instances?: unknown[] }
+    if (providerCtor.__instances) providerCtor.__instances.length = 0
     // Unmount before clearing the clients, or a surviving refetchInterval observer carries
     // in-flight state into the next test.
     cleanup()

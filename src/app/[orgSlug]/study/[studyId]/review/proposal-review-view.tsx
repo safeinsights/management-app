@@ -3,6 +3,7 @@
 import { useProposalReviewMutation } from '@/hooks/use-proposal-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
@@ -133,6 +134,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
 
     return (
         <ProposalReviewLayoutView
+            header={<StudyPageHeader study={study} />}
             listener={
                 <ReviewSubmissionListener
                     orgSlug={orgSlug}

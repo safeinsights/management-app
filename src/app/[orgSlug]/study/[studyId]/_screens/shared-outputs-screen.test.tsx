@@ -192,7 +192,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         const header = screen.getByTestId('proposal-section-header')
         expect(header).toHaveTextContent('STEP 4')
         expect(header).toHaveTextContent('Verify outputs')

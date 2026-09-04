@@ -8,6 +8,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
@@ -47,13 +48,15 @@ describe('ProposalReviewView', () => {
     it('renders the page title', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('heading', { name: 'Review initial request', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
     })
 
     it('does not render the study title in the proposal section header', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.queryByText(/Test Study Title/)).not.toBeInTheDocument()
+        // Scoped to the section: the page h1 also carries the title (OTTER-619).
+        const sectionHeader = within(screen.getByTestId('proposal-section-header'))
+        expect(sectionHeader.queryByText(/Test Study Title/)).not.toBeInTheDocument()
     })
 
     it('does not render a back button', () => {

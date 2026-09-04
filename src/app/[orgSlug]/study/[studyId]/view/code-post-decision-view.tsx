@@ -228,7 +228,7 @@ export function CodePostDecisionView({
 
     return (
         <Stack p="xl" gap="xxl">
-            <StudyPageHeader>Study proposal</StudyPageHeader>
+            <StudyPageHeader study={study} />
 
             <Stack gap="xxl">
                 <StepCard

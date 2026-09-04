@@ -242,7 +242,7 @@ export function PostFeedbackView({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Study proposal</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}

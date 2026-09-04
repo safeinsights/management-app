@@ -4,16 +4,18 @@ import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 
-// The status message arrives via a slot, keeping this free of data fetching so it renders in
-// isolation (e.g. Ladle).
+// The header and the status message arrive via slots, keeping this free of data fetching so it
+// renders in isolation (e.g. Ladle).
 export type StudyDetailsResearcherViewProps = {
+    header: ReactNode
     previousHref?: Route
     statusMessage: ReactNode
 }
 
-export function StudyDetailsResearcherView({ previousHref, statusMessage }: StudyDetailsResearcherViewProps) {
+export function StudyDetailsResearcherView({ header, previousHref, statusMessage }: StudyDetailsResearcherViewProps) {
     return (
-        <Stack px="xl" gap="xl">
+        <Stack px="xl" py="xl" gap="xl">
+            {header}
             <Title order={2} size="h4" fw={500}>
                 Study Details
             </Title>

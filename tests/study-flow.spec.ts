@@ -747,6 +747,8 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
+        // The page heading is the study title; "Review proposal" is the section header.
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
@@ -784,8 +786,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await studyRow.getByRole('link', { name: 'View' }).first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByText(/Rejected on/)).toBeVisible()
 
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
@@ -805,7 +806,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
     })
 })
 
@@ -860,7 +861,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await page.getByRole('link', { name: /Edit and resubmit/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
-        await expect(page.getByRole('heading', { name: /Edit Initial Request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
 
         // The form must load the previously-saved proposal values for editing, not
         // empty placeholders. These mirror the content seeded by seedProposalPendingReview.
@@ -890,7 +891,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         // Resubmission returns the proposal to PENDING-REVIEW: the editable
         // ProposalReviewView re-opens with a fresh decision section.
         await goto(page, `/openstax/study/${studyId}/review`)
-        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
     })
 })
@@ -1026,7 +1027,8 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        // The page heading is the study title; "Review proposal" is the section header.
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
