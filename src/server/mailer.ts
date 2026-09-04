@@ -61,7 +61,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// TODO(SHRMP-277): sendSlaPreparationEmail.
+// TODO(SHRMP-277): sendStudyAgreementPreparationEmail.
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
@@ -197,6 +197,36 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
             ...baseStudyVars(study),
             fullName: study.researcherFullName,
             dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
+        },
+    })
+}
+
+// Audience: research lab, Trigger: SI admin publishes a signed Study Agreement
+export const sendStudyAgreementReadyEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+
+    // piUserId is null until the PI holds an account, and until then there is no address for them.
+    const pi = study.piUserId
+        ? await db.selectFrom('user').select(['email', 'fullName']).where('id', '=', study.piUserId).executeTakeFirst()
+        : undefined
+
+    const emails = [...new Set([study.researcherEmail, pi?.email].filter(Boolean))] as string[]
+
+    if (emails.length === 0) {
+        logger.warn(`No recipients for study agreement email, studyId: ${studyId}`)
+        return
+    }
+
+    // See OTTER-651: never put multiple recipient addresses in "To".
+    await deliver({
+        to: SI_EMAIL,
+        bcc: emails.join(', '),
+        subject: 'Study Agreement ready to acknowledge',
+        // TODO(Iris): replace with the real Mailgun template once it exists.
+        template: 'vb - study agreement ready',
+        vars: {
+            ...baseStudyVars(study),
+            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/submitted`,
         },
     })
 }

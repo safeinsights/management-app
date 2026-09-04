@@ -3,36 +3,36 @@
 import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchStudyLevelAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
-import { UploadSlaForm } from './upload-sla-form'
+import { UploadStudyAgreementForm } from './upload-study-agreement-form'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
 import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
-type Sla = ActionSuccessType<typeof fetchStudyLevelAgreementsAction>[number]
+type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
 
-const slaColumns = ({
+const studyAgreementColumns = ({
     onNewVersion,
     onViewHistory,
 }: {
-    onNewVersion: (sla: Sla) => void
-    onViewHistory: (sla: Sla) => void
-}): DataTableColumn<Sla>[] => [
+    onNewVersion: (agreement: StudyAgreement) => void
+    onViewHistory: (agreement: StudyAgreement) => void
+}): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID' },
-    { accessor: 'studyTitle', title: 'Study', render: (sla) => sla.studyTitle || sla.studyId },
+    { accessor: 'studyTitle', title: 'Study', render: (agreement) => agreement.studyTitle || agreement.studyId },
     { accessor: 'researchLabName', title: 'Research Lab' },
     { accessor: 'dataPartnerName', title: 'Data Partner' },
     { accessor: 'versionNumber', title: 'Version' },
-    { accessor: 'signedAt', title: 'Signed on', render: (sla) => formatDayString(sla.signedAt) },
-    documentColumn<Sla>(),
+    { accessor: 'signedAt', title: 'Signed on', render: (agreement) => formatDayString(agreement.signedAt) },
+    documentColumn<StudyAgreement>(),
     versionHistoryColumn(onViewHistory),
     newVersionColumn(onNewVersion),
 ]
 
-export const StudyLevelAgreements: FC = () => {
+export const StudyAgreements: FC = () => {
     const {
         uploadOpened,
         openUpload,
@@ -43,13 +43,13 @@ export const StudyLevelAgreements: FC = () => {
         historyFor,
         openHistory,
         closeHistory,
-    } = useAgreementPanelModals<Sla>()
+    } = useAgreementPanelModals<StudyAgreement>()
     const { data: agreements = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.studyLevelAgreements(),
-        queryFn: fetchStudyLevelAgreementsAction,
+        queryKey: legalDocumentQueryKeys.studyAgreements(),
+        queryFn: fetchStudyAgreementsAction,
     })
 
-    const columns = slaColumns({ onNewVersion: openNewVersion, onViewHistory: openHistory })
+    const columns = studyAgreementColumns({ onNewVersion: openNewVersion, onViewHistory: openHistory })
 
     return (
         <Stack>
@@ -63,7 +63,7 @@ export const StudyLevelAgreements: FC = () => {
                 title="Upload a signed study agreement"
                 closeOnClickOutside={false}
             >
-                <UploadSlaForm onCompleteAction={closeUpload} />
+                <UploadStudyAgreementForm onCompleteAction={closeUpload} />
             </AppModal>
             <AppModal
                 isOpen={Boolean(newVersionFor)}
@@ -71,10 +71,10 @@ export const StudyLevelAgreements: FC = () => {
                 title="Upload a new version"
                 closeOnClickOutside={false}
             >
-                <UploadSlaForm
+                <UploadStudyAgreementForm
                     key={newVersionFor?.studyId}
                     onCompleteAction={closeNewVersion}
-                    sla={newVersionFor ?? undefined}
+                    agreement={newVersionFor ?? undefined}
                 />
             </AppModal>
             <VersionHistoryModal

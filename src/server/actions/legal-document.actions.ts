@@ -21,6 +21,8 @@ import {
     legalDocumentScopeSchema,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
+    studyAgreementStatusSchema,
+    type StudyAgreementStatus,
     globalDocumentTypeParams,
     inviteParams,
     GlobalLegalDocumentType,
@@ -34,6 +36,8 @@ import { createSignedUploadUrlForKey } from '../aws'
 import {
     findLegalDocument,
     findOrCreateLegalDocument,
+    userAcknowledgedVersion,
+    latestPublishedStudyAgreement,
     orgParticipationAgreement,
     orgStudyAgreements,
     userParticipationAgreements,
@@ -75,6 +79,21 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
         audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
             (orgId): orgId is string => orgId != null,
         ),
+    }
+}
+
+// As scopeFromVersionId, for a caller holding a study rather than a version.
+const scopeFromStudyId = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId as dataPartnerId', 'submittedByOrgId as researchLabId'])
+        .where('id', '=', studyId)
+        .executeTakeFirst()
+
+    return {
+        studyId,
+        isGlobal: false,
+        audienceOrgIds: study ? [study.dataPartnerId, study.researchLabId] : [],
     }
 }
 
@@ -142,7 +161,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .selectFrom('legalDocumentVersion')
             .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
             .selectAll('legalDocumentVersion')
-            .select('legalDocument.type as type')
+            .select(['legalDocument.type as type', 'legalDocument.studyId as studyId'])
             .where('legalDocumentVersion.id', '=', versionId)
             .executeTakeFirstOrThrow()
 
@@ -165,7 +184,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .executeTakeFirstOrThrow()
 
         // Makes a concurrent second publish claim zero rows and throw rather than overwrite.
-        return await db
+        const published = await db
             .updateTable('legalDocumentVersion')
             .set({
                 publishedAt: new Date(),
@@ -177,6 +196,14 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .where('publishedAt', 'is', null)
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        // Follow-up: enable once the Mailgun template exists (needs the import from '../events').
+        // Publishing is the only moment both parties become owing, so it is the one place to fire from.
+        // if (version.type === 'SLA' && version.studyId) {
+        //     onStudyAgreementPublished({ studyId: version.studyId })
+        // }
+
+        return published
     })
 
 export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVersionsAction')
@@ -545,7 +572,7 @@ export const fetchParticipationSignatoriesAction = new Action('fetchParticipatio
             .execute(),
     )
 
-export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
+export const fetchStudyAgreementsAction = new Action('fetchStudyAgreementsAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
@@ -589,7 +616,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
     })
 
-export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSlaAction')
+export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudiesAwaitingStudyAgreementAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
@@ -630,6 +657,27 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .orderBy('researchLab.name')
             .orderBy('study.title')
             .execute()
+    })
+
+// `none` for anyone the agreement does not bind: an SI admin passes the ability check with
+// `manage all`, but is the counterparty to every agreement and never a signatory.
+export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementStatusAction')
+    .params(studyAgreementStatusSchema)
+    .middleware(scopeFromStudyId)
+    .requireAbilityTo('acknowledge', 'LegalDocument')
+    .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
+        const agreement = await latestPublishedStudyAgreement(db, studyId)
+        if (!agreement) return { state: 'none' }
+
+        const usersOrgIds = Object.values(session.orgs).map((org) => org.id)
+        const isParty = [agreement.dataPartnerId, agreement.researchLabId].some((orgId) => usersOrgIds.includes(orgId))
+        if (!isParty) return { state: 'none' }
+
+        if (await userAcknowledgedVersion(db, { versionId: agreement.versionId, userId: session.user.id })) {
+            return { state: 'acknowledged' }
+        }
+
+        return { state: 'pending', versionId: agreement.versionId }
     })
 
 // An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin

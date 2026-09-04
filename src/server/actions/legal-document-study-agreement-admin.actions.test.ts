@@ -11,8 +11,8 @@ import {
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
-    fetchStudiesAwaitingSlaAction,
-    fetchStudyLevelAgreementsAction,
+    fetchStudiesAwaitingStudyAgreementAction,
+    fetchStudyAgreementsAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 import type { StudyStatus } from '@/database/types'
@@ -61,48 +61,52 @@ const insertStudyWithDistinctOrgs = async ({
     return { study, dataPartner, researchLab }
 }
 
-const uploadAndPublishSla = async (studyId: string, signedAt: string, fileName = 'sla.pdf') => {
+const uploadAndPublishStudyAgreement = async (studyId: string, signedAt: string, fileName = 'study-agreement.pdf') => {
     const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId, fileName }))
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
-describe('fetchStudiesAwaitingSlaAction', () => {
+describe('fetchStudiesAwaitingStudyAgreementAction', () => {
     it('offers an approved study with its Data Partner and Research Lab correctly assigned', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const { study, dataPartner, researchLab } = await insertStudyWithDistinctOrgs({ title: 'Needs an SLA' })
+        const { study, dataPartner, researchLab } = await insertStudyWithDistinctOrgs({
+            title: 'Needs a study agreement',
+        })
 
-        const candidates = actionResult(await fetchStudiesAwaitingSlaAction())
+        const candidates = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
         const row = candidates.find((candidate) => candidate.studyId === study.id)
 
         expect(row).toBeDefined()
-        expect(row?.studyTitle).toBe('Needs an SLA')
+        expect(row?.studyTitle).toBe('Needs a study agreement')
         expect(row?.dataPartnerId).toBe(dataPartner.id)
         expect(row?.dataPartnerName).toBe(dataPartner.name)
         expect(row?.researchLabId).toBe(researchLab.id)
         expect(row?.researchLabName).toBe(researchLab.name)
     })
 
-    it('drops a study once it has an SLA, so the same one cannot be uploaded twice', async () => {
+    it('drops a study once it has an agreement, so the same one cannot be uploaded twice', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
 
-        const before = actionResult(await fetchStudiesAwaitingSlaAction())
+        const before = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
         expect(before.some((candidate) => candidate.studyId === study.id)).toBe(true)
 
-        await uploadAndPublishSla(study.id, '2026-07-27')
+        await uploadAndPublishStudyAgreement(study.id, '2026-07-27')
 
-        const after = actionResult(await fetchStudiesAwaitingSlaAction())
+        const after = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
         expect(after.some((candidate) => candidate.studyId === study.id)).toBe(false)
     })
 
     // The row is written before the upload, so an abandoned one would make the study unreachable
     // from both the picker and the table.
-    it('keeps offering a study whose only SLA is an unfinished draft', async () => {
+    it('keeps offering a study whose only agreement is an unfinished draft', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'sla.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'study-agreement.pdf' }),
+        )
 
-        const candidates = actionResult(await fetchStudiesAwaitingSlaAction())
+        const candidates = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
 
         expect(candidates.some((candidate) => candidate.studyId === study.id)).toBe(true)
     })
@@ -111,7 +115,7 @@ describe('fetchStudiesAwaitingSlaAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs({ status: 'PENDING-REVIEW' })
 
-        const candidates = actionResult(await fetchStudiesAwaitingSlaAction())
+        const candidates = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
 
         expect(candidates.some((candidate) => candidate.studyId === study.id)).toBe(false)
     })
@@ -119,17 +123,17 @@ describe('fetchStudiesAwaitingSlaAction', () => {
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        expect(await fetchStudiesAwaitingSlaAction()).toHaveProperty('error')
+        expect(await fetchStudiesAwaitingStudyAgreementAction()).toHaveProperty('error')
     })
 })
 
-describe('fetchStudyLevelAgreementsAction', () => {
-    it('lists a published SLA with its study, orgs and signed date', async () => {
+describe('fetchStudyAgreementsAction', () => {
+    it('lists a published agreement with its study, orgs and signed date', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study, dataPartner, researchLab } = await insertStudyWithDistinctOrgs({ title: 'Signed study' })
-        await uploadAndPublishSla(study.id, '2026-07-27')
+        await uploadAndPublishStudyAgreement(study.id, '2026-07-27')
 
-        const rows = actionResult(await fetchStudyLevelAgreementsAction())
+        const rows = actionResult(await fetchStudyAgreementsAction())
         const row = rows.find((candidate) => candidate.studyId === study.id)
 
         expect(row?.studyTitle).toBe('Signed study')
@@ -143,12 +147,14 @@ describe('fetchStudyLevelAgreementsAction', () => {
         })
     })
 
-    it('leaves out an SLA that has only been drafted, not published', async () => {
+    it('leaves out an agreement that has only been drafted, not published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'sla.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'study-agreement.pdf' }),
+        )
 
-        const rows = actionResult(await fetchStudyLevelAgreementsAction())
+        const rows = actionResult(await fetchStudyAgreementsAction())
 
         expect(rows.some((candidate) => candidate.studyId === study.id)).toBe(false)
     })
@@ -156,10 +162,10 @@ describe('fetchStudyLevelAgreementsAction', () => {
     it('shows only the newest published version for a study', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        await uploadAndPublishSla(study.id, '2026-07-01', 'sla-v1.pdf')
-        await uploadAndPublishSla(study.id, '2026-07-27', 'sla-v2.pdf')
+        await uploadAndPublishStudyAgreement(study.id, '2026-07-01', 'study-agreement-v1.pdf')
+        await uploadAndPublishStudyAgreement(study.id, '2026-07-27', 'study-agreement-v2.pdf')
 
-        const rows = actionResult(await fetchStudyLevelAgreementsAction())
+        const rows = actionResult(await fetchStudyAgreementsAction())
         const forStudy = rows.filter((candidate) => candidate.studyId === study.id)
 
         expect(forStudy).toHaveLength(1)
@@ -172,10 +178,10 @@ describe('fetchStudyLevelAgreementsAction', () => {
 
         for (const name of ['Zebra', 'Apple', 'Mango']) {
             const { study } = await insertStudyWithDistinctOrgs({ dataPartnerName: `${token} ${name}` })
-            await uploadAndPublishSla(study.id, '2026-07-27')
+            await uploadAndPublishStudyAgreement(study.id, '2026-07-27')
         }
 
-        const rows = actionResult(await fetchStudyLevelAgreementsAction())
+        const rows = actionResult(await fetchStudyAgreementsAction())
         const ours = rows
             .map((row) => row.dataPartnerName)
             .filter((dataPartnerName) => dataPartnerName.startsWith(token))
@@ -186,6 +192,6 @@ describe('fetchStudyLevelAgreementsAction', () => {
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        expect(await fetchStudyLevelAgreementsAction()).toHaveProperty('error')
+        expect(await fetchStudyAgreementsAction()).toHaveProperty('error')
     })
 })

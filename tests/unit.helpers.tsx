@@ -6,6 +6,9 @@ import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
+import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { pathForLegalDocumentVersion } from '@/lib/paths'
+import { v7 as uuidv7 } from 'uuid'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
@@ -1150,6 +1153,48 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
         },
         orgs: orgsRecord,
     }
+}
+
+type InsertTestStudyAgreementOptions = {
+    studyId: string
+    versionNumber?: number
+    /** Unpublished versions are drafts, which oblige nobody. */
+    published?: boolean
+}
+
+// Written directly rather than through the admin action, which needs an SI-admin session: swapping
+// sessions to arrange a fixture obscures which session the assertion is about. The
+// draft_or_published constraint wants published_at, published_by and version_number set or absent
+// together.
+export const insertTestStudyAgreement = async ({
+    studyId,
+    versionNumber = 1,
+    published = true,
+}: InsertTestStudyAgreementOptions) => {
+    const legalDocument = await findOrCreateLegalDocument(db, { type: 'SLA', studyId })
+    const versionId = uuidv7()
+
+    const { researcherId } = await db
+        .selectFrom('study')
+        .select('researcherId')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
+
+    return await db
+        .insertInto('legalDocumentVersion')
+        .values({
+            id: versionId,
+            legalDocumentId: legalDocument.id,
+            versionNumber: published ? versionNumber : null,
+            fileName: 'agreement.pdf',
+            format: 'pdf',
+            filePath: pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId: legalDocument.id, versionId }),
+            publishedAt: published ? new Date() : null,
+            publishedBy: published ? researcherId : null,
+            signedAt: '2026-01-01',
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
 }
 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }

@@ -237,6 +237,34 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
+// Study-scoped, unlike the Terms of Service, so publishing one inside a spec cannot reach another
+// worker's user.
+export async function seedApprovedWithPublishedStudyAgreement(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId: study.id })
+    const versionId = uuidv7()
+    const filePath = pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId })
+
+    // No object uploaded: presigning does not need one and the spec never follows the link.
+    await db
+        .insertInto('legalDocumentVersion')
+        .values({
+            id: versionId,
+            legalDocumentId,
+            versionNumber: 1,
+            fileName: 'study-agreement.pdf',
+            format: 'pdf',
+            filePath,
+            publishedAt: new Date(),
+            publishedBy: await resolveUserId('admin'),
+            signedAt: '2026-01-01',
+        })
+        .execute()
+
+    return { studyId: study.id }
+}
+
 // Local dev seeding only: the admin's Data Partner > Research Lab > study picker stays empty
 // until studies exist across more than one org pair.
 export async function seedStudyFor(

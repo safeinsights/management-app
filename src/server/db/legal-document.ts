@@ -54,6 +54,24 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
 
+// Undefined until an SI admin publishes one, the ordinary state for a freshly approved study.
+export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =>
+    db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+        ])
+        .where('legalDocument.type', '=', 'SLA')
+        .where('legalDocument.studyId', '=', studyId)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
 // Nulls sink in both directions, so an unsigned agreement never leads the table.
 const orderedBy = (direction: 'asc' | 'desc') => (ob: OrderByItemBuilder) =>
     (direction === 'asc' ? ob.asc() : ob.desc()).nullsLast()

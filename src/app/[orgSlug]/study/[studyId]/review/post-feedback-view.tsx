@@ -15,6 +15,7 @@ import type { Route } from 'next'
 import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
@@ -255,6 +256,7 @@ export function PostFeedbackView({
                     timestampLabel={timestampLabel}
                     banner={banner}
                 />
+                <StudyAgreementPreparingNotice studyId={study.id} isVisible={!isCode && decision === 'APPROVE'} />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <Group justify={buttonRowJustify}>
                     <PreviousButton href={previousHref} />
