@@ -4,6 +4,7 @@ import { Group, Stack, Text } from '@mantine/core'
 import { Routes } from '@/lib/routes'
 import { type FileType, type StudyJobStatus } from '@/database/types'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import type { StepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import { JobResultsStatusMessageView } from './job-results-status-message-view'
@@ -37,6 +38,16 @@ const NAV: StepNav = {
         testId: 'cta-back-to-my-studies',
     },
 }
+
+const header = (
+    <StudyPageHeader
+        study={{
+            title: 'Reading comprehension cohort analysis',
+            submittingLabName: 'Mars University Lab',
+            submittedByOrgSlug: ORG_SLUG,
+        }}
+    />
+)
 
 const statusChanges = (statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
 
@@ -75,6 +86,7 @@ function StatusBody({ statuses, fileTypes }: { statuses: StudyJobStatus[]; fileT
 export const AwaitingResults: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
+            header={header}
             nav={NAV}
             statusMessage={<StatusBody statuses={['CODE-SUBMITTED']} fileTypes={[]} />}
         />
@@ -84,6 +96,7 @@ export const AwaitingResults: Story = () => (
 export const ResultsReady: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
+            header={header}
             nav={NAV}
             statusMessage={<StatusBody statuses={['FILES-APPROVED']} fileTypes={['APPROVED-RESULT']} />}
         />
@@ -93,6 +106,7 @@ export const ResultsReady: Story = () => (
 export const CodeErrored: Story = () => (
     <div style={{ padding: 24 }}>
         <StudyDetailsResearcherView
+            header={header}
             nav={NAV}
             statusMessage={
                 <StatusBody statuses={['FILES-APPROVED', 'JOB-ERRORED']} fileTypes={['APPROVED-CODE-RUN-LOG']} />

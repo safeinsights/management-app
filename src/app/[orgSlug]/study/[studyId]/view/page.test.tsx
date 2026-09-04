@@ -90,7 +90,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('Study Details')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByText('No code has been uploaded yet.')).toBeInTheDocument()
     })
 
@@ -342,7 +342,7 @@ describe('StudyViewPage', () => {
                 })
 
                 renderWithProviders(page!)
-                expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+                expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
                 expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
                 expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
                 expect(screen.getByTestId('status-alert')).toBeInTheDocument()

@@ -99,11 +99,11 @@ export async function SharedOutputsScreen({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 {/* Banner titles are undated on purpose — the panel appends the shared decision date
                     to both, so the two phases can never disagree about when it was made. */}
                 <SharedOutputsPanel
-                    studyTitle={study.title!}
+                    studyTitle={study.title}
                     decidedAt={decidedAt}
                     banner={{
                         locked: {

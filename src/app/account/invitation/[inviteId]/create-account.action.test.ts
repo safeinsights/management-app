@@ -13,6 +13,7 @@ import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import logger from '@/lib/logger'
+import { onUserLogIn } from '@/server/events'
 import {
     getOrgInfoForInviteAction,
     onCreateAccountAction,
@@ -173,6 +174,7 @@ describe('Create Account Actions', () => {
                 .where('legalDocumentId', '=', legalDocumentId)
                 .where('publishedAt', 'is', null)
                 .execute()
+            // Create draft
             const draft = await db
                 .insertInto('legalDocumentVersion')
                 .values({ legalDocumentId, filePath: 'legal/TOS/draft', fileName: 'draft.md', format: 'markdown' })
@@ -190,6 +192,45 @@ describe('Create Account Actions', () => {
             const invite = await createInvite()
 
             await onCreateAccountAction({ inviteId: invite.id, form })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+
+        // Publish an org-scoped participation agreement for the given org.
+        const publishParticipationAgreement = async (orgId: string, type: 'ROPA' | 'DOPA') => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type, orgId })).id
+            return await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId,
+                    filePath: `legal/${type}/agreement`,
+                    fileName: 'agreement.pdf',
+                    format: 'pdf',
+                    versionNumber: 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
+
+        it("records agreement to the invite org's participation agreement", async () => {
+            const dopa = await publishParticipationAgreement(org.id, 'DOPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [dopa.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: dopa.id }])
+        })
+
+        // Check that by-org gating works (no acknowledging another org's ropa/dopa can be recorded here)
+        it('ignores an org-scoped agreement the signup form never displays', async () => {
+            const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+            const ropa = await publishParticipationAgreement(otherOrg.id, 'ROPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [ropa.id] })
 
             expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
             expect(await acknowledgementsFor(invite.email)).toEqual([])
@@ -701,6 +742,21 @@ describe('Create Account Actions', () => {
             .executeTakeFirst()
 
         expect(updatedInvite?.claimedByUserId).toBe(user.id)
+    })
+
+    // Signup skips the shared sequence, so without this a new account's first sign-in is never audited.
+    it('onPendingUserLoginAction records the login', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: testEmail(), isAdmin: false })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onPendingUserLoginAction({ inviteId: invite.id })
+
+        expect(onUserLogIn).toHaveBeenCalledWith({ userId: user.id })
     })
 
     it('onPendingUserLoginAction is a no-op success when the same user already claimed the invite', async () => {

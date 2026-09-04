@@ -16,5 +16,5 @@ export async function StudyResultsScreen({ study, raw, orgSlug, dashboardHref, r
         returnTo,
     })
 
-    return <StudyDetailsResearcher job={job} nav={nav} />
+    return <StudyDetailsResearcher study={study} job={job} nav={nav} />
 }
