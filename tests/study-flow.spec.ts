@@ -933,7 +933,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
         await expect(page.getByTestId('decision-banner-code-change-requested')).toBeVisible()
-        await expect(page.getByTestId('cta-edit-and-resubmit')).toBeVisible()
+        await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
@@ -1008,10 +1008,10 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
         await expect(studyRow).toBeVisible()
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
-        // CODE-REJECTED is terminal: rejected banner + "Go to dashboard" only (no resubmit CTA).
+        // CODE-REJECTED is terminal: rejected banner + the elevated exit only (no resubmit CTA).
         await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
-        await expect(page.getByTestId('cta-go-to-dashboard')).toBeVisible()
-        await expect(page.getByTestId('cta-edit-and-resubmit')).not.toBeVisible()
+        await expect(page.getByTestId('cta-back-to-my-studies')).toBeVisible()
+        await expect(page.getByTestId('cta-edit-code')).not.toBeVisible()
     })
 })
 

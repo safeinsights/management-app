@@ -4,10 +4,10 @@ import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
-import { ButtonLink, LinkWithIcon } from '@/components/links'
+import { LinkWithIcon } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
@@ -20,6 +20,7 @@ import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
+import type { StepNav } from '@/lib/study-screen'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -29,11 +30,14 @@ interface CodePostDecisionViewProps {
     job: LatestJobForStudy
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
-    dashboardHref: Route
+    /**
+     * Org-scoped entry: threaded onto the "View approved initial request" link so org scope survives.
+     * The step nav carries its own copy of it through NavCtx.
+     */
     returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
-    // Set only when /view resolves past this screen (OTTER-614, OTTER-687).
-    nextStepHref?: Route
+    nav: StepNav
+    /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
     feedbackLoadError?: boolean
 }
 
@@ -92,55 +96,6 @@ const DecisionBanner: FC<{ copy: DecisionCopy; reviewingOrgName: string }> = ({ 
         </Text>
     </Box>
 )
-
-type DecisionActionsProps = {
-    decision: CodeDecisionStatus
-    previousHref: Route
-    dashboardHref: Route
-    resubmitHref: Route
-    nextStepHref?: Route
-}
-
-const DashboardAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
-    if (!isVisible) return null
-    return (
-        <ButtonLink href={href} size="md" data-testid="cta-go-to-dashboard">
-            Go to dashboard
-        </ButtonLink>
-    )
-}
-
-const NextStepAction: FC<{ isVisible: boolean; href?: Route }> = ({ isVisible, href }) => {
-    if (!isVisible || !href) return null
-    return (
-        <ButtonLink href={href} size="md" data-testid="cta-next-step">
-            Next step
-        </ButtonLink>
-    )
-}
-
-const EditAndResubmitAction: FC<{ isVisible: boolean; href: Route }> = ({ isVisible, href }) => {
-    if (!isVisible) return null
-    return (
-        <ButtonLink href={href} size="md" data-testid="cta-edit-and-resubmit">
-            Edit and resubmit
-        </ButtonLink>
-    )
-}
-
-function DecisionActions({ decision, previousHref, dashboardHref, resubmitHref, nextStepHref }: DecisionActionsProps) {
-    const showResubmit = decision === 'CODE-CHANGES-REQUESTED'
-    // Resubmit outranks the forward link: a change request is the flow, not a step to skip.
-    const showNextStep = !showResubmit && !!nextStepHref
-    return (
-        <Group justify="space-between">
-            <PreviousStepLink previousHref={previousHref} />
-            <NextStepAction isVisible={showNextStep} href={nextStepHref} />
-            <DashboardAction isVisible={!showResubmit && !showNextStep} href={dashboardHref} />
-            <EditAndResubmitAction isVisible={showResubmit} href={resubmitHref} />
-        </Group>
-    )
-}
 
 type StepCardProps = {
     study: Submitted<SelectedStudy>
@@ -210,19 +165,15 @@ export function CodePostDecisionView({
     job,
     entries,
     reviewingOrgName,
-    dashboardHref,
     returnTo,
     latestJobStatus,
-    nextStepHref,
+    nav,
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
     const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const { expanded, toggle, collapse } = useExpandable()
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
-    // OTTER-727 hid Agreements; "Previous step" now walks straight to the approved proposal.
-    const previousHref = proposalHref
-    const resubmitHref = Routes.studyResubmit({ orgSlug, studyId: study.id })
 
     const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
 
@@ -247,13 +198,7 @@ export function CodePostDecisionView({
                     onCollapse={collapse}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <DecisionActions
-                    decision={latestJobStatus}
-                    previousHref={previousHref}
-                    dashboardHref={dashboardHref}
-                    resubmitHref={resubmitHref}
-                    nextStepHref={nextStepHref}
-                />
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

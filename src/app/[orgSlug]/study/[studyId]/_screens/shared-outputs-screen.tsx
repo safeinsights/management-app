@@ -118,7 +118,7 @@ export async function SharedOutputsScreen({
                     }
                     previousHref={Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route}
                     editCodeHref={Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route}
-                    dashboardHref={dashboardHref as Route}
+                    dashboardHref={dashboardHref}
                 />
             </Stack>
         </Box>
