@@ -59,6 +59,16 @@ async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = 
     await radioButton.click()
 }
 
+// OTTER-764 accessibility: a locked field is not a field that vanished. It keeps its name and its
+// value in the accessibility tree as a disabled group, so "no longer editable" has to be asserted
+// against the control, never against the label.
+async function expectLockedSetupField(page: Page, label: string, value: string | RegExp) {
+    const field = page.getByRole('group', { name: label, exact: true })
+    await expect(field).toHaveAttribute('aria-disabled', 'true')
+    await expect(field).toHaveAttribute('tabindex', '-1')
+    await expect(field.getByText(value, { exact: true })).toBeVisible()
+}
+
 // Save & continue now opens a confirmation modal before navigating, because the Data Partner and
 // language cannot be changed after this step.
 async function confirmStep1(page: Page) {
@@ -554,7 +564,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         // and a valid click proceeds without the first-visit confirmation modal.
         await page.getByRole('button', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
         const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
@@ -588,8 +598,10 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
         await expect(page.getByText(/^STEP 1$/)).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
-        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expectLockedSetupField(page, 'Study title', studyTitle)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Save and continue' })).toHaveCount(0)
 
@@ -627,10 +639,14 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         await page.waitForURL(/\/edit(\?.*)?$/)
 
         // Revisiting Step 1 keeps the title editable and shows it as saved, while the Data
-        // Partner and language are now settled and render as text.
-        await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
+        // Partner and language are now settled and locked.
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
         await expect(page.getByRole('radio', { name: 'R', exact: true })).toHaveCount(0)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        // The title is still a control in this state, so it is not one of the locked groups.
+        await expect(page.getByRole('group', { name: 'Study title', exact: true })).toHaveCount(0)
 
         // Discarding is only offered before the row exists, so the revisit footer has no left action.
         await expect(page.getByRole('button', { name: 'Discard study' })).toHaveCount(0)
@@ -793,12 +809,14 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
 
         // OTTER-764: a submitted proposal steps back to Step 1 as a read-only record, and forward
-        // again from there. Every field is text by now, so the title has no input to carry a value.
+        // again from there. Every field is a locked group by now, so none of them holds a control.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
         await expect(page.getByText('STEP 1')).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
-        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expectLockedSetupField(page, 'Study title', studyTitle)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
         const nextStep = page.getByRole('button', { name: 'Next step' })

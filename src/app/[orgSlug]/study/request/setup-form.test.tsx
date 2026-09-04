@@ -707,6 +707,44 @@ describe('Locked fields', () => {
         expect(screen.queryByText('PYTHON')).not.toBeInTheDocument()
     })
 
+    it('announces each locked field as a named, disabled group', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = draftFor(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        const partner = await screen.findByRole('group', { name: 'Data Partner' })
+        expect(within(partner).getByText(fixtures.singleLanguagePartner.name)).toBeInTheDocument()
+        expect(partner).toHaveAttribute('aria-disabled', 'true')
+        expect(partner).toHaveAttribute('tabindex', '-1')
+
+        const language = screen.getByRole('group', { name: 'Programming language' })
+        expect(within(language).getByText('R')).toBeInTheDocument()
+        expect(language).toHaveAttribute('aria-disabled', 'true')
+        expect(language).toHaveAttribute('tabindex', '-1')
+
+        // The title is still a real control here, so it is not one of the disabled groups.
+        expect(screen.queryByRole('group', { name: 'Study title' })).not.toBeInTheDocument()
+    })
+
+    it('announces every field as a named, disabled group once the proposal is submitted', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        const expected = [
+            ['Study title', 'A previously saved title'],
+            ['Data Partner', fixtures.singleLanguagePartner.name],
+            ['Programming language', 'R'],
+        ] as const
+
+        for (const [label, value] of expected) {
+            const field = await screen.findByRole('group', { name: label })
+            expect(within(field).getByText(value)).toBeInTheDocument()
+            expect(field).toHaveAttribute('aria-disabled', 'true')
+            expect(field).toHaveAttribute('tabindex', '-1')
+        }
+    })
+
     it('leaves a field editable when the draft never got a value for it', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures, { language: null })
@@ -856,12 +894,13 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         await waitFor(async () => {
             const row = await db
                 .selectFrom('study')
-                .select(['title', 'language'])
+                .select(['title', 'language', 'orgId'])
                 .where('id', '=', study.id)
                 .executeTakeFirst()
             expect(row?.title).toBe('A title changed on the way back')
             // The click must not touch the settled choices, which stay uneditable throughout.
             expect(row?.language).toBe('R')
+            expect(row?.orgId).toBe(study.orgId)
         })
 
         await waitFor(() =>
@@ -890,6 +929,21 @@ describe('Step 1 navigation state: revisiting a draft', () => {
 
         const row = await db.selectFrom('study').select(['title']).where('id', '=', study.id).executeTakeFirst()
         expect(row?.title).toBe('A previously saved title')
+    })
+
+    // The blur rule survives the state change too: emptying the field and leaving it raises the
+    // error here, before any click.
+    it('raises the blank title error on blur', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const { draftData } = await insertRevisitableDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
+        await user.clear(titleInput())
+        await user.tab()
+
+        expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
     })
 
     // Dropping the modal drops the modal only. The title rules still gate the click.
@@ -1008,6 +1062,36 @@ describe('Step 1 navigation state: a submitted proposal', () => {
                 Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
             ),
         )
+    })
+})
+
+// One button carries all three states, and assistive tech reads its accessible name. Each state is
+// its own render in the app, so each state is its own mount here.
+describe('Step 1 navigation state: the CTA across states', () => {
+    it('renames the CTA on the way from a draft to a submitted proposal', async () => {
+        const fixtures = await setupFixtures()
+        const { draftData } = await insertRevisitableDraft(fixtures)
+
+        const { unmount } = renderSetup(fixtures, { studyId: draftData.id, draftData })
+        await waitFor(() => expect(saveAndContinueButton()).toHaveTextContent('Save and continue'))
+        expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
+        unmount()
+
+        const submitted: DraftStudyData = { ...draftData, status: 'PENDING-REVIEW' }
+        renderSetup(fixtures, { studyId: submitted.id, draftData: submitted })
+
+        await waitFor(() => expect(nextStepButton()).toHaveTextContent('Next step'))
+        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
+    })
+
+    it('names the first-visit CTA after its own copy, not a later state', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        expect(continueButton()).toHaveTextContent('Save & continue')
+        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
     })
 })
 
