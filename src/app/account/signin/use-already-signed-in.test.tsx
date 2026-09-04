@@ -1,11 +1,11 @@
 import { renderHook, act, type Mock } from '@/tests/unit.helpers'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import posthog from 'posthog-js'
-import { useAlreadySignedIn } from './use-already-signed-in'
+import { SIGN_OUT_TIMEOUT_MS, useAlreadySignedIn } from './use-already-signed-in'
 
 const mockSignedInUser = (email: string | null = 'ada@example.com') =>
     (useUser as Mock).mockReturnValue({
@@ -28,6 +28,11 @@ const refusedArrival = (target = '%2Fopenstax%2Fdashboard') =>
 describe('useAlreadySignedIn', () => {
     beforeEach(() => {
         memoryRouter.setCurrentUrl('/account/signin')
+    })
+
+    // Only the timeout test below runs on fake timers; this is a no-op for the rest.
+    afterEach(() => {
+        vi.useRealTimers()
     })
 
     it('reports loading until Clerk has loaded', () => {
@@ -246,6 +251,30 @@ describe('useAlreadySignedIn', () => {
         const { result } = renderHook(() => useAlreadySignedIn())
         await act(async () => {
             await result.current.switchAccount()
+        })
+
+        expect(result.current.status).toBe('signed-out')
+        expect(result.current.isSwitching).toBe(false)
+    })
+
+    // OTTER-745: rejecting and never settling are different failures, and only the first was
+    // covered. Offline this left the user on a spinner with no way off the panel.
+    it('switchAccount reveals the form even when signOut never settles', async () => {
+        vi.useFakeTimers()
+        const signOut = vi.fn().mockReturnValue(new Promise<void>(() => {}))
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        mockSignedInUser()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+        let switching: Promise<void> | undefined
+        act(() => {
+            switching = result.current.switchAccount()
+        })
+        expect(result.current.isSwitching).toBe(true)
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(SIGN_OUT_TIMEOUT_MS)
+            await switching
         })
 
         expect(result.current.status).toBe('signed-out')

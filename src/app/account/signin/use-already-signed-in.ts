@@ -64,6 +64,22 @@ function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
     return searchParams.get(BOUNCE_PARAM) === BOUNCE_VALUE
 }
 
+// Offline, Clerk's signOut settles neither way, which left switchAccount's catch and finally
+// unreachable and the panel stuck on its spinner (OTTER-745). race also consumes a signOut that
+// rejects after the timer won, so a late failure cannot escape as an unhandled rejection.
+export const SIGN_OUT_TIMEOUT_MS = 5_000
+
+function signOutOrTimeout(signOut: () => Promise<unknown>) {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const expiry = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+            () => reject(new Error('Signing out took too long. Your connection may be down.')),
+            SIGN_OUT_TIMEOUT_MS,
+        )
+    })
+    return Promise.race([signOut(), expiry]).finally(() => clearTimeout(timer))
+}
+
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
 // latch is one-directional: losing the session afterward always drops back to the form.
 export function useAlreadySignedIn(): UseAlreadySignedIn {
@@ -125,16 +141,14 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         leaveForApp(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
     }, [searchParams])
 
-    // Two places write 'signed-out' after the latch, and they cover different cases: the downgrade above
-    // needs Clerk to have flipped isSignedIn, while this one runs even when signOut rejects or Clerk holds
-    // on to the session, because a user who asked to switch accounts should reach the form either way.
-    // What keeps them from diverging is that every post-latch write moves status the same direction:
-    // toward 'signed-out'. Nothing re-opens the prompt.
+    // Both post-latch writers move status the same direction, so nothing re-opens the prompt: the
+    // downgrade above waits for Clerk to flip isSignedIn, while this one reaches the form however
+    // the sign-out ends, timeout included.
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
         try {
             posthog.reset()
-            await signOut()
+            await signOutOrTimeout(signOut)
         } catch (error) {
             // The button awaits nothing, so a rejection escaping here would land as an unhandled
             // rejection, and a session the server has already dropped is where Clerk is most likely
