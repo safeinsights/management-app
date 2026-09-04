@@ -14,8 +14,19 @@ import {
 } from '@/tests/unit.helpers'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { Routes } from '@/lib/routes'
+import type { StepNav } from '@/lib/study-screen'
 import { CodePostSubmissionView } from './code-post-submission-view'
+// Which buttons a decision/state earns is resolveStepNav's job (see lib/study-screen/nav.test.ts);
+// these views only have to render the nav they are handed.
+const NAV: StepNav = {
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
+    forward: {
+        label: 'Back to my studies',
+        href: '/dashboard' as Route,
+        variant: 'solid',
+        testId: 'cta-back-to-my-studies',
+    },
+}
 
 const ORG_SLUG = 'openstax'
 const REVIEWING_ORG_NAME = 'OpenStax Reviewers'
@@ -59,9 +70,8 @@ function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
     overrides: {
-        dashboardHref?: Route
         reviewingOrgName?: string
-        returnTo?: 'org'
+        nav?: StepNav
         submissionVersion?: number
         feedbackEntries?: CodeReviewFeedbackEntry[]
         isUnderReview?: boolean
@@ -73,8 +83,7 @@ function renderView(
             study={study}
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
-            dashboardHref={overrides.dashboardHref}
-            returnTo={overrides.returnTo}
+            nav={overrides.nav ?? NAV}
             submissionVersion={overrides.submissionVersion ?? 1}
             feedbackEntries={overrides.feedbackEntries ?? []}
             isUnderReview={overrides.isUnderReview}
@@ -292,33 +301,19 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to the submitted proposal (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
-
-            const backLink = screen.getByRole('link', { name: /back/i })
-            const backHref = backLink.getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
-            expect(backHref).not.toContain('from=')
-
-            const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
-            expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
-        })
-
-        it('threads returnTo=org onto the Back link so org scope survives the hop', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job, { returnTo: 'org' })
-
-            const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/submitted`)
-            expect(backHref).toContain('returnTo=org')
-        })
-
-        it('falls back to Routes.dashboard when no dashboardHref is provided', async () => {
+        it('renders the step nav it is handed, and nothing of its own', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
-            expect(screen.getByRole('link', { name: 'Go to dashboard' })).toHaveAttribute('href', '/dashboard')
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('renders no step nav at all when the nav is empty', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { nav: {} })
+
+            expect(screen.queryByTestId('step-navigation')).not.toBeInTheDocument()
         })
     })
 

@@ -7,8 +7,10 @@ export {
     runErrored,
     latestJob,
     isErroredOutputsSharedOutcome,
+    codeDecisionForScreen,
     isOutputsSharedOutcome,
 } from './state'
+export type { CodeDecisionScreenId } from './state'
 export {
     resolveScreen,
     resolveResearcherCodeScreen,
@@ -17,4 +19,6 @@ export {
 } from './resolve'
 export { hasNextStepFromCode } from './next-step'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
+export { resolveStepNav } from './nav'
+export type { StepNav, NavAction, NavCtx, NavVariant } from './nav'
 export { canResearcherResubmitCode } from './eligibility'
