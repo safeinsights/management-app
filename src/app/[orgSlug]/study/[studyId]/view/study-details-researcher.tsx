@@ -1,4 +1,5 @@
 import { Routes } from '@/lib/routes'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { JobResultsStatusMessage } from './job-results-status-message'
 import { StudyDetailsResearcherView } from './study-details-researcher-view'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -17,6 +18,7 @@ export function StudyDetailsResearcher({ orgSlug, study, job, returnTo }: StudyD
     const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
     return (
         <StudyDetailsResearcherView
+            header={<StudyPageHeader study={study} />}
             previousHref={previousHref}
             statusMessage={<JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />}
         />

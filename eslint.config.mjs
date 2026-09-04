@@ -9,6 +9,7 @@ import typescriptEslint from 'typescript-eslint'
 
 import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
+import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
@@ -111,12 +112,14 @@ const eslintConfig = [
                 rules: {
                     noSelectAllWithoutArgs,
                     noBareRouteStrings,
+                    noInvalidButtonVariant,
                 },
             },
         },
         rules: {
             'custom/noSelectAllWithoutArgs': 'error',
             'custom/noBareRouteStrings': 'error',
+            'custom/noInvalidButtonVariant': 'error',
             'no-restricted-imports': [
                 'error',
                 {

@@ -12,6 +12,8 @@ export interface DraftStudyData {
     /** Must come from the study row, not anything client-side (OTTER-690). */
     status?: StudyStatus
     orgName?: string
+    /** The submitting lab, shown as the page header eyebrow. Distinct from orgName, the Data Partner. */
+    submittingLabName?: string
     title?: string
     piName?: string
     descriptionDocPath?: string | null

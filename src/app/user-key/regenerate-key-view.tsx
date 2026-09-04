@@ -3,6 +3,7 @@
 import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
+import { PageHeader } from '@/components/page-header'
 
 export type RegenerateKeyViewProps = {
     generatedOn: string
@@ -23,7 +24,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
 }) => {
     return (
         <Stack p="xl" mx="sm" gap={40}>
-            <Title fz={34}>Security key</Title>
+            <PageHeader title="Security key" />
 
             <Stack gap={16}>
                 <Title order={2} fz={20}>

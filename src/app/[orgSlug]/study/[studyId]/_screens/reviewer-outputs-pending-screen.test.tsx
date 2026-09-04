@@ -32,7 +32,7 @@ describe('ReviewerOutputsPendingScreen', () => {
         const { org, study } = await setupExecuting('JOB-READY')
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
             'href',
             `/${org.slug}/study/${study.id}/review/code`,
