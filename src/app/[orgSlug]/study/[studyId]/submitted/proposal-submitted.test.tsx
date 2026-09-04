@@ -14,6 +14,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { ProposalSubmitted } from './proposal-submitted'
 
 const ORG_SLUG = 'test-org'
@@ -64,8 +65,8 @@ describe('ProposalSubmitted', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     })
 
-    describe('timestamp and decision label', () => {
-        it('displays "Approved on {date}" when status is APPROVED', () => {
+    describe('banner title dates', () => {
+        it('puts the approval date in the banner title', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
@@ -83,10 +84,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
+            )
         })
 
-        it('displays "Clarification requested on {date}" when status is CHANGE-REQUESTED', () => {
+        it('puts the revision-request date in the banner title', () => {
             const clarificationStudy = {
                 ...study,
                 status: 'CHANGE-REQUESTED' as const,
@@ -105,12 +108,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
-                'Clarification requested on Apr 18, 2026',
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Revision requested ${STATUS_ALERT_SEPARATOR} Apr 18, 2026`,
             )
         })
 
-        it('displays "Rejected on {date}" when status is REJECTED', () => {
+        it('puts the decline date in the banner title', () => {
             const rejectedStudy = {
                 ...study,
                 status: 'REJECTED' as const,
@@ -128,10 +131,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal declined ${STATUS_ALERT_SEPARATOR} May 01, 2026`,
+            )
         })
 
-        it('displays "Submitted on {date}" when status is PENDING-REVIEW', () => {
+        it('puts the submission date in the banner title', () => {
             const pendingStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
@@ -148,10 +153,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Apr 16, 2025')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal submitted to ${ORG_NAME} ${STATUS_ALERT_SEPARATOR} Apr 16, 2025`,
+            )
         })
 
-        it('displays "Approved on {date}" when status is PENDING-REVIEW but proposal was approved', () => {
+        it('uses the approval date when status is PENDING-REVIEW but the proposal was approved', () => {
             const codeUnderReviewStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
@@ -168,10 +175,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
+            )
         })
 
-        it('displays "Resubmitted on {date}" when status is PENDING-REVIEW after a resubmission', () => {
+        it('puts the resubmission date and version in the banner title', () => {
             const pendingStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
@@ -188,7 +197,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Resubmitted on Apr 16, 2025')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal v2.0 resubmitted to ${ORG_NAME} ${STATUS_ALERT_SEPARATOR} Apr 16, 2025`,
+            )
         })
 
         it('formats the date as MMM DD, YYYY', () => {
@@ -208,10 +219,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Dec 01, 2025')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved ${STATUS_ALERT_SEPARATOR} Dec 01, 2025`,
+            )
         })
 
-        it('renders the timestamp above the divider', () => {
+        it('renders the banner after the divider', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
@@ -228,14 +241,14 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const timestamp = screen.getByTestId('proposal-timestamp')
             const divider = screen.getByTestId('proposal-header-divider')
-            expect(timestamp.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            const banner = screen.getByTestId('status-alert')
+            expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
     })
 
     describe('decision banner', () => {
-        it('renders a green banner with approved copy when status is APPROVED', () => {
+        it('renders the success banner when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -247,13 +260,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-APPROVED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'success')
+            expect(banner).toHaveTextContent('Proposal approved')
         })
 
-        it('renders a blue banner with clarification copy when status is CHANGE-REQUESTED', () => {
+        it('renders the action banner when status is CHANGE-REQUESTED', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -265,13 +277,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-CHANGE-REQUESTED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed your initial request and has requested clarifications. Please review their feedback below. You can revise and resubmit your request to address their questions.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'action')
+            expect(banner).toHaveTextContent('Revision requested')
         })
 
-        it('renders a red banner with rejected copy when status is REJECTED', () => {
+        it('renders the decline banner when status is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -283,13 +294,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-REJECTED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed your initial request and is unable to support it at this time. Please review their feedback below for more details.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('Proposal declined')
         })
 
-        it('renders the banner below the divider', () => {
+        it('places the banner below the divider', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -302,7 +312,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const divider = screen.getByTestId('proposal-header-divider')
-            const banner = screen.getByTestId('status-banner-APPROVED')
+            const banner = screen.getByTestId('status-alert')
             expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
@@ -333,13 +343,11 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('status-banner-APPROVED')).toBeInTheDocument()
-            expect(screen.queryByTestId('status-banner-REJECTED')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('status-banner-CHANGE-REQUESTED')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
+            expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
+            expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'success')
         })
 
-        it('renders resubmission copy when status is PENDING-REVIEW after a resubmission', () => {
+        it('renders the informative banner when status is PENDING-REVIEW after a resubmission', () => {
             const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
@@ -351,10 +359,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-PENDING-REVIEW')
-            expect(banner).toHaveTextContent(
-                `Your revised initial request has been resubmitted to ${ORG_NAME}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent(`Proposal v2.0 resubmitted to ${ORG_NAME}`)
         })
 
         it('renders approved banner when status is PENDING-REVIEW but proposal was previously approved', () => {
@@ -373,11 +380,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-APPROVED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
-            )
-            expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'success')
+            expect(banner).toHaveTextContent('Proposal approved')
         })
     })
 

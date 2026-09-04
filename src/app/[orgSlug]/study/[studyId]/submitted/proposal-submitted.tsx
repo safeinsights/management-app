@@ -1,7 +1,7 @@
 'use client'
 
 import type { FC } from 'react'
-import { Alert, Button, Group, Stack } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
@@ -15,8 +15,13 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
-import { researcherCodeStepHref } from '@/lib/studies'
-import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
+import { decisionTimestampForProposalHeader, researcherCodeStepHref } from '@/lib/studies'
+import {
+    STATUS_ALERT_VARIANT,
+    StatusAlert,
+    statusAlertTitle,
+    type StatusAlertVariant,
+} from '@/components/study/status-alert'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -33,64 +38,64 @@ function proposalHeading(studyVersion: number): string {
     return `Initial request ${studyVersion}.0`
 }
 
-type ProposalBannerConfig = {
-    color: string
-    bg?: string
-    message: (orgName: string) => string
-    statusBadge?: string
+type ProposalBanner = {
+    variant: StatusAlertVariant
+    title: string
+    body: string
 }
 
-const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
-    'PENDING-REVIEW': {
-        color: 'yellow',
-        message: (orgName) =>
-            `Your initial request has been successfully submitted to ${displayOrgName(orgName)}. They will review it and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process. Please allow an estimated 7 to 10 days for a complete review.`,
-    },
-    APPROVED: {
-        color: 'green',
-        bg: STATUS_BANNER_BG.approved,
-        statusBadge: 'Approved on',
-        message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
-    },
-    REJECTED: {
-        color: 'red',
-        bg: STATUS_BANNER_BG.rejected,
-        statusBadge: 'Rejected on',
-        message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed your initial request and is unable to support it at this time. Please review their feedback below for more details.`,
-    },
-    'CHANGE-REQUESTED': {
-        color: 'purple',
-        bg: STATUS_BANNER_BG.changesRequestedResearcher,
-        statusBadge: 'Clarification requested on',
-        message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed your initial request and has requested clarifications. Please review their feedback below. You can revise and resubmit your request to address their questions.`,
-    },
+const AWAITING_REVIEW_BODY =
+    'An email notification will be sent as your proposal progresses through the review. Reviews typically take 7 to 10 days.'
+
+function proposalBanner(status: StudyStatus, dataPartner: string, studyVersion: number): ProposalBanner | null {
+    switch (status) {
+        case 'PENDING-REVIEW':
+            return {
+                variant: STATUS_ALERT_VARIANT.informative,
+                title:
+                    studyVersion > 1
+                        ? `Proposal v${studyVersion}.0 resubmitted to ${dataPartner}`
+                        : `Proposal submitted to ${dataPartner}`,
+                body: AWAITING_REVIEW_BODY,
+            }
+        case 'CHANGE-REQUESTED':
+            return {
+                variant: STATUS_ALERT_VARIANT.action,
+                title: 'Revision requested',
+                body: `${dataPartner} has reviewed your proposal and requested changes. Read their feedback below, then revise and resubmit.`,
+            }
+        case 'APPROVED':
+            return {
+                variant: STATUS_ALERT_VARIANT.success,
+                title: 'Proposal approved',
+                body: `${dataPartner} has reviewed and approved your proposal. Read their feedback below, then proceed to the next step.`,
+            }
+        case 'REJECTED':
+            return {
+                variant: STATUS_ALERT_VARIANT.decline,
+                title: 'Proposal declined',
+                body: `${dataPartner} has reviewed your proposal and is unable to support it. Read their feedback below for more details.`,
+            }
+        default:
+            return null
+    }
 }
 
 function StatusBanner({
-    orgName,
+    copy,
     study,
-    studyVersion,
+    entries,
 }: {
-    orgName: string
-    study: Pick<SelectedStudy, 'status' | 'approvedAt' | 'rejectedAt'>
-    studyVersion: number
+    copy: ProposalBanner
+    study: Submitted<SelectedStudy>
+    entries: ProposalFeedbackEntry[]
 }) {
-    const proposalStatus = effectiveProposalStatus(study)
-    const config = PROPOSAL_BANNERS[proposalStatus]
-    if (!config) return null
-
-    const isResubmission = proposalStatus === 'PENDING-REVIEW' && studyVersion > 1
-    const message = isResubmission
-        ? `Your revised initial request has been resubmitted to ${displayOrgName(orgName)}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`
-        : config.message(orgName)
+    const decidedAt = decisionTimestampForProposalHeader(study, entries)
 
     return (
-        <Alert color={config.color} bg={config.bg} mb="md" data-testid={`status-banner-${proposalStatus}`}>
-            {message}
-        </Alert>
+        <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
+            {copy.body}
+        </StatusAlert>
     )
 }
 
@@ -182,12 +187,11 @@ export function ProposalSubmitted({
     returnTo,
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
-    const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
-    const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
+    const bannerCopy = proposalBanner(proposalStatus, displayOrgName(orgName), studyVersion)
 
     // The header cannot tell an element that renders nothing from one that does, so ARCHIVED (no
     // banner copy) must pass nothing at all.
-    const banner = bannerConfig ? <StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} /> : null
+    const banner = bannerCopy ? <StatusBanner copy={bannerCopy} study={study} entries={entries} /> : null
 
     return (
         <Stack p="xl" gap="xl">
@@ -199,7 +203,6 @@ export function ProposalSubmitted({
                     stepLabel="STEP 2"
                     heading={proposalHeading(studyVersion)}
                     banner={banner}
-                    statusBadge={statusBadge}
                     entries={entries}
                     initialExpanded={false}
                 />

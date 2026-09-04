@@ -61,7 +61,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
-        expect(screen.getByTestId('status-banner-REJECTED')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'decline')
     })
 
     it('renders the ProposalSubmitted page with an Edit-and-resubmit link for a CHANGE-REQUESTED study', async () => {
@@ -75,7 +75,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('status-banner-CHANGE-REQUESTED')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'action')
         expect(screen.getByRole('link', { name: /edit and resubmit/i })).toBeInTheDocument()
     })
 
