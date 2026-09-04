@@ -7,6 +7,7 @@ import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
@@ -101,6 +102,10 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
 }) => {
     const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
     const editAndResubmitHref = Routes.studyEditAndResubmit({ orgSlug, studyId: study.id })
+    // Step 1, which serves the submitted study as a read-only record (OTTER-764). returnTo rides
+    // along so the round trip back here lands on the same page the researcher came from, exit
+    // included, rather than silently switching to the personal dashboard.
+    const setupHref = Routes.studyEdit({ orgSlug, studyId: study.id, returnTo })
     const proposalStatus = effectiveProposalStatus(study)
 
     const proceedHref = researcherCodeStepHref(study, { orgSlug, returnTo })
@@ -141,8 +146,12 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
                 </Group>
             )
         default:
+            // No forward action exists from here, so the researcher gets a step back to the read-only
+            // Step 1 record alongside the exit (OTTER-764). The two branches above keep their own
+            // designed navigation.
             return (
-                <Group justify="flex-end">
+                <Group justify="space-between">
+                    <PreviousStepLink previousHref={setupHref} size="md" />
                     <Button component={Link} href={dashboardHref} size="md">
                         Go to dashboard
                     </Button>

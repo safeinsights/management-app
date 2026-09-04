@@ -34,7 +34,7 @@ const EnrollOptionsCard: FC = () => (
                 You can choose to receive verification codes via text message (SMS) or use an authenticator app.
             </Text>
             <Stack gap="xl">
-                <ButtonLink href={Routes.accountMfaSms} w="100%" size="md" variant="primary">
+                <ButtonLink href={Routes.accountMfaSms} w="100%" size="md">
                     SMS Verification
                 </ButtonLink>
                 <ButtonLink href={Routes.accountMfaApp} w="100%" variant="outline" size="md">

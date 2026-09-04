@@ -2,14 +2,14 @@
 
 import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { BlockingModal } from './blocking-modal'
-import { LegalDocumentSection } from './document-sections'
+import { BlockingModal } from '../blocking-modal'
+import { LegalMarkdownSection } from '../markdown-sections'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
     legalAcknowledgementTitle,
-    type PendingLegalDocument,
 } from './acknowledgement-copy'
+import type { PendingLegalDocument } from '@/schema/legal-document'
 
 type Props = {
     isVisible: boolean
@@ -47,7 +47,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
             <Stack>
                 <Text>{legalAcknowledgementBody(document)}</Text>
 
-                <LegalDocumentSection document={document} />
+                <LegalMarkdownSection document={document} />
 
                 <Checkbox
                     checked={isChecked}

@@ -551,6 +551,21 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToProposeStudy(page, studyTitle)
+
+        // OTTER-764 state 2, taken on the way through so this test walks all three Step 1 states in
+        // the order a researcher meets them. The draft exists now, so only the title stays editable
+        // and a valid click proceeds without the first-visit confirmation modal.
+        await page.getByRole('button', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/edit(\?.*)?$/)
+        await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+
+        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        await expect(saveAndContinue).toBeEnabled()
+        await saveAndContinue.click()
+        await page.waitForURL(/\/proposal$/)
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+
         await fillAndSubmitProposal(page, { linkNotes: true })
 
         // The read-only render of a submitted proposal is a separate Lexical mount, so
@@ -569,6 +584,23 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         const submittedLink = proposalBody.getByRole('link', { name: PROPOSAL_LINK_TEXT })
         await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
         await expect(submittedLink).toHaveAttribute('target', '_blank')
+
+        // OTTER-764 state 3 on a proposal genuinely pending review. Step 1 is a record here, so no
+        // field has an input left and the CTA only steps forward. The title has been locked since
+        // submission, which is what makes the permanent lock outrank state 2's editable title.
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/edit(\?.*)?$/)
+        await expect(page.getByText(/^STEP 1$/)).toBeVisible()
+        await expect(page.getByText(studyTitle).first()).toBeVisible()
+        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Save and continue' })).toHaveCount(0)
+
+        const nextStep = page.getByRole('button', { name: 'Next step' })
+        await expect(nextStep).toBeEnabled()
+        await nextStep.click()
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await expect(page.getByText(/successfully submitted/i)).toBeVisible()
     })
 })
 
@@ -595,13 +627,26 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // Navigate back, which triggers save-on-navigate and flushes Step 2 fields
         // to the study row so draftHasStep2Progress resolves correctly.
         await page.getByRole('button', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/edit$/)
+        await page.waitForURL(/\/edit(\?.*)?$/)
 
         // Revisiting Step 1 keeps the title editable and shows it as saved, while the Data
         // Partner and language are now settled and render as text.
         await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
         await expect(page.getByRole('radio', { name: 'R', exact: true })).toHaveCount(0)
+
+        // Discarding is only offered before the row exists, so the revisit footer has no left action.
+        await expect(page.getByRole('button', { name: 'Discard study' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
+
+        // The revisit CTA saves and moves straight on. Reaching Step 2 is itself the proof that the
+        // confirmation modal was skipped: it belongs to the first visit, where the Data Partner and
+        // the language were still open to change, and an open modal would hold the navigation.
+        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        await expect(saveAndContinue).toBeEnabled()
+        await saveAndContinue.click()
+        await page.waitForURL(/\/proposal$/)
+        await expect(page.getByRole('dialog')).toHaveCount(0)
 
         await visitAsRole(page, RESEARCHER_DASHBOARD)
 
@@ -751,6 +796,21 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
         await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
         await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
+
+        // OTTER-764: a submitted proposal steps back to Step 1 as a read-only record, and forward
+        // again from there. Every field is text by now, so the title has no input to carry a value.
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/edit(\?.*)?$/)
+        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expect(page.getByText(studyTitle).first()).toBeVisible()
+        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+
+        const nextStep = page.getByRole('button', { name: 'Next step' })
+        await expect(nextStep).toBeEnabled()
+        await nextStep.click()
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
     })
 })
 

@@ -21,6 +21,7 @@ import {
     getStudyJobFileOfType,
     getStudyJobInfo,
     getStudyReviewForJob,
+    jobScanResultForJob,
     latestJobForStudy,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
@@ -284,6 +285,17 @@ export const getStudyReviewAction = new Action('getStudyReviewAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId } }) => {
         return await getStudyReviewForJob(studyJobId)
+    })
+
+export const getJobScanResultAction = new Action('getJobScanResultAction')
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId } }) => {
+        return await jobScanResultForJob(studyJobId)
     })
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })

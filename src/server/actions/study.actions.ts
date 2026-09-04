@@ -188,6 +188,7 @@ export const getStudyAction = new Action('getStudyAction')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select([
                 'org.slug as orgSlug',
+                'org.name as orgName',
                 'submittingOrg.slug as submittedByOrgSlug',
                 'submittingOrg.name as submittingLabName',
                 'study.descriptionDocPath',
