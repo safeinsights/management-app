@@ -8,14 +8,14 @@ import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 type AgreementRow = { signedAt: string | null; ackedAt: Date; versionId: string | null }
 
-export type AgreementSort<Column extends string> = { columnAccessor: Column; direction: 'asc' | 'desc' }
+type AgreementSort<Column extends string> = { columnAccessor: Column; direction: 'asc' | 'desc' }
 
-// Both dates read as UTC days, matching the global document panel: on mixed bases an ack can show
-// as a day earlier than the document it acknowledges.
+// signedAt is a bare calendar day; ackedAt reads as a UTC day, matching the global document panel.
+// On mixed bases an ack can show as a day earlier than the document it acknowledges.
 export const agreementDateColumns = <T extends AgreementRow>(): DataTableColumn<T>[] => [
     { accessor: 'signedAt', title: 'Effective on', sortable: true, render: (row) => formatDayString(row.signedAt) },
     {
@@ -35,12 +35,13 @@ type Props<T, Column extends string> = {
     defaultSort: AgreementSort<Column>
     queryKey: (sort: AgreementSort<Column>) => readonly unknown[]
     queryFn: (sort: AgreementSort<Column>) => Promise<ActionResponse<T[]>>
+    // For a table that lists something other than the reader's own acknowledgements.
+    emptyState?: ReactNode
 }
 
-// All three agreement labels pluralise with a bare 's'.
-const EmptyState: FC<{ label: string }> = ({ label }) => (
+const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
     <Stack gap={4} align="center">
-        <Text>You have not acknowledged any {label}s yet</Text>
+        <Text>You have not acknowledged any {label} yet</Text>
     </Stack>
 )
 
@@ -76,8 +77,9 @@ const useAgreements = <T, Column extends string>({
 }
 
 // A refused read must not fall through to the table, where it looks like nothing was signed.
-export const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
+const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
     const { records, isLoading, isError, error, sort, onSortStatusChange } = useAgreements(props)
+    const emptyState = props.emptyState ?? <NothingAcknowledged label={props.label} />
 
     if (isError) return <ErrorAlert error={error} />
 
@@ -90,7 +92,7 @@ export const AgreementsTable = <T, Column extends string>(props: Props<T, Column
             minHeight={140}
             fetching={isLoading}
             idAccessor={props.idAccessor}
-            emptyState={<EmptyState label={props.label} />}
+            emptyState={emptyState}
             records={records}
             columns={props.columns}
             sortStatus={sort}

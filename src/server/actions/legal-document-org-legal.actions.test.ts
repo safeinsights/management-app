@@ -85,6 +85,50 @@ describe('fetchOrgStudyAgreementsAction', () => {
         expect(row?.versionId).toBeNull()
     })
 
+    // Each accessor is a raw ORDER BY expression naming source columns, so one no test drives is
+    // a 500 on the first header click rather than a mis-sort.
+    const insertTitledStudies = async (titles: string[]) => {
+        const { dataPartner, researchLab } = await insertPartyOrgs()
+        for (const title of titles) {
+            await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title, status: 'APPROVED' })
+        }
+        return dataPartner
+    }
+
+    it('sorts by study title in both directions', async () => {
+        const dataPartner = await insertTitledStudies(['Zulu study', 'Alpha study'])
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const titlesSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchOrgStudyAgreementsAction({
+                    orgSlug: dataPartner.slug,
+                    sort: { columnAccessor: 'studyTitle', direction },
+                }),
+            ).map((row) => row.studyTitle)
+
+        expect(await titlesSortedBy('asc')).toEqual(['Alpha study', 'Zulu study'])
+        expect(await titlesSortedBy('desc')).toEqual(['Zulu study', 'Alpha study'])
+    })
+
+    it('sorts by study id in both directions', async () => {
+        const dataPartner = await insertTitledStudies(['First', 'Second'])
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const idsSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchOrgStudyAgreementsAction({
+                    orgSlug: dataPartner.slug,
+                    sort: { columnAccessor: 'studyId', direction },
+                }),
+            ).map((row) => row.studyId)
+
+        const ascending = await idsSortedBy('asc')
+
+        expect(ascending).toHaveLength(2)
+        expect(await idsSortedBy('desc')).toEqual([...ascending].reverse())
+    })
+
     it('names the Data Partner as the counterparty for the Research Lab admin', async () => {
         const { study, dataPartner, researchLab } = await insertStudyWithDistinctOrgs()
         await asOrgAdmin(researchLab.slug, 'lab')

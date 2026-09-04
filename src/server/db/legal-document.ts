@@ -110,6 +110,28 @@ const acknowledgedVersionFields = [
     'legalDocumentAcknowledgement.ackedAt as ackedAt',
 ] as const
 
+// The audience columns legalDocumentVersionForDownload selects, and all an access check reads.
+export type LegalDocumentAudience = {
+    versionId: string
+    orgId: string | null
+    dataPartnerId: string | null
+    researchLabId: string | null
+}
+
+export const userAcknowledgedVersion = async (
+    db: DBExecutor,
+    { versionId, userId }: { versionId: string; userId: string },
+) => {
+    const ack = await db
+        .selectFrom('legalDocumentAcknowledgement')
+        .select('id')
+        .where('legalDocumentVersionId', '=', versionId)
+        .where('userId', '=', userId)
+        .executeTakeFirst()
+
+    return Boolean(ack)
+}
+
 // Published only: a draft is reachable through the admin preview, not through a pasteable link.
 export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: string) =>
     db

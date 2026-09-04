@@ -24,6 +24,8 @@ type Props = {
     label?: string
 }
 
+type BoundedProps = { content: string; maxHeight: number; label?: string }
+
 export const LEGAL_DOCUMENT_MAX_HEIGHT = 280
 
 // Hoisted so react-markdown does not rebuild its processor and re-parse the whole document on
@@ -39,21 +41,27 @@ const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
     </Typography>
 )
 
+const BoundedMarkdown: FC<BoundedProps> = ({ content, maxHeight, label }) => (
+    <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
+        <DocumentMarkdown content={content} />
+    </ScrollArea.Autosize>
+)
+
 export const LegalMarkdownContent: FC<Props> = memo(function LegalMarkdownContent({
     content,
     maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT,
     unbounded,
     label,
 }) {
+    const body = unbounded ? (
+        <DocumentMarkdown content={content} />
+    ) : (
+        <BoundedMarkdown content={content} maxHeight={maxHeight} label={label} />
+    )
+
     return (
         <Paper withBorder p="md">
-            {unbounded ? (
-                <DocumentMarkdown content={content} />
-            ) : (
-                <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
-                    <DocumentMarkdown content={content} />
-                </ScrollArea.Autosize>
-            )}
+            {body}
         </Paper>
     )
 })

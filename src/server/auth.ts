@@ -1,6 +1,7 @@
 import { sessionFromClerk } from '@/server/clerk'
 import { toRecord } from '@/lib/permissions'
 import { db } from '@/database'
+import { userAcknowledgedVersion, type LegalDocumentAudience } from '@/server/db/legal-document'
 import type { StudyStatus } from '@/database/types'
 
 // `status` gates the reviewer path only: unsubmitted drafts are private to the submitting lab,
@@ -28,12 +29,7 @@ export async function canViewStudyJob(study: { orgId: string; submittedByOrgId: 
 // Three ways in, matching the three screens that link a document: an SI admin (`view` on
 // LegalDocument is granted to nobody else), an admin of a party org, or the person whose own
 // acknowledgement it is.
-export async function canDownloadLegalDocument(doc: {
-    versionId: string
-    orgId: string | null
-    dataPartnerId: string | null
-    researchLabId: string | null
-}) {
+export async function canDownloadLegalDocument(doc: LegalDocumentAudience) {
     const session = await sessionFromClerk()
     if (!session) return false
 
@@ -42,12 +38,5 @@ export async function canDownloadLegalDocument(doc: {
     const audienceOrgIds = [doc.orgId, doc.dataPartnerId, doc.researchLabId].filter((id): id is string => id != null)
     if (audienceOrgIds.some((orgId) => session.can('view', toRecord('OrgLegalDocuments', { orgId })))) return true
 
-    const ack = await db
-        .selectFrom('legalDocumentAcknowledgement')
-        .select('id')
-        .where('legalDocumentVersionId', '=', doc.versionId)
-        .where('userId', '=', session.user.id)
-        .executeTakeFirst()
-
-    return Boolean(ack)
+    return userAcknowledgedVersion(db, { versionId: doc.versionId, userId: session.user.id })
 }

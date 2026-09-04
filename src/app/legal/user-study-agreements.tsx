@@ -4,13 +4,13 @@ import type { FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
+    legalDocumentCollectionLabels,
     studyAgreementDisplayTitle,
     type UserStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchUserStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import type { DataTableColumn } from 'mantine-datatable'
-import { agreementDateColumns, AgreementsPanel } from './agreements-table'
+import { agreementDateColumns, AgreementsPanel } from '@/components/legal/agreements-table'
 
 type StudyAgreement = ActionSuccessType<typeof fetchUserStudyAgreementsAction>[number]
 
@@ -30,7 +30,7 @@ const DEFAULT_SORT: UserStudyAgreementSort = { columnAccessor: 'ackedAt', direct
 
 export const UserStudyAgreements: FC = () => (
     <AgreementsPanel
-        label={legalDocumentTypeLabels.SLA}
+        label={legalDocumentCollectionLabels.SLA}
         idAccessor="studyId"
         columns={columns}
         sortableColumns={SORTABLE_COLUMNS}

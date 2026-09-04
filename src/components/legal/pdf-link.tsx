@@ -18,7 +18,7 @@ export const PdfLink: FC<{ url: string | null; label?: string }> = ({ url, label
 
 // The route presigns on request, so a table of these costs no signatures until one is clicked.
 export const LegalDocumentPdfLink: FC<{ versionId: string | null; label?: string }> = ({ versionId, label }) => {
-    if (!versionId) return <PdfLink url={null} label={label} />
+    const url = versionId ? legalDocumentDownloadURL(versionId) : null
 
-    return <PdfLink url={legalDocumentDownloadURL(versionId)} label={label} />
+    return <PdfLink url={url} label={label} />
 }

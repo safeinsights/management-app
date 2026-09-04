@@ -167,14 +167,48 @@ describe('fetchUserStudyAgreementsAction', () => {
         expect(rows[0]?.signedAt).toBe('2026-03-03')
     })
 
-    it('breaks a tie on title ascending whichever way the chosen column points', async () => {
-        const reader = await insertReader('enclave')
-        for (const title of ['Zulu study', 'Alpha study']) {
+    const acknowledgeStudies = async (reader: Reader, titles: string[], signedAt = '2026-04-04') => {
+        for (const title of titles) {
             const { study } = await insertStudyForReader(reader, title)
-            const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-04-04')
+            const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, signedAt)
             reader.restoreSession()
             actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
         }
+    }
+
+    // Each accessor is a raw ORDER BY expression naming a subquery alias, so one no test drives
+    // is a 500 on the first header click rather than a mis-sort.
+    it('sorts by study title in both directions', async () => {
+        const reader = await insertReader('enclave')
+        await acknowledgeStudies(reader, ['Zulu study', 'Alpha study'])
+
+        const titlesSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchUserStudyAgreementsAction({ sort: { columnAccessor: 'studyTitle', direction } }),
+            ).map((row) => row.studyTitle)
+
+        expect(await titlesSortedBy('asc')).toEqual(['Alpha study', 'Zulu study'])
+        expect(await titlesSortedBy('desc')).toEqual(['Zulu study', 'Alpha study'])
+    })
+
+    it('sorts by study id in both directions', async () => {
+        const reader = await insertReader('enclave')
+        await acknowledgeStudies(reader, ['First', 'Second'])
+
+        const idsSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(await fetchUserStudyAgreementsAction({ sort: { columnAccessor: 'studyId', direction } })).map(
+                (row) => row.studyId,
+            )
+
+        const ascending = await idsSortedBy('asc')
+
+        expect(ascending).toHaveLength(2)
+        expect(await idsSortedBy('desc')).toEqual([...ascending].reverse())
+    })
+
+    it('breaks a tie on title ascending whichever way the chosen column points', async () => {
+        const reader = await insertReader('enclave')
+        await acknowledgeStudies(reader, ['Zulu study', 'Alpha study'])
 
         const titlesSortedBy = async (direction: 'asc' | 'desc') =>
             actionResult(await fetchUserStudyAgreementsAction({ sort: { columnAccessor: 'signedAt', direction } })).map(
@@ -226,6 +260,34 @@ describe('fetchUserParticipationAgreementsAction', () => {
         expect(
             actionResult(await fetchUserParticipationAgreementsAction({ type: 'ROPA', sort: PARTICIPATION_SORT })),
         ).toEqual([])
+    })
+
+    // orgName is the only accessor here that is not a date; a bad identifier is a 500 on click.
+    // Acks are inserted directly: restoreSession replays the memberships the reader had when it
+    // was captured, so acknowledging a fresh org's document through the action is denied.
+    it('sorts by organization name in both directions', async () => {
+        const reader = await insertReader('enclave')
+
+        for (const name of ['Zulu org', 'Alpha org']) {
+            const org = await insertTestOrg({ slug: faker.string.alpha(10), name, type: 'enclave' })
+            const version = await publishAsSiAdmin({ type: 'DOPA', orgId: org.id }, '2026-04-04')
+            await db
+                .insertInto('legalDocumentAcknowledgement')
+                .values({ legalDocumentVersionId: version.id, userId: reader.user.id })
+                .execute()
+        }
+        reader.restoreSession()
+
+        const namesSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchUserParticipationAgreementsAction({
+                    type: 'DOPA',
+                    sort: { columnAccessor: 'orgName', direction },
+                }),
+            ).map((row) => row.orgName)
+
+        expect(await namesSortedBy('asc')).toEqual(['Alpha org', 'Zulu org'])
+        expect(await namesSortedBy('desc')).toEqual(['Zulu org', 'Alpha org'])
     })
 
     it('returns a ROPA for a lab member', async () => {

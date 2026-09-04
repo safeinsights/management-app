@@ -15,6 +15,16 @@ export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
+// Tabs, panel headings and empty states name a collection of documents; the modals and the admin
+// screens name one. The three agreement types pluralise with a bare 's'; tos/pn are already collective.
+export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = {
+    TOS: legalDocumentTypeLabels.TOS,
+    PN: legalDocumentTypeLabels.PN,
+    SLA: `${legalDocumentTypeLabels.SLA}s`,
+    DOPA: `${legalDocumentTypeLabels.DOPA}s`,
+    ROPA: `${legalDocumentTypeLabels.ROPA}s`,
+}
+
 // List of documents whos acknowledgments are currently required.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]

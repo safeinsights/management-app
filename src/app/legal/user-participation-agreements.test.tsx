@@ -63,7 +63,7 @@ describe('UserParticipationAgreements', () => {
 
         renderWithProviders(<UserParticipationAgreements type="DOPA" />)
 
-        expect(screen.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeDefined()
+        expect(screen.getByRole('heading', { name: 'Data Organization Participation Agreements' })).toBeDefined()
         await waitFor(() =>
             expect(
                 screen.getByText('You have not acknowledged any Data Organization Participation Agreements yet'),

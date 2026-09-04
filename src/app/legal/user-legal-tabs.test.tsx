@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { mockSessionWithTestData, renderWithProviders, userEvent } from '@/tests/unit.helpers'
 import { UserLegalTabs } from './user-legal-tabs'
 
 const TAB_NAMES = [
-    legalDocumentTypeLabels.SLA,
-    legalDocumentTypeLabels.DOPA,
-    legalDocumentTypeLabels.ROPA,
-    legalDocumentTypeLabels.TOS,
-    legalDocumentTypeLabels.PN,
+    legalDocumentCollectionLabels.SLA,
+    legalDocumentCollectionLabels.DOPA,
+    legalDocumentCollectionLabels.ROPA,
+    legalDocumentCollectionLabels.TOS,
+    legalDocumentCollectionLabels.PN,
 ]
 
 describe('UserLegalTabs', () => {
@@ -30,7 +30,7 @@ describe('UserLegalTabs', () => {
             expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
         )
 
-        await userEvent.click(screen.getByRole('tab', { name: 'Research Organization Participation Agreement' }))
+        await userEvent.click(screen.getByRole('tab', { name: 'Research Organization Participation Agreements' }))
 
         await waitFor(() =>
             expect(
