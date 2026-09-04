@@ -2,13 +2,13 @@ import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { StudyAgreementModal } from './study-agreement-modal'
 
-const DOWNLOAD_URL = 'https://example.com/agreement.pdf'
+const VERSION_ID = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b'
 
 const renderModal = (props: Partial<Parameters<typeof StudyAgreementModal>[0]> = {}) =>
     renderWithProviders(
         <StudyAgreementModal
             isVisible
-            downloadUrl={DOWNLOAD_URL}
+            versionId={VERSION_ID}
             isChecked={false}
             onCheckedChange={vi.fn()}
             onContinue={vi.fn()}
@@ -25,11 +25,12 @@ describe('StudyAgreementModal', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
+    // The route presigns on request, so the link cannot go stale while the modal sits open.
     it('links out to the agreement in a new tab, since it is a PDF', () => {
         renderModal()
 
         const link = screen.getByRole('link', { name: /Study Agreement/ })
-        expect(link).toHaveAttribute('href', DOWNLOAD_URL)
+        expect(link).toHaveAttribute('href', `/dl/legal/${VERSION_ID}`)
         expect(link).toHaveAttribute('target', '_blank')
     })
 

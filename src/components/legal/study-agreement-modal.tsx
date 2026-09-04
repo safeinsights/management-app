@@ -4,6 +4,7 @@ import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { FC } from 'react'
 import { LinkWithIcon } from '@/components/links'
+import { legalDocumentDownloadURL } from '@/lib/paths'
 import { BlockingModal } from './blocking-modal'
 
 export const STUDY_AGREEMENT_LABEL = 'Study Agreement'
@@ -12,7 +13,7 @@ const CHECKBOX_LABEL = `I have read and acknowledge the ${STUDY_AGREEMENT_LABEL}
 
 type Props = {
     isVisible: boolean
-    downloadUrl?: string
+    versionId?: string
     isChecked: boolean
     onCheckedChange: (checked: boolean) => void
     onContinue: () => void
@@ -32,7 +33,7 @@ const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
 // to go.
 export const StudyAgreementModal: FC<Props> = ({
     isVisible,
-    downloadUrl,
+    versionId,
     isChecked,
     onCheckedChange,
     onContinue,
@@ -40,7 +41,7 @@ export const StudyAgreementModal: FC<Props> = ({
     isSubmitting,
     error,
 }) => {
-    if (!isVisible || !downloadUrl) return null
+    if (!isVisible || !versionId) return null
 
     return (
         <BlockingModal title={STUDY_AGREEMENT_LABEL}>
@@ -48,7 +49,7 @@ export const StudyAgreementModal: FC<Props> = ({
                 <Text>
                     The{' '}
                     <LinkWithIcon
-                        href={downloadUrl}
+                        href={legalDocumentDownloadURL(versionId)}
                         target="_blank"
                         rel="noreferrer"
                         icon={<ArrowSquareOutIcon size={16} weight="bold" />}

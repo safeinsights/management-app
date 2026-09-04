@@ -171,7 +171,7 @@ export const studyAgreementStatusSchema = z.object({
 // One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
 export type StudyAgreementStatus =
     | { state: 'none' }
-    | { state: 'pending'; versionId: string; downloadUrl: string }
+    | { state: 'pending'; versionId: string }
     | { state: 'acknowledged' }
 
 export const orgLegalParams = z.object({

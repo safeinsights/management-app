@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/database'
 import type { StudyStatus } from '@/database/types'
 import { isActionError } from '@/lib/errors'
@@ -16,14 +16,6 @@ import {
 import { requireStudyAgreementAcknowledged } from '@/server/study-agreement'
 import { acknowledgeLegalDocumentAction, fetchStudyAgreementStatusAction } from './legal-document.actions'
 import { submitCodeReviewDecisionAction } from './study.actions'
-
-vi.mock('@/server/aws', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/server/aws')>()
-    return {
-        ...actual,
-        signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/agreement.pdf'),
-    }
-})
 
 beforeEach(resetLegalDocuments)
 
@@ -71,7 +63,8 @@ describe('fetchStudyAgreementStatusAction', () => {
         expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
     })
 
-    it('reports pending with a link for a Research Lab member', async () => {
+    // The version id, not a signed URL: the modal links at /dl/legal, which presigns on request.
+    it('reports pending for a Research Lab member', async () => {
         const { study, researchLab } = await insertStudyWithDistinctOrgs()
         const version = await insertTestStudyAgreement({ studyId: study.id })
         await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
@@ -79,7 +72,6 @@ describe('fetchStudyAgreementStatusAction', () => {
         expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({
             state: 'pending',
             versionId: version.id,
-            downloadUrl: 'https://mock-signed-url.example.com/agreement.pdf',
         })
     })
 

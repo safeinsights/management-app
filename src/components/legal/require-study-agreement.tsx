@@ -23,7 +23,7 @@ export const useStudyAgreementStatus = (studyId: string) => {
         enabled: Boolean(session),
         // No polling: the guarded mutations already refuse an unacknowledged user, so a modal landing
         // on the code upload page — whose file selection is not autosaved — would cost more than it
-        // buys. Window-focus refetch still applies, and re-mints the presigned URL before it expires.
+        // buys. Window-focus refetch still applies.
         refetchInterval: false,
     })
 
@@ -56,7 +56,7 @@ const usePendingStudyAgreement = (studyId: string) => {
     })
 
     return {
-        downloadUrl: status?.state === 'pending' ? status.downloadUrl : undefined,
+        versionId,
         // Keyed to the version on screen, not a bare boolean: a version published while the modal is
         // open must not inherit a tick given to the one before it.
         isChecked: consentedVersionId === versionId,
@@ -75,13 +75,13 @@ const usePendingStudyAgreement = (studyId: string) => {
 // Blocks a member of either party who owes this study's agreement. Mounted in the study layout, so
 // it covers every route of the study for both roles.
 export const RequireStudyAgreement = ({ studyId }: { studyId: string }) => {
-    const { downloadUrl, isChecked, setIsChecked, onContinue, onCancel, isSubmitting, error } =
+    const { versionId, isChecked, setIsChecked, onContinue, onCancel, isSubmitting, error } =
         usePendingStudyAgreement(studyId)
 
     return (
         <StudyAgreementModal
-            isVisible={Boolean(downloadUrl)}
-            downloadUrl={downloadUrl}
+            isVisible={Boolean(versionId)}
+            versionId={versionId}
             isChecked={isChecked}
             onCheckedChange={setIsChecked}
             onContinue={onContinue}

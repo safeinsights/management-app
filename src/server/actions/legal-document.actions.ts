@@ -677,12 +677,7 @@ export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementSt
             return { state: 'acknowledged' }
         }
 
-        return {
-            state: 'pending',
-            versionId: agreement.versionId,
-            // Opens the agreement in a tab to be read, rather than downloading it.
-            downloadUrl: await urlForLegalDocumentVersion(agreement),
-        }
+        return { state: 'pending', versionId: agreement.versionId }
     })
 
 // An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin

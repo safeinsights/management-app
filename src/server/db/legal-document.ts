@@ -62,9 +62,6 @@ export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =
         .innerJoin('study', 'study.id', 'legalDocument.studyId')
         .select([
             'legalDocumentVersion.id as versionId',
-            'legalDocumentVersion.filePath as filePath',
-            'legalDocumentVersion.fileName as fileName',
-            'legalDocumentVersion.format as format',
             'study.orgId as dataPartnerId',
             'study.submittedByOrgId as researchLabId',
         ])
