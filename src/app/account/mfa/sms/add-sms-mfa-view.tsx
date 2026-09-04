@@ -58,7 +58,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 loading={isSendingSms}
                 w="100%"
                 size="md"
-                variant="primary"
+                variant="filled"
                 radius="sm"
                 disabled={!isPossiblePhoneNumber(form.values.phoneNumber.trim())}
             >

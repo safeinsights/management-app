@@ -37,7 +37,7 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
                     </Text>
                 )}
                 <Button
-                    variant="primary"
+                    variant="filled"
                     disabled={!ide.canSubmit}
                     loading={ide.isDirectSubmitting}
                     onClick={openConfirm}

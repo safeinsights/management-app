@@ -24,7 +24,7 @@ const ConfirmButton: FC<{
 }> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel }) => {
     if (!confirmLoadingLabel) {
         return (
-            <Button variant="primary" onClick={onConfirm} loading={isSubmitting}>
+            <Button variant="filled" onClick={onConfirm} loading={isSubmitting}>
                 {confirmLabel}
             </Button>
         )
@@ -32,7 +32,7 @@ const ConfirmButton: FC<{
 
     return (
         <Button
-            variant="primary"
+            variant="filled"
             onClick={onConfirm}
             disabled={isSubmitting}
             // No explicit color, so the loader greys out in step with the label.

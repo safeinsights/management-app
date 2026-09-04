@@ -133,7 +133,7 @@ export function AgreementsPage({
                 >
                     {previousLabel}
                 </Button>
-                <Button type="button" variant="primary" size="md" onClick={handleProceed}>
+                <Button type="button" variant="filled" size="md" onClick={handleProceed}>
                     {resolvedProceedLabel}
                 </Button>
             </Flex>
