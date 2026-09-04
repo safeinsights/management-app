@@ -1,7 +1,7 @@
 'use client'
 
 import { FC, type ChangeEvent } from 'react'
-import { TextInput } from '@mantine/core'
+import { Box, TextInput } from '@mantine/core'
 import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
@@ -11,6 +11,7 @@ import { TITLE_INPUT_ID } from './field-ids'
 
 const LABEL = 'Study title'
 const DESCRIPTION = 'Give your study a short, clear title to identify it on SafeInsights.'
+const FIELD_WIDTH = 620
 
 interface StudyTitleFieldProps {
     value: string
@@ -24,41 +25,46 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
     if (isLocked) return <ReadOnlyField label={LABEL} value={value} />
 
     return (
-        <FormField
-            inputId={TITLE_INPUT_ID}
-            label={LABEL}
-            required
-            description={DESCRIPTION}
-            error={error}
-            // The character-limit message appears mid-typing, before focus moves, so it has to
-            // announce itself.
-            errorLive
-            footer={
-                <CharacterCounter
-                    id={fieldCounterId(TITLE_INPUT_ID)}
-                    count={countCharacters(value)}
-                    maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
+        // The width belongs to the whole field, not to the input alone: the counter sits in
+        // FormField's footer row, which would otherwise right-align to the card rather than to the
+        // input the count describes.
+        <Box maw={FIELD_WIDTH}>
+            <FormField
+                inputId={TITLE_INPUT_ID}
+                label={LABEL}
+                required
+                description={DESCRIPTION}
+                error={error}
+                // The character-limit message appears mid-typing, before focus moves, so it has to
+                // announce itself.
+                errorLive
+                footer={
+                    <CharacterCounter
+                        id={fieldCounterId(TITLE_INPUT_ID)}
+                        count={countCharacters(value)}
+                        maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
+                    />
+                }
+            >
+                <TextInput
+                    id={TITLE_INPUT_ID}
+                    // Step 1 shows no placeholder text, like Step 2 (OTTER-691).
+                    placeholder=""
+                    // Deliberately no maxLength: typing past the cap must stay possible, with the
+                    // error shown, rather than the input swallowing keys.
+                    value={value}
+                    onChange={onChange}
+                    onBlur={onBlur}
+                    {...nativeFieldProps(error, {
+                        required: true,
+                        describedBy: fieldDescribedBy(TITLE_INPUT_ID, {
+                            hasError: false,
+                            hasDescription: true,
+                            hasCounter: true,
+                        }),
+                    })}
                 />
-            }
-        >
-            <TextInput
-                id={TITLE_INPUT_ID}
-                maw={620}
-                placeholder="Ex. Impact of highlighting on student learning outcomes."
-                // Deliberately no maxLength: typing past the cap must stay possible, with the
-                // error shown, rather than the input swallowing keys.
-                value={value}
-                onChange={onChange}
-                onBlur={onBlur}
-                {...nativeFieldProps(error, {
-                    required: true,
-                    describedBy: fieldDescribedBy(TITLE_INPUT_ID, {
-                        hasError: false,
-                        hasDescription: true,
-                        hasCounter: true,
-                    }),
-                })}
-            />
-        </FormField>
+            </FormField>
+        </Box>
     )
 }

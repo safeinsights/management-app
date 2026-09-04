@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { memoryRouter } from 'next-router-mock'
 import {
     beforeEach,
@@ -127,6 +128,23 @@ const renderSetup = (
         { queryClient },
     )
 
+/**
+ * Step 1 and Step 2 sit under the same study layout, so moving between them remounts the page while
+ * the form provider stays alive. Changing the key reproduces that without driving a router.
+ */
+const RemountableSetup = ({ fixtures }: { fixtures: Fixtures }) => {
+    const [instance, setInstance] = useState(0)
+
+    return (
+        <StudyRequestProvider submittingOrgSlug={fixtures.lab.slug}>
+            <button type="button" onClick={() => setInstance((n) => n + 1)}>
+                Remount Step 1
+            </button>
+            <StudyProposal key={instance} />
+        </StudyRequestProvider>
+    )
+}
+
 const titleInput = () => screen.getByLabelText(/study title/i)
 // The study title now renders twice on a locked page: the page heading and the read-only field.
 // Field assertions scope to the field so they cannot pass on the heading alone.
@@ -255,6 +273,16 @@ describe('Set Up page copy', () => {
         expect(screen.getByText(INTRO)).toBeInTheDocument()
         expect(screen.getByText(TITLE_DESCRIPTION)).toBeInTheDocument()
         expect(screen.getByText(PARTNER_DESCRIPTION)).toBeInTheDocument()
+    })
+
+    it('renders no placeholder text in either input', async () => {
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        // Asserted on the controls themselves: a queryByPlaceholderText miss would also pass if the
+        // field had disappeared entirely.
+        expect(titleInput()).toHaveAttribute('placeholder', '')
+        await waitFor(() => expect(screen.getByTestId('org-select')).toHaveAttribute('placeholder', ''))
     })
 
     it('capitalizes both words of the Data Partner label', async () => {
@@ -471,9 +499,7 @@ describe('Data Partner and programming language fields', () => {
         await selectPartner(user, fixtures.singleLanguagePartner.name)
 
         expect(
-            await screen.findByText(
-                `At the present ${fixtures.singleLanguagePartner.name} only supports R. Code files submitted in other languages will not be able to run.`,
-            ),
+            await screen.findByText(`At present, ${fixtures.singleLanguagePartner.name} only supports R.`),
         ).toBeInTheDocument()
     })
 
@@ -486,7 +512,7 @@ describe('Data Partner and programming language fields', () => {
 
         expect(
             await screen.findByText(
-                `Indicate the programming language that you will use in your data analysis. ${fixtures.multiLanguagePartner.name} will use this to set up the right environment for you.`,
+                `${fixtures.multiLanguagePartner.name} will use the language you select to set up the right environment for you.`,
             ),
         ).toBeInTheDocument()
     })
@@ -506,7 +532,7 @@ describe('Data Partner and programming language fields', () => {
         expect(screen.queryByRole('radio', { name: 'R' })).not.toBeInTheDocument()
     })
 
-    it('keeps a language the newly chosen Data Partner still supports', async () => {
+    it('starts the choice over when the Data Partner changes, even to one that still supports it', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
@@ -517,7 +543,87 @@ describe('Data Partner and programming language fields', () => {
         await selectPartner(user, fixtures.multiLanguagePartner.name)
 
         await waitFor(() => expect(screen.getByRole('radio', { name: 'Python' })).toBeInTheDocument())
+        expect(screen.getByRole('radio', { name: 'R' })).not.toBeChecked()
+        expect(screen.getByRole('radio', { name: 'Python' })).not.toBeChecked()
+        expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+    })
+
+    it('keeps the chosen language when the list refetches for the same Data Partner', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const queryClient = createTestQueryClient()
+        renderSetup(fixtures, {}, queryClient)
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await user.click(await screen.findByRole('radio', { name: 'Python' }))
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
+
+        // A background refetch for the same partner. The options are re-ordered so the assertion
+        // can tell that the fresh data really landed, which is what makes the second half mean
+        // something: re-applying the defaults here would wipe a choice just made.
+        queryClient.setQueryData(['languages-for-org', fixtures.multiLanguagePartner.slug], {
+            orgName: fixtures.multiLanguagePartner.name,
+            languages: [
+                { value: 'PYTHON', label: 'Python' },
+                { value: 'R', label: 'R' },
+            ],
+        })
+
+        await waitFor(() => expect(screen.getAllByRole('radio')[0]).toHaveAccessibleName('Python'))
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
+    })
+
+    // The partner is unchanged, so the guard above would otherwise skip this refetch and leave the
+    // form holding a language the partner can no longer run.
+    it('drops a chosen language the same Data Partner has stopped supporting', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const queryClient = createTestQueryClient()
+        renderSetup(fixtures, {}, queryClient)
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await user.click(await screen.findByRole('radio', { name: 'Python' }))
+
+        queryClient.setQueryData(['languages-for-org', fixtures.multiLanguagePartner.slug], {
+            orgName: fixtures.multiLanguagePartner.name,
+            languages: [{ value: 'R', label: 'R' }],
+        })
+
+        // R is the sole survivor, so the single-language rule picks it. That it is checked is what
+        // proves the form moved off Python: a form still holding it would leave the group matching
+        // no rendered radio, and nothing checked at all.
+        await waitFor(() => expect(screen.queryByRole('radio', { name: 'Python' })).not.toBeInTheDocument())
         expect(screen.getByRole('radio', { name: 'R' })).toBeChecked()
+    })
+
+    it('keeps the chosen language when Step 1 remounts with the form still alive', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderWithProviders(<RemountableSetup fixtures={fixtures} />)
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await user.click(await screen.findByRole('radio', { name: 'Python' }))
+
+        await user.click(screen.getByRole('button', { name: 'Remount Step 1' }))
+
+        expect(await screen.findByRole('radio', { name: 'Python' })).toBeChecked()
+    })
+
+    // The reset rewrites the whole errors object to drop the language key. A rewrite that dropped
+    // the rest with it would silently clear an error on a field the reset has no business touching.
+    it('leaves the title error alone when the Data Partner changes', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'a'.repeat(61))
+        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await screen.findByRole('radio', { name: 'Python' })
+
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
     })
 })
 
@@ -718,33 +824,22 @@ describe('Next step confirmation modal', () => {
 })
 
 describe('Footer left action', () => {
-    it('offers to discard while nothing has been saved yet', async () => {
+    // "Discard study" was taken out of scope by the OTTER-690 design review, and deleting a draft
+    // lives behind the dashboard instead.
+    it('offers no left action before anything is saved', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
 
-        expect(screen.getByRole('button', { name: 'Discard study' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })
 
-    // Discarding belongs to the state where no row exists yet; once one is persisted, deleting it
-    // lives behind the dashboard's delete-draft button (OTTER-764).
     it('offers no left action once the draft is persisted', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures, { studyId: faker.string.uuid(), draftData: null })
 
         expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
-    })
-
-    it('returns to the dashboard', async () => {
-        const user = userEvent.setup()
-        const fixtures = await setupFixtures()
-        memoryRouter.setCurrentUrl('/start')
-        renderSetup(fixtures)
-
-        await user.click(screen.getByRole('button', { name: 'Discard study' }))
-
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
     })
 })
 

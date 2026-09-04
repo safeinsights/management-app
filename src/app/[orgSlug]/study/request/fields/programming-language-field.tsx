@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Box, Group, Radio, Stack, Text } from '@mantine/core'
+import React, { useEffect, useRef, useState } from 'react'
+import { Box, Radio, Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
@@ -41,8 +41,14 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     isLocked,
     lockedLanguageLabel,
 }) => {
-    const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.values.orgSlug)
+    const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.getValues().orgSlug)
     form.watch('orgSlug', ({ value }) => setSelectedOrgSlug(value))
+
+    // Mirrored rather than read off `form.values`, which Mantine documents as always stale in
+    // uncontrolled mode. setFieldValue schedules no render of its own, so without this a reset
+    // would leave a dot on a radio the form no longer holds.
+    const [selectedLanguage, setSelectedLanguage] = useState(form.getValues().language)
+    form.watch('language', ({ value }) => setSelectedLanguage(value))
 
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
@@ -56,31 +62,51 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     const languages = data?.languages || []
     const isSingleLanguage = data?.languages?.length === 1
 
+    // The sole option of a single-language partner is checked from the first paint; the effect that
+    // writes it to the form only runs after it.
+    const checkedLanguage = selectedLanguage ?? (isSingleLanguage ? languages[0].value : '')
+
     let helperText: string
 
     if (isSingleLanguage) {
-        helperText = `At the present ${orgName} only supports ${languages[0].label}. Code files submitted in other languages will not be able to run.`
+        helperText = `At present, ${orgName} only supports ${languages[0].label}.`
     } else {
-        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to set up the right environment for you.`
+        helperText = `${orgName} will use the language you select to set up the right environment for you.`
     }
+
+    // Which partner the defaults below were applied for: a background refetch hands back a fresh
+    // `data` every time, and re-applying then would wipe a choice just made. Seeded from a language
+    // the form already holds, so a remount (Step 2 and back) is not read as a change of partner.
+    const initialValues = form.getValues()
+    const appliedOrgSlug = useRef<string | null>(initialValues.language ? initialValues.orgSlug : null)
 
     useEffect(() => {
         // A locked field has no error slot and is skipped when focusing, so a value changed here
         // could be neither seen nor corrected (OTTER-647).
         if (isLocked || !data) return
 
-        if (data.languages.length === 1) {
-            form.setFieldValue('language', data.languages[0].value)
-            return
-        }
-
-        // A language the new partner cannot run still satisfies the enum, so leaving it would let
-        // validation pass on an environment that does not exist.
         const current = form.getValues().language
-        if (current && !data.languages.some((option) => option.value === current)) {
-            form.setFieldValue('language', null)
-            form.clearFieldError('language')
-        }
+        const isNewPartner = appliedOrgSlug.current !== selectedOrgSlug
+        // A language the partner cannot run still satisfies the enum, so leaving it would let
+        // validation pass on an environment that does not exist. Re-checked on every refetch, since
+        // a partner can lose a language while it is selected.
+        const isUnsupported = !!current && !data.languages.some((option) => option.value === current)
+        if (!isNewPartner && !isUnsupported) return
+
+        appliedOrgSlug.current = selectedOrgSlug
+
+        // A new partner starts the choice over: the design's default for a multi-language partner
+        // is nothing selected, and a language carried across is not one chosen for this partner.
+        const onlyOption = data.languages.length === 1 ? data.languages[0].value : null
+        form.setFieldValue('language', onlyOption)
+        // `language` is in validateInputOnChange, so the line above queues a required-error for the
+        // null case, on a field nobody has failed yet. clearFieldError cannot undo it: it bails
+        // while that error is still unflushed, so the removal has to queue behind it instead.
+        form.setErrors((current) => {
+            const next = { ...current }
+            delete next.language
+            return next
+        })
         // form intentionally excluded: Mantine rebuilds it every render, so listing it would loop.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrgSlug, data, isLocked])
@@ -120,7 +146,9 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     } else if (languages.length > 0) {
         body = (
             <>
-                <Text id={HELPER_ID}>{helperText}</Text>
+                <Text id={HELPER_ID} size="xs" c="dimmed">
+                    {helperText}
+                </Text>
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
@@ -133,11 +161,12 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     descriptionProps={{ id: HELPER_ID }}
                     error={error}
                     inputWrapperOrder={['input']}
-                    value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
+                    value={checkedLanguage}
                     onChange={(value) => form.setFieldValue('language', value as Language)}
                     {...widgetBlur}
                 >
-                    <Group gap="xl">{languageRadios}</Group>
+                    {/* Stacked, not a row: the multi-language design lists the options vertically. */}
+                    <Stack gap="xs">{languageRadios}</Stack>
                 </Radio.Group>
                 <ErrorLine error={error} />
             </>
