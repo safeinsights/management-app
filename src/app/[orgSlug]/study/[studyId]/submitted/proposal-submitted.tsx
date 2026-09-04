@@ -11,7 +11,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
-import { ProposalHeader } from '../../request/page-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
@@ -191,7 +191,7 @@ export function ProposalSubmitted({
 
     return (
         <Stack p="xl" gap="xl">
-            <ProposalHeader title="Study proposal" />
+            <StudyPageHeader study={study} />
             <Stack gap="xxl">
                 <ProposalRequest
                     study={study}

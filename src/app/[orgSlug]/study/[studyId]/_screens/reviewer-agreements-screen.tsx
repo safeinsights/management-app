@@ -11,7 +11,7 @@ export function ReviewerAgreementsScreen({ study, orgSlug }: ScreenComponentProp
     const previousHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     return (
         <Stack p="xl" gap="xxl">
-            <StudyPageHeader>Study request</StudyPageHeader>
+            <StudyPageHeader study={study} />
             <AgreementsPage
                 isReviewer
                 studyId={study.id}

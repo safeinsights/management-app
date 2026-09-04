@@ -35,7 +35,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Study proposal</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
                     <EditStudyCodeView
                         studyId={studyId}

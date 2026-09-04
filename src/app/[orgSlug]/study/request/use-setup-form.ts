@@ -17,6 +17,11 @@ export interface SetupFormLocks {
 interface UseSetupFormArgs extends SetupFormLocks {
     form: UseFormReturnType<StudyProposalFormValues>
     /**
+     * The persisted title. The context fills the form from the draft in an effect, so without this
+     * the first paint reads an empty box and heads the page "Untitled study" (OTTER-619).
+     */
+    initialTitle?: string
+    /**
      * True only on the first visit. The modal's warning is that the Data Partner and the language
      * cannot be changed after this step, so by the time the researcher navigates back to a persisted
      * draft there is nothing left to warn about and a valid click proceeds straight away (OTTER-764).
@@ -28,6 +33,7 @@ interface UseSetupFormArgs extends SetupFormLocks {
 
 export function useSetupForm({
     form,
+    initialTitle,
     isTitleLocked,
     isOrgLocked,
     isLanguageLocked,
@@ -35,7 +41,7 @@ export function useSetupForm({
     onProceed,
 }: UseSetupFormArgs) {
     // The form is uncontrolled, so reading form.values during render would freeze the counter.
-    const [titleValue, setTitleValue] = useState(form.getValues().title ?? '')
+    const [titleValue, setTitleValue] = useState(form.getValues().title || initialTitle || '')
     form.watch('title', ({ value }) => setTitleValue(value ?? ''))
 
     const [isConfirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)

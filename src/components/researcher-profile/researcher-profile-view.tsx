@@ -14,9 +14,9 @@ import {
     Stack,
     Text,
     TextInput,
-    Title,
 } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
+import { PageHeader } from '@/components/page-header'
 import { SectionHeader } from '@/components/researcher-profile/section-header'
 import { DisplayField } from '@/components/researcher-profile/display-field'
 import { ResearchInterestsInput } from '@/components/researcher-profile/research-interests-input'
@@ -38,7 +38,7 @@ export function ResearcherProfileLayout({ children }: { children: ReactNode }) {
     return (
         <Container size="lg" py="xl">
             <Stack gap="xl">
-                <Title order={1}>Researcher Profile</Title>
+                <PageHeader title="Researcher profile" />
                 <Text c="dimmed">
                     Create and manage your researcher profile. Adding professional details helps establish your
                     credibility and allows Data Partners to view your published work, credentials, and professional

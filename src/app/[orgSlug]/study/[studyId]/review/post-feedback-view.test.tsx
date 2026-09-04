@@ -22,6 +22,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -111,9 +112,12 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
+            // OTTER-754 takes the title out of this header.
+            const sectionHeader = within(screen.getByTestId('proposal-section-header'))
+            expect(sectionHeader.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
     })
 

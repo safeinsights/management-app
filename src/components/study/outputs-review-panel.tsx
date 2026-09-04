@@ -8,7 +8,6 @@ import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
-import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
@@ -22,9 +21,11 @@ const NO_FILES: JobFileInfo[] = []
 type OutputsReviewPanelProps = {
     orgSlug: string
     studyId: string
-    studyTitle: string
+    studyTitle: string | null
     job: NonNullable<LatestJobForStudy>
     labName: string
+    /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
+    header: ReactNode
     /** Shown while the outputs are still encrypted (OTTER-667 / OTTER-668 copy). */
     lockedBanner: ReactNode
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
@@ -43,6 +44,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     studyTitle,
     job,
     labName,
+    header,
     lockedBanner,
     unlockedBanner,
     previousHref,
@@ -67,7 +69,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                {header}
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
