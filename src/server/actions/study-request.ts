@@ -24,6 +24,7 @@ import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
+import { discardStaleScanLogs } from '@/server/storage'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -86,6 +87,7 @@ async function attachCodeToRoundJob(
         // Otherwise generateAndStoreStudyReview short-circuits and keeps the stale
         // summary for the resubmitted code (SHRMP-263).
         await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
+        await discardStaleScanLogs(studyJobId, db)
     }
 
     await db

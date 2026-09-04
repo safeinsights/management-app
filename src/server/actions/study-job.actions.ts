@@ -20,8 +20,7 @@ import {
     getSharedFileIdsForJob,
     getStudyJobFileOfType,
     getStudyJobInfo,
-    getStudyReviewForJob,
-    jobScanResultForJob,
+    jobAnalysisForJob,
     latestJobForStudy,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
@@ -273,27 +272,16 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
 
-export const getStudyReviewAction = new Action('getStudyReviewAction')
+// The review panel and the scan panel describe the same submission, so they are fetched together:
+// one authorization, one getStudyJobInfo, one round-trip per poll tick instead of two.
+export const getJobAnalysisAction = new Action('getJobAnalysisAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }) => {
-        return await getStudyReviewForJob(studyJobId)
-    })
-
-export const getJobScanResultAction = new Action('getJobScanResultAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }) => {
-        return await jobScanResultForJob(studyJobId)
-    })
+    .handler(async ({ studyJob }) => await jobAnalysisForJob(studyJob))
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))

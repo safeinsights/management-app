@@ -5,7 +5,7 @@ import { hasNextStepFromCode, projectStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
-import { getStudyReviewForJob, jobScanResultForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { jobAnalysisForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
 
@@ -29,9 +29,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
     const job = await latestSubmittedJobForStudy(study.id)
     // The post-decision page shows the same full "Submitted code" section as active review, so it
     // needs the review and scan rows too (OTTER-613).
-    const [review, scan] = job
-        ? await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
-        : [null, null]
+    const analysis = job ? await jobAnalysisForJob(job) : null
     const entries = await getCodeReviewFeedbackAction({ studyId: study.id })
     const safeEntries = isActionError(entries) ? [] : entries
     if (safeEntries.length > 0) {
@@ -42,8 +40,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
                 entries={safeEntries}
                 kind="CODE"
                 job={job}
-                review={review}
-                scan={scan}
+                analysis={analysis}
                 previousHref={previousHref}
                 nextStepHref={nextStepHref}
             />
@@ -66,8 +63,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
             entries={[]}
             kind="CODE"
             job={job}
-            review={review}
-            scan={scan}
+            analysis={analysis}
             fallback={fallback}
             previousHref={previousHref}
             nextStepHref={nextStepHref}

@@ -6,6 +6,7 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -608,7 +609,18 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
     }
 }
 
-export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+// The round rule needs the job's submission history, so the job is the argument rather than a bare
+// id: passing both let a caller pair one job's id with another's statuses (OTTER-775). The id key
+// differs by query — getStudyJobInfo aliases it to studyJobId — so either spelling is accepted.
+export type JobForRound = {
+    createdAt: Date | string
+    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
+} & ({ id: string } | { studyJobId: string })
+
+const jobRowId = (job: JobForRound) => ('id' in job ? job.id : job.studyJobId)
+
+export async function getStudyReviewForJob(job: JobForRound): Promise<StudyReviewWithMeta | null> {
+    const studyJobId = jobRowId(job)
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
@@ -630,5 +642,16 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .limit(1)
         .executeTakeFirst()
 
-    return row ?? null
+    if (!row) return null
+
+    return reviewForCurrentRound(row, latestCodeSubmittedAt(job))
+}
+
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
+
+// The summary and the scan always travel together — both server renders of the code section and the
+// poll that keeps it current need the pair — so they are fetched as one thing.
+export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
+    return { review, scan }
 }
