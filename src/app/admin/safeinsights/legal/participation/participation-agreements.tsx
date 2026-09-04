@@ -43,6 +43,8 @@ const NewVersionForm: FC<{
 }> = ({ agreement, type, onClose }) => {
     if (!agreement) return null
 
+    // Keyed by org to force a fresh form per row: a reused mounted form can carry the previous
+    // row's chosen file and signed date into an irreversible publish.
     return (
         <UploadParticipationAgreementForm
             key={agreement.orgId}

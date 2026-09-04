@@ -309,11 +309,14 @@ export async function seedCodeRejected(title: string): Promise<SeedResult> {
 
 // Legal documents are GLOBALLY scoped, so publishing one obliges every user of the database it
 // lands in. Kept out of src/database/seeds, which also runs in deployed environments.
+// Nothing here may run during a spec; global.setup.ts calls this once before any worker starts.
 
 const PENDING_ACK_ROLE: SeedRole = 'legal'
 
 const DISPOSABLE_DB_HOSTS = ['localhost', '127.0.0.1', 'postgres', 'db', 'db-unit-test']
 
+// No CI exemption on purpose: CI service hostnames are already in the list above, so a bypass
+// would only remove the check where no human is looking at the target database.
 const assertDisposableDatabase = () => {
     // Unset is refused rather than tolerated: databaseURL() falls back to the DB_SECRET_ARN secret,
     // which is how a deployed environment resolves its database.
