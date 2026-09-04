@@ -5,7 +5,7 @@ import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { uploadFiles } from '@/hooks/upload'
 import { actionResult } from '@/lib/utils'
-import type { LegalDocumentTypeValue } from '@/schema/legal-document'
+import type { LegalDocumentType } from '@/database/types'
 import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
@@ -16,7 +16,7 @@ import type { ReactNode } from 'react'
 import { formatDayString } from '@/lib/dates'
 import { ReadOnlyField } from './read-only-field'
 
-type DraftScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
+type DraftScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 type PublishVariables = { scope: DraftScope; signedAt: string; file: File }
 

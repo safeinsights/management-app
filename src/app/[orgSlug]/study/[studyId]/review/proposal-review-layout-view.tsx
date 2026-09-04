@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { Box, Stack } from '@mantine/core'
-import { StudyPageHeader } from '@/components/study/study-page-header'
 
 // Presentational only: each section arrives as a slot, so this renders in isolation (e.g. Ladle).
 export type ProposalReviewLayoutViewProps = {
+    header: ReactNode
     listener?: ReactNode
     proposal: ReactNode
     feedbackAndNotes: ReactNode
@@ -15,6 +15,7 @@ export type ProposalReviewLayoutViewProps = {
 }
 
 export function ProposalReviewLayoutView({
+    header,
     listener,
     proposal,
     feedbackAndNotes,
@@ -27,8 +28,7 @@ export function ProposalReviewLayoutView({
         <Box bg="grey.10">
             {listener}
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Review initial request</StudyPageHeader>
-
+                {header}
                 {proposal}
                 {feedbackAndNotes}
                 {feedback}

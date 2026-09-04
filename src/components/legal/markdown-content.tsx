@@ -24,7 +24,7 @@ type Props = {
 export const LEGAL_DOCUMENT_MAX_HEIGHT = 280
 
 // No `rehype-raw`: this content reaches every user, so embedded HTML stays escaped.
-export const LegalDocumentContent: FC<Props> = ({ content, maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT, label }) => (
+export const LegalMarkdownContent: FC<Props> = ({ content, maxHeight = LEGAL_DOCUMENT_MAX_HEIGHT, label }) => (
     <Paper withBorder p="md">
         <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
             <Typography fz="sm">

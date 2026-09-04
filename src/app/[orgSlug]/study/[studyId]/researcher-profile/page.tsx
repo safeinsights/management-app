@@ -1,4 +1,5 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { getResearcherProfileByUserIdAction } from '@/server/actions/researcher-profile.actions'
@@ -39,5 +40,13 @@ export default async function ResearcherProfilePage(props: {
         return <AlertNotFound title="Researcher profile not found" message="No profile data available" />
     }
 
-    return <ResearcherProfileView orgSlug={orgSlug} studyId={studyId} profileData={profileData} orgType={orgType} />
+    return (
+        <ResearcherProfileView
+            header={<StudyPageHeader study={study} />}
+            orgSlug={orgSlug}
+            studyId={studyId}
+            profileData={profileData}
+            orgType={orgType}
+        />
+    )
 }
