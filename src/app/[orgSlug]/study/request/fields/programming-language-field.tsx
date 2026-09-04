@@ -77,7 +77,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     // Which partner the defaults below were applied for: a background refetch hands back a fresh
     // `data` every time, and re-applying then would wipe a choice just made. Seeded from a language
     // the form already holds, so a remount (Step 2 and back) is not read as a change of partner.
-    const appliedOrgSlug = useRef<string | null>(form.getValues().language ? form.getValues().orgSlug : null)
+    const initialValues = form.getValues()
+    const appliedOrgSlug = useRef<string | null>(initialValues.language ? initialValues.orgSlug : null)
 
     useEffect(() => {
         // A locked field has no error slot and is skipped when focusing, so a value changed here

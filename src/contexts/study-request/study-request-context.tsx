@@ -49,23 +49,13 @@ export function StudyRequestProvider({
         validateInputOnChange: ['orgSlug', 'language'],
     })
 
-    const { initDocumentFilesFromPaths, resetDocumentFiles, ...documentFiles } = useDocumentFiles()
+    const { initDocumentFilesFromPaths, ...documentFiles } = useDocumentFiles()
 
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
         submittingOrgSlug,
         onStudyCreated: setStudyId,
     })
-
-    const reset = useCallback(
-        (preserveStudyId?: string) => {
-            setStudyId(preserveStudyId ?? null)
-            setOrgSlug('')
-            resetDocumentFiles()
-            form.reset()
-        },
-        [form, resetDocumentFiles],
-    )
 
     const saveDraft = useCallback(
         (options?: MutationOptions) => {
@@ -117,7 +107,6 @@ export function StudyRequestProvider({
 
             setStudyId,
             initFromDraft,
-            reset,
 
             saveDraft,
             isSaving,
@@ -133,7 +122,6 @@ export function StudyRequestProvider({
             documentFiles.setDocumentFile,
             documentFiles.setExistingDocuments,
             initFromDraft,
-            reset,
             saveDraft,
             isSaving,
         ],

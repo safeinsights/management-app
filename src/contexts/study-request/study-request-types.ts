@@ -47,7 +47,6 @@ export interface StudyRequestContextValue {
         agreement?: string | null
     }) => void
     initFromDraft: (draft: DraftStudyData, submittingOrgSlug: string) => void
-    reset: (studyId?: string) => void
     saveDraft: (options?: MutationOptions) => void
     isSaving: boolean
 }
