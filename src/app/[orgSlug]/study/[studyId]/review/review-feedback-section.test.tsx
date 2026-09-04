@@ -58,15 +58,55 @@ function FeedbackTestWrapper() {
 }
 
 describe('ReviewFeedbackSection', () => {
-    it('renders the editor placeholder text', async () => {
+    it('renders the static section title "Decision"', () => {
         renderWithProviders(<FeedbackTestWrapper />)
 
-        await waitFor(
-            () => {
-                expect(screen.getByText(new RegExp(PLACEHOLDER_TEXT))).toBeInTheDocument()
-            },
-            { timeout: 5000 },
-        )
+        expect(screen.getByText('Decision')).toBeInTheDocument()
+    })
+
+    it('renders the new secondary intro copy with the interpolated lab name', () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        expect(
+            screen.getByText(
+                'Share your decision and feedback on this proposal with Test Lab. Consider evaluating the proposal on these criteria:',
+            ),
+        ).toBeInTheDocument()
+    })
+
+    it('renders the three evaluation criteria with only the label bolded', () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        expect(screen.getByText('Feasibility:')).toHaveStyle({ fontWeight: 600 })
+        expect(screen.getByText('Impact:')).toHaveStyle({ fontWeight: 600 })
+        expect(screen.getByText('Researcher background:')).toHaveStyle({ fontWeight: 600 })
+
+        expect(
+            screen.getByText(/Can this study be supported with your available data and infrastructure\?/),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByText(/Could the results advance the understanding of teaching and learning\?/),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                /Does the researcher have relevant expertise, or appropriate faculty\/PI supervision if they are a student or post-doc\?/,
+            ),
+        ).toBeInTheDocument()
+    })
+
+    it('renders no placeholder text in the editor', async () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        await screen.findByRole('textbox')
+        expect(screen.queryByText(new RegExp(PLACEHOLDER_TEXT))).not.toBeInTheDocument()
+    })
+
+    it('renders a vertical resize handle on the editor', async () => {
+        renderWithProviders(<FeedbackTestWrapper />)
+
+        await screen.findByRole('textbox')
+        const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
+        expect(surface.style.resize).toBe('vertical')
     })
 
     it('displays the character counter and updates it as the feedback changes', async () => {

@@ -15,9 +15,10 @@ type DecisionFeedbackEditorProps = {
     docName: string
     inputId: string
     ariaLabel: string
-    placeholder: string
+    placeholder?: string
     contentStyle: CSSProperties
     skeletonHeight: number
+    isResizable?: boolean
     onProviderReady: EditorProps['onProviderReady']
 }
 
@@ -30,6 +31,7 @@ export function DecisionFeedbackEditor({
     placeholder,
     contentStyle,
     skeletonHeight,
+    isResizable,
     onProviderReady,
 }: DecisionFeedbackEditorProps) {
     const websocketProvider = useYjsWebsocket()
@@ -54,8 +56,9 @@ export function DecisionFeedbackEditor({
             ariaRequired
             ariaDescribedBy={describedBy}
             placeholder={placeholder}
-            // Takes the slot the save indicator vacates, so it sits directly under the input
-            // rather than below the counter (OTTER-674).
+            isResizable={isResizable}
+            // The error takes exactly the slot the save indicator vacates, so it sits directly
+            // under the input instead of a row below the character counter (OTTER-674).
             footerLeft={<FieldErrorBox fieldId={inputId} error={feedback.error} isLive />}
             footerRight={
                 <CharacterCounter

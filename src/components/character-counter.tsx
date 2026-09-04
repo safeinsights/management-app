@@ -15,7 +15,7 @@ export const CharacterCounter: FC<CharacterCounterProps> = ({ count, maxCharacte
     const isOverLimit = count > maxCharacters
 
     return (
-        <Text id={id} size="xs" c={isOverLimit ? 'red' : 'dimmed'}>
+        <Text id={id} size="xs" c={isOverLimit ? 'var(--mantine-color-error)' : 'dimmed'}>
             {count}/{maxCharacters}
         </Text>
     )

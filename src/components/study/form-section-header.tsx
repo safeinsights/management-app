@@ -15,7 +15,7 @@ export const FormSectionHeader: FC<FormSectionHeaderProps> = ({ title, descripti
             {required && (
                 <>
                     {' '}
-                    <Text component="span" c="red.10" inherit aria-label="required">
+                    <Text component="span" c="red.11" inherit aria-label="required">
                         *
                     </Text>
                 </>

@@ -27,6 +27,7 @@ type ProposalRequestProps = {
     initialExpanded?: boolean
     statusBadge?: string
     entries?: ProposalFeedbackEntry[]
+    showStudyTitle?: boolean
 }
 
 // Plain text, not clamped Lexical: an empty paragraph in the stored value would spend one of the
@@ -178,6 +179,7 @@ export function ProposalRequest({
     initialExpanded = true,
     statusBadge = 'Submitted on',
     entries = [],
+    showStudyTitle = true,
 }: ProposalRequestProps) {
     const { expanded, expand, collapse, focusToggle } = useProposalCard(initialExpanded)
     const timestampDate = decisionTimestampForProposalHeader(study, entries)
@@ -187,7 +189,7 @@ export function ProposalRequest({
             <ProposalStepHeader
                 stepLabel={stepLabel}
                 heading={heading}
-                studyTitle={study.title}
+                studyTitle={showStudyTitle ? study.title : undefined}
                 timestampDate={timestampDate}
                 timestampLabel={statusBadge}
                 banner={banner}

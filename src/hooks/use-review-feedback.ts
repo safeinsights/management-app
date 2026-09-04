@@ -5,14 +5,17 @@ import { overCharacterLimitError } from '@/lib/field-limits'
 
 const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS)
 
+const DEFAULT_EMPTY_ERROR = 'Feedback is required.'
+
 // `useField` rather than plain state so an empty editor raises a visible error instead of silently
 // disabling Submit (OTTER-647).
-export function useReviewFeedback() {
+export function useReviewFeedback(emptyError: string = DEFAULT_EMPTY_ERROR) {
     // No `validateOnBlur`: Mantine reads it only from `getInputProps`, which this hook doesn't use.
     // The cap is not in `validate` either, since `useField` drops errors across a change.
+
     const field = useField<string>({
         initialValue: '',
-        validate: (value) => (isBlank(value) ? 'Feedback is required.' : null),
+        validate: (value) => (isBlank(value) ? emptyError : null),
     })
 
     const value = field.getValue()

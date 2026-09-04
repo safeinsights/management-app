@@ -97,7 +97,7 @@ describe('ResubmissionNoteSection', () => {
 
         // Mantine's `c` prop resolves to an inline color, not a class name.
         const counter = screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS + 1}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
-        expect(counter.style.color).toContain('red')
+        expect(counter.style.color).toContain('--mantine-color-error')
     })
 
     it('raises the over-limit error naming the field and the cap', async () => {

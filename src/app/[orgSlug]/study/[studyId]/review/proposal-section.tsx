@@ -1,6 +1,7 @@
 'use client'
 
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
+import { proposalReviewHeading } from '@/lib/proposal-review'
 import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import type { StudyForReview } from './review-types'
@@ -49,7 +50,7 @@ function StatusBanner({ labName, isResubmission }: { labName: string; isResubmis
         <ReviewCriteriaBanner
             mb="md"
             testId="status-banner"
-            criteriaTestId="evaluation-criteria"
+            criteriaTestId="proposal-review-criteria"
             intro={bannerIntro(labName, isResubmission)}
             criteria={EVALUATION_CRITERIA}
         />
@@ -65,7 +66,8 @@ export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersi
             study={study}
             orgSlug={orgSlug}
             stepLabel="STEP 1"
-            heading={`Review initial request${isResubmission ? ` v${reviewVersion}.0` : ''}`}
+            heading={proposalReviewHeading(reviewVersion)}
+            showStudyTitle={false}
             banner={<StatusBanner labName={labName} isResubmission={isResubmission} />}
             initialExpanded={!isResubmission}
             statusBadge={isResubmission ? 'Resubmitted on' : undefined}

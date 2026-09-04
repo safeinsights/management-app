@@ -1,13 +1,13 @@
 'use client'
 
-import { Paper, Radio, Stack, Text } from '@mantine/core'
-import type { ReactNode } from 'react'
+import { Box, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
+import { InputError } from '@/components/errors'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { useWidgetBlur } from '@/components/form-field'
-import type { DecisionOption, StudyForReview } from './review-types'
-import { DECISION_OPTIONS } from './review-types'
+import type { StudyForReview } from './review-types'
+import { buildDecisionOptions } from './review-types'
 
 type ReviewDecisionSectionProps = {
     decision: ReturnType<typeof useReviewDecision>
@@ -15,28 +15,12 @@ type ReviewDecisionSectionProps = {
     labName: string
 }
 
-function OptionDescription({ option }: { option: DecisionOption }): ReactNode {
-    if (!option.warning) {
-        return (
-            <Text component="span" size="sm" c="grey.7">
-                {option.description}
-            </Text>
-        )
-    }
-    return (
-        <Text component="span" size="sm" c="grey.7">
-            {option.description}{' '}
-            <Text component="span" size="sm" c="grey.7" fw={600}>
-                {option.warning}
-            </Text>
-        </Text>
-    )
-}
-
 const RADIO_STYLES = {
     label: { fontWeight: 600, fontSize: 16 },
     description: { fontSize: 14 },
 }
+
+export const DECISION_RADIO_NAME = 'review-decision'
 
 export function ReviewDecisionSection({ decision, study, labName }: ReviewDecisionSectionProps) {
     return (
@@ -59,48 +43,39 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
         decision.onSelect(value as Decision)
     }
 
-    // Radio.Group's context does not carry `error` to its children, so a boolean `error` restyles
-    // the circles without a second message (OTTER-647).
-    const radioOptions = DECISION_OPTIONS.map((option) => (
+    const errorNode = decision.error ? <InputError error={decision.error} /> : undefined
+
+    const radioOptions = buildDecisionOptions(labName).map((option) => (
         <Radio
             key={option.value}
             value={option.value}
             label={option.label}
-            description={<OptionDescription option={option} />}
-            disabled={option.disabled}
+            description={
+                <Text component="span" size="sm" c="grey.7">
+                    {option.description}
+                </Text>
+            }
             styles={RADIO_STYLES}
-            error={!!decision.error}
         />
     ))
 
     return (
-        <Paper p="xl" data-testid="review-decision-section">
-            <Text size="md" mb="md">
-                Select a decision for this initial request. Your feedback and decision will be shared with the{' '}
-                <Text component="span" fw={600}>
-                    {labName}
-                </Text>
-                . If approved, the researcher will proceed to sign legal agreements and submit their code for your
-                review.
-            </Text>
-            {/* Blur is a bubbled focusout, so moving between radios would validate a still
-                empty group; useWidgetBlur waits for the user to leave it (OTTER-647). */}
-            {/* A real `label`, not `aria-label`: Radio.Group names role="radiogroup" from its
-                rendered label and strands `aria-label` on the roleless outer wrapper. */}
+        <Box data-testid="review-decision-section">
+            {/* Native blur would fire when moving between radios.
+                Radio.Group only names the radiogroup from a rendered label, not aria-label.
+                Default inputWrapperOrder puts the error under the last option. */}
             <Radio.Group
                 value={decision.selected ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
-                name="review-decision"
-                label="Initial request decision"
-                labelProps={{ fw: 600 }}
-                withAsterisk
-                error={decision.error}
+                name={DECISION_RADIO_NAME}
+                label={<VisuallyHidden>Decision</VisuallyHidden>}
+                styles={{ label: { position: 'absolute' }, error: { marginBottom: 24 } }}
+                error={errorNode}
+                inputWrapperOrder={['label', 'description', 'error', 'input']}
             >
-                <Stack gap="md" mt="xs">
-                    {radioOptions}
-                </Stack>
+                <Stack gap="md">{radioOptions}</Stack>
             </Radio.Group>
-        </Paper>
+        </Box>
     )
 }

@@ -7,14 +7,16 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    waitFor,
     within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { ReviewConfirmationModal, REJECTION_WARNING } from '@/components/modals/review-confirmation-modal'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DecisionConfirmationModal } from './decision-confirmation-modal'
+import type { Decision } from '@/lib/review-decision'
 import { ProposalReviewView } from './proposal-review-view'
 
 describe('ProposalReviewView', () => {
@@ -49,50 +51,49 @@ describe('ProposalReviewView', () => {
         expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
     })
 
-    it('renders the study title in proposal section', () => {
+    it('does not render the study title in the proposal section header', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
-        // OTTER-754 takes the title out of this header.
+        // Scoped to the section: the page h1 also carries the title (OTTER-619).
         const sectionHeader = within(screen.getByTestId('proposal-section-header'))
-        expect(sectionHeader.getByText(/Test Study Title/)).toBeInTheDocument()
+        expect(sectionHeader.queryByText(/Test Study Title/)).not.toBeInTheDocument()
     })
 
-    it('renders the back button', () => {
+    it('does not render a back button', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('button', { name: /Back/ })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
     })
 
-    it('renders submit review as disabled initially', () => {
+    it('renders submit decision as enabled initially', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Submit decision' })).toBeEnabled()
     })
 
     describe('needs-clarification', () => {
-        it('renders the needs-clarification option as selectable', async () => {
+        it('renders the request revision option as selectable', async () => {
             const user = userEvent.setup()
             renderWithProviders(
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
             )
 
-            const needsClarification = screen.getByRole('radio', { name: /Needs clarification/ })
-            expect(needsClarification).not.toBeDisabled()
+            const requestRevision = screen.getByRole('radio', { name: /Request revision/ })
+            expect(requestRevision).not.toBeDisabled()
 
-            await user.click(needsClarification)
-            expect(needsClarification).toBeChecked()
+            await user.click(requestRevision)
+            expect(requestRevision).toBeChecked()
         })
 
-        it('keeps submit disabled when needs-clarification is selected without valid feedback', async () => {
+        it('keeps submit enabled when needs-clarification is selected without valid feedback', async () => {
             const user = userEvent.setup()
             renderWithProviders(
                 <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
             )
 
-            await user.click(screen.getByRole('radio', { name: /Needs clarification/ }))
+            await user.click(screen.getByRole('radio', { name: /Request revision/ }))
 
-            expect(screen.getByRole('button', { name: 'Submit review' })).toBeDisabled()
+            expect(screen.getByRole('button', { name: 'Submit decision' })).toBeEnabled()
         })
     })
 
@@ -139,65 +140,217 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
-            expect(screen.getByText('Round 2 review')).toBeInTheDocument()
+            expect(screen.getByTestId('review-feedback-section')).toHaveTextContent('Decision')
+            expect(screen.queryByText('Round 2 review')).not.toBeInTheDocument()
         })
     })
 
-    describe('ReviewConfirmationModal copy', () => {
-        it('renders the reject modal with the new title and both paragraphs', () => {
+    describe('DecisionConfirmationModal', () => {
+        const labName = 'Test Research Lab'
+
+        it('renders approve modal with decision-specific title, body, and CTA', () => {
             renderWithProviders(
-                <ReviewConfirmationModal
+                <DecisionConfirmationModal
+                    decision="approve"
+                    labName={labName}
                     isOpen
                     onClose={() => {}}
                     onConfirm={() => {}}
                     isPending={false}
-                    title="Reject initial request"
-                    confirmLabel="Reject initial request"
-                    variant="destructive"
-                >
-                    <span>
-                        Please confirm you are ready to submit your review. Further edits are not permitted once
-                        submitted.
-                    </span>
-                    {REJECTION_WARNING}
-                </ReviewConfirmationModal>,
+                />,
             )
 
             const dialog = screen.getByRole('dialog')
-            expect(dialog).toHaveTextContent('Reject initial request')
+            expect(dialog).toHaveTextContent('Approve proposal?')
             expect(dialog).toHaveTextContent(
-                'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.',
+                `Your approval and feedback will be sent to ${labName}. You will not be able to make changes after approving.`,
             )
-            expect(dialog).toHaveTextContent(
-                'Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This action cannot be undone.',
-            )
-            expect(dialog.textContent ?? '').not.toContain('Other teammates')
+            expect(screen.getByRole('button', { name: 'Approve proposal' })).toBeInTheDocument()
         })
 
-        it('renders the approve/needs-clarification modal with the shared body and no rejection warning', () => {
+        it('renders request-revision modal with decision-specific title, body, and CTA', () => {
             renderWithProviders(
-                <ReviewConfirmationModal
+                <DecisionConfirmationModal
+                    decision="needs-clarification"
+                    labName={labName}
                     isOpen
                     onClose={() => {}}
                     onConfirm={() => {}}
                     isPending={false}
-                    title="Confirm review submission?"
-                    confirmLabel="Yes, submit review"
-                >
-                    <span>
-                        Please confirm you are ready to submit your review. Further edits are not permitted once
-                        submitted.
-                    </span>
-                </ReviewConfirmationModal>,
+                />,
             )
 
             const dialog = screen.getByRole('dialog')
-            expect(dialog).toHaveTextContent('Confirm review submission?')
+            expect(dialog).toHaveTextContent('Request revision?')
             expect(dialog).toHaveTextContent(
-                'Please confirm you are ready to submit your review. Further edits are not permitted once submitted.',
+                `Your feedback will be sent to ${labName} so they can update and resubmit.`,
             )
-            expect(dialog.textContent ?? '').not.toContain('Rejection:')
-            expect(dialog.textContent ?? '').not.toContain('Other teammates')
+            expect(dialog).toHaveTextContent("You'll be notified when the revised proposal is ready for review.")
+            expect(screen.getByRole('button', { name: 'Request revision' })).toBeInTheDocument()
+        })
+
+        it('renders decline modal with decision-specific title, body, and CTA', () => {
+            renderWithProviders(
+                <DecisionConfirmationModal
+                    decision="reject"
+                    labName={labName}
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending={false}
+                />,
+            )
+
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toHaveTextContent('Decline proposal?')
+            expect(dialog).toHaveTextContent(
+                `Your decision and feedback will be sent to ${labName}. Declining ends this study and cannot be undone.`,
+            )
+            expect(screen.getByRole('button', { name: 'Decline and end study' })).toBeInTheDocument()
+        })
+
+        it('renders nothing when decision is null', () => {
+            renderWithProviders(
+                <DecisionConfirmationModal
+                    decision={null}
+                    labName={labName}
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending={false}
+                />,
+            )
+
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+
+        it('disables both buttons and shows a loading state while submission is pending', () => {
+            renderWithProviders(
+                <DecisionConfirmationModal
+                    decision="approve"
+                    labName={labName}
+                    isOpen
+                    onClose={() => {}}
+                    onConfirm={() => {}}
+                    isPending
+                />,
+            )
+
+            expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+            const confirm = screen.getByRole('button', { name: 'Approve proposal' })
+            expect(confirm).toBeDisabled()
+            expect(confirm).toHaveAttribute('data-loading', 'true')
+        })
+
+        it('each decision renders its own distinct CTA label', () => {
+            const decisions: Decision[] = ['approve', 'needs-clarification', 'reject']
+            const expectedLabels = ['Approve proposal', 'Request revision', 'Decline and end study']
+
+            decisions.forEach((decision, i) => {
+                const { unmount } = renderWithProviders(
+                    <DecisionConfirmationModal
+                        decision={decision}
+                        labName={labName}
+                        isOpen
+                        onClose={() => {}}
+                        onConfirm={() => {}}
+                        isPending={false}
+                    />,
+                )
+
+                expect(screen.getByRole('button', { name: expectedLabels[i] })).toBeInTheDocument()
+                unmount()
+            })
+        })
+    })
+
+    describe('decision card layout', () => {
+        it('sits the feedback and the radios in one card, 24px apart', () => {
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            const card = screen.getByTestId('decision-card-body')
+            // 1.5rem, i.e. the literal 24px the ticket asks for rather than a spacing token.
+            expect(card.style.getPropertyValue('--stack-gap')).toBe('calc(1.5rem * var(--mantine-scale))')
+
+            const feedback = screen.getByTestId('review-feedback-section')
+            const decision = screen.getByTestId('review-decision-section')
+            expect(feedback.parentElement).toBe(card)
+            expect(decision.parentElement).toBe(card)
+            expect(feedback.compareDocumentPosition(decision) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        })
+    })
+
+    describe('scroll to first invalid field on submit', () => {
+        it('scrolls to and focuses the feedback editor when submitting with everything empty', async () => {
+            const user = userEvent.setup()
+            const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+            const editor = await screen.findByRole('textbox', { name: /feedback/i })
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            // Feedback sits above the radios, so it wins even though both are flagged.
+            await waitFor(() => expect(document.activeElement).toBe(editor))
+            expect(scrollIntoView).toHaveBeenCalled()
+        })
+    })
+
+    describe('simultaneous errors and re-click', () => {
+        it('displays both feedback and decision errors simultaneously when both fields are empty', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            await waitFor(() => {
+                expect(
+                    screen.getByText(`Enter your decision for ${study.submittingLabName} before submitting.`),
+                ).toBeInTheDocument()
+                expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+            })
+        })
+
+        it('does not duplicate errors on repeated Submit clicks', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+            await waitFor(() => expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument())
+
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            expect(screen.getAllByText('Select an option before submitting.')).toHaveLength(1)
+            expect(
+                screen.getAllByText(`Enter your decision for ${study.submittingLabName} before submitting.`),
+            ).toHaveLength(1)
+        })
+    })
+
+    describe('form state after validation error', () => {
+        it('preserves the radio selection after a validation error', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(
+                <ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />,
+            )
+
+            await user.click(screen.getByRole('radio', { name: /Approve/ }))
+            await user.click(screen.getByRole('button', { name: 'Submit decision' }))
+
+            await waitFor(() =>
+                expect(
+                    screen.getByText(`Enter your decision for ${study.submittingLabName} before submitting.`),
+                ).toBeInTheDocument(),
+            )
+
+            expect(screen.getByRole('radio', { name: /Approve/ })).toBeChecked()
         })
     })
 
@@ -209,8 +362,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit decision' })).not.toBeInTheDocument()
         })
 
         it('hides decision section and action bar when study is REJECTED', () => {
@@ -220,8 +372,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit decision' })).not.toBeInTheDocument()
         })
 
         it('hides decision section and action bar when study is CHANGE-REQUESTED', () => {
@@ -236,8 +387,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /Back/ })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Submit decision' })).not.toBeInTheDocument()
         })
     })
 })
