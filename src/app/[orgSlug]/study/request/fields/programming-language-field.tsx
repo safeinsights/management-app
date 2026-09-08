@@ -77,8 +77,12 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     // Which partner the defaults below were applied for: a background refetch hands back a fresh
     // `data` every time, and re-applying then would wipe a choice just made. Seeded from a language
     // the form already holds, so a remount (Step 2 and back) is not read as a change of partner.
-    const initialValues = form.getValues()
-    const appliedOrgSlug = useRef<string | null>(initialValues.language ? initialValues.orgSlug : null)
+    const appliedOrgSlug = useRef<string | null | undefined>(undefined)
+    // `undefined` is the unseeded marker: a seeded value of null is itself meaningful.
+    if (appliedOrgSlug.current === undefined) {
+        const { language, orgSlug } = form.getValues()
+        appliedOrgSlug.current = language ? orgSlug : null
+    }
 
     useEffect(() => {
         // A locked field has no error slot and is skipped when focusing, so a value changed here
@@ -102,11 +106,13 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
         // `language` is in validateInputOnChange, so the line above queues a required-error for the
         // null case, on a field nobody has failed yet. clearFieldError cannot undo it: it bails
         // while that error is still unflushed, so the removal has to queue behind it instead.
-        form.setErrors((current) => {
-            const next = { ...current }
-            delete next.language
-            return next
-        })
+        if (onlyOption === null) {
+            form.setErrors((current) => {
+                const next = { ...current }
+                delete next.language
+                return next
+            })
+        }
         // form intentionally excluded: Mantine rebuilds it every render, so listing it would loop.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrgSlug, data, isLocked])
@@ -157,8 +163,6 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                 <Radio.Group
                     id={GROUP_ID}
                     labelProps={{ id: TITLE_ID }}
-                    description={helperText}
-                    descriptionProps={{ id: HELPER_ID }}
                     error={error}
                     inputWrapperOrder={['input']}
                     value={checkedLanguage}
