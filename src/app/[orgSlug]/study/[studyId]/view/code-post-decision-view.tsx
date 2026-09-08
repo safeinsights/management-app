@@ -111,7 +111,6 @@ function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: St
         <ProposalStepHeader
             stepLabel="STEP 4"
             heading="Study code"
-            studyTitle={study.title}
             timestampLabel={copy.timestampLabel}
             timestampDate={timestampDate}
             banner={banner}

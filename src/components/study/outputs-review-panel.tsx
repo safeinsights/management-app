@@ -21,7 +21,6 @@ const NO_FILES: JobFileInfo[] = []
 type OutputsReviewPanelProps = {
     orgSlug: string
     studyId: string
-    studyTitle: string | null
     job: NonNullable<LatestJobForStudy>
     labName: string
     /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
@@ -41,7 +40,6 @@ type OutputsReviewPanelProps = {
 export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     orgSlug,
     studyId,
-    studyTitle,
     job,
     labName,
     header,
@@ -73,7 +71,6 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
-                    studyTitle={studyTitle}
                     banner={banner}
                 />
                 <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />

@@ -14,7 +14,6 @@ export async function ReviewerOutputsPendingScreen({
     const { stage } = result
     return (
         <SecondaryAnalysisView
-            studyTitle={study.title}
             header={<StudyPageHeader study={study} />}
             stageStatus={stage.status}
             stageStartedAt={stage.startedAt}

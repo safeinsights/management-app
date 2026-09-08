@@ -101,7 +101,6 @@ export function CollapsibleSubmittedCodeSection({
             <ProposalStepHeader
                 stepLabel={stepLabel}
                 heading={heading}
-                studyTitle={study.title}
                 timestampDate={timestampDate}
                 timestampLabel={timestampLabel}
                 banner={banner}

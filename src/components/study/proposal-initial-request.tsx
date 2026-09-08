@@ -187,7 +187,6 @@ export function ProposalRequest({
             <ProposalStepHeader
                 stepLabel={stepLabel}
                 heading={heading}
-                studyTitle={study.title}
                 timestampDate={timestampDate}
                 timestampLabel={statusBadge}
                 banner={banner}
