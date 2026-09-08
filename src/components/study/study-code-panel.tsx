@@ -72,7 +72,7 @@ export const StudyCodePanel = ({
     }
 
     const reviewButtons = isReviewState ? (
-        <Group wrap="nowrap">
+        <Group justify="flex-end" wrap="nowrap">
             {showLaunchIde && (
                 <InfoTooltip
                     label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
@@ -104,9 +104,7 @@ export const StudyCodePanel = ({
                     <Title order={2} size="h4">
                         {heading}
                     </Title>
-                    <Group justify="flex-end" wrap="nowrap" align="baseline">
-                        {reviewButtons}
-                    </Group>
+                    {reviewButtons}
                 </Stack>
                 <Divider my="lg" />
                 {body}
