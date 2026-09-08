@@ -8,6 +8,7 @@ import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import { useTimer } from '@/components/timer'
 import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
+import { plural } from '@/lib/string'
 
 const DAY_MINUTES = 24 * 60
 
@@ -17,9 +18,9 @@ export function formatElapsed(startedAtMs: number, nowMs: number): string {
     const totalMinutes = elapsedMinutes(startedAtMs, nowMs)
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
-    const minutesPart = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+    const minutesPart = plural(minutes, 'minute')
     if (hours === 0) return minutesPart
-    const hoursPart = `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+    const hoursPart = plural(hours, 'hour')
     return minutes === 0 ? hoursPart : `${hoursPart} and ${minutesPart}`
 }
 
