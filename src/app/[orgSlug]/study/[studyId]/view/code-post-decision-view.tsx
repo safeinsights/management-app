@@ -2,7 +2,7 @@
 
 import { type FC, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { Box, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { LinkWithIcon } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -15,7 +15,8 @@ import { useExpandable } from '@/hooks/use-expandable'
 import { StudyCodeToggle } from './study-code-collapse'
 import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
-import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { researcherCodeDecisionBanner, type BannerCopy } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -41,37 +42,6 @@ interface CodePostDecisionViewProps {
     feedbackLoadError?: boolean
 }
 
-type DecisionCopy = {
-    timestampLabel: string
-    bannerBg: string
-    bannerTestId: string
-    banner: (orgName: string) => string
-}
-
-const DECISION_COPY: Record<CodeDecisionStatus, DecisionCopy> = {
-    'CODE-APPROVED': {
-        timestampLabel: 'Approved on',
-        bannerBg: STATUS_BANNER_BG.approved,
-        bannerTestId: 'decision-banner-code-approved',
-        banner: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed and approved your study code. Your code will now proceed to run in the secure enclave.`,
-    },
-    'CODE-CHANGES-REQUESTED': {
-        timestampLabel: 'Change requested on',
-        bannerBg: STATUS_BANNER_BG.changesRequestedResearcher,
-        bannerTestId: 'decision-banner-code-change-requested',
-        banner: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed your code and has requested information and/or changes. Please review the feedback below. You can update your code and resubmit it to address their comments.`,
-    },
-    'CODE-REJECTED': {
-        timestampLabel: 'Rejected on',
-        bannerBg: STATUS_BANNER_BG.rejected,
-        bannerTestId: 'decision-banner-code-rejected',
-        banner: (orgName) =>
-            `${displayOrgName(orgName)} has determined this code does not meet the requirements to proceed. Please review their feedback below. No further code submissions will be accepted for this study, but you may submit a new study proposal. If you believe this decision was made in error, contact SafeInsights.`,
-    },
-}
-
 // Dated from the decision's own status-change row so it survives empty or stale feedback entries.
 function deriveCodePostDecision({
     job,
@@ -83,39 +53,27 @@ function deriveCodePostDecision({
     decision: CodeDecisionStatus
 }) {
     return {
-        copy: DECISION_COPY[decision],
         timestampDate: job.statusChanges.find((s) => s.status === decision)?.createdAt ?? entries[0]?.createdAt ?? null,
         codeFiles: filterAndOrderCodeFiles(job.files),
     }
 }
 
-const DecisionBanner: FC<{ copy: DecisionCopy; reviewingOrgName: string }> = ({ copy, reviewingOrgName }) => (
-    <Box bg={copy.bannerBg} p="md" bdrs="sm" my="md" data-testid={copy.bannerTestId}>
-        <Text c="charcoal.9" size="sm">
-            {copy.banner(reviewingOrgName)}
-        </Text>
-    </Box>
+const DecisionBanner: FC<{ copy: BannerCopy; decidedAt: Date | string | null }> = ({ copy, decidedAt }) => (
+    <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
+        {copy.body}
+    </StatusAlert>
 )
 
 type StepCardProps = {
     study: Submitted<SelectedStudy>
-    copy: DecisionCopy
-    timestampDate: Date | string | null
     banner: ReactNode
     expanded: boolean
     onToggle: () => void
 }
 
-function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: StepCardProps) {
+function StepCard({ study, banner, expanded, onToggle }: StepCardProps) {
     return (
-        <ProposalStepHeader
-            stepLabel="STEP 4"
-            heading="Study code"
-            studyTitle={study.title}
-            timestampLabel={copy.timestampLabel}
-            timestampDate={timestampDate}
-            banner={banner}
-        >
+        <ProposalStepHeader stepLabel="STEP 4" heading="Study code" studyTitle={study.title} banner={banner}>
             <StudyCodeToggle isVisible={!expanded} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
     )
@@ -170,26 +128,20 @@ export function CodePostDecisionView({
     nav,
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
-    const { copy, timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
+    const { timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
+    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: displayOrgName(reviewingOrgName) })
     const { expanded, toggle, collapse } = useExpandable()
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
-    const banner = <DecisionBanner copy={copy} reviewingOrgName={reviewingOrgName} />
+    const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 
     return (
         <Stack p="xl" gap="xxl">
             <StudyPageHeader study={study} />
 
             <Stack gap="xxl">
-                <StepCard
-                    study={study}
-                    copy={copy}
-                    timestampDate={timestampDate}
-                    banner={banner}
-                    expanded={expanded}
-                    onToggle={toggle}
-                />
+                <StepCard study={study} banner={banner} expanded={expanded} onToggle={toggle} />
                 <SubmittedCodePanel
                     expanded={expanded}
                     jobId={job.id}

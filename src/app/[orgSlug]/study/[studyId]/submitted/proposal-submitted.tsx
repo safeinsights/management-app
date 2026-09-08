@@ -16,12 +16,8 @@ import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 import { effectiveProposalStatus } from '@/lib/review-decision'
 import { decisionTimestampForProposalHeader, researcherCodeStepHref } from '@/lib/studies'
-import {
-    STATUS_ALERT_VARIANT,
-    StatusAlert,
-    statusAlertTitle,
-    type StatusAlertVariant,
-} from '@/components/study/status-alert'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -38,55 +34,12 @@ function proposalHeading(studyVersion: number): string {
     return `Initial request ${studyVersion}.0`
 }
 
-type ProposalBanner = {
-    variant: StatusAlertVariant
-    title: string
-    body: string
-}
-
-const AWAITING_REVIEW_BODY =
-    'An email notification will be sent as your proposal progresses through the review. Reviews typically take 7 to 10 days.'
-
-function proposalBanner(status: StudyStatus, dataPartner: string, studyVersion: number): ProposalBanner | null {
-    switch (status) {
-        case 'PENDING-REVIEW':
-            return {
-                variant: STATUS_ALERT_VARIANT.informative,
-                title:
-                    studyVersion > 1
-                        ? `Proposal v${studyVersion}.0 resubmitted to ${dataPartner}`
-                        : `Proposal submitted to ${dataPartner}`,
-                body: AWAITING_REVIEW_BODY,
-            }
-        case 'CHANGE-REQUESTED':
-            return {
-                variant: STATUS_ALERT_VARIANT.action,
-                title: 'Revision requested',
-                body: `${dataPartner} has reviewed your proposal and requested changes. Read their feedback below, then revise and resubmit.`,
-            }
-        case 'APPROVED':
-            return {
-                variant: STATUS_ALERT_VARIANT.success,
-                title: 'Proposal approved',
-                body: `${dataPartner} has reviewed and approved your proposal. Read their feedback below, then proceed to the next step.`,
-            }
-        case 'REJECTED':
-            return {
-                variant: STATUS_ALERT_VARIANT.decline,
-                title: 'Proposal declined',
-                body: `${dataPartner} has reviewed your proposal and is unable to support it. Read their feedback below for more details.`,
-            }
-        default:
-            return null
-    }
-}
-
 function StatusBanner({
     copy,
     study,
     entries,
 }: {
-    copy: ProposalBanner
+    copy: BannerCopy
     study: Submitted<SelectedStudy>
     entries: ProposalFeedbackEntry[]
 }) {
@@ -187,7 +140,10 @@ export function ProposalSubmitted({
     returnTo,
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
-    const bannerCopy = proposalBanner(proposalStatus, displayOrgName(orgName), studyVersion)
+    const bannerCopy = researcherProposalBanner(proposalStatus, {
+        dataPartner: displayOrgName(orgName),
+        version: studyVersion,
+    })
 
     // The header cannot tell an element that renders nothing from one that does, so ARCHIVED (no
     // banner copy) must pass nothing at all.

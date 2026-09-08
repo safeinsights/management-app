@@ -19,6 +19,7 @@ import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { CodePostDecisionView } from './code-post-decision-view'
 
 // Which buttons a decision earns is resolveStepNav's job (see lib/study-screen/nav.test.ts); this
@@ -129,14 +130,16 @@ describe('CodePostDecisionView', () => {
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
 
-        it('renders "Approved on Apr 02, 2026" for CODE-APPROVED', async () => {
+        it('dates the approved banner title from the decision row', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE', createdAt: DECISION_DATE })], latestJobStatus)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Code approved ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
         })
 
-        it('renders "Change requested on Apr 02, 2026" for CODE-CHANGES-REQUESTED', async () => {
+        it('dates the revision-requested banner title from the decision row', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
             renderView(
                 study,
@@ -145,52 +148,52 @@ describe('CodePostDecisionView', () => {
                 latestJobStatus,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Change requested on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Revision requested on your code ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
         })
 
-        it('renders "Rejected on Apr 02, 2026" for CODE-REJECTED', async () => {
+        it('dates the declined banner title from the decision row', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
             renderView(study, job, [buildEntry({ decision: 'REJECT', createdAt: DECISION_DATE })], latestJobStatus)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Code declined ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
         })
     })
 
     describe('decision banner', () => {
-        it('renders the green code-approved banner with the reviewing org name', async () => {
+        it('renders the success banner with the reviewing org name for CODE-APPROVED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            const banner = screen.getByTestId('decision-banner-code-approved')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'success')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).toHaveTextContent(
-                /has reviewed and approved your study code\. Your code will now proceed to run in the secure enclave\./,
-            )
-            expect(screen.queryByTestId('decision-banner-code-change-requested')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-code-rejected')).not.toBeInTheDocument()
+            expect(banner).toHaveTextContent('Code approved')
+            expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
         })
 
-        it('renders the purple change-requested banner with the right copy', async () => {
+        it('renders the action banner for CODE-CHANGES-REQUESTED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
             renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
 
-            const banner = screen.getByTestId('decision-banner-code-change-requested')
-            expect(banner).toHaveTextContent(
-                /has reviewed your code and has requested information and\/or changes\. Please review the feedback below\. You can update your code and resubmit it to address their comments\./,
-            )
-            expect(screen.queryByTestId('decision-banner-code-approved')).not.toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'action')
+            expect(banner).toHaveTextContent('Revision requested on your code')
+            expect(banner).toHaveTextContent(/requested changes or more information/)
         })
 
-        it('renders the red code-rejected banner with the right copy', async () => {
+        it('renders the decline banner keeping the terminal copy for CODE-REJECTED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
             renderView(study, job, [buildEntry({ decision: 'REJECT' })], latestJobStatus)
 
-            const banner = screen.getByTestId('decision-banner-code-rejected')
-            expect(banner).toHaveTextContent(
-                /has determined this code does not meet the requirements to proceed\. Please review their feedback below\./,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('Code declined')
+            expect(banner).toHaveTextContent(/No further code submissions will be accepted for this study/)
             expect(banner).toHaveTextContent(/If you believe this decision was made in error, contact SafeInsights\./)
-            expect(screen.queryByTestId('decision-banner-code-approved')).not.toBeInTheDocument()
         })
     })
 
@@ -273,7 +276,9 @@ describe('CodePostDecisionView', () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [], latestJobStatus)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Code approved ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
             expect(screen.queryByText('Feedback could not be loaded')).not.toBeInTheDocument()
         })

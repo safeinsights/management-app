@@ -399,7 +399,7 @@ describe('StudyViewPage', () => {
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             expect(page?.props.nav.forward.label).toBe('Back to my studies')
             renderWithProviders(page!)
-            expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
+            expect(screen.getByTestId('status-alert')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()
         })
 

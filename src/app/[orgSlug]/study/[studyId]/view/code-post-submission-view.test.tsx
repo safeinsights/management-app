@@ -15,6 +15,7 @@ import {
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { CodePostSubmissionView } from './code-post-submission-view'
 // Which buttons a decision/state earns is resolveStepNav's job (see lib/study-screen/nav.test.ts);
 // these views only have to render the nav they are handed.
@@ -147,42 +148,35 @@ describe('CodePostSubmissionView', () => {
             expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
 
-        it('renders "Submitted on {date}" using the CODE-SUBMITTED status timestamp', async () => {
+        it('dates the banner title from the CODE-SUBMITTED status timestamp', async () => {
             const { study, job } = await setupSubmittedStudy()
-            renderView(study, job)
+            renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 
-            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
-                /^Submitted on \w{3} \d{2}, \d{4}$/,
+            expect(screen.getByTestId('status-alert').textContent).toMatch(
+                new RegExp(`Code submitted to ${REVIEWING_ORG_NAME} \\${STATUS_ALERT_SEPARATOR} \\w{3} \\d{2}, \\d{4}`),
             )
         })
     })
 
     describe('banner', () => {
-        it('renders the yellow status banner with the data partner name and the Figma copy', async () => {
+        it('renders the informative banner with the data partner name and the AC copy', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 
-            const banner = screen.getByTestId('code-under-review-banner')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('Code submitted to')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).toHaveTextContent(/AI-generated summary of its behavior/)
-            expect(banner).toHaveTextContent(/7-10 business days/)
-            expect(banner).toHaveTextContent(/email notifications about updates/)
-        })
-
-        it('renders the banner with the AC-specified background color #FFF9E5', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job)
-
-            const banner = screen.getByTestId('code-under-review-banner')
-            expect(banner).toHaveStyle({ backgroundColor: '#FFF9E5' })
+            expect(banner).toHaveTextContent(/AI summary of its behavior/)
+            expect(banner).toHaveTextContent(/An email notification will be sent/)
+            expect(banner).toHaveTextContent(/Reviews typically take 7 to 10 days/)
         })
 
         it('hides the under-review banner when isUnderReview is false (reached via results-page Previous)', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { isUnderReview: false })
 
-            expect(screen.queryByTestId('code-under-review-banner')).not.toBeInTheDocument()
-            expect(screen.getByTestId('code-submitted-timestamp')).toBeInTheDocument()
+            expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
         })
     })
 
@@ -318,22 +312,19 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('resubmission (v2+)', () => {
-        it('renders the v2 heading, "Resubmitted on" timestamp, and "has been resubmitted" banner', async () => {
+        it('renders the v2 heading and a versioned resubmitted banner title', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, {
                 submissionVersion: 2,
+                reviewingOrgName: REVIEWING_ORG_NAME,
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
             expect(screen.getByRole('heading', { level: 2, name: 'Study code v2.0' })).toBeInTheDocument()
-            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
-                /^Resubmitted on \w{3} \d{2}, \d{4}$/,
-            )
 
-            const banner = screen.getByTestId('code-under-review-banner')
-            expect(banner).toHaveTextContent(/has been resubmitted to/)
-            expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).not.toHaveTextContent(/has been submitted to/)
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveTextContent(`Code v2.0 resubmitted to ${REVIEWING_ORG_NAME}`)
+            expect(banner).not.toHaveTextContent('Code submitted to')
         })
 
         it('shows the compact "View submitted study code" toggle (no v1 expand row) and renders the feedback section', async () => {
@@ -355,12 +346,12 @@ describe('CodePostSubmissionView', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('keeps v1 layout unchanged: shows "Study code" (no v suffix), "Submitted on", and no feedback section', async () => {
+        it('keeps v1 layout unchanged: "Study code" heading, first-submission banner, no feedback section', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { submissionVersion: 1 })
 
             expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
-            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(/^Submitted on /)
+            expect(screen.getByTestId('status-alert')).toHaveTextContent('Code submitted to')
             expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
