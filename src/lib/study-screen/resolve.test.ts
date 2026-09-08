@@ -140,8 +140,11 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('code-under-review')
     })
-    it('approved decision → code-approved', () => {
-        expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' })).screen).toBe('code-approved')
+    it('approved decision, no stage yet → outputs-pending (OTTER-673: the step exists from approval)', () => {
+        expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED' })).screen).toBe('outputs-pending')
+    })
+    it('approved decision → /view/code still resolves to code-approved for walking back', () => {
+        expect(resolveResearcherCodeScreen(state({ codeDecision: 'CODE-APPROVED' }))?.screen).toBe('code-approved')
     })
     it('executing window → outputs-pending', () => {
         expect(resolveScreen('researcher', state({ codeDecision: 'CODE-APPROVED', isExecuting: true })).screen).toBe(

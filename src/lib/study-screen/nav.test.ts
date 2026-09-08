@@ -94,9 +94,10 @@ describe('resolveStepNav — code phase', () => {
         expect(nav.forward?.label).toBe('Back to my studies')
     })
 
-    it('code approved with no results yet → forward blocked until the run lands', () => {
+    // Spec: "Code approved" always offers Next step — the outputs step exists from approval onward.
+    it('code approved with no run yet → forward opens to the outputs step', () => {
         const nav = resolveStepNav('code-approved', state({ ...submitted, codeDecision: 'CODE-APPROVED' }), ctx)
-        expect(nav.forward?.label).toBe('Back to my studies')
+        expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/view`, variant: 'solid' })
     })
 
     it('code approved with results → forward opens to the results step', () => {
@@ -108,13 +109,14 @@ describe('resolveStepNav — code phase', () => {
         expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/view` })
     })
 
-    it('an errored run still hidden from the researcher does not open forward (OTTER-598)', () => {
+    // The outputs step still discloses nothing about the failure; it only stops being a dead end.
+    it('an errored run still hidden from the researcher forwards to the outputs step (OTTER-598)', () => {
         const nav = resolveStepNav(
             'code-approved',
             state({ ...submitted, codeDecision: 'CODE-APPROVED', hasResults: true, resultsErrored: true }),
             ctx,
         )
-        expect(nav.forward?.label).toBe('Back to my studies')
+        expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/view` })
     })
 
     it('code revision requested → "Edit code" is the forward action', () => {

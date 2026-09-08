@@ -112,6 +112,23 @@ describe('OutputsPendingScreen', () => {
         )
     })
 
+    // Routed from CODE-APPROVED onward (OTTER-673), so it must render before the enclave reports a stage.
+    it('renders the processing banner dated from CODE-APPROVED when no execution stage exists yet', async () => {
+        const approvedDate = new Date('2026-06-15T12:00:00Z')
+        const { org, study, job } = await setupExecuting('CODE-SUBMITTED')
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-APPROVED', createdAt: approvedDate })
+            .execute()
+        await renderScreen(study, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent(/code processing started/i)
+        expect(alert).toHaveTextContent(dayjs(approvedDate).format('MMM DD, YYYY'))
+        expect(screen.queryByText('Outputs not yet available')).not.toBeInTheDocument()
+        expect(screen.getByTestId('cta-back-to-my-studies')).toBeInTheDocument()
+    })
+
     it('shows a not-found alert when the study has no submitted job', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'test-lab', orgType: 'lab', createJob: false })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
