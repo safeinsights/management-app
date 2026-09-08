@@ -11,7 +11,7 @@ import { Dropzone } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
-import { ReadOnlyField } from '../read-only-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 
 const SavedDraftField: FC<{ draftName: string | null }> = ({ draftName }) => {
     if (!draftName) return null

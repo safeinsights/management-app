@@ -15,7 +15,7 @@ import {
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import { PdfDropzone } from '../pdf-dropzone'
 import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
-import { ReadOnlyField } from '../read-only-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
