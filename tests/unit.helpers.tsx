@@ -6,9 +6,7 @@ import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
-import { findOrCreateLegalDocument } from '@/server/db/legal-document'
-import { pathForLegalDocumentVersion } from '@/lib/paths'
-import { v7 as uuidv7 } from 'uuid'
+import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
@@ -1162,37 +1160,26 @@ type InsertTestStudyAgreementOptions = {
     published?: boolean
 }
 
-// Written directly, not through the admin action, which would replace the session mid-fixture. The
-// draft_or_published constraint wants published_at, published_by and version_number set together.
+// Written directly, not through the admin action, which would replace the session mid-fixture.
 export const insertTestStudyAgreement = async ({
     studyId,
     versionNumber = 1,
     published = true,
 }: InsertTestStudyAgreementOptions) => {
-    const legalDocument = await findOrCreateLegalDocument(db, { type: 'SLA', studyId })
-    const versionId = uuidv7()
-
     const { researcherId } = await db
         .selectFrom('study')
         .select('researcherId')
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow()
 
-    return await db
-        .insertInto('legalDocumentVersion')
-        .values({
-            id: versionId,
-            legalDocumentId: legalDocument.id,
-            versionNumber: published ? versionNumber : null,
-            fileName: 'agreement.pdf',
-            format: 'pdf',
-            filePath: pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId: legalDocument.id, versionId }),
-            publishedAt: published ? new Date() : null,
-            publishedBy: published ? researcherId : null,
-            signedAt: '2026-01-01',
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
+    return await writeStudyAgreementVersion(db, {
+        studyId,
+        publishedBy: researcherId,
+        signedAt: '2026-01-01',
+        versionNumber,
+        published,
+        fileName: 'agreement.pdf',
+    })
 }
 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }

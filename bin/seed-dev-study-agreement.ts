@@ -11,11 +11,9 @@
  * Run inside the container:
  *   docker exec mgmnt-app sh -c 'ALLOW_TESTING_DATA=TRUE pnpm exec tsx bin/seed-dev-study-agreement.ts [enclaveSlug] [labSlug]'
  */
-import { v7 as uuidv7 } from 'uuid'
 import { db } from '@/database'
-import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { storeS3File } from '@/server/aws'
-import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { resolveUserId, seedStudyFor } from '../tests/e2e.seed'
 import { testingDataAllowed } from './lib/testing-data-gate'
 
@@ -66,26 +64,14 @@ const main = async () => {
     const title = `Study Agreement gate ${Date.now()}`
     const { studyId } = await seedStudyFor({ title, status: 'APPROVED', enclaveSlug, labSlug })
 
-    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId })
-    const versionId = uuidv7()
-    const filePath = pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId })
+    const { filePath } = await writeStudyAgreementVersion(db, {
+        studyId,
+        publishedBy: await resolveUserId('admin'),
+        signedAt: new Date().toISOString().slice(0, 10),
+    })
 
+    // Unlike the e2e seed, this one puts a real PDF behind the key so the modal's link opens.
     await storeS3File({ orgSlug: labSlug, studyId }, toStream(pdfFixture(title)), filePath)
-
-    await db
-        .insertInto('legalDocumentVersion')
-        .values({
-            id: versionId,
-            legalDocumentId,
-            versionNumber: 1,
-            fileName: 'study-agreement.pdf',
-            format: 'pdf',
-            filePath,
-            publishedAt: new Date(),
-            publishedBy: await resolveUserId('admin'),
-            signedAt: new Date().toISOString().slice(0, 10),
-        })
-        .execute()
 
     const owing = await db
         .selectFrom('orgUser')

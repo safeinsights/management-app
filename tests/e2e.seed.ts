@@ -7,7 +7,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
-import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
@@ -242,25 +242,12 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
 export async function seedApprovedWithPublishedStudyAgreement(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
 
-    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId: study.id })
-    const versionId = uuidv7()
-    const filePath = pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId })
-
     // No object uploaded: presigning does not need one and the spec never follows the link.
-    await db
-        .insertInto('legalDocumentVersion')
-        .values({
-            id: versionId,
-            legalDocumentId,
-            versionNumber: 1,
-            fileName: 'study-agreement.pdf',
-            format: 'pdf',
-            filePath,
-            publishedAt: new Date(),
-            publishedBy: await resolveUserId('admin'),
-            signedAt: '2026-01-01',
-        })
-        .execute()
+    await writeStudyAgreementVersion(db, {
+        studyId: study.id,
+        publishedBy: await resolveUserId('admin'),
+        signedAt: '2026-01-01',
+    })
 
     return { studyId: study.id }
 }

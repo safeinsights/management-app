@@ -5,9 +5,10 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { FC } from 'react'
 import { LinkWithIcon } from '@/components/links'
 import { legalDocumentDownloadURL } from '@/lib/paths'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { AcknowledgementError, BlockingModal } from './blocking-modal'
 
-export const STUDY_AGREEMENT_LABEL = 'Study Agreement'
+const STUDY_AGREEMENT_LABEL = legalDocumentTypeLabels.SLA
 
 const CHECKBOX_LABEL = `I have read and acknowledge the ${STUDY_AGREEMENT_LABEL}.`
 

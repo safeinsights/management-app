@@ -1,7 +1,7 @@
 'use client'
 
 import type { FC } from '@/common'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Tabs } from '@mantine/core'
 import { TosPnPanel } from './tos-pn/tos-pn'
 import { ParticipationAgreements } from './participation/participation-agreements'
@@ -15,7 +15,7 @@ export const LegalTabs: FC = () => (
             {/* Acronyms: the full names run to 40+ characters, which no tab strip survives. */}
             <Tabs.Tab value="DOPA">DOPA</Tabs.Tab>
             <Tabs.Tab value="ROPA">ROPA</Tabs.Tab>
-            <Tabs.Tab value="SLA">Study Agreements</Tabs.Tab>
+            <Tabs.Tab value="SLA">{legalDocumentCollectionLabels.SLA}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="TOS" pt="md">
             <TosPnPanel doctype="TOS" />

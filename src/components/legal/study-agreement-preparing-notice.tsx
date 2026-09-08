@@ -3,10 +3,10 @@
 import { Alert } from '@mantine/core'
 import { InfoIcon } from '@phosphor-icons/react'
 import type { FC } from 'react'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from './require-study-agreement'
-import { STUDY_AGREEMENT_LABEL } from './study-agreement-modal'
 
-const MESSAGE = `Your ${STUDY_AGREEMENT_LABEL} is being prepared. You'll be asked to review and acknowledge it here once it is ready.`
+const MESSAGE = `Your ${legalDocumentTypeLabels.SLA} is being prepared. You'll be asked to review and acknowledge it here once it is ready.`
 
 type Props = {
     studyId: string

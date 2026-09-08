@@ -2,7 +2,7 @@
 
 import { useMemo, useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys } from '@/schema/legal-document'
+import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import {
     fetchStudiesAwaitingStudyAgreementAction,
     fetchStudyAgreementsAction,
@@ -154,8 +154,7 @@ const ChosenStudyFields: FC<{ details: StudyDetails | undefined }> = ({ details 
 }
 
 // Says nothing about acknowledgement: only tos/pn are in enforcedLegalDocumentTypes.
-const PUBLISH_CONSEQUENCE =
-    'This becomes the current Study Agreement on record for this study. Earlier versions stay in the record. This cannot be undone.'
+const PUBLISH_CONSEQUENCE = `This becomes the current ${legalDocumentTypeLabels.SLA} on record for this study. Earlier versions stay in the record. This cannot be undone.`
 
 export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreement?: StudyAgreement }> = ({
     onCompleteAction,
@@ -178,7 +177,7 @@ export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreem
             <ChosenStudyFields details={agreement} />
             <VersionNote agreement={agreement} />
             <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
-            <PdfDropzone label="Signed Study Agreement" file={upload.file} onChange={upload.setFile} />
+            <PdfDropzone label={`Signed ${legalDocumentTypeLabels.SLA}`} file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
                 <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>
                     Publish

@@ -2,7 +2,7 @@
 
 import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys } from '@/schema/legal-document'
+import { legalDocumentCollectionLabels, legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Button, Flex, Stack, Title } from '@mantine/core'
@@ -54,7 +54,7 @@ export const StudyAgreements: FC = () => {
     return (
         <Stack>
             <Flex justify="space-between" align="center">
-                <Title order={2}>Study Agreements</Title>
+                <Title order={2}>{legalDocumentCollectionLabels.SLA}</Title>
                 <Button onClick={openUpload}>Upload signed study agreement</Button>
             </Flex>
             <AppModal
