@@ -158,10 +158,9 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
-                {/* Radio.Group puts role="radiogroup" on an inner element named by
-                    `labelProps.id`; hand-passed aria-* lands on the roleless outer wrapper.
-                    `description` reads as dead because inputWrapperOrder drops the text, but it is
-                    what wires the group's aria-describedby. Removing it is silent (OTTER-690). */}
+                {/* Radio.Group puts role="radiogroup" on an inner element named by `labelProps.id`;
+                    hand-passed aria-* lands on the roleless outer wrapper. `description` paints nothing
+                    under inputWrapperOrder but still wires the group's aria-describedby (OTTER-690). */}
                 <Radio.Group
                     id={GROUP_ID}
                     labelProps={{ id: TITLE_ID }}
