@@ -106,15 +106,27 @@ export function latestCodeSubmittedAt(job: {
     ).createdAt
 }
 
+// A failure row can be written by a run that started just before the submission it is racing, so it
+// is allowed to predate the round by this much. Wide enough for the write to land either side of
+// the status row, far short of a previous round.
+const FAILURE_ROW_GRACE_MS = 5_000
+
 // attachCodeToRoundJob deletes the review row on resubmit, which is what makes createdAt
 // trustworthy: the replacement is a fresh insert, never a rename carrying the old timestamp
-// forward. A failure row is only ever written by this round's attempt and can land in the same
-// millisecond as the submission, so it is kept without the comparison.
+// forward.
+//
+// This closes the leftover-row case, not the concurrent one: generation takes no round token, so a
+// previous round's run that finishes after the resubmit still writes a createdAt inside this round
+// and passes. Closing that needs the token (OTTER-775 review).
 export function reviewForCurrentRound<T extends { createdAt: Date | string; summaryFailedAt: Date | string | null }>(
     review: T | null,
     submittedAt: Date | string,
 ): T | null {
     if (!review) return null
-    if (review.summaryFailedAt != null) return review
-    return new Date(review.createdAt).getTime() >= new Date(submittedAt).getTime() ? review : null
+
+    const age = new Date(review.createdAt).getTime() - new Date(submittedAt).getTime()
+    // persistFailure upserts, so a stale failure can overwrite this round's good report. Trusting
+    // failure rows at any age let that surface as a permanent error on current-round code.
+    if (review.summaryFailedAt != null) return age >= -FAILURE_ROW_GRACE_MS ? review : null
+    return age >= 0 ? review : null
 }

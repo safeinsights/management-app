@@ -655,3 +655,18 @@ export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> 
     const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
     return { review, scan }
 }
+
+// The poll's variant. A scan that has already reported is immutable for the round, so once the
+// client holds one it only needs the summary — and re-reading the scan meant fetching and parsing
+// the same S3 object every 5s for the length of a generation (OTTER-775 review). `scan` comes back
+// null to mean "unchanged, keep yours", never the client's own copy echoed back as confirmed.
+export async function jobAnalysisUpdateForJob(
+    job: JobForRound,
+    { scanSettled }: { scanSettled: boolean },
+): Promise<{ review: StudyReviewWithMeta | null; scan: JobScanResult | null }> {
+    const [review, scan] = await Promise.all([
+        getStudyReviewForJob(job),
+        scanSettled ? Promise.resolve(null) : jobScanResultForJob(jobRowId(job)),
+    ])
+    return { review, scan }
+}

@@ -17,7 +17,8 @@ import {
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
+import { SubmittedCodeSection } from './submitted-code-section'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { JobAnalysisPanels, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
 import { getJobAnalysisAction } from '@/server/actions/study-job.actions'
@@ -368,6 +369,81 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
     })
 
+    // 8.4% of measured generations land past the backstop. Stopping the poll there stranded a
+    // report that was already in the database until a reload (OTTER-775 review).
+    it('keeps polling past the summary backstop and replaces the error when the report lands', async () => {
+        const fixture = await setupBaseFixture()
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(
+            actionResult({ review: null, scan: scanResult('PASSED', 'PASSED') }),
+        )
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                summaryTimeoutMs={30}
+                pollIntervalMs={20}
+            />,
+        )
+
+        // The scan settles, so only the elapsed backstop could stop the poll here.
+        await screen.findByTestId('ai-summary-error')
+        await waitFor(() => expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities'))
+
+        await insertStudyReview(fixture.job.id, 'Late but real summary')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(
+            actionResult({ review, scan: scanResult('PASSED', 'PASSED') }),
+        )
+
+        expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Late but real summary')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    // The poll runs on for the scan long after the summary lands, so a late failed tick must not
+    // discard content the reviewer is already reading (OTTER-775 review).
+    it('keeps a rendered summary when a later poll tick fails', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockRejectedValue(new Error('network died'))
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+
+        // The scan panel reports the failure; the summary keeps what it had.
+        await screen.findByTestId('security-scan-unreachable')
+        expect(screen.getByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    // A failed request says nothing about the enclave run, so only the clock may claim the scan
+    // will never report (OTTER-775 review).
+    it('does not report the scan given up when a poll tick fails before the backstop', async () => {
+        const fixture = await setupBaseFixture()
+        vi.mocked(getJobAnalysisAction).mockRejectedValue(new Error('network died'))
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                scanTimeoutMs={60_000}
+                pollIntervalMs={20}
+            />,
+        )
+
+        await screen.findByTestId('security-scan-unreachable')
+        expect(screen.queryByTestId('security-scan-timeout')).not.toBeInTheDocument()
+    })
+
     it('errors immediately when the page is opened long after a submission that never produced a row', async () => {
         const staleFixture = await setupBaseFixture()
         const initialReview = (await jobAnalysisForJob(staleFixture.job)).review
@@ -582,8 +658,12 @@ describe('SubmittedCodeSection — Security scan log', () => {
         })
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
+        // Sampled after several poll intervals of real time: comparing the count to itself inside
+        // waitFor is satisfied on the first attempt, so it passes even against a poll that never
+        // stops — the regression this test is named for.
         const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled))
+        await new Promise((resolve) => setTimeout(resolve, 200))
+
         expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 

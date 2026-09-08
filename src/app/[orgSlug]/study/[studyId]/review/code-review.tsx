@@ -10,7 +10,7 @@ import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
-import { latestCodeSubmittedAt } from './submitted-code-section'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 type CodeReviewProps = {

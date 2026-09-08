@@ -2,7 +2,13 @@ import { expect, test } from 'vitest'
 import { db } from '@/database'
 import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
 import { pathForStudyJob } from '@/lib/paths'
-import { discardStaleScanLogs, storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from './storage'
+import {
+    deleteDiscardedScanLogObjects,
+    discardStaleScanLogRows,
+    storeStudyEncryptedLogFile,
+    storeStudyEncryptedResultsFile,
+    storeStudyLogFile,
+} from './storage'
 import { fetchS3File } from './aws'
 
 // S3 is not mocked here. tests/unit.helpers pulls @/server/aws into the module graph before a
@@ -144,11 +150,18 @@ test("discards the previous round's scan log row and its object", async () => {
     const [{ path }] = await scanLogRows(info.studyJobId)
     expect(await objectExists(path)).toBe(true)
 
-    await discardStaleScanLogs(info.studyJobId)
+    const discarded = await discardStaleScanLogRows(info.studyJobId)
 
     expect(await scanLogRows(info.studyJobId)).toHaveLength(0)
-    // The object has to go with the row, or the next delivery takes storeJobFile's insert path and
-    // overwrites it without consulting unreplaceableReason.
+    // The object is the caller's to delete once it has committed, so the row can never be rolled
+    // back onto a missing object. Until then it is still there.
+    expect(discarded).toEqual([path])
+    expect(await objectExists(path)).toBe(true)
+
+    await deleteDiscardedScanLogObjects(discarded)
+
+    // It still has to go, or the next delivery takes storeJobFile's insert path and overwrites it
+    // without consulting unreplaceableReason.
     expect(await objectExists(path)).toBe(false)
 })
 
@@ -165,12 +178,44 @@ test('leaves a scan log whose keys are already wrapped for recipients', async ()
         })
         .execute()
 
-    await discardStaleScanLogs(info.studyJobId)
+    const discarded = await discardStaleScanLogRows(info.studyJobId)
 
     const [remaining] = await scanLogRows(info.studyJobId)
     expect(remaining).toBeDefined()
+    expect(discarded).toEqual([])
     // Deleting the object would strand the recipient: their wrapped keys stop decrypting.
     expect(await objectExists(remaining.path)).toBe(true)
+})
+
+// The delivery route couples the two writes: once the encrypted row survives with wrapped keys,
+// unreplaceableReason makes its write a no-op and the guard skips the plaintext write too. Removing
+// only the plaintext row would leave the panel pending for the whole round.
+test('keeps every scan log for the job when one of them is already shared', async () => {
+    const info = await setupJob()
+    const shared = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
+    await storeStudyLogFile(info, logFile('scan-log.txt'), 'SECURITY-SCAN-LOG')
+    await db
+        .insertInto('studyJobFileRecipientKey')
+        .values({
+            studyJobFileId: shared.id,
+            filePath: 'scan-log.txt',
+            fingerprint: 'test-fingerprint',
+            crypt: 'test-crypt',
+        })
+        .execute()
+
+    const discarded = await discardStaleScanLogRows(info.studyJobId)
+
+    expect(discarded).toEqual([])
+    // Both halves survive: the plaintext row going alone is what leaves the next scan unable to
+    // write either of them.
+    const remaining = await db
+        .selectFrom('studyJobFile')
+        .select('fileType')
+        .where('studyJobId', '=', info.studyJobId)
+        .where('fileType', 'in', ['SECURITY-SCAN-LOG', 'ENCRYPTED-SECURITY-SCAN-LOG'])
+        .execute()
+    expect(remaining.map((row) => row.fileType).sort()).toEqual(['ENCRYPTED-SECURITY-SCAN-LOG', 'SECURITY-SCAN-LOG'])
 })
 
 test('leaves code and result artifacts alone', async () => {
@@ -178,7 +223,7 @@ test('leaves code and result artifacts alone', async () => {
     await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
     await storeStudyEncryptedResultsFile(info, logFile('results.zip'))
 
-    await discardStaleScanLogs(info.studyJobId)
+    await discardStaleScanLogRows(info.studyJobId)
 
     expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
     const results = await db

@@ -5,6 +5,7 @@ import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
@@ -61,20 +62,6 @@ type SubmittedCodeSectionProps = {
      * study code" closer, calling this to collapse the entire card.
      */
     onCollapse?: () => void
-}
-
-// A complex resubmission reuses its study job, so createdAt can predate the
-// generation request by days. The latest CODE-SUBMITTED event is the only
-// timestamp that accurately anchors the summary-generation timeout (and the
-// "Submitted/Resubmitted on" header label). We scan for the max createdAt rather
-// than relying on statusChanges arriving in any particular order, so a caller
-// passing an unsorted array still gets the newest submission back.
-export function latestCodeSubmittedAt(job: Pick<LatestJobForStudy, 'createdAt' | 'statusChanges'>): Date | string {
-    const submissions = job.statusChanges.filter((change) => change.status === 'CODE-SUBMITTED')
-    if (submissions.length === 0) return job.createdAt
-    return submissions.reduce((latest, change) =>
-        new Date(change.createdAt).getTime() > new Date(latest.createdAt).getTime() ? change : latest,
-    ).createdAt
 }
 
 // Data fetching lives in the parent (CodeReview) so this component
