@@ -648,7 +648,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // The title is still a control in this state, so it is not one of the locked groups.
         await expect(page.getByRole('group', { name: 'Study title', exact: true })).toHaveCount(0)
 
-        // Discarding is only offered before the row exists, so the revisit footer has no left action.
+        // Step 1 has no left action in any state; deleting a draft lives on the dashboard.
         await expect(page.getByRole('button', { name: 'Discard study' })).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
 
