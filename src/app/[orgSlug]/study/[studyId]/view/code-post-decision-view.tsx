@@ -98,7 +98,6 @@ const DecisionBanner: FC<{ copy: DecisionCopy; reviewingOrgName: string }> = ({ 
 )
 
 type StepCardProps = {
-    study: Submitted<SelectedStudy>
     copy: DecisionCopy
     timestampDate: Date | string | null
     banner: ReactNode
@@ -106,7 +105,7 @@ type StepCardProps = {
     onToggle: () => void
 }
 
-function StepCard({ study, copy, timestampDate, banner, expanded, onToggle }: StepCardProps) {
+function StepCard({ copy, timestampDate, banner, expanded, onToggle }: StepCardProps) {
     return (
         <ProposalStepHeader
             stepLabel="STEP 4"
@@ -182,7 +181,6 @@ export function CodePostDecisionView({
 
             <Stack gap="xxl">
                 <StepCard
-                    study={study}
                     copy={copy}
                     timestampDate={timestampDate}
                     banner={banner}
