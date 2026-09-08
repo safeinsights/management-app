@@ -3,7 +3,6 @@ import { Routes } from '@/lib/routes'
 import type { ResearcherScreenId } from './screens'
 import type { StudyState } from './state.types'
 import { canResearcherResubmitCode } from './eligibility'
-import { hasNextStepFromCode } from './next-step'
 
 // In-content step navigation (OTTER-673). The spec ("Otter - Front-End Logic" § Navigation) reduces
 // every step page to one of three button patterns, picked by a single question: can the user move
@@ -102,17 +101,13 @@ const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     forward: backToMyStudies(ctx),
 })
 
-// Whether a forward step exists is "does /view resolve past this screen" — hasNextStepFromCode asks
-// the rule table rather than restating its predicates, so screens the outputs epic adds gain a
-// forward step here without this file changing (OTTER-687).
-const codeApprovedNav: NavRule = (state, ctx) => {
-    const back = codePreviousStep(ctx)
-    if (!hasNextStepFromCode('researcher', state, 'code-approved')) return { back, forward: backToMyStudies(ctx) }
-    return {
-        back,
-        forward: nextStep(Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo })),
-    }
-}
+// Code approved is only ever reached by walking back from the outputs step, which the screen table
+// serves from the moment of approval, so the forward step is unconditional (spec: "Code approved"
+// always offers Next step, whether or not the run has started).
+const codeApprovedNav: NavRule = (_state, ctx) => ({
+    back: codePreviousStep(ctx),
+    forward: nextStep(Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo })),
+})
 
 const codeFeedbackNav: NavRule = (state, ctx) => {
     const back = codePreviousStep(ctx)

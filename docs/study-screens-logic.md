@@ -141,8 +141,8 @@ raw jobs.
 | 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`       |
 | 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`         |
 | 4   | `hasResults && !awaitingFilesDecisionOnError`                                       | `study-results`          |
-| 5   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                   | `outputs-pending`        |
-| 6   | `codeDecision === 'CODE-APPROVED'`                                                  | `code-approved`          |
+| 5   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `outputs-pending`        |
+| 6   | `codeDecision === 'CODE-APPROVED'` (only via `/view/code`, walking back)            | `code-approved`          |
 | 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`          |
 | 8   | `codeAwaitingDecision`                                                              | `code-under-review`      |
 | 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`      |
