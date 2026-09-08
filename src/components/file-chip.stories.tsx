@@ -2,8 +2,6 @@ import type { Story } from '@ladle/react'
 import { Group, Stack, Text } from '@mantine/core'
 import { FileChip } from './file-chip'
 
-// FileChip renders a downloadable badge. Filenames longer than 20 chars are
-// truncated and gain a hover tooltip showing the full name.
 const meta = { title: 'Components / File chip' }
 export default meta
 

@@ -12,7 +12,9 @@ import {
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
+    fetchAdminOrgsWithStatsAction,
     getOrgFromSlugAction,
+    updateOrgAction,
     getUsersForOrgAction,
     fetchUsersOrgsAction,
     insertOrgAction,
@@ -21,6 +23,7 @@ import {
     getLanguagesForOrgAction,
 } from './org.actions'
 import logger from '@/lib/logger'
+import { isActionError } from '@/lib/errors'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -57,7 +60,6 @@ describe('Org Actions', () => {
         })
 
         it('throws error when duplicate organization name exists for new org', async () => {
-            // was inserted in beforeEach, should throw on dupe insert
             vi.spyOn(console, 'error').mockImplementation(() => undefined)
             const result = await insertOrgAction(newOrg)
             expect(result).toEqual({ error: expect.stringContaining('duplicate key value violates unique constraint') })
@@ -85,12 +87,85 @@ describe('Org Actions', () => {
     describe('getOrgFromSlug', () => {
         it('returns org when found', async () => {
             const result = actionResult(await getOrgFromSlugAction({ orgSlug: newOrg.slug }))
-            expect(result).toMatchObject(newOrg)
+            expect(result).toMatchObject({ slug: newOrg.slug, name: newOrg.name, type: newOrg.type })
         })
 
-        it('throws when org not found', async () => {
+        it('omits settings and email from the org it returns', async () => {
+            const result = actionResult(await getOrgFromSlugAction({ orgSlug: newOrg.slug }))
+            expect(result).not.toHaveProperty('settings')
+            expect(result).not.toHaveProperty('email')
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+            expect(JSON.stringify(result)).not.toContain(newOrg.email)
+        })
+
+        it('leaks neither publicKey nor email when the org is not found', async () => {
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             const result = await getOrgFromSlugAction({ orgSlug: 'non-existent' })
-            expect(result).toEqual({ error: expect.stringContaining('no result') })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+            expect(JSON.stringify(result)).not.toContain(newOrg.email)
+        })
+
+        // `view Org` is unconditioned by design, so this errors in the handler, not at the ability check.
+        it('leaks nothing for a non-SI-admin when the org is not found', async () => {
+            await mockSessionWithTestData({ isAdmin: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await getOrgFromSlugAction({ orgSlug: 'non-existent' })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+            expect(JSON.stringify(result)).not.toContain(newOrg.email)
+        })
+    })
+
+    describe('fetchAdminOrgsWithStatsAction', () => {
+        it('denies an org admin who is not an SI admin', async () => {
+            await mockSessionWithTestData({ isAdmin: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await fetchAdminOrgsWithStatsAction()
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+            expect(JSON.stringify(result)).not.toContain(newOrg.settings.publicKey)
+        })
+
+        it('allows an SI admin', async () => {
+            await mockSessionWithTestData({ isSiAdmin: true })
+            const result = actionResult(await fetchAdminOrgsWithStatsAction())
+            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
+        })
+    })
+
+    describe('updateOrgAction', () => {
+        // settings.publicKey is the RS256 key verifying that enclave's M2M API tokens (MA-5).
+        it('denies an org admin changing type, slug, or settings.publicKey', async () => {
+            const target = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
+
+            await mockSessionWithTestData({ orgSlug: newOrg.slug, isAdmin: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            const result = await updateOrgAction({
+                id: target.id,
+                slug: 'attacker-controlled-slug',
+                name: target.name,
+                email: 'attacker@example.com',
+                type: 'enclave',
+                settings: { publicKey: 'attacker-supplied-public-key' },
+            })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+            const unchanged = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('id', '=', target.id)
+                .executeTakeFirstOrThrow()
+            expect(unchanged.slug).toBe(newOrg.slug)
+            expect(unchanged.type).toBe('enclave')
+            expect(unchanged.settings).toEqual(target.settings)
         })
     })
 
@@ -249,7 +324,6 @@ describe('Org Actions', () => {
                 type: 'enclave',
             })
 
-            // Add a non-testing R code environment
             await insertTestCodeEnv({
                 orgId: testOrg.id,
                 name: 'R Production Image',
@@ -257,7 +331,6 @@ describe('Org Actions', () => {
                 isTesting: false,
             })
 
-            // Add a testing Python code environment (should not appear in supportedLanguages)
             await insertTestCodeEnv({
                 orgId: testOrg.id,
                 name: 'Python Testing Image',
@@ -283,13 +356,24 @@ describe('Org Actions', () => {
             )
         })
 
-        // OTTER: a stale session can leave the form's orgSlug empty when a newly
-        // created org is missing from the user's JWT. An empty slug must fail
-        // validation rather than reach the org lookup, which would otherwise
-        // throw an opaque "no result" and 500 the study-request page.
+        // A stale session can leave orgSlug empty; it must fail validation, not 500 the page.
         it('rejects an empty orgSlug with a validation error', async () => {
             const result = await getLanguagesForOrgAction({ orgSlug: '' })
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+        })
+
+        // OTTER-724 narrowed the neighbouring config reads; pin that this catalog pair stayed open.
+        it('stays readable cross-org for a lab researcher', async () => {
+            const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+            await insertTestCodeEnv({ orgId: enclaveOrg.id, language: 'R', isTesting: false })
+
+            await mockSessionWithTestData({ orgType: 'lab', isAdmin: false })
+
+            const orgs = actionResult(await getStudyCapableEnclaveOrgsAction())
+            expect(orgs).toEqual(expect.arrayContaining([expect.objectContaining({ slug: enclaveOrg.slug })]))
+
+            const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: enclaveOrg.slug }))
+            expect(langs.languages).toEqual(expect.arrayContaining([expect.objectContaining({ value: 'R' })]))
         })
     })
 })

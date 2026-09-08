@@ -1,14 +1,16 @@
+import type { ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { ButtonLink } from '@/components/links'
-import { StudyPageHeader } from '@/components/study/study-page-header'
+import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { OutputsStatusAlert } from './outputs-status-alert'
 
 export type SecondaryAnalysisViewProps = {
-    studyTitle: string
+    studyTitle: string | null
+    /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
+    header: ReactNode
     stageStatus: StudyJobStatus
     stageStartedAt: string | Date
     previousHref: Route
@@ -17,15 +19,16 @@ export type SecondaryAnalysisViewProps = {
 
 export function SecondaryAnalysisView({
     studyTitle,
+    header,
     stageStatus,
     stageStartedAt,
     previousHref,
     dashboardHref,
 }: SecondaryAnalysisViewProps) {
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                {header}
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
@@ -33,9 +36,7 @@ export function SecondaryAnalysisView({
                     banner={<OutputsStatusAlert stageStatus={stageStatus} startedAt={stageStartedAt} />}
                 />
                 <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous step
-                    </ButtonLink>
+                    <PreviousStepLink previousHref={previousHref} />
                     <ButtonLink href={dashboardHref} size="md">
                         Back to my studies
                     </ButtonLink>

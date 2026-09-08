@@ -1,6 +1,6 @@
 'use server'
 
-import { getUserPublicKey } from '@/server/db/queries'
+import { getOrgInfoForUserId, getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Routes } from '@/lib/routes'
@@ -8,8 +8,6 @@ import { fingerprintKeyData } from 'si-encryption/util'
 import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { Action, ActionFailure, z } from './action'
 
-// Pages that render the user's key state — bust both after a key write so presence/fingerprint
-// don't read stale.
 function revalidateKeyPages(): void {
     revalidatePath(Routes.accountKeys)
     revalidatePath(Routes.userKey)
@@ -21,8 +19,6 @@ export const getUserPublicKeyAction = new Action('getUserPublicKeyAction')
         return await getUserPublicKey(session.user.id)
     })
 
-// Helper that returns a boolean instead of the full row so we can safely
-// pass the value to client components without serialization issues.
 export const userKeyExistsAction = new Action('userKeyExistsAction')
     .requireAbilityTo('view', 'UserKey')
     .handler(async ({ session }) => {
@@ -30,14 +26,28 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
         return Boolean(key)
     })
 
-// No `fingerprint` field: it's derived server-side from `publicKey` (deterministic SHA-256 over the
-// SPKI bytes). A client-supplied fingerprint that didn't match would make every sender wrap to a
-// key the owner can't unwrap — silent, permanent decrypt failure with no recourse until renewal.
+// Anything ambiguous returns "My dashboard" rather than guessing which org invited the account.
+export const getKeyPageStateAction = new Action('getKeyPageStateAction')
+    .requireAbilityTo('view', 'UserKey')
+    .handler(async ({ session }) => {
+        const hasKey = Boolean(await getUserPublicKey(session.user.id))
+
+        if (hasKey) return { hasKey, firstKeyRedirect: Routes.dashboard }
+
+        // Not session.orgs: that Clerk metadata is stale right after a signup or invite accept.
+        const orgs = await getOrgInfoForUserId(session.user.id)
+
+        if (orgs.length !== 1) return { hasKey, firstKeyRedirect: Routes.dashboard }
+
+        return { hasKey, firstKeyRedirect: Routes.orgDashboard({ orgSlug: orgs[0].slug }) }
+    })
+
+// No `fingerprint` field: derived server-side, since a mismatched one would make senders wrap to
+// a key the owner cannot unwrap.
 const setOrgUserPublicKeySchema = z.object({
     publicKey: z.instanceof(ArrayBuffer),
 })
 
-// Surface the shared SPKI validation as a field error so the key form can render it.
 async function validatePublicKeyParam(publicKey: ArrayBuffer): Promise<void> {
     try {
         await assertValidPublicKey(publicKey)
@@ -80,7 +90,7 @@ export const updateUserPublicKeyAction = new Action('updateUserPublicKeyAction')
         await validatePublicKeyParam(publicKey)
         const fingerprint = await fingerprintKeyData(publicKey)
 
-        // Rotation swaps the fingerprint, orphaning outputs wrapped to the old key; the loss is confirmed in the reset modal.
+        // Rotation orphans outputs wrapped to the old key; the loss is confirmed in the reset modal.
         await db
             .updateTable('userPublicKey')
             .set({

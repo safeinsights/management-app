@@ -11,7 +11,6 @@ export interface UseWorkspaceFilesOptions {
 
 export interface UseWorkspaceFilesReturn {
     files: WorkspaceFileInfo[]
-    suggestedMain: string | null
     lastModified: string | null
     isLoading: boolean
     refetch: () => void
@@ -38,7 +37,6 @@ export function useWorkspaceFiles(props: UseWorkspaceFilesOptions): UseWorkspace
 
     return {
         files: data?.files ?? [],
-        suggestedMain: data?.suggestedMain ?? null,
         lastModified: data?.lastModified ?? null,
         isLoading: isInitialLoad,
         refetch,

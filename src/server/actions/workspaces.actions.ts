@@ -9,14 +9,8 @@ import { getInfoForStudyId, latestSubmittedJobForStudy } from '@/server/db/queri
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
 
-const isMainFile = (filename: string): boolean => {
-    const basename = path.basename(filename, path.extname(filename))
-    return basename.toLowerCase() === 'main'
-}
-
-// Whether the study's workspace currently holds any researcher-visible file. Mirrors the filtering in
-// listWorkspaceFilesAction (skip dotfiles, symlinks, non-files, empty files) so "has files" matches
-// exactly what the review table shows — and what submit-enable is computed from.
+// Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
+// what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
     let coderFilesPath = await getConfigValue('CODER_FILES')
     if (!CODER_DISABLED) {
@@ -59,10 +53,8 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
             entries = await fs.readdir(coderFilesPath)
         } catch (e) {
             if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
-                // Directory doesn't exist yet, just return empty list
                 return {
                     files: [],
-                    suggestedMain: undefined,
                     lastModified: null,
                 }
             }
@@ -96,14 +88,12 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
 
         return {
             files,
-            suggestedMain: files.find((f) => isMainFile(f.name))?.name,
             lastModified: lastModified?.toISOString() ?? null,
         }
     })
 
-// Ensures the workspace exists and is running: creates it if missing, starts it if stopped.
-// Kept as a one-shot mutation (not folded into the polled status action) because the baseline
-// reset and the build POST must run once per launch, not on every refetch.
+// Kept out of the polled status action: the baseline reset and build POST must run once per
+// launch, not on every refetch.
 export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { performsMutations: true })
     .params(
         z.object({
@@ -144,7 +134,6 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
     .handler(async ({ params: { studyId, cursors }, session }): Promise<WorkspaceLaunchStatus> => {
         if (!session) throw new Error('Unauthorized')
         if (CODER_DISABLED) {
-            // these envs do not have a 'real' coder setup
             await initializeDevWorkspaceFiles(studyId)
             return {
                 buildStatus: 'running',
@@ -167,14 +156,13 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
         const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
-        // Studies are always created from a code env — if this throws, it's a data integrity issue
         const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
         const fileNames = codeEnv.starterCodeFileNames ?? []
         if (fileNames.length === 0) return { starterFiles: [] }
 
         const { signedUrlForFile } = await import('@/server/aws')
         const { pathForStarterCode } = await import('@/lib/paths')
-        // starterCodeFileNames holds bare names, not S3 keys — sign the key the upload actually wrote to.
+        // starterCodeFileNames holds bare names, not S3 keys.
         const starterFiles = await Promise.all(
             fileNames.map(async (fileName: string) => ({
                 name: fileName,
@@ -192,11 +180,8 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
-        // Submit-enable compares workspace file mtimes against this baseline. Anchor it on the last
-        // *submission* (the CODE-SUBMITTED moment), not the current round job's createdAt: reusing a
-        // job means its createdAt no longer advances on relaunch, so anchoring there would let Submit
-        // re-enable with no edits after a study was already submitted (OTTER-601). Comparing against
-        // the submission time means Submit only lights up when a file actually changed since submit.
+        // Anchored on the last submission, not the round job's createdAt: a reused job's createdAt
+        // no longer advances on relaunch, so Submit would re-enable with no edits (OTTER-601).
         const submittedJob = await latestSubmittedJobForStudy(studyId)
 
         if (submittedJob) {
@@ -211,8 +196,6 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             }
         }
 
-        // No submission yet: fall back to the current round job's createdAt so the first submit
-        // enables once files are edited after the workspace was opened.
         const studyJob = await db
             .selectFrom('studyJob')
             .select(['createdAt'])

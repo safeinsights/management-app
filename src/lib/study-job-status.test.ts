@@ -3,6 +3,7 @@ import type { StudyJobStatus } from '@/database/types'
 import {
     currentExecutionStage,
     latestCodeChangeIsSubmission,
+    latestStatusAt,
     latestSubmittedJobHasLiveCodeDecision,
 } from './study-job-status'
 
@@ -40,8 +41,6 @@ describe('latestCodeChangeIsSubmission', () => {
         ).toBe(false)
     })
 
-    // Counting is order-independent, so a decision and the submission it decides tying on
-    // createdAt (the legacy single-job same-millisecond case) must not flip the result.
     it('is order-independent for a decided submission (same-millisecond tie)', () => {
         expect(latestCodeChangeIsSubmission(changes('CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'))).toBe(false)
         expect(latestCodeChangeIsSubmission(changes('CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'))).toBe(false)
@@ -62,10 +61,8 @@ describe('latestSubmittedJobHasLiveCodeDecision', () => {
         },
     )
 
-    // The bug: jobStatusChange rows written in the same transaction tie on createdAt and v7 ids
-    // are not reliably monotonic within a millisecond, so "latest status" ordering can put
-    // CODE-SUBMITTED ahead of the decision. The count is order-independent, so the array order
-    // here (decision *before* the submission it decides) must not change the result.
+    // Rows written in one transaction tie on createdAt and v7 ids are not monotonic within a
+    // millisecond, so "latest status" ordering can put CODE-SUBMITTED ahead of the decision.
     it.each(['CODE-APPROVED', 'CODE-CHANGES-REQUESTED', 'CODE-REJECTED'] as const)(
         'is true for a %s decision regardless of array order (same-millisecond tie)',
         (decision) => {
@@ -74,7 +71,6 @@ describe('latestSubmittedJobHasLiveCodeDecision', () => {
     )
 
     it('is false again once a resubmission adds an un-decided CODE-SUBMITTED', () => {
-        // Round 1 decided (changes requested), round 2 resubmitted and awaiting review.
         expect(
             latestSubmittedJobHasLiveCodeDecision(
                 changes('CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),
@@ -143,5 +139,60 @@ describe('currentExecutionStage', () => {
                 { status: 'JOB-RUNNING', createdAt: '2026-07-20T11:00:00Z' },
             ]),
         ).toEqual({ status: 'JOB-RUNNING', startedAt: '2026-07-20T11:00:00Z' })
+    })
+})
+
+describe('latestStatusAt', () => {
+    it('returns null when the status never occurred', () => {
+        expect(latestStatusAt([], 'RUN-COMPLETE')).toBeNull()
+        expect(latestStatusAt([{ status: 'JOB-RUNNING', createdAt: new Date() }], 'RUN-COMPLETE')).toBeNull()
+    })
+
+    it('returns the timestamp of the requested status', () => {
+        const completedAt = new Date('2026-07-20T12:00:00Z')
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'JOB-RUNNING', createdAt: new Date('2026-07-20T10:00:00Z') },
+                    { status: 'RUN-COMPLETE', createdAt: completedAt },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe(completedAt)
+    })
+
+    it('picks the most recent occurrence regardless of array order', () => {
+        const rerunAt = new Date('2026-07-21T09:00:00Z')
+        const firstRunAt = new Date('2026-07-20T12:00:00Z')
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'RUN-COMPLETE', createdAt: rerunAt },
+                    { status: 'RUN-COMPLETE', createdAt: firstRunAt },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe(rerunAt)
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'RUN-COMPLETE', createdAt: firstRunAt },
+                    { status: 'RUN-COMPLETE', createdAt: rerunAt },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe(rerunAt)
+    })
+
+    it('accepts ISO string timestamps', () => {
+        expect(
+            latestStatusAt(
+                [
+                    { status: 'RUN-COMPLETE', createdAt: '2026-07-20T12:00:00Z' },
+                    { status: 'RUN-COMPLETE', createdAt: '2026-07-21T09:00:00Z' },
+                ],
+                'RUN-COMPLETE',
+            ),
+        ).toBe('2026-07-21T09:00:00Z')
     })
 })

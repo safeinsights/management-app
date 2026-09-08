@@ -22,7 +22,6 @@ describe('useTimer', () => {
         expect(trigger).not.toHaveBeenCalled()
         expect(result.current).toBe(1000)
 
-        // Trigger should be called after the specified interval
         act(() => {
             vi.advanceTimersByTime(1000)
         })

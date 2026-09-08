@@ -22,15 +22,12 @@ export default function SigninPage() {
     const [step, setStep] = useState<SignInStep>('form')
     const [mfaState, setMFAState] = useState<MFAState>(false)
 
-    // Reset the sign-in flow when ?restart param is present
     useEffect(() => {
         const restart = searchParams.get('restart')
         if (restart) {
-            // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setMFAState(false)
             setStep('form')
-            // Remove the param from the URL to avoid loops
             router.replace(Routes.accountSignin)
         }
     }, [searchParams, router])
@@ -51,7 +48,6 @@ export default function SigninPage() {
         setStep('mfa')
     }
 
-    // Show the prompt, not the form, while a session is already active.
     const showForm = alreadySignedIn.status === 'signed-out' && step === 'form'
     const showMFA = alreadySignedIn.status === 'signed-out' && step === 'mfa'
 

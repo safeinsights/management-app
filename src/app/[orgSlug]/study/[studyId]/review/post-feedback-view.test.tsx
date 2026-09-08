@@ -22,6 +22,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -36,19 +37,6 @@ vi.mock('@/server/storage', async () => {
         fetchFileContents: vi.fn(async () => new Blob(['print("hello from main.R")\n'])),
     }
 })
-
-// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
-// inspect the crumbs prop without depending on the DOM render. The arrow wrapper survives
-// vitest's per-test mockReset (which would otherwise wipe the impl on a bare vi.fn).
-const mockPageBreadcrumbs = vi.fn()
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
-        mockPageBreadcrumbs(props)
-        return null
-    },
-}))
 
 const ORG_SLUG = 'test-org'
 
@@ -124,9 +112,12 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
+            // OTTER-754 takes the title out of this header.
+            const sectionHeader = within(screen.getByTestId('proposal-section-header'))
+            expect(sectionHeader.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
         })
     })
 
@@ -171,12 +162,12 @@ describe('PostFeedbackView', () => {
         })
     })
 
-    describe('full initial request dropdown', () => {
+    describe('full proposal dropdown', () => {
         it('renders the proposal section collapsed by default', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+            expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         })
     })
 
@@ -210,7 +201,6 @@ describe('PostFeedbackView', () => {
 
             const entries = screen.getByTestId('feedback-entries')
             const titles = entries.querySelectorAll('[data-testid^="feedback-entry-"]')
-            // Latest first
             expect(titles[0]).toHaveAttribute('data-testid', 'feedback-entry-reviewer-1')
             expect(titles[1]).toHaveAttribute('data-testid', 'feedback-entry-researcher-1')
         })
@@ -261,8 +251,7 @@ describe('PostFeedbackView', () => {
         })
 
         it('toggles entry expansion on click', async () => {
-            // happy-dom doesn't compute real layout, so scrollHeight ≈ clientHeight and
-            // isTruncated stays false. Mock a large scrollHeight so the toggle renders.
+            // happy-dom computes no layout, so scrollHeight must be mocked for isTruncated.
             const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
             try {
                 const user = userEvent.setup()
@@ -290,8 +279,6 @@ describe('PostFeedbackView', () => {
             expect(memoryRouter.asPath).toBe('/dashboard')
         })
 
-        // OTTER-643: Previous is opt-in via previousHref (set only on the read-only /review/code
-        // walk-back). It must stay hidden for the live code screen and every proposal usage.
         it('omits the Previous button when previousHref is not provided', () => {
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
 
@@ -300,7 +287,7 @@ describe('PostFeedbackView', () => {
 
         it('renders Previous and navigates to previousHref when provided', async () => {
             const user = userEvent.setup()
-            const previousHref = Routes.studyReviewerAgreements({ orgSlug: ORG_SLUG, studyId: study.id })
+            const previousHref = Routes.studyReviewProposal({ orgSlug: ORG_SLUG, studyId: study.id })
             renderWithProviders(
                 <PostFeedbackView
                     orgSlug={ORG_SLUG}
@@ -312,6 +299,30 @@ describe('PostFeedbackView', () => {
 
             await user.click(screen.getByTestId('post-feedback-previous'))
             expect(memoryRouter.asPath).toBe(previousHref)
+        })
+
+        it('renders "Next step" in place of the dashboard CTA when nextStepHref is provided', () => {
+            const nextStepHref = Routes.studyReview({ orgSlug: ORG_SLUG, studyId: study.id })
+            renderWithProviders(
+                <PostFeedbackView
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[buildEntry()]}
+                    nextStepHref={nextStepHref}
+                />,
+            )
+
+            const next = screen.getByTestId('cta-next-step')
+            expect(next).toHaveTextContent('Next step')
+            expect(next).toHaveAttribute('href', nextStepHref)
+            expect(screen.queryByTestId('go-to-dashboard')).not.toBeInTheDocument()
+        })
+
+        it('keeps "Go to dashboard" when no nextStepHref is provided', () => {
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
+
+            expect(screen.getByTestId('go-to-dashboard')).toBeInTheDocument()
+            expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
         })
     })
 
@@ -366,7 +377,6 @@ describe('PostFeedbackView', () => {
             expect(banner).toHaveTextContent(
                 'You have requested changes or more information about the study code. The researcher has been notified, and you will be notified once they resubmit.',
             )
-            // Proposal-only clarification banner must NOT appear under kind=CODE.
             expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
         })
 
@@ -383,50 +393,9 @@ describe('PostFeedbackView', () => {
             const entries = [buildCodeEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
 
-            // Proposal-only label should not appear under kind=CODE.
             expect(screen.queryByText('Review initial request')).not.toBeInTheDocument()
         })
 
-        it('renders the "Study proposal" breadcrumb as a link to the proposal post-feedback page for kind=CODE', () => {
-            // PageBreadcrumbs is mocked to () => null in tests/vitest.setup.ts so we assert
-            // on the crumbs array passed to it instead of DOM-querying the link.
-            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
-
-            const expectedHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            // Assert observable behavior (label + href) per crumb, not tuple shape — so a
-            // future refactor that normalizes crumbs to always be [label, href|undefined]
-            // doesn't silently break this expectation.
-            expect(crumbs).toHaveLength(3)
-            expect(crumbs[0][0]).toBe('Dashboard')
-            expect(crumbs[1][0]).toBe('Study proposal')
-            expect(crumbs[1][1]).toBe(expectedHref)
-            expect(crumbs[2][0]).toBe('Review study code')
-        })
-
-        it('renders the "Study proposal" breadcrumb as plain text (not a link) for kind=PROPOSAL', () => {
-            // The PROPOSAL crumb is linkless because it would otherwise be a self-link to
-            // the page the user is already on.
-            const entries = [buildEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
-
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            expect(crumbs).toHaveLength(3)
-            expect(crumbs[0][0]).toBe('Dashboard')
-            expect(crumbs[1][0]).toBe('Study proposal')
-            // Linkless = no href slot — accept either undefined or a missing index.
-            expect(crumbs[1][1]).toBeFalsy()
-            expect(crumbs[2][0]).toBe('Review initial request')
-        })
-
-        // OTTER-613: on the post-decision DO code page the ENTIRE "Submitted code" section is
-        // visually collapsed — only the "View full study code" toggle shows in the step card.
-        // The content stays mounted so its state survives expansion and collapse.
         it('collapses the full Submitted code section until the "View full study code" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
@@ -478,8 +447,6 @@ describe('PostFeedbackView', () => {
                 />,
             )
 
-            // Collapsed: the whole "Submitted code" card (header, AI summary, scan, code viewer)
-            // is hidden, while remaining mounted so its state is preserved.
             expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
             expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
@@ -489,7 +456,6 @@ describe('PostFeedbackView', () => {
             const userClick = userEvent.setup()
             await userClick.click(opener)
 
-            // Expanded: full section revealed, code body shown, opener replaced by the closer.
             await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
             expect(screen.getByTestId('ai-summary')).toBeVisible()
             expect(screen.getByTestId('security-scan-log')).toBeVisible()
@@ -499,15 +465,13 @@ describe('PostFeedbackView', () => {
             const closer = screen.getByTestId('study-code-toggle-collapse')
             expect(closer).toHaveTextContent('Hide full study code')
 
-            // Closing collapses the entire card again and returns keyboard focus to the opener.
             await userClick.click(closer)
             await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
             await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 
-        // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status
-        // but no code-review comment, so `entries` is empty. The fallback decision metadata keeps
-        // the approved code page rendering instead of blanking out.
+        // Code auto-approved via proposal approval leaves a CODE-APPROVED status but no
+        // code-review comment, so the fallback metadata keeps the page rendering (OTTER-538).
         describe('fallback decision (no code-review comment)', () => {
             it('renders the approved code page from fallback when entries are empty', () => {
                 renderWithProviders(
@@ -523,10 +487,9 @@ describe('PostFeedbackView', () => {
                 expect(screen.getByText('Review study code')).toBeInTheDocument()
                 expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
                 expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 21, 2026')
-                // No code-review comments => no Feedback and notes section.
                 expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
-                // Without a job/scan there is no Submitted code panel, so the "View full study code"
-                // opener must not appear (clicking it would expand to an empty card with no way back).
+                // Without a job there is no Submitted code panel, so the opener would expand an
+                // empty card with no way back.
                 expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             })
 

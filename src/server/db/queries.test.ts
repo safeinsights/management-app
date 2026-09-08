@@ -162,23 +162,19 @@ describe('getOrgPublicKeys', () => {
         const org = await insertTestOrg({ slug: 'test-org-encryption' })
         await insertTestStudyJobUsers({ org, useRealKeys: true })
 
-        // Get expected fingerprint from the test key file
         const publicKeyPem = await readTestSupportFile('public_key.pem')
         const publicKeyArrayBuffer = pemToArrayBuffer(publicKeyPem)
         const fingerprint = await fingerprintKeyData(publicKeyArrayBuffer)
 
-        // Get keys using the function under test
         const keys = await getOrgPublicKeys(org.id)
         expect(keys.length).toBeGreaterThan(0)
 
-        // Encrypt a message using the keys
         const message = 'Test encryption message'
         const writer = new ResultsWriter(keys)
         const bytes = new TextEncoder().encode(message)
         await writer.addFile('test.txt', bytes.buffer)
         const encryptedBlob = await writer.generate()
 
-        // Decrypt and verify
         const privateKeyPem = await readTestSupportFile('private_key.pem')
         const privateKeyBuffer = pemToArrayBuffer(privateKeyPem)
         const reader = new ResultsReader(encryptedBlob, privateKeyBuffer, fingerprint)
@@ -279,8 +275,6 @@ describe('getSharedFileIdsForJob', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-    // Sharing = a re-wrapped key row for the artifact. This is what getSharedFileIdsForJob reads,
-    // so tests grant access by inserting these rows rather than flipping a status.
     const shareFile = (studyJobFileId: string, filePath: string, fingerprint: string) =>
         db
             .insertInto('studyJobFileRecipientKey')
@@ -304,13 +298,10 @@ describe('getSharedFileIdsForJob', () => {
         expect(ids.sort()).toEqual([result.id, log.id].sort())
     })
 
-    // The query reports exactly the artifacts with key rows, so a file that exists but was never
-    // re-wrapped is not "shared". (All-or-nothing approval shares results + logs together, but the
-    // query stays correct for any subset — keeping the door open to splitting them later.)
     it('excludes artifacts that have no re-wrapped key', async () => {
         const { job } = await insertTestStudyJobData()
         const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG') // present but not re-wrapped
+        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
         await shareFile(result.id, 'results.csv', 'fp-researcher')
 
         expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
@@ -325,9 +316,7 @@ describe('getSharedFileIdsForJob', () => {
         expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
     })
 
-    // Sharing is recorded by the key rows, independent of current org membership. Removing a
-    // researcher from the lab must NOT delete their key rows / retroactively un-share. This guards
-    // against anyone reintroducing a membership join here.
+    // Guards against anyone reintroducing a membership join into getSharedFileIdsForJob.
     it('stays shared after the lab researchers are removed from the org', async () => {
         const { org, job } = await insertTestStudyJobData()
         const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
@@ -471,9 +460,6 @@ describe('codeSubmissionVersion', () => {
         expect(await codeSubmissionVersion(study.id)).toBe(3)
     })
 
-    // The version counts round-opening events (CODE-CHANGES-REQUESTED / FILES-*), not CODE-SUBMITTED,
-    // so it's unaffected by how many CODE-SUBMITTED rows a round accumulates — a duplicate from a
-    // concurrent submit can't inflate the version.
     it('is unaffected by extra CODE-SUBMITTED rows with no new round', async () => {
         const { study, job } = await insertTestStudyJobData({
             studyStatus: 'PENDING-REVIEW',
@@ -483,19 +469,15 @@ describe('codeSubmissionVersion', () => {
         expect(await codeSubmissionVersion(study.id)).toBe(1)
     })
 
-    // Monotonic across jobs (OTTER-556/558): a results decision opens a fresh job, and the next
-    // submission must keep climbing (v2), NOT reset to v1 — otherwise the resubmission is mislabelled
-    // and prior feedback is hidden on the read-only screens.
+    // Must not reset to v1 across a job boundary, or prior feedback is hidden (OTTER-556/558).
     it('keeps climbing across a results-decision round boundary', async () => {
         const { study, job: firstJob } = await insertTestStudyJobData({
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        // First round runs and is rejected at the results stage (closes the round, opens a new job).
         await db.insertInto('jobStatusChange').values({ studyJobId: firstJob.id, status: 'FILES-REJECTED' }).execute()
         expect(await codeSubmissionVersion(study.id)).toBe(2)
 
-        // The researcher resubmits → a brand-new job with its own first CODE-SUBMITTED.
         const newJob = await db
             .insertInto('studyJob')
             .values({ studyId: study.id })
@@ -503,7 +485,6 @@ describe('codeSubmissionVersion', () => {
             .executeTakeFirstOrThrow()
         await db.insertInto('jobStatusChange').values({ studyJobId: newJob.id, status: 'CODE-SUBMITTED' }).execute()
 
-        // Still v2 (one round boundary so far), and rises to v3 on the next change request.
         expect(await codeSubmissionVersion(study.id)).toBe(2)
         await db
             .insertInto('jobStatusChange')

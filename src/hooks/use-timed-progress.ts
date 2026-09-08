@@ -1,25 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 
 export interface TimedStep<T> {
-    // Estimated seconds from when this step starts until the next one starts (the last step, until done).
+    /** Seconds from this step starting until the next one starts; for the last step, until done. */
     estimateSeconds: number
-    // Whether this step has started, evaluated against the current data.
     hasStarted: (data: T) => boolean
 }
 
 export interface TimedProgress {
-    // Progress as a fraction, 0–1.
+    /** Progress as a fraction, 0-1. */
     value: number
-    // Estimated seconds remaining from the furthest started step onward.
     secondsRemaining: number
 }
 
-// How often the bar interpolates toward the next step (and re-renders relative-time displays).
 const TICK_INTERVAL_MS = 100
 
 const totalSeconds = <T>(steps: TimedStep<T>[]): number => steps.reduce((sum, step) => sum + step.estimateSeconds, 0)
 
-// Index of the furthest step that has started, or -1 if none have.
+// Returns -1 when no step has started.
 function furthestStarted<T>(steps: TimedStep<T>[], data: T): number {
     let furthest = -1
     steps.forEach((step, index) => {
@@ -28,31 +25,25 @@ function furthestStarted<T>(steps: TimedStep<T>[], data: T): number {
     return furthest
 }
 
-// Seconds estimated to remain once `index` is the furthest started step.
 function remainingFrom<T>(steps: TimedStep<T>[], index: number): number {
     return steps.slice(Math.max(index, 0)).reduce((sum, step) => sum + step.estimateSeconds, 0)
 }
 
-// Non-animated snapshot: the bar value at the furthest started step and the seconds remaining. The
-// value is the elapsed-estimate share (steps already completed); pair with useTimedProgress to animate
-// toward the next step between updates.
+// Non-animated snapshot; pair with useTimedProgress to animate between updates.
 export function timedProgress<T>(steps: TimedStep<T>[], data: T): TimedProgress {
     const total = totalSeconds(steps)
     const secondsRemaining = remainingFrom(steps, furthestStarted(steps, data))
     return { value: total ? (total - secondsRemaining) / total : 0, secondsRemaining }
 }
 
-// Animated progress over ordered, timed steps. The bar jumps to each step as it starts, then
-// interpolates toward the next step using that step's estimate — advancing each tick, capped at the
-// next step and never moving backwards (it resets only when the steps un-start, i.e. a fresh run). The
-// tick also re-renders the caller so any relative-time display it shows stays current.
+// Never moves backwards; it resets only when the steps un-start, i.e. on a fresh run.
 export function useTimedProgress<T>(steps: TimedStep<T>[], data: T, enabled: boolean): TimedProgress {
     const latestRef = useRef({ steps, data })
     const stepStartRef = useRef<{ index: number; at: number }>({ index: -1, at: 0 })
     const [value, setValue] = useState(0)
     const [, forceRerender] = useState(0)
 
-    // Keep the latest steps/data reachable by the timer without resubscribing it on every render.
+    // Keeps steps/data reachable by the timer without resubscribing it every render.
     useEffect(() => {
         latestRef.current = { steps, data }
     })

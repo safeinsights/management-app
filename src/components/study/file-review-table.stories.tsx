@@ -3,16 +3,12 @@ import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { FileReviewTable } from './file-review-table'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 
-// FileReviewTable is fully prop-driven: it takes a list of workspace files, the
-// currently-selected main file, and a set of callbacks. No data fetching, so it
-// renders cleanly through Ladle's real-theme pipeline with inline fixtures.
 const meta = { title: 'Study / File review table', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const noop = () => {}
 
-// A job-created timestamp that sits between the two mtimes below so that files
-// modified before it read as "Never" and files modified after it show a date.
+// Sits between the two mtimes below, so earlier files read as "Never" and later ones show a date.
 const JOB_CREATED_AT = '2026-06-01T12:00:00.000Z'
 
 const typicalFiles: WorkspaceFileInfo[] = [
@@ -35,7 +31,6 @@ export const Default: Story = () => (
     </div>
 )
 
-// No files uploaded yet — only the header and divider render.
 export const Empty: Story = () => (
     <div style={{ padding: 24 }}>
         <FileReviewTable
@@ -49,7 +44,6 @@ export const Empty: Story = () => (
     </div>
 )
 
-// A single file that is also the main file.
 export const SingleMainFile: Story = () => (
     <div style={{ padding: 24 }}>
         <FileReviewTable
@@ -76,7 +70,6 @@ const longNameFiles: WorkspaceFileInfo[] = [
     },
 ]
 
-// Long file names exercise the truncation + hover tooltip on the file-name cell.
 export const LongFileNames: Story = () => (
     <div style={{ padding: 24 }}>
         <FileReviewTable
@@ -90,7 +83,6 @@ export const LongFileNames: Story = () => (
     </div>
 )
 
-// When no job has been created yet, every row's "Last updated" cell shows "Never".
 export const NoJobYet: Story = () => (
     <div style={{ padding: 24 }}>
         <FileReviewTable
@@ -104,7 +96,6 @@ export const NoJobYet: Story = () => (
     </div>
 )
 
-// Many rows, none selected as main.
 export const ManyFiles: Story = () => (
     <div style={{ padding: 24 }}>
         <FileReviewTable

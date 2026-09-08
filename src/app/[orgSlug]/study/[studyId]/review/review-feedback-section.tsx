@@ -1,14 +1,10 @@
 'use client'
 
-import { Box, Divider, Group, Paper, Stack, Text } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { InputError } from '@/components/errors'
-import { fieldDescribedBy, fieldErrorId } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
-import { Editor } from '@/components/editable-text/editor'
+import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
-import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 
 const EDITOR_SKELETON_HEIGHT = 600
@@ -43,28 +39,18 @@ function FeedbackEditor({
     studyId: string
     reviewVersion: number
 }) {
-    const websocketProvider = useYjsWebsocket()
     const publishProvider = usePublishReviewFeedbackProvider()
     return (
-        <Editor
-            id={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
-            inputId="review-feedback"
+        <DecisionFeedbackEditor
+            feedback={feedback}
             studyId={studyId}
-            websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
-            onChange={feedback.onChange}
-            onBlur={feedback.onBlur}
-            error={feedback.error}
+            docName={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
+            inputId="review-feedback"
             ariaLabel="Initial request review feedback"
-            ariaRequired
-            ariaDescribedBy={fieldDescribedBy('review-feedback', {
-                hasError: !!feedback.error,
-                hasDescription: false,
-            })}
             placeholder={PLACEHOLDER_TEXT}
-            footerRight={<WordCounter wordCount={feedback.wordCount} maxWords={feedback.maxWords} />}
-            onProviderReady={publishProvider}
+            contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            onProviderReady={publishProvider}
         />
     )
 }
@@ -93,9 +79,6 @@ export function ReviewFeedbackSection({
                         research team.
                     </Text>
                     <FeedbackEditor feedback={feedback} studyId={studyId} reviewVersion={reviewVersion} />
-                    <Box id={fieldErrorId('review-feedback')}>
-                        <InputError error={feedback.error} />
-                    </Box>
                 </Stack>
             </Stack>
         </Paper>

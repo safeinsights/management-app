@@ -10,12 +10,23 @@ import { useSignOut } from '@/hooks/use-sign-out'
 import { useClerk } from '@clerk/nextjs'
 import { NavLink } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
-import { GearIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
+import {
+    FileTextIcon,
+    GearIcon,
+    GlobeIcon,
+    LockIcon,
+    SignOutIcon,
+    UserIcon,
+    SlidersIcon,
+    BooksIcon,
+} from '@phosphor-icons/react/dist/ssr'
 import { useRouter } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Protect } from '../auth'
 import { NavbarProfileMenuView } from './navbar-profile-menu-view'
 import styles from './navbar-items.module.css'
+import { NavbarLink } from './navbar-link'
+import { useState } from '@/common'
 
 export function NavbarProfileMenu() {
     const { openUserProfile } = useClerk()
@@ -51,13 +62,21 @@ export function NavbarProfileMenu() {
         toggle()
 
         if (!wasOpened) {
-            // focus the first menu item
             setTimeout(() => {
                 const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
                 firstItem?.focus()
             }, 0)
         }
     }, [opened, toggle, menuRef])
+
+    const isAdminPage = pathname.startsWith(Routes.adminSafeinsights)
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
+
+    // The menu persists across client navigation, so a mount-time initial value would leave the
+    // submenu shut while it reads active.
+    useEffect(() => {
+        if (isAdminPage) setIsAdminMenuOpen(true)
+    }, [isAdminPage])
 
     const menuItems = (
         <>
@@ -102,20 +121,52 @@ export function NavbarProfileMenu() {
                 component="button"
             />
 
+            <NavLink
+                label="Legal"
+                leftSection={<FileTextIcon aria-hidden="true" />}
+                onClick={navigateTo(Routes.legal)}
+                c="white"
+                active={pathname === Routes.legal}
+                color="blue.7"
+                variant="filled"
+                className={styles.navLinkProfileHover}
+                aria-label="Legal"
+                role="menuitem"
+                component="button"
+            />
+
             {isSiAdmin && (
                 <NavLink
                     label="SI Admin"
                     leftSection={<GlobeIcon aria-hidden="true" />}
-                    onClick={navigateTo(Routes.adminSafeinsights)}
+                    onClick={() => setIsAdminMenuOpen((prev) => !prev)}
                     c="white"
-                    active={pathname === Routes.adminSafeinsights}
+                    opened={isAdminMenuOpen}
+                    active={isAdminPage}
                     color="blue.7"
                     variant="filled"
                     className={styles.navLinkProfileHover}
-                    aria-label="SI Admin"
                     role="menuitem"
                     component="button"
-                />
+                    aria-label="SI Admin"
+                    aria-haspopup="true"
+                    aria-expanded={isAdminMenuOpen}
+                >
+                    <NavbarLink
+                        isVisible
+                        label="Orgs & Context"
+                        url={Routes.adminSafeinsights}
+                        icon={<SlidersIcon size={20} />}
+                        aria-label="Orgs & Context"
+                    />
+                    <NavbarLink
+                        isVisible
+                        label="Legal"
+                        url={Routes.adminSafeinsightsLegal}
+                        icon={<BooksIcon size={20} />}
+                        aria-label="Legal"
+                    />
+                </NavLink>
             )}
 
             <NavLink

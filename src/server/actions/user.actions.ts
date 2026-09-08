@@ -4,16 +4,14 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk } from '../clerk'
 import { getUserPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
-    // Force metadata sync on sign-in to ensure session has fresh data
     const session = await sessionFromClerk({ forceUpdate: true })
     if (!session) {
         throw new Error('Failed to establish session')
     }
     onUserLogIn({ userId: session.user.id })
-    // Every user needs a key.
     const publicKey = await getUserPublicKey(session.user.id)
     if (!publicKey) {
         return { redirectToKeyGeneration: true }
@@ -22,7 +20,6 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
 })
 
 export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {
-    // Force metadata sync
     const session = await sessionFromClerk({ forceUpdate: true })
     if (!session) {
         throw new Error('Failed to establish session')
@@ -59,10 +56,17 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             .where('orgUser.userId', '=', userId)
             .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('org.id', '=', 'orgUser.orgId'))
             .executeTakeFirstOrThrow()
-        return { orgUser, orgId: orgUser.orgId, id: userId }
+        // No `id`: it would let the self-profile rule (`update User` on your own id) match (OTTER-720).
+        return { orgUser, orgId: orgUser.orgId }
     })
-    .requireAbilityTo('update', 'User')
-    .handler(async ({ params: { userId, isAdmin }, db, orgUser }) => {
+    .requireAbilityTo('manageRole', 'User')
+    .handler(async ({ params: { userId, isAdmin }, db, orgUser, session }) => {
+        // An org admin holds `manageRole` for their own row too, so the ability check alone cannot
+        // stop self-edits or an org being orphaned with zero admins.
+        if (userId === session.user.id) {
+            throw new ActionFailure({ permission_denied: 'cannot change your own role' })
+        }
+
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
         onUserRoleUpdate({
             userId,
@@ -77,7 +81,6 @@ export const resetUserMFAAction = new Action('resetUserMFAAction')
         const clerkId = session!.user.clerkUserId
 
         const client = await clerkClient()
-        // Disable all MFA methods, delete phone numbers for reset to avoid verification issues
         await client.users.disableUserMFA(clerkId)
 
         const user = await client.users.getUser(clerkId)

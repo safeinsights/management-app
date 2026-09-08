@@ -1,6 +1,5 @@
-// Safe to import from both client and server components.
-// process.env.NODE_ENV is statically inlined into the client bundle by Next.js,
-// so IS_DEV becomes a literal constant at build time on the client.
+// Safe to import from both client and server components: Next.js statically inlines
+// process.env.NODE_ENV into the client bundle.
 
 export const IS_DEV = process.env.NODE_ENV === 'development'
 export const IS_CI = process.env.NEXT_PUBLIC_CI === 'true'

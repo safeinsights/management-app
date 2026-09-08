@@ -14,9 +14,9 @@ import {
     Stack,
     Text,
     TextInput,
-    Title,
 } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
+import { PageHeader } from '@/components/page-header'
 import { SectionHeader } from '@/components/researcher-profile/section-header'
 import { DisplayField } from '@/components/researcher-profile/display-field'
 import { ResearchInterestsInput } from '@/components/researcher-profile/research-interests-input'
@@ -32,22 +32,13 @@ import type {
     ResearchDetailsValues,
 } from '@/schema/researcher-profile'
 
-// Presentational page-view for the Researcher Profile screen. These components render
-// from props only — they own no data fetching (useQuery), no mutations (useMutation),
-// and no Clerk session. The form instances and submit/edit handlers are injected by the
-// thin section containers (personal-info-section, education-section, etc.), which keep
-// the data + mutation plumbing. Because everything here is render-safe, the stacked page
-// renders in isolation (e.g. Ladle) when a story supplies its own forms and no-op handlers.
-
-// -----------------------------------------------------------------------------
-// Page layout chrome
-// -----------------------------------------------------------------------------
+// Props only, no fetching or Clerk session, so it can mount in isolation (e.g. Ladle).
 
 export function ResearcherProfileLayout({ children }: { children: ReactNode }) {
     return (
         <Container size="lg" py="xl">
             <Stack gap="xl">
-                <Title order={1}>Researcher Profile</Title>
+                <PageHeader title="Researcher profile" />
                 <Text c="dimmed">
                     Create and manage your researcher profile. Adding professional details helps establish your
                     credibility and allows Data Partners to view your published work, credentials, and professional
@@ -58,10 +49,6 @@ export function ResearcherProfileLayout({ children }: { children: ReactNode }) {
         </Container>
     )
 }
-
-// -----------------------------------------------------------------------------
-// Personal information
-// -----------------------------------------------------------------------------
 
 interface PersonalInfoSectionViewProps {
     form: UseFormReturnType<PersonalInfoValues>
@@ -160,10 +147,6 @@ export function PersonalInfoSectionView({
         </Paper>
     )
 }
-
-// -----------------------------------------------------------------------------
-// Highest level of education
-// -----------------------------------------------------------------------------
 
 interface EducationSectionViewProps {
     form: UseFormReturnType<EducationValues>
@@ -275,10 +258,6 @@ export function EducationSectionView({
     )
 }
 
-// -----------------------------------------------------------------------------
-// Current institutional information (positions)
-// -----------------------------------------------------------------------------
-
 interface PositionsSectionViewProps {
     form: UseFormReturnType<PositionsValues>
     defaults: PositionsValues
@@ -349,7 +328,6 @@ export function PositionsSectionView({
                 onAdd={onAdd}
             />
 
-            {/* Shown only when no positions exist; otherwise the form renders inside PositionsTable */}
             <PositionForm
                 isVisible={!hasExistingPositions && isFormVisible}
                 editingIndex={editingIndex ?? 0}
@@ -369,10 +347,6 @@ export function PositionsSectionView({
         </Paper>
     )
 }
-
-// -----------------------------------------------------------------------------
-// Research details
-// -----------------------------------------------------------------------------
 
 interface ResearchDetailsSectionViewProps {
     form: UseFormReturnType<ResearchDetailsValues>

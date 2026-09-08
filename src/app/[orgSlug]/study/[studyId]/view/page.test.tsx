@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
+import { Routes } from '@/lib/routes'
 import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
@@ -43,7 +44,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
         expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
     })
@@ -59,7 +60,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+        expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         expect(screen.getByTestId('status-banner-REJECTED')).toBeInTheDocument()
     })
 
@@ -89,7 +90,7 @@ describe('StudyViewPage', () => {
         })
         renderWithProviders(page!)
 
-        expect(screen.getByText('Study Details')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByText('No code has been uploaded yet.')).toBeInTheDocument()
     })
 
@@ -145,7 +146,7 @@ describe('StudyViewPage', () => {
         const toggle = screen.getByTestId('study-code-toggle')
         expect(toggle).toHaveTextContent('View submitted study code')
         expect(toggle).toHaveAttribute('aria-expanded', 'false')
-        expect(screen.queryByTestId('cta-proceed-to-results')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
 
         await userEvent.setup().click(toggle)
 
@@ -205,7 +206,8 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
+            // returnTo=org still reaches the view — it now arrives as the nav's exit destination.
+            expect(page?.props.nav.forward.href).toBe(`/${org.slug}/dashboard`)
         })
 
         it('renders CodePostSubmissionView when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW gate)', async () => {
@@ -321,7 +323,7 @@ describe('StudyViewPage', () => {
 
     describe('execution window and late-scan race (OTTER-598, OTTER-640)', () => {
         it.each(['JOB-PROVISIONING', 'JOB-PACKAGING', 'JOB-READY', 'JOB-RUNNING'] as const)(
-            'renders CodePostDecisionView with effective CODE-APPROVED while %s',
+            'renders outputs-pending screen while %s (OTTER-686)',
             async (jobStatus) => {
                 const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
                 const { study } = await insertTestStudyJobData({
@@ -339,18 +341,18 @@ describe('StudyViewPage', () => {
                     searchParams: defaultSearchParams,
                 })
 
-                expect(page?.type).toBe(CodePostDecisionView)
-                expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
                 renderWithProviders(page!)
-                expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
-                await expectSubmittedCodeCanExpand()
+                expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+                expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
+                expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+                expect(screen.getByTestId('status-alert')).toBeInTheDocument()
             },
         )
 
-        it('holds on CodePostDecisionView when the run errors before any reviewer files decision (OTTER-598, 43898)', async () => {
+        it('holds on outputs-pending when the run errors before any reviewer files decision (OTTER-598, 43898)', async () => {
             // Code approved, ran, then JOB-ERRORED — but the reviewer has not recorded FILES-APPROVED
-            // /FILES-REJECTED. The pill still reads "Code approved", so the page must NOT jump to the
-            // results/Study Details screen; it stays on the post-code-approval page.
+            // /FILES-REJECTED. The error is hidden from the researcher; outputs-pending still shows
+            // the last execution stage without disclosing the failure.
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -368,12 +370,9 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.resultsHref).toBeUndefined()
             renderWithProviders(page!)
-            expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
-            await expectSubmittedCodeCanExpand()
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+            expect(screen.getByTestId('status-alert')).not.toHaveTextContent(/error/i)
         })
 
         it('keeps submitted code accessible when a packaging error is hidden from the researcher', async () => {
@@ -398,13 +397,13 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
             expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
-            expect(page?.props.resultsHref).toBeUndefined()
+            expect(page?.props.nav.forward.label).toBe('Back to my studies')
             renderWithProviders(page!)
             expect(screen.getByTestId('decision-banner-code-approved')).not.toHaveTextContent(/error/i)
             await expectSubmittedCodeCanExpand()
         })
 
-        it('resolves a late CODE-SCANNED after JOB-READY to CodePostDecisionView (CODE-APPROVED), not under-review', async () => {
+        it('resolves a late CODE-SCANNED after JOB-READY to outputs-pending, not under-review', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -422,10 +421,9 @@ describe('StudyViewPage', () => {
                 searchParams: defaultSearchParams,
             })
 
-            expect(page?.type).toBe(CodePostDecisionView)
-            expect(page?.props.latestJobStatus).toBe('CODE-APPROVED')
             renderWithProviders(page!)
-            await expectSubmittedCodeCanExpand()
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+            expect(screen.getByTestId('status-alert')).toBeInTheDocument()
         })
     })
 
@@ -511,7 +509,7 @@ describe('StudyViewPage', () => {
             expect(page?.props.latestJobStatus).toBe('CODE-CHANGES-REQUESTED')
 
             renderWithProviders(page!)
-            expect(screen.getByTestId('cta-edit-and-resubmit')).toHaveTextContent('Edit and resubmit')
+            expect(screen.getByTestId('cta-edit-code')).toHaveTextContent('Edit code')
         })
 
         it('returns to CodePostSubmissionView when the round is resubmitted after changes requested', async () => {
@@ -582,39 +580,143 @@ describe('StudyViewPage', () => {
     })
 
     describe('study-details redesign (OTTER-538)', () => {
-        // JOB-ERRORED is intentionally excluded here: a bare error stays hidden from the researcher
-        // until a reviewer records a FILES-* decision, so it holds on the code-approved page instead
-        // (see the execution-window describe block / OTTER-598 comment 43898).
-        it.each(['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'] as const)(
-            'renders StudyDetailsResearcher when latest job status is %s',
-            async (jobStatus) => {
-                const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-                const { study } = await insertTestStudyJobData({
-                    org,
-                    researcherId: user.id,
-                    studyStatus: 'APPROVED',
-                    jobStatus: 'CODE-SUBMITTED',
-                })
-                await addJobStatus(study.id, jobStatus)
+        // Only an UNDECIDED completed run is left on this screen. JOB-ERRORED is excluded because a
+        // bare error stays hidden from the researcher until a reviewer records a FILES-* decision, so
+        // it holds on the code-approved page instead (see the execution-window describe block /
+        // OTTER-598 comment 43898). Every FILES-* decision now has its own screen: FILES-REJECTED →
+        // outputs-feedback (OTTER-695/697), FILES-APPROVED → outputs-shared (OTTER-688) or
+        // outputs-errored-shared (OTTER-696) — all below.
+        it('renders StudyDetailsResearcher for a completed run with no files decision yet', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'RUN-COMPLETE')
 
-                const page = await StudyReviewPage({
-                    params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: defaultSearchParams,
-                })
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
 
-                renderWithProviders(page!)
-                expect(screen.getByText('Study Status')).toBeInTheDocument()
-                expect(screen.getByText('Study Details')).toBeInTheDocument()
-                // OTTER-614: results is no longer terminal — "Previous" walks back to the
-                // post-decision code step at its own route (/view/code).
-                expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
-                    'href',
-                    `/${org.slug}/study/${study.id}/view/code`,
-                )
-            },
-        )
+            renderWithProviders(page!)
+            expect(screen.getByText('Study Status')).toBeInTheDocument()
+            expect(screen.getByText('Study Details')).toBeInTheDocument()
+            // OTTER-614: results is no longer terminal — "Previous" walks back to the
+            // post-decision code step at its own route (/view/code).
+            expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code`,
+            )
+        })
 
-        it('threads returnTo=org to the results screen via dashboardHref', async () => {
+        it('renders outputs-shared when the run completed cleanly and the reviewer shared the outputs (OTTER-688)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'RUN-COMPLETE')
+            await addJobStatus(study.id, 'FILES-APPROVED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Decrypt to view your outputs/)).toBeInTheDocument()
+            expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
+            // Not the errored sibling, which shares this panel and differs only in copy.
+            expect(screen.queryByText(/Decrypt outputs to view code error/)).not.toBeInTheDocument()
+        })
+
+        it('renders the outputs-feedback screen when the reviewer shared feedback only (FILES-REJECTED)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'RUN-COMPLETE')
+            await addJobStatus(study.id, 'FILES-REJECTED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Feedback on outputs available/)).toBeInTheDocument()
+            expect(screen.getByText('Verify outputs')).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code`,
+            )
+            expect(screen.getByRole('link', { name: /edit code/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/resubmit`,
+            )
+        })
+
+        it('renders the outputs-feedback screen with errored banner when the run errored and feedback only was shared (OTTER-697)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'JOB-ERRORED')
+            await addJobStatus(study.id, 'FILES-REJECTED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
+            expect(screen.getByText('Verify outputs')).toBeInTheDocument()
+            expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
+            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
+                'href',
+                Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
+            )
+            expect(screen.getByRole('link', { name: /edit code/i })).toHaveAttribute(
+                'href',
+                Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }),
+            )
+        })
+
+        it('renders outputs-errored-shared when the run errored and the reviewer shared the outputs (OTTER-696)', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await addJobStatus(study.id, 'JOB-ERRORED')
+            await addJobStatus(study.id, 'FILES-APPROVED')
+
+            const page = await StudyReviewPage({
+                params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+                searchParams: defaultSearchParams,
+            })
+
+            renderWithProviders(page!)
+            expect(screen.getByText(/Decrypt outputs to view code error/)).toBeInTheDocument()
+            expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
+            expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
+        })
+
+        it('threads returnTo=org to the results screen', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -629,11 +731,14 @@ describe('StudyViewPage', () => {
                 searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
-            // returnTo=org is baked into dashboardHref by the page dispatch before the screen
-            // is called (ResearcherBreadcrumbs is mocked to null in tests, so we verify via props).
-            expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
             renderWithProviders(page!)
             expect(screen.getByText('Study Status')).toBeInTheDocument()
+            // returnTo=org survives the page dispatch: the "Previous" link back to the code
+            // step carries it so org scope survives the hop.
+            expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
+                'href',
+                `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
+            )
         })
 
         // /view resolves purely on state — query params are ignored. A CODE-APPROVED study (no

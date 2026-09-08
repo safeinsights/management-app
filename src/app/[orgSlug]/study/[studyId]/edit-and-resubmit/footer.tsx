@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group, Stack } from '@mantine/core'
+import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { AppModal } from '@/components/modals/app-modal'
@@ -12,9 +12,6 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
-import { RESUBMIT_NOTE_MIN_WORDS, resubmissionNoteWordCount } from './schema'
-import { IncompleteFieldsHint } from '@/components/incomplete-fields-hint'
-import { missingProposalFields } from '@/app/[orgSlug]/study/[studyId]/proposal/missing-fields'
 
 interface EditResubmitFooterProps {
     researcherName: string
@@ -26,9 +23,9 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
-    // omitBlankTitle: nulling the title column on a CHANGE-REQUESTED row would
-    // violate the study_title_required_when_not_draft check constraint.
-    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { omitBlankTitle: true })
+    // titleMode 'omitIfBlank': nulling the column on a CHANGE-REQUESTED row would violate
+    // study_title_required_when_not_draft.
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omitIfBlank' })
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
@@ -40,18 +37,9 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
     const isFormValid = form.isValid() && noteForm.isValid()
-    const missingFields = [
-        ...missingProposalFields(form.values),
-        // Only an empty note is missing. An over-long one is present but invalid, and already
-        // shows its own word-limit message; calling it "required" contradicted that.
-        ...(resubmissionNoteWordCount(noteForm.values.resubmissionNote) < RESUBMIT_NOTE_MIN_WORDS
-            ? ['Resubmission Note']
-            : []),
-    ]
 
     const handleBack = async () => {
-        // In single-user mode (CI / PR envs) Yjs autosave is inactive, so flush
-        // proposal fields to the study row explicitly. Also flush the debounced note.
+        // Yjs autosave is inactive in single-user mode, so flush explicitly.
         const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
         if (!fieldsSaved || !noteSaved) return
         router.push(Routes.studySubmitted({ orgSlug, studyId }))
@@ -60,6 +48,14 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const handleConfirmResubmit = () => {
         closeConfirm()
         resubmit()
+    }
+
+    const handleOpenReviewer = async () => {
+        // The server only serves PI profiles the persisted study row names, so an unsaved
+        // piUserId would render as "Profile not available".
+        const saved = await saveDraft()
+        if (!saved) return
+        openReviewer()
     }
 
     return (
@@ -77,27 +73,19 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     Back
                 </Button>
                 <Group align="flex-start">
-                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={openReviewer}>
+                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
-                    <Stack gap={4} align="flex-end">
-                        <Button
-                            size="md"
-                            variant="primary"
-                            disabled={!isFormValid || isBusy}
-                            loading={isSubmitting}
-                            onClick={openConfirm}
-                        >
-                            Resubmit initial request
-                        </Button>
-                        <IncompleteFieldsHint missing={missingFields} />
-                    </Stack>
+                    <Button size="md" disabled={!isFormValid || isBusy} loading={isSubmitting} onClick={openConfirm}>
+                        Resubmit initial request
+                    </Button>
                 </Group>
             </Group>
 
             <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
+                    studyTitle={form.values.title}
                     values={form.values}
                     researcherName={researcherName}
                     researcherId={researcherId}

@@ -1,7 +1,7 @@
 import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
-import { projectStudyState } from '@/lib/study-screen'
+import { hasNextStepFromCode, projectStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
@@ -14,17 +14,21 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // Only the read-only /review/code walk-back (descriptor.readOnlyCodeStep) shows "Previous" → it
-    // continues back through agreements → proposal (OTTER-643). The live code-decision screen leaves it
-    // unset, matching the live DO design that hides Previous.
+    // Only the read-only walk-back shows "Previous", back to the decided proposal (OTTER-643).
     const previousHref = descriptor.readOnlyCodeStep
-        ? Routes.studyReviewerAgreements({ orgSlug, studyId: study.id })
+        ? Routes.studyReviewProposal({ orgSlug, studyId: study.id })
+        : undefined
+
+    // OTTER-687: the two resolvers deliberately disagree — resolveReviewerCodeScreen restricts
+    // candidates to the code screens, while hasNextStepFromCode asks the full table.
+    const state = projectStudyState(raw)
+    const nextStepHref = hasNextStepFromCode('reviewer', state, descriptor.screen)
+        ? Routes.studyReview({ orgSlug, studyId: study.id })
         : undefined
 
     const job = await latestSubmittedJobForStudy(study.id)
-    // The post-decision code page shows the full "Submitted code" section (datasets, AI summary,
-    // security scan log, code viewer), the same section as active review, so it needs the review +
-    // scan rows, not just the job (OTTER-613).
+    // The post-decision page shows the same full "Submitted code" section as active review, so it
+    // needs the review and scan rows too (OTTER-613).
     const [review, scan] = job
         ? await Promise.all([getStudyReviewForJob(job.id), jobScanResultForJob(job.id)])
         : [null, null]
@@ -41,14 +45,13 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
                 review={review}
                 scan={scan}
                 previousHref={previousHref}
+                nextStepHref={nextStepHref}
             />
         )
     }
-    // Source the live decision from the state machine (the same projection that routed us here:
-    // reviewer-screen-rules' `codeDecision !== null`), not a hand-rolled status walk. This tracks
-    // count-based liveness and decision priority, and looking the timestamp up by the resolved
-    // decision keeps us on the current decision rather than the first one recorded on the job.
-    const { codeDecision } = projectStudyState(raw)
+    // Sourced from the same projection that routed us here, so liveness and decision priority
+    // cannot drift from the routing rules.
+    const { codeDecision } = state
     const decisionTimestamp = codeDecision
         ? job?.statusChanges.find((s) => s.status === codeDecision)?.createdAt
         : undefined
@@ -67,6 +70,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, descript
             scan={scan}
             fallback={fallback}
             previousHref={previousHref}
+            nextStepHref={nextStepHref}
         />
     )
 }

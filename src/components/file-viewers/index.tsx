@@ -7,7 +7,9 @@ import { textViewer } from './text-viewer'
 export { CodeViewer } from './code-viewer'
 export { ImageViewer } from './image-viewer'
 
-const viewers = [codeViewer, csvViewer, logViewer, textViewer]
+// Most specific first: logViewer inspects content rather than extension and must precede
+// codeViewer, since run logs are written as .json.
+const viewers = [logViewer, codeViewer, csvViewer, textViewer]
 
 export const FileViewer: FC<{ path: string; text: string }> = ({ path, text }) => {
     for (const viewer of viewers) {

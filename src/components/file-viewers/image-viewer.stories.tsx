@@ -2,8 +2,6 @@ import type { Story } from '@ladle/react'
 import { Box } from '@mantine/core'
 import { ImageViewer } from './image-viewer'
 
-// ImageViewer is presentational: it takes raw image bytes + a mime type and renders
-// them through an object URL. A tiny inline png keeps the story self-contained.
 const meta = { title: 'File viewers / Image viewer' }
 export default meta
 

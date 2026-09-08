@@ -204,6 +204,25 @@ One-time setup (maintainer, in repo **Settings → Pages**): set **Source** to
 pnpm run test:unit
 ```
 
+This needs a local Postgres and SeaweedFS (see [Option 2](#option-2-local-setup-without-docker-) above).
+
+#### Unit Testing in Docker 🐳
+
+`./bin/docker-test` runs the same Vitest suite in containers, against a throwaway database it migrates and
+seeds itself. It is self-contained: no local Postgres, S3, or `.env` file needed. Each checkout also gets its
+own containers and volumes, so several clones can run their unit tests in parallel.
+
+| Command                                       | What it does                                                                                                 |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `./bin/docker-test`                           | Run the whole suite                                                                                          |
+| `./bin/docker-test -- --run PATTERN`          | Run specific files; `PATTERN` is a substring match on the path, not a regex (several can be space-separated) |
+| `./bin/docker-test -- --run 'foo' -t 'REGEX'` | Also filter by test name (`describe`/`it`) with a regex                                                      |
+| `./bin/docker-test --clean`                   | Fresh database and `node_modules`; rarely needed, since migrations are applied on each run                   |
+| `./bin/docker-test --help`                    | All flags, including the `--down` and `--prune` cleanup options                                              |
+
+To have Claude Code use docker unit tests, see the "Claude Code integration" section of
+[PR #787](https://github.com/safeinsights/management-app/pull/787).
+
 ### E2E Testing with Playwright 🎭
 
 To run playwright tests locally, you'll need to install playwright:

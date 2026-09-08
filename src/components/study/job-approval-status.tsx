@@ -43,7 +43,6 @@ export const ApprovalStatus: FC<{
         return statusChange.status === statusPair[0] || statusChange.status === statusPair[1]
     })
 
-    //  check if any status change is CODE-REJECTED (since find returns first match)
     const codeRejectedStatusChange = job.statusChanges.find((statusChange) => statusChange.status === 'CODE-REJECTED')
 
     const finalStatusChange = statusChange ?? codeRejectedStatusChange

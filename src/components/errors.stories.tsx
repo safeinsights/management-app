@@ -5,8 +5,6 @@ import { ErrorAlert, AccessDeniedAlert, AlertNotFound, InputError } from './erro
 const meta = { title: 'Feedback / Errors' }
 export default meta
 
-// ErrorAlert renders its error through errorToString, which accepts plain strings,
-// Error instances, and the app's action-error shapes.
 export const ErrorAlertString: Story = () => (
     <div style={{ padding: 24, maxWidth: 760 }}>
         <ErrorAlert error="The study could not be loaded." />
@@ -58,7 +56,6 @@ export const NotFoundLongMessage: Story = () => (
     </div>
 )
 
-// hideIf=true returns null; the alert below it should be the only thing visible.
 export const NotFoundHidden: Story = () => (
     <div style={{ padding: 24, maxWidth: 760 }}>
         <AlertNotFound hideIf title="Hidden (should not render)" message="This message is suppressed by hideIf." />
@@ -66,7 +63,6 @@ export const NotFoundHidden: Story = () => (
     </div>
 )
 
-// InputError returns null for empty/falsy errors; the field-level error sits inline.
 export const Input: Story = () => (
     <div style={{ padding: 24, maxWidth: 760 }}>
         <Stack gap="md">

@@ -25,4 +25,39 @@ describe('StatusAlert', () => {
         expect(alert).toHaveTextContent('Action needed')
         expect(alert).toHaveTextContent('Take action now')
     })
+
+    it('renders the success view with its title and body (OTTER-696)', () => {
+        renderWithProviders(
+            <StatusAlert variant="success" title="All good">
+                Nothing left to do
+            </StatusAlert>,
+        )
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveAttribute('data-variant', 'success')
+        expect(alert).toHaveTextContent('All good')
+        expect(alert).toHaveTextContent('Nothing left to do')
+    })
+
+    it('stays a plain alert with no live region unless announcing is requested', () => {
+        renderWithProviders(
+            <StatusAlert variant="action" title="Action needed">
+                Take action now
+            </StatusAlert>,
+        )
+        expect(screen.getByTestId('status-alert')).not.toHaveAttribute('aria-live')
+    })
+
+    it('announces politely — never assertively — and atomically when asked to', () => {
+        renderWithProviders(
+            <StatusAlert variant="success" title="All good" announce>
+                Nothing left to do
+            </StatusAlert>,
+        )
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveAttribute('aria-live', 'polite')
+        expect(alert).not.toHaveAttribute('aria-live', 'assertive')
+        // Mantine's Alert defaults to role="alert", an implicitly assertive region.
+        expect(alert).toHaveAttribute('role', 'status')
+        expect(alert).toHaveAttribute('aria-atomic', 'true')
+    })
 })

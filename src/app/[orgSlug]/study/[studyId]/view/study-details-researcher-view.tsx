@@ -1,40 +1,20 @@
 import type { ReactNode } from 'react'
-import type { Route } from 'next'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { ButtonLink } from '@/components/links'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 
-// Presentational Study Details page (OTTER-538 results-stage view, RL). Owns the page chrome
-// — breadcrumbs, title, the "Study Status" card, and the "Previous" link — but receives the
-// status message via the `statusMessage` slot so it stays free of data fetching (JobResults'
-// useQuery + server action) and renders in isolation (e.g. Ladle). The StudyDetailsResearcher
-// container (./study-details-researcher) injects the real <JobResultsStatusMessage>.
+// The header and the status message arrive via slots, keeping this free of data fetching so it
+// renders in isolation (e.g. Ladle).
 export type StudyDetailsResearcherViewProps = {
-    studyId: string
-    orgSlug: string
-    previousHref?: Route
-    dashboardHref?: Route
+    header: ReactNode
+    nav: StepNav
     statusMessage: ReactNode
 }
 
-export function StudyDetailsResearcherView({
-    studyId,
-    orgSlug,
-    previousHref,
-    dashboardHref,
-    statusMessage,
-}: StudyDetailsResearcherViewProps) {
+export function StudyDetailsResearcherView({ header, nav, statusMessage }: StudyDetailsResearcherViewProps) {
     return (
-        <Stack px="xl" gap="xl">
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    studyId,
-                    orgSlug,
-                    current: 'Study Details',
-                    dashboardHref,
-                }}
-            />
+        <Stack px="xl" py="xl" gap="xl">
+            {header}
             <Title order={2} size="h4" fw={500}>
                 Study Details
             </Title>
@@ -42,7 +22,7 @@ export function StudyDetailsResearcherView({
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
+                        <Title order={3} size="xl">
                             Study Status
                         </Title>
                     </Group>
@@ -50,13 +30,7 @@ export function StudyDetailsResearcherView({
                     {statusMessage}
                 </Stack>
             </Paper>
-            {previousHref && (
-                <Group>
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous
-                    </ButtonLink>
-                </Group>
-            )}
+            <StepNavigation nav={nav} />
         </Stack>
     )
 }

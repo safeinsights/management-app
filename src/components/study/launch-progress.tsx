@@ -1,12 +1,9 @@
 import { type TimedStep } from '@/hooks/use-timed-progress'
 import { TimedProgressBar } from '@/components/timed-progress-bar'
 
-// The accumulated logs a launch step's predicate is matched against.
 type LaunchLogs = { buildLog: string; agentLog: string }
 
-// Ordered launch milestones: each has an estimate of how long it takes until the next one and a
-// predicate detecting when it has started (its marker line appears in the relevant log). Tune the
-// estimates as real timings are observed.
+// Ordered milestones; the estimates are observational and meant to be retuned.
 export const LAUNCH_STEPS: TimedStep<LaunchLogs>[] = [
     { estimateSeconds: 5, hasStarted: ({ buildLog }) => buildLog.includes('Initializing the backend...') },
     {
@@ -32,8 +29,6 @@ interface LaunchProgressProps {
     lastUpdatedAt?: Date | null
 }
 
-// Launch progress bar: a TimedProgressBar wired to the launch milestones. The raw logs are passed as
-// the collapsible detail, which TimedProgressBar only reveals in spy/debug mode.
 export function LaunchProgress({ isVisible, buildLog, agentLog, lastUpdatedAt }: LaunchProgressProps) {
     const logs = ['--------- Build Log', buildLog, '--------- Agent Log', agentLog].join('\n')
 

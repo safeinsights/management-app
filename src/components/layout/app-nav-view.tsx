@@ -9,21 +9,14 @@ import { SafeInsightsLogo } from './svg/si-logo'
 
 type Orgs = ActionSuccessType<typeof fetchUsersOrgsAction>
 
-// Presentational sidebar. It owns the navbar chrome, the org-squares rail, the logo, and the
-// layout of the nav-content + profile-menu — but NOT the session, the path, or the user-orgs
-// fetch. The session/Clerk-coupled pieces (the org-links list with its admin gate, and the
-// profile menu) are injected via the `navContent` and `profileMenu` slots so this view renders
-// in isolation (e.g. Ladle). The AppNav container (./app-nav) derives the data and supplies them.
+// Session-free so it renders in isolation; the Clerk-coupled pieces arrive through slots.
 export type AppNavViewProps = {
     orgs: Orgs
     focusedOrgSlug?: string | null
     isMainDashboard: boolean
     isDesktop: boolean
-    /** Resolved navbar background — focused org's type color, or the default purple. */
     navbarBg: string
-    /** Session-aware nav body: the personal org list or the focused-org links. */
     navContent: ReactNode
-    /** Clerk-coupled profile menu pinned to the bottom of the sidebar. */
     profileMenu: ReactNode
 }
 

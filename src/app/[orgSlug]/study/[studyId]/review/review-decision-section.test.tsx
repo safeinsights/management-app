@@ -12,9 +12,32 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ReviewDecisionSection } from './review-decision-section'
 
-function Wrapper({ study, labName = 'Rice University' }: { study: Submitted<SelectedStudy>; labName?: string }) {
+// Opt-in so a control present in every case does not widen what the broad queries here see.
+function Wrapper({
+    study,
+    labName = 'Rice University',
+    withLeaveButton = false,
+}: {
+    study: Submitted<SelectedStudy>
+    labName?: string
+    withLeaveButton?: boolean
+}) {
     const decision = useReviewDecision()
-    return <ReviewDecisionSection decision={decision} study={study} labName={labName} />
+    return (
+        <>
+            <ReviewDecisionSection decision={decision} study={study} labName={labName} />
+            <LeaveGroupButton isVisible={withLeaveButton} onLeave={decision.onBlur} />
+        </>
+    )
+}
+
+function LeaveGroupButton({ isVisible, onLeave }: { isVisible: boolean; onLeave: () => void }) {
+    if (!isVisible) return null
+    return (
+        <button type="button" onClick={onLeave}>
+            leave the group
+        </button>
+    )
 }
 
 describe('ReviewDecisionSection', () => {
@@ -118,8 +141,35 @@ describe('ReviewDecisionSection', () => {
         expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
     })
 
-    // An aria-label on Radio.Group lands on the roleless outer wrapper, leaving the
-    // role="radiogroup" element unnamed. A rendered label is what actually names it.
+    // Radio.Group's context does not carry `error` to its children, so the circles stayed grey
+    // while the message turned red (OTTER-647).
+    it('marks the radio circles invalid, not just the message', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Wrapper study={study} withLeaveButton />)
+
+        expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
+
+        await user.click(screen.getByRole('button', { name: 'leave the group' }))
+
+        expect(await screen.findByText('Select a decision to continue.')).toBeInTheDocument()
+        expect(screen.getByRole('radio', { name: /Approve/ })).toHaveAttribute('data-error', 'true')
+        expect(screen.getByRole('radio', { name: /Reject/ })).toHaveAttribute('data-error', 'true')
+    })
+
+    it('clears the circles once a decision is picked', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Wrapper study={study} withLeaveButton />)
+
+        await user.click(screen.getByRole('button', { name: 'leave the group' }))
+        await screen.findByText('Select a decision to continue.')
+
+        await user.click(screen.getByRole('radio', { name: /Approve/ }))
+
+        expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
+    })
+
+    // An aria-label on Radio.Group lands on the roleless outer wrapper, so a rendered label is
+    // what actually names the group.
     it('gives the decision radiogroup an accessible name', () => {
         renderWithProviders(<Wrapper study={study} />)
 

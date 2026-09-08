@@ -79,7 +79,6 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                                         copy()
                                         setHasCopied(true)
                                     }}
-                                    variant="primary"
                                     disabled={!codes || codes.length === 0}
                                 >
                                     Copy codes

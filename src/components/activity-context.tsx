@@ -43,7 +43,6 @@ export const ActivityContext = () => {
         const inactivityDuration = currentTime - lastActiveTime
 
         if (inactivityDuration < WARNING_THRESHOLD_MS) {
-            // hide notification if the user is active again
             notifications.hide('session-expired')
         }
 
@@ -85,7 +84,7 @@ export const ActivityContext = () => {
             return
         }
 
-        const intervalId = setInterval(checkInactivity, 10000) // Check every 10 seconds
+        const intervalId = setInterval(checkInactivity, 10000)
         return () => clearInterval(intervalId)
     }, [session, checkInactivity])
 

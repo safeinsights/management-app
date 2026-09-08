@@ -5,8 +5,7 @@ import { notFound } from 'next/navigation'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderResearcherCodeStep } from '../../_screens/render-screen'
 
-// Read-only post-decision code step, reached by walking back from the results screen.
-// renderResearcherCodeStep 404s if the study hasn't reached the code stage.
+// renderResearcherCodeStep 404s if the study has not reached the code stage.
 export default async function StudyViewCode(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
     searchParams: Promise<Record<string, string | undefined>>

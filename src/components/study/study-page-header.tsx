@@ -1,10 +1,18 @@
-import type { ReactNode } from 'react'
-import { Title } from '@mantine/core'
+import { PageHeader } from '@/components/page-header'
+import { displayLabName, UNTITLED_STUDY_TITLE } from '@/lib/string'
 
-export function StudyPageHeader({ children }: { children: ReactNode }) {
-    return (
-        <Title order={1} fz={40} fw={700} c="charcoal.9">
-            {children}
-        </Title>
-    )
+// Every study page shows the submitting Research Lab, so both a researcher and a reviewer of the
+// same study read the same eyebrow. Resolved here rather than at each call site so the fallback
+// cannot drift between them.
+export type StudyHeaderStudy = {
+    title: string | null
+    submittingLabName: string | null
+    submittedByOrgSlug: string
+}
+
+export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
+    const eyebrow = displayLabName(study.submittingLabName, study.submittedByOrgSlug)
+    const title = study.title ?? UNTITLED_STUDY_TITLE
+
+    return <PageHeader eyebrow={eyebrow} title={title} />
 }

@@ -9,10 +9,8 @@ import { InfoTooltip } from '@/components/tooltip'
 import { UserAvatar } from '@/components/user-avatar'
 import type { OrgUserReturn } from '@/server/actions/org.actions'
 
-// Presentational "People" table. Renders the DataTable, the Full Name cell (avatar + name +
-// email), the Last active cell, and the Permission column header — but NOT the per-row
-// permission mutation, which the container injects via `renderPermission`. Uses the shared
-// <UserAvatar> (Clerk-aware); Ladle renders it through the .ladle Clerk shim.
+// Presentational only: the container injects the per-row permission mutation via
+// `renderPermission`.
 
 type User = OrgUserReturn
 
@@ -58,7 +56,6 @@ export type UsersTableViewProps = {
     sort: TeamSort
     onSortChange: (sort: TeamSort) => void
     fetching?: boolean
-    /** Permission dropdown — injected by the container (it owns the role mutation). */
     renderPermission: (user: User) => ReactNode
 }
 

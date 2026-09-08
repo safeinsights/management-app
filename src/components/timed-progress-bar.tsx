@@ -4,14 +4,11 @@ import { formatRelativeTime } from '@/lib/relative-time'
 import { useTimedProgress, type TimedStep } from '@/hooks/use-timed-progress'
 import { useSpyMode } from './spy-mode-context'
 
-// Whether an instant is still ahead of now. Kept out of the render body (which must stay pure) so the
-// Date.now() read isn't flagged; recomputed each render so an estimate can lapse as time passes.
+// Kept out of the render body, which must stay pure, so the Date.now() read isn't flagged.
 function isFuture(date: Date): boolean {
     return date.getTime() > Date.now()
 }
 
-// Relative time (past or future) in a <time> element carrying the ISO timestamp — in dateTime and as
-// the hover/alt text via title.
 function RelativeTime({ date }: { date: Date }) {
     const iso = date.toISOString()
     return (
@@ -24,19 +21,14 @@ function RelativeTime({ date }: { date: Date }) {
 interface TimedProgressBarProps<T> {
     isVisible: boolean
     steps: TimedStep<T>[]
-    // The data each step's predicate is matched against.
+    /** Matched against each step's predicate. */
     data: T
-    // When progress last advanced; drives the completion estimate and the "updated …" hint.
     lastUpdatedAt?: Date | null
     label?: string
-    // Optional collapsible detail (e.g. logs) revealed by clicking the caption/summary.
+    /** Collapsible detail (e.g. logs) revealed by clicking the caption. */
     children?: ReactNode
 }
 
-// A progress bar driven by useTimedProgress: it fills toward each step's estimate (interpolating
-// between updates) and shows the estimated time to completion (anchored to the last update, and
-// dropped once that estimate lapses) plus how long since progress last updated. When given children,
-// the caption becomes a <details> summary that reveals them. Returns null when not visible.
 export function TimedProgressBar<T>({
     isVisible,
     steps,
@@ -50,8 +42,6 @@ export function TimedProgressBar<T>({
 
     if (!isVisible) return null
 
-    // Anchor the estimate to the last activity. Once we blow past it (progress went quiet), drop the
-    // estimate and just show how long since the last update.
     const readyEstimate = lastUpdatedAt ? new Date(lastUpdatedAt.getTime() + secondsRemaining * 1000) : null
 
     let caption: ReactNode = null
@@ -69,8 +59,6 @@ export function TimedProgressBar<T>({
         )
     }
 
-    // In spy/debug mode the caption becomes the summary of a <details> revealing the children (e.g.
-    // logs); otherwise it's a plain line.
     const details =
         isSpyMode && children ? (
             <details>

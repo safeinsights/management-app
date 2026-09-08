@@ -152,7 +152,6 @@ describe('generateAndStoreStudyReview', () => {
             .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
             .execute()
 
-        // Re-throws so the deferred wrapper still captures + flushes to Sentry.
         await expect(generateAndStoreStudyReview(job.id)).rejects.toThrow('model exploded')
 
         const stored = await db
@@ -178,7 +177,6 @@ describe('generateAndStoreStudyReview', () => {
 
         await generateAndStoreStudyReview(job.id)
 
-        // A failed row is not terminal — generation runs and overwrites it.
         expect(generateAnalysisMock).toHaveBeenCalledOnce()
         const stored = await db
             .selectFrom('studyReview')
@@ -206,7 +204,6 @@ describe('generateAndStoreStudyReview', () => {
         expect(stored).toBeDefined()
         const report = stored!.report
         expect(report.proposalSummary).toMatch(/did not run|disabled/i)
-        // Booleans must be false so the UI doesn't render a missing review as passing.
         expect(report.alignmentCheck.isAligned).toBe(false)
         expect(report.complianceCheck.isCompliant).toBe(false)
         expect(report.alignmentCheck.findings.length).toBeGreaterThan(0)

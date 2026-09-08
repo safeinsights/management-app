@@ -56,9 +56,23 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
     const savingValueRef = useRef<string | null>(null)
     const inFlightSaveRef = useRef<Promise<boolean> | null>(null)
 
+    // A Server Action posts to whatever route is current, so an autosave in flight across a
+    // navigation rejects; reporting it would toast on a page the researcher already left.
+    const isMountedRef = useRef(true)
+    useEffect(() => {
+        isMountedRef.current = true
+        return () => {
+            isMountedRef.current = false
+        }
+    }, [])
+
+    const reportSaveError = reportMutationError('Unable to save resubmission note draft')
     const saveMutation = useMutation({
         mutationFn: (note: string) => saveCodeResubmissionNoteDraftAction({ studyId, note }),
-        onError: reportMutationError('Unable to save resubmission note draft'),
+        onError: (error: unknown) => {
+            if (!isMountedRef.current) return
+            reportSaveError(error)
+        },
     })
 
     const flushSave = useCallback(

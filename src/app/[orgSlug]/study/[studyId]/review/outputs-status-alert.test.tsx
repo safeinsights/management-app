@@ -86,7 +86,7 @@ describe('OutputsStatusAlert', () => {
         renderAt('JOB-RUNNING', 5)
         expect(screen.getByTestId('status-alert')).toHaveTextContent('started 5 minutes ago')
         act(() => {
-            vi.advanceTimersByTime(60 * 60_000) // +1h
+            vi.advanceTimersByTime(60 * 60_000)
         })
         expect(screen.getByTestId('status-alert')).toHaveTextContent('started 1 hour and 5 minutes ago')
     })

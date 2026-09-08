@@ -39,8 +39,6 @@ describe('JobResults', () => {
         org = resp.org
     })
 
-    // Legacy (pre-PR #764): plaintext APPROVED-RESULT rows, no key. Results must render directly,
-    // routed through fetchApprovedJobFilesAction — and the encrypted decrypt path must NOT run.
     it('renders legacy plaintext results without a decrypt key prompt', async () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
         await insertJobFile(job, { fileType: 'APPROVED-RESULT', name: 'results.csv' })
@@ -60,9 +58,6 @@ describe('JobResults', () => {
         expect(screen.queryByPlaceholderText(/Results Key/i)).toBeNull()
     })
 
-    // Encrypted (post-PR #764): ENCRYPTED-RESULT rows still flow through the decrypt panel. With an
-    // accessible (wrapped-key) artifact, the researcher sees a locked row and the key form — and the
-    // legacy fetch must NOT run.
     it('routes encrypted results through the decrypt panel (locked row + key form)', async () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
         const row = await insertJobFile(job, { fileType: 'ENCRYPTED-RESULT', name: 'encrypted-results.zip' })
@@ -86,8 +81,6 @@ describe('JobResults', () => {
         expect(mockFetchApproved).not.toHaveBeenCalled()
     })
 
-    // A job with both encrypted and legacy artifacts (defensive) stays on the encrypted path so
-    // nothing decryptable is silently dropped.
     it('prefers the encrypted path when a job has both encrypted and legacy artifacts', async () => {
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
         await insertJobFile(job, { fileType: 'APPROVED-RESULT', name: 'results.csv' })

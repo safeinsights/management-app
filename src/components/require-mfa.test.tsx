@@ -21,7 +21,6 @@ describe('RequireMFA', () => {
         it('redirects if mfa is not set', async () => {
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: false })
 
-            // act waits for layoutEffect to finish
             await act(async () => {
                 render(<RequireMFA />, { wrapper: TestingProviders })
             })
@@ -36,7 +35,6 @@ describe('RequireMFA', () => {
         })
 
         it('redirects to /account/mfa until MFA is completed', async () => {
-            // 1. brand-new account, Clerk returns twoFactorEnabled: false
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: false })
 
             await act(async () => {
@@ -45,7 +43,6 @@ describe('RequireMFA', () => {
 
             await waitFor(() => expect(router.asPath).toBe('/account/mfa'))
 
-            // 2. user completes MFA → Clerk now returns twoFactorEnabled === true
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: true })
             router.setCurrentUrl(`/${mockSessionValues.orgSlug}/dashboard`)
 
@@ -53,7 +50,6 @@ describe('RequireMFA', () => {
                 render(<RequireMFA />, { wrapper: TestingProviders })
             })
 
-            // stays on requested page – no more redirect
             expect(router.asPath).toBe(`/${mockSessionValues.orgSlug}/dashboard`)
         })
     })

@@ -19,6 +19,7 @@ describe('ResearcherProfileView', () => {
 
         renderWithProviders(
             <ResearcherProfileView
+                header={null}
                 orgSlug={org.slug}
                 studyId={faker.string.uuid()}
                 profileData={profileData}
@@ -47,6 +48,7 @@ describe('ResearcherProfileView', () => {
 
         renderWithProviders(
             <ResearcherProfileView
+                header={null}
                 orgSlug={org.slug}
                 studyId={faker.string.uuid()}
                 profileData={profileData}
@@ -69,7 +71,13 @@ describe('ResearcherProfileView', () => {
         const studyId = faker.string.uuid()
 
         renderWithProviders(
-            <ResearcherProfileView orgSlug={org.slug} studyId={studyId} profileData={profileData} orgType="lab" />,
+            <ResearcherProfileView
+                header={null}
+                orgSlug={org.slug}
+                studyId={studyId}
+                profileData={profileData}
+                orgType="lab"
+            />,
         )
 
         const link = screen.getByText('Back to study proposal')
@@ -85,7 +93,13 @@ describe('ResearcherProfileView', () => {
         const studyId = faker.string.uuid()
 
         renderWithProviders(
-            <ResearcherProfileView orgSlug={org.slug} studyId={studyId} profileData={profileData} orgType="enclave" />,
+            <ResearcherProfileView
+                header={null}
+                orgSlug={org.slug}
+                studyId={studyId}
+                profileData={profileData}
+                orgType="enclave"
+            />,
         )
 
         const link = screen.getByText('Back to study proposal')

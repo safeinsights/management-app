@@ -132,7 +132,6 @@ describe('useResubmitProposal', () => {
                     initialValues: initialProposalValues,
                     validate: zodResolver(proposalFormSchema),
                 })
-                // empty note → noteForm validation fails
                 const noteForm = useForm<ResubmitNoteValue>({
                     mode: 'controlled',
                     initialValues: initialResubmitNoteValue,
@@ -156,7 +155,7 @@ describe('useResubmitProposal', () => {
 
     it('reports an error and does not broadcast when the proposal can no longer be resubmitted', async () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-wrong-status' })
-        // study stays DRAFT (not CHANGE-REQUESTED) → resubmitProposalAction rejects
+        // Staying DRAFT rather than CHANGE-REQUESTED is what makes the action reject.
         const { yjsForm, sendStateless } = buildStubYjsForm()
 
         const { result } = renderHook(

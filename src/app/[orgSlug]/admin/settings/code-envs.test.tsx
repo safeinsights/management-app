@@ -78,13 +78,11 @@ describe('CodeEnvs', async () => {
         await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
         await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
 
-        // Upload a starter code file via the dropzone input
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
         const fileInput = fileInputs[0] as HTMLInputElement
         await userEvent.upload(fileInput, file)
 
-        // Add a command line entry
         await userEvent.type(screen.getByPlaceholderText(/Extension/i), 'r')
         await userEvent.type(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
         await userEvent.click(screen.getByRole('button', { name: /Add command line/i }))
@@ -96,9 +94,8 @@ describe('CodeEnvs', async () => {
         })
     })
 
-    // OTTER-647: a malformed variable name is now rejected on the field the admin typed into
-    // when they click "+", instead of being accepted into the list and only surfacing later in
-    // the generic summary above Save, where nothing said which row was at fault.
+    // OTTER-647: rejected on the field the admin typed into, not later in a summary that never
+    // said which row was at fault.
     it('rejects a malformed env var name on the field itself', { timeout: 15000 }, async () => {
         renderWithProviders(<CodeEnvs />)
 
@@ -108,17 +105,80 @@ describe('CodeEnvs', async () => {
             expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
         })
 
-        // A name starting with a digit is invalid per envVarKeyRegex.
         await userEvent.type(screen.getByPlaceholderText(/Variable name/i), '1BAD')
         await userEvent.type(screen.getByPlaceholderText(/^Value$/i), 'something')
         await userEvent.click(screen.getByRole('button', { name: /Add environment variable/i }))
 
-        // Rendered both inline on the field and in the summary above Save.
         expect((await screen.findAllByText(/Invalid variable name/i)).length).toBeGreaterThan(0)
         const nameInput = screen.getByPlaceholderText(/Variable name/i)
         expect(nameInput).toHaveAttribute('aria-invalid', 'true')
-        // The row was not added, so the draft value is still in the input.
         expect(nameInput).toHaveValue('1BAD')
+    })
+
+    // OTTER-647: an undefined seed made the array type check fail before `.min(1)` ran, so Save
+    // surfaced Zod's internal message instead of the requirement.
+    it('names the starter code requirement in plain language', async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+
+        await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
+
+        expect((await screen.findAllByText(/At least one starter code file is required/i)).length).toBeGreaterThan(0)
+        expect(screen.queryByText(/expected array/i)).not.toBeInTheDocument()
+    })
+
+    it('flags the starter code dropzone once it has been visited and left empty', async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+
+        expect(screen.queryByText(/At least one starter code file is required/i)).not.toBeInTheDocument()
+
+        fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
+
+        expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+    })
+
+    // The `[]` seed also reaches the edit path, where an empty list would read as "cleared the
+    // starter code" rather than "left the existing files alone".
+    it('saves an edit with an untouched dropzone and keeps the existing starter code', async () => {
+        const codeEnv = await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Editable Env',
+            language: 'R',
+            starterCodeFileNames: ['existing.R'],
+        })
+
+        renderWithProviders(<CodeEnvs />)
+        await waitFor(() => expect(screen.getByText('Editable Env')).toBeInTheDocument())
+
+        fireEvent.click(screen.getByRole('button', { name: /edit editable env/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Edit Code Environment/i })).toBeInTheDocument()
+        })
+
+        const nameInput = screen.getByLabelText(/Name/i)
+        await userEvent.clear(nameInput)
+        await userEvent.type(nameInput, 'Renamed Env')
+        await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
+
+        await waitFor(() => expect(screen.getByText('Renamed Env')).toBeInTheDocument())
+
+        const saved = await db
+            .selectFrom('orgCodeEnv')
+            .select(['name', 'starterCodeFileNames'])
+            .where('id', '=', codeEnv.id)
+            .executeTakeFirstOrThrow()
+
+        expect(saved.name).toBe('Renamed Env')
+        expect(saved.starterCodeFileNames).toEqual(['existing.R'])
     })
 
     it('hides delete when there is only one code environment', async () => {
@@ -244,5 +304,45 @@ describe('CodeEnvs', async () => {
         expect(screen.getAllByText('Env Vars').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()
         expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
+    })
+
+    describe('change history', () => {
+        it('shows recorded changes when the history icon is clicked', async () => {
+            const codeEnv = await insertTestCodeEnv({ orgId: org.id, name: 'Audited Env', language: 'R' })
+            const { user } = await mockSessionWithTestData({ isAdmin: true, orgSlug: org.slug })
+
+            await db
+                .insertInto('audit')
+                .values({
+                    userId: user.id,
+                    eventType: 'UPDATED',
+                    recordType: 'CODE_ENV',
+                    recordId: codeEnv.id,
+                    metadata: { changes: [{ field: 'url', before: 'repo/img:v1', after: 'repo/img:v2' }] },
+                })
+                .execute()
+
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText('Audited Env')).toBeInTheDocument())
+
+            fireEvent.click(screen.getByRole('button', { name: /history for audited env/i }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('dialog')).toBeInTheDocument()
+            })
+            expect(await screen.findByText(/repo\/img:v1/)).toBeInTheDocument()
+            expect(screen.getByText(/repo\/img:v2/)).toBeInTheDocument()
+        })
+
+        it('shows an empty state when nothing has been recorded', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'Untouched Env', language: 'R' })
+
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText('Untouched Env')).toBeInTheDocument())
+
+            fireEvent.click(screen.getByRole('button', { name: /history for untouched env/i }))
+
+            expect(await screen.findByText(/no changes have been recorded/i)).toBeInTheDocument()
+        })
     })
 })

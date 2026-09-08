@@ -1,4 +1,3 @@
-// errorUtils.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AccessDeniedError, ActionFailure, isClerkApiError, isActionError, errorToString } from './errors'
 
@@ -65,7 +64,7 @@ describe('isActionError', () => {
 
 describe('errorToString', () => {
     beforeEach(() => {
-        vi.clearAllMocks() // Clear mocks before each test
+        vi.clearAllMocks()
     })
 
     it('returns an empty string for falsy errors', () => {
@@ -108,7 +107,6 @@ describe('errorToString', () => {
         }
         const result = errorToString(serverError)
         expect(result).toBe('Msg Sanitized from server')
-        // In this case, the sanitized error is extracted before the branch that calls captureException
     })
 
     it('handles a Clerk API error by formatting its messages', () => {

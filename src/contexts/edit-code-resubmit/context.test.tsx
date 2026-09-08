@@ -9,6 +9,11 @@ vi.mock('@/server/actions/study-request', () => ({
     saveCodeResubmissionNoteDraftAction: vi.fn(),
 }))
 
+const mutationErrorHandler = vi.fn()
+vi.mock('@/components/errors', () => ({
+    reportMutationError: vi.fn(() => mutationErrorHandler),
+}))
+
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) {
@@ -29,6 +34,41 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
 }
 
 describe('EditCodeResubmitProvider', () => {
+    // A Server Action posts to whatever route is current, so an autosave in flight across a
+    // navigation rejects; reporting it would toast on a page the researcher already left.
+    it('does not report an autosave that rejects after the provider unmounts', async () => {
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+        mutationErrorHandler.mockClear()
+
+        const saveDraftAction = vi.mocked(saveCodeResubmissionNoteDraftAction)
+        // Stays pending so the save is genuinely in flight across the unmount.
+        let rejectSave: (error: Error) => void = () => {}
+        saveDraftAction.mockImplementation(
+            () =>
+                new Promise((_resolve, reject) => {
+                    rejectSave = reject
+                }) as ReturnType<typeof saveCodeResubmissionNoteDraftAction>,
+        )
+
+        const onSaveResult = vi.fn()
+
+        const { unmount } = renderWithProviders(
+            <EditCodeResubmitProvider studyId={STUDY_ID} initialNote="">
+                <Harness onSaveResult={onSaveResult} />
+            </EditCodeResubmitProvider>,
+        )
+
+        const note = 'typed right before navigating away'
+        fireEvent.change(screen.getByLabelText('Resubmission note'), { target: { value: note } })
+        await waitFor(() => expect(saveDraftAction).toHaveBeenCalled())
+
+        unmount()
+        rejectSave(new Error('An unexpected response was received from the server.'))
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(mutationErrorHandler).not.toHaveBeenCalled()
+    })
+
     it('retries the same note after a save failure instead of marking it saved', async () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
         const saveDraftAction = vi.mocked(saveCodeResubmissionNoteDraftAction)

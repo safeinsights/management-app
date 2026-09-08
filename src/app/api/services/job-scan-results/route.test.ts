@@ -3,6 +3,7 @@ import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
+import { fetchFileContents } from '@/server/storage'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -78,9 +79,8 @@ test('returns 404 for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-// CODE-SUBMITTED is owned by the submission action (markCodeSubmitted), not the scanner — the scan
-// trigger sends no ON_START_PAYLOAD. The webhook ignores any CODE-SUBMITTED so a stray scanner echo
-// can't corrupt the append-only submission log (each CODE-SUBMITTED is a real round).
+// CODE-SUBMITTED is owned by markCodeSubmitted, not the scanner, so a stray scanner echo can't
+// corrupt the append-only submission log.
 test('ignores CODE-SUBMITTED (the scanner does not own that status)', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -117,8 +117,7 @@ test('inserts JOB-ERRORED status', async () => {
     expect(rows.some((r) => r.status === 'JOB-ERRORED')).toBe(true)
 })
 
-// Persists log files through real S3 (storeStudyEncrypted*/storeStudyLogFile),
-// so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+// Real S3, so skipped without SeaweedFS locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -149,8 +148,68 @@ test.skipIf(!s3Available)('stores encrypted and plaintext logs on CODE-SCANNED',
     expect(files.some((f) => f.fileType === 'SECURITY-SCAN-LOG')).toBe(true)
 })
 
-// A stray CODE-SUBMITTED echo from an older scanner must never reach the status log — it would
-// corrupt the append-only submission count (here: turn a decided round back into "under review").
+// OTTER-642: log files were stored on every call, so a re-delivered CODE-SCANNED doubled the
+// scan-log rows. storeJobFile now updates in place.
+test.skipIf(!s3Available)('does not duplicate log files when CODE-SCANNED is delivered twice', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const body = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: no issues found.' }
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+
+    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
+    expect(files.filter((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toHaveLength(1)
+    expect(files.filter((f) => f.fileType === 'SECURITY-SCAN-LOG')).toHaveLength(1)
+})
+
+// One scan log is stored twice: encrypted for the researcher, plaintext for the reviewer. Once the
+// encrypted half is shared its keys pin the ciphertext, so the plaintext half must be refused with
+// it, or the reviewer sees findings from a log the researcher cannot open.
+test.skipIf(!s3Available)('leaves the plaintext scan log alone when its encrypted half is refused', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const first = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: no issues found.' }
+    expect((await apiHandler.POST(authedRequest(first))).ok).toBe(true)
+
+    const encrypted = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .executeTakeFirstOrThrow()
+    await db
+        .insertInto('studyJobFileRecipientKey')
+        .values({
+            studyJobFileId: encrypted.id,
+            filePath: 'security-scan-log.txt',
+            fingerprint: 'test-fingerprint',
+            crypt: 'test-crypt',
+        })
+        .execute()
+
+    const plaintext = await db
+        .selectFrom('studyJobFile')
+        .select('path')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'SECURITY-SCAN-LOG')
+        .executeTakeFirstOrThrow()
+
+    const rescan = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: 3 critical findings.' }
+    expect((await apiHandler.POST(authedRequest(rescan))).ok).toBe(true)
+
+    // Asserted on the stored bytes: both halves update in place, so a replacement is invisible in
+    // the database.
+    const contents = await (await fetchFileContents(plaintext.path)).text()
+    expect(contents).toContain('no issues found')
+    expect(contents).not.toContain('3 critical findings')
+})
+
+// A stray CODE-SUBMITTED echo would corrupt the append-only submission count, turning a decided
+// round back into "under review".
 test('ignores a CODE-SUBMITTED echo even after the round has been decided', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })

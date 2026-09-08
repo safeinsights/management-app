@@ -2,9 +2,6 @@ import type { Story } from '@ladle/react'
 import { Box } from '@mantine/core'
 import { csvViewer } from './csv-viewer'
 
-// csvViewer parses CSV text (header row + data rows) and renders a Mantine
-// DataTable. It returns null for non-.csv paths or empty content, so every story
-// passes a .csv path and inline CSV text.
 const meta = { title: 'File viewers / Csv viewer' }
 export default meta
 
@@ -21,7 +18,6 @@ const singleRowCsv = `metric,value
 total_patients,1240
 `
 
-// A header row only — DataTable renders the columns with an empty body.
 const headersOnlyCsv = `patient_id,age,treatment_group,outcome
 `
 

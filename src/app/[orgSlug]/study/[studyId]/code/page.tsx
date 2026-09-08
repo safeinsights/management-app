@@ -1,7 +1,7 @@
 'use server'
 
 import { Stack } from '@mantine/core'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
@@ -25,21 +25,14 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    orgSlug,
-                    studyId,
-                    studyTitle: result.title,
-                    current: 'Provide code',
-                }}
-            />
+            <StudyPageHeader study={result} />
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}
                 studyTitle={result.title}
                 previousHref={
                     result.status === 'APPROVED'
-                        ? Routes.studyResearcherAgreements({ orgSlug, studyId })
+                        ? Routes.studySubmitted({ orgSlug, studyId })
                         : Routes.studyEdit({ orgSlug, studyId })
                 }
             />

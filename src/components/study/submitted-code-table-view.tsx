@@ -4,9 +4,7 @@ import { DownloadSimpleIcon, EyeIcon, StarIcon } from '@phosphor-icons/react/dis
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { studyCodeURL } from '@/lib/paths'
 
-// Presentational table, deliberately free of data fetching (useQuery), server-action
-// imports, and the preview modal so it can render in isolation (e.g. Ladle). The
-// SubmittedCodeTable container (./submitted-code-table) owns that plumbing.
+// Free of data fetching and the preview modal so it can render in isolation.
 
 export type SubmittedFile = LatestJobForStudy['files'][number]
 
@@ -18,9 +16,7 @@ const formatUpdatedAt = (date: Date | string) =>
         minute: '2-digit',
     })
 
-// Post-submission the main file is locked in, so the star renders in the disabled
-// grey style (still filled to show it's selected) rather than the active indigo used
-// while the researcher is choosing their main file.
+// Post-submission the main file is locked in, so the star renders grey but still filled.
 const STAR_COLOR = 'var(--mantine-color-gray-5)'
 
 const SubmittedCodeRow: FC<{

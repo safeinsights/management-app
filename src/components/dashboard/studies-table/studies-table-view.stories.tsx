@@ -7,9 +7,8 @@ import { StudiesTableView } from './studies-table-view'
 import { StudyRowView } from './study-row-view'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 
-// The dashboard page-view (pattern-setter for page-level stories). StudiesTableView is
-// presentational; rows are supplied via renderRow. Here renderRow builds a session-free
-// StudyRowView with a plain "View" link (the real container injects the StudyActionLink).
+// renderRow builds a session-free StudyRowView with a plain link; the real container injects
+// the Clerk-coupled StudyActionLink.
 const meta = { title: 'Pages / Dashboard', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -32,6 +31,7 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     projectSummary: null,
     impact: null,
     additionalNotes: null,
+    hasStep2CollabDoc: false,
     orgName: 'Mars University',
     orgSlug: 'mars-university',
     reviewingEnclaveName: 'Mars University Data Partner',

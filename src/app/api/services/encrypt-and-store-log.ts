@@ -16,18 +16,25 @@ interface EncryptAndStoreLogParams {
     job: { jobId: string; studyId: string; orgId: string; orgSlug: string }
 }
 
-export async function encryptAndStoreLog({ route, plaintextLog, fileType, job }: EncryptAndStoreLogParams) {
+// Null means no write was attempted, so there is no encrypted counterpart a plaintext twin could
+// disagree with.
+export async function encryptAndStoreLog({
+    route,
+    plaintextLog,
+    fileType,
+    job,
+}: EncryptAndStoreLogParams): Promise<{ stored: boolean } | null> {
     try {
         const recipients = await getOrgPublicKeys(job.orgId)
-        if (recipients.length > 0) {
-            const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType))
-            const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', { type: 'application/zip' })
-            await storeStudyEncryptedLogFile(
-                { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
-                encryptedFile,
-                fileType,
-            )
-        }
+        if (recipients.length === 0) return null
+
+        const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType))
+        const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', { type: 'application/zip' })
+        return await storeStudyEncryptedLogFile(
+            { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+            encryptedFile,
+            fileType,
+        )
     } catch (encryptionError) {
         logger.error('Failed to encrypt and store error log', encryptionError, {
             route,
@@ -35,5 +42,6 @@ export async function encryptAndStoreLog({ route, plaintextLog, fileType, job }:
             studyId: job.studyId,
             orgId: job.orgId,
         })
+        return null
     }
 }

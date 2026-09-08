@@ -34,7 +34,6 @@ describe('LinkWithIcon', () => {
 
         const link = screen.getByTestId('link')
         const iconEl = screen.getByTestId('icon')
-        // Trailing: the icon follows the label text in document order.
         expect(link.textContent).toBe('Label')
         expect(link.lastElementChild).toBe(iconEl)
     })
@@ -58,9 +57,7 @@ describe('LinkWithIcon', () => {
         )
 
         const link = screen.getByTestId('link')
-        // A caller-added key applies, and a caller override of a base key (gap) wins.
         expect(link).toHaveStyle({ marginTop: '10px', gap: '8px' })
-        // An untouched base layout key survives the merge.
         expect(link).toHaveStyle({ whiteSpace: 'nowrap' })
     })
 })

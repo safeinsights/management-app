@@ -1,10 +1,5 @@
-// OTTER-556 follow-up: the resubmit page's eligibility gate must read the job's
-// resubmittable status order-independently. jobStatusChange.createdAt defaults to now()
-// (constant within a transaction) and v7 ids are not reliably monotonic within a
-// millisecond, so a late CODE-SCANNED webhook can append *after* the decision and become
-// statusChanges[0]. Reading the topmost row alone would reject a resubmittable study and
-// 404 the page even though the "Edit and resubmit" button (which uses the order-independent
-// projected state) correctly rendered. The page now gates on canResearcherResubmitCode.
+// OTTER-556: a late CODE-SCANNED webhook can land as statusChanges[0], so reading the topmost row
+// would 404 a resubmittable study. The page gates on canResearcherResubmitCode instead.
 import { describe, it, expect } from 'vitest'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
@@ -21,13 +16,10 @@ describe('ResubmitStudyCodePage', () => {
             org,
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
-            // First status row on the job. Subsequent rows below get higher ids and sort
-            // ahead of it in statusChanges (ordered by id desc).
             jobStatus: 'CODE-SUBMITTED',
         })
 
-        // The decision, then a late CODE-SCANNED webhook appended afterward (highest id =>
-        // statusChanges[0]). CODE-SCANNED is not a resubmittable status.
+        // The decision, then a late CODE-SCANNED webhook that lands as statusChanges[0].
         await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
         await insertStatus(job.id, 'CODE-SCANNED')
 
@@ -35,8 +27,6 @@ describe('ResubmitStudyCodePage', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
         })
 
-        // notFound() is a no-op mock in the test env, so a gated-out page resolves to
-        // undefined. A rendered page is defined.
         expect(page).toBeDefined()
     })
 

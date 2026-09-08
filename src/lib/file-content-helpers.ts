@@ -35,9 +35,23 @@ export function parseLogMessages(text: string): LogEntry[] | null {
         for (const item of parsed) {
             if (typeof item !== 'object' || item === null) return null
             if (typeof item.timestamp !== 'number' || typeof item.message !== 'string') return null
+            // This viewer is chosen by sniffing content, so a log-shaped result file would
+            // otherwise render with its other fields silently dropped.
+            if (Object.keys(item).length !== 2) return null
             entries.push({ timestamp: item.timestamp, message: item.message })
         }
         return entries
+    } catch {
+        return null
+    }
+}
+
+export function formatJson(text: string): string | null {
+    const trimmed = text.trim()
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
+
+    try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2)
     } catch {
         return null
     }

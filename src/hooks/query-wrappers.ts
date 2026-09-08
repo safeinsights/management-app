@@ -8,24 +8,21 @@ import {
     type UseMutationResult,
     useQueryClient,
     skipToken,
+    keepPreviousData,
 } from '@tanstack/react-query'
 
 import { type ActionResponse, isActionError, ActionFailure } from '@/lib/errors'
 
-export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken }
+export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }
 
-// Helper function to process response - handles ActionResponse format and raw responses
 function processResponse<T>(response: ActionResponse<T>): T {
-    // If it's an error response, report it and throw
     if (isActionError(response)) {
         throw new ActionFailure(response.error)
     }
 
-    // Otherwise, return as-is (raw response)
     return response
 }
 
-// Wrapped useQuery that automatically handles error responses
 export function useQuery<TApiData>(
     options: {
         queryKey: readonly unknown[]
@@ -41,7 +38,6 @@ export function useQuery<TApiData>(
     })
 }
 
-// Wrapped useMutation that automatically handles error responses
 export function useMutation<TApiData, TVariables = void>(
     options: {
         mutationFn: (variables: TVariables) => Promise<ActionResponse<TApiData>>
@@ -56,5 +52,4 @@ export function useMutation<TApiData, TVariables = void>(
     })
 }
 
-// Re-export the unified isActionError function for backwards compatibility
 export { isActionError as actionResponseIsError }

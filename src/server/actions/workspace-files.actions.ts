@@ -42,7 +42,7 @@ export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
         const filePath = path.join(coderFilesPath, sanitized)
-        // Raw bytes, not utf-8: workspace files include binary artifacts like png plots (OTTER-516)
+        // Raw bytes, not utf-8: workspace files include binary artifacts like png plots (OTTER-516).
         const contents = await fs.readFile(filePath)
         return { fileName: sanitized, contents: new Uint8Array(contents).buffer }
     })
@@ -60,7 +60,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
             await fs.unlink(filePath)
         } catch (e) {
             if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
-                // File already gone, that's fine
+                // already gone; deleting is idempotent
             } else {
                 throw e
             }

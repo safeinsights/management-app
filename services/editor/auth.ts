@@ -5,6 +5,7 @@
 
 import {
     CODE_REVIEW_FEEDBACK_PREFIX,
+    OUTPUTS_REVIEW_FEEDBACK_PREFIX,
     PROPOSAL_PREFIX,
     PROPOSAL_TEXT_SLUGS,
     RESUBMISSION_NOTE_SUFFIX_RE,
@@ -47,13 +48,27 @@ const SUBMITTED_REVIEW_STATUSES: readonly StudyStatus[] = ['APPROVED', 'CHANGE-R
 export type ParsedDocumentName =
     | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'code-review-feedback'; jobId: string }
+    | { kind: 'outputs-review-feedback'; jobId: string }
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
     | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
 
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
+// Job-keyed feedback documents: the doc name carries a study_job.id, not a study.id.
+const JOB_KEYED_KINDS: ReadonlyArray<ParsedDocumentName['kind']> = ['code-review-feedback', 'outputs-review-feedback']
+
+const isJobKeyed = (
+    parsed: ParsedDocumentName,
+): parsed is { kind: 'code-review-feedback' | 'outputs-review-feedback'; jobId: string } =>
+    JOB_KEYED_KINDS.includes(parsed.kind)
+
 export function parseDocumentName(name: string): ParsedDocumentName | null {
+    if (name.startsWith(OUTPUTS_REVIEW_FEEDBACK_PREFIX)) {
+        const jobId = name.slice(OUTPUTS_REVIEW_FEEDBACK_PREFIX.length)
+        return UUID_RE.test(jobId) ? { kind: 'outputs-review-feedback', jobId } : null
+    }
+
     // Longer prefix first; otherwise REVIEW_FEEDBACK_PREFIX would mis-match a
     // code-review-feedback doc name.
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
@@ -92,13 +107,13 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
     return null
 }
 
-// review-feedback-* and code-review-feedback-* documents are owned by the
-// reviewing org (DO). proposal-* documents are owned by the submitting lab.
+// review-feedback-*, code-review-feedback-* and outputs-review-feedback-* documents are owned
+// by the reviewing org (DO). proposal-* documents are owned by the submitting lab.
 export function requiredOrgIdForDocument(
     parsed: ParsedDocumentName,
     study: { org_id: string; submitted_by_org_id: string },
 ): string {
-    if (parsed.kind === 'review-feedback' || parsed.kind === 'code-review-feedback') return study.org_id
+    if (parsed.kind === 'review-feedback' || isJobKeyed(parsed)) return study.org_id
     return study.submitted_by_org_id
 }
 
@@ -109,11 +124,13 @@ export type StudyEditabilitySnapshot = {
 // Whether the canonical Yjs state for `parsed` may still be mutated given the
 // current study status. Authentication and the persist-time gate both consult
 // this so stale clients cannot keep streaming updates after a status flip.
-// Code-review docs are not status-gated here: the management-app action layer
+// Job-keyed review docs are not status-gated here: the management-app action layer
 // is the single enforcer of code-review versioning (see
 // claimInitialCodeReviewJob in study.actions.ts), and per-document room
 // isolation in Hocuspocus prevents stale-round writes from polluting a
-// different round's persisted state.
+// different round's persisted state. Outputs-review feedback is exempt here too, but for a
+// narrower reason: what bounds it is the job's files decision, not the STUDY status this snapshot
+// carries, so the check lives in shouldPersistDocument where the job id is available.
 export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditabilitySnapshot): boolean {
     switch (parsed.kind) {
         case 'review-feedback':
@@ -125,6 +142,7 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
         case 'proposal-resubmission-note':
             return snap.status === 'CHANGE-REQUESTED'
         case 'code-review-feedback':
+        case 'outputs-review-feedback':
             return true
     }
 }
@@ -134,9 +152,23 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
 // covers new and reconnecting clients, but already-connected clients keep
 // streaming Yjs updates between a status flip and their own kick-out. This
 // gate is the second line of defense so post-flip writes never land in
-// yjs_document. Code-review docs are not gated here; see isDocumentEditable.
+// yjs_document.
+//
+// Code-review docs are exempt (see isDocumentEditable). Outputs-review docs are NOT: the decision
+// action deletes the draft on submit, and without a gate here an already-connected tab would
+// simply persist it again a moment later, resurrecting feedback for a decision that is final.
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
     if (parsed.kind === 'code-review-feedback') return true
+
+    if (parsed.kind === 'outputs-review-feedback') {
+        const decided = await db.query<{ exists: boolean }>(
+            `SELECT 1 FROM job_status_change
+              WHERE study_job_id = $1 AND status::text IN ('FILES-APPROVED', 'FILES-REJECTED')
+              LIMIT 1`,
+            [parsed.jobId],
+        )
+        return decided.rowCount === 0
+    }
 
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
     const status = row.rows[0]?.status
@@ -261,11 +293,11 @@ export interface AuthenticatedContext {
     studyId: string
 }
 
-// Resolves the authoritative studyId for the document. For non-code-review
-// docs this is just parsed.studyId. For code-review-feedback docs the doc name
+// Resolves the authoritative studyId for the document. For study-keyed docs this is just
+// parsed.studyId. For job-keyed docs (code-review / outputs-review feedback) the doc name
 // carries a study_job.id, so we resolve through one single-table SELECT.
 export async function studyIdForDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<string> {
-    if (parsed.kind !== 'code-review-feedback') return parsed.studyId
+    if (!isJobKeyed(parsed)) return parsed.studyId
     const row = await db.query<{ study_id: string }>('SELECT study_id FROM study_job WHERE id = $1', [parsed.jobId])
     const studyId = row.rows[0]?.study_id
     if (!studyId) throw new AuthFailureError('STUDY_NOT_FOUND', 'study_job not found')

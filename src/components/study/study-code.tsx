@@ -36,12 +36,7 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
                         {ide.submitDisabledReason}
                     </Text>
                 )}
-                <Button
-                    variant="primary"
-                    disabled={!ide.canSubmit}
-                    loading={ide.isDirectSubmitting}
-                    onClick={openConfirm}
-                >
+                <Button disabled={!ide.canSubmit} loading={ide.isDirectSubmitting} onClick={openConfirm}>
                     Submit code
                 </Button>
             </Stack>

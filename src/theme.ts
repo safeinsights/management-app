@@ -1,4 +1,6 @@
 import {
+    type ButtonProps,
+    type ButtonVariant,
     createTheme,
     CSSVariablesResolver,
     DefaultMantineColor,
@@ -6,7 +8,7 @@ import {
     MantineColorsTuple,
 } from '@mantine/core'
 import type { HeadingSize, TextSize } from './components/ui/typography'
-import { uiThemeComponents } from './components/ui/theme-components'
+import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
 import { semanticCssVariables } from './theme/tokens'
 
 // Generated from "Interim design tokens - handoff - Jul 2026" (W3C DTCG).
@@ -162,6 +164,27 @@ declare module '@mantine/core' {
 const fontFamilySans = '"Open Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 const fontFamilyMono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
 
+// Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
+// itself, so each needs brand/Light supplied explicitly.
+const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'light']
+
+// Mantine's own disabled rule reads these two variables, so overriding them on the button element
+// repaints the disabled state without touching disabled inputs, checkboxes or radios. They have to
+// travel as custom properties: `vars` reaches the DOM as an inline style, and an inline style cannot
+// carry the :disabled pseudo-class a `styles` callback would need.
+const DISABLED_VARS: Record<string, string> = {
+    '--mantine-color-disabled': grey[1],
+    '--mantine-color-disabled-color': charcoal[6],
+}
+
+export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
+    root: {
+        ...DISABLED_VARS,
+        ...buttonSizeVars(props.size),
+        ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
+    },
+})
+
 export const theme = createTheme({
     fontFamily: fontFamilySans,
     fontFamilyMonospace: fontFamilyMono,
@@ -230,8 +253,8 @@ export const theme = createTheme({
         turquoise,
     },
     components: {
-        // uiThemeComponents carries the Figma-transcribed Button/Alert/TextInput overrides;
-        // it is spread first so the app-specific entries below win on any shared key.
+        // uiThemeComponents carries the Figma-transcribed Alert/TextInput overrides; it is spread
+        // first so the app-specific entries below win on any shared key.
         ...uiThemeComponents,
         Table: {
             styles: () => ({
@@ -240,6 +263,15 @@ export const theme = createTheme({
                     backgroundColor: charcoal[0],
                 },
             }),
+        },
+        // Button geometry comes from buttonSizeVars, its colours from OTTER-761's buttonVars — one
+        // `vars` function, because Mantine only calls one per component.
+        Button: {
+            defaultProps: {
+                color: 'navy',
+                radius: 'xs',
+            },
+            vars: buttonVars,
         },
     },
     primaryShade: 5,

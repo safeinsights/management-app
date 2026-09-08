@@ -8,11 +8,8 @@ import type { StudyForReview } from './review-types'
 type ProposalSectionProps = {
     study: StudyForReview
     orgSlug: string
-    // `priorEntries` are passed straight through to ProposalRequest for the
-    // header timestamp. `reviewVersion` is the single source of truth for
-    // resubmission state (DB MAX, populated by ProposalReviewView); we no
-    // longer re-derive it from entries here. Defaults to 1 (first submission)
-    // for callers that don't have a review version in scope.
+    // reviewVersion is the single source of truth for resubmission state, never re-derived from
+    // entries.
     priorEntries?: ProposalFeedbackEntry[]
     reviewVersion?: number
 }

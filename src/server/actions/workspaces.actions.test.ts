@@ -1,9 +1,13 @@
 import {
     mockSessionWithTestData,
     actionResult,
+    createTestProposalDraft,
     insertTestBaselineJob,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestCodeEnv,
+    insertTestUser,
+    mockClerkSession,
     db,
 } from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
@@ -20,40 +24,33 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-// Mock dependencies moved to doMock in beforeEach
-
 describe('Workspace Actions', () => {
-    // Setup a temp directory for this test suite
     const TEST_CODER_FILES = '/tmp/coder-test-suite-' + Math.random().toString(36).slice(2)
 
-    // Save original env var to restore later
     const originalCoderFiles = process.env.CODER_FILES
 
     fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
 
     beforeEach(() => {
-        vi.resetModules() // Ensure we get fresh modules with our mocks applied
+        vi.resetModules()
 
-        // Define the mock for this test run
         vi.doMock('@/server/config', async (importOriginal) => {
             const mod = await importOriginal<typeof import('@/server/config')>()
             return {
                 ...mod,
-                CODER_DISABLED: false, // Force false to test production path logic
+                CODER_DISABLED: false,
                 getConfigValue: vi.fn().mockImplementation((key) => process.env[key]),
             }
         })
     })
 
     afterEach(async () => {
-        // Cleanup after each test
         try {
             await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
         } catch {
-            // ignore
+            // best-effort cleanup; a failure here must not fail the test
         }
 
-        // Restore environment
         if (originalCoderFiles) {
             process.env.CODER_FILES = originalCoderFiles
         } else {
@@ -62,21 +59,17 @@ describe('Workspace Actions', () => {
     })
 
     test('listWorkspaceFilesAction gracefully handles missing workspace directory', async () => {
-        // Point to our temp location which currently does not exist
         process.env.CODER_FILES = TEST_CODER_FILES
 
         const { org, user } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        // Dynamic import to ensure it picks up the mock after resetModules
         const { listWorkspaceFilesAction } = await import('./workspaces.actions')
 
         const result = actionResult(await listWorkspaceFilesAction({ studyId: study.id }))
 
-        // Should return empty list, not throw
         expect(result).toMatchObject({
             files: [],
-            suggestedMain: undefined,
         })
     })
 
@@ -88,14 +81,12 @@ describe('Workspace Actions', () => {
 
         const studyDir = path.join(TEST_CODER_FILES, study.id)
 
-        // Create mock workspace with files
         await fs.mkdir(studyDir, { recursive: true })
         await fs.writeFile(path.join(studyDir, 'main.py'), 'print("hello")')
         await fs.writeFile(path.join(studyDir, 'README.md'), '# readme')
-        await fs.writeFile(path.join(studyDir, 'data.csv'), '1,2,3') // File
-        await fs.mkdir(path.join(studyDir, 'subdir')) // Directory (should be ignored based on logic)
+        await fs.writeFile(path.join(studyDir, 'data.csv'), '1,2,3')
+        await fs.mkdir(path.join(studyDir, 'subdir'))
 
-        // Dynamic import to ensure it picks up the mock after resetModules
         const { listWorkspaceFilesAction } = await import('./workspaces.actions')
 
         const result = actionResult(await listWorkspaceFilesAction({ studyId: study.id }))
@@ -103,7 +94,7 @@ describe('Workspace Actions', () => {
         const fileNames = result.files.map((f: { name: string }) => f.name)
         expect(fileNames).toContain('main.py')
         expect(fileNames).toContain('README.md')
-        expect(result.files).toHaveLength(3) // main.py, README.md, data.csv
+        expect(result.files).toHaveLength(3)
         expect(result.files[0]).toHaveProperty('size')
         expect(result.files[0]).toHaveProperty('mtime')
     })
@@ -141,9 +132,8 @@ describe('Workspace Actions', () => {
         })
     })
 
-    // OTTER-601: the submit-enable baseline must be the last *submission* time, not the round job's
-    // createdAt — otherwise relaunching an already-submitted study (which no longer mints a fresh
-    // job) re-enables Submit with no edits.
+    // OTTER-601: the submit-enable baseline is the last *submission* time, not the round job's
+    // createdAt, or relaunching an already-submitted study re-enables Submit with no edits.
     describe('getLastSubmissionInfoAction', () => {
         test('with no submission, falls back to the round job createdAt and no files', async () => {
             const { org, user } = await mockSessionWithTestData()
@@ -222,21 +212,18 @@ describe('Workspace Actions', () => {
                 ])
                 .execute()
 
-            // A relaunch opens a fresh INITIATED round-2 job (newer) with no files.
             await insertTestBaselineJob(study.id)
 
             const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
             const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))
 
-            // Baseline stays the prior submission, not the empty round-2 job.
             expect(result?.createdAt).toBe(submittedAt.toISOString())
             expect(result?.fileNames).toEqual(['main.r'])
         })
     })
 
-    // OTTER-602: launching the IDE must not reset submit-enable when files were already uploaded
-    // manually. The re-anchor that fixed OTTER-601 (advance createdAt so post-launch edits enable
-    // Submit) is correct only on an empty round — with files present it marks them all stale.
+    // OTTER-602: the OTTER-601 re-anchor is correct only on an empty round; with files present it
+    // marks them all stale.
     describe('ensureWorkspaceAction submit-enable baseline (OTTER-602)', () => {
         const mockCoder = () =>
             vi.doMock('@/server/coder', () => ({
@@ -260,11 +247,9 @@ describe('Workspace Actions', () => {
                 jobStatus: 'INITIATED',
             })
 
-            // Backdate the round so a wrongful re-anchor would be unmistakable.
             const backdated = new Date(Date.now() - 60_000)
             await db.updateTable('studyJob').set({ createdAt: backdated }).where('id', '=', job.id).execute()
 
-            // Simulate a manual upload: a real file on disk in the study workspace.
             const studyDir = path.join(TEST_CODER_FILES, study.id)
             await fs.mkdir(studyDir, { recursive: true })
             await fs.writeFile(path.join(studyDir, 'main.py'), 'print("hi")')
@@ -294,6 +279,77 @@ describe('Workspace Actions', () => {
             actionResult(await ensureWorkspaceAction({ studyId: study.id }))
 
             expect((await jobCreatedAt(job.id)).getTime()).toBeGreaterThan(backdated.getTime())
+        })
+    })
+
+    // OTTER-719: the `load IDE` grant used to be unconditioned, so any lab member could read or
+    // overwrite another lab's in-progress code. These exercise the RPC endpoints themselves.
+    describe('cross-lab workspace access', () => {
+        const setupOtherLabStudy = async () => {
+            const { studyId } = await createTestProposalDraft({ enclaveSlug: 'otter719-enclave' })
+
+            // orgType defaults to 'enclave' and the rule under test applies to lab members only.
+            const otherLab = await insertTestOrg({ slug: 'otter719-other-lab', type: 'lab' })
+            const { user: intruder } = await insertTestUser({ org: otherLab })
+            mockClerkSession({
+                clerkUserId: intruder.clerkId,
+                orgSlug: otherLab.slug,
+                userId: intruder.id,
+                orgId: otherLab.id,
+                orgType: 'lab',
+            })
+
+            // vi.resetModules() in beforeEach means the dynamically-imported action binds a fresh
+            // logger a spy would not cover; the denial messages in stderr are deliberate.
+            return { studyId }
+        }
+
+        const expectDenied = (result: unknown) =>
+            expect(result).toMatchObject({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+
+        test('a lab member cannot list another lab study workspace files', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { studyId } = await setupOtherLabStudy()
+
+            const { listWorkspaceFilesAction } = await import('./workspaces.actions')
+
+            expectDenied(await listWorkspaceFilesAction({ studyId }))
+        })
+
+        test('a lab member cannot read or delete another lab study workspace files', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { studyId } = await setupOtherLabStudy()
+
+            const studyDir = path.join(TEST_CODER_FILES, studyId)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'main.r'), 'print("secret")')
+
+            const { readWorkspaceFileAction, deleteWorkspaceFileAction } = await import('./workspace-files.actions')
+
+            expectDenied(await readWorkspaceFileAction({ studyId, fileName: 'main.r' }))
+            expectDenied(await deleteWorkspaceFileAction({ studyId, fileName: 'main.r' }))
+
+            await expect(fs.readFile(path.join(studyDir, 'main.r'), 'utf8')).resolves.toBe('print("secret")')
+        })
+
+        test('a lab member cannot launch a workspace for another lab study', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { studyId } = await setupOtherLabStudy()
+
+            const { ensureWorkspaceAction, getLastSubmissionInfoAction } = await import('./workspaces.actions')
+
+            expectDenied(await ensureWorkspaceAction({ studyId }))
+            expectDenied(await getLastSubmissionInfoAction({ studyId }))
+        })
+
+        test('the submitting lab still reaches its own study workspace', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+
+            const { studyId } = await createTestProposalDraft({ enclaveSlug: 'otter719-owner-enclave' })
+
+            const { listWorkspaceFilesAction } = await import('./workspaces.actions')
+
+            expect(actionResult(await listWorkspaceFilesAction({ studyId }))).toMatchObject({ files: [] })
         })
     })
 })

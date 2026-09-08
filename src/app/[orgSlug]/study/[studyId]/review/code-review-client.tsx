@@ -15,7 +15,6 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
-import { CODE_REVIEW_FEEDBACK_MAX_WORDS } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -34,10 +33,8 @@ type Props = {
     previousHref: Route
 }
 
-// Code-review editability is driven by the JOB status alone. PENDING-REVIEW is a
-// proposal-stage study status; after a code change-request the study correctly stays
-// APPROVED while the resubmitted code sits at CODE-SUBMITTED/CODE-SCANNED, so gating on
-// study.status here wrongly showed "Code review is closed" for legitimate resubmissions.
+// Driven by the job status alone: gating on study.status showed "Code review is closed" for
+// legitimate resubmissions, which leave the study at APPROVED.
 const isCodeReviewEditable = ({ latestJobStatus }: EditableSnapshot): boolean =>
     latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
 
@@ -60,13 +57,13 @@ function useCodeReview({
     tabSessionId: string
     previousHref: Route
 }) {
-    const feedback = useReviewFeedback({ maxWords: CODE_REVIEW_FEEDBACK_MAX_WORDS })
+    const feedback = useReviewFeedback()
     const decision = useReviewDecision()
     const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    // Each criterion is required. Without a validator the form could never produce an error,
-    // so an unanswered row only disabled Submit with no indication of which one (OTTER-647).
+    // Without a validator an unanswered row only disabled Submit, with no sign of which one
+    // (OTTER-647).
     const evaluationForm = useForm<{ criteria: CodeReviewCriteriaDraft }>({
         initialValues: {
             criteria: {
@@ -185,10 +182,8 @@ type NonEditableBodyProps = {
     onBack: () => void
 }
 
-// Renders when the page is opened for a study that no longer qualifies as
-// "code needs review" (e.g. peer just submitted, or stale URL). The server +
-// editor auth already block writes; this view satisfies the "No further edits"
-// UX expectation by not surfacing the editor / decision / submit controls.
+// For a study that no longer qualifies as "code needs review". Writes are already blocked
+// server-side; this just hides the editor and submit controls.
 function NonEditableBody({ isVisible, onBack }: NonEditableBodyProps) {
     if (!isVisible) return null
     return (

@@ -3,14 +3,10 @@ import { Table } from '@mantine/core'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { TableHeader } from './columns'
 
-// TableHeader renders the <thead> of the studies table. The column set varies by
-// audience ('researcher' | 'reviewer') and scope ('org' | 'user'), so each story
-// shows a distinct column layout. It is purely prop-driven (no data fetching).
 const meta = { title: 'Tables / Studies table header', argTypes: pageBackgroundArgTypes }
 export default meta
 
-// Renders the <thead> inside a real <Table> so the markup is valid. An empty
-// <Table.Tbody> keeps the column widths visible without any row fixtures.
+// Inside a real <Table> so the markup is valid.
 export const ResearcherColumns: Story = () => (
     <div style={{ padding: 24 }}>
         <Table>
@@ -20,7 +16,6 @@ export const ResearcherColumns: Story = () => (
     </div>
 )
 
-// Reviewer in org scope: shows "Submitted By" + "Reviewed By".
 export const ReviewerOrgColumns: Story = () => (
     <div style={{ padding: 24 }}>
         <Table>
@@ -30,7 +25,6 @@ export const ReviewerOrgColumns: Story = () => (
     </div>
 )
 
-// Reviewer in user scope: shows "Submitted By" + "Organization".
 export const ReviewerUserColumns: Story = () => (
     <div style={{ padding: 24 }}>
         <Table>

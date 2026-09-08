@@ -1,15 +1,8 @@
 'use client'
 
-import { forwardRef, useCallback, useState } from 'react'
-import { Anchor, type MantineSpacing } from '@mantine/core'
-import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
-
-export function useExpandable(initial = false) {
-    const [expanded, setExpanded] = useState(initial)
-    const toggle = useCallback(() => setExpanded((prev) => !prev), [])
-    const collapse = useCallback(() => setExpanded(false), [])
-    return { expanded, toggle, collapse }
-}
+import { forwardRef } from 'react'
+import { type MantineSpacing } from '@mantine/core'
+import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
 
 export type StudyCodeToggleLabels = { expand: string; collapse: string }
 
@@ -29,10 +22,11 @@ interface StudyCodeToggleProps {
     isVisible?: boolean
     mt?: MantineSpacing
     labels?: StudyCodeToggleLabels
-    /** Override the test id so multiple toggles on one page stay distinct. */
     testId?: string
 }
 
+// Keeps the default link color rather than the navy of the proposal and feedback toggles, which
+// OTTER-755 recolors on their own.
 export const StudyCodeToggle = forwardRef<HTMLButtonElement, StudyCodeToggleProps>(function StudyCodeToggle(
     {
         expanded,
@@ -44,24 +38,18 @@ export const StudyCodeToggle = forwardRef<HTMLButtonElement, StudyCodeToggleProp
     },
     ref,
 ) {
-    if (!isVisible) return null
+    const label = expanded ? labels.collapse : labels.expand
+
     return (
-        <Anchor
-            component="button"
-            type="button"
-            size="sm"
-            fw={700}
-            onClick={onClick}
-            mt={mt}
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            aria-expanded={expanded}
-            data-testid={testId}
+        <CollapseToggleLink
             ref={ref}
-        >
-            {expanded ? labels.collapse : labels.expand}
-            <CaretRightIcon size={12} weight="bold" style={{ transform: expanded ? 'rotate(-90deg)' : undefined }} />
-        </Anchor>
+            label={label}
+            isExpanded={expanded}
+            onClick={onClick}
+            isVisible={isVisible}
+            mt={mt}
+            testId={testId}
+            c="var(--mantine-color-anchor)"
+        />
     )
 })

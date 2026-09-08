@@ -72,7 +72,9 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
             <Text fz="sm" fw={700} c="gray.7" pb="sm">
                 {stepLabel}
             </Text>
-            <Title order={4}>{title}</Title>
+            <Title order={2} size="h4">
+                {title}
+            </Title>
             <Divider my="sm" mb="md" />
             <Alert
                 icon={<InfoIcon weight="fill" color={theme.colors.blue[6]} />}
@@ -131,7 +133,7 @@ export function AgreementsPage({
                 >
                     {previousLabel}
                 </Button>
-                <Button type="button" variant="primary" size="md" onClick={handleProceed}>
+                <Button type="button" size="md" onClick={handleProceed}>
                     {resolvedProceedLabel}
                 </Button>
             </Flex>

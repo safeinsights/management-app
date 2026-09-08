@@ -3,11 +3,8 @@ import { useState } from 'react'
 import { Button } from '@mantine/core'
 import { FilePreviewModal } from './file-preview-modal'
 
-// FilePreviewModal renders an always-open AppModal whose body picks the right viewer for the
-// file (by extension/content) and offers a download link. The modal portals into the document
-// body, so each story drives it from a trigger button with real open/close state — that way the
-// X, Escape and overlay-click actually dismiss it (an always-open `onClose={noop}` modal can't be
-// escaped). `contents: null` shows the loading state.
+// Driven from a trigger with real open/close state, since an always-open `onClose={noop}`
+// modal cannot be dismissed.
 const meta = { title: 'File viewers / File preview modal' }
 export default meta
 
@@ -51,7 +48,6 @@ export const CsvFile: Story = () => (
     <PreviewStory file={{ name: 'results.csv', contents: csv }} label="Preview results.csv" />
 )
 
-// Before contents have loaded the modal shows a centered loader.
 export const Loading: Story = () => (
     <PreviewStory file={{ name: 'analysis.R', contents: null }} label="Preview (loading)" />
 )

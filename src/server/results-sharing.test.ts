@@ -3,9 +3,8 @@ import { db, insertTestOrg, insertTestStudyJobData, insertTestUser } from '@/tes
 import { ActionFailure } from '@/lib/errors'
 import { insertSharedFileKeys } from './results-sharing'
 
-// Enclave test users are seeded with fingerprint 'testFingerprint1' (tests/unit.helpers.tsx),
-// and insertTestStudyJobData sets study.submittedByOrgId = org.id, so that fingerprint is a
-// valid lab recipient for the job.
+// Enclave test users are seeded with this fingerprint, and insertTestStudyJobData sets
+// submittedByOrgId = org.id, so it is a valid lab recipient for the job.
 const LAB_FINGERPRINT = 'testFingerprint1'
 
 async function insertSharedFileScenario() {
@@ -34,8 +33,6 @@ const selectKeyRows = (fileId: string) =>
         .where('studyJobFileId', '=', fileId)
         .execute()
 
-// Approval is recorded by the caller as a job-level FILES-APPROVED status change, not here.
-// These tests cover only the access mechanism: persisting validated wrapped-key rows.
 describe('insertSharedFileKeys', () => {
     test('persists wrapped keys for a valid lab recipient', async () => {
         const { job, file } = await insertSharedFileScenario()
@@ -56,8 +53,6 @@ describe('insertSharedFileKeys', () => {
     test('rejects a file that does not belong to the job and writes nothing', async () => {
         const { job } = await insertSharedFileScenario()
 
-        // A file from a different job — even with a valid lab fingerprint — must not be shareable
-        // through this job's approval.
         const { job: otherJob } = await insertTestStudyJobData({ org: await insertTestOrg() })
         const foreign = await db
             .insertInto('studyJobFile')

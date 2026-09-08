@@ -1,7 +1,6 @@
 import { CLERK_ADMIN_ORG_SLUG, UserSession } from './types'
 
-// this contains the logic to create a UserSession from Clerk metadata
-// it's in lib so it can be used in both server and client contexts
+// In lib so it can be used in both server and client contexts.
 
 import { defineAbilityFor, type AppAbility } from './permissions'
 
@@ -24,7 +23,6 @@ export const sessionFromMetadata = ({
         throw new Error('user does not have valid metadata')
     }
 
-    // TODO: remove 'teams' once all users are on v3 after migration
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orgs = info.orgs || ((info as any).teams as Record<string, UserOrgMembershipInfo>) || {}
 
@@ -53,7 +51,7 @@ export const sessionFromMetadata = ({
     return {
         ...session,
         ...membershipInfo,
-        can: ability.can.bind(ability), // directly expose the can method for devx
+        can: ability.can.bind(ability),
         ability,
     }
 }

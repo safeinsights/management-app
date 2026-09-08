@@ -48,10 +48,8 @@ async function generateWorkspaceUrl(studyId: string): Promise<string> {
     return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
 }
 
-// Returns readiness plus a short human-readable reason. The reason is logged
-// while polling so a workspace that never becomes ready leaves a trail of
-// exactly which gate (build status, agent lifecycle, code-server health) is
-// holding it up, instead of an opaque stream of nulls.
+// The reason is logged while polling, so a workspace that never becomes ready leaves a trail of
+// which gate is holding it up.
 function describeReadiness(
     agent: CoderAgent | undefined,
     buildStatus: WorkspaceStatus,
@@ -71,14 +69,12 @@ function describeReadiness(
     return { ready, reason, agentStatus }
 }
 
-// Once the workspace reports ready, copy starter code/context in and produce the IDE url.
 async function finalizeWorkspaceLaunch(studyId: string): Promise<string> {
     await initializeWorkspaceCodeFiles(studyId)
     return generateWorkspaceUrl(studyId)
 }
 
-// Fetch logs from an already-built path; returns the new lines (empty on any failure so a
-// missing log stream never aborts the overall status read).
+// Empty on any failure, so a missing log stream never aborts the overall status read.
 async function fetchLogs(path: string): Promise<CoderLog[]> {
     try {
         return await coderFetch<CoderLog[]>(path, { errorMessage: 'Failed to fetch logs' })
@@ -92,15 +88,11 @@ function maxLogId(logs: CoderLog[], current: number | null): number | null {
     return logs.reduce((max, log) => (max == null || log.id > max ? log.id : max), current)
 }
 
-// The output text of each log line in a batch, in fetch order. Coder returns logs oldest-first, so
-// appending these to the client's accumulated log preserves chronological order.
+// Coder returns logs oldest-first, so appending preserves chronological order.
 function logLinesOf(logs: CoderLog[]): string[] {
     return logs.map((log) => log.output)
 }
 
-// Polls the workspace's latest build (workspacebuilds) and its single agent (workspaceagents),
-// returning the build status plus the most-recent build- and agent-log line (timestamp + text)
-// so the client can show real progress. Resolves the IDE url once the workspace is ready.
 export async function getCoderWorkspaceLaunchStatus(
     studyId: string,
     cursors?: WorkspaceLaunchStatus['cursors'],
@@ -342,16 +334,12 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
     const starterFiles = codeEnv.starterCodeFileNames ?? []
 
-    // Backdate file mtimes relative to the baseline studyJob rather than wall-clock.
-    // Wall-clock backdating breaks when Coder provisioning takes longer than the backdate window:
-    // files end up newer than the baseline and the "files changed" gate flips Submit on without
-    // any user edits. Falling back to wall-clock is only for the (currently impossible) case of
-    // no baseline existing.
+    // Backdated against the baseline studyJob, not wall-clock: provisioning can outlast a fixed
+    // window, leaving files newer than the baseline and flipping Submit on with no user edits.
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
-    // Idempotent: only copy starter files when the directory is empty.
-    // Skips repeat calls (ready-polling) and avoids clobbering user edits across sessions.
+    // Only copy when empty, so ready-polling repeats do not clobber user edits.
     if (await studyDirHasFiles(studyDir)) {
         logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
     } else {
@@ -384,7 +372,6 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
         }
     }
 
-    // Refresh CLAUDE.md from the latest context on every launch (preserving manual user edits), so
-    // an "Edit in IDE" relaunch picks up context changes even when starter code is left untouched.
+    // Refreshed every launch so a relaunch picks up context changes even when starter code is untouched.
     await writeAgentContext({ targetDir: studyDir, language: codeEnv.language, orgId: codeEnv.orgId, pastDate, logCtx })
 }

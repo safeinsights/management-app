@@ -5,6 +5,7 @@ import 'dotenv/config'
 import { createClerkClient } from '@clerk/backend'
 import minimist from 'minimist'
 import { TEST_USERS, setupClerkTestUser } from './lib/clerk-test-users'
+import { testingDataAllowed } from './lib/testing-data-gate'
 
 interface Config {
     secretKey: string
@@ -61,6 +62,10 @@ Note: Test user emails and passwords are read from environment variables:
 }
 
 async function setupClerkTestUsers() {
+    // No DB writes here, but it provisions Clerk accounts with well-known passwords, so it takes
+    // the same opt-in gate as its sibling scripts.
+    if (!testingDataAllowed('setup-clerk-test-users')) process.exit(1)
+
     const config = parseArgs()
 
     console.log('\n========================================')

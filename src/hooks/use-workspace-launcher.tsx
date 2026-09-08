@@ -9,8 +9,7 @@ import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 
 const LAUNCH_FAILED_MESSAGE = 'Failed to launch IDE'
 
-// The wrapped useQuery/useMutation throw an ActionFailure whose message is the raw `error` payload.
-// For an opaque (non-string) action error, surface a friendly fallback instead of leaking raw JSON.
+// ActionFailure's message is the raw `error` payload, so an opaque one would leak JSON to the user.
 const toLaunchError = (err: Error | null): Error | null => {
     if (!err) return null
     if (err instanceof ActionFailure && typeof err.error !== 'string') return new Error(LAUNCH_FAILED_MESSAGE)
@@ -18,8 +17,7 @@ const toLaunchError = (err: Error | null): Error | null => {
 }
 
 const openWorkspace = (url: string, studyId: string, sameWindow: boolean): { blocked: boolean } => {
-    // sameWindow (ctrl-click) navigates the current tab, which keeps the workspace in the same
-    // Playwright page context and avoids the popup-blocker path — it makes e2e testing simpler.
+    // sameWindow keeps the workspace in one Playwright page context and dodges the popup blocker.
     const target = sameWindow ? '_self' : `ide-for-study-${studyId}`
     const newWindow = window.open(url, target)
     const blocked = !newWindow || newWindow.closed || typeof newWindow.closed === 'undefined'
@@ -51,17 +49,12 @@ interface LaunchOptions {
 
 interface UseWorkspaceLauncherReturn {
     launchWorkspace: (options?: LaunchOptions) => void
-    /** True while the entire launch flow is in progress (from ensure start until the workspace opens or fails) */
     isLaunching: boolean
-    /** True only while the initial ensure (create/start) mutation is in progress */
     isCreatingWorkspace: boolean
     error: Error | null
     clearError: () => void
-    /** Latest progress poll (build/agent status + log lines), or undefined before the first poll */
     status: WorkspaceLaunchStatus | undefined
-    /** Local time a new build/agent log line last arrived, for the "last updated … ago" hint */
     lastUpdatedAt: Date | null
-    /** Full build/agent logs accumulated across polls */
     buildLog: string
     agentLog: string
 }
@@ -71,7 +64,6 @@ const STATUS_QUERY_KEY = 'workspace-build-status'
 export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const queryClient = useQueryClient()
 
-    // Ensure the workspace exists and is running (creates if missing, starts if stopped).
     const ensure = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
         onError: (err) => reportError(err, LAUNCH_FAILED_MESSAGE),
@@ -79,12 +71,10 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
 
     const buildStatus = useWorkspaceBuildStatus({ studyId, enabled: ensure.isSuccess })
 
-    // The workspace opens asynchronously after polling resolves, so the sameWindow intent from the
-    // click has to be latched here (at click time) rather than read when the tab finally opens.
+    // Latched at click time because the workspace opens asynchronously, after polling resolves.
     const sameWindowRef = useRef(false)
 
-    // Opening the tab is a one-shot side effect fired when the poll yields a url; the ref latches
-    // it to that url so a re-render (or StrictMode double-invoke) can't open it twice.
+    // Latched to the url so a re-render or StrictMode double-invoke cannot open the tab twice.
     const handledUrlRef = useRef<string | null>(null)
     useEffect(() => {
         const url = buildStatus.url
@@ -96,7 +86,6 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         onSuccess?.()
     }, [buildStatus.url, studyId, onSuccess])
 
-    // Report a polling failure (query error) once, latched to the specific error.
     const reportedErrorRef = useRef<unknown>(null)
     useEffect(() => {
         if (buildStatus.error && reportedErrorRef.current !== buildStatus.error) {
@@ -105,7 +94,6 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         }
     }, [buildStatus.error])
 
-    // Report a failed build (the poll succeeds but reports failure) once per launch.
     const reportedFailureRef = useRef(false)
     useEffect(() => {
         if (buildStatus.failed && !reportedFailureRef.current) {

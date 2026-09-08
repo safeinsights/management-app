@@ -4,13 +4,12 @@ import { type TimedStep } from '@/hooks/use-timed-progress'
 import { useSpyMode } from './spy-mode-context'
 import { TimedProgressBar } from './timed-progress-bar'
 
-// `data` is the count of steps that have started.
 const steps: TimedStep<number>[] = [
     { estimateSeconds: 10, hasStarted: (n) => n >= 1 },
     { estimateSeconds: 30, hasStarted: (n) => n >= 2 },
 ]
 
-// Turns spy/debug mode on for its subtree (the toggle is otherwise driven by a UI button).
+// Spy mode is otherwise driven by a UI button.
 function SpyMode({ children }: { children: ReactNode }) {
     const { isSpyMode, toggleSpyMode } = useSpyMode()
     useEffect(() => {

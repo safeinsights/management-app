@@ -1,6 +1,6 @@
 'use client'
 
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { ButtonLink } from '@/components/links'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
@@ -25,24 +25,19 @@ type PostFeedbackViewProps = {
     entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
     kind?: PostFeedbackKind
     job?: LatestJobForStudy | null
-    /** AI summary + security scan, fetched alongside the job for the CODE post-decision section. */
     review?: StudyReviewWithMeta | null
     scan?: JobScanResult | null
-    /**
-     * Render the decision banner + timestamp from this when `entries` carries no decision. Proposal
-     * approve/reject can write a CODE-* job status without a code-review comment, so the page would
-     * otherwise blank out; the fallback keeps the code decision page.
-     */
+    // Proposal approve/reject can write a CODE-* job status with no code-review comment, so
+    // without this the page would blank out.
     fallback?: {
         decision: ReviewDecision
         timestamp: Date | string
     }
-    /**
-     * Set only on the read-only /review/code walk-back step (OTTER-643) to render a "Previous" link back
-     * through the flow. Omitted for the live code-decision screen and every proposal usage, which show
-     * only "Go to dashboard" (matching the live DO design, which hides Previous).
-     */
+    // Set only on the read-only /review/code walk-back step (OTTER-643).
     previousHref?: Route
+    // Set only when /review resolves past this screen (OTTER-687); the primary action then reads
+    // "Next step" instead of "Go to dashboard".
+    nextStepHref?: Route
 }
 
 type DecisionCopy = {
@@ -52,7 +47,6 @@ type DecisionCopy = {
 
 type KindCopy = {
     heading: string
-    crumbLast: string
     stepLabel: string
     decisionCopy: Partial<Record<ReviewDecision, DecisionCopy>>
 }
@@ -114,13 +108,11 @@ const CODE_DECISION_COPY: Partial<Record<ReviewDecision, DecisionCopy>> = {
 const COPY_BY_KIND: Record<PostFeedbackKind, KindCopy> = {
     PROPOSAL: {
         heading: 'Review initial request',
-        crumbLast: 'Review initial request',
         stepLabel: 'STEP 1',
         decisionCopy: PROPOSAL_DECISION_COPY,
     },
     CODE: {
         heading: 'Review study code',
-        crumbLast: 'Review study code',
         stepLabel: 'STEP 3',
         decisionCopy: CODE_DECISION_COPY,
     },
@@ -139,9 +131,10 @@ function DecisionBanner({ decision, kind }: { decision: ReviewDecision; kind: Po
     )
 }
 
-function GoToDashboardButton() {
+function GoToDashboardButton({ isVisible }: { isVisible: boolean }) {
     const router = useRouter()
     const handleClick = () => router.push(Routes.dashboard)
+    if (!isVisible) return null
     return (
         <Button onClick={handleClick} data-testid="go-to-dashboard">
             Go to dashboard
@@ -149,8 +142,18 @@ function GoToDashboardButton() {
     )
 }
 
-function PreviousButton({ href }: { href: Route }) {
+function NextStepButton({ href }: { href?: Route }) {
+    if (!href) return null
+    return (
+        <ButtonLink href={href} data-testid="cta-next-step">
+            Next step
+        </ButtonLink>
+    )
+}
+
+function PreviousButton({ href }: { href?: Route }) {
     const router = useRouter()
+    if (!href) return null
     return (
         <Button
             variant="subtle"
@@ -197,24 +200,6 @@ function ProposalSection({
     )
 }
 
-function buildCrumbs({
-    orgSlug,
-    studyId,
-    kind,
-    crumbLast,
-}: {
-    orgSlug: string
-    studyId: string
-    kind: PostFeedbackKind
-    crumbLast: string
-}): Array<[string, string?]> {
-    const dashboard: [string, string] = ['Dashboard', Routes.orgDashboard({ orgSlug })]
-    const proposalCrumb: [string, string?] =
-        kind === 'CODE' ? ['Study proposal', Routes.studySubmitted({ orgSlug, studyId })] : ['Study proposal']
-    const current: [string] = [crumbLast]
-    return [dashboard, proposalCrumb, current]
-}
-
 export function PostFeedbackView({
     orgSlug,
     study,
@@ -225,6 +210,7 @@ export function PostFeedbackView({
     scan = null,
     fallback,
     previousHref,
+    nextStepHref,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -237,15 +223,16 @@ export function PostFeedbackView({
     const decisionCopy = kindCopy.decisionCopy[decision]
     const timestampLabel = decisionCopy?.timestampLabel ?? PROPOSAL_DECISION_COPY[decision].timestampLabel
     const timestampDate = latestDecision ? latest?.createdAt : (fallback?.timestamp ?? null)
-    const crumbs = buildCrumbs({ orgSlug, studyId: study.id, kind, crumbLast: kindCopy.crumbLast })
     const banner = <DecisionBanner decision={decision} kind={kind} />
     const isCode = kind === 'CODE'
+    // The forward link and the dashboard button are mutually exclusive and both sit right, so the
+    // row only splits when there is a left button.
+    const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
 
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
-                <PageBreadcrumbs crumbs={crumbs} />
-                <StudyPageHeader>Study proposal</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}
@@ -269,9 +256,10 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify={previousHref ? 'space-between' : 'flex-end'}>
-                    {previousHref && <PreviousButton href={previousHref} />}
-                    <GoToDashboardButton />
+                <Group justify={buttonRowJustify}>
+                    <PreviousButton href={previousHref} />
+                    <NextStepButton href={nextStepHref} />
+                    <GoToDashboardButton isVisible={!nextStepHref} />
                 </Group>
             </Stack>
         </Box>

@@ -9,6 +9,7 @@ const PROPOSAL_TEXT_FIELD_KEYS: ProposalTextFieldKey[] = [
 
 export const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
 export const CODE_REVIEW_FEEDBACK_PREFIX = 'code-review-feedback-'
+export const OUTPUTS_REVIEW_FEEDBACK_PREFIX = 'outputs-review-feedback-'
 export const PROPOSAL_PREFIX = 'proposal-'
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -26,28 +27,27 @@ const SLUG_TO_FIELD: Record<string, ProposalTextFieldKey> = Object.fromEntries(
     Object.entries(FIELD_TO_SLUG).map(([key, slug]) => [slug, key as ProposalTextFieldKey]),
 )
 
-export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}-fields`
+// Exported so hasStep2CollabDocSql, which builds this name from a study id column, reuses the
+// convention instead of re-spelling it.
+export const PROPOSAL_FIELDS_SUFFIX = '-fields'
 
-// Y.Map name for the collab fields inside the proposal-fields doc. Shared so
-// the client hook and editor service agree on the key.
+export const proposalFieldsDocName = (studyId: string) => `${PROPOSAL_PREFIX}${studyId}${PROPOSAL_FIELDS_SUFFIX}`
+
+// Exported for the same reason as PROPOSAL_FIELDS_SUFFIX.
+export const proposalTextFieldSuffix = (slug: ProposalTextSlug) => `-${slug}`
+
 export const PROPOSAL_FIELDS_MAP_NAME = 'fields'
 
 export const proposalTextFieldDocName = (studyId: string, fieldKey: ProposalTextFieldKey) =>
-    `${PROPOSAL_PREFIX}${studyId}-${FIELD_TO_SLUG[fieldKey]}`
+    `${PROPOSAL_PREFIX}${studyId}${proposalTextFieldSuffix(FIELD_TO_SLUG[fieldKey])}`
 
-/**
- * Versioned review-feedback document name. A round-boundary identifier: the
- * editor for round N binds to a different Yjs document than round N-1, so a
- * stale connected client from round N-1 cannot write into round N.
- */
+// Versioning is a round boundary: a stale client still connected from round N-1 cannot
+// write into round N's document.
 export const reviewFeedbackDocNameForVersion = (studyId: string, version: number) =>
     `${REVIEW_FEEDBACK_PREFIX}${studyId}-v${version}`
 
-/**
- * Versioned resubmission-note document name, for the same round-boundary
- * reason as review feedback. `version` is the version the RESUBMISSION-NOTE
- * comment will take on submit.
- */
+// Versioned for the same round-boundary reason as review feedback. `version` is the version
+// the RESUBMISSION-NOTE comment will take on submit.
 export const proposalResubmissionNoteDocNameForVersion = (studyId: string, version: number) =>
     `${PROPOSAL_PREFIX}${studyId}-resubmission-note-v${version}`
 
@@ -57,16 +57,26 @@ export const RESUBMISSION_NOTE_SUFFIX_RE = /^resubmission-note-v([1-9]\d*)$/
 
 export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${jobId}`
 
+// Job-keyed rather than study-keyed (OTTER-675) so a later round's editor lands in a
+// different Yjs room.
+export const outputsReviewFeedbackDocName = (jobId: string) => `${OUTPUTS_REVIEW_FEEDBACK_PREFIX}${jobId}`
+
 export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; fieldKey: ProposalTextFieldKey }
     | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
     | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'code-review-feedback'; jobId: string }
+    | { kind: 'outputs-review-feedback'; jobId: string }
 
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
-    // The longer prefix must be checked first; otherwise the review-feedback
-    // branch would match a `code-review-feedback-<uuid>` doc and mis-parse it.
+    if (name.startsWith(OUTPUTS_REVIEW_FEEDBACK_PREFIX)) {
+        const jobId = name.slice(OUTPUTS_REVIEW_FEEDBACK_PREFIX.length)
+        if (!UUID_RE.test(jobId)) return null
+        return { kind: 'outputs-review-feedback', jobId }
+    }
+
+    // Longer prefix first, or the review-feedback branch below would swallow these.
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
         const jobId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
         if (!UUID_RE.test(jobId)) return null

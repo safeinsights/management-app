@@ -23,9 +23,8 @@ const ctorSpy = (HocuspocusProviderWebsocket as unknown as { __ctor: Mock }).__c
 const getStudyStatusActionMock = getStudyStatusAction as unknown as Mock
 const showMock = notifications.show as unknown as Mock
 
-// The mocked websocket exposes a writable string `status` and a synchronous
-// `__emit` driver — see tests/vitest.setup.ts. Tests cast to this shape rather
-// than the real `HocuspocusProviderWebsocket` whose `status` is a typed enum.
+// The real HocuspocusProviderWebsocket types `status` as an enum; the mock in tests/vitest.setup.ts
+// exposes a writable string plus a synchronous `__emit`.
 type FakeSocket = {
     status: 'connecting' | 'connected' | 'disconnected'
     __emit: (event: string, ...args: unknown[]) => void
@@ -85,7 +84,7 @@ describe('useStudyStatusOnReconnect', () => {
         mount()
 
         await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
-        // Wait long enough that the old 10s poll would have fired multiple times.
+        // Long enough that the old 10s poll would have fired several times.
         await new Promise((r) => setTimeout(r, 50))
         expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1)
     })
@@ -117,7 +116,6 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('uses the isEditable predicate when provided', async () => {
-        // PENDING-REVIEW + CODE-SUBMITTED is the code-review editable shape.
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW', latestJobStatus: 'CODE-SUBMITTED' })
 
         const Predicated = () => {
@@ -141,14 +139,12 @@ describe('useStudyStatusOnReconnect', () => {
         )
 
         await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
-        // Predicate said editable; no redirect should fire even though the empty
-        // editableStatuses allowlist would otherwise force a redirect.
+        // The empty editableStatuses allowlist would otherwise force a redirect.
         expect(memoryRouter.asPath).toBe('/')
         expect(showMock).not.toHaveBeenCalled()
     })
 
     it('predicate path redirects when criteria no longer match', async () => {
-        // Latest job status flipped away from CODE-SUBMITTED/CODE-SCANNED.
         getStudyStatusActionMock.mockResolvedValue({ status: 'APPROVED', latestJobStatus: 'CODE-APPROVED' })
 
         const Predicated = () => {
@@ -201,7 +197,6 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
     })
 
     it('lets descendants imperatively fire the kick-out check', async () => {
-        // Initial connect sees DRAFT (still editable, no redirect).
         getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT' })
 
         const Trigger = () => {
@@ -226,11 +221,10 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
             </YjsWebsocketProvider>,
         )
 
-        // Wait for the initial connect check to complete with no redirect.
         await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
         expect(memoryRouter.asPath).toBe('/')
 
-        // Imperative trigger from the editor: peer has now submitted.
+        // The peer has now submitted.
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
         act(() => {
             getByTestId('trigger').click()
@@ -270,7 +264,6 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         act(() => {
             getByTestId('trigger').click()
         })
-        // hasRedirectedRef should suppress the second toast.
         await new Promise((r) => setTimeout(r, 30))
         expect(showMock).toHaveBeenCalledTimes(1)
     })

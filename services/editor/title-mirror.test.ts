@@ -49,18 +49,31 @@ describe('mirrorProposalTitleToStudy', () => {
         expect(db.calls()).toHaveLength(1)
         const [sql, params] = db.calls()[0]
         expect(sql).toContain('UPDATE study')
-        expect(sql).toContain("status IN ('DRAFT', 'CHANGE-REQUESTED')")
         expect(params).toEqual([STUDY_ID, 'My draft'])
     })
 
-    it('passes null when the title is blank so only DRAFT rows are cleared', async () => {
+    // OTTER-690: Step 1 owns study.title on a DRAFT. Legacy fields-docs still carry a `title`
+    // key the DRAFT client no longer maintains, so a mirror that still covered DRAFT would flush
+    // a blank or stale collaborative value over the Step 1 one.
+    it('only ever touches CHANGE-REQUESTED rows, never DRAFT ones', async () => {
+        const db = fakeDb()
+        await mirrorProposalTitleToStudy(fieldsDoc, fieldsDocWithTitle('My draft'), STUDY_ID, db)
+        const [sql] = db.calls()[0]
+        expect(sql).toContain("status = 'CHANGE-REQUESTED'")
+        expect(sql).not.toContain("'DRAFT'")
+    })
+
+    // A NULL title on a CHANGE-REQUESTED row violates study_title_required_when_not_draft, so a
+    // blank collaborative title leaves the stored one alone rather than clearing it.
+    it('does not write at all when the collaborative title is blank', async () => {
         const db = fakeDb()
         await mirrorProposalTitleToStudy(fieldsDoc, fieldsDocWithTitle('   '), STUDY_ID, db)
-        expect(db.calls()).toHaveLength(1)
-        const [sql, params] = db.calls()[0]
-        // The SQL guard ($2::text IS NOT NULL OR status = 'DRAFT') keeps a blank title
-        // from ever landing on a CHANGE-REQUESTED row (CHECK constraint).
-        expect(sql).toContain("$2::text IS NOT NULL OR status = 'DRAFT'")
-        expect(params).toEqual([STUDY_ID, null])
+        expect(db.calls()).toHaveLength(0)
+    })
+
+    it('does not write when the title key is absent', async () => {
+        const db = fakeDb()
+        await mirrorProposalTitleToStudy(fieldsDoc, new Y.Doc(), STUDY_ID, db)
+        expect(db.calls()).toHaveLength(0)
     })
 })

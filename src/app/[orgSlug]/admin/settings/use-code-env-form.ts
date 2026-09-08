@@ -63,7 +63,9 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             language: (image?.language || 'R') as Language,
             url: image?.url || '',
             isTesting: image?.isTesting || false,
-            starterCodes: undefined,
+            // `[]`, not undefined: the array type check fails before `.min(1)` runs, so an
+            // untouched dropzone would report Zod's internal message (OTTER-647).
+            starterCodes: [],
             sampleDataPath: image?.sampleDataPath || '',
             dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
             dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
@@ -108,8 +110,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         form.setFieldValue('commandLines', rest)
     }
 
-    // Both halves are required. Flagging the empty one beats returning silently, which left
-    // the user clicking "+" with nothing happening and no reason given (OTTER-647).
+    // Flag the empty half rather than returning silently, which left "+" doing nothing with no
+    // reason given (OTTER-647).
     const addEnvVar = () => {
         const key = form.values.newEnvKey.trim()
         const value = form.values.newEnvValue.trim()
@@ -176,7 +178,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const handleEdit = async (values: EditFormValues) => {
         const { starterCodes, ...rest } = values
-        const starterCodeUploaded = !!starterCodes?.length
+        const newStarterCodes = starterCodes?.length ? starterCodes : null
 
         const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
 
@@ -184,8 +186,10 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             orgSlug,
             codeEnvId: image!.id,
             ...rest,
-            starterCodeFileNames: starterCodes?.map((f) => f.name),
-            starterCodeUploaded,
+            // Omitted rather than sent empty: on edit an empty array reads as "the admin cleared
+            // the list" instead of "left the existing files alone".
+            starterCodeFileNames: newStarterCodes?.map((f) => f.name),
+            starterCodeUploaded: !!newStarterCodes,
             sampleDataUploaded,
         })
         if (isActionError(result)) throw result
@@ -194,8 +198,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             await createAthenaTablesAction({ codeEnvId: image!.id })
         }
 
-        if (starterCodes?.length) {
-            await uploadStarterCodes(orgSlug, image!.id, starterCodes)
+        if (newStarterCodes) {
+            await uploadStarterCodes(orgSlug, image!.id, newStarterCodes)
         }
 
         return result
@@ -223,16 +227,15 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
     const onSubmit = form.onSubmit(
         ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
-            // Trim here rather than relying on the schema's transforms: Mantine's resolver
-            // validates transformed data, but this handler receives the raw form values, so
-            // 'FOO' paired with '   ' would otherwise read as complete and save the whitespace.
+            // The resolver validates transformed data but this handler gets the raw values, so
+            // 'FOO' paired with '   ' would otherwise read as complete.
             const envKey = newEnvKey.trim()
             const envValue = newEnvValue.trim()
             const cmdExt = newCmdExt.trim().toLowerCase().replace(/^\./, '')
             const cmdValue = newCmdValue.trim()
 
-            // A draft pair with only one half filled would otherwise be discarded here, so
-            // the save appeared to succeed while losing the user's input (OTTER-647).
+            // A half-filled draft pair would otherwise be discarded, so the save appeared to
+            // succeed while losing the input (OTTER-647).
             const halfEnvVar = Boolean(envKey) !== Boolean(envValue)
             const halfCommand = Boolean(cmdExt) !== Boolean(cmdValue)
             if (halfEnvVar || halfCommand) {

@@ -1,6 +1,8 @@
-import { db } from '@/database'
+import { db, type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
+import type { AuditFieldChange } from '@/lib/audit-diff'
 import logger from '@/lib/logger'
+import { capturePostHogEvent } from '@/server/posthog'
 import { UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
@@ -10,17 +12,11 @@ import { generateAndStoreStudyReview } from './agents/review-agent/runner'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Functions in this file are intended to be contain non-essential code that should run after the calling action has completed.    //
-// They cannot return values and the success of the caller should not depend on their state                                        //
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// These run after the calling action has completed; the caller's success must not depend on them.
 
 export function deferred<Args extends unknown[], R>(handler: (...args: Args) => Promise<R>): (...args: Args) => void {
     return (...args: Args) => {
-        // after() runs post-response. captureException only enqueues an event;
-        // without an awaited flush the serverless instance can freeze before it
-        // transmits, silently dropping the report. Pass the real Error (not a
-        // string) so the logger/Sentry keep the stack trace, then flush.
+        // captureException only enqueues; without an awaited flush the instance can freeze first.
         after(async () => {
             try {
                 await handler(...args)
@@ -41,16 +37,64 @@ type AuditEntry = {
     metadata?: Json
 }
 
-export const audit = async (entry: AuditEntry): Promise<void> => {
+// Pass an executor to enlist the audit row in the caller's transaction.
+export const audit = async (entry: AuditEntry, executor: DBExecutor = db): Promise<void> => {
     logger.info(`${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
-    await db.insertInto('audit').values(entry).execute()
+    await executor.insertInto('audit').values(entry).execute()
 }
+
+type CodeEnvAuditArgs = {
+    db: DBExecutor
+    codeEnvId: string
+    userId: string
+    changes: AuditFieldChange[]
+    starterCodeReplaced?: boolean
+    name?: string
+}
+
+// Not deferred(), unlike the other handlers: after() does not unschedule on error, so a failed
+// mutation would still emit an audit row claiming success.
+const auditCodeEnv = async (
+    eventType: Extract<AuditEventType, 'CREATED' | 'UPDATED' | 'DELETED'>,
+    { db: executor, codeEnvId, userId, changes, starterCodeReplaced, name }: CodeEnvAuditArgs,
+): Promise<void> => {
+    await audit(
+        {
+            userId,
+            eventType,
+            recordType: 'CODE_ENV',
+            recordId: codeEnvId,
+            metadata: {
+                changes,
+                ...(starterCodeReplaced ? { starterCodeReplaced: true } : {}),
+                ...(name ? { name } : {}),
+            },
+        },
+        executor,
+    )
+}
+
+export const onCodeEnvCreated = (args: CodeEnvAuditArgs) => auditCodeEnv('CREATED', args)
+
+export const onCodeEnvUpdated = async (args: CodeEnvAuditArgs) => {
+    if (args.changes.length === 0 && !args.starterCodeReplaced) return
+    await auditCodeEnv('UPDATED', args)
+}
+
+export const onCodeEnvDeleted = (args: CodeEnvAuditArgs) => auditCodeEnv('DELETED', args)
 
 type StudyEvent = { studyId: string; userId: string }
 
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
+    // TODO(SHRMP-277): call sendSlaPreparationEmail once it exists in mailer.ts
+
+    await capturePostHogEvent({
+        distinctId: userId,
+        event: 'study_created',
+        properties: { study_id: studyId },
+    })
 })
 
 export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {

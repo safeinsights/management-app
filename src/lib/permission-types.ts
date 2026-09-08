@@ -31,16 +31,18 @@ export function toRecord<T extends string, Properties extends Record<string, any
     return object as Properties & ForcedSubject<T>
 }
 
-// this list determines the possible subject, types, and actions
-// it also controls the types allowed by the Action#requireAbilityTo  method
-// it does NOT control access itself, those rules are defined in the defineAbilityFor in permissions.ts
+// Declares the possible subjects and actions; it does NOT control access, which is defined by
+// defineAbilityFor in permissions.ts.
 type Abilities =
-    // CASL wildcard: ('manage','all') matches every action on every subject at runtime.
-    // Reserved for SI admins (see defineAbilityFor). 'manage' and 'all' are CASL's built-in
-    // wildcard tokens, not real domain actions/subjects.
+    // 'manage'/'all' are CASL's wildcard tokens, not real domain actions/subjects.
     | Ability<'all', 'manage', object>
-    | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
-    | Ability<'PendingUser', 'claim', object>
+    // 'manageRole' is separate from 'update' so the self-profile rule cannot authorize a role
+    // change and let a member promote themselves to org admin (OTTER-720).
+    | Ability<'User', 'invite' | 'update' | 'view' | 'manageRole', { id?: UUID; orgId?: UUID; orgSlug?: string }>
+    // `orgId` appears on both arms so the CASL subject union accepts an orgId condition on
+    // 'revoke'; it stays optional because 'claim' is unconditioned.
+    | Ability<'PendingUser', 'claim', { orgId?: UUID; inviteId?: string }>
+    | Ability<'PendingUser', 'revoke', { orgId?: UUID; inviteId?: string }>
     | Ability<'OrgMembers', 'view', { orgId: UUID }>
     | Ability<'Studies', 'view', object>
     | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>
@@ -48,19 +50,34 @@ type Abilities =
     | Ability<
           'Study',
           'review' | 'approve' | 'reject' | 'update' | 'delete',
-          // `status` is unused by these actions but must appear in every 'Study' ability arm so the
-          // CASL MongoQuery/subject union accepts a `status` condition on the view rule.
+          // `status` is unused here but must appear on every 'Study' arm so the CASL subject
+          // union accepts a `status` condition on the view rule.
           { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }
       >
     | Ability<'StudyJob', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }>
-    // Renamed from 'ReviewerKey' — every user holds this key now, not just reviewers, so the old
-    // name was misleading. Route + UI copy: /user-key (Routes.userKey), "Security key".
     | Ability<'UserKey', 'view' | 'update', object>
     | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
+    // Split out from 'Org' because `view Org` must stay cross-org for the public catalog, while
+    // configuration reads carry secrets and belong to that org's admins only (OTTER-724 / MA-6).
+    | Ability<'OrgConfig', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
-    | Ability<'IDE', 'load', { researcherId: UUID }>
+    // orgId/studyId carry the DOCUMENT's scope. isGlobal and audienceOrgIds are derived per
+    // request by middleware and answer the only question 'acknowledge' asks: who does it bind?
+    | Ability<
+          'LegalDocument',
+          'view' | 'create' | 'publish' | 'acknowledge',
+          { orgId?: UUID; studyId?: UUID; isGlobal?: boolean; audienceOrgIds?: UUID[] }
+      >
+    // orgId here is the VIEWING org, not the document's scope. Separate from LegalDocument's
+    // 'view' because widening that verb would expose unpublished drafts and version history.
+    | Ability<'OrgLegalDocuments', 'view', { orgId?: UUID }>
+    // Unconditioned: the handler keys the rows to session.user.id, so there is no scope to authorize.
+    | Ability<'UserLegalDocuments', 'view', object>
+    // Both optional: `load IDE` is granted by two OR-combined rules (OTTER-719), and every field
+    // used in a condition must appear on the arm.
+    | Ability<'IDE', 'load', { researcherId?: UUID; submittedByOrgId?: UUID }>
     | Ability<
           'AgentContext',
           'create' | 'update' | 'view',

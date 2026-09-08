@@ -2,8 +2,6 @@ import type { Story } from '@ladle/react'
 import { Text, Title } from '@mantine/core'
 import { RequiredIndicator } from './required-indicator'
 
-// A small red asterisk (with aria-label="required") that renders nothing when
-// isVisible is false, letting callers pass a boolean instead of `{cond && ...}`.
 const meta = { title: 'Forms / Required indicator' }
 export default meta
 

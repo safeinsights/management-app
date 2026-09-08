@@ -1,0 +1,268 @@
+import { type DBExecutor } from '@/database'
+import {
+    type OrgStudyAgreementSort,
+    type ParticipationAgreementType,
+    type UserParticipationAgreementSort,
+    type UserStudyAgreementSort,
+} from '@/schema/legal-document'
+import type { LegalDocumentType, OrgType } from '@/database/types'
+import { sql, type ExpressionBuilder, type OrderByItemBuilder, type ReferenceExpression } from 'kysely'
+
+// The scope a reader is entitled to, by document.
+// - Global tos/pn (both scope columns null)
+// - The ropa/dopa of the orgs passed in
+// Shared by the app-wide gate and signup so the two cannot drift.
+export const owedDocValidatorEb = <T>(
+    eb: ExpressionBuilder<T, keyof T>,
+    dbOrgRef: ReferenceExpression<T, keyof T>,
+    dbStudyRef: ReferenceExpression<T, keyof T>,
+    orgIds: string[],
+    // TBD add study ID for SLA
+) => {
+    const branches = [eb.and([eb(dbOrgRef, 'is', null), eb(dbStudyRef, 'is', null)])] // TOS/PN case
+    // Check for list emptiness before running any SQL,
+    // since checking 'in' against an empty list is a Postgres error.
+    if (orgIds.length > 0) {
+        branches.push(
+            eb.and([eb(dbOrgRef, 'in', orgIds), eb(dbStudyRef, 'is', null)]), // ROPA/DOPA case
+        )
+    }
+    return eb.or(branches)
+}
+
+type DocumentScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
+
+const documentInScope = (db: DBExecutor, { type, orgId, studyId }: DocumentScope) =>
+    db
+        .selectFrom('legalDocument')
+        .selectAll('legalDocument')
+        .where('type', '=', type)
+        .where((eb) => (orgId ? eb('orgId', '=', orgId) : eb('orgId', 'is', null)))
+        .where((eb) => (studyId ? eb('studyId', '=', studyId) : eb('studyId', 'is', null)))
+
+export const findLegalDocument = (db: DBExecutor, scope: DocumentScope) => documentInScope(db, scope).executeTakeFirst()
+
+// Always returns a row: onConflict covers a concurrent first upload and the loser reads the winner's.
+export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentScope) => {
+    const inserted = await db
+        .insertInto('legalDocument')
+        .values({ type: scope.type, orgId: scope.orgId ?? null, studyId: scope.studyId ?? null })
+        .onConflict((oc) => oc.constraint('legal_document_scope_unique').doNothing())
+        .returningAll()
+        .executeTakeFirst()
+
+    return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
+}
+
+// Nulls sink in both directions, so an unsigned agreement never leads the table.
+const orderedBy = (direction: 'asc' | 'desc') => (ob: OrderByItemBuilder) =>
+    (direction === 'asc' ? ob.asc() : ob.desc()).nullsLast()
+
+// `||` rather than `??`, matching studyAgreementDisplayTitle: an empty title falls back to the id
+// too, or the sort disagrees with what the cell shows. The id is cast because coalesce will not
+// match a uuid against text.
+const displayTitle = (title: string, id: string) => sql`coalesce(nullif(${sql.ref(title)}, ''), ${sql.ref(id)}::text)`
+
+// Names the source columns: this query is not wrapped, and an ORDER BY expression resolves
+// identifiers against the FROM clause rather than the select aliases.
+const orgStudyAgreementOrderBy = {
+    studyId: sql.ref('study.id'),
+    studyTitle: displayTitle('study.title', 'study.id'),
+    signedAt: sql.ref('agreement.signedAt'),
+} satisfies Record<OrgStudyAgreementSort['columnAccessor'], unknown>
+
+// These two name the wrapping subquery's output aliases, not the source columns.
+const userStudyAgreementOrderBy = {
+    studyId: sql.ref('studyId'),
+    studyTitle: displayTitle('studyTitle', 'studyId'),
+    signedAt: sql.ref('signedAt'),
+    ackedAt: sql.ref('ackedAt'),
+} satisfies Record<UserStudyAgreementSort['columnAccessor'], unknown>
+
+const userParticipationAgreementOrderBy = {
+    orgName: sql.ref('orgName'),
+    signedAt: sql.ref('signedAt'),
+    ackedAt: sql.ref('ackedAt'),
+} satisfies Record<UserParticipationAgreementSort['columnAccessor'], unknown>
+
+// Starts from the acknowledgement, so these read what the user signed, not what their orgs are party to.
+// distinctOn must lead the ORDER BY, so callers wrap this and apply the display sort a level up.
+const latestAcknowledgedVersions = (db: DBExecutor, { userId, type }: { userId: string; type: LegalDocumentType }) =>
+    db
+        .selectFrom('legalDocumentAcknowledgement')
+        .innerJoin(
+            'legalDocumentVersion',
+            'legalDocumentVersion.id',
+            'legalDocumentAcknowledgement.legalDocumentVersionId',
+        )
+        .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+        .where('legalDocumentAcknowledgement.userId', '=', userId)
+        .where('legalDocument.type', '=', type)
+        .distinctOn('legalDocument.id')
+        .orderBy('legalDocument.id')
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+
+// The version id, not the file columns: the browser follows /dl/legal/<id> and the S3 key never
+// leaves the server.
+const acknowledgedVersionFields = [
+    'legalDocumentVersion.id as versionId',
+    'legalDocumentVersion.signedAt as signedAt',
+    'legalDocumentAcknowledgement.ackedAt as ackedAt',
+] as const
+
+// The audience columns legalDocumentVersionForDownload selects, and all an access check reads.
+export type LegalDocumentAudience = {
+    versionId: string
+    orgId: string | null
+    dataPartnerId: string | null
+    researchLabId: string | null
+}
+
+export const userAcknowledgedVersion = async (
+    db: DBExecutor,
+    { versionId, userId }: { versionId: string; userId: string },
+) => {
+    const ack = await db
+        .selectFrom('legalDocumentAcknowledgement')
+        .select('id')
+        .where('legalDocumentVersionId', '=', versionId)
+        .where('userId', '=', userId)
+        .executeTakeFirst()
+
+    return Boolean(ack)
+}
+
+// Published only: a draft is reachable through the admin preview, not through a pasteable link.
+export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: string) =>
+    db
+        .selectFrom('legalDocumentVersion')
+        .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+        .leftJoin('study', 'study.id', 'legalDocument.studyId')
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
+            'legalDocumentVersion.format as format',
+            'legalDocument.orgId as orgId',
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+        ])
+        .where('legalDocumentVersion.id', '=', versionId)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .executeTakeFirst()
+
+// Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
+export const userStudyAgreements = (
+    db: DBExecutor,
+    { userId, sort }: { userId: string; sort: UserStudyAgreementSort },
+) => {
+    const acknowledged = latestAcknowledgedVersions(db, { userId, type: 'SLA' })
+        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+        .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
+        .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
+        .select([
+            'study.id as studyId',
+            'study.title as studyTitle',
+            'researchLab.name as fromName',
+            'dataPartner.name as toName',
+            ...acknowledgedVersionFields,
+        ])
+
+    return db
+        .selectFrom(acknowledged.as('agreement'))
+        .selectAll('agreement')
+        .orderBy(userStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
+        .orderBy(userStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
+        .execute()
+}
+
+export const userParticipationAgreements = (
+    db: DBExecutor,
+    { userId, type, sort }: { userId: string; type: ParticipationAgreementType; sort: UserParticipationAgreementSort },
+) => {
+    const acknowledged = latestAcknowledgedVersions(db, { userId, type })
+        .innerJoin('org', 'org.id', 'legalDocument.orgId')
+        .select(['org.id as orgId', 'org.name as orgName', ...acknowledgedVersionFields])
+
+    return db
+        .selectFrom(acknowledged.as('agreement'))
+        .selectAll('agreement')
+        .orderBy(userParticipationAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
+        .orderBy(userParticipationAgreementOrderBy.orgName, orderedBy('asc'))
+        .execute()
+}
+
+// Both directions come from here so they cannot point at the same org.
+const studyAgreementSides = {
+    enclave: { party: 'study.orgId', counterparty: 'study.submittedByOrgId' },
+    lab: { party: 'study.submittedByOrgId', counterparty: 'study.orgId' },
+} as const
+
+// Lists studies, not agreements. Lateral rather than a join, which would multiply a study into
+// one row per version.
+export const orgStudyAgreements = (
+    db: DBExecutor,
+    { orgId, orgType, sort }: { orgId: string; orgType: OrgType; sort: OrgStudyAgreementSort },
+) => {
+    const { party, counterparty } = studyAgreementSides[orgType]
+
+    return (
+        db
+            .selectFrom('study')
+            .innerJoin('org as counterparty', 'counterparty.id', counterparty)
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('legalDocument')
+                        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+                        .select(['legalDocumentVersion.id as versionId', 'legalDocumentVersion.signedAt as signedAt'])
+                        .whereRef('legalDocument.studyId', '=', 'study.id')
+                        .where('legalDocument.type', '=', 'SLA')
+                        // Redundant against the CHECK constraint, but the planner cannot infer it,
+                        // so without it only `type` bounds the index scan.
+                        .where('legalDocument.orgId', 'is', null)
+                        .where('legalDocumentVersion.publishedAt', 'is not', null)
+                        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+                        .limit(1)
+                        .as('agreement'),
+                (join) => join.onTrue(),
+            )
+            .select([
+                'study.id as studyId',
+                'study.title as studyTitle',
+                'counterparty.name as counterpartyName',
+                'agreement.versionId',
+                'agreement.signedAt',
+            ])
+            .where('study.deletedAt', 'is', null)
+            .where(party, '=', orgId)
+            // Second arm: once signed, a study stays listed whatever its status becomes.
+            .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.versionId', 'is not', null)]))
+            .orderBy(orgStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
+            .orderBy(orgStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
+            .execute()
+    )
+}
+
+export const orgParticipationAgreement = (
+    db: DBExecutor,
+    { orgId, type }: { orgId: string; type: ParticipationAgreementType },
+) =>
+    db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'legalDocumentVersion.signedAt as signedAt',
+            // The signup flow reads the body before an account exists, so it cannot follow a
+            // /dl/legal link and needs the key.
+            'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
+        ])
+        .where('legalDocument.type', '=', type)
+        .where('legalDocument.orgId', '=', orgId)
+        .where('legalDocument.studyId', 'is', null)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .limit(1)
+        .executeTakeFirst()

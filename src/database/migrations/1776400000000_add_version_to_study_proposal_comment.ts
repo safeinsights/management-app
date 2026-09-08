@@ -3,9 +3,6 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.alterTable('study_proposal_comment').addColumn('version', 'integer').execute()
 
-    // Backfill: walk each study's entries in chronological order.
-    // Reviewer feedback gets the current version; resubmission notes
-    // increment the version first, then receive the new value.
     await sql`
         WITH versioned AS (
             SELECT id,

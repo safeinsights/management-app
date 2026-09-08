@@ -1,30 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolvePillStatus, resolveRowHighlight } from './pill'
+import { studyState } from './state.fixture'
 
-const state = (overrides: Partial<StudyState>): StudyState => ({
-    status: 'APPROVED',
-    isDraft: false,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: true,
-    hasSubmittedCode: true,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    submissionRound: 1,
-    hasSavedEdits: false,
-    hasSavedCodeEdits: false,
-    displayStatus: 'CODE-SUBMITTED',
-    latestJobStatuses: [],
-    ...overrides,
-})
+const state = (overrides: Partial<StudyState>): StudyState =>
+    studyState({
+        status: 'APPROVED',
+        isDraft: false,
+        hasAnyJob: true,
+        hasSubmittedCode: true,
+        submissionRound: 1,
+        displayStatus: 'CODE-SUBMITTED',
+        ...overrides,
+    })
 
 describe('resolvePillStatus', () => {
     it('researcher does NOT see Errored until a reviewer files a decision (falls back to Approved)', () => {
@@ -64,9 +52,6 @@ describe('resolvePillStatus', () => {
         )
         expect(label.label).toBe('Approved')
     })
-    // Deliberate divergence from legacy (which ranked CODE-CHANGES-REQUESTED higher): a job carrying
-    // both a round-1 change-request and a terminal round-2 rejection reads "Rejected" — the truthful
-    // terminal state, matching the code-rejected screen routing.
     it('job with both CODE-CHANGES-REQUESTED and CODE-REJECTED reads Rejected (terminal wins)', () => {
         const label = resolvePillStatus(
             'researcher',
@@ -77,7 +62,7 @@ describe('resolvePillStatus', () => {
         )
         expect(label.label).toBe('Rejected')
     })
-    // OTTER-641: resubmit approved. The stale CODE-CHANGES-REQUESTED must not win over the live approval.
+    // OTTER-641: the stale CODE-CHANGES-REQUESTED must not win over the live approval.
     it('resubmit then approved reads Approved, not the stale Change requested', () => {
         const label = resolvePillStatus(
             'researcher',
@@ -88,9 +73,8 @@ describe('resolvePillStatus', () => {
         )
         expect(label.label).toBe('Approved')
     })
-    // Reviewers DO have a label for CODE-CHANGES-REQUESTED, so before the fix the stale round-1 status
-    // could win by DISPLAY_STATUS_PRIORITY. isStaleCodeDecision now runs for every role, so a reviewer
-    // viewing an approved-after-resubmit job also reads the live decision.
+    // Reviewers DO have a label for CODE-CHANGES-REQUESTED, so the stale round-1 status could win
+    // by DISPLAY_STATUS_PRIORITY were isStaleCodeDecision not applied to every role.
     it('reviewer: resubmit then approved reads Approved, not the stale Change requested', () => {
         const label = resolvePillStatus(
             'reviewer',
@@ -101,8 +85,6 @@ describe('resolvePillStatus', () => {
         )
         expect(label.label).toBe('Approved')
     })
-    // Researcher has no execution-status labels, so the pill falls through JOB-READY to the live code
-    // decision; that must be the approval, not the superseded change-request from the earlier round.
     it('approved then executing still reads Approved for the researcher (falls through to live decision)', () => {
         const label = resolvePillStatus(
             'researcher',

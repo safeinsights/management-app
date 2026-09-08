@@ -109,6 +109,150 @@ test('containerizer persists JOB-ERRORED once and is idempotent for same status'
     expect(afterSecondErr).toBe(afterFirstErr)
 })
 
+async function erroredReasons(jobId: string) {
+    const rows = await db
+        .selectFrom('jobStatusChange')
+        .select(['message'])
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .execute()
+    return rows.map((r) => r.message)
+}
+
+// OTTER-524: a packaging failure has no log, so the failure class is the only thing that can
+// explain it.
+test('containerizer records a known failure reason alongside JOB-ERRORED', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toContain('BASE_IMAGE_UNAVAILABLE')
+})
+
+// The containerizer deploys independently, so an unrecognized code must not fail validation — that
+// would stop jobs being marked errored at all.
+test('containerizer accepts an unknown failure reason without storing it', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'SOMETHING_WE_DO_NOT_KNOW' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).not.toContain('SOMETHING_WE_DO_NOT_KNOW')
+})
+
+// Nothing a build script writes is stored verbatim, so infrastructure detail cannot reach the
+// database.
+test('containerizer discards raw text sent as a failure reason', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const raw = 'Command "aws s3 sync s3://si-prod-bucket/studies/org/study/jobs/job/code" exited with code 1'
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: raw }))
+    expect(resp.ok).toBe(true)
+
+    const reasons = await erroredReasons(jobId)
+    expect(reasons).not.toContain(raw)
+    expect(reasons.every((r) => !r?.includes('s3://'))).toBe(true)
+})
+
+// A classified failure is delivered twice — the build script's handler, then the buildspec's
+// post_build fallback — so the status dedup must leave the classified row alone.
+test('containerizer keeps the recorded reason when the bare fallback follows it', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const first = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(first.ok).toBe(true)
+    const second = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
+    expect(second.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
+// The reverse order, which the buildspec does not guarantee: a CodeBuild abort can fire the bare
+// fallback first, so the code must be recorded against the row already there.
+test('containerizer records a reason that arrives after the bare failure', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const first = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
+    expect(first.ok).toBe(true)
+    const second = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(second.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
+// Backfilling a code-less row must not clear a recorded one when the follow-up cannot be classified.
+test('containerizer keeps a recorded reason when an unknown code follows it', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }))
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'SOMETHING_WE_DO_NOT_KNOW' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
+// Another producer can reach JOB-ERRORED first and write free text into this column, so backfilling
+// keys on whether a CLASSIFIED code is recorded rather than on the column being empty.
+test('containerizer records a reason against an errored row holding unclassified text', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    // createdAt is set explicitly: each test runs in one transaction where now() is frozen, so
+    // every row would tie and the winner would fall to random v7uuid() ordering.
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: jobId,
+            status: 'JOB-ERRORED',
+            message: 'Task stopped: exit code 137',
+            createdAt: new Date(Date.now() + 1_000),
+        })
+        .execute()
+
+    const resp = await apiHandler.POST(
+        authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),
+    )
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toEqual(['BASE_IMAGE_UNAVAILABLE'])
+})
+
+// The buildspec's fallback posts the payload raw, so a reason-less failure webhook must stay valid.
+test('containerizer still accepts a failure webhook with no reason', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
+    expect(resp.ok).toBe(true)
+
+    expect(await erroredReasons(jobId)).toContain(null)
+})
+
 test('logs error with context on invalid payload', async () => {
     const resp = await apiHandler.POST(authedRequest({ jobId: 'job-invalid', status: 'INVALID_STATUS' }))
     expect(resp.ok).toBe(false)
@@ -138,8 +282,7 @@ test('returns 404 job-not-found for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-// Persists log files through real S3 (storeStudyEncrypted*/storeStudyLogFile),
-// so this skips when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+// Real S3, so skipped without SeaweedFS locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('containerizer stores encrypted and plaintext logs on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })

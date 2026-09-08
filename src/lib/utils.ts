@@ -39,12 +39,13 @@ export async function sleep(opts: TimeOpts): Promise<void> {
 export function sanitizeFileName(fileName: string) {
     return (
         fileName
-            .substring(0, 512) // max path + filename length
-            .replace(/^\/+/, '') // leading slashes
-            .replace(/\.\./g, '') // no directory traversal with ..
+            .substring(0, 512)
+            .replace(/^\/+/, '')
+            .replace(/\.\./g, '')
+            // strips non-ascii, intentionally including control characters
             // eslint-disable-next-line no-control-regex
             .replace(/[^\x00-\x7F]/g, '')
-    ) // non-ascii (intentionally includes control characters)
+    )
 }
 
 export const labOrgIds = (session: UserSession) =>
@@ -82,7 +83,7 @@ export function safeRedirectUrl(url: string | null | undefined, fallback: Route)
     try {
         if (decodeURIComponent(decoded) !== decoded) return fallback
     } catch {
-        // decodeURIComponent threw — decoded contained something like a bare %, which is fine
+        // a bare % is fine
     }
 
     // eslint-disable-next-line no-control-regex

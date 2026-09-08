@@ -17,9 +17,7 @@ export type SubmitReviewArgs = { decision: Decision; feedback: string }
 interface UseProposalReviewMutationOptions {
     studyId: string
     orgSlug: string
-    /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
-    /** Current editable review round. The submit action recomputes and validates this. */
     reviewVersion: number
 }
 
@@ -32,13 +30,8 @@ export function useProposalReviewMutation({
     const router = useRouter()
     const queryClient = useQueryClient()
     const { user } = useUser()
-    // Consume the editor's HocuspocusProvider rather than constructing a
-    // separate one. The editor's provider has been authenticated since page
-    // mount, so the server-side onStateless gate
-    // (services/editor/auth.ts -> if (!connectionUserClerkId) return) reliably
-    // passes. A private broadcast provider, by contrast, could still be in
-    // its onAuthenticate handshake when sendStateless flushes during the
-    // WS-open queue drain. Server drops the message silently in that case.
+    // The editor's provider is authenticated since page mount, so the server's onStateless gate
+    // passes; a private provider could still be mid-handshake and get dropped silently.
     const editorProvider = useReviewFeedbackProvider()
 
     const {

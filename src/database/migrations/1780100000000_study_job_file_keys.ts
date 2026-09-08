@@ -1,12 +1,8 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // A per-recipient wrapped AES key granting one recipient access to one inner file of an approved
-    // results archive. Named by *timing*, not role: the zip manifest holds recipients present when
-    // the job ran in the enclave (reviewers); these rows hold everyone granted access AFTER run time
-    // (researchers today, renewals/new-hires later) without re-encrypting the immutable artifact.
-    // `study_job_file_id` points at the whole-zip `study_job_file` row, `file_path` is the inner
-    // file. Approval itself is the job-level FILES-APPROVED status; these rows are the access mechanism.
+    // Per-recipient wrapped AES keys, so access can be granted after run time without re-encrypting
+    // the immutable results archive (the zip manifest only covers recipients present at run time).
     await db.schema
         .createTable('study_job_file_recipient_key')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())

@@ -34,12 +34,11 @@ export async function initializeDevWorkspaceFiles(studyId: string) {
     const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
     await fs.mkdir(coderFilesPath, { recursive: true })
 
-    // Backdate file mtimes relative to the baseline studyJob rather than wall-clock.
-    // See workspaces.ts:initializeWorkspaceCodeFiles for the same reasoning.
+    // Backdated against the baseline studyJob, not wall-clock; see initializeWorkspaceCodeFiles.
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
-    // Idempotent: skip when files already exist so the late copy doesn't clobber user edits.
+    // Skip when files already exist, so a late copy does not clobber user edits.
     if (!(await devDirHasFiles(coderFilesPath))) {
         for (const fileName of codeEnv.starterCodeFileNames) {
             const s3Path = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
@@ -51,7 +50,6 @@ export async function initializeDevWorkspaceFiles(studyId: string) {
         }
     }
 
-    // Refresh CLAUDE.md from the latest context on every launch (preserving manual user edits).
     await writeAgentContext({
         targetDir: coderFilesPath,
         language: codeEnv.language,

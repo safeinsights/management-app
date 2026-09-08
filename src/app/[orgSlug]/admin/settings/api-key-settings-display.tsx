@@ -3,7 +3,8 @@
 import { Stack, Title, Divider, Paper, Text } from '@mantine/core'
 
 export function ApiKeySettingsDisplay() {
-    return null // This component is currently under design, so we return null to avoid rendering anything.
+    // Under design; renders nothing for now.
+    return null
 
     return (
         <Paper bg="white" p="xxl">

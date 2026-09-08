@@ -54,7 +54,7 @@ export async function deliver({
 
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
-        // Use console.log directly so this always prints to stdout (debug library requires DEBUG env var)
+        // console.log, not the debug library, so this prints without a DEBUG env var.
         // eslint-disable-next-line no-console
         console.log(`Mailgun not configured, skipping sending: ${template} email`)
         // eslint-disable-next-line no-console

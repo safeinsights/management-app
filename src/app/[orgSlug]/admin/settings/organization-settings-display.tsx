@@ -1,10 +1,10 @@
 'use client'
 
 import { Text, Grid, Stack, Flex, Title, Button, Divider } from '@mantine/core'
-import { type Org } from '@/schema/org'
+import { type PublicOrg } from '@/schema/org'
 
 interface OrganizationSettingsDisplayProps {
-    org: Org
+    org: PublicOrg
     onStartEdit: () => void
 }
 

@@ -6,8 +6,6 @@ import { OPENSTAX_ORG_SLUGS } from '@/lib/constants'
 import { useSession } from '@/hooks/session'
 import { useSpyMode } from './spy-mode-context'
 
-// Returns a boolean indicating whether the user is in spy mode and belongs to an OpenStax organization.
-// Use for inline conditional rendering of content.
 const useOpenStaxFeatureFlag = () => {
     const { isSpyMode } = useSpyMode()
     const { isLoaded, session } = useSession()
@@ -27,8 +25,6 @@ interface OpenStaxFeatureFlagProps {
     optInContent: ReactNode
 }
 
-// Swaps out the default content with the opt-in content based on the feature flag.
-// Use for swapping out entire components/large sections of code.
 const OpenStaxFeatureFlag: FC<OpenStaxFeatureFlagProps> = ({ defaultContent, optInContent }) => {
     const isOpenStaxOptIn = useOpenStaxFeatureFlag()
     return isOpenStaxOptIn ? optInContent : defaultContent
@@ -46,9 +42,8 @@ const FeatureFlagRequiredAlert: FC<{ isNewFlow: boolean; message?: string }> = (
     )
 }
 
-// Note: DO NOT EXPORT the above items, instead reaname them like the below example
-// with a name that matches the overarching feature we are developing. (ask team for the name)
-// Doing so lets us search for that name when removing the flag
+// Rename these on export to match the feature being flagged, so the name can be searched for
+// when the flag is removed.
 export {
     useOpenStaxFeatureFlag as useUnusedOpenStaxFeatureFlag,
     OpenStaxFeatureFlag as UnusedOpenStaxFeatureFlag,

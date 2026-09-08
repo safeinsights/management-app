@@ -1,4 +1,4 @@
-import { Alert, Button, type MantineThemeComponents } from '@mantine/core'
+import { Alert, type MantineThemeComponents } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
 
 // Per-component theme overrides. Geometry is transcribed from the Figma component pages
@@ -14,7 +14,9 @@ const BUTTON_SIZES = {
     xl: { height: 60, padding: 32, fontSize: 20 },
 } as const
 
-const buttonSizeVars = (size: string) => {
+// Composed into `buttonVars` in src/theme.ts rather than carried on a Button entry here, because
+// Mantine calls a single `vars` per component and OTTER-761's colour vars own that slot.
+export const buttonSizeVars = (size: string | number | undefined) => {
     const spec = BUTTON_SIZES[size as keyof typeof BUTTON_SIZES] ?? BUTTON_SIZES.md
 
     return {
@@ -25,19 +27,6 @@ const buttonSizeVars = (size: string) => {
 }
 
 export const uiThemeComponents: MantineThemeComponents = {
-    Button: Button.extend({
-        defaultProps: {
-            radius: 'xs',
-        },
-        vars: (_theme, props) => ({
-            root: buttonSizeVars(props.size ?? 'md'),
-        }),
-        styles: () => ({
-            // Figma label weight is 600 across every size; Mantine has no --button-fw var.
-            label: { fontWeight: 600 },
-        }),
-    }),
-
     Alert: Alert.extend({
         defaultProps: {
             radius: 'xs',
@@ -53,6 +42,7 @@ export const uiThemeComponents: MantineThemeComponents = {
     TextInput: {
         defaultProps: {
             radius: 'xs',
+            color: semanticColor('text.primary'),
         },
         styles: () => ({
             input: { '::placeholder': { color: semanticColor('text.placeholder') } },

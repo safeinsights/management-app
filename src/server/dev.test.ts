@@ -29,7 +29,7 @@ describe('initializeDevWorkspaceFiles', () => {
         try {
             await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
         } catch {
-            // ignore
+            // best-effort cleanup; a failure here must not fail the test
         }
         if (originalCoderFiles) process.env.CODER_FILES = originalCoderFiles
         else delete process.env.CODER_FILES
@@ -38,10 +38,8 @@ describe('initializeDevWorkspaceFiles', () => {
         vi.doUnmock('@/server/storage')
     })
 
-    // OTTER-547 regression: the previous implementation backdated starter files by a fixed
-    // 60s from wall-clock. If Coder provisioning took longer than 60s, the starter files'
-    // mtime ended up newer than the baseline studyJob.createdAt, which the UI reads as
-    // "researcher has edited files" and enables Submit on a freshly-launched workspace.
+    // OTTER-547: a fixed 60s wall-clock backdate left starter files newer than the baseline when
+    // provisioning ran long, which the UI reads as "researcher has edited files".
     test('starter file mtimes are strictly older than the latest studyJob.createdAt, even after a long provisioning delay', async () => {
         const { org, user } = await mockSessionWithTestData()
         const { study, job } = await insertTestStudyJobData({ org, researcherId: user.id })
@@ -52,8 +50,7 @@ describe('initializeDevWorkspaceFiles', () => {
             starterCodeFileNames: ['main.R'],
         })
 
-        // Pretend Coder took ~2 minutes to come up. The pre-fix code would stamp files
-        // at NOW-60s, which is ~60s NEWER than job.createdAt.
+        // Coder takes ~2 minutes; the pre-fix code stamped files at NOW-60s, newer than createdAt.
         const NOW = Date.now()
         vi.useFakeTimers()
         vi.setSystemTime(NOW + 120_000)
@@ -105,7 +102,6 @@ describe('initializeDevWorkspaceFiles', () => {
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(study.id)
 
-        // User edits their starter code, then context is updated and the workspace is relaunched.
         await fs.writeFile(`${TEST_CODER_FILES}/main.R`, 'user edits', 'utf-8')
         await seedContext('SYSTEM', 'updated system context')
         await initializeDevWorkspaceFiles(study.id)

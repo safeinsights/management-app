@@ -1,22 +1,20 @@
 import { notFound } from 'next/navigation'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { StudyDetailsResearcher } from '../view/study-details-researcher'
 import type { ScreenComponentProps } from './types'
-import type { Route } from 'next'
 
-// study-results: results page. OTTER-614: "Previous" walks back to the code step (/view/code);
-// returnTo is threaded so org scope survives the hop.
-export async function StudyResultsScreen({ study, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
+// returnTo is threaded so org scope survives the hop back to the code step.
+export async function StudyResultsScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
 
-    return (
-        <StudyDetailsResearcher
-            orgSlug={orgSlug}
-            study={study}
-            job={job}
-            dashboardHref={dashboardHref as Route}
-            returnTo={returnTo}
-        />
-    )
+    const nav = resolveStepNav('study-results', projectStudyState(raw), {
+        orgSlug,
+        studyId: study.id,
+        dashboardHref,
+        returnTo,
+    })
+
+    return <StudyDetailsResearcher study={study} job={job} nav={nav} />
 }

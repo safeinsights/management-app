@@ -1,7 +1,9 @@
+import type { Route } from 'next'
 import type { StudyJobStatus } from '@/database/types'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { DraftStep2Fields } from '@/lib/study-screen/state.types'
 import { effectiveProposalStatus } from '@/lib/review-decision'
+import { Routes } from '@/lib/routes'
 
 type StudyWithJobStatuses = {
     jobStatusChanges: Array<{ status: StudyJobStatus }>
@@ -11,16 +13,25 @@ export function studyHasJobStatus(study: StudyWithJobStatuses, status: StudyJobS
     return study.jobStatusChanges.some((s) => s.status === status)
 }
 
+// Once code is submitted this must be the read-only code view, NOT plain /view, which would jump
+// an advanced study straight to results (OTTER-727).
+export function researcherCodeStepHref(
+    study: StudyWithJobStatuses & { id: string },
+    { orgSlug, returnTo }: { orgSlug: string; returnTo?: string },
+): Route {
+    if (studyHasJobStatus(study, 'CODE-SUBMITTED')) {
+        return Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
+    }
+    return Routes.studyCode({ orgSlug, studyId: study.id })
+}
+
 export function deriveStudyVersion(entries: { version: number }[]): number {
     if (entries.length === 0) return 1
     return Math.max(...entries.map((e) => e.version))
 }
 
-// Step 1 (data partner + language + docs) saves `orgSlug`, `language`, `title`,
-// `piName`, and document paths. Step 2 is the first time any of the columns
-// below are written, so any one being non-empty means the researcher has
-// reached Step 2. Used to route a "resume draft" entry to the step where
-// they last left off instead of always landing on Step 1. Step 1 never writes these columns
+// Step 2 is the first time any of these columns is written, so one being non-empty means the
+// researcher reached it.
 export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
     if (study.piUserId) return true
     if (study.datasets && study.datasets.length > 0) return true
@@ -31,7 +42,6 @@ export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
     return false
 }
 
-/** Returns the timestamp of the latest decision for the submitted proposal header. */
 export function decisionTimestampForProposalHeader(study: SelectedStudy, entries: ProposalFeedbackEntry[]): Date {
     const status = effectiveProposalStatus(study)
     if (status === 'APPROVED' && study.approvedAt) {
@@ -46,7 +56,6 @@ export function decisionTimestampForProposalHeader(study: SelectedStudy, entries
         if (latestClarification) return latestClarification.createdAt
     }
     if (status === 'PENDING-REVIEW' && entries.length > 0) {
-        // source the resubmission date from the latest RESUBMISSION-NOTE entry.
         const latestResubmission = entries.find((e) => e.entryType === 'RESUBMISSION-NOTE')
         if (latestResubmission) return latestResubmission.createdAt
     }

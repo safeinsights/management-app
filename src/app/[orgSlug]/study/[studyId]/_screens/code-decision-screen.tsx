@@ -1,23 +1,24 @@
 import { notFound } from 'next/navigation'
-import type { Route } from 'next'
-import { Routes } from '@/lib/routes'
-import { projectStudyState, isErroredResultHiddenFromResearcher } from '@/lib/study-screen'
+import { codeDecisionForScreen, projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
 import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 import type { ScreenComponentProps } from './types'
 
-// code-approved AND code-feedback both render the post-decision view. The effective decision is
-// APPROVED while the code is approved or executing; otherwise it's the live
-// CHANGES-REQUESTED/REJECTED decision.
-export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, returnTo }: ScreenComponentProps) {
+// code-approved and code-feedback both render this view; codeDecisionForScreen reads back which one
+// the rule table picked, so the banner and the nav cannot disagree with the page that routed.
+export async function CodeDecisionScreen({
+    study,
+    raw,
+    orgSlug,
+    dashboardHref,
+    returnTo,
+    descriptor,
+}: ScreenComponentProps) {
     const state = projectStudyState(raw)
-    const decisionStatus =
-        state.codeDecision === 'CODE-APPROVED' || state.isExecuting ? 'CODE-APPROVED' : state.codeDecision
-    if (decisionStatus === null) notFound()
-
-    const hiddenErroredResult = isErroredResultHiddenFromResearcher(state)
+    const decision = codeDecisionForScreen(descriptor.screen, state)
+    if (!decision) notFound()
 
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
@@ -25,12 +26,12 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
 
-    // OTTER-614: once results exist, the code page forwards to Step 5 (plain /view resolves to the
-    // results screen) instead of ending at the dashboard.
-    const resultsHref =
-        state.hasResults && !hiddenErroredResult
-            ? Routes.studyView({ orgSlug, studyId: study.id, returnTo })
-            : undefined
+    const nav = resolveStepNav(decision.screen, state, {
+        orgSlug,
+        studyId: study.id,
+        dashboardHref,
+        returnTo,
+    })
 
     return (
         <CodePostDecisionView
@@ -39,10 +40,9 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, dashboardHref, r
             job={job}
             entries={entries}
             reviewingOrgName={reviewingOrgName}
-            dashboardHref={dashboardHref as Route}
             returnTo={returnTo}
-            latestJobStatus={decisionStatus}
-            resultsHref={resultsHref}
+            latestJobStatus={decision.status}
+            nav={nav}
             feedbackLoadError={feedbackLoadError}
         />
     )

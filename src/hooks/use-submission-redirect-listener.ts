@@ -12,9 +12,7 @@ export type SubmissionEvent =
     | {
           type: 'proposal-submitted'
           studyId: string
-          /** Per-mount tab session id of the broadcasting client. Used to skip the broadcaster's own tab. */
           submittedByTabId: string
-          /** Clerk user id of the broadcaster. Server compares against the authenticated connection user. */
           submittedByClerkId: string
           submittedByName: string
           orgName: string
@@ -91,17 +89,10 @@ const tryDecodeStateless = (payload: unknown): SubmissionEvent | null => {
 }
 
 type Args = {
-    /** Provider whose stateless channel carries the submission event. */
     provider: HocuspocusProvider | null
     orgSlug: string
     studyId: string
-    /**
-     * Tab session id for the current mount. Used to skip the broadcaster's own tab so
-     * its mutation onSuccess is the only navigation path. MUST match the value the
-     * broadcaster places on the outgoing event, otherwise the broadcaster's own tab
-     * will double-navigate. Other tabs of the same user have different ids and still
-     * receive the kick-out flow.
-     */
+    /** Must match the id the broadcaster puts on the outgoing event, or that tab double-navigates. */
     currentTabId: string
     enabled?: boolean
 }
@@ -116,10 +107,8 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
         const handle = (event: SubmissionEvent) => {
             if (hasFiredRef.current) return
             if (event.studyId !== studyId) return
-            // The broadcaster's own tab navigates from its mutation onSuccess; if the
-            // same tab also receives the broadcast, skip the duplicate toast/redirect.
-            // Compare on tab id so a same-user OTHER tab still gets the AC-required
-            // kick-out (per the plan's "Same-user multiple tabs: also redirect").
+            // The broadcaster's own tab already navigated from its mutation onSuccess. Compared on
+            // tab id, not user, so the same user's other tabs still get kicked out.
             if (event.submittedByTabId === currentTabId) {
                 hasFiredRef.current = true
                 return
@@ -144,8 +133,6 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                     message: `${event.submittedByName} has proceeded to submit a decision on this study code. No further edits are allowed at this point.`,
                     autoClose: NOTIFICATION_DISPLAY_MS,
                 })
-                // The decision was just recorded, so the reviewer state machine resolves bare
-                // /review to the code post-feedback screen (codeDecision !== null) — no ?from= needed.
                 router.push(Routes.studyReview({ orgSlug, studyId }))
                 return
             }

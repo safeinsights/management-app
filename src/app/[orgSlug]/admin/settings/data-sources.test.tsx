@@ -198,7 +198,6 @@ describe('DataSources', async () => {
             .execute()
         expect(sources).toEqual([{ name: 'Updated name', description: 'Updated desc' }])
 
-        // Existing URL is preserved unchanged through the update path
         const urls = await db
             .selectFrom('orgDataSourceUrl')
             .select(['url', 'description'])
@@ -267,9 +266,8 @@ describe('DataSources', async () => {
         expect(urls).toEqual([{ url: 'https://example.com/implicit', description: 'Implicit url desc' }])
     })
 
-    // OTTER-647: an invalid draft URL is now rejected on the client, on the field the user
-    // typed in. It previously reached the server action and came back as a red notification,
-    // which told the user something failed but not which field or why.
+    // OTTER-647: rejected on the field the user typed in, not as a server-side notification that
+    // named neither the field nor the reason.
     it('rejects an invalid draft URL on the field itself and does not save', async () => {
         const user = userEvent.setup()
 
@@ -294,7 +292,7 @@ describe('DataSources', async () => {
     })
 
     // Blur validation is per-field, so a cross-field rule surfaces on the field the issue is
-    // attached to, not on its partner: leaving the description empty flags the description.
+    // attached to.
     it('flags a draft URL description left empty when the user moves on', async () => {
         const user = userEvent.setup()
 

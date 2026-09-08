@@ -11,14 +11,15 @@ import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
-import { SINGLE_USER_EDITING } from '@/server/config'
+import { getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
 import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
+import { connection } from 'next/server'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
-        title: 'SafeInsights Management Application',
+        title: 'SafeInsights',
         description: 'Manages studies, members, and data',
         icons: {
             icon: '/icon.png',
@@ -29,15 +30,20 @@ export async function generateMetadata(): Promise<Metadata> {
     }
 }
 
+// `connection()` here opts the whole app out of static generation so every document can carry the
+// CSP nonce on its inline hydration scripts (OTTER-721).
 export default async function RootLayout({
     children,
 }: Readonly<{
     children: ReactNode
 }>) {
+    await connection()
+    const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
+
     return (
         <html lang="en" translate="no" className={globalFont.className}>
             <body>
-                <Providers singleUserEditing={SINGLE_USER_EDITING}>
+                <Providers singleUserEditing={SINGLE_USER_EDITING} posthogProjectToken={postHogProjectToken}>
                     <Suspense fallback={<GlobalLoading />}>{children}</Suspense>
                     <PiSymbol />
                 </Providers>

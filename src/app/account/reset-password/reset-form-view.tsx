@@ -7,12 +7,6 @@ import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Button, Link } from '@/common'
 import { Routes } from '@/lib/routes'
 
-// Presentational "Reset your password" card. It owns the white Paper, the registered-email
-// field, the "Send Verification Code" button (with loading / disabled state), and the
-// "Back to log in" link. Kept in its OWN file free of the Clerk useSignIn hook and the
-// reset-email mutation so it renders in isolation (e.g. Ladle). The ResetForm container owns
-// the form + mutation and injects the form, submit handler, and pending flag here.
-
 export type ResetFormValues = {
     email: string
 }

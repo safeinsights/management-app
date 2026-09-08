@@ -34,15 +34,12 @@ export function extractClerkCodeAndMessage(error: ClerkAPIErrorResponse) {
     return { code: err.code, message: err.longMessage || err.message }
 }
 
-// Unified error response type for actions
 export type ActionError = {
     error: string | Record<string, string>
 }
 
-// Unified response type that can be either data or error
 export type ActionResponse<T> = T | ActionError
 
-// Type guard to check if response is an error
 export function isActionError(response: unknown): response is ActionError {
     return (
         typeof response === 'object' &&
@@ -54,25 +51,21 @@ export function isActionError(response: unknown): response is ActionError {
     )
 }
 
-// Extract error content from various error formats
 export function extractActionFailure(error: unknown): string | Record<string, string> | null {
-    // Handle direct ActionError responses
     if (isActionError(error)) {
         return error.error
     }
 
-    // Handle server action errors with encoded messages
     if (isServerActionError(error)) {
         try {
             const encoded = JSON.parse(error.message)
             return extractActionFailure(encoded)
         } catch {
-            // Ignore JSON parse errors
+            // not JSON-encoded
         }
         return null
     }
 
-    // Handle legacy sanitized error format
     if (
         error != null &&
         typeof error === 'object' &&
@@ -104,7 +97,6 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
-// Exception class that can be thrown from server actions with safe error messages
 export class ActionFailure extends Error {
     constructor(public error: ActionError['error']) {
         super(typeof error === 'string' ? error : JSON.stringify(error))
@@ -118,7 +110,6 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
         return error
     }
 
-    // Handle unified ActionError format
     const actionFailure = extractActionFailure(error)
     if (actionFailure) {
         if (typeof actionFailure === 'string') {
@@ -152,7 +143,6 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
 class RecordError extends ActionFailure {
     constructor(sanitizedError: Record<string, string>) {
         super(sanitizedError)
-        // Set message for backwards compatibility
         this.message = Object.values(sanitizedError).join(' ')
     }
 }
@@ -161,16 +151,13 @@ export class AccessDeniedError extends RecordError {}
 
 export class NotFoundError extends RecordError {}
 
-// a utility function to throw an AccessDeniedError with a message
-// useful for passing into kysely's takeFirstOrThrow
+// For passing into kysely's takeFirstOrThrow.
 export const throwAccessDenied = (part: string) => () =>
     new AccessDeniedError({ user: `not allowed access to ${part}` })
 
 export const throwNotFound = (part: string) => () => new NotFoundError({ user: `${part} was not found` })
 
-// Postgres unique_violation SQLSTATE. The node-postgres driver attaches `.code`
-// to thrown errors and Kysely passes them through, so checking the code is the
-// portable way to distinguish a unique-index conflict from any other DB error.
+// 23505 is the Postgres unique_violation SQLSTATE, which node-postgres attaches as `.code`.
 export function isPgUniqueViolation(error: unknown): boolean {
     return (
         error != null && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === '23505'

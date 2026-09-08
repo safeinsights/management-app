@@ -13,7 +13,7 @@ tmp/
 .ladle/*.zip
 test-results/
 *.tern-port
-node_modules/
+node_modules
 package-lock.json
 services/editor/package-lock.json
 yarn.lock
@@ -45,3 +45,6 @@ tests/.auth/
 .claude/scheduled_tasks.lock
 CLAUDE.local.md
 .mcp.json
+
+_to_delete/
+_claude_tmp/

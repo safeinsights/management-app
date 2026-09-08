@@ -23,16 +23,8 @@ export const PASSWORD_REQUIREMENTS = [
     { re: /^.{8,}$/, label: '8 character minimum', message: 'Password must be at least 8 characters long' },
 ]
 
-/**
- * Checks password requirements and decides whether to display them.
- *
- * The password inputs suppress their own Mantine error in favor of this list, so it has to
- * appear once the user has left an empty field. Hiding it on `password.length === 0`, as it
- * previously did, meant blurring an empty password showed nothing at all (OTTER-647).
- *
- * @param password current field value
- * @param touched whether the field has been blurred at least once
- */
+// The password inputs suppress their own Mantine error in favor of this list, so hiding it on an
+// empty password showed nothing at all (OTTER-647).
 export function usePasswordRequirements(password: string, touched = false) {
     const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
         ...req,
@@ -46,9 +38,8 @@ export function usePasswordRequirements(password: string, touched = false) {
         return password.length > 0 || touched
     }
 
-    // `undefined` rather than a null-rendering element: Mantine decides whether to render the
-    // description wrapper from the prop's truthiness alone, so an element that renders nothing
-    // still emits an empty `<p>` and points `aria-describedby` at it.
+    // `undefined`, not a null-rendering element: Mantine checks the prop's truthiness alone, so an
+    // element that renders nothing still emits an empty `<p>` with aria-describedby pointed at it.
     const requirementsDescription = shouldShowRequirements() ? <Requirements requirements={requirements} /> : undefined
 
     return {
@@ -59,11 +50,8 @@ export function usePasswordRequirements(password: string, touched = false) {
     }
 }
 
-/**
- * Rendered as the password inputs' `description` so Mantine owns the `aria-describedby`
- * wiring. Mantine renders a description inside a `<p>`, so every element here is a `span`:
- * a `div` or nested `p` would be invalid HTML and trigger a hydration error.
- */
+// Mantine renders a description inside a `<p>`, so every element here is a `span`: a `div` or
+// nested `p` would be invalid HTML and trigger a hydration error.
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
     const theme = useMantineTheme()

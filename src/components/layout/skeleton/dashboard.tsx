@@ -18,10 +18,8 @@ import {
 export function DashboardHeaderSkeleton() {
     return (
         <Stack gap="sm" data-testid="dashboard-header-skeleton">
-            {/* Page Title */}
             <Skeleton height={32} width="200px" />
 
-            {/* Welcome text and description */}
             <Group gap="sm">
                 <Skeleton height={20} width="250px" />
             </Group>
@@ -43,7 +41,6 @@ export const TableSkeleton = ({
 
     const content = (
         <Stack gap="sm">
-            {/* Table header with action button */}
             <Flex justify="space-between" align="center">
                 <Skeleton height={24} width="160px" />
                 {showActionButton && <Skeleton height={36} width="160px" />} {/* Action button */}
@@ -51,7 +48,6 @@ export const TableSkeleton = ({
 
             <Divider />
 
-            {/* Table */}
             <Table layout="fixed" verticalSpacing="md" striped="even">
                 <TableThead>
                     <TableTr>

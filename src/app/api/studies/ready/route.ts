@@ -12,9 +12,8 @@ export const GET = wrapApiOrgAction(async () => {
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.on('orgId', '=', org.id).onRef('study.id', '=', 'studyJob.studyId'))
         .innerJoin(
-            // A late-arriving scan webhook can insert CODE-SCANNED after JOB-READY,
-            // so check for the presence of a ready/running status rather than
-            // requiring it to be the very latest
+            // A late scan webhook can insert CODE-SCANNED after JOB-READY, so check for the
+            // presence of a ready/running status rather than requiring it to be the latest.
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')

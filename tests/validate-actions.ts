@@ -11,9 +11,6 @@ type ExportStatus = {
     wrapper: string | false
 }
 
-/**
- * Recursively retrieves all files with .ts or .tsx extensions in the given directory.
- */
 function getAllFiles(dirPath: string, arrayOfFiles: string[] = []): string[] {
     const files = fs.readdirSync(dirPath)
     for (const file of files) {
@@ -27,14 +24,9 @@ function getAllFiles(dirPath: string, arrayOfFiles: string[] = []): string[] {
     return arrayOfFiles
 }
 
-/**
- * Checks if a given expression node is a CallExpression that wraps a function
- * using `serverAction`.
- */
 function findServerActionWrapper(node: ts.Expression): string | false {
     let current: ts.Node = node
 
-    // Traverse down the chain of CallExpressions and PropertyAccessExpressions
     while (ts.isCallExpression(current) || ts.isPropertyAccessExpression(current)) {
         if (ts.isCallExpression(current)) {
             current = current.expression
@@ -43,43 +35,34 @@ function findServerActionWrapper(node: ts.Expression): string | false {
         }
     }
 
-    // Check if we ended up at `new Action(...)`
     if (ts.isNewExpression(current)) {
         const callee = current.expression
         if (ts.isIdentifier(callee) && callee.escapedText === 'Action') {
             if (current.arguments && current.arguments.length > 0) {
                 const firstArg = current.arguments[0]
                 if (ts.isStringLiteral(firstArg)) {
-                    return firstArg.text // This will be the action name string
+                    return firstArg.text
                 }
             }
-            return 'Action' // Or maybe something to indicate name not found
+            return 'Action'
         }
     }
 
     return false
 }
 
-/**
- * Traverses the AST to find all exported functions.
- * It handles both function declarations and exported variable statements.
- * For variable declarations, it checks whether the initializer is a serverAction call.
- */
 function checkExportedFunctions(sourceFile: ts.SourceFile): ExportStatus[] {
     const results: ExportStatus[] = []
 
     function visit(node: ts.Node) {
-        // Check for exported function declarations:
         if (ts.isFunctionDeclaration(node)) {
             const isExported = node.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword)
             if (isExported) {
                 const functionName = node.name ? node.name.getText(sourceFile) : '<anonymous>'
-                // Function declarations are not wrapped (unless they’re assigned later)
                 results.push({ name: functionName, wrapper: false })
             }
         }
 
-        // Check for exported variables that might hold function expressions or arrow functions:
         if (ts.isVariableStatement(node)) {
             const isExported = node.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword)
             if (isExported) {
@@ -110,10 +93,6 @@ function isActionsFile(filePath: string) {
 const IS_SERVER = /['"]use server['"]/
 
 const IGNORE = new Set(['non-production.tsx', 'layout.tsx', 'page.tsx', 'focused-layout.tsx', 'user-layout.tsx'])
-/**
- * Analyzes a single file: checks if it contains the "use server" directive,
- * then parses its AST to check for exported functions and if they are wrapped.
- */
 function analyzeFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf8')
     let success = true
@@ -136,7 +115,7 @@ function analyzeFile(filePath: string) {
             if (VERBOSE) logs.push(`   ${isOk ? '✓' : '✗'} ${func.name}`)
             if (!isOk) {
                 if (!fileHasError) {
-                    logs.unshift(filePath) // Add file path only once on first error
+                    logs.unshift(filePath)
                     fileHasError = true
                 }
                 logs.push(`   ✗ ${func.name}`)
@@ -155,9 +134,6 @@ function analyzeFile(filePath: string) {
     return { success, logs }
 }
 
-/**
- * Recursively analyzes all eligible files in the provided directory.
- */
 function analyzeDirectory(directoryPath: string): void {
     const files = getAllFiles(directoryPath)
     let overallSuccess = true
@@ -184,6 +160,4 @@ function analyzeDirectory(directoryPath: string): void {
     }
 }
 
-// Run the analysis.
-// Usage: ts-node checkServerActions.ts [--verbose] [<path-to-nextjs-app>]
 analyzeDirectory(targetDirectory)

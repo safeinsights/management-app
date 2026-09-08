@@ -3,26 +3,25 @@ import { sql, type Kysely } from 'kysely'
 import { createHash } from 'node:crypto'
 
 // Copy of tests/support/public_key.pem, embedded because the migrator Lambda runs this seed
-// without a repo checkout to read the file from. A unit test asserts it stays in sync.
+// without a repo checkout. A unit test asserts it stays in sync.
 export const TEST_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAhwpt565psROI0lzRT1i6
-AzuENGyqK9MPnEJ4SZ+nZZeXYYm/PzxV/sovltwyOxgD4A/fAvi5hftcscuWpsYR
-yox0wx0wKECZ+4DHy8X4iLGdRh9KCM8pddgKHKXnb8/cLEKmzCR/gXSeMG8TkLIo
-LV3IjtkoPRj8GZIJxVqqQ/UVtiqcOj4FXbqBiQdydLER8jPhzQLdmXHoHkerxCRy
-8HfzjU1M289bGoqW6IAQ1+AIYCemdsrfWqQZEGOrOTJcaWIcdDnwCatr+TC6blCg
-WhhfiNGWRLf2Vhuu6uYRhIilo16wGb6woCCm+VsgL6xa5HLvcF5l6cdyerUmKzrB
-LMXXpPaO0sTsAR9/QTL8bjXK2DByKqeVQ53cK+FcKCrC+al3pl7Jj8VuFxcCjs3x
-7DKreBR8w6BunILrD/dVEYLslKHNTOVtHvFBjJDdX956OKyo7ZQchnbfWQrZyeor
-5c9ERtxPqp9Aq++k9aE5pqQ0u4BjgwsLhL9lzsEcBDBF4D3DEJapTKO0LsZLmn36
-Ssf4Huw9x9pCzj5jl8VFRfwY42BH/TYwTd6QtDO7cfelOLG/roX6vLP8+lZB8OUF
-Viiiv7pMXLecfrwuZZrfg+08UsF8H1vY9P4bw3dmzhHxwF3inIvYpHDAp7tnSFGp
-8lwX7mjUqudVA93y6z1U6hsCAwEAAQ==
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAnkxeGkXRU55i44S5KNoo
+1XHRm97qKdKXKt2xK6+SZQgjpUZFOcObWP0jrQxunj63gxOsb+isaYm2C/rl4zAq
+smh4BwG3VxgO2jQfwLWHaIMeJUSvaM1fOGLkaSyGWVPA0r4PwAkBZH+QrtW8Az/W
+BupPZ9++TdpFy7eitH9dzdViZdZluVDaYcZ6OguF+Ed3IiFudBN1J4yDTAqzXHkr
+Ad0lSG5d/k8ONBpHLs6gmaLuPHa/XQIQPxZ/Y6nFS1Dq+KJW8y6bCPPeJfdFVaxF
+s7auem3FCKGvzuJeFKa3n+lMAnf3YeazF6nS3hcaTrxrLvsm282LdTFaRXrU60Ur
+xXDT0GlBWiCnJwqIXZsWk6ta7zPl70pRNM/zymgJlJsA5w5laapFqGVljClkGrzt
+k3HLd54Z5M4CJG+10sVC6mmXJHaqmGU4cdqTC235vmjOZGz8xzitXi3caAnQNKhw
+R+A2jpGE+oUAethwMhlo2+6PjXOcKk4ALLbgKZnBLMo8USr168+o3Qvb7MsI+E4f
+p8qFdnFg4jKe8JyAafRMUOENG9+LxskQsXVi8jDGIhKf6Ix+ubjr+J4E6CBJcTDG
+9RIOYiaKBhLQ4Z3EFynKBYjMA48N9LLREiBb25BX8XKRGoFT5ezP2gQgCzrlAQh6
+UdB9nPRag5tVlOVm412S8aUCAwEAAQ==
 -----END PUBLIC KEY-----`
 
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
-// Fixed UUIDs so that concurrent CI runs sharing the same Clerk instance
-// always produce identical publicMetadata and don't stomp on each other.
+// Fixed UUIDs so concurrent CI runs sharing a Clerk instance don't stomp on each other.
 const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
     { slug: 'safe-insights', type: 'enclave', id: '00000000-0000-4000-8000-000000000101' },
     { slug: 'safe-insights-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000102' },
@@ -34,10 +33,7 @@ const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
 
 type TestUserRole = 'admin' | 'researcher' | 'reviewer'
 
-// Test users are keyed by a unique `key`, not by role, so multiple users can share a role
-// (e.g. the persistent QA login accounts alongside the original per-role fixtures). `role`
-// drives org memberships (see ORG_MEMBERSHIPS_BY_ROLE); `key` gives each user a distinct
-// deterministic clerkId. Fixed UUIDs keep concurrent CI runs sharing a Clerk instance stable.
+// Keyed by `key` rather than role so multiple users can share a role.
 type TestUser = { key: string; role: TestUserRole; id: string; email: string }
 
 const TEST_USERS: TestUser[] = [
@@ -45,16 +41,17 @@ const TEST_USERS: TestUser[] = [
     { key: 'researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000002', email: 'si-research-tester-dbfyq3@mailinator.com' }, // prettier-ignore
     { key: 'reviewer', role: 'reviewer', id: '00000000-0000-4000-8000-000000000003', email: 'si-member-tester-dbfyq3@mailinator.com' }, // prettier-ignore
 
-    // Persistent QA login accounts. These already exist in Clerk; this seed only wires up their
-    // SI DB access (user row + memberships + key). The clerkId here is a placeholder — user-sync
-    // reconciles the real Clerk id by email on first login (matched via lower(email) below).
+    // Owned by the legal-acknowledgement e2e spec: ToS/PN are globally scoped, so this user exists
+    // to be left un-acknowledged without blocking any other spec's role.
+    { key: 'legal', role: 'researcher', id: '00000000-0000-4000-8000-000000000004', email: 'si-legal-tester-dbfyq3@mailinator.com' }, // prettier-ignore
+
+    // Persistent QA accounts that already exist in Clerk, so the clerkId here is a placeholder:
+    // user-sync reconciles the real one by email on first login.
     { key: 'qa-admin', role: 'admin', id: '00000000-0000-4000-8000-000000000011', email: 'qa-review+admin@safeinsights.org' }, // prettier-ignore
     { key: 'qa-dp', role: 'reviewer', id: '00000000-0000-4000-8000-000000000012', email: 'qa-review+dp@safeinsights.org' }, // prettier-ignore
     { key: 'qa-researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000013', email: 'qa-review+researcher@safeinsights.org' }, // prettier-ignore
 ]
 
-// Role → org memberships. Every user of a role gets the same set, so a new same-role user
-// (e.g. qa-dp mirrors reviewer) needs no per-user membership wiring.
 const ORG_MEMBERSHIPS_BY_ROLE: Record<TestUserRole, { slug: string; isAdmin: boolean }[]> = {
     admin: [
         { slug: 'safe-insights', isAdmin: true },
@@ -69,17 +66,30 @@ const ORG_MEMBERSHIPS_BY_ROLE: Record<TestUserRole, { slug: string; isAdmin: boo
 }
 
 export async function seed(db: Kysely<DB>): Promise<void> {
-    if (process.env.NO_TESTING_DATA) return
+    // READ BEFORE EDITING. This seed writes publicly-known credentials and admin memberships on
+    // real org slugs, and it once ran against production behind a guard nothing ever set. Both
+    // opt-IN checks below must keep failing closed, and must stay inline process.env reads: a CJS
+    // dependency crashes the esbuild ESM bundle the migrator Lambda runs seeds from, which is why
+    // bin/lib/testing-data-gate.ts is duplicated rather than imported. No migration or seed may
+    // create the safe-insights org in production; bootstrap it by logging in a Clerk admin.
+    if (process.env.ALLOW_TESTING_DATA !== 'TRUE') {
+        console.warn('Skipping test data seed: ALLOW_TESTING_DATA=TRUE is not set.')
+        return
+    }
 
-    // Upsert orgs and capture the actual persisted id for each slug.
-    // Existing deployments may already have rows for these slugs with
-    // different (random) ids — the onConflict update cannot change the
-    // primary key, so we must use whatever id the DB returns when
-    // inserting child rows below.
+    // NODE_ENV is deliberately not consulted: it is 'production' in every Next production build,
+    // including non-production deployed environments.
+    const envName = (process.env.ENVIRONMENT_ID || '').toLowerCase()
+    if (envName === 'production' || envName === 'prod') {
+        console.warn('Refusing to seed test data into a production environment.')
+        return
+    }
+
+    // Existing deployments may hold these slugs under different, random ids, and onConflict cannot
+    // change a primary key, so child rows must use whatever id the DB returns.
     const orgIdBySlug = new Map<string, string>()
 
     for (const org of ORGS) {
-        const isEnclave = org.type === 'enclave'
         const name =
             org.slug === 'single-lang-r-enclave'
                 ? 'Single-Lang R Enclave'
@@ -103,7 +113,9 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                   ? 'Enclave where the reviewer is an admin'
                   : null
 
-        const settings = isEnclave ? { publicKey: 'BAD KEY, UPDATE ME' } : {}
+        // Empty rather than a placeholder public key, which would leave a real enclave unable to
+        // receive encrypted results.
+        const settings = {}
 
         const persisted = await db
             .insertInto('org')
@@ -120,7 +132,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         orgIdBySlug.set(org.slug, persisted.id)
     }
 
-    // Code environments for openstax
     const openstaxId = orgIdBySlug.get('openstax')!
     const existingOpenstaxEnvs = await db.selectFrom('orgCodeEnv').where('orgId', '=', openstaxId).execute()
 
@@ -152,7 +163,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .execute()
     }
 
-    // Data sources for openstax
     const existingDataSources = await db.selectFrom('orgDataSource').where('orgId', '=', openstaxId).execute()
 
     if (existingDataSources.length === 0) {
@@ -177,7 +187,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .execute()
     }
 
-    // Code environment for single-lang-r-enclave
     const singleLangId = orgIdBySlug.get('single-lang-r-enclave')!
     const existingSingleLangEnvs = await db.selectFrom('orgCodeEnv').where('orgId', '=', singleLangId).execute()
 
@@ -197,10 +206,8 @@ export async function seed(db: Kysely<DB>): Promise<void> {
             .execute()
     }
 
-    // Find-or-create test users. Existing deployments may have rows with
-    // these emails but different (pre-fixed-UUID) ids — match by id OR by
-    // lower(email) so we update in place instead of hitting the unique
-    // `user_email_lower_unique` index.
+    // Matched by id OR lower(email) because deployments may hold these emails under pre-fixed-UUID
+    // ids, and inserting would hit the unique `user_email_lower_unique` index.
     const userIdByKey = new Map<string, string>()
 
     for (const user of TEST_USERS) {
@@ -234,7 +241,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         }
     }
 
-    // Org memberships, expanded per user from its role's template.
     for (const user of TEST_USERS) {
         const userId = userIdByKey.get(user.key)!
 
@@ -261,15 +267,9 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         }
     }
 
-    // Every test user belongs to an org that requires an encryption key (enclave or lab), so the
-    // RequireUserKey gate redirects them to key generation until one exists. Seed the shared
-    // test public key (tests/support/public_key.pem) — NOT a placeholder — so results encrypted
-    // for it by the e2e (bin/debug/upload-results.ts) produce a wrapped key whose fingerprint matches
-    // the seeded user, and decrypt with tests/support/private_key.pem.
     // Inlined from si-encryption's pemToArrayBuffer/fingerprintKeyData: importing that package
-    // pulls in `debug`, whose CJS require('tty') crashes the esbuild ESM bundle the migrator
-    // Lambda runs seeds from. The fingerprint format (hex of SHA-256 over SPKI DER) must stay
-    // in sync with si-encryption, verified identical for this key.
+    // pulls in `debug`, whose CJS require('tty') crashes the migrator Lambda's esbuild ESM bundle.
+    // The format (hex SHA-256 over SPKI DER) must stay in sync with si-encryption.
     const publicKeyDer = Buffer.from(TEST_PUBLIC_KEY_PEM.replace(/-----[^-]+-----/g, '').replace(/\s+/g, ''), 'base64')
     const fingerprint = createHash('sha256').update(publicKeyDer).digest('hex')
 

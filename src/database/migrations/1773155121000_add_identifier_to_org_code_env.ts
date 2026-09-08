@@ -6,7 +6,6 @@ export async function up(db: Kysely<never>): Promise<void> {
         .addColumn('identifier', 'varchar', (col) => col.notNull().defaultTo(''))
         .execute()
 
-    // Populate existing rows with a slug derived from the name
     await sql`
         UPDATE org_code_env
         SET identifier = LOWER(REGEXP_REPLACE(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '_', 'g'), '(^_|_$)', '', 'g'))
