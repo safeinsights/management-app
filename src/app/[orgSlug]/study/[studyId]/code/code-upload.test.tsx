@@ -51,7 +51,6 @@ const renderPage = async (orgSlug = 'openstax') => {
         <CodeUploadPage
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title}
             previousHref={'/test' as Route}
         />,
     )
@@ -128,7 +127,6 @@ describe('CodeUploadPage', () => {
             <CodeUploadPage
                 orgSlug="openstax"
                 studyId={study.id}
-                studyTitle={study.title}
                 previousHref={'/test' as Route}
             />,
         )
@@ -179,7 +177,6 @@ describe('CodeUploadPage', () => {
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={study.id}
-                studyTitle={study.title}
                 previousHref={'/test' as Route}
             />,
         )
@@ -216,7 +213,6 @@ describe('CodeUploadPage', () => {
             <CodeUploadPage
                 orgSlug="openstax"
                 studyId={study.id}
-                studyTitle={study.title}
                 previousHref={'/test' as Route}
             />,
         )

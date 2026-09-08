@@ -15,7 +15,6 @@ interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
     heading?: string
-    studyTitle: string | null
     footer: ReactNode
     showLaunchIde?: boolean
 }
@@ -24,7 +23,6 @@ export const StudyCodePanel = ({
     ide,
     stepLabel,
     heading = 'Study code',
-    studyTitle,
     footer,
     showLaunchIde = true,
 }: StudyCodePanelProps) => {
@@ -106,11 +104,7 @@ export const StudyCodePanel = ({
                     <Title order={2} size="h4">
                         {heading}
                     </Title>
-                    <Group justify="space-between" wrap="nowrap" align="baseline">
-                        {/* 65ch ≈ 75 rendered chars in Open Sans */}
-                        <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>
-                            Title: {studyTitle ?? 'Untitled draft'}
-                        </Text>
+                    <Group justify="flex-end" wrap="nowrap" align="baseline">
                         {reviewButtons}
                     </Group>
                 </Stack>

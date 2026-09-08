@@ -9,11 +9,10 @@ import { Routes } from '@/lib/routes'
 interface CodeUploadPageProps {
     orgSlug: string
     studyId: string
-    studyTitle: string | null
     previousHref: Route
 }
 
-export function CodeUploadPage({ orgSlug, studyId, studyTitle, previousHref }: CodeUploadPageProps) {
+export function CodeUploadPage({ orgSlug, studyId, previousHref }: CodeUploadPageProps) {
     const router = useRouter()
 
     const onSubmitSuccess = useCallback(() => {
@@ -23,7 +22,6 @@ export function CodeUploadPage({ orgSlug, studyId, studyTitle, previousHref }: C
     return (
         <StudyCode
             studyId={studyId}
-            studyTitle={studyTitle}
             previousHref={previousHref}
             onSubmitSuccess={onSubmitSuccess}
         />
