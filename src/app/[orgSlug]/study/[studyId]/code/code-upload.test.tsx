@@ -54,7 +54,6 @@ const renderPage = async (orgSlug = 'openstax') => {
             orgSlug={orgSlug}
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
-            isFirstVisit={false}
             previousHref={'/test' as Route}
         />,
     )
@@ -133,7 +132,6 @@ describe('CodeUploadPage', () => {
                 orgSlug="openstax"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
-                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )
@@ -144,7 +142,7 @@ describe('CodeUploadPage', () => {
         })
 
         const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /set main\.r as main file/i }))
+        await user.click(screen.getByRole('radio', { name: /set main\.r as main file/i }))
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
@@ -185,7 +183,6 @@ describe('CodeUploadPage', () => {
                 orgSlug={orgSlug}
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
-                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )
@@ -223,7 +220,6 @@ describe('CodeUploadPage', () => {
                 orgSlug="openstax"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
-                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )

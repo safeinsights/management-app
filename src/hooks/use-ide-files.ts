@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
+import { downloadBlob } from '@/lib/download-blob'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import {
@@ -157,6 +158,20 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const closeFileViewer = useCallback(() => setViewingFile(null), [])
 
+    // Reuses the same read as the viewer rather than a download route: workspace files live on disk
+    // under the study's coder path, not in S3, so there is nothing to link to (OTTER-693).
+    const downloadFile = useCallback(
+        async (fileName: string) => {
+            const result = await readWorkspaceFileAction({ studyId, fileName })
+            if ('error' in result) {
+                reportMutationError('Failed to download file')(result.error)
+                return
+            }
+            downloadBlob(result.fileName, new Blob([result.contents]))
+        },
+        [studyId],
+    )
+
     const uploadMutation = useMutation({
         mutationFn: async (filesToUpload: File[]) => {
             for (const file of filesToUpload) {
@@ -248,6 +263,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         setMainFile,
         removeFile,
         viewFile,
+        downloadFile,
         viewingFile,
         closeFileViewer,
         uploadFiles,

@@ -26,6 +26,7 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
         setMainFile: vi.fn(),
         removeFile: vi.fn(),
         viewFile: vi.fn(),
+        downloadFile: vi.fn(),
         viewingFile: null,
         closeFileViewer: vi.fn(),
         uploadFiles: vi.fn(),

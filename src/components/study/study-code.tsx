@@ -10,7 +10,7 @@ import { ButtonLink } from '@/components/links'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
-import { StudyCodeFilesSection } from './study-code-files'
+import { YourFilesSection } from './your-files-section'
 
 const STEP_LABEL = 'STEP 3'
 const SECTION_TITLE = 'Submit code'
@@ -21,7 +21,6 @@ const CARD_SECTION_GAP = 24
 interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
-    isFirstVisit: boolean
     previousHref: Route
     onSubmitSuccess?: () => void
 }
@@ -70,13 +69,7 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
     </Group>
 )
 
-export const StudyCode = ({
-    studyId,
-    dataPartnerName,
-    isFirstVisit,
-    previousHref,
-    onSubmitSuccess,
-}: StudyCodeProps) => {
+export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSuccess }: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
@@ -92,15 +85,15 @@ export const StudyCode = ({
                     divider, which is OTTER-693's "reuse the section header component" requirement.
                     No studyTitle: the card forbids repeating the title as body text here, and
                     StudyCode no longer receives one so it cannot drift back. The rule draws only
-                    when something follows it inside the card, so the content below is what makes it
-                    appear; row 6 lifts the files into their own "Your files" card. */}
+                    when something follows it inside the card, which the intro and FAQ below do. */}
                 <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
                     <Stack gap={CARD_SECTION_GAP}>
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
-                        <SubmitCodeFaq dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} />
-                        <StudyCodeFilesSection ide={ide} />
+                        <SubmitCodeFaq dataPartnerName={dataPartnerName} />
                     </Stack>
                 </ProposalStepHeader>
+
+                <YourFilesSection ide={ide} />
 
                 <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={openConfirm} />
             </Stack>

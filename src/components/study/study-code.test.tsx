@@ -60,12 +60,10 @@ const setupStudy = async (orgSlug = 'openstax-lab') => {
 
 const DATA_PARTNER = 'Test Data Partner'
 
-// isFirstVisit defaults false so the FAQ starts collapsed, which is the state most of these
-// tests care nothing about. The page decides the real value; see code/page.test.tsx.
 const renderIDE = async (
     studyOrgSlug = 'openstax-lab',
     files?: Record<string, string>,
-    { dataPartnerName = DATA_PARTNER, isFirstVisit = false }: { dataPartnerName?: string; isFirstVisit?: boolean } = {},
+    { dataPartnerName = DATA_PARTNER }: { dataPartnerName?: string } = {},
 ) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
@@ -76,14 +74,7 @@ const renderIDE = async (
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(
-        <StudyCode
-            studyId={study.id}
-            dataPartnerName={dataPartnerName}
-            isFirstVisit={isFirstVisit}
-            previousHref={previousHref}
-        />,
-    )
+    renderWithProviders(<StudyCode studyId={study.id} dataPartnerName={dataPartnerName} previousHref={previousHref} />)
 
     return { study, previousHref, dataPartnerName }
 }
@@ -122,12 +113,12 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
 
-        expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
-            'aria-pressed',
+        expect(screen.getByRole('radio', { name: /set main\.r as main file/i })).toHaveAttribute(
+            'aria-checked',
             'false',
         )
-        expect(screen.getByRole('button', { name: /set helper\.r as main file/i })).toHaveAttribute(
-            'aria-pressed',
+        expect(screen.getByRole('radio', { name: /set helper\.r as main file/i })).toHaveAttribute(
+            'aria-checked',
             'false',
         )
         expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
@@ -144,16 +135,16 @@ describe('StudyCode component', () => {
             expect(screen.getByText('helper.r')).toBeInTheDocument()
         })
 
-        const helperStar = screen.getByRole('button', { name: /set helper\.r as main file/i })
+        const helperStar = screen.getByRole('radio', { name: /set helper\.r as main file/i })
         await user.click(helperStar)
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /helper\.r is the main file/i })).toHaveAttribute(
-                'aria-pressed',
+            expect(screen.getByRole('radio', { name: /helper\.r is the main file/i })).toHaveAttribute(
+                'aria-checked',
                 'true',
             )
         })
-        expect(screen.getByRole('button', { name: /set main\.r as main file/i })).toHaveAttribute(
-            'aria-pressed',
+        expect(screen.getByRole('radio', { name: /set main\.r as main file/i })).toHaveAttribute(
+            'aria-checked',
             'false',
         )
         // Submit-enable depends on the async last-job query, so it cannot be asserted synchronously.
@@ -201,7 +192,7 @@ describe('StudyCode component', () => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
         })
 
-        await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+        await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
@@ -233,8 +224,8 @@ describe('StudyCode component', () => {
 
         await waitFor(() => {
             expect(screen.getByText('analysis.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /analysis\.r is the main file/i })).toHaveAttribute(
-                'aria-pressed',
+            expect(screen.getByRole('radio', { name: /analysis\.r is the main file/i })).toHaveAttribute(
+                'aria-checked',
                 'true',
             )
             expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
@@ -251,21 +242,24 @@ describe('StudyCode component', () => {
         await expectStudyJobRecords(study.id, [{ name: 'analysis.r', fileType: 'MAIN-CODE' }])
     })
 
-    it('keeps the user on the review page after deleting the only file', async () => {
+    it('keeps the user on the review page after deleting a file', async () => {
         const user = userEvent.setup()
-        await renderIDE('openstax-lab', { 'only.R': 'print("only")' })
+        await renderIDE('openstax-lab', { 'main.R': 'print("main")', 'spare.R': 'print("spare")' })
 
         await waitFor(() => {
-            expect(screen.getByText('only.R')).toBeInTheDocument()
+            expect(screen.getByText('spare.R')).toBeInTheDocument()
         })
 
-        await user.click(screen.getByRole('button', { name: /remove only\.r/i }))
+        // main.R is the main file, so spare.R is the one the card permits deleting.
+        await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+        await user.click(screen.getByRole('button', { name: /delete spare\.R/i }))
+        await user.click(screen.getByRole('button', { name: 'Delete file' }))
 
         await waitFor(() => {
-            expect(screen.queryByText('only.R')).not.toBeInTheDocument()
+            expect(screen.queryByText('spare.R')).not.toBeInTheDocument()
         })
 
-        expect(screen.getByText('Review files')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Code files' })).toBeInTheDocument()
         expect(screen.queryByText(/write and test your code in ide/i)).not.toBeInTheDocument()
         expect(screen.queryByText('OR')).not.toBeInTheDocument()
     })
@@ -394,14 +388,8 @@ describe('StudyCode component', () => {
             expect(faqControl()).toBeInTheDocument()
         })
 
-        it('opens expanded on a first visit', async () => {
-            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
-
-            expect(faqControl()).toHaveAttribute('aria-expanded', 'true')
-        })
-
-        it('opens collapsed on a return visit', async () => {
-            await renderIDE('openstax-lab', undefined, { isFirstVisit: false })
+        it('starts collapsed', async () => {
+            await renderIDE()
 
             expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
         })
@@ -418,7 +406,11 @@ describe('StudyCode component', () => {
         })
 
         it.each(FAQ_COPY)('answers "%s"', async (question, answer) => {
-            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            await renderIDE()
+
+            // Collapsed by default now, and Mantine keeps panel children mounted, so the section is
+            // queryable either way; opening it first keeps the test honest about what a reader sees.
+            await userEvent.setup().click(faqControl())
 
             const section = await screen.findByTestId(`faq-section-${question}`)
             expect(section).toHaveTextContent(question)
@@ -426,7 +418,8 @@ describe('StudyCode component', () => {
         })
 
         it('interpolates the Data Partner into the answers that name them', async () => {
-            await renderIDE('openstax-lab', undefined, { dataPartnerName: 'Rice University', isFirstVisit: true })
+            await renderIDE('openstax-lab', undefined, { dataPartnerName: 'Rice University' })
+            await userEvent.setup().click(faqControl())
 
             const faq = await screen.findByTestId('submit-code-faq')
             expect(faq).toHaveTextContent('It is a template from Rice University that connects to their dataset.')
@@ -436,6 +429,112 @@ describe('StudyCode component', () => {
             )
             // The card words this one generically, so it must NOT pick up the partner name.
             expect(faq).toHaveTextContent('It is an example dataset from a Data Partner that mirrors')
+        })
+    })
+
+    describe('Your files section (OTTER-693)', () => {
+        const TWO_FILES = { 'main.R': 'print("main")', 'spare.R': 'print("spare")' }
+
+        const renderFiles = async (files = TWO_FILES) => {
+            const rendered = await renderIDE('openstax-lab', files)
+            await waitFor(() => expect(screen.getByText('spare.R')).toBeInTheDocument())
+            return rendered
+        }
+
+        it('renders as its own card, separate from the step header', async () => {
+            await renderFiles()
+
+            const section = screen.getByTestId('your-files-section')
+            expect(section).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Code files' })).toBeInTheDocument()
+            expect(within(section).getByTestId('your-files-divider')).toBeInTheDocument()
+            // The whole point of row 6: the files no longer live inside the STEP 3 card.
+            expect(screen.getByTestId('proposal-section-header')).not.toContainElement(section)
+        })
+
+        it('renders the four specified columns', async () => {
+            await renderFiles()
+
+            const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
+            expect(headers).toEqual(['Main file', 'File name', 'Last activity', 'Actions'])
+        })
+
+        it('defaults Last activity to "No activity yet" for every file', async () => {
+            await renderFiles()
+
+            // Provenance is not in the workspace listing yet, so every row shows the default.
+            expect(screen.getAllByText('No activity yet')).toHaveLength(2)
+        })
+
+        it('makes the main-file stars a radio group', async () => {
+            const user = userEvent.setup()
+            await renderFiles()
+
+            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await waitFor(() => {
+                expect(screen.getByRole('radio', { name: /main\.R is the main file/i })).toBeChecked()
+            })
+            expect(screen.getByRole('radio', { name: /set spare\.R as main file/i })).not.toBeChecked()
+        })
+
+        it('opens the file viewer when a file name is clicked', async () => {
+            const user = userEvent.setup()
+            await renderFiles()
+
+            await user.click(screen.getByRole('button', { name: 'View spare.R' }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('dialog')).toHaveTextContent('spare.R')
+            })
+        })
+
+        it('truncates a file name past 50 characters and keeps the full name reachable', async () => {
+            const longName = `${'a'.repeat(60)}.R`
+            await renderIDE('openstax-lab', { [longName]: 'print(1)', 'spare.R': 'print(2)' })
+
+            await waitFor(() => expect(screen.getByText(`${'a'.repeat(50)}…`)).toBeInTheDocument())
+            // Full name stays in the accessible name even though the visible text is clipped.
+            expect(screen.getByRole('button', { name: `View ${longName}` })).toBeInTheDocument()
+        })
+
+        it('disables delete for the main file and explains why', async () => {
+            const user = userEvent.setup()
+            await renderFiles()
+
+            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: 'Delete main.R' })).toBeDisabled()
+            })
+            expect(screen.getByRole('button', { name: 'Delete spare.R' })).toBeEnabled()
+        })
+
+        it('confirms before deleting, and names the file in the modal', async () => {
+            const user = userEvent.setup()
+            await renderFiles()
+
+            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await user.click(screen.getByRole('button', { name: 'Delete spare.R' }))
+
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toHaveTextContent('Delete file')
+            expect(dialog).toHaveTextContent(
+                'spare.R will be permanently removed from your study and cannot be recovered.',
+            )
+
+            // Cancelling leaves the file alone.
+            await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+            expect(screen.getByText('spare.R')).toBeInTheDocument()
+        })
+
+        it('offers edit, download and delete on every row', async () => {
+            await renderFiles()
+
+            for (const name of ['main.R', 'spare.R']) {
+                expect(screen.getByRole('button', { name: `Edit ${name} in IDE` })).toBeInTheDocument()
+                expect(screen.getByRole('button', { name: `Download ${name}` })).toBeInTheDocument()
+                expect(screen.getByRole('button', { name: `Delete ${name}` })).toBeInTheDocument()
+            }
         })
     })
 
@@ -455,12 +554,7 @@ describe('StudyCode component', () => {
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
             renderWithProviders(
-                <StudyCode
-                    studyId={study.id}
-                    dataPartnerName={DATA_PARTNER}
-                    isFirstVisit={false}
-                    previousHref={previousHref}
-                />,
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
             )
             return { study }
         }
@@ -496,7 +590,7 @@ describe('StudyCode component', () => {
                 expect(screen.getByText('helper.R')).toBeInTheDocument()
             })
 
-            await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
@@ -518,12 +612,7 @@ describe('StudyCode component', () => {
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
             const { unmount } = renderWithProviders(
-                <StudyCode
-                    studyId={study.id}
-                    dataPartnerName={DATA_PARTNER}
-                    isFirstVisit={false}
-                    previousHref={previousHref}
-                />,
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
             )
 
             await waitFor(() => {
@@ -533,12 +622,7 @@ describe('StudyCode component', () => {
             unmount()
 
             renderWithProviders(
-                <StudyCode
-                    studyId={study.id}
-                    dataPartnerName={DATA_PARTNER}
-                    isFirstVisit={false}
-                    previousHref={previousHref}
-                />,
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
             )
 
             await waitFor(() => {
@@ -546,7 +630,7 @@ describe('StudyCode component', () => {
             })
 
             const user = userEvent.setup()
-            await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()

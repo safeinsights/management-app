@@ -1,7 +1,5 @@
 import type { FC, RefObject } from 'react'
-import { useRef } from 'react'
 import { Group, Skeleton, Stack } from '@mantine/core'
-import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { InfoTooltip } from '@/components/tooltip'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { LaunchIdeButton } from './launch-ide-button'
@@ -105,42 +103,5 @@ export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, showLaunc
     )
 }
 
-type FilesActionRowProps = StudyCodeFileActionsProps
-
-/**
- * Wrapping the row rather than the buttons keeps an empty flex row out of the loading and empty
- * states. OTTER-693 rows 6-7 replace this with the "Your files" heading row, where the buttons sit
- * opposite a title and the gate goes away.
- */
-const FilesActionRow: FC<FilesActionRowProps> = ({ isVisible, ...actions }) => {
-    if (!isVisible) return null
-
-    return (
-        <Group justify="flex-end" wrap="nowrap">
-            <StudyCodeFileActions isVisible {...actions} />
-        </Group>
-    )
-}
-
-/**
- * The Submit code page's files block. Sits inside the STEP 3 section header's card for now;
- * OTTER-693 row 6 lifts it into its own reusable "Your files" card, which is also where the
- * /resubmit screen will eventually converge.
- */
-export const StudyCodeFilesSection: FC<{ ide: StudyCodeIDE; showLaunchIde?: boolean }> = ({
-    ide,
-    showLaunchIde = true,
-}) => {
-    // Shared with the drop overlay inside the review view, so the Upload button and the dropzone
-    // it opens have to stay under one component.
-    const openRef = useRef<() => void>(null)
-    const isReviewState = isFilesReviewState(ide)
-
-    return (
-        <Stack gap="lg">
-            <FilesActionRow isVisible={isReviewState} ide={ide} showLaunchIde={showLaunchIde} openRef={openRef} />
-            <StudyCodeFilesBody ide={ide} showLaunchIde={showLaunchIde} openRef={openRef} />
-            <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
-        </Stack>
-    )
-}
+// The Submit code page's own arrangement moved to your-files-section.tsx in OTTER-693 row 6. What
+// stays here is what /resubmit still renders through StudyCodePanel.

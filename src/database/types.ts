@@ -359,7 +359,6 @@ export interface User {
     fullName: Generated<string>
     id: Generated<string>
     lastName: string | null
-    submitCodeFaqSeenAt: Timestamp | null
     updatedAt: Generated<Timestamp>
 }
 
