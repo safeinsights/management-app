@@ -194,10 +194,7 @@ export function CodePostSubmissionView({
                     <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
-                    <Group justify="space-between" align="center">
-                        <Text c="charcoal.9" maw="60ch" style={{ wordBreak: 'break-word' }}>
-                            Title: {study.title}
-                        </Text>
+                    <Group justify="flex-end" align="center">
                         <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
                     </Group>
                     <Divider my="md" />
