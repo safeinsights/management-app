@@ -5,23 +5,11 @@ import dayjs from 'dayjs'
 type ProposalStepHeaderProps = {
     stepLabel: string
     heading: string
-    /** Omitted by Step 1, which reuses this header before a study exists (OTTER-690). */
-    studyTitle?: string | null
     timestampDate?: Date | string | null
     timestampLabel?: string
     /** Pass `null`, not an element that renders nothing: the header cannot tell the two apart. */
     banner?: ReactNode
     children?: ReactNode
-}
-
-const StudyTitleLine: FC<{ studyTitle?: string | null }> = ({ studyTitle }) => {
-    if (studyTitle == null) return null
-
-    return (
-        <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
-            Title: {studyTitle}
-        </Text>
-    )
 }
 
 const TimestampLine: FC<{ timestampDate?: Date | string | null; timestampLabel: string }> = ({
@@ -37,16 +25,16 @@ const TimestampLine: FC<{ timestampDate?: Date | string | null; timestampLabel: 
     )
 }
 
-const HeaderMetaRow: FC<Pick<ProposalStepHeaderProps, 'studyTitle' | 'timestampDate'> & { timestampLabel: string }> = ({
-    studyTitle,
+const HeaderTimestampRow: FC<
+    Pick<ProposalStepHeaderProps, 'timestampDate'> & { timestampLabel: string }
+> = ({
     timestampDate,
     timestampLabel,
 }) => {
-    if (studyTitle == null && !timestampDate) return null
+    if (!timestampDate) return null
 
     return (
-        <Group justify="space-between" align="center" wrap="nowrap">
-            <StudyTitleLine studyTitle={studyTitle} />
+        <Group justify="flex-end" align="center" wrap="nowrap">
             <TimestampLine timestampDate={timestampDate} timestampLabel={timestampLabel} />
         </Group>
     )
@@ -61,7 +49,6 @@ const HeaderDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 export function ProposalStepHeader({
     stepLabel,
     heading,
-    studyTitle,
     timestampDate,
     timestampLabel = 'Submitted on',
     banner,
@@ -79,7 +66,7 @@ export function ProposalStepHeader({
             <Title order={2} fz="xl" c="charcoal.9" pb={4}>
                 {heading}
             </Title>
-            <HeaderMetaRow studyTitle={studyTitle} timestampDate={timestampDate} timestampLabel={timestampLabel} />
+            <HeaderTimestampRow timestampDate={timestampDate} timestampLabel={timestampLabel} />
             <HeaderDivider isVisible={hasContentBelowRule} />
             {banner}
             {children}
