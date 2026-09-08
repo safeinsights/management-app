@@ -19,11 +19,5 @@ export function CodeUploadPage({ orgSlug, studyId, previousHref }: CodeUploadPag
         router.push(Routes.studyView({ orgSlug, studyId }))
     }, [router, orgSlug, studyId])
 
-    return (
-        <StudyCode
-            studyId={studyId}
-            previousHref={previousHref}
-            onSubmitSuccess={onSubmitSuccess}
-        />
-    )
+    return <StudyCode studyId={studyId} previousHref={previousHref} onSubmitSuccess={onSubmitSuccess} />
 }

@@ -25,9 +25,7 @@ const TimestampLine: FC<{ timestampDate?: Date | string | null; timestampLabel: 
     )
 }
 
-const HeaderTimestampRow: FC<
-    Pick<ProposalStepHeaderProps, 'timestampDate'> & { timestampLabel: string }
-> = ({
+const HeaderTimestampRow: FC<Pick<ProposalStepHeaderProps, 'timestampDate'> & { timestampLabel: string }> = ({
     timestampDate,
     timestampLabel,
 }) => {

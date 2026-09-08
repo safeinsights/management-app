@@ -68,11 +68,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
-                <ProposalStepHeader
-                    stepLabel="STEP 3"
-                    heading="Review outputs"
-                    banner={banner}
-                />
+                <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
                 <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
                 <UnlockedPhase
                     decryptedFiles={reviewableFiles}

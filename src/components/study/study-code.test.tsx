@@ -336,9 +336,7 @@ describe('StudyCode component', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-            const { unmount } = renderWithProviders(
-                <StudyCode studyId={study.id} previousHref={previousHref} />,
-            )
+            const { unmount } = renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()

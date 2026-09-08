@@ -51,11 +51,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
 
     return (
         <>
-            <ProposalStepHeader
-                stepLabel="STEP 4"
-                heading="Verify outputs"
-                banner={bannerAlert}
-            />
+            <ProposalStepHeader stepLabel="STEP 4" heading="Verify outputs" banner={bannerAlert} />
             {feedbackSection}
             <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
             <UnlockedPhase decryptedFiles={decryptedFiles} jobId={job.id} />
