@@ -53,13 +53,20 @@ const securityHeaders = [
     { key: 'X-Frame-Options', value: 'DENY' },
     // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
     // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
-    // must be listed explicitly (SIINFOSEC-769, ZAP-10055). Only request-independent
+    // must be listed explicitly (SIINFOSEC-769/1460/1461, ZAP-10055). Only request-independent
     // directives belong here. script-src is nonce-based and therefore per-request, so
     // it is emitted from src/proxy.ts — under the report-only header name while that
     // policy's rollout is measured (see src/lib/csp.ts for why the names differ).
     {
         key: 'Content-Security-Policy',
-        value: ["frame-ancestors 'none'", "form-action 'self'", "base-uri 'self'"].join('; '),
+        value: [
+            "frame-ancestors 'none'",
+            "form-action 'self'",
+            "base-uri 'self'",
+            // Enforced regardless of the script-src rollout below: we embed no plugins, so this
+            // costs nothing and closes the "no enforcing policy" half of ZAP-10055.
+            "object-src 'none'",
+        ].join('; '),
     },
     // Prevent MIME-sniffing-based content-type confusion.
     { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -146,8 +153,14 @@ const configWithSentry = withSentryConfig(nextConfig, {
     widenClientFileUpload: true,
 
     // Automatically annotate React components to show their full name in breadcrumbs and session replay
-    reactComponentAnnotation: {
-        enabled: true,
+    webpack: {
+        reactComponentAnnotation: {
+            enabled: true,
+        },
+        // Automatically tree-shake Sentry logger statements to reduce bundle size
+        treeshake: {
+            removeDebugLogging: true,
+        },
     },
     sourcemaps: {
         deleteSourcemapsAfterUpload: false,
@@ -159,9 +172,6 @@ const configWithSentry = withSentryConfig(nextConfig, {
     // tunnelRoute: "/monitoring",
 
     // Hides source maps from generated client bundles
-
-    // Automatically tree-shake Sentry logger statements to reduce bundle size
-    disableLogger: true,
 })
 
 export default configWithSentry
