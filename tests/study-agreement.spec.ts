@@ -5,9 +5,10 @@ import { seedApprovedWithPublishedStudyAgreement } from './e2e.seed'
 // a uniquely-titled study and needs no dedicated role.
 
 const RESEARCHER_DASHBOARD = '/openstax-lab/dashboard'
+const REVIEWER_DASHBOARD = '/openstax/dashboard'
 
-const openStudy = async (page: Page, studyTitle: string) => {
-    await goto(page, RESEARCHER_DASHBOARD)
+const openStudy = async (page: Page, studyTitle: string, dashboard = RESEARCHER_DASHBOARD) => {
+    await goto(page, dashboard)
     const studyRow = page
         .getByRole('row')
         .filter({ hasText: studyTitle })
@@ -55,6 +56,43 @@ test('a study with an unacknowledged Study Agreement is blocked until it is ackn
 
         // Acknowledged for good: the gate covers every route of the study, so it must not reappear.
         await openStudy(page, studyTitle)
+        await expect(page.getByRole('dialog')).toBeHidden()
+    })
+})
+
+test('the Data Partner is gated by the same agreement, independently of the Research Lab', async ({
+    browser,
+    studyFeatures,
+}) => {
+    const studyTitle = studyFeatures.uniqueTitle('study-agreement-gate-dp')
+    await seedApprovedWithPublishedStudyAgreement(studyTitle)
+
+    // Acknowledgement is per user, so the lab signing first must not clear the reviewer's gate.
+    await withRole(browser, 'researcher', async (page) => {
+        await openStudy(page, studyTitle)
+        const modal = page.getByRole('dialog').filter({ hasText: 'Study Agreement' })
+        await expect(modal).toBeVisible()
+        await modal.getByRole('checkbox').check()
+        await modal.getByRole('button', { name: 'Continue' }).click()
+        await expect(modal).toBeHidden()
+    })
+
+    await withRole(browser, 'reviewer', async (page) => {
+        await openStudy(page, studyTitle, REVIEWER_DASHBOARD)
+
+        const modal = page.getByRole('dialog').filter({ hasText: 'Study Agreement' })
+        await expect(modal).toBeVisible()
+
+        const continueButton = modal.getByRole('button', { name: 'Continue' })
+        await expect(continueButton).toBeDisabled()
+
+        await modal.getByRole('checkbox').check()
+        await expect(continueButton).toBeEnabled()
+        await continueButton.click()
+
+        await expect(modal).toBeHidden()
+
+        await openStudy(page, studyTitle, REVIEWER_DASHBOARD)
         await expect(page.getByRole('dialog')).toBeHidden()
     })
 })

@@ -47,6 +47,7 @@ import {
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { urlForLegalDocumentVersion } from '../legal-document'
+import { isPartyToStudyAgreement } from '../study-agreement'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
@@ -197,11 +198,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        // Follow-up: enable once the Mailgun template exists (needs the import from '../events').
-        // Publishing is the only moment both parties become owing, so it is the one place to fire from.
-        // if (version.type === 'SLA' && version.studyId) {
-        //     onStudyAgreementPublished({ studyId: version.studyId })
-        // }
+        // onStudyAgreementPublished belongs here, but the Mailgun template it needs does not exist yet.
 
         return published
     })
@@ -659,7 +656,7 @@ export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudies
             .execute()
     })
 
-// `none` for anyone the agreement does not bind: an SI admin passes the ability check with
+// `notAParty` for anyone the agreement does not bind: an SI admin passes the ability check with
 // `manage all`, but is the counterparty to every agreement and never a signatory.
 export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementStatusAction')
     .params(studyAgreementStatusSchema)
@@ -669,9 +666,9 @@ export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementSt
         const agreement = await latestPublishedStudyAgreement(db, studyId)
         if (!agreement) return { state: 'none' }
 
-        const usersOrgIds = Object.values(session.orgs).map((org) => org.id)
-        const isParty = [agreement.dataPartnerId, agreement.researchLabId].some((orgId) => usersOrgIds.includes(orgId))
-        if (!isParty) return { state: 'none' }
+        if (!(await isPartyToStudyAgreement(db, { ...agreement, userId: session.user.id }))) {
+            return { state: 'notAParty' }
+        }
 
         if (await userAcknowledgedVersion(db, { versionId: agreement.versionId, userId: session.user.id })) {
             return { state: 'acknowledged' }

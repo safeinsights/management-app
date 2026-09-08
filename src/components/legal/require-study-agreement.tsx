@@ -21,14 +21,12 @@ export const useStudyAgreementStatus = (studyId: string) => {
         queryKey: legalDocumentQueryKeys.studyAgreement(studyId),
         queryFn: () => fetchStudyAgreementStatusAction({ studyId }),
         enabled: Boolean(session),
-        // No polling: the guarded mutations already refuse an unacknowledged user, so a modal landing
-        // on the code upload page — whose file selection is not autosaved — would cost more than it
-        // buys. Window-focus refetch still applies.
+        // The server guards already refuse an unacknowledged user, so a modal landing mid-session on
+        // the code upload page would cost more than it buys. Window-focus refetch still applies.
         refetchInterval: false,
     })
 
-    // Failing open is right — the user cannot fix an unreadable agreement — but a gate that has
-    // quietly stopped asking must not also be invisible to us.
+    // Failing open is right, but a gate that has quietly stopped asking must not also be invisible.
     useEffect(() => {
         if (error) captureException(error)
     }, [error])

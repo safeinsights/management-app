@@ -169,8 +169,11 @@ export const studyAgreementStatusSchema = z.object({
 })
 
 // One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
+// `notAParty` is separate from `none` so the notice does not tell an SI admin that the agreement
+// they just published is still being prepared.
 export type StudyAgreementStatus =
     | { state: 'none' }
+    | { state: 'notAParty' }
     | { state: 'pending'; versionId: string }
     | { state: 'acknowledged' }
 

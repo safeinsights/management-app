@@ -1,8 +1,8 @@
 'use client'
 
-import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core'
+import { Button, Checkbox, Group, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
-import { BlockingModal } from '../blocking-modal'
+import { AcknowledgementError, BlockingModal } from '../blocking-modal'
 import { LegalMarkdownSection } from '../markdown-sections'
 import {
     legalAcknowledgementBody,
@@ -20,12 +20,6 @@ type Props = {
     onSignOut: () => void
     isSubmitting: boolean
     error: string | null
-}
-
-const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
-    if (!error) return null
-
-    return <Alert color="red">{error}</Alert>
 }
 
 // Not dismissable: dismissing and carrying on is what it exists to prevent, so Sign out is the

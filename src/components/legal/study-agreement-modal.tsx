@@ -1,11 +1,11 @@
 'use client'
 
-import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core'
+import { Button, Checkbox, Group, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { FC } from 'react'
 import { LinkWithIcon } from '@/components/links'
 import { legalDocumentDownloadURL } from '@/lib/paths'
-import { BlockingModal } from './blocking-modal'
+import { AcknowledgementError, BlockingModal } from './blocking-modal'
 
 export const STUDY_AGREEMENT_LABEL = 'Study Agreement'
 
@@ -20,12 +20,6 @@ type Props = {
     onCancel: () => void
     isSubmitting: boolean
     error: string | null
-}
-
-const AcknowledgementError: FC<{ error: string | null }> = ({ error }) => {
-    if (!error) return null
-
-    return <Alert color="red">{error}</Alert>
 }
 
 // The agreement is a PDF, so it opens in a tab rather than rendering inline as the Terms of Service

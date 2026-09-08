@@ -1,5 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/database'
 import type { StudyStatus } from '@/database/types'
 import {
@@ -14,14 +14,6 @@ import {
 } from '@/tests/unit.helpers'
 import { RequireStudyAgreement } from './require-study-agreement'
 import { StudyAgreementPreparingNotice } from './study-agreement-preparing-notice'
-
-vi.mock('@/server/aws', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/server/aws')>()
-    return {
-        ...actual,
-        signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/agreement.pdf'),
-    }
-})
 
 beforeEach(resetLegalDocuments)
 
@@ -118,6 +110,17 @@ describe('StudyAgreementPreparingNotice', () => {
     it('goes quiet once an agreement exists, so it cannot contradict the modal', async () => {
         const { study } = await arrangeStudyForCurrentUser()
         await insertTestStudyAgreement({ studyId: study.id })
+
+        renderWithProviders(<StudyAgreementPreparingNotice studyId={study.id} isVisible />)
+
+        await waitFor(() => expect(screen.queryByText(/is being prepared/)).toBeNull())
+    })
+
+    // The SI admin who published it must not be told it is still being drawn up.
+    it('stays quiet for a non-party, who is never waiting on an agreement', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+        await insertTestStudyAgreement({ studyId: study.id })
+        await mockSessionWithTestData({ isSiAdmin: true })
 
         renderWithProviders(<StudyAgreementPreparingNotice studyId={study.id} isVisible />)
 

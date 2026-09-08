@@ -229,6 +229,8 @@ export function PostFeedbackView({
     // The forward link and the dashboard button are mutually exclusive and both sit right, so the
     // row only splits when there is a left button.
     const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
+    // This view is shared with kind: 'CODE', where an agreement notice has no place.
+    const showsAgreementNotice = !isCode && decision === 'APPROVE'
 
     return (
         <Box bg="grey.10">
@@ -256,7 +258,7 @@ export function PostFeedbackView({
                     timestampLabel={timestampLabel}
                     banner={banner}
                 />
-                <StudyAgreementPreparingNotice studyId={study.id} isVisible={!isCode && decision === 'APPROVE'} />
+                <StudyAgreementPreparingNotice studyId={study.id} isVisible={showsAgreementNotice} />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <Group justify={buttonRowJustify}>
                     <PreviousButton href={previousHref} />

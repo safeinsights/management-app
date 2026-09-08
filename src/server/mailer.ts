@@ -3,6 +3,7 @@ import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { pathForInvitation } from '@/lib/paths'
+import { Routes } from '@/lib/routes'
 import logger from '@/lib/logger'
 import { deliver, SI_EMAIL } from './mailgun'
 
@@ -226,7 +227,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
         template: 'vb - study agreement ready',
         vars: {
             ...baseStudyVars(study),
-            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/submitted`,
+            studyURL: `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`,
         },
     })
 }

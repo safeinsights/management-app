@@ -110,14 +110,16 @@ describe('fetchStudyAgreementStatusAction', () => {
         })
     })
 
-    // SI admins hold ('manage', 'all'), so the ability check alone would hand them the modal — and an
-    // acknowledgement row from the counterparty would land in SHRMP-274's audit.
-    it('reports none for an SI admin, who is not a party to the agreement', async () => {
+    // SI admins hold ('manage', 'all'), so the ability check alone would hand them the modal, and an
+    // acknowledgement row from the counterparty would land in the signatory audit.
+    it('reports notAParty for an SI admin, who is not a party to the agreement', async () => {
         const { study } = await insertStudyWithDistinctOrgs()
         await insertTestStudyAgreement({ studyId: study.id })
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
+        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({
+            state: 'notAParty',
+        })
     })
 
     // Denied rather than 'none', so an outsider does not learn whether the study has an agreement.

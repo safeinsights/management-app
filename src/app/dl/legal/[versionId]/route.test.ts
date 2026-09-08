@@ -82,6 +82,19 @@ describe('GET /dl/legal/[versionId]', () => {
         expect((await get(version.id)).status).toBe(307)
     })
 
+    // DOPA/ROPA are enforced per user, so a plain member must be able to read the one they owe.
+    it('redirects a plain org member to their org participation agreement before they acknowledge', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = actionResult(
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }),
+        )
+        await publish(version.id)
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave', isAdmin: false })
+
+        expect((await get(version.id)).status).toBe(307)
+    })
+
     it('refuses a member of an unrelated org who never acknowledged it', async () => {
         const { version } = await seedStudyAgreement()
         await publish(version.id)
