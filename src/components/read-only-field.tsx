@@ -9,9 +9,9 @@ interface ReadOnlyFieldProps {
     value: ReactNode
 }
 
-// A locked field is plain text by design (Figma 530-26257, 530-26405), so there is no control to
-// carry `disabled`. A named group is the ARIA-valid stand-in OTTER-764 asks for: it binds the label
-// to the value as one announcement instead of two loose text runs, and marks it unavailable.
+// Plain text by design (Figma 530-26257, 530-26405), so nothing carries `disabled`. A named group is
+// the ARIA stand-in OTTER-764 asks for: one announcement of label, value and unavailable state. The
+// `tabIndex={-1}` is inert on a div and stays only because the card pairs it with `aria-disabled`.
 export const ReadOnlyField: FC<ReadOnlyFieldProps> = ({ label, value }) => {
     const labelId = useId()
 

@@ -14,7 +14,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
 import { formatDayString } from '@/lib/dates'
-import { ReadOnlyField } from './read-only-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 
 type DraftScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
 
