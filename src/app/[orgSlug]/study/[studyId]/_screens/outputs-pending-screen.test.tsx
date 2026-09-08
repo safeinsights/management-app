@@ -7,6 +7,7 @@ import {
     type Mock,
     mockSessionWithTestData,
     renderWithProviders,
+    requireRawState,
     screen,
 } from '@/tests/unit.helpers'
 import type { Route } from 'next'
@@ -26,7 +27,10 @@ const renderScreen = async (
     orgSlug: string,
     dashboardHref = DASHBOARD_HREF,
     returnTo?: 'org',
-) => renderWithProviders(await OutputsPendingScreen({ study, orgSlug, dashboardHref, returnTo }))
+) =>
+    renderWithProviders(
+        await OutputsPendingScreen({ study, raw: await requireRawState(study.id), orgSlug, dashboardHref, returnTo }),
+    )
 
 const setupExecuting = async (jobStatus: StudyJobStatus) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
@@ -51,11 +55,12 @@ describe('OutputsPendingScreen', () => {
         const { org, study } = await setupExecuting('JOB-READY')
         await renderScreen(study, org.slug)
 
-        const previous = screen.getByRole('link', { name: /previous step/i })
+        expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
+        const previous = screen.getByTestId('cta-previous-step')
         expect(previous).toHaveAttribute('href', `/${org.slug}/study/${study.id}/view/code`)
         expect(previous).toHaveAttribute('data-variant', 'subtle')
 
-        const back = screen.getByRole('link', { name: /back to my studies/i })
+        const back = screen.getByTestId('cta-back-to-my-studies')
         expect(back).toHaveAttribute('href', DASHBOARD_HREF)
         expect(back).toHaveAttribute('data-variant', 'filled')
     })
