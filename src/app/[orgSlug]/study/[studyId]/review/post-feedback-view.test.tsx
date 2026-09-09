@@ -103,16 +103,14 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
         })
 
-        it('renders the page title and study title', () => {
+        it('renders the page title without repeating it in the section header', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
-            // OTTER-754 takes the title out of this header.
             const sectionHeader = within(screen.getByTestId('proposal-section-header'))
-            expect(sectionHeader.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(sectionHeader.queryByText(/Effect of Reading Comprehension Tools/)).not.toBeInTheDocument()
         })
     })
 
