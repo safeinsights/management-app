@@ -20,6 +20,7 @@ import {
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     getJobAnalysisAction,
+    getOutputsDecisionStatusAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
@@ -673,6 +674,118 @@ describe('Study Job Actions', () => {
                 feedback: 'Not allowed.',
                 sharedFiles: [],
             })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+
+        // The peer notification names the reviewer, so the name has to come back from the server.
+        test('returns the submitting reviewer name', async () => {
+            const { enclave, job, reviewer, sharedFiles } = await setupResultApprovalFixture()
+
+            const result = actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'No sensitive data present.',
+                    sharedFiles,
+                }),
+            )
+
+            expect(result).toEqual({ submitterFullName: reviewer.fullName })
+        })
+    })
+
+    describe('getOutputsDecisionStatusAction', () => {
+        test('reports an undecided job as undecided', async () => {
+            const { job } = await setupResultApprovalFixture()
+
+            const status = actionResult(await getOutputsDecisionStatusAction({ studyJobId: job.id }))
+
+            expect(status).toEqual({
+                decided: false,
+                decision: null,
+                decidedById: null,
+                decidedByName: null,
+                decidedAt: null,
+            })
+        })
+
+        test('names the decision author after a shared-outputs decision', async () => {
+            const { enclave, job, reviewer, sharedFiles } = await setupResultApprovalFixture()
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'No sensitive data present.',
+                    sharedFiles,
+                }),
+            )
+
+            const status = actionResult(await getOutputsDecisionStatusAction({ studyJobId: job.id }))
+
+            expect(status).toMatchObject({
+                decided: true,
+                decision: 'share-outputs',
+                decidedById: reviewer.id,
+                decidedByName: reviewer.fullName,
+            })
+            expect(status.decidedAt).toEqual(expect.any(String))
+        })
+
+        test('reports a feedback-only decision as such', async () => {
+            const { enclave, job } = await setupResultApprovalFixture()
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-feedback-only',
+                    feedback: 'The log leaks an identifier.',
+                    sharedFiles: [],
+                }),
+            )
+
+            const status = actionResult(await getOutputsDecisionStatusAction({ studyJobId: job.id }))
+
+            expect(status).toMatchObject({ decided: true, decision: 'share-feedback-only' })
+        })
+
+        // approveStudyJobFilesAction closes the round without writing a decision comment, so
+        // finality has to come from the job status row and attribution falls back to it.
+        test('treats a status-only approval as decided and attributes it to the status author', async () => {
+            const { enclave, job, reviewer, sharedFiles } = await setupResultApprovalFixture()
+            actionResult(await approveStudyJobFilesAction({ orgSlug: enclave.slug, studyJobId: job.id, sharedFiles }))
+
+            const status = actionResult(await getOutputsDecisionStatusAction({ studyJobId: job.id }))
+
+            expect(status).toMatchObject({
+                decided: true,
+                decision: 'share-outputs',
+                decidedById: reviewer.id,
+                decidedByName: reviewer.fullName,
+            })
+        })
+
+        test('treats a status-only rejection as decided', async () => {
+            const { enclave, job, reviewer } = await setupResultApprovalFixture()
+            actionResult(await rejectStudyJobFilesAction({ orgSlug: enclave.slug, studyJobId: job.id }))
+
+            const status = actionResult(await getOutputsDecisionStatusAction({ studyJobId: job.id }))
+
+            expect(status).toMatchObject({
+                decided: true,
+                decision: 'share-feedback-only',
+                decidedById: reviewer.id,
+                decidedByName: reviewer.fullName,
+            })
+        })
+
+        test('permission denied for a lab user', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+
+            const result = await getOutputsDecisionStatusAction({ studyJobId: job.id })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
         })
