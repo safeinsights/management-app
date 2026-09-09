@@ -124,6 +124,7 @@ describe('CodePostDecisionView', () => {
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
         })
