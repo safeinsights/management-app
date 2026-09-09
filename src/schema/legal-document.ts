@@ -128,10 +128,23 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
 
 export const legalDocumentScopeSchema = scopeSchema.superRefine(refineScope)
 
-// No `format`: it is derived from `type` server-side via legalDocumentFormats.
+// The upload rides the action itself, so it has to fit inside next.config's serverActions
+// bodySizeLimit with room left for the rest of the payload.
+export const MAX_LEGAL_DOCUMENT_BYTES = 5 * 1024 * 1024
+export const MAX_LEGAL_DOCUMENT_SIZE_TEXT = '5MB'
+
+// No `format`: it is derived from `type` server-side via legalDocumentFormats. No `fileName`
+// either — taking it from the File means the stored name always matches the stored bytes.
 export const createLegalDocumentDraftSchema = scopeSchema
     .extend({
-        fileName: z.string().trim().min(1, 'A file name is required'),
+        file: z
+            .instanceof(File)
+            .refine((file) => file.name.trim().length > 0, 'A file name is required')
+            .refine((file) => file.size > 0, 'The file is empty')
+            .refine(
+                (file) => file.size <= MAX_LEGAL_DOCUMENT_BYTES,
+                `The file must be smaller than ${MAX_LEGAL_DOCUMENT_SIZE_TEXT}`,
+            ),
     })
     .superRefine(refineScope)
 
@@ -157,11 +170,13 @@ export const publishLegalDocumentVersionSchema = z.object({
         .optional(),
 })
 
-export const acknowledgeLegalDocumentSchema = z.object({
+export const legalDocumentVersionParams = z.object({
     // A uuid because scopeFromVersionId queries on it before any handler runs, so a malformed id
     // would 500 there rather than failing closed.
     versionId: z.string().uuid(),
 })
+
+export const acknowledgeLegalDocumentSchema = legalDocumentVersionParams
 
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
@@ -236,7 +251,6 @@ export const legalDocumentQueryKeys = {
     globalDocuments: () => ['globalLegalDocuments'] as const,
     // Keyed by invite id, the only thing the signup form has to key it by.
     participationAgreementForInvite: (inviteId: string) => ['participationAgreement', inviteId] as const,
-    // Keyed by version, not the presigned URL: that is re-minted per read, so it never cache-hits.
     documentContent: (versionId: string) => ['legalDocumentContent', versionId] as const,
     // Sort is part of the key because the action orders the rows, so a re-sort is a new read.
     acknowledgements: (type: LegalDocumentType, sort: LegalDocumentAcknowledgementSort) =>

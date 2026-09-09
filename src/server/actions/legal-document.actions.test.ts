@@ -1,7 +1,7 @@
 import { sql } from 'kysely'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
-import { createSignedUploadUrlForKey, signedUrlForFile } from '@/server/aws'
+import { signedUrlForFile, storeS3File } from '@/server/aws'
 import {
     actionResult,
     faker,
@@ -10,11 +10,13 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     fetchLegalDocumentAcknowledgementsAction,
+    fetchLegalDocumentContentAction,
     fetchLegalDocumentVersionsAction,
     fetchNextPendingLegalAcknowledgementAction,
     fetchGlobalLegalDocumentsAction,
@@ -28,7 +30,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -43,11 +45,13 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 beforeEach(resetLegalDocuments)
 
 const createDraft = async (fileName = 'terms.md') =>
-    actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName }))
+    actionResult(await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) }))
 
 const createOrgAgreementDraft = async (type: 'ROPA' | 'DOPA', fileName = 'agreement.pdf') => {
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: type === 'ROPA' ? 'lab' : 'enclave' })
-    const draft = actionResult(await createLegalDocumentDraftAction({ type, orgId: org.id, fileName }))
+    const draft = actionResult(
+        await createLegalDocumentDraftAction({ type, orgId: org.id, file: testUploadFile(fileName) }),
+    )
     return { ...draft, org }
 }
 
@@ -67,7 +71,11 @@ describe('createLegalDocumentDraftAction', () => {
         expect(version.versionNumber).toBeNull()
         expect(version.filePath).toBe(`legal/TOS/${legalDocument.id}/${version.id}`)
         expect(version.fileName).toBe('terms.md')
-        expect(vi.mocked(createSignedUploadUrlForKey)).toHaveBeenCalledWith(version.filePath)
+        expect(vi.mocked(storeS3File)).toHaveBeenCalledWith(
+            { legalDocumentType: 'TOS' },
+            expect.anything(),
+            version.filePath,
+        )
     })
 
     it('reuses the existing document rather than creating a second one for the same scope', async () => {
@@ -107,7 +115,11 @@ describe('createLegalDocumentDraftAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertTestOrg({ slug: faker.string.alpha(10) })
 
-        const result = await createLegalDocumentDraftAction({ type: 'TOS', orgId: org.id, fileName: 'terms.md' })
+        const result = await createLegalDocumentDraftAction({
+            type: 'TOS',
+            orgId: org.id,
+            file: testUploadFile('terms.md'),
+        })
 
         expect(result).toHaveProperty('error')
     })
@@ -115,7 +127,7 @@ describe('createLegalDocumentDraftAction', () => {
     it('rejects an org-scoped agreement with no organization', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        const result = await createLegalDocumentDraftAction({ type: 'ROPA', fileName: 'ropa.pdf' })
+        const result = await createLegalDocumentDraftAction({ type: 'ROPA', file: testUploadFile('ropa.pdf') })
 
         expect(result).toHaveProperty('error')
     })
@@ -133,7 +145,7 @@ describe('createLegalDocumentDraftAction', () => {
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        const result = await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' })
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('terms.md') })
 
         expect(result).toHaveProperty('error')
     })
@@ -241,6 +253,36 @@ describe('fetchLegalDocumentVersionsAction', () => {
     })
 })
 
+describe('fetchLegalDocumentContentAction', () => {
+    it('returns the markdown stored for the version', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createDraft()
+
+        const result = actionResult(await fetchLegalDocumentContentAction({ versionId: version.id }))
+
+        expect(result.content).toBe(`content of ${version.filePath}`)
+    })
+
+    it('refuses a pdf version', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('ROPA')
+
+        const result = await fetchLegalDocumentContentAction({ versionId: version.id })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('denies a user who is not an SI admin', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createDraft()
+
+        await mockSessionWithTestData()
+        const result = await fetchLegalDocumentContentAction({ versionId: version.id })
+
+        expect(result).toHaveProperty('error')
+    })
+})
+
 describe('acknowledgeLegalDocumentAction', () => {
     it('records an acknowledgement of a published version', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
@@ -285,7 +327,7 @@ describe('acknowledgeLegalDocumentAction', () => {
         const slug = faker.string.alpha(10)
         const org = await insertTestOrg({ slug, type: 'enclave' })
         const { version } = actionResult(
-            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }),
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
         )
         const published = await publish(version.id, '2026-07-27')
 
@@ -365,10 +407,14 @@ describe('acknowledgeLegalDocumentAction', () => {
 })
 
 const publishTos = async (fileName = 'terms.md') =>
-    await publish(actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName })).version.id)
+    await publish(
+        actionResult(await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) })).version.id,
+    )
 
 const publishPn = async (fileName = 'privacy.md') =>
-    await publish(actionResult(await createLegalDocumentDraftAction({ type: 'PN', fileName })).version.id)
+    await publish(
+        actionResult(await createLegalDocumentDraftAction({ type: 'PN', file: testUploadFile(fileName) })).version.id,
+    )
 
 describe('fetchNextPendingLegalAcknowledgementAction', () => {
     it('reports nothing when no document has been published', async () => {
@@ -421,7 +467,7 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
     it('ignores a draft, which obliges nobody', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' })
+        await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('terms.md') })
 
         await mockSessionWithTestData()
 

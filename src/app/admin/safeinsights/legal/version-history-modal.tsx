@@ -21,7 +21,7 @@ type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAc
 const hasSignatory = (scope: Scope) => Boolean(scope.orgId || scope.studyId)
 
 // Rendered in place rather than linked: a signed URL to a .md gives the reader raw source.
-const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ versionId, url, label }) => {
+const PreviewLink: FC<{ versionId: string; label: string }> = ({ versionId, label }) => {
     const [isOpen, { open, close }] = useDisclosure(false)
 
     return (
@@ -30,7 +30,7 @@ const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ ve
                 View
             </Anchor>
             <AppModal isOpen={isOpen} onClose={close} title={label} zIndex={400}>
-                <PreviewDocument versionId={versionId} url={url} label={label} />
+                <PreviewDocument versionId={versionId} label={label} />
             </AppModal>
         </>
     )
@@ -41,9 +41,7 @@ const documentColumnFor = (type: LegalDocumentType): DataTableColumn<Version> =>
         return {
             accessor: 'downloadUrl',
             title: 'Document',
-            render: (version) => (
-                <PreviewLink versionId={version.id} url={version.downloadUrl} label={legalDocumentTypeLabels[type]} />
-            ),
+            render: (version) => <PreviewLink versionId={version.id} label={legalDocumentTypeLabels[type]} />,
         }
     }
 

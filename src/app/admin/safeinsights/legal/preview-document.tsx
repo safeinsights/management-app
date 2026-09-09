@@ -4,18 +4,19 @@ import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { LegalMarkdownContent } from '@/components/legal/markdown-content'
 import { LoadingMessage } from '@/components/loading'
+import { errorToString, isActionError } from '@/lib/errors'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
+import { fetchLegalDocumentContentAction } from '@/server/actions/legal-document.actions'
 
-// A signed URL to a .md opens as raw source or a download, so fetch and render it here. Cached
-// against the version, not the url, which is re-minted on every read of the versions query.
-export function PreviewDocument({ versionId, url, label }: { versionId: string; url: string; label: string }) {
+// A signed URL to a .md opens as raw source or a download, so render the content here instead.
+export function PreviewDocument({ versionId, label }: { versionId: string; label: string }) {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: legalDocumentQueryKeys.documentContent(versionId),
         staleTime: Infinity,
         queryFn: async () => {
-            const res = await fetch(url)
-            if (!res.ok) throw new Error(`Failed to load document ${res.status}`)
-            return res.text()
+            const result = await fetchLegalDocumentContentAction({ versionId })
+            if (isActionError(result)) throw new Error(errorToString(result))
+            return result.content
         },
     })
 

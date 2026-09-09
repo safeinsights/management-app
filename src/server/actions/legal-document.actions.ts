@@ -19,6 +19,7 @@ import {
     participationAgreementTypeForOrgType,
     legalDocumentFormats,
     legalDocumentScopeSchema,
+    legalDocumentVersionParams,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
     globalDocumentTypeParams,
@@ -30,7 +31,7 @@ import {
     type ResolvedLegalDocument,
     type LegalDocumentBody,
 } from '@/schema/legal-document'
-import { createSignedUploadUrlForKey } from '../aws'
+import { storeS3File } from '../aws'
 import {
     findLegalDocument,
     findOrCreateLegalDocument,
@@ -83,12 +84,14 @@ const globalDocumentScope = async () => ({ isGlobal: true, audienceOrgIds: [] })
 // Needed because the all-optional ability conditions are a TS weak type.
 const noDocumentScope = async () => ({ orgId: undefined, studyId: undefined })
 
+const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+
 export const createLegalDocumentDraftAction = new Action('createLegalDocumentDraftAction', {
     performsMutations: true,
 })
     .params(createLegalDocumentDraftSchema)
     .requireAbilityTo('create', 'LegalDocument')
-    .handler(async ({ db, params: { type, orgId, studyId, fileName } }) => {
+    .handler(async ({ db, params: { type, orgId, studyId, file } }) => {
         const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
         // For participation agreements: Make sure agreement type matches org's type
@@ -108,7 +111,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
             .where('publishedAt', 'is', null)
             .execute()
 
-        // Generated up front so the stored file_path is the key the upload is signed for.
+        // Generated up front so the row and the stored object agree on the key.
         const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersion({ type, legalDocumentId: legalDocument.id, versionId })
 
@@ -118,17 +121,17 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
                 id: versionId,
                 legalDocumentId: legalDocument.id,
                 filePath,
-                fileName,
+                fileName: file.name,
                 format: legalDocumentFormats[type],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        return {
-            legalDocument,
-            version,
-            upload: await createSignedUploadUrlForKey(filePath),
-        }
+        // Inside the action's transaction, so a failed store rolls the row back rather than
+        // leaving a draft that points at a file which never arrived.
+        await storeS3File({ legalDocumentType: type }, file.stream(), filePath)
+
+        return { legalDocument, version }
     })
 
 export const publishLegalDocumentVersionAction = new Action('publishLegalDocumentVersionAction', {
@@ -219,6 +222,27 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
         }
     })
 
+// Read here rather than in the browser: fetching the presigned S3 URL from the page would need a
+// GET CORS rule on every environment's bucket.
+export const fetchLegalDocumentContentAction = new Action('fetchLegalDocumentContentAction')
+    .params(legalDocumentVersionParams)
+    .middleware(scopeFromVersionId)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(async ({ db, params: { versionId } }) => {
+        const version = await db
+            .selectFrom('legalDocumentVersion')
+            .select(['filePath', 'format'])
+            .where('id', '=', versionId)
+            .executeTakeFirstOrThrow()
+
+        // A pdf would come back as binary junk in a string, so refuse rather than return it.
+        if (version.format !== 'markdown') {
+            throw new ActionFailure({ version: 'is not a markdown document' })
+        }
+
+        return { content: await contentOf(version.filePath) }
+    })
+
 export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocumentAction', {
     performsMutations: true,
 })
@@ -307,8 +331,6 @@ const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise
     if (!owed.length) return null
     return owed
 }
-
-const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
 
 // A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
 // it names the download (the S3 key is a bare uuid).

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import { actionResult, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
@@ -10,15 +10,8 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
-})
-
-beforeEach(() => {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn(async () => ({ ok: true, status: 200, text: async () => '# Terms of Service' }) as unknown as Response),
-    )
 })
 
 const chooseFile = (name: string) => {
