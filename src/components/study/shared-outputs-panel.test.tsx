@@ -11,7 +11,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
-import type { StepNav } from '@/lib/study-screen'
+import type { PhasedStepNav } from '@/lib/study-screen'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { SharedOutputsPanel } from './shared-outputs-panel'
@@ -47,10 +47,24 @@ const EDIT_CODE_HREF = '/test-lab/study/abc/resubmit' as Route
 const DASHBOARD_HREF = '/dashboard' as Route
 
 // The terminal-positive shape (spec state 5); the errored share passes Edit code solid instead.
-const NAV: StepNav = {
-    back: { label: 'Previous step', href: PREVIOUS_HREF, variant: 'subtle', testId: 'cta-previous-step' },
-    secondary: { label: 'Edit code', href: EDIT_CODE_HREF, variant: 'outline', testId: 'cta-edit-code' },
-    forward: { label: 'Back to my studies', href: DASHBOARD_HREF, variant: 'solid', testId: 'cta-back-to-my-studies' },
+const PREVIOUS = {
+    label: 'Previous step',
+    href: PREVIOUS_HREF,
+    variant: 'subtle',
+    testId: 'cta-previous-step',
+} as const
+const NAV: PhasedStepNav = {
+    locked: { back: PREVIOUS },
+    unlocked: {
+        back: PREVIOUS,
+        secondary: { label: 'Edit code', href: EDIT_CODE_HREF, variant: 'outline', testId: 'cta-edit-code' },
+        forward: {
+            label: 'Back to my studies',
+            href: DASHBOARD_HREF,
+            variant: 'solid',
+            testId: 'cta-back-to-my-studies',
+        },
+    },
 }
 
 // Counting mounts is the only way to prove the banner swap did not remount it; a remount

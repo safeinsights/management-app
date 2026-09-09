@@ -7,7 +7,7 @@ import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
-import type { StepNav } from '@/lib/study-screen'
+import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 
 // Copy rather than two ReactNodes: announcing the phase change needs ONE StatusAlert whose props
@@ -24,8 +24,8 @@ type SharedOutputsPanelProps = {
     job: { id: string }
     /** A node, not a render, so the phase flip cannot remount it and reset expand/collapse state. */
     feedbackSection: ReactNode
-    /** The step nav for the decrypted phase; only its back slot renders while locked. */
-    nav: StepNav
+    /** One nav per phase, like `banner`: the panel picks, it does not derive. */
+    nav: PhasedStepNav
 }
 
 export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
@@ -39,8 +39,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
     const { decryptedFiles, isLocked, onDecrypted } = useDecryptPhase()
     const { title, body } = isLocked ? banner.locked : banner.unlocked
     const variant = isLocked ? STATUS_ALERT_VARIANT.action : STATUS_ALERT_VARIANT.success
-    // While locked the key form's View button is the forward action, so the nav keeps only Previous.
-    const phaseNav = isLocked ? { back: nav.back } : nav
+    const phaseNav = isLocked ? nav.locked : nav.unlocked
 
     const bannerAlert = (
         <StatusAlert variant={variant} title={statusAlertTitle(title, decidedAt)} announce>

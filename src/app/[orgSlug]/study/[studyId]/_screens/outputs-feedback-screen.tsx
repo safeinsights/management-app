@@ -4,7 +4,7 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { isFeedbackOnlyOutcome, projectStudyState, resolveStepNav, runErrored } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
@@ -52,9 +52,10 @@ export async function OutputsFeedbackScreen({
     })
     if (!('job' in result)) return result
 
-    const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
-    const banner = bannerCopy(runErrored(job.statusChanges), dataPartner)
-    const nav = resolveStepNav('outputs-feedback', projectStudyState(raw), {
+    const { entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const state = projectStudyState(raw)
+    const banner = bannerCopy(state.runErrored, dataPartner)
+    const nav = resolveStepNav('outputs-feedback', state, {
         orgSlug,
         studyId: study.id,
         dashboardHref,

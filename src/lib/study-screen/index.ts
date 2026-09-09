@@ -4,7 +4,6 @@ export {
     projectStudyState,
     awaitingFilesDecisionOnError,
     isFeedbackOnlyOutcome,
-    runErrored,
     latestJob,
     isErroredOutputsSharedOutcome,
     codeDecisionForScreen,
@@ -19,6 +18,6 @@ export {
 } from './resolve'
 export { hasNextStepFromCode } from './next-step'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
-export { resolveStepNav } from './nav'
-export type { StepNav, NavAction, NavCtx, NavVariant } from './nav'
+export { resolveStepNav, resolvePhasedStepNav } from './nav'
+export type { StepNav, NavAction, NavCtx, NavVariant, PhasedStepNav } from './nav'
 export { canResearcherResubmitCode } from './eligibility'

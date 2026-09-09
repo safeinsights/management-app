@@ -98,18 +98,27 @@ describe('OutputsPendingScreen', () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent(dayjs(approvedDate).format('MMM DD, YYYY'))
     })
 
-    it('falls back to stage startedAt when CODE-APPROVED is missing', async () => {
-        const { org, study, job } = await setupExecuting('JOB-READY')
-        const statusChange = await db
-            .selectFrom('jobStatusChange')
-            .select('createdAt')
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'JOB-READY')
-            .executeTakeFirstOrThrow()
+    it('renders an undated banner when no CODE-APPROVED row carries a timestamp', async () => {
+        const { org, study } = await setupExecuting('JOB-READY')
         await renderScreen(study, org.slug)
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            dayjs(statusChange.createdAt).format('MMM DD, YYYY'),
-        )
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs not ready, code processing started')
+        expect(alert).not.toHaveTextContent('•')
+    })
+
+    // A packaging failure awaiting the reviewer's files decision routes here too. The error stays
+    // undisclosed (OTTER-598), but the copy must not claim the code is still running.
+    it('says the run is awaiting review, not still running, for an undecided JOB-ERRORED', async () => {
+        const { org, study, job } = await setupExecuting('CODE-SUBMITTED')
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-APPROVED' }).execute()
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
+        await renderScreen(study, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs not ready, awaiting review')
+        expect(alert).toHaveTextContent(/with the data partner for review/)
+        expect(alert).not.toHaveTextContent(/running in the secure enclave/)
+        expect(alert).not.toHaveTextContent(/error|fail/i)
     })
 
     // Routed from CODE-APPROVED onward (OTTER-673), so it must render before the enclave reports a stage.
@@ -125,7 +134,6 @@ describe('OutputsPendingScreen', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(/code processing started/i)
         expect(alert).toHaveTextContent(dayjs(approvedDate).format('MMM DD, YYYY'))
-        expect(screen.queryByText('Outputs not yet available')).not.toBeInTheDocument()
         expect(screen.getByTestId('cta-back-to-my-studies')).toBeInTheDocument()
     })
 

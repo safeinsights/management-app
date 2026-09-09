@@ -53,6 +53,9 @@ export type StudyState = {
     resultsApproved: boolean
     resultsRejected: boolean
     resultsErrored: boolean
+    // Narrower than resultsErrored: the scanner and containerizer also write JOB-ERRORED, so a
+    // packaging error before a good run leaves both that and RUN-COMPLETE on the job (OTTER-697).
+    runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
     submissionRound: number
     hasSavedEdits: boolean

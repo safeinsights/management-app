@@ -7,7 +7,7 @@ import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
     projectStudyState,
-    resolveStepNav,
+    resolvePhasedStepNav,
     type ScreenId,
     type StudyState,
 } from '@/lib/study-screen'
@@ -95,7 +95,7 @@ export async function SharedOutputsScreen({
     if (!('job' in result)) return result
 
     const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
-    const nav = resolveStepNav(descriptor.screen, projectStudyState(raw), {
+    const nav = resolvePhasedStepNav(descriptor.screen, projectStudyState(raw), {
         orgSlug,
         studyId: study.id,
         dashboardHref,

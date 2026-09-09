@@ -169,3 +169,14 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
 export function resolveStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): StepNav {
     return RESEARCHER_STEP_NAV[screen](state, ctx)
 }
+
+// The shared-outputs screens split on a phase the state table cannot see (whether the security key
+// has been entered in this session). While locked, the key form's View button is the forward action,
+// so the step nav keeps only Previous; the full nav applies once decrypted (spec: "Outputs available,
+// before decryption"). Kept here so the panel renders what it is handed rather than deriving it.
+export type PhasedStepNav = { locked: StepNav; unlocked: StepNav }
+
+export function resolvePhasedStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): PhasedStepNav {
+    const unlocked = resolveStepNav(screen, state, ctx)
+    return { locked: { back: unlocked.back }, unlocked }
+}

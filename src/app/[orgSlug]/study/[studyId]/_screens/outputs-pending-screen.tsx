@@ -3,19 +3,35 @@ import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
+import { latestStatusAt } from '@/lib/study-job-status'
 import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
-import { guardExecutionStage } from './execution-stage-guard'
+import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
 
-const ProcessingBanner = ({ approvedAt }: { approvedAt: Date | string | null }) => (
-    <StatusAlert
-        variant={STATUS_ALERT_VARIANT.informative}
-        title={statusAlertTitle('Outputs not ready, code processing started', approvedAt)}
-    >
-        Your code is running in the secure enclave. This can take a while, depending on how complex it is. We will let
-        you know when your outputs are ready or if anything goes wrong.
-    </StatusAlert>
-)
+// Routed from CODE-APPROVED onward, so this also serves a run that already failed while the reviewer
+// has yet to record a files decision. The error itself stays undisclosed until then (OTTER-598), but
+// the copy must not claim the code is still running.
+const bannerCopy = (runErrored: boolean) =>
+    runErrored
+        ? {
+              title: 'Outputs not ready, awaiting review',
+              message:
+                  'Code processing has finished and is with the data partner for review. We will let you know when your outputs are ready or if anything needs your attention.',
+          }
+        : {
+              title: 'Outputs not ready, code processing started',
+              message:
+                  'Your code is running in the secure enclave. This can take a while, depending on how complex it is. We will let you know when your outputs are ready or if anything goes wrong.',
+          }
+
+const ProcessingBanner = ({ runErrored, approvedAt }: { runErrored: boolean; approvedAt: Date | string | null }) => {
+    const { title, message } = bannerCopy(runErrored)
+    return (
+        <StatusAlert variant={STATUS_ALERT_VARIANT.informative} title={statusAlertTitle(title, approvedAt)}>
+            {message}
+        </StatusAlert>
+    )
+}
 
 export async function OutputsPendingScreen({
     study,
@@ -24,18 +40,13 @@ export async function OutputsPendingScreen({
     dashboardHref,
     returnTo,
 }: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
-    // allowNoStage: this screen is routed from CODE-APPROVED onward, before the enclave reports a stage.
-    const result = await guardExecutionStage(study, {
-        noJobMessage: 'This study has no submitted code yet.',
-        allowNoStage: true,
-    })
+    const result = await guardSubmittedJob(study, { noJobMessage: 'This study has no submitted code yet.' })
     if (!('job' in result)) return result
 
-    const { job, stage } = result
-    // Undated rather than "today" when neither row carries a timestamp, matching the other banners.
-    const approvedAt =
-        job.statusChanges.find((c) => c.status === 'CODE-APPROVED')?.createdAt ?? stage?.startedAt ?? null
-    const nav = resolveStepNav('outputs-pending', projectStudyState(raw), {
+    // CODE-APPROVED is what routed us here, so it is the date the step opened.
+    const approvedAt = latestStatusAt(result.job.statusChanges, 'CODE-APPROVED')
+    const state = projectStudyState(raw)
+    const nav = resolveStepNav('outputs-pending', state, {
         orgSlug,
         studyId: study.id,
         dashboardHref,
@@ -50,7 +61,7 @@ export async function OutputsPendingScreen({
                     stepLabel="STEP 4"
                     heading="Verify outputs"
                     studyTitle={study.title}
-                    banner={<ProcessingBanner approvedAt={approvedAt} />}
+                    banner={<ProcessingBanner runErrored={state.runErrored} approvedAt={approvedAt} />}
                 />
                 <StepNavigation nav={nav} />
             </Stack>
