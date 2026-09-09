@@ -1,4 +1,3 @@
-import { unstable_isUnrecognizedActionError } from 'next/navigation'
 import { capitalize } from 'remeda'
 
 export type ClerkAPIErrorObject = {
@@ -98,18 +97,11 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
-// Next rejects an action id that is missing from the running build's manifest, which is what an
-// open tab posts after a deploy moved, renamed or removed that action. No application code can make
-// the id resolve, so the only correct response is to replace the client bundle (OTTER-726).
+// The id an open tab posts after a deploy moved or removed that action, which only a new client
+// bundle can fix (OTTER-726). Matched by name because Next's unstable_isUnrecognizedActionError is
+// client-only and this module is imported into the server graph.
 export function isStaleDeploymentError(error: unknown): boolean {
-    // The name is checked first because it needs nothing from Next: the class sets it, and this
-    // path keeps working if the unstable_ helper is renamed or removed.
-    if (error instanceof Error && error.name === 'UnrecognizedActionError') return true
-    try {
-        return unstable_isUnrecognizedActionError(error)
-    } catch {
-        return false
-    }
+    return error instanceof Error && error.name === 'UnrecognizedActionError'
 }
 
 export const STALE_DEPLOYMENT_MESSAGE =

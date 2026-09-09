@@ -94,11 +94,6 @@ vi.mock('next/navigation', () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return new URLSearchParams(path as any)
         },
-        // Next's own predicate for an action id the running build does not have. The real one is an
-        // instanceof check against a class the mock cannot construct, so it matches on the name the
-        // class sets, which is what production code falls back to as well.
-        unstable_isUnrecognizedActionError: (error: unknown) =>
-            error instanceof Error && error.name === 'UnrecognizedActionError',
     }
 })
 vi.mock('next/cache')
