@@ -141,7 +141,7 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
     await expect(confirmDialog.getByText('Submit your proposal?')).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Submit proposal' }).click()
 
-    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
 
     // Button component={Link} renders as an anchor.
     await page
@@ -609,7 +609,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByText(/successfully submitted/i)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
     })
 })
 
