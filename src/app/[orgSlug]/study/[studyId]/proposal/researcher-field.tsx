@@ -40,7 +40,7 @@ const ResearcherProfileHint: FC<{ orgName: string; isVisible: boolean }> = ({ or
     if (!isVisible) return null
 
     return (
-        <Text size="sm" c="dimmed" mb="xs">
+        <Text size="xs" c="dimmed" mb="xs">
             {description(orgName)}
         </Text>
     )
