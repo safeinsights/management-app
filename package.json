@@ -160,7 +160,7 @@
         "typescript-eslint": "^8.56.1",
         "vite": ">=8.0.0",
         "vite-plugin-singlefile": "^2.3.3",
-        "vitest": ">=4.1.6",
+        "vitest": ">=4.1.11 <5",
         "vitest-monocart-coverage": "^4.0.1"
     }
 }
