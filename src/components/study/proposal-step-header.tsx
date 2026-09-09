@@ -19,7 +19,7 @@ const HeaderTimestamp: FC<Pick<ProposalStepHeaderProps, 'timestampDate'> & { tim
     if (!timestampDate) return null
 
     return (
-        <Text fz={12} c="charcoal.7" ta="right" data-testid="proposal-timestamp">
+        <Text fz={12} c="charcoal.7" ta="right" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
             {timestampLabel} {dayjs(timestampDate).format('MMM DD, YYYY')}
         </Text>
     )
