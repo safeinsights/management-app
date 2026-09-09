@@ -1,5 +1,5 @@
 import type { FC, ReactNode } from 'react'
-import { Divider, Group, Paper, Text, Title } from '@mantine/core'
+import { Divider, Paper, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 
 type ProposalStepHeaderProps = {
@@ -12,29 +12,16 @@ type ProposalStepHeaderProps = {
     children?: ReactNode
 }
 
-const TimestampLine: FC<{ timestampDate?: Date | string | null; timestampLabel: string }> = ({
+const HeaderTimestamp: FC<Pick<ProposalStepHeaderProps, 'timestampDate'> & { timestampLabel: string }> = ({
     timestampDate,
     timestampLabel,
 }) => {
     if (!timestampDate) return null
 
     return (
-        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
+        <Text fz={12} c="charcoal.7" ta="right" data-testid="proposal-timestamp">
             {timestampLabel} {dayjs(timestampDate).format('MMM DD, YYYY')}
         </Text>
-    )
-}
-
-const HeaderTimestampRow: FC<Pick<ProposalStepHeaderProps, 'timestampDate'> & { timestampLabel: string }> = ({
-    timestampDate,
-    timestampLabel,
-}) => {
-    if (!timestampDate) return null
-
-    return (
-        <Group justify="flex-end" align="center" wrap="nowrap">
-            <TimestampLine timestampDate={timestampDate} timestampLabel={timestampLabel} />
-        </Group>
     )
 }
 
@@ -64,7 +51,7 @@ export function ProposalStepHeader({
             <Title order={2} fz="xl" c="charcoal.9" pb={4}>
                 {heading}
             </Title>
-            <HeaderTimestampRow timestampDate={timestampDate} timestampLabel={timestampLabel} />
+            <HeaderTimestamp timestampDate={timestampDate} timestampLabel={timestampLabel} />
             <HeaderDivider isVisible={hasContentBelowRule} />
             {banner}
             {children}

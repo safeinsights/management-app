@@ -43,6 +43,13 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
 }
 
 describe('StudyCodePanel', () => {
+    it('never renders a study title line', () => {
+        const ide = createMockIde()
+        renderWithProviders(<StudyCodePanel ide={ide} footer={null} />)
+        expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Untitled draft/)).not.toBeInTheDocument()
+    })
+
     it('renders IDE and upload buttons in review state', () => {
         const ide = createMockIde()
         renderWithProviders(<StudyCodePanel ide={ide} footer={null} />)

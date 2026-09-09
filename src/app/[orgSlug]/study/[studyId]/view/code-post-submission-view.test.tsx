@@ -144,6 +144,7 @@ describe('CodePostSubmissionView', () => {
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
         it('renders "Submitted on {date}" using the CODE-SUBMITTED status timestamp', async () => {
