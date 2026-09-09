@@ -94,6 +94,17 @@ export const createTestQueryClient = () => {
     return client
 }
 
+/**
+ * Awaits every in-flight query so none of them lands after the test transaction is given up.
+ * pg-transactional-tests drops its pg patch in `close()` without rolling back, so a query that
+ * arrives afterwards runs raw and Postgres commits it into the shared test database.
+ */
+export const cancelTestQueryClients = async () => {
+    for (const client of liveTestQueryClients) {
+        await client.cancelQueries()
+    }
+}
+
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {
     for (const client of liveTestQueryClients) {
