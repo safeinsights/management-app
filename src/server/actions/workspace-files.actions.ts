@@ -20,7 +20,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
     .params(z.object({ studyId: z.string(), file: z.instanceof(File) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ db, params: { studyId, file } }) => {
+    .handler(async ({ db, params: { studyId, file }, session }) => {
         await ensureRoundJobForUpload(db, studyId)
 
         const coderFilesPath = await getStudyFilesPath(studyId)
@@ -31,7 +31,32 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
         const buffer = Buffer.from(await file.arrayBuffer())
         await fs.writeFile(filePath, buffer)
 
+        // OTTER-693: feeds the Last activity column. Written after the file lands, so a failed
+        // write cannot leave activity claiming an upload that never happened.
+        await db
+            .insertInto('workspaceFileActivity')
+            .values({ studyId, fileName, userId: session.user.id, action: 'UPLOADED' })
+            .execute()
+
         return { fileName }
+    })
+
+/**
+ * OTTER-693: the card defines "Edited in IDE" as the pencil being clicked, not as a detected file
+ * change — we cannot see inside the IDE. So this records intent, and is separate from
+ * ensureWorkspaceAction because the pencil names a file while Launch IDE does not.
+ */
+export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEditAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string(), fileName: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ db, params: { studyId, fileName }, session }) => {
+        await db
+            .insertInto('workspaceFileActivity')
+            .values({ studyId, fileName: sanitizeFileName(fileName), userId: session.user.id, action: 'EDITED_IN_IDE' })
+            .execute()
     })
 
 export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})

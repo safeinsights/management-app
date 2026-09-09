@@ -91,6 +91,8 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
+export type WorkspaceFileAction = 'EDITED_IN_IDE' | 'UPLOADED'
+
 export interface AgentContext {
     content: string
     id: Generated<string>
@@ -258,6 +260,7 @@ export interface Study {
     deletedAt: Timestamp | null
     descriptionDocPath: string | null
     id: Generated<string>
+    ideOwnerId: string | null
     impact: Json | null
     irbDocPath: string | null
     irbProtocols: string | null
@@ -371,6 +374,15 @@ export interface UserPublicKey {
     userId: string
 }
 
+export interface WorkspaceFileActivity {
+    action: WorkspaceFileAction
+    createdAt: Generated<Timestamp>
+    fileName: string
+    id: Generated<string>
+    studyId: string
+    userId: string
+}
+
 export interface YjsDocument {
     data: Buffer
     name: string
@@ -405,6 +417,7 @@ export interface DB {
     studyReviewComment: StudyReviewComment
     user: User
     userPublicKey: UserPublicKey
+    workspaceFileActivity: WorkspaceFileActivity
     yjsDocument: YjsDocument
 }
 

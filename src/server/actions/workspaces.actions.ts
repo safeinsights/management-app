@@ -5,9 +5,10 @@ import * as path from 'node:path'
 import { Action, z } from './action'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus, type WorkspaceLaunchStatus } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
-import { getInfoForStudyId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { getInfoForStudyId, latestActivityPerWorkspaceFile, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { initializeDevWorkspaceFiles } from '@/server/dev'
+import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
@@ -43,6 +44,13 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
+        const activityByFile = new Map(
+            (await latestActivityPerWorkspaceFile(studyId)).map((row) => [
+                row.fileName,
+                { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
+            ]),
+        )
+
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) {
             coderFilesPath += `/${studyId}`
@@ -61,7 +69,7 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
             throw e
         }
 
-        const files: { name: string; size: number; mtime: string }[] = []
+        const files: WorkspaceFileInfo[] = []
         let lastModified: Date | null = null
 
         for (const entry of entries) {
@@ -79,7 +87,12 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
             if (!stats.isFile()) continue
             if (stats.size === 0) continue
 
-            files.push({ name: entry, size: stats.size, mtime: stats.mtime.toISOString() })
+            files.push({
+                name: entry,
+                size: stats.size,
+                mtime: stats.mtime.toISOString(),
+                lastActivity: activityByFile.get(entry) ?? null,
+            })
 
             if (!lastModified || stats.mtime > lastModified) {
                 lastModified = stats.mtime
@@ -104,6 +117,17 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
+
+        // OTTER-693: claiming here rather than in the UI covers both entry points the card names,
+        // since the Launch IDE button and the table's pencil both land on this action. The `is null`
+        // guard is what makes it first-come: a later launch by anyone leaves the owner alone.
+        await db
+            .updateTable('study')
+            .set({ ideOwnerId: session.user.id })
+            .where('id', '=', studyId)
+            .where('ideOwnerId', 'is', null)
+            .execute()
+
         const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
         await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
         if (CODER_DISABLED) {
@@ -209,5 +233,35 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             createdAt: studyJob.createdAt.toISOString(),
             mainFileName: null,
             fileNames: [],
+        }
+    })
+
+/**
+ * OTTER-693: who, if anyone, holds this study's IDE. `isOwnedByViewer` is resolved here rather than
+ * handing the id to the client, so the UI never has to know the caller's own user id to decide
+ * whether the pencil and Launch IDE are theirs to use.
+ */
+export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ db, params: { studyId }, session }) => {
+        if (!session) throw new Error('Unauthorized')
+
+        const study = await db
+            .selectFrom('study')
+            .leftJoin('user', 'user.id', 'study.ideOwnerId')
+            .select(['study.ideOwnerId', 'user.fullName as ownerName'])
+            .where('study.id', '=', studyId)
+            .executeTakeFirst()
+
+        if (!study?.ideOwnerId) {
+            return { isClaimed: false, isOwnedByViewer: false, ownerName: null }
+        }
+
+        return {
+            isClaimed: true,
+            isOwnedByViewer: study.ideOwnerId === session.user.id,
+            ownerName: study.ownerName,
         }
     })

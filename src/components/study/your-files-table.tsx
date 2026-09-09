@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { ActionIcon, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { ActionIcon, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import dayjs from 'dayjs'
+import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
+import { MainFileTemplateCopy } from './main-file-template-copy'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
@@ -14,6 +16,25 @@ const MAIN_FILE_HOVER_CARD =
 
 const NO_ACTIVITY = 'No activity yet'
 
+const ACTION_LABELS: Record<WorkspaceFileActivitySummary['action'], string> = {
+    UPLOADED: 'Uploaded',
+    EDITED_IN_IDE: 'Edited in IDE',
+}
+
+/** `{researcherName} · {action} · {MMM DD, YYYY}, {hh:mm am/pm}` per the card. */
+const formatActivity = (activity: WorkspaceFileActivitySummary) =>
+    [
+        activity.actorName,
+        ACTION_LABELS[activity.action],
+        dayjs(activity.createdAt).format('MMM DD, YYYY, hh:mm a'),
+    ].join(' · ')
+
+const LastActivityCell: FC<{ activity: WorkspaceFileActivitySummary | null | undefined }> = ({ activity }) => (
+    <Text size="sm" c="charcoal.7">
+        {activity ? formatActivity(activity) : NO_ACTIVITY}
+    </Text>
+)
+
 const TOOLTIPS = {
     setMain: 'Set as main file',
     edit: 'Edit file in IDE',
@@ -21,6 +42,9 @@ const TOOLTIPS = {
     delete: 'Delete file',
     deleteMain: 'Main file cannot be deleted. Set another file as main first.',
 } as const
+
+const editLockedTooltip = (ideOwnerName: string | null) =>
+    `Only ${ideOwnerName ?? 'the assigned researcher'} can edit this study files in the IDE`
 
 const COLUMN_WIDTHS = {
     mainFile: 108,
@@ -83,23 +107,56 @@ const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onS
     </Tooltip>
 )
 
-const FileNameCell: FC<{ fileName: string; onView: (fileName: string) => void }> = ({ fileName, onView }) => {
+/**
+ * Marks the Data Partner's starter file. Shown only while the template is untouched — the hook
+ * drops a file from templateFileNames once it has been edited or replaced.
+ */
+const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ isVisible, dataPartnerName }) => {
+    if (!isVisible) return null
+
+    return (
+        <HoverCard width={340} withArrow shadow="md" position="bottom-start">
+            <HoverCard.Target>
+                <Badge variant="light" color="gray" tt="none" style={{ cursor: 'default' }}>
+                    Template
+                </Badge>
+            </HoverCard.Target>
+            <HoverCard.Dropdown>
+                <Text size="sm">
+                    <MainFileTemplateCopy dataPartnerName={dataPartnerName} />
+                </Text>
+            </HoverCard.Dropdown>
+        </HoverCard>
+    )
+}
+
+type FileNameCellProps = {
+    fileName: string
+    isTemplate: boolean
+    dataPartnerName: string
+    onView: (fileName: string) => void
+}
+
+const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => {
     const [isHovered, setIsHovered] = useState(false)
 
     return (
-        <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
-            <UnstyledButton
-                onClick={() => onView(fileName)}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-                aria-label={`View ${fileName}`}
-                style={{ cursor: 'pointer', textDecoration: isHovered ? 'underline' : 'none' }}
-            >
-                <Text component="span" inherit>
-                    {truncateFileName(fileName)}
-                </Text>
-            </UnstyledButton>
-        </Tooltip>
+        <Group gap="xs" wrap="nowrap">
+            <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
+                <UnstyledButton
+                    onClick={() => onView(fileName)}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    aria-label={`View ${fileName}`}
+                    style={{ cursor: 'pointer', textDecoration: isHovered ? 'underline' : 'none' }}
+                >
+                    <Text component="span" inherit>
+                        {truncateFileName(fileName)}
+                    </Text>
+                </UnstyledButton>
+            </Tooltip>
+            <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
+        </Group>
     )
 }
 
@@ -107,20 +164,33 @@ type FileActionsProps = {
     fileName: string
     isMain: boolean
     isEditable: boolean
-    onEdit: () => void
+    canEditInIde: boolean
+    ideOwnerName: string | null
+    onEdit: (fileName: string) => void
     onDownload: (fileName: string) => void
     onDelete: (fileName: string) => void
 }
 
-const FileActions: FC<FileActionsProps> = ({ fileName, isMain, isEditable, onEdit, onDownload, onDelete }) => (
+const FileActions: FC<FileActionsProps> = ({
+    fileName,
+    isMain,
+    isEditable,
+    canEditInIde,
+    ideOwnerName,
+    onEdit,
+    onDownload,
+    onDelete,
+}) => (
     <Group gap="xs" justify="center" wrap="nowrap">
-        <Tooltip label={TOOLTIPS.edit} withArrow>
+        {/* Two reasons the pencil goes dead, and they need different tooltips: the page is
+            view-only, or another researcher holds the IDE. */}
+        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline w={240}>
             <ActionIcon
                 variant="subtle"
                 color="gray"
-                disabled={!isEditable}
+                disabled={!isEditable || !canEditInIde}
                 aria-label={`Edit ${fileName} in IDE`}
-                onClick={onEdit}
+                onClick={() => onEdit(fileName)}
             >
                 <PencilSimpleIcon />
             </ActionIcon>
@@ -154,10 +224,14 @@ const FileActions: FC<FileActionsProps> = ({ fileName, isMain, isEditable, onEdi
 type FileRowProps = {
     file: WorkspaceFileInfo
     isMain: boolean
+    isTemplate: boolean
+    dataPartnerName: string
     isEditable: boolean
+    canEditInIde: boolean
+    ideOwnerName: string | null
     onSelectMain: (fileName: string) => void
     onView: (fileName: string) => void
-    onEdit: () => void
+    onEdit: (fileName: string) => void
     onDownload: (fileName: string) => void
     onDelete: (fileName: string) => void
 }
@@ -165,7 +239,11 @@ type FileRowProps = {
 const FileRow: FC<FileRowProps> = ({
     file,
     isMain,
+    isTemplate,
+    dataPartnerName,
     isEditable,
+    canEditInIde,
+    ideOwnerName,
     onSelectMain,
     onView,
     onEdit,
@@ -177,20 +255,23 @@ const FileRow: FC<FileRowProps> = ({
             <MainFileStar fileName={file.name} isMain={isMain} isEditable={isEditable} onSelect={onSelectMain} />
         </Table.Td>
         <Table.Td>
-            <FileNameCell fileName={file.name} onView={onView} />
+            <FileNameCell
+                fileName={file.name}
+                isTemplate={isTemplate}
+                dataPartnerName={dataPartnerName}
+                onView={onView}
+            />
         </Table.Td>
         <Table.Td>
-            {/* OTTER-693 leaves this at the default: naming the researcher and the action needs
-                per-file provenance the workspace listing does not carry yet. */}
-            <Text size="sm" c="charcoal.7">
-                {NO_ACTIVITY}
-            </Text>
+            <LastActivityCell activity={file.lastActivity} />
         </Table.Td>
         <Table.Td>
             <FileActions
                 fileName={file.name}
                 isMain={isMain}
                 isEditable={isEditable}
+                canEditInIde={canEditInIde}
+                ideOwnerName={ideOwnerName}
                 onEdit={onEdit}
                 onDownload={onDownload}
                 onDelete={onDelete}
@@ -202,10 +283,14 @@ const FileRow: FC<FileRowProps> = ({
 type YourFilesTableProps = {
     files: WorkspaceFileInfo[]
     mainFile: string
+    templateFileNames?: string[]
+    dataPartnerName: string
     isEditable?: boolean
+    canEditInIde?: boolean
+    ideOwnerName?: string | null
     onSelectMain: (fileName: string) => void
     onView: (fileName: string) => void
-    onEdit: () => void
+    onEdit: (fileName: string) => void
     onDownload: (fileName: string) => void
     onDelete: (fileName: string) => void
 }
@@ -213,7 +298,11 @@ type YourFilesTableProps = {
 export const YourFilesTable: FC<YourFilesTableProps> = ({
     files,
     mainFile,
+    templateFileNames = [],
+    dataPartnerName,
     isEditable = true,
+    canEditInIde = true,
+    ideOwnerName = null,
     onSelectMain,
     onView,
     onEdit,
@@ -246,7 +335,11 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                             key={file.name}
                             file={file}
                             isMain={file.name === mainFile}
+                            isTemplate={templateFileNames.includes(file.name)}
+                            dataPartnerName={dataPartnerName}
                             isEditable={isEditable}
+                            canEditInIde={canEditInIde}
+                            ideOwnerName={ideOwnerName}
                             onSelectMain={onSelectMain}
                             onView={onView}
                             onEdit={onEdit}

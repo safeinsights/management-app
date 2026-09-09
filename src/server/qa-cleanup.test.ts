@@ -312,6 +312,7 @@ describe('deleteUserById FK coverage', () => {
         'study.researcher_id': 'owned studies are deleted outright',
         'study.pi_user_id': 'detached — the study can belong to a real researcher',
         'study.reviewer_id': 'detached — the study can belong to a real researcher',
+        'study.ide_owner_id': 'detached — releases the IDE so a surviving study is not locked to a deleted account',
         'study_proposal_comment.author_id': 'deleted',
         'study_review_comment.author_id': 'deleted (ON DELETE RESTRICT)',
         'user_public_key.user_id': 'deleted',

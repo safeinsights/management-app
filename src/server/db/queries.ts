@@ -4,7 +4,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction } from '@/database/types'
+import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
@@ -514,6 +514,33 @@ export async function latestActivityPerJobFile(jobId: string): Promise<JobFileAc
         .orderBy('studyJobFileActivity.filePath')
         .orderBy('studyJobFileActivity.createdAt', 'desc')
         .orderBy('studyJobFileActivity.id', 'desc')
+        .execute()
+}
+
+// The workspace-file counterpart of latestActivityPerJobFile: same DISTINCT ON collapse, keyed on
+// (study, file name) because a workspace file is a path on disk rather than a row (OTTER-693).
+export type WorkspaceFileActivityRow = {
+    fileName: string
+    action: WorkspaceFileAction
+    createdAt: Date
+    actorName: string
+}
+
+export async function latestActivityPerWorkspaceFile(studyId: string): Promise<WorkspaceFileActivityRow[]> {
+    return await Action.db
+        .selectFrom('workspaceFileActivity')
+        .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
+        .where('workspaceFileActivity.studyId', '=', studyId)
+        .select([
+            'workspaceFileActivity.fileName',
+            'workspaceFileActivity.action',
+            'workspaceFileActivity.createdAt',
+            'user.fullName as actorName',
+        ])
+        .distinctOn(['workspaceFileActivity.fileName'])
+        .orderBy('workspaceFileActivity.fileName')
+        .orderBy('workspaceFileActivity.createdAt', 'desc')
+        .orderBy('workspaceFileActivity.id', 'desc')
         .execute()
 }
 

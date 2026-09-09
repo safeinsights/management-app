@@ -14,6 +14,7 @@ import {
     QuestionIcon,
     StarIcon,
 } from '@phosphor-icons/react/dist/ssr'
+import { MainFileTemplateCopy } from './main-file-template-copy'
 
 const FAQ_ITEM_VALUE = 'submit-code-faq'
 const FAQ_HEADER = 'New to SafeInsights IDE? Start here.'
@@ -74,17 +75,7 @@ const faqEntries = (dataPartnerName: string): FaqEntry[] => [
     {
         icon: <StarIcon size={SECTION_ICON_SIZE} />,
         question: 'What is the main file template?',
-        answer: (
-            <>
-                It is a template from {dataPartnerName} that connects to their dataset. You’ll see it listed below, and
-                it’s pre-loaded as your starting point when you click{' '}
-                <Text span fz={SECTION_FONT_SIZE} fw={600}>
-                    Launch IDE.
-                </Text>{' '}
-                Leave the fixed setup code unchanged, or your code will not work correctly. The rest is a working
-                example with reference notes you can edit or replace with your own code.
-            </>
-        ),
+        answer: <MainFileTemplateCopy dataPartnerName={dataPartnerName} />,
     },
     {
         icon: <FloppyDiskIcon size={SECTION_ICON_SIZE} />,

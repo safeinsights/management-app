@@ -93,7 +93,7 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
                     </Stack>
                 </ProposalStepHeader>
 
-                <YourFilesSection ide={ide} />
+                <YourFilesSection ide={ide} dataPartnerName={dataPartnerName} />
 
                 <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={openConfirm} />
             </Stack>

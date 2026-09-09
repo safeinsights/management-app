@@ -17,17 +17,18 @@ const SECTION_GAP = 24
 
 type FilesBodyProps = {
     ide: StudyCodeIDE
+    dataPartnerName: string
     isEditable: boolean
     showLaunchIde: boolean
     openRef: React.RefObject<(() => void) | null>
 }
 
-const FilesBody: FC<FilesBodyProps> = ({ ide, isEditable, showLaunchIde, openRef }) => {
+const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showLaunchIde, openRef }) => {
     if (ide.isLoadingFiles) return <Skeleton height={240} radius="md" />
 
-    // Until the Data Partner's template is pre-loaded as the default main file (deferred: the
-    // template badge is still TBC on the card), a study with no uploads has an empty table, so the
-    // empty view still owns that state.
+    // Starter files only reach the workspace on the first IDE launch, so a study nobody has
+    // launched or uploaded to has an empty table and the empty view still owns that state. The
+    // design shows the template row before any launch — see the note on this component.
     if (ide.showEmptyState) {
         return (
             <StudyCodeEmptyView
@@ -65,13 +66,17 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, isEditable, showLaunchIde, openRef
                 <YourFilesTable
                     files={ide.fileDetails}
                     mainFile={ide.mainFile}
+                    templateFileNames={ide.templateFileNames}
+                    dataPartnerName={dataPartnerName}
                     isEditable={isEditable}
+                    canEditInIde={ide.canEditInIde}
+                    ideOwnerName={ide.ideOwnerName}
                     onSelectMain={ide.setMainFile}
                     onView={ide.viewFile}
-                    // The pencil opens the study's workspace, the same target as Launch IDE. Which
-                    // researcher may do so is row 7's ownership work; today nobody has claimed it,
-                    // and the card's pre-claim state is enabled for everyone.
-                    onEdit={ide.launchWorkspace}
+                    // Records the edit against this file, then opens the study's workspace — the
+                    // same target as Launch IDE, and what claims the IDE for whoever got there
+                    // first.
+                    onEdit={ide.editFileInIde}
                     onDownload={ide.downloadFile}
                     onDelete={ide.removeFile}
                 />
@@ -82,21 +87,27 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, isEditable, showLaunchIde, openRef
 
 type YourFilesSectionProps = {
     ide: StudyCodeIDE
+    dataPartnerName: string
     /** False puts the table in view-only mode: the star and the row actions go disabled. */
     isEditable?: boolean
     showLaunchIde?: boolean
 }
 
 /**
- * The "Your files" card (OTTER-693 row 6). Deliberately standalone so the view-only code screens
- * and /resubmit can adopt it without inheriting the Submit code page's chrome — it takes the IDE
- * hook and an editability flag and nothing else.
+ * The Code files card (OTTER-693 row 6). Deliberately standalone so the view-only code screens and
+ * /resubmit can adopt it without inheriting the Submit code page's chrome — it takes the IDE hook,
+ * the Data Partner's name and an editability flag, and nothing else.
  *
- * Not yet from the card: Last activity (the workspace listing carries no per-file provenance), the
- * pencil's IDE-ownership lock (row 7 shares that state), and the pre-loaded template main file with
- * its badge (TBC).
+ * One gap against the card remains: the Data Partner's template appears only once someone launches
+ * the IDE, which is when starter files are copied in. The design shows it on first page load, so
+ * pre-loading it earlier is still outstanding.
  */
-export const YourFilesSection: FC<YourFilesSectionProps> = ({ ide, isEditable = true, showLaunchIde = true }) => {
+export const YourFilesSection: FC<YourFilesSectionProps> = ({
+    ide,
+    dataPartnerName,
+    isEditable = true,
+    showLaunchIde = true,
+}) => {
     // Shared with the drop overlay inside the empty view, so the Upload button and the dropzone it
     // opens have to stay under one component.
     const openRef = useRef<() => void>(null)
@@ -117,7 +128,13 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({ ide, isEditable = 
                     />
                 </Group>
                 <Divider my={SECTION_GAP} color="charcoal.1" data-testid="your-files-divider" />
-                <FilesBody ide={ide} isEditable={isEditable} showLaunchIde={showLaunchIde} openRef={openRef} />
+                <FilesBody
+                    ide={ide}
+                    dataPartnerName={dataPartnerName}
+                    isEditable={isEditable}
+                    showLaunchIde={showLaunchIde}
+                    openRef={openRef}
+                />
             </Paper>
 
             <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />

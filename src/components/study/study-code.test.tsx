@@ -24,6 +24,7 @@ import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile } from '@/server/aws'
+import { createUserAndWorkspace } from '@/server/coder'
 import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
@@ -35,6 +36,28 @@ vi.mock('@/server/aws', async () => {
         deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
         signedUrlForFile: vi.fn().mockResolvedValue('https://mock-s3-url.example.com/starter.R'),
+    }
+})
+
+// Same treatment as @/server/aws above: an external service with no instance in the unit env. Left
+// unmocked, every launch throws on a refused connection, and since the launch action claims the
+// study's IDE in the same transaction, the claim would roll back with it.
+vi.mock('@/server/coder', async () => {
+    const actual = await vi.importActual<typeof import('@/server/coder')>('@/server/coder')
+    return {
+        ...actual,
+        createUserAndWorkspace: vi.fn(),
+        getCoderWorkspaceLaunchStatus: vi.fn().mockResolvedValue({
+            buildStatus: 'running',
+            buildLogLines: [],
+            agentStatus: null,
+            agentLogLines: [],
+            ready: true,
+            failed: false,
+            reason: 'test workspace ready',
+            cursors: { build: null, agent: null },
+            url: 'https://coder.test.example/workspace',
+        }),
     }
 })
 
@@ -85,6 +108,10 @@ describe('StudyCode component', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
         vi.mocked(signedUrlForFile).mockResolvedValue('https://mock-s3-url.example.com/starter.R')
+        vi.mocked(createUserAndWorkspace).mockResolvedValue({
+            success: true,
+            workspace: { id: 'ws-test' } as Awaited<ReturnType<typeof createUserAndWorkspace>>['workspace'],
+        })
     })
 
     afterEach(async () => {
@@ -459,10 +486,11 @@ describe('StudyCode component', () => {
             expect(headers).toEqual(['Main file', 'File name', 'Last activity', 'Actions'])
         })
 
-        it('defaults Last activity to "No activity yet" for every file', async () => {
+        it('defaults Last activity to "No activity yet" for a file nothing has touched', async () => {
             await renderFiles()
 
-            // Provenance is not in the workspace listing yet, so every row shows the default.
+            // Files written straight to disk by the fixture have no recorded activity, which is
+            // also the real state of a starter file a launch copied in.
             expect(screen.getAllByText('No activity yet')).toHaveLength(2)
         })
 
@@ -535,6 +563,255 @@ describe('StudyCode component', () => {
                 expect(screen.getByRole('button', { name: `Download ${name}` })).toBeInTheDocument()
                 expect(screen.getByRole('button', { name: `Delete ${name}` })).toBeInTheDocument()
             }
+        })
+    })
+
+    describe('IDE ownership (OTTER-693)', () => {
+        const FILES = { 'main.R': 'print("main")', 'spare.R': 'print("spare")' }
+
+        const claimIdeFor = async (studyId: string, userId: string) =>
+            db.updateTable('study').set({ ideOwnerId: userId }).where('id', '=', studyId).execute()
+
+        it('leaves the pencil enabled while nobody has claimed the IDE', async () => {
+            await renderIDE('openstax-lab', FILES)
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: 'Edit main.R in IDE' })).toBeEnabled()
+            })
+        })
+
+        const ideOwnerId = async (studyId: string) => {
+            const row = await db
+                .selectFrom('study')
+                .select('ideOwnerId')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            return row.ideOwnerId
+        }
+
+        it('claims the IDE for whoever launches it first', async () => {
+            const { study } = await renderIDE('openstax-lab', FILES)
+
+            await waitFor(() => expect(screen.getByText('spare.R')).toBeInTheDocument())
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Edit main.R in IDE' }))
+
+            // The pencil launches the workspace, and launching is what takes ownership — so the
+            // pencil claims it just as the Launch IDE button does.
+            await waitFor(async () => {
+                expect(await ideOwnerId(study.id)).not.toBeNull()
+            })
+        })
+
+        it('does not claim the IDE when the launch fails', async () => {
+            vi.mocked(createUserAndWorkspace).mockRejectedValueOnce(new Error('coder unreachable'))
+            const { study } = await renderIDE('openstax-lab', FILES)
+
+            await waitFor(() => expect(screen.getByText('spare.R')).toBeInTheDocument())
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Edit main.R in IDE' }))
+
+            // The claim shares the launch action's transaction on purpose: a study that locked
+            // itself to a failed launch could only be freed by support.
+            await waitFor(() => expect(screen.getByRole('button', { name: 'Edit main.R in IDE' })).toBeEnabled())
+            expect(await ideOwnerId(study.id)).toBeNull()
+        })
+
+        it('keeps the pencil enabled for the researcher who owns it', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await claimIdeFor(study.id, user.id)
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, FILES)
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: 'Edit main.R in IDE' })).toBeEnabled()
+            })
+        })
+
+        it('disables the pencil and names the owner once someone else holds the IDE', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            // A second researcher on the same study got there first.
+            const owner = await db
+                .insertInto('user')
+                .values({ clerkId: 'clerk-ide-owner', firstName: 'Ada', lastName: 'Lovelace' })
+                .returning(['id', 'fullName'])
+                .executeTakeFirstOrThrow()
+            await claimIdeFor(study.id, owner.id)
+
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, FILES)
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: 'Edit main.R in IDE' })).toBeDisabled()
+            })
+            expect(screen.getByRole('button', { name: 'Edit spare.R in IDE' })).toBeDisabled()
+            // Download and delete are unaffected: the lock is on IDE editing, not the whole row.
+            expect(screen.getByRole('button', { name: 'Download main.R' })).toBeEnabled()
+        })
+    })
+
+    describe('Last activity (OTTER-693)', () => {
+        const recordActivity = async (
+            studyId: string,
+            fileName: string,
+            action: 'UPLOADED' | 'EDITED_IN_IDE',
+            userId: string,
+            createdAt: Date,
+        ) => db.insertInto('workspaceFileActivity').values({ studyId, fileName, action, userId, createdAt }).execute()
+
+        it('names the researcher, the action and the time', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print(1)', 'helper.R': 'print(2)' })
+
+            await recordActivity(study.id, 'main.R', 'UPLOADED', user.id, new Date('2026-07-15T15:50:00Z'))
+            await recordActivity(study.id, 'helper.R', 'EDITED_IN_IDE', user.id, new Date('2026-07-21T16:10:00Z'))
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+
+            await waitFor(() => {
+                expect(screen.getByText(new RegExp(`${user.fullName} · Uploaded · Jul 15, 2026,`))).toBeInTheDocument()
+            })
+            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE · Jul 21, 2026,`))).toBeInTheDocument()
+            expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
+        })
+
+        it('shows only the most recent action for a file', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print(1)' })
+
+            await recordActivity(study.id, 'main.R', 'UPLOADED', user.id, new Date('2026-07-15T15:50:00Z'))
+            await recordActivity(study.id, 'main.R', 'EDITED_IN_IDE', user.id, new Date('2026-07-21T16:10:00Z'))
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+
+            // The column reports the latest action, not a history.
+            await waitFor(() => {
+                expect(screen.getByText(/Edited in IDE · Jul 21, 2026,/)).toBeInTheDocument()
+            })
+            expect(screen.queryByText(/Uploaded · Jul 15, 2026,/)).not.toBeInTheDocument()
+        })
+
+        it('records an upload against the researcher who uploaded it', async () => {
+            // Seeded with a file so the workspace directory exists: renderIDE only creates it when
+            // given files, and without it CODER_FILES is unset and the upload has nowhere to land.
+            const { study } = await renderIDE('openstax-lab', { 'main.R': 'print(1)' })
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            const input = document.querySelector('input[type="file"]') as HTMLInputElement
+            await userEvent.setup().upload(input, new File(['print(1)'], 'fresh.R', { type: 'text/plain' }))
+
+            await waitFor(async () => {
+                const rows = await db
+                    .selectFrom('workspaceFileActivity')
+                    .select(['fileName', 'action'])
+                    .where('studyId', '=', study.id)
+                    .execute()
+                expect(rows).toEqual([{ fileName: 'fresh.R', action: 'UPLOADED' }])
+            })
+        })
+
+        it('records an IDE edit against the file whose pencil was clicked', async () => {
+            const { study } = await renderIDE('openstax-lab', {
+                'main.R': 'print(1)',
+                'helper.R': 'print(2)',
+            })
+            await waitFor(() => expect(screen.getByText('helper.R')).toBeInTheDocument())
+
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Edit helper.R in IDE' }))
+
+            await waitFor(async () => {
+                const rows = await db
+                    .selectFrom('workspaceFileActivity')
+                    .select(['fileName', 'action'])
+                    .where('studyId', '=', study.id)
+                    .execute()
+                expect(rows).toEqual([{ fileName: 'helper.R', action: 'EDITED_IN_IDE' }])
+            })
+        })
+    })
+
+    describe('template badge (OTTER-693)', () => {
+        /**
+         * `pristine` decides whether the starter file still counts as the untouched template: the
+         * badge keys off the file's mtime sitting at or before the baseline job, which is how
+         * initializeWorkspaceCodeFiles backdates a freshly copied starter file.
+         */
+        const renderWithTemplate = async ({ pristine }: { pristine: boolean }) => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            await insertTestBaselineJob(study.id, {
+                createdAt: new Date(Date.now() + (pristine ? 60_000 : -60_000)),
+            })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.R': 'print("starter")',
+                'mine.R': 'print("mine")',
+            })
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+            await waitFor(() => expect(screen.getByText('mine.R')).toBeInTheDocument())
+            return { study }
+        }
+
+        it('badges the untouched starter file, and only that file', async () => {
+            await renderWithTemplate({ pristine: true })
+
+            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+            // One badge, on the Data Partner's file rather than the researcher's own upload.
+            expect(screen.getAllByText('Template')).toHaveLength(1)
+            const templateRow = screen.getByRole('button', { name: 'View main.R' }).closest('tr')
+            expect(templateRow).toHaveTextContent('Template')
+        })
+
+        it('drops the badge once the starter file has been edited or replaced', async () => {
+            await renderWithTemplate({ pristine: false })
+
+            expect(screen.queryByText('Template')).not.toBeInTheDocument()
+        })
+
+        it('explains the template on hover, in the same words as the FAQ', async () => {
+            await renderWithTemplate({ pristine: true })
+            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+
+            const copy = () => screen.queryAllByText(/It is a template from Test Data Partner that connects to their/)
+            // One copy already on the page: the FAQ answer, whose panel stays mounted while
+            // collapsed. Hovering the badge adds a second, which is the shared constant rendering
+            // in both places rather than the wording being typed out twice.
+            expect(copy()).toHaveLength(1)
+
+            await userEvent.setup().hover(screen.getByText('Template'))
+
+            await waitFor(() => expect(copy()).toHaveLength(2))
         })
     })
 

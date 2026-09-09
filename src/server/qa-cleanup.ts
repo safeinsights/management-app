@@ -215,6 +215,9 @@ export async function deleteUserCompletely(
         // Studies owned by someone else outlive the QA account that was assigned to them.
         await trx.updateTable('study').set({ piUserId: null }).where('piUserId', '=', userId).execute()
         await trx.updateTable('study').set({ reviewerId: null }).where('reviewerId', '=', userId).execute()
+        // Releasing the IDE rather than blocking the delete: an unclaimed workspace is the state
+        // the code page can recover from on its own, and the owner's account is going away.
+        await trx.updateTable('study').set({ ideOwnerId: null }).where('ideOwnerId', '=', userId).execute()
         // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()

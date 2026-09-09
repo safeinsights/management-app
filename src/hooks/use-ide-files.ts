@@ -11,9 +11,14 @@ import {
     uploadWorkspaceFileAction,
     deleteWorkspaceFileAction,
     readWorkspaceFileAction,
+    recordWorkspaceFileEditAction,
 } from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-request'
-import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
+import {
+    getIdeOwnerAction,
+    getLastSubmissionInfoAction,
+    getStarterCodeInfoAction,
+} from '@/server/actions/workspaces.actions'
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -63,6 +68,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const onLaunchSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
         queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+        // A launch is also what claims the IDE, so the owner has to be re-read or the launcher's
+        // own pencil keeps rendering as if the study were still unclaimed.
+        queryClient.invalidateQueries({ queryKey: ['ide-owner', studyId] })
     }, [queryClient, studyId])
 
     const {
@@ -88,6 +96,11 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         queryFn: () => getStarterCodeInfoAction({ studyId }),
     })
 
+    const { data: ideOwner } = useQuery({
+        queryKey: ['ide-owner', studyId],
+        queryFn: () => getIdeOwnerAction({ studyId }),
+    })
+
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
     const previousMainFile = lastJob?.mainFileName ?? null
     const mainFile = useMemo(() => {
@@ -101,6 +114,24 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
         [workspace.files, mainFile, lastJob],
     )
+
+    /**
+     * OTTER-693: which files still carry the Data Partner's Template badge. A starter file is copied
+     * in with its mtime deliberately backdated behind the baseline job (see
+     * initializeWorkspaceCodeFiles), so an untouched template sits at or before that timestamp and
+     * an edited or re-uploaded one has moved past it — the same signal `filesChanged` reads.
+     *
+     * Plural because starterCodeFileNames is, though orgs configure one in practice.
+     */
+    const templateFileNames = useMemo(() => {
+        const starterNames = new Set((starterCodeInfo?.starterFiles ?? []).map((f) => f.name))
+        if (starterNames.size === 0 || !lastJob) return []
+
+        const baselineAt = new Date(lastJob.createdAt).getTime()
+        return workspace.files
+            .filter((f) => starterNames.has(f.name) && new Date(f.mtime).getTime() <= baselineAt)
+            .map((f) => f.name)
+    }, [starterCodeInfo, lastJob, workspace.files])
 
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
@@ -157,6 +188,20 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     )
 
     const closeFileViewer = useCallback(() => setViewingFile(null), [])
+
+    /**
+     * The pencil: records the intent to edit this file, then opens the workspace. Recorded before
+     * launching so the Last activity column reflects the click even if the launch then fails —
+     * the card defines the event as the click, and we cannot see inside the IDE either way.
+     */
+    const editFileInIde = useCallback(
+        async (fileName: string) => {
+            await recordWorkspaceFileEditAction({ studyId, fileName })
+            queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+            launchWorkspace()
+        },
+        [studyId, queryClient, launchWorkspace],
+    )
 
     // Reuses the same read as the viewer rather than a download route: workspace files live on disk
     // under the study's coder path, not in S3, so there is nothing to link to (OTTER-693).
@@ -264,8 +309,14 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         removeFile,
         viewFile,
         downloadFile,
+        editFileInIde,
         viewingFile,
         closeFileViewer,
+
+        // Unclaimed reads as editable: the card enables the IDE controls for everyone until the
+        // first launch takes them. Undefined while the query is in flight, hence the `!== false`.
+        canEditInIde: ideOwner?.isClaimed !== true || ideOwner.isOwnedByViewer,
+        ideOwnerName: ideOwner?.ownerName ?? null,
         uploadFiles,
         isUploading: uploadMutation.isPending,
         isDeleting: deleteMutation.isPending,
@@ -279,6 +330,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         userEditedFiles,
 
         starterFiles: starterCodeInfo?.starterFiles ?? [],
+        templateFileNames,
     }
 }
 

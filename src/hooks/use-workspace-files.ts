@@ -1,7 +1,24 @@
 import { useQuery } from '@/common'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 
-export type WorkspaceFileInfo = { name: string; size: number; mtime: string }
+/**
+ * The most recent thing done to a file, or null when nothing has been recorded — which is what the
+ * Last activity column shows as "No activity yet". Only uploads and IDE-edit clicks are recorded,
+ * so a starter file copied in by a launch has none until someone touches it (OTTER-693).
+ */
+export type WorkspaceFileActivitySummary = {
+    actorName: string
+    action: 'UPLOADED' | 'EDITED_IN_IDE'
+    createdAt: string
+}
+
+export type WorkspaceFileInfo = {
+    name: string
+    size: number
+    mtime: string
+    /** Optional rather than required so fixtures predating the column stay valid; absent reads as null. */
+    lastActivity?: WorkspaceFileActivitySummary | null
+}
 
 export interface UseWorkspaceFilesOptions {
     studyId: string
