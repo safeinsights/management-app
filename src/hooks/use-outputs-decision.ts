@@ -126,8 +126,6 @@ export function useOutputsDecision({
                 }),
             )
         },
-        // Yields to the local handler below, which owns copy the card specifies exactly.
-        meta: { staleDeploymentHandling: 'local' },
         onMutate: () => setOwnSubmission('pending'),
         onError: async (error) => {
             // Releases the deferral the monitor holds while this tab is submitting, so a decision
