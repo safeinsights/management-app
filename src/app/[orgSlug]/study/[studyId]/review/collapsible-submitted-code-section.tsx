@@ -9,7 +9,7 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 import { useExpandable } from '@/hooks/use-expandable'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import type { Submitted } from '@/schema/study'
 import { SubmittedCodeSection } from './submitted-code-section'
 
@@ -18,8 +18,7 @@ type CollapsibleSubmittedCodeSectionProps = {
     orgSlug: string
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy | null
-    review: StudyReviewWithMeta | null
-    scan: JobScanResult | null
+    analysis: JobAnalysis | null
     stepLabel: string
     heading: string
     timestampDate: Date | string | null
@@ -28,10 +27,7 @@ type CollapsibleSubmittedCodeSectionProps = {
     initiallyExpanded?: boolean
 }
 
-type SubmittedCodePanelProps = Pick<
-    CollapsibleSubmittedCodeSectionProps,
-    'orgSlug' | 'study' | 'job' | 'review' | 'scan'
-> & {
+type SubmittedCodePanelProps = Pick<CollapsibleSubmittedCodeSectionProps, 'orgSlug' | 'study' | 'job' | 'analysis'> & {
     isVisible: boolean
     expanded: boolean
     onCollapse: () => void
@@ -43,14 +39,13 @@ function SubmittedCodePanel({
     orgSlug,
     study,
     job,
-    review,
-    scan,
+    analysis,
     expanded,
     onCollapse,
     panelRef,
 }: SubmittedCodePanelProps) {
-    // The scan check only narrows its type: jobScanResultForJob always returns a fallback.
-    if (!isVisible || !job || !scan) return null
+    // The analysis check only narrows its type: it is non-null whenever the job is.
+    if (!isVisible || !job || !analysis) return null
     return (
         <Collapse in={expanded} keepMounted>
             <Box ref={panelRef} tabIndex={-1}>
@@ -58,8 +53,7 @@ function SubmittedCodePanel({
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
-                    review={review}
-                    scan={scan}
+                    analysis={analysis}
                     onCollapse={onCollapse}
                 />
             </Box>
@@ -72,8 +66,7 @@ export function CollapsibleSubmittedCodeSection({
     orgSlug,
     study,
     job,
-    review,
-    scan,
+    analysis,
     stepLabel,
     heading,
     timestampDate,
@@ -82,7 +75,7 @@ export function CollapsibleSubmittedCodeSection({
     initiallyExpanded = false,
 }: CollapsibleSubmittedCodeSectionProps) {
     // Without a panel, an opener would expand an empty card with no way to collapse it again.
-    const hasSubmittedCode = Boolean(job && scan)
+    const hasSubmittedCode = Boolean(job && analysis)
     const { expanded, toggle, collapse } = useExpandable(initiallyExpanded && hasSubmittedCode)
     const openerRef = useRef<HTMLButtonElement>(null)
     const panelRef = useRef<HTMLDivElement>(null)
@@ -119,8 +112,7 @@ export function CollapsibleSubmittedCodeSection({
                 orgSlug={orgSlug}
                 study={study}
                 job={job}
-                review={review}
-                scan={scan}
+                analysis={analysis}
                 expanded={expanded}
                 onCollapse={onCollapse}
                 panelRef={panelRef}

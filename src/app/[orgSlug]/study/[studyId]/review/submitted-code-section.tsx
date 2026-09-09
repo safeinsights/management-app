@@ -1,10 +1,11 @@
 import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
-import type { JobScanResult, LatestJobForStudy, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { AiSummaryCollapsible, SecurityScanLog, StudyCodeViewer } from './submitted-code-interactive'
+import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
@@ -53,8 +54,7 @@ type SubmittedCodeSectionProps = {
     orgSlug: string
     study: SelectedStudy
     job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
-    review: StudyReviewWithMeta | null
-    scan: JobScanResult
+    analysis: JobAnalysis
     codeInitiallyExpanded?: boolean
     /**
      * When set, the parent owns whole-section expand/collapse (post-decision reviewer page). The
@@ -64,20 +64,6 @@ type SubmittedCodeSectionProps = {
     onCollapse?: () => void
 }
 
-// A complex resubmission reuses its study job, so createdAt can predate the
-// generation request by days. The latest CODE-SUBMITTED event is the only
-// timestamp that accurately anchors the summary-generation timeout (and the
-// "Submitted/Resubmitted on" header label). We scan for the max createdAt rather
-// than relying on statusChanges arriving in any particular order, so a caller
-// passing an unsorted array still gets the newest submission back.
-export function latestCodeSubmittedAt(job: Pick<LatestJobForStudy, 'createdAt' | 'statusChanges'>): Date | string {
-    const submissions = job.statusChanges.filter((change) => change.status === 'CODE-SUBMITTED')
-    if (submissions.length === 0) return job.createdAt
-    return submissions.reduce((latest, change) =>
-        new Date(change.createdAt).getTime() > new Date(latest.createdAt).getTime() ? change : latest,
-    ).createdAt
-}
-
 // Data fetching lives in the parent (CodeReview) so this component
 // stays a plain sync function. Nested async server components don't render
 // under testing-library / happy-dom — the parent's await is what tests rely on.
@@ -85,8 +71,7 @@ export function SubmittedCodeSection({
     orgSlug,
     study,
     job,
-    review,
-    scan,
+    analysis,
     codeInitiallyExpanded = true,
     onCollapse,
 }: SubmittedCodeSectionProps) {
@@ -103,18 +88,7 @@ export function SubmittedCodeSection({
                 <DatasetPills names={datasetNames} />
                 <Divider />
                 <Stack gap="xxl">
-                    <Group align="stretch" grow gap="xl" wrap="nowrap">
-                        <Paper withBorder p="lg" radius={0}>
-                            <AiSummaryCollapsible
-                                studyJobId={job.id}
-                                initialReview={review}
-                                submittedAt={submittedAt}
-                            />
-                        </Paper>
-                        <Paper withBorder p="lg" radius={0}>
-                            <SecurityScanLog studyJobId={job.id} initialScan={scan} submittedAt={submittedAt} />
-                        </Paper>
-                    </Group>
+                    <JobAnalysisPanels studyJobId={job.id} initialAnalysis={analysis} submittedAt={submittedAt} />
                     <Divider />
                     <StudyCodeViewer
                         studyJobId={job.id}

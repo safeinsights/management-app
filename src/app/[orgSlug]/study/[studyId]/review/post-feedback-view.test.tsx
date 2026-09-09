@@ -6,12 +6,7 @@ import {
     type ProposalFeedbackEntry,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import {
-    getStudyReviewForJob,
-    jobScanResultForJob,
-    latestJobForStudy,
-    type LatestJobForStudy,
-} from '@/server/db/queries'
+import { jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -428,10 +423,7 @@ describe('PostFeedbackView', () => {
             const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             if (!isSubmittedStudy(codeStudy)) throw new Error('test fixture must be a submitted study')
             const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
-            const [review, scan] = await Promise.all([
-                getStudyReviewForJob(latestJob.id),
-                jobScanResultForJob(latestJob.id),
-            ])
+            const analysis = await jobAnalysisForJob(latestJob)
             ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
 
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
@@ -442,8 +434,7 @@ describe('PostFeedbackView', () => {
                     entries={entries}
                     kind="CODE"
                     job={latestJob}
-                    review={review}
-                    scan={scan}
+                    analysis={analysis}
                 />,
             )
 
