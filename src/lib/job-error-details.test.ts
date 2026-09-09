@@ -118,6 +118,44 @@ describe('jobErrorDetails', () => {
     })
 })
 
+// OTTER-769: entering the key is the whole of what a reviewer does next when the log can be read,
+// so the banner drops the stage sentence the log itself is about to explain.
+describe('errored banner text', () => {
+    const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
+
+    it('is one sentence when a key can open the log', () => {
+        const details = jobErrorDetails([at('JOB-RUNNING'), at('JOB-ERRORED')], files('ENCRYPTED-CODE-RUN-LOG'))
+
+        expect(details.bannerText).toBe(KEY_PROMPT_TEXT)
+        expect(details.bannerText).not.toContain('The code ran in the secure enclave')
+    })
+
+    it('keeps the stage sentence when nothing was left to open', () => {
+        const details = jobErrorDetails(packagingFailure, [])
+
+        expect(details.bannerText).toBe(`${details.explanation} ${details.logSentence}`)
+        expect(details.bannerText).toContain('The code environment image could not be prepared')
+    })
+
+    it('keeps the stage sentence when the results need a key but no log exists', () => {
+        const details = jobErrorDetails([at('JOB-RUNNING'), at('JOB-ERRORED')], files('ENCRYPTED-RESULT'))
+
+        expect(details.bannerText).toBe(`${details.explanation} ${details.logSentence}`)
+    })
+
+    // The reason it would otherwise name is in the log the key opens.
+    it('drops a classified reason once the log is readable', () => {
+        const details = jobErrorDetails(
+            packagingFailure,
+            files('ENCRYPTED-PACKAGING-ERROR-LOG'),
+            'BASE_IMAGE_UNAVAILABLE',
+        )
+
+        expect(details.bannerText).toBe(KEY_PROMPT_TEXT)
+        expect(details.explanation).toContain('Code Environments page')
+    })
+})
+
 // OTTER-524: the reviewer may see only sentences this app authored, so no AWS or deployment
 // detail can reach a screen another organization reads.
 describe('recorded failure reasons', () => {
@@ -187,8 +225,10 @@ describe('banner and key gate agree', () => {
         'promises a key only when one is required: %s',
         (_label, combo) => {
             const jobFiles = files(...combo)
-            const { logSentence } = jobErrorDetails([at('JOB-ERRORED')], jobFiles)
+            const { bannerText, logSentence } = jobErrorDetails([at('JOB-ERRORED')], jobFiles)
 
+            // bannerText is what renders, and logSentence is the half of it that carries the promise.
+            expect(bannerText.includes('security key')).toBe(jobHasDecryptableRunOutcome(jobFiles))
             expect(logSentence.includes('security key')).toBe(jobHasDecryptableRunOutcome(jobFiles))
         },
     )

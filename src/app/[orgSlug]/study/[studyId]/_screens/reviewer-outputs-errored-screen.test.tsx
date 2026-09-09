@@ -79,6 +79,19 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent('Code errored')
     })
 
+    // OTTER-769: with a readable log the banner is the design's single sentence, and nothing about
+    // the stage that failed, which the log itself explains.
+    it('asks for the key in one sentence when the log can be decrypted', async () => {
+        const { org, study, raw } = await setupWithArtifact()
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
+        expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
+        expect(alert).not.toHaveTextContent('review the error log')
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+    })
+
     it('hides the outputs table, decision section and submit until a key validates', async () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
