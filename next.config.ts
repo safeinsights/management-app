@@ -1,6 +1,7 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 import path from 'node:path'
+import { OBJECT_SRC_DIRECTIVE } from './src/lib/csp'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 
@@ -63,9 +64,10 @@ const securityHeaders = [
             "frame-ancestors 'none'",
             "form-action 'self'",
             "base-uri 'self'",
-            // Enforced regardless of the script-src rollout below: we embed no plugins, so this
-            // costs nothing and closes the "no enforcing policy" half of ZAP-10055.
-            "object-src 'none'",
+            // Enforced here because the nonce policy that also lists it is still report-only
+            // (SIINFOSEC-1460/1461). We embed no plugins, so nothing changes for users. ZAP 10055-4
+            // and 10038-3 stay open until that policy is enforced.
+            OBJECT_SRC_DIRECTIVE,
         ].join('; '),
     },
     // Prevent MIME-sniffing-based content-type confusion.
@@ -152,16 +154,9 @@ const configWithSentry = withSentryConfig(nextConfig, {
     // Upload a larger set of source maps for prettier stack traces (increases build time)
     widenClientFileUpload: true,
 
-    // Automatically annotate React components to show their full name in breadcrumbs and session replay
-    webpack: {
-        reactComponentAnnotation: {
-            enabled: true,
-        },
-        // Automatically tree-shake Sentry logger statements to reduce bundle size
-        treeshake: {
-            removeDebugLogging: true,
-        },
-    },
+    // No `webpack` block: our builds run Turbopack (bin/build-app calls `next build` with no bundler
+    // flag, and Next 16 defaults to it), and Sentry ignores every webpack.* option there. Component
+    // annotation has a Turbopack equivalent behind _experimental; logger tree-shaking has none.
     sourcemaps: {
         deleteSourcemapsAfterUpload: false,
     },
@@ -170,8 +165,6 @@ const configWithSentry = withSentryConfig(nextConfig, {
     // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of
     // client-side errors will fail.
     // tunnelRoute: "/monitoring",
-
-    // Hides source maps from generated client bundles
 })
 
 export default configWithSentry
