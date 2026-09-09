@@ -100,6 +100,9 @@ const patchUser = (idOrEmail: string, body: unknown) =>
         { params: Promise.resolve({ userId: encodeURIComponent(idOrEmail) }) },
     )
 
+const deleteUser = (userId: string) =>
+    DELETE(new Request('http://localhost', { method: 'DELETE' }), { params: Promise.resolve({ userId }) })
+
 describe('PATCH /api/qa/users/[userId]', () => {
     it('applies orgs, key, and password in one call', async () => {
         await authenticateAsSiAdmin()
@@ -172,6 +175,79 @@ describe('PATCH /api/qa/users/[userId]', () => {
         expect(response.status).toBe(403)
         const memberships = await db.selectFrom('orgUser').select(['id']).where('userId', '=', user.id).execute()
         expect(memberships).toHaveLength(1)
+    })
+})
+
+// The QA tooling authenticates as an ordinary org admin rather than an SI admin, so an admin
+// must reach the accounts their own org owns — and no others.
+describe('org admin authorization', () => {
+    async function authenticateAsOrgAdmin() {
+        const slug = faker.string.alpha(10)
+        const mocks = await mockSessionWithTestData({ isSiAdmin: false, isAdmin: true, orgSlug: slug })
+        if (!mocks.auth) throw new Error('expected a mocked clerk auth')
+        const { userId, sessionClaims } = mocks.auth()
+        ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
+        ;(await headers()).set('Authorization', 'Bearer fake-clerk-session-token')
+        return mocks
+    }
+
+    it('lets an org admin delete a QA user belonging only to their org', async () => {
+        const { org } = await authenticateAsOrgAdmin()
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(200)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeUndefined()
+    })
+
+    it('rejects an org admin deleting a QA user from another org', async () => {
+        await authenticateAsOrgAdmin()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: other, email: qaEmail() })
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(403)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeDefined()
+    })
+
+    // Deleting an account takes its Clerk login and every study it owns, in every org — so a
+    // second membership puts it outside one org admin's blast radius.
+    it('rejects an org admin deleting a QA user who also belongs to another org', async () => {
+        const { org } = await authenticateAsOrgAdmin()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+        await db.insertInto('orgUser').values({ orgId: other.id, userId: user.id, isAdmin: false }).execute()
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(403)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeDefined()
+    })
+
+    it('lets an org admin provision a QA user within their own org', async () => {
+        const { org } = await authenticateAsOrgAdmin()
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        const response = await patchUser(user.id, { orgs: [{ slug: org.slug, isAdmin: true }] })
+
+        expect(response.status).toBe(200)
+        expect((await response.json()).orgs).toMatchObject([{ slug: org.slug, isAdmin: true }])
+    })
+
+    // Granting membership is the escalation path: without checking the requested slugs an org
+    // admin could add an account — as an admin — to an org they do not run.
+    it('rejects a PATCH that adds the user to an org the caller does not administer', async () => {
+        const { org } = await authenticateAsOrgAdmin()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        const response = await patchUser(user.id, { orgs: [{ slug: other.slug, isAdmin: true }] })
+
+        expect(response.status).toBe(403)
+        const memberships = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
+        expect(memberships).toMatchObject([{ orgId: org.id }])
     })
 })
 

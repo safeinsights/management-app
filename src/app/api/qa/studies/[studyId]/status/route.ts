@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/database'
-import { requireQaAdmin, findQaStudy } from '@/server/qa-cleanup'
+import { requireQaAuth, requireAdminOfOrgs, findQaStudy } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
 import { setQaStudyState, QA_FILE_KEYS, type QaFileKey } from '@/server/qa-study-state'
 import { qaErrorResponse } from '../../../responses'
@@ -67,7 +67,7 @@ async function parseRequest(req: Request) {
 // Files arrive as plaintext under the `result` and `log` keys and are encrypted for the reviewing
 // org before storage.
 export const PATCH = async (req: Request, { params }: { params: Promise<{ studyId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
@@ -77,6 +77,11 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ studyI
         const update = await parseRequest(req)
         // Resolved first so a bad body or a non-QA study leaves no attempt row.
         const study = await findQaStudy(db, studyId)
+
+        const authorized = await requireAdminOfOrgs(db, auth, [study.orgSlug])
+        if (!authorized.ok) {
+            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+        }
 
         const result = await auditQaOperation(
             {

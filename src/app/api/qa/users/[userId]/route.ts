@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/database'
-import { requireQaAdmin, deleteUserById, findQaUser } from '@/server/qa-cleanup'
+import { requireQaAuth, requireAdminOfOrgs, orgSlugsForUser, deleteUserById, findQaUser } from '@/server/qa-cleanup'
 import { provisionQaUser } from '@/server/qa-provision'
 import { qaErrorResponse } from '../../responses'
 import { auditQaOperation } from '../../audit'
@@ -14,7 +14,7 @@ const updateUserSchema = z.object({
 })
 
 export const DELETE = async (_req: Request, { params }: { params: Promise<{ userId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
@@ -23,6 +23,13 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
     try {
         // Resolved first so a 404/non-QA target is rejected before an attempt is audited.
         const target = await findQaUser(db, userId)
+
+        // Deleting an account is not org-scoped, so an org admin may only delete a user who
+        // belongs to their org and nowhere else — see orgSlugsForUser.
+        const authorized = await requireAdminOfOrgs(db, auth, await orgSlugsForUser(db, target.id))
+        if (!authorized.ok) {
+            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+        }
 
         await auditQaOperation(
             {
@@ -43,7 +50,7 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
 
 // The `userId` segment accepts a user id or a URL-encoded email address.
 export const PATCH = async (req: Request, { params }: { params: Promise<{ userId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
@@ -53,6 +60,18 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ userId
         const update = updateUserSchema.parse(await req.json())
         // Resolved first so a bad body or a non-QA target never reaches the audit trail.
         const target = await findQaUser(db, userId)
+
+        // Both sides of the membership change are targets: the orgs the user is in now (a
+        // PATCH can remove those) and the orgs the body asks for (it can add them, as an
+        // admin). Checking only one side would let an org admin move an account, or grant
+        // itself admin over one, in an org it does not administer.
+        const authorized = await requireAdminOfOrgs(db, auth, [
+            ...(await orgSlugsForUser(db, target.id)),
+            ...(update.orgs?.map((org) => org.slug) ?? []),
+        ])
+        if (!authorized.ok) {
+            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+        }
 
         // Records which fields were requested, never the password itself.
         const result = await auditQaOperation(

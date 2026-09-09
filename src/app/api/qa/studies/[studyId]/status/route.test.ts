@@ -58,6 +58,18 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
     return mocks
 }
 
+// Signs in as an admin of an org that already exists, so the caller's rights can be pointed at a
+// specific study's org rather than the throwaway one mockSessionWithTestData creates.
+async function authenticateAsOrgAdminOf(org: { id: string }) {
+    const mocks = await mockSessionWithTestData({ isSiAdmin: false, isAdmin: true })
+    if (!mocks.auth) throw new Error('expected a mocked clerk auth')
+    await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+    const { userId, sessionClaims } = mocks.auth()
+    ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
+    ;(await headers()).set('Authorization', 'Bearer fake-clerk-session-token')
+    return mocks
+}
+
 // Enclave org because insertTestUser only creates user_public_key rows for those, and its reviewers
 // are who an uploaded artifact is encrypted for.
 async function insertQaStudy() {
@@ -274,6 +286,30 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: 'real.person@corp.com' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'DRAFT' })
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(403)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('DRAFT')
+    })
+
+    // The QA tooling runs as an org admin, and a study belongs to exactly one org.
+    it('lets an admin of the study org set its status', async () => {
+        const { org, study } = await insertQaStudy()
+        await authenticateAsOrgAdminOf(org)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(200)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('APPROVED')
+    })
+
+    it('rejects an admin of a different org', async () => {
+        const { study } = await insertQaStudy()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await authenticateAsOrgAdminOf(other)
 
         const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
 

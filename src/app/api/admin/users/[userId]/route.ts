@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/database'
-import { requireQaAdmin, findUser, deleteUserCompletely } from '@/server/qa-cleanup'
+import { requireQaAuth, requireAdminOfOrgs, orgSlugsForUser, findUser, deleteUserCompletely } from '@/server/qa-cleanup'
 import { qaErrorResponse } from '@/app/api/qa/responses'
 import { auditQaOperation } from '@/app/api/qa/audit'
 
@@ -14,14 +14,15 @@ import { auditQaOperation } from '@/app/api/qa/audit'
  * QA one: a bypass switch on a production route is a thing someone eventually sets by
  * accident, whereas a second path has to be reached deliberately.
  *
- * The consequence is that SI-admin authentication is the ONLY thing guarding this route.
- * There is no undo — the DB rows, the S3 objects, and the Clerk account all go, and the
- * studies the account owns go with them.
+ * The consequence is that authentication plus org-admin authorization is the ONLY thing
+ * guarding this route. There is no undo — the DB rows, the S3 objects, and the Clerk account
+ * all go, and the studies the account owns go with them. As on the QA route, an org admin may
+ * only delete an account belonging solely to their own org; SI admins are unrestricted.
  *
  * The `userId` segment accepts a user id or a URL-encoded email address.
  */
 export const DELETE = async (_req: Request, { params }: { params: Promise<{ userId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
@@ -32,6 +33,11 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
         // is answered before anything is written to the audit trail. findUser rather than
         // findQaUser: this route is deliberately not QA-restricted.
         const target = await findUser(db, userId)
+
+        const authorized = await requireAdminOfOrgs(db, auth, await orgSlugsForUser(db, target.id))
+        if (!authorized.ok) {
+            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+        }
 
         // Refusing self-deletion keeps the actor available to attribute the audit rows to,
         // and an admin cannot revoke their own access by accident mid-cleanup.
