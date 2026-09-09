@@ -24,6 +24,7 @@ import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
+import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server/storage'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -56,6 +57,12 @@ const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: strin
     await purgeProposalYjsDocsBeforeAt(database, args)
 })
 
+// Runs after the response, so the rows these objects belonged to are committed as deleted. Doing it
+// in the transaction would let a rollback restore a row over a missing object (OTTER-775 review).
+const sweepDiscardedScanLogs = deferred(async (paths: ReadonlyArray<string>) => {
+    await deleteDiscardedScanLogObjects(paths)
+})
+
 function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
     if (SIMULATE_CODE_BUILD) {
         simulateJobScan(studyJobId)
@@ -76,6 +83,9 @@ async function attachCodeToRoundJob(
 ) {
     const job = await getOrCreateCurrentRoundJob(db, studyId)
     const studyJobId = job.id
+    // Objects whose rows this function deleted. The caller sweeps them once the transaction has
+    // committed, so a rollback can never restore a row over a deleted object (OTTER-775 review).
+    let discardedScanLogPaths: string[] = []
 
     if (!job.created) {
         await db
@@ -87,6 +97,7 @@ async function attachCodeToRoundJob(
         // Otherwise generateAndStoreStudyReview short-circuits and keeps the stale
         // summary for the resubmitted code (SHRMP-263).
         await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
+        discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
     await db
@@ -113,7 +124,7 @@ async function attachCodeToRoundJob(
 
     const urlForCodeUpload = await createSignedUploadUrl(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
 
-    return { studyJobId, urlForCodeUpload }
+    return { studyJobId, urlForCodeUpload, discardedScanLogPaths }
 }
 
 // Once per submission round, not per job: a change-requested resubmit stays on the same job,
@@ -199,6 +210,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         }
     })
 
+// Deliberately permissive on title: this schema also serves the CHANGE-REQUESTED resubmit
+// autosave, and a study predating OTTER-690 can hold an over-cap title, so a cap in `.params()`
+// would fail every autosave. The handler applies the cap where the status makes it meaningful.
 const onUpdateDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     studyInfo: draftStudyApiSchema,
@@ -307,13 +321,14 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
         }
 
-        const { studyJobId, urlForCodeUpload } = await attachCodeToRoundJob(
+        const { studyJobId, urlForCodeUpload, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
             mainCodeFileName,
             codeFileNames,
         )
+        sweepDiscardedScanLogs(discardedScanLogPaths)
 
         return {
             studyId,
@@ -383,6 +398,9 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
 
         const submittedAt = new Date()
+        // The field snapshot and the status flip ride one conditional UPDATE on purpose: as two
+        // statements, concurrent submitters could each write fields before either flips status,
+        // leaving the winner's row holding the loser's stale snapshot.
         const claimed = await db
             .updateTable('study')
             .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
@@ -533,13 +551,14 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await attachCodeToRoundJob(
+        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
             sanitizedMainFileName,
             additionalFileNames,
         )
+        sweepDiscardedScanLogs(discardedScanLogPaths)
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) {
@@ -799,13 +818,14 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await attachCodeToRoundJob(
+        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
             sanitizedMainFileName,
             additionalFileNames,
         )
+        sweepDiscardedScanLogs(discardedScanLogPaths)
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) coderFilesPath += `/${studyId}`

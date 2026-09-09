@@ -329,6 +329,8 @@ const PENDING_ACK_ROLE: SeedRole = 'legal'
 
 const DISPOSABLE_DB_HOSTS = ['localhost', '127.0.0.1', 'postgres', 'db', 'db-unit-test']
 
+// No CI exemption on purpose: CI service hostnames are already in the list above, so a bypass
+// would only remove the check where no human is looking at the target database.
 const assertDisposableDatabase = () => {
     // Unset is refused rather than tolerated: databaseURL() falls back to the DB_SECRET_ARN secret,
     // which is how a deployed environment resolves its database.
@@ -427,6 +429,7 @@ async function acknowledgeVersions(userIds: string[], versionIds: string[]) {
 /**
  * Leaves `legal` owing exactly ToS v2 and everyone else up to date. Its rows are cleared first,
  * or a re-run would find nothing outstanding and show no modal.
+ * Runs only from global.setup.ts, before any worker starts: a mid-run publish blocks every other worker.
  */
 export async function seedLegalDocuments() {
     assertDisposableDatabase()

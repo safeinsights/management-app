@@ -8,7 +8,6 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { OutputsStatusAlert } from './outputs-status-alert'
 
 export type SecondaryAnalysisViewProps = {
-    studyTitle: string | null
     /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
     header: ReactNode
     stageStatus: StudyJobStatus
@@ -18,7 +17,6 @@ export type SecondaryAnalysisViewProps = {
 }
 
 export function SecondaryAnalysisView({
-    studyTitle,
     header,
     stageStatus,
     stageStartedAt,
@@ -32,7 +30,6 @@ export function SecondaryAnalysisView({
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
-                    studyTitle={studyTitle}
                     banner={<OutputsStatusAlert stageStatus={stageStatus} startedAt={stageStartedAt} />}
                 />
                 <Group justify="space-between">

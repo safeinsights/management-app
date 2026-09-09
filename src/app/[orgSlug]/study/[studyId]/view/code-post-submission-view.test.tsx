@@ -137,14 +137,14 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 
 describe('CodePostSubmissionView', () => {
     describe('header', () => {
-        it('renders STEP 4, page title "Study proposal", section title "Study code", and study title', async () => {
+        it('renders STEP 4, the page title, and the section title "Study code"', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
-            expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
         it('renders "Submitted on {date}" using the CODE-SUBMITTED status timestamp', async () => {

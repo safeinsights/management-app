@@ -11,12 +11,11 @@ import { StudyCodePanel } from './study-code-panel'
 
 interface StudyCodeProps {
     studyId: string
-    studyTitle: string | null
     previousHref: Route
     onSubmitSuccess?: () => void
 }
 
-export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }: StudyCodeProps) => {
+export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
@@ -45,7 +44,7 @@ export const StudyCode = ({ studyId, studyTitle, previousHref, onSubmitSuccess }
 
     return (
         <>
-            <StudyCodePanel ide={ide} stepLabel="STEP 4 of 4" studyTitle={studyTitle} footer={footer} />
+            <StudyCodePanel ide={ide} stepLabel="STEP 4 of 4" footer={footer} />
             <SubmitConfirmationModal
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
