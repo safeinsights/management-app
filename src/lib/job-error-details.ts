@@ -27,7 +27,7 @@ const STAGE_EXPLANATION: Record<JobFailureStage, string> = {
 }
 
 export const NO_ERROR_LOG_TEXT = 'There is no error log for this run.'
-export const KEY_PROMPT_TEXT = 'Enter your security key below to review the error log.'
+export const KEY_PROMPT_TEXT = 'Enter your security key below to access the outputs and see what went wrong.'
 export const NO_LOG_WITH_ARTIFACTS_TEXT = `${NO_ERROR_LOG_TEXT} Enter your security key below to review what it did produce.`
 // Neutral about why: the two causes (no key holders, or a pre-#764 legacy row) would need
 // different explanations that neither help the reviewer nor change what they can do here.
@@ -70,6 +70,8 @@ const FAILURE_REASON_EXPLANATION: Record<JobFailureReason, string> = {
 export type JobErrorDetails = {
     explanation: string
     logSentence: string
+    /** What the errored banner renders. */
+    bannerText: string
 }
 
 // `recordedReason` is never rendered as-is; anything unrecognized falls back to the stage
@@ -79,10 +81,16 @@ export function jobErrorDetails(
     files: ReadonlyArray<{ fileType: FileType }>,
     recordedReason: string | null = null,
 ): JobErrorDetails {
+    const explanation = isKnownFailureReason(recordedReason)
+        ? FAILURE_REASON_EXPLANATION[recordedReason]
+        : STAGE_EXPLANATION[jobFailureStage(statusChanges)]
+    const logSentence = errorLogSentence(files)
+
     return {
-        explanation: isKnownFailureReason(recordedReason)
-            ? FAILURE_REASON_EXPLANATION[recordedReason]
-            : STAGE_EXPLANATION[jobFailureStage(statusChanges)],
-        logSentence: errorLogSentence(files),
+        explanation,
+        logSentence,
+        // OTTER-769: a log a key can open gets the design's single sentence. The stage sentence
+        // stands in only where that would promise outputs the run never produced.
+        bannerText: filesIncludeDecryptableErrorLog(files) ? logSentence : `${explanation} ${logSentence}`,
     }
 }

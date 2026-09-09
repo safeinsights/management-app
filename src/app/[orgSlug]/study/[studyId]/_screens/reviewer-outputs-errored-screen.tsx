@@ -10,15 +10,13 @@ import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-scr
 import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
-// OTTER-524: names the stage that failed and says plainly when no error log exists.
-const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => {
-    const body = `${details.explanation} ${details.logSentence}`
-    return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
-            {body}
-        </StatusAlert>
-    )
-}
+// OTTER-524 names the stage that failed and says plainly when no error log exists. OTTER-769
+// replaces both with a single sentence once a key can open the log.
+const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => (
+    <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
+        {details.bannerText}
+    </StatusAlert>
+)
 
 export async function ReviewerOutputsErroredScreen({
     study,
