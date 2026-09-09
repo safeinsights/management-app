@@ -18,7 +18,6 @@ export type SharedOutputsBannerCopy = {
 }
 
 type SharedOutputsPanelProps = {
-    studyTitle: string | null
     decidedAt: Date | string | null
     banner: SharedOutputsBannerCopy
     job: { id: string }
@@ -29,7 +28,6 @@ type SharedOutputsPanelProps = {
 }
 
 export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
-    studyTitle,
     decidedAt,
     banner,
     job,
@@ -49,12 +47,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
 
     return (
         <>
-            <ProposalStepHeader
-                stepLabel="STEP 4"
-                heading="Verify outputs"
-                studyTitle={studyTitle}
-                banner={bannerAlert}
-            />
+            <ProposalStepHeader stepLabel="STEP 4" heading="Verify outputs" banner={bannerAlert} />
             {feedbackSection}
             <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
             <UnlockedPhase decryptedFiles={decryptedFiles} jobId={job.id} />

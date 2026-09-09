@@ -26,3 +26,10 @@ export const Typical: Story = () => <Box p="xl">{csvViewer('results.csv', typica
 export const SingleRow: Story = () => <Box p="xl">{csvViewer('summary.csv', singleRowCsv)}</Box>
 
 export const HeadersOnly: Story = () => <Box p="xl">{csvViewer('empty-results.csv', headersOnlyCsv)}</Box>
+
+const wideCsv = `tasks_task_id,tasked_type,number,first_completed_at,last_completed_at,group_type,created_at,updated_at
+614101454928577280,Exercise,1,2023-01-09 14:05:21.267016,2023-01-09 14:05:21.267016,core,2023-01-09 14:05:21.267016,2023-01-09 14:05:21.267016
+614101454928577281,Reading,2,2023-01-10 09:12:03.100000,2023-01-11 10:44:59.000000,personalized,2023-01-10 09:12:03.100000,2023-01-11 10:44:59.000000
+`
+
+export const WideSingleRow: Story = () => <Box p="xl">{csvViewer('tutor_results.csv', wideCsv)}</Box>

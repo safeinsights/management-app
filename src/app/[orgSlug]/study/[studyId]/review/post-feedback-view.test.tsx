@@ -6,12 +6,7 @@ import {
     type ProposalFeedbackEntry,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import {
-    getStudyReviewForJob,
-    jobScanResultForJob,
-    latestJobForStudy,
-    type LatestJobForStudy,
-} from '@/server/db/queries'
+import { jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -108,16 +103,14 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
         })
 
-        it('renders the page title and study title', () => {
+        it('renders the page title without repeating it in the section header', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
-            // OTTER-754 takes the title out of this header.
             const sectionHeader = within(screen.getByTestId('proposal-section-header'))
-            expect(sectionHeader.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(sectionHeader.queryByText(/Effect of Reading Comprehension Tools/)).not.toBeInTheDocument()
         })
     })
 
@@ -428,10 +421,7 @@ describe('PostFeedbackView', () => {
             const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             if (!isSubmittedStudy(codeStudy)) throw new Error('test fixture must be a submitted study')
             const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
-            const [review, scan] = await Promise.all([
-                getStudyReviewForJob(latestJob.id),
-                jobScanResultForJob(latestJob.id),
-            ])
+            const analysis = await jobAnalysisForJob(latestJob)
             ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
 
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
@@ -442,8 +432,7 @@ describe('PostFeedbackView', () => {
                     entries={entries}
                     kind="CODE"
                     job={latestJob}
-                    review={review}
-                    scan={scan}
+                    analysis={analysis}
                 />,
             )
 

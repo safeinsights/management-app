@@ -69,7 +69,6 @@ export async function OutputsFeedbackScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title}
                     banner={<FeedbackBanner title={banner.title} message={banner.message} decidedAt={decidedAt} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />

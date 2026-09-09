@@ -47,7 +47,6 @@ export async function ReviewerOutputsErroredScreen({
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title}
             job={job}
             labName={labName}
             header={<StudyPageHeader study={study} />}

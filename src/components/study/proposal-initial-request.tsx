@@ -187,14 +187,13 @@ export function ProposalRequest({
             <ProposalStepHeader
                 stepLabel={stepLabel}
                 heading={heading}
-                studyTitle={study.title}
                 timestampDate={timestampDate}
                 timestampLabel={statusBadge}
                 banner={banner}
             />
 
             {/* The proposal owns its own card (OTTER-755), so the status card above it holds the
-                step, title and banner only. Collapsing swaps the card's content for a snippet
+                step, timestamp and banner only. Collapsing swaps the card's content for a snippet
                 rather than hiding it, which is why there is no Mantine Collapse here. */}
             <Paper p="xxl" data-testid="proposal-card">
                 <ProposalSnippet isVisible={!expanded} study={study} onExpand={expand} focusToggle={focusToggle} />

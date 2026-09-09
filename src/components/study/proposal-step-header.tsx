@@ -1,12 +1,10 @@
 import type { FC, ReactNode } from 'react'
-import { Divider, Group, Paper, Text, Title } from '@mantine/core'
+import { Divider, Paper, Text, Title } from '@mantine/core'
 import dayjs from 'dayjs'
 
 type ProposalStepHeaderProps = {
     stepLabel: string
     heading: string
-    /** Omitted by Step 1, which reuses this header before a study exists (OTTER-690). */
-    studyTitle?: string | null
     timestampDate?: Date | string | null
     timestampLabel?: string
     /** Pass `null`, not an element that renders nothing: the header cannot tell the two apart. */
@@ -14,41 +12,18 @@ type ProposalStepHeaderProps = {
     children?: ReactNode
 }
 
-const StudyTitleLine: FC<{ studyTitle?: string | null }> = ({ studyTitle }) => {
-    if (studyTitle == null) return null
+// The label is required here even though the prop is optional: ProposalStepHeader defaults it
+// before this renders.
+type HeaderTimestampProps = Pick<ProposalStepHeaderProps, 'timestampDate'> &
+    Required<Pick<ProposalStepHeaderProps, 'timestampLabel'>>
 
-    return (
-        <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
-            Title: {studyTitle}
-        </Text>
-    )
-}
-
-const TimestampLine: FC<{ timestampDate?: Date | string | null; timestampLabel: string }> = ({
-    timestampDate,
-    timestampLabel,
-}) => {
+const HeaderTimestamp: FC<HeaderTimestampProps> = ({ timestampDate, timestampLabel }) => {
     if (!timestampDate) return null
 
     return (
-        <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
+        <Text fz={12} c="charcoal.7" ta="right" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
             {timestampLabel} {dayjs(timestampDate).format('MMM DD, YYYY')}
         </Text>
-    )
-}
-
-const HeaderMetaRow: FC<Pick<ProposalStepHeaderProps, 'studyTitle' | 'timestampDate'> & { timestampLabel: string }> = ({
-    studyTitle,
-    timestampDate,
-    timestampLabel,
-}) => {
-    if (studyTitle == null && !timestampDate) return null
-
-    return (
-        <Group justify="space-between" align="center" wrap="nowrap">
-            <StudyTitleLine studyTitle={studyTitle} />
-            <TimestampLine timestampDate={timestampDate} timestampLabel={timestampLabel} />
-        </Group>
     )
 }
 
@@ -61,7 +36,6 @@ const HeaderDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 export function ProposalStepHeader({
     stepLabel,
     heading,
-    studyTitle,
     timestampDate,
     timestampLabel = 'Submitted on',
     banner,
@@ -79,7 +53,7 @@ export function ProposalStepHeader({
             <Title order={2} fz="xl" c="charcoal.9" pb={4}>
                 {heading}
             </Title>
-            <HeaderMetaRow studyTitle={studyTitle} timestampDate={timestampDate} timestampLabel={timestampLabel} />
+            <HeaderTimestamp timestampDate={timestampDate} timestampLabel={timestampLabel} />
             <HeaderDivider isVisible={hasContentBelowRule} />
             {banner}
             {children}

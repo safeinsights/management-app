@@ -60,7 +60,6 @@ export async function OutputsPendingScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title}
                     banner={<ProcessingBanner runErrored={state.runErrored} approvedAt={approvedAt} />}
                 />
                 <StepNavigation nav={nav} />

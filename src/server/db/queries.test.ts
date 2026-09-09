@@ -12,6 +12,7 @@ import {
     codeSubmissionVersion,
     currentReviewVersion,
     getStudyReviewForJob,
+    latestJobForStudy,
     getOrgIdForJobId,
     getOrgPublicKeys,
     getOrgPublicKeysRaw,
@@ -330,13 +331,13 @@ describe('getSharedFileIdsForJob', () => {
 
 describe('getStudyReviewForJob', () => {
     it('returns null when no review exists for the job', async () => {
-        const { job } = await insertTestStudyJobData()
-        const result = await getStudyReviewForJob(job.id)
+        const { study } = await insertTestStudyJobData()
+        const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
         expect(result).toBeNull()
     })
 
     it('returns the review with meta when a row exists', async () => {
-        const { job } = await insertTestStudyJobData()
+        const { study, job } = await insertTestStudyJobData()
         const report = {
             proposalSummary: 'Studying student outcomes.',
             codeExplanation: 'Aggregates scores by school.',
@@ -348,7 +349,7 @@ describe('getStudyReviewForJob', () => {
             .values({ studyJobId: job.id, report: JSON.stringify(report) })
             .execute()
 
-        const result = await getStudyReviewForJob(job.id)
+        const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
         if (!result) throw new Error('expected review')
         expect(result.report).toEqual(report)
         expect(result.createdAt).toBeInstanceOf(Date)
@@ -357,13 +358,13 @@ describe('getStudyReviewForJob', () => {
     })
 
     it('returns a failure row with summaryFailedAt set and a null report', async () => {
-        const { job } = await insertTestStudyJobData()
+        const { study, job } = await insertTestStudyJobData()
         await db
             .insertInto('studyReview')
             .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
             .execute()
 
-        const result = await getStudyReviewForJob(job.id)
+        const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
         if (!result) throw new Error('expected review')
         expect(result.report).toBeNull()
         expect(result.summaryFailedAt).toBeInstanceOf(Date)

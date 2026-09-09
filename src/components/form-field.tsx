@@ -64,6 +64,7 @@ export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: bool
 
 // Mantine inputs render their own `Input.Wrapper`, whose `aria-describedby` overwrites any
 // hand-passed one, so the association has to be computed by that inner wrapper (OTTER-737).
+// `error` must be a node, not a boolean, or Mantine omits it from `aria-describedby` (OTTER-647).
 export const nativeFieldProps = (
     error: ReactNode,
     {

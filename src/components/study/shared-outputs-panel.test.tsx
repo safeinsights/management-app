@@ -87,7 +87,6 @@ describe('SharedOutputsPanel', () => {
     const renderPanel = () =>
         renderWithProviders(
             <SharedOutputsPanel
-                studyTitle="Diabetes readmission rates"
                 decidedAt={DECIDED_AT}
                 banner={BANNER}
                 job={job}
@@ -122,12 +121,12 @@ describe('SharedOutputsPanel', () => {
     })
 
     describe('before decryption', () => {
-        it('renders the STEP 4 "Verify outputs" section header with the study title', () => {
+        it('renders the STEP 4 "Verify outputs" section header without a study title', () => {
             renderPanel()
             const header = screen.getByTestId('proposal-section-header')
             expect(header).toHaveTextContent('STEP 4')
             expect(header).toHaveTextContent('Verify outputs')
-            expect(header).toHaveTextContent('Diabetes readmission rates')
+            expect(header).not.toHaveTextContent('Diabetes readmission rates')
         })
 
         it('renders the action banner with the exact copy, data partner and decision date', () => {
@@ -141,7 +140,6 @@ describe('SharedOutputsPanel', () => {
         it('degrades to an undated banner when no decision timestamp is available', () => {
             renderWithProviders(
                 <SharedOutputsPanel
-                    studyTitle="Diabetes readmission rates"
                     decidedAt={null}
                     banner={BANNER}
                     job={job}

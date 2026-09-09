@@ -158,7 +158,7 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
 }
 
 describe('OutputsFeedbackScreen', () => {
-    it('renders the reused page header and STEP 4 "Verify outputs" section header with the study title', async () => {
+    it('renders the page header and STEP 4 section header without the study title', async () => {
         const { org, study, raw } = await setupFeedbackOnly()
         await renderScreen(study, raw, org.slug)
 
@@ -166,7 +166,7 @@ describe('OutputsFeedbackScreen', () => {
         const header = screen.getByTestId('proposal-section-header')
         expect(header).toHaveTextContent('STEP 4')
         expect(header).toHaveTextContent('Verify outputs')
-        expect(header).toHaveTextContent(study.title!)
+        expect(header).not.toHaveTextContent(study.title!)
     })
 
     describe('clean run banner (OTTER-695)', () => {

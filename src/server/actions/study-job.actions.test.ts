@@ -19,6 +19,7 @@ import {
     fetchEncryptedJobFilesAction,
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
+    getJobAnalysisAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
@@ -674,6 +675,73 @@ describe('Study Job Actions', () => {
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    describe('getJobAnalysisAction', () => {
+        const insertReview = async (studyJobId: string, codeExplanation: string) =>
+            await db
+                .insertInto('studyReview')
+                .values({ studyJobId, report: JSON.stringify({ codeExplanation }) })
+                .execute()
+
+        test('returns the review and the scan together', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await insertReview(job.id, 'Summary of this round')
+
+            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
+
+            expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
+            expect(analysis.scan).toEqual({ trivy: null, sonarqube: null, logFile: null })
+        })
+
+        // A change-requested resubmit reuses the job, so the previous round's row is still there
+        // under the same id until the new one lands (OTTER-775).
+        test("drops a review that predates the round's code submission", async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-CHANGES-REQUESTED' })
+            await insertReview(job.id, 'Summary of the code submitted last round')
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 1000) })
+                .execute()
+
+            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
+
+            expect(analysis.review).toBeNull()
+        })
+
+        test('keeps a review written after the latest code submission', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-CHANGES-REQUESTED' })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() - 1000) })
+                .execute()
+            await insertReview(job.id, 'Summary of the resubmitted code')
+
+            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
+
+            expect(analysis.review?.report?.codeExplanation).toBe('Summary of the resubmitted code')
+        })
+
+        // Written by this round's attempt, and can land in the same millisecond as the submission.
+        test('keeps a failure row regardless of its timestamp', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-CHANGES-REQUESTED' })
+            await db
+                .insertInto('studyReview')
+                .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 1000) })
+                .execute()
+
+            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
+
+            expect(analysis.review?.summaryFailedAt).not.toBeNull()
         })
     })
 

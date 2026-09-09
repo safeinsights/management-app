@@ -221,9 +221,9 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
 describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
     // The two-phase behaviour — banner swap, live-region identity, key form removal, outputs table,
     // post-decryption nav — is the panel's contract and is covered in shared-outputs-panel.test.tsx.
-    // What is this screen's own job is the wiring: THIS study's title, partner, decision date and
-    // routing predicate.
-    it('wires the page header and the study title through to the section header', async () => {
+    // What is this screen's own job is the wiring: this study's page header, partner, decision date,
+    // and routing predicate.
+    it('wires the page header without repeating its title in the section header', async () => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
@@ -231,7 +231,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const header = screen.getByTestId('proposal-section-header')
         expect(header).toHaveTextContent('STEP 4')
         expect(header).toHaveTextContent('Verify outputs')
-        expect(header).toHaveTextContent(study.title!)
+        expect(header).not.toHaveTextContent(study.title!)
     })
 
     it('renders the pre-decryption action banner with this screen’s copy and the partner name', async () => {
