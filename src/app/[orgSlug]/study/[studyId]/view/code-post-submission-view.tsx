@@ -18,6 +18,7 @@ import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/
 import { useExpandable } from '@/hooks/use-expandable'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeSubmittedBanner } from '@/lib/study-banners'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { StudyCodeToggle } from './study-code-collapse'
 
 type CodeFileList = LatestJobForStudy['files']
@@ -33,9 +34,6 @@ interface CodePostSubmissionViewProps {
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
 }
-
-const codeSubmittedAt = (job: LatestJobForStudy): Date | string | null =>
-    job.statusChanges.find((s) => s.status === 'CODE-SUBMITTED')?.createdAt ?? null
 
 type UnderReviewBannerProps = {
     isVisible: boolean
@@ -176,7 +174,7 @@ export function CodePostSubmissionView({
 
     const isResubmission = submissionVersion > 1
     const sectionTitle = isResubmission ? `Study code v${submissionVersion}.0` : 'Study code'
-    const submittedAt = codeSubmittedAt(job)
+    const submittedAt = latestCodeSubmittedAt(job)
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
 
