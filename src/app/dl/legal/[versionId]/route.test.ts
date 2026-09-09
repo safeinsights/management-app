@@ -88,7 +88,7 @@ describe('GET /dl/legal/[versionId]', () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         await mockSessionWithTestData({ isSiAdmin: true })
         const { version } = actionResult(
-            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }),
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
         )
         await publish(version.id)
         await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave', isAdmin: false })
@@ -113,7 +113,9 @@ describe('GET /dl/legal/[versionId]', () => {
 
     it('refuses a global document to a user who never acknowledged it, since it binds no org', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'tos.md' }))
+        const { version } = actionResult(
+            await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('tos.md') }),
+        )
         // No signedAt: a TOS is published, not signed.
         actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
         await mockSessionWithTestData({ orgType: 'lab', isAdmin: true })
