@@ -58,6 +58,18 @@ const ReloadActions: FC<{ label: string; onReload: () => void; onDismiss: () => 
     </Group>
 )
 
+const FailureActions: FC<{
+    isStale: boolean
+    saved: boolean | null
+    onDismiss: () => void
+    onReload: () => void
+}> = ({ isStale, saved, onDismiss, onReload }) => {
+    if (!isStale) return <RetryOnlyActions onDismiss={onDismiss} />
+    // A confirmed save can promise the retry; anything less only offers the reload.
+    const label = saved === true ? 'Try again' : 'Reload anyway'
+    return <ReloadActions label={label} onReload={onReload} onDismiss={onDismiss} />
+}
+
 // Stays mounted while closed so AppModal keeps the focus-return it owns, matching
 // SubmitOutputsDecisionModal.
 export const OutputsDecisionFailureModal: FC<Props> = ({ failure, onDismiss, onReload }) => {
@@ -73,16 +85,4 @@ export const OutputsDecisionFailureModal: FC<Props> = ({ failure, onDismiss, onR
             </Stack>
         </AppModal>
     )
-}
-
-const FailureActions: FC<{
-    isStale: boolean
-    saved: boolean | null
-    onDismiss: () => void
-    onReload: () => void
-}> = ({ isStale, saved, onDismiss, onReload }) => {
-    if (!isStale) return <RetryOnlyActions onDismiss={onDismiss} />
-    // A confirmed save can promise the retry; anything less only offers the reload.
-    const label = saved === true ? 'Try again' : 'Reload anyway'
-    return <ReloadActions label={label} onReload={onReload} onDismiss={onDismiss} />
 }
