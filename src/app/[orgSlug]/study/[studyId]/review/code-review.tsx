@@ -1,15 +1,14 @@
-import type { ReactNode } from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
 import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
 import { getStudyReviewForJob, jobScanResultForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
-import { CODE_REVIEW_BANNER_CRITERIA } from './code-review-criteria'
 import { latestCodeSubmittedAt } from './submitted-code-section'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
@@ -33,40 +32,19 @@ function codeReviewHeading(version: number): string {
     return `Review study code v${version}.0`
 }
 
-function firstSubmissionIntro(labName: string): ReactNode {
-    return (
-        <>
-            {labName} has submitted their study code for review. Below, you will review their code and an AI-generated
-            summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these
-            criteria:
-        </>
-    )
-}
-
-function resubmissionIntro(labName: string): ReactNode {
-    return (
-        <>
-            {labName} has resubmitted their study code for review. Below, you will review their code and an AI-generated
-            summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these
-            criteria:
-        </>
-    )
-}
-
 type CodeReviewStatusBannerProps = {
     labName: string
-    isResubmission: boolean
+    version: number
+    submittedAt: Date | string | null
 }
 
-function CodeReviewStatusBanner({ labName, isResubmission }: CodeReviewStatusBannerProps) {
-    const intro = isResubmission ? resubmissionIntro(labName) : firstSubmissionIntro(labName)
+function CodeReviewStatusBanner({ labName, version, submittedAt }: CodeReviewStatusBannerProps) {
+    const copy = reviewerCodeNeedsReviewBanner({ researchLab: labName, version })
+
     return (
-        <ReviewCriteriaBanner
-            testId="code-review-status-banner"
-            criteriaTestId="code-review-criteria"
-            intro={intro}
-            criteria={CODE_REVIEW_BANNER_CRITERIA}
-        />
+        <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, submittedAt)}>
+            {copy.body}
+        </StatusAlert>
     )
 }
 
@@ -84,8 +62,8 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
     const version = deriveCodeReviewVersion(entries)
     const isResubmission = version > 1
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const timestampLabel = isResubmission ? 'Resubmitted on' : 'Submitted on'
     const heading = codeReviewHeading(version)
+    const submittedAt = latestCodeSubmittedAt(job)
 
     return (
         <Box bg="grey.10">
@@ -99,9 +77,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                     scan={scan}
                     stepLabel="STEP 3"
                     heading={heading}
-                    timestampDate={latestCodeSubmittedAt(job)}
-                    timestampLabel={timestampLabel}
-                    banner={<CodeReviewStatusBanner labName={labName} isResubmission={isResubmission} />}
+                    banner={<CodeReviewStatusBanner labName={labName} version={version} submittedAt={submittedAt} />}
                     initiallyExpanded={!isResubmission}
                 />
                 {isResubmission && <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />}

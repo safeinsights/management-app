@@ -5,8 +5,6 @@ type ProposalStepHeaderProps = {
     stepLabel: string
     heading: string
     studyTitle?: string | null
-    timestampDate?: Date | string | null
-    timestampLabel?: string
     banner?: ReactNode
     children?: ReactNode
 }

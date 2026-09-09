@@ -22,8 +22,6 @@ type CollapsibleSubmittedCodeSectionProps = {
     scan: JobScanResult | null
     stepLabel: string
     heading: string
-    timestampDate: Date | string | null
-    timestampLabel: string
     banner: ReactNode
     initiallyExpanded?: boolean
 }
@@ -76,8 +74,6 @@ export function CollapsibleSubmittedCodeSection({
     scan,
     stepLabel,
     heading,
-    timestampDate,
-    timestampLabel,
     banner,
     initiallyExpanded = false,
 }: CollapsibleSubmittedCodeSectionProps) {
@@ -98,14 +94,7 @@ export function CollapsibleSubmittedCodeSection({
 
     return (
         <>
-            <ProposalStepHeader
-                stepLabel={stepLabel}
-                heading={heading}
-                studyTitle={study.title}
-                timestampDate={timestampDate}
-                timestampLabel={timestampLabel}
-                banner={banner}
-            >
+            <ProposalStepHeader stepLabel={stepLabel} heading={heading} studyTitle={study.title} banner={banner}>
                 <StudyCodeToggle
                     ref={openerRef}
                     isVisible={!expanded && hasSubmittedCode}

@@ -159,7 +159,6 @@ export function ProposalSubmitted({
                     stepLabel="STEP 2"
                     heading={proposalHeading(studyVersion)}
                     banner={banner}
-                    entries={entries}
                     initialExpanded={false}
                 />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />

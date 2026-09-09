@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { researcherCodeDecisionBanner, researcherCodeSubmittedBanner, researcherProposalBanner } from './study-banners'
+import {
+    researcherCodeDecisionBanner,
+    researcherCodeSubmittedBanner,
+    researcherProposalBanner,
+    reviewerCodeDecisionBanner,
+    reviewerCodeNeedsReviewBanner,
+    reviewerProposalDecisionBanner,
+    reviewerProposalNeedsReviewBanner,
+} from './study-banners'
 
-// The RL screens name the data partner who reviewed the work; these builders are all researcher-facing.
 const DATA_PARTNER = 'Test Data Partner'
 
 describe('researcherProposalBanner', () => {
@@ -64,5 +71,89 @@ describe('researcherCodeDecisionBanner', () => {
         const { body } = researcherCodeDecisionBanner('CODE-REJECTED', { dataPartner: DATA_PARTNER })
         expect(body).toContain('No further code submissions will be accepted for this study')
         expect(body).toContain('contact SafeInsights')
+    })
+})
+
+const RESEARCH_LAB = 'Test Research Lab'
+const REVIEWER = 'Test Reviewer'
+
+describe('reviewerProposalNeedsReviewBanner', () => {
+    it('names the lab in the first-review title and body', () => {
+        const copy = reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB })
+        expect(copy).toMatchObject({ variant: 'action', title: `New proposal submitted by ${RESEARCH_LAB}` })
+        expect(copy.body).toContain('requesting permission to run their code on your data')
+    })
+
+    it('switches to the revised title from the second review round onwards', () => {
+        expect(reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB, version: 2 }).title).toBe(
+            `Revised proposal submitted by ${RESEARCH_LAB}`,
+        )
+    })
+})
+
+describe('reviewerProposalDecisionBanner', () => {
+    it.each([
+        ['APPROVE', 'informative', 'Proposal approved'],
+        ['NEEDS-CLARIFICATION', 'informative', 'Revision requested'],
+        ['REJECT', 'decline', 'Proposal declined'],
+    ] as const)('maps %s to the %s banner, attributed to the reviewer', (decision, variant, action) => {
+        expect(
+            reviewerProposalDecisionBanner(decision, { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }),
+        ).toMatchObject({ variant, title: `${action} by ${REVIEWER}` })
+    })
+
+    it.each([null, undefined])('drops the attribution when no reviewer is known (%s)', (reviewerName) => {
+        expect(reviewerProposalDecisionBanner('APPROVE', { researchLab: RESEARCH_LAB, reviewerName }).title).toBe(
+            'Proposal approved',
+        )
+    })
+
+    it('names the lab in the bodies that reference it', () => {
+        const params = { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }
+        expect(reviewerProposalDecisionBanner('APPROVE', params).body).toContain(
+            `${RESEARCH_LAB} moves to the next step`,
+        )
+        expect(reviewerProposalDecisionBanner('NEEDS-CLARIFICATION', params).body).toContain(
+            `${RESEARCH_LAB} resubmits the proposal`,
+        )
+        // The declined body is terminal and deliberately names no one.
+        expect(reviewerProposalDecisionBanner('REJECT', params).body).toBe(
+            'This proposal has been declined. No further action is required.',
+        )
+    })
+})
+
+describe('reviewerCodeNeedsReviewBanner', () => {
+    it('names the lab in the first-review title', () => {
+        const copy = reviewerCodeNeedsReviewBanner({ researchLab: RESEARCH_LAB })
+        expect(copy).toMatchObject({ variant: 'action', title: `New code submitted by ${RESEARCH_LAB}` })
+        expect(copy.body).toContain('Review the code files, security log, and AI summary')
+    })
+
+    it('switches to the revised title from the second round onwards', () => {
+        expect(reviewerCodeNeedsReviewBanner({ researchLab: RESEARCH_LAB, version: 2 }).title).toBe(
+            `Revised code submitted by ${RESEARCH_LAB}`,
+        )
+    })
+})
+
+describe('reviewerCodeDecisionBanner', () => {
+    it.each([
+        ['APPROVE', 'informative', 'Code approved'],
+        ['NEEDS-CLARIFICATION', 'informative', 'Revision requested'],
+        ['REJECT', 'decline', 'Code declined'],
+    ] as const)('maps %s to the %s banner, attributed to the reviewer', (decision, variant, action) => {
+        expect(
+            reviewerCodeDecisionBanner(decision, { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }),
+        ).toMatchObject({ variant, title: `${action} by ${REVIEWER}` })
+    })
+
+    it('names the lab only in the revision-requested body', () => {
+        const params = { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }
+        expect(reviewerCodeDecisionBanner('NEEDS-CLARIFICATION', params).body).toContain(
+            `${RESEARCH_LAB} resubmits their code`,
+        )
+        expect(reviewerCodeDecisionBanner('APPROVE', params).body).not.toContain(RESEARCH_LAB)
+        expect(reviewerCodeDecisionBanner('REJECT', params).body).not.toContain(RESEARCH_LAB)
     })
 })

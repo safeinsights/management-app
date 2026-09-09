@@ -1,5 +1,5 @@
 import { STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
-import type { StudyStatus } from '@/database/types'
+import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 
 export type BannerCopy = {
@@ -84,6 +84,84 @@ export function researcherCodeDecisionBanner(status: CodeDecisionStatus, { dataP
                 variant: STATUS_ALERT_VARIANT.decline,
                 title: 'Code declined',
                 body: `${dataPartner} has determined this code does not meet the requirements to proceed. Please review their feedback below. No further code submissions will be accepted for this study, but you may submit a new study proposal. If you believe this decision was made in error, contact SafeInsights.`,
+            }
+    }
+}
+
+export type ReviewerBannerParams = {
+    researchLab: string
+    reviewerName?: string | null
+    version?: number
+}
+
+const attributedTo = (action: string, reviewerName?: string | null) =>
+    reviewerName ? `${action} by ${reviewerName}` : action
+
+export function reviewerProposalNeedsReviewBanner({ researchLab, version = 1 }: ReviewerBannerParams): BannerCopy {
+    return {
+        variant: STATUS_ALERT_VARIANT.action,
+        title:
+            version > 1 ? `Revised proposal submitted by ${researchLab}` : `New proposal submitted by ${researchLab}`,
+        body: `${researchLab} is requesting permission to run their code on your data. Review the proposal below and share your decision and feedback.`,
+    }
+}
+
+export function reviewerProposalDecisionBanner(
+    decision: ReviewDecision,
+    { researchLab, reviewerName }: ReviewerBannerParams,
+): BannerCopy {
+    switch (decision) {
+        case 'APPROVE':
+            return {
+                variant: STATUS_ALERT_VARIANT.informative,
+                title: attributedTo('Proposal approved', reviewerName),
+                body: `This proposal has been approved. An email notification will be sent when ${researchLab} moves to the next step.`,
+            }
+        case 'NEEDS-CLARIFICATION':
+            return {
+                variant: STATUS_ALERT_VARIANT.informative,
+                title: attributedTo('Revision requested', reviewerName),
+                body: `A revision has been requested. An email notification will be sent when ${researchLab} resubmits the proposal.`,
+            }
+        case 'REJECT':
+            return {
+                variant: STATUS_ALERT_VARIANT.decline,
+                title: attributedTo('Proposal declined', reviewerName),
+                body: 'This proposal has been declined. No further action is required.',
+            }
+    }
+}
+
+export function reviewerCodeNeedsReviewBanner({ researchLab, version = 1 }: ReviewerBannerParams): BannerCopy {
+    return {
+        variant: STATUS_ALERT_VARIANT.action,
+        title: version > 1 ? `Revised code submitted by ${researchLab}` : `New code submitted by ${researchLab}`,
+        body: 'Review the code files, security log, and AI summary to inform your code evaluation and decision.',
+    }
+}
+
+export function reviewerCodeDecisionBanner(
+    decision: ReviewDecision,
+    { researchLab, reviewerName }: ReviewerBannerParams,
+): BannerCopy {
+    switch (decision) {
+        case 'APPROVE':
+            return {
+                variant: STATUS_ALERT_VARIANT.informative,
+                title: attributedTo('Code approved', reviewerName),
+                body: 'This code has been approved. You will be notified when the study results are available for review.',
+            }
+        case 'NEEDS-CLARIFICATION':
+            return {
+                variant: STATUS_ALERT_VARIANT.informative,
+                title: attributedTo('Revision requested', reviewerName),
+                body: `A revision has been requested. An email notification will be sent when ${researchLab} resubmits their code.`,
+            }
+        case 'REJECT':
+            return {
+                variant: STATUS_ALERT_VARIANT.decline,
+                title: attributedTo('Code declined', reviewerName),
+                body: 'This study code was rejected and the study was ended. No further action is required at this time.',
             }
     }
 }

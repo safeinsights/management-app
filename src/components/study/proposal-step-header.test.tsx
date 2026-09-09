@@ -40,18 +40,4 @@ describe('ProposalStepHeader', () => {
 
         expect(screen.getByText(/^Title:/)).toBeInTheDocument()
     })
-
-    it('renders the timestamp beside the title', () => {
-        renderWithProviders(
-            <ProposalStepHeader
-                stepLabel="STEP 3"
-                heading="Review outputs"
-                studyTitle="My study"
-                timestampDate="2026-08-12"
-                timestampLabel="Submitted on"
-            />,
-        )
-
-        expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Aug 12, 2026')
-    })
 })
