@@ -155,7 +155,8 @@ export async function latestRecordedJobFailureReason(studyJobId: string): Promis
 }
 
 // Counted across ALL jobs: a per-job count would reset to v1 after a results decision opens a fresh
-// job, hiding prior rounds' feedback (OTTER-556/558).
+// job, hiding prior rounds' feedback (OTTER-556/558). CODE-REJECTED is omitted because reject is
+// terminal; if it becomes resubmittable, count it here and in canResearcherResubmitCode (OTTER-638).
 export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
     const row = await db
         .selectFrom('jobStatusChange')

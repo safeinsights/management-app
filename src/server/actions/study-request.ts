@@ -198,6 +198,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         }
     })
 
+// Deliberately permissive on title: this schema also serves the CHANGE-REQUESTED resubmit
+// autosave, and a study predating OTTER-690 can hold an over-cap title, so a cap in `.params()`
+// would fail every autosave. The handler applies the cap where the status makes it meaningful.
 const onUpdateDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     studyInfo: draftStudyApiSchema,
@@ -382,6 +385,9 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
 
         const submittedAt = new Date()
+        // The field snapshot and the status flip ride one conditional UPDATE on purpose: as two
+        // statements, concurrent submitters could each write fields before either flips status,
+        // leaving the winner's row holding the loser's stale snapshot.
         const claimed = await db
             .updateTable('study')
             .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
