@@ -278,6 +278,13 @@ beforeEach(async () => {
 
 afterEach(async () => {
     mockState.headers.clear()
+
+    // Quiesce the UI before giving up the transaction. A mounted tree or a live query client can
+    // still issue a write, and once the transaction is gone Postgres commits it for real.
+    cleanup()
+    const { cancelTestQueryClients } = await import('@/tests/unit.helpers')
+    await cancelTestQueryClients()
+
     await Promise.allSettled(mockState.pendingDeferredCallbacks)
     mockState.pendingDeferredCallbacks.length = 0
     await testTransaction.rollback()
@@ -290,13 +297,21 @@ afterEach(async () => {
     const { HocuspocusProvider } = await import('@hocuspocus/provider')
     const providerCtor = HocuspocusProvider as unknown as { __instances?: unknown[] }
     if (providerCtor.__instances) providerCtor.__instances.length = 0
-    // Unmount before clearing the clients, or a surviving refetchInterval observer carries
-    // in-flight state into the next test.
-    cleanup()
+    // Already unmounted at the top of this hook, so the observers are gone; this clears the data
+    // behind them.
     const { resetTestQueryClients } = await import('@/tests/unit.helpers')
     resetTestQueryClients()
 })
 
 afterAll(async () => {
+    // close() drops the pg patch for the whole process and issues no ROLLBACK, so anything still
+    // in flight past this point writes raw and gets committed. Drain first, then give dispatched
+    // promises one turn to settle while the patch is still installed.
+    cleanup()
+    const { cancelTestQueryClients } = await import('@/tests/unit.helpers')
+    await cancelTestQueryClients()
+    await flushDeferred()
+    await new Promise((resolve) => setImmediate(resolve))
+
     await testTransaction.close()
 })
