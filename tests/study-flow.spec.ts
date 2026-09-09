@@ -735,13 +735,12 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
-// OTTER-726: a decision submitted anywhere ends the review for every other tab. Both contexts are
-// the same reviewer account, which is the case that matters: the guard is the tab identity, so a
-// reviewer's second tab is a peer and has to be told.
-test('Peer tab leaves the outputs review when the decision is submitted elsewhere', async ({
-    browser,
-    studyFeatures,
-}) => {
+// OTTER-726: the round closes for every reviewer once one decides, and the loser is told who
+// decided rather than shown a failed submit. Both contexts are the same reviewer, the case that
+// matters, since the guard is tab identity. Its own submit is the peer's trigger here because e2e
+// has no editor service to carry the event and headless Chromium never fires visibilitychange;
+// those two triggers are covered in use-outputs-decision-monitor.test.tsx.
+test('A second reviewer who submits after the decision is told who decided', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('peer-outputs')
     const { jobId } = await seedCodeApprovedJobReady(studyTitle)
     uploadResults(jobId!)
@@ -753,19 +752,36 @@ test('Peer tab leaves the outputs review when the decision is submitted elsewher
         await reviewerDecryptsAvailableOutputs(deciding.page, studyTitle)
         await reviewerDecryptsAvailableOutputs(peer.page, studyTitle)
 
-        // The peer types so its editor, and the provider the notice travels on, are live.
+        // Drafted before the decision lands, so the peer is mid-review rather than arriving late.
         await fillLexicalField(peer.page, 'Decision feedback', 'Second reviewer still drafting.')
 
         await reviewerSharesOutputs(deciding.page, 'Reviewed the outputs, nothing sensitive present.')
 
-        await expect(peer.page.getByText(/has proceeded to submit a decision on this output/)).toBeVisible()
-        await expect(peer.page.getByTestId('outputs-decision-section')).toBeHidden()
-        await expect(peer.page.getByTestId('outputs-files-section')).toBeHidden()
+        await peerSubmitAfterDecisionIsRejected(peer.page)
     } finally {
         await deciding.context.close()
         await peer.context.close()
     }
 })
+
+// The server refuses the second decision, and the client reconciles against the job rather than
+// reporting the failure: the reviewer is named from an authoritative read, and the review closes.
+async function peerSubmitAfterDecisionIsRejected(page: Page): Promise<void> {
+    await page.getByTestId('outputs-decision-share-outputs').check()
+
+    const trigger = page.getByTestId('outputs-submit-decision')
+    await trigger.click()
+
+    const modal = page.getByRole('dialog', { name: 'Submit your decision?' })
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Submit decision' }).click()
+
+    await expect(page.getByText(/has proceeded to submit a decision on this output/)).toBeVisible()
+    // The failure modal is for a submit that can still be retried, which this one cannot.
+    await expect(page.getByRole('dialog', { name: 'Decision could not be submitted' })).toBeHidden()
+    await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
+    await expect(page.getByTestId('outputs-files-section')).toBeHidden()
+}
 
 // Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
 // validation gate, the confirmation modal, and the researcher's view of the shared logs.
