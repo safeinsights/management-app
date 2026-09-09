@@ -66,6 +66,51 @@ describe('useSubmissionRedirectListener', () => {
         expect(memoryRouter.asPath).toBe('/start')
     })
 
+    // The outputs monitor owns this event, because it confirms finality against the database and
+    // also covers tabs that have no editor mounted.
+    it('leaves an outputs-review-submitted event to the outputs monitor', () => {
+        mountListener()
+        provider.emitStateless(
+            JSON.stringify({
+                type: 'outputs-review-submitted',
+                studyId,
+                studyJobId: faker.string.uuid(),
+                submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_bob',
+                submittedByName: 'Bob',
+            }),
+        )
+
+        expect(notifications.show).not.toHaveBeenCalled()
+        expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    // An ignored outputs event must not consume the one-shot guard the handled events rely on.
+    it('still fires for a later proposal event after ignoring an outputs event', () => {
+        mountListener()
+        provider.emitStateless(
+            JSON.stringify({
+                type: 'outputs-review-submitted',
+                studyId,
+                studyJobId: faker.string.uuid(),
+                submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_bob',
+                submittedByName: 'Bob',
+            }),
+        )
+        provider.emitStateless(
+            JSON.stringify({
+                type: 'proposal-review-submitted',
+                studyId,
+                submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_bob',
+                submittedByName: 'Bob',
+            }),
+        )
+
+        expect(notifications.show).toHaveBeenCalledTimes(1)
+    })
+
     it('fires kick-out for a same-user other tab on proposal-submitted', () => {
         mountListener()
         provider.emitStateless(
