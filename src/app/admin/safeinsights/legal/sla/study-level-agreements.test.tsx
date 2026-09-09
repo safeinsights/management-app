@@ -166,6 +166,10 @@ describe('StudyLevelAgreements', () => {
 
         expect(within(confirmation).getByText('Publish this file?')).toBeDefined()
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled())
+
+        // The publish is still running. Wait for it to land inside this test's transaction: after
+        // teardown the pg patch is gone, so Postgres would commit it into the shared database.
+        await waitFor(() => expect(screen.queryByText('Publish this file?')).toBeNull())
     })
 
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {
