@@ -27,13 +27,7 @@ type SharedOutputsPanelProps = {
     nav: PhasedStepNav
 }
 
-export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
-    decidedAt,
-    banner,
-    job,
-    feedbackSection,
-    nav,
-}) => {
+export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({ decidedAt, banner, job, feedbackSection, nav }) => {
     const { decryptedFiles, isLocked, onDecrypted } = useDecryptPhase()
     const { title, body } = isLocked ? banner.locked : banner.unlocked
     const variant = isLocked ? STATUS_ALERT_VARIANT.action : STATUS_ALERT_VARIANT.success

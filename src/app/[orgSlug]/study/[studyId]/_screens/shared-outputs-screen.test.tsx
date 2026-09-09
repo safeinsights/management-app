@@ -11,9 +11,11 @@ import {
     renderWithProviders,
     requireRawState,
     screen,
-    vi,
     waitFor,
 } from '@/tests/unit.helpers'
+// vi from vitest itself: vi.mock is hoisted above the imports, so it must come from the module the
+// hoister rewrites, not a re-export.
+import { vi } from 'vitest'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { notFound, useParams } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
