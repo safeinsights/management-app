@@ -8,6 +8,7 @@ import {
     insertTestUser,
     mockSessionWithTestData,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -23,7 +24,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -62,7 +63,9 @@ const insertStudyWithDistinctOrgs = async ({
 }
 
 const uploadAndPublishSla = async (studyId: string, signedAt: string, fileName = 'sla.pdf') => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId, fileName }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'SLA', studyId, file: testUploadFile(fileName) }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
@@ -100,7 +103,9 @@ describe('fetchStudiesAwaitingSlaAction', () => {
     it('keeps offering a study whose only SLA is an unfinished draft', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'sla.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, file: testUploadFile('sla.pdf') }),
+        )
 
         const candidates = actionResult(await fetchStudiesAwaitingSlaAction())
 
@@ -146,7 +151,9 @@ describe('fetchStudyLevelAgreementsAction', () => {
     it('leaves out an SLA that has only been drafted, not published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
-        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'sla.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, file: testUploadFile('sla.pdf') }),
+        )
 
         const rows = actionResult(await fetchStudyLevelAgreementsAction())
 

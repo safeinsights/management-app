@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { actionResult, faker, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import { actionResult, faker, mockSessionWithTestData, renderWithProviders, testUploadFile } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
@@ -14,13 +14,15 @@ vi.mock('@/server/aws', async (importOriginal) => {
         // Implementations, not mockResolvedValue: mockReset restores these but wipes a value set
         // afterwards.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
 const publishParticipationAgreement = async (orgId: string, type: 'DOPA' | 'ROPA', signedAt: string) => {
     await mockSessionWithTestData({ isSiAdmin: true })
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type, orgId, fileName: 'agreement.pdf' }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type, orgId, file: testUploadFile('agreement.pdf') }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
