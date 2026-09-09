@@ -309,7 +309,6 @@ export async function seedCodeRejected(title: string): Promise<SeedResult> {
 
 // Legal documents are GLOBALLY scoped, so publishing one obliges every user of the database it
 // lands in. Kept out of src/database/seeds, which also runs in deployed environments.
-// Nothing here may run during a spec; global.setup.ts calls this once before any worker starts.
 
 const PENDING_ACK_ROLE: SeedRole = 'legal'
 
@@ -415,6 +414,7 @@ async function acknowledgeVersions(userIds: string[], versionIds: string[]) {
 /**
  * Leaves `legal` owing exactly ToS v2 and everyone else up to date. Its rows are cleared first,
  * or a re-run would find nothing outstanding and show no modal.
+ * Runs only from global.setup.ts, before any worker starts: a mid-run publish blocks every other worker.
  */
 export async function seedLegalDocuments() {
     assertDisposableDatabase()

@@ -4,12 +4,6 @@ import { useClickOutside } from '@mantine/hooks'
 import { InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
 
-// Pick the wiring per control type (OTTER-647); the wrong one silently drops `aria-describedby`:
-// - standard Mantine input (TextInput, Select, MultiSelect): wrap, spread `nativeFieldProps` on it
-// - composite widget (the Lexical Editor): wrap, hand `fieldDescribedBy` to its `ariaDescribedBy` prop
-// - control that owns its chrome (Radio.Group, PillsInput, PinInput): do not wrap, pass error through
-// `error` must be a node, not a boolean, or Mantine omits it from `aria-describedby`.
-
 const formFieldLabelStyles = {
     labelProps: { fw: 600, fz: 'sm' },
     styles: {
@@ -70,6 +64,7 @@ export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: bool
 
 // Mantine inputs render their own `Input.Wrapper`, whose `aria-describedby` overwrites any
 // hand-passed one, so the association has to be computed by that inner wrapper (OTTER-737).
+// `error` must be a node, not a boolean, or Mantine omits it from `aria-describedby` (OTTER-647).
 export const nativeFieldProps = (
     error: ReactNode,
     {
