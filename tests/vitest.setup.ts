@@ -70,6 +70,12 @@ vi.mock('next/navigation', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mockRouter = require('next-router-mock')
     const useRouter = mockRouter.useRouter
+    // next-router-mock models the pages router, so it has no app-router refresh(). Production code
+    // pairs push() with refresh() whenever the destination resolves the same URL, and without this
+    // those paths throw inside the component under test.
+    if (typeof mockRouter.memoryRouter.refresh !== 'function') {
+        mockRouter.memoryRouter.refresh = vi.fn()
+    }
 
     return {
         ...mockRouter,
@@ -88,6 +94,11 @@ vi.mock('next/navigation', () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return new URLSearchParams(path as any)
         },
+        // Next's own predicate for an action id the running build does not have. The real one is an
+        // instanceof check against a class the mock cannot construct, so it matches on the name the
+        // class sets, which is what production code falls back to as well.
+        unstable_isUnrecognizedActionError: (error: unknown) =>
+            error instanceof Error && error.name === 'UnrecognizedActionError',
     }
 })
 vi.mock('next/cache')

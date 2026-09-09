@@ -781,9 +781,12 @@ describe('Study Job Actions', () => {
             })
         })
 
-        test('permission denied for a lab user', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        // The submitting lab sees the decision on its own screens, so viewing this metadata is
+        // allowed. An unrelated organization is the case that must be refused.
+        test('permission denied for an unrelated organization', async () => {
+            await mockSessionWithTestData({ orgType: 'enclave' })
+            const otherEnclave = await insertTestOrg({ slug: 'otter-726-other-enclave', type: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org: otherEnclave, jobStatus: 'RUN-COMPLETE' })
 
             const result = await getOutputsDecisionStatusAction({ studyJobId: job.id })
 

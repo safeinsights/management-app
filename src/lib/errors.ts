@@ -102,8 +102,14 @@ export function isServerActionError(error: unknown): error is ServerActionError 
 // open tab posts after a deploy moved, renamed or removed that action. No application code can make
 // the id resolve, so the only correct response is to replace the client bundle (OTTER-726).
 export function isStaleDeploymentError(error: unknown): boolean {
-    if (unstable_isUnrecognizedActionError(error)) return true
-    return error instanceof Error && error.name === 'UnrecognizedActionError'
+    // The name is checked first because it needs nothing from Next: the class sets it, and this
+    // path keeps working if the unstable_ helper is renamed or removed.
+    if (error instanceof Error && error.name === 'UnrecognizedActionError') return true
+    try {
+        return unstable_isUnrecognizedActionError(error)
+    } catch {
+        return false
+    }
 }
 
 export const STALE_DEPLOYMENT_MESSAGE =
