@@ -12,10 +12,12 @@ type ProposalStepHeaderProps = {
     children?: ReactNode
 }
 
-const HeaderTimestamp: FC<Pick<ProposalStepHeaderProps, 'timestampDate'> & { timestampLabel: string }> = ({
-    timestampDate,
-    timestampLabel,
-}) => {
+// The label is required here even though the prop is optional: ProposalStepHeader defaults it
+// before this renders.
+type HeaderTimestampProps = Pick<ProposalStepHeaderProps, 'timestampDate'> &
+    Required<Pick<ProposalStepHeaderProps, 'timestampLabel'>>
+
+const HeaderTimestamp: FC<HeaderTimestampProps> = ({ timestampDate, timestampLabel }) => {
     if (!timestampDate) return null
 
     return (
