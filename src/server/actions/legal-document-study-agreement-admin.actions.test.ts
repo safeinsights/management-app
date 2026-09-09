@@ -8,6 +8,7 @@ import {
     insertTestUser,
     mockSessionWithTestData,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -23,7 +24,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -62,7 +63,9 @@ const insertStudyWithDistinctOrgs = async ({
 }
 
 const uploadAndPublishStudyAgreement = async (studyId: string, signedAt: string, fileName = 'study-agreement.pdf') => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId, fileName }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'SLA', studyId, file: testUploadFile(fileName) }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
@@ -103,7 +106,11 @@ describe('fetchStudiesAwaitingStudyAgreementAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
         actionResult(
-            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'study-agreement.pdf' }),
+            await createLegalDocumentDraftAction({
+                type: 'SLA',
+                studyId: study.id,
+                file: testUploadFile('study-agreement.pdf'),
+            }),
         )
 
         const candidates = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
@@ -151,7 +158,11 @@ describe('fetchStudyAgreementsAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs()
         actionResult(
-            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'study-agreement.pdf' }),
+            await createLegalDocumentDraftAction({
+                type: 'SLA',
+                studyId: study.id,
+                file: testUploadFile('study-agreement.pdf'),
+            }),
         )
 
         const rows = actionResult(await fetchStudyAgreementsAction())
