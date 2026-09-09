@@ -11,6 +11,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import type { PhasedStepNav } from '@/lib/study-screen'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { SharedOutputsPanel } from './shared-outputs-panel'
@@ -45,6 +46,27 @@ const PREVIOUS_HREF = '/test-lab/study/abc/view/code' as Route
 const EDIT_CODE_HREF = '/test-lab/study/abc/resubmit' as Route
 const DASHBOARD_HREF = '/dashboard' as Route
 
+// The terminal-positive shape (spec state 5); the errored share passes Edit code solid instead.
+const PREVIOUS = {
+    label: 'Previous step',
+    href: PREVIOUS_HREF,
+    variant: 'subtle',
+    testId: 'cta-previous-step',
+} as const
+const NAV: PhasedStepNav = {
+    locked: { back: PREVIOUS },
+    unlocked: {
+        back: PREVIOUS,
+        secondary: { label: 'Edit code', href: EDIT_CODE_HREF, variant: 'outline', testId: 'cta-edit-code' },
+        forward: {
+            label: 'Back to my studies',
+            href: DASHBOARD_HREF,
+            variant: 'solid',
+            testId: 'cta-back-to-my-studies',
+        },
+    },
+}
+
 // Counting mounts is the only way to prove the banner swap did not remount it; a remount
 // silently resets each entry's expand/collapse state.
 const mountCount = { current: 0 }
@@ -69,9 +91,7 @@ describe('SharedOutputsPanel', () => {
                 banner={BANNER}
                 job={job}
                 feedbackSection={<FeedbackProbe />}
-                previousHref={PREVIOUS_HREF}
-                editCodeHref={EDIT_CODE_HREF}
-                dashboardHref={DASHBOARD_HREF}
+                nav={NAV}
             />,
         )
 
@@ -124,9 +144,7 @@ describe('SharedOutputsPanel', () => {
                     banner={BANNER}
                     job={job}
                     feedbackSection={<FeedbackProbe />}
-                    previousHref={PREVIOUS_HREF}
-                    editCodeHref={EDIT_CODE_HREF}
-                    dashboardHref={DASHBOARD_HREF}
+                    nav={NAV}
                 />,
             )
             const alert = screen.getByTestId('status-alert')
@@ -159,6 +177,7 @@ describe('SharedOutputsPanel', () => {
 
         it('offers only Previous step — Edit code and Back to my studies are absent', () => {
             renderPanel()
+            expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
             const previous = screen.getByRole('link', { name: /previous step/i })
             expect(previous).toHaveAttribute('href', PREVIOUS_HREF)
             expect(previous).toHaveAttribute('data-variant', 'subtle')
@@ -219,7 +238,7 @@ describe('SharedOutputsPanel', () => {
             expect(screen.getByText('summary.csv')).toBeInTheDocument()
         })
 
-        it('adds Edit code (outline) and Back to my studies (filled), both enabled, keeping Previous step', async () => {
+        it('renders the given nav in full once decrypted, keeping Previous step', async () => {
             renderPanel()
             await decrypt()
 

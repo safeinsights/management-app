@@ -100,9 +100,9 @@ describe('StudyViewCode (/view/code)', () => {
         expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
-    // Before the enclave picks the job up, /view resolves to this same screen, so a forward link
-    // would point at the page it sits on.
-    it('offers no step forward while /view still resolves to the code step', async () => {
+    // /view serves the outputs step from approval onward (OTTER-673), so the forward link never
+    // points at the page it sits on, even before the enclave picks the job up.
+    it('offers "Next step" before the enclave picks the job up', async () => {
         const { org, study } = await seedCodeStudy([])
 
         const page = await StudyViewCode({
@@ -110,11 +110,11 @@ describe('StudyViewCode (/view/code)', () => {
             searchParams: Promise.resolve({}),
         })
 
-        expect(page?.props.nav.forward.label).toBe('Back to my studies')
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('cta-back-to-my-studies')).toBeInTheDocument()
-        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     // OTTER-640: submitted code stays reachable behind the collapsed control while an unreviewed

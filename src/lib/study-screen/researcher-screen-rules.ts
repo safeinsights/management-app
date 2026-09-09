@@ -22,9 +22,12 @@ export const RESEARCHER_SCREEN_RULES = [
     // never disclosed before triage (OTTER-598).
     ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
 
-    // Code approved and executing in the enclave: researcher outputs-pending screen (OTTER-686).
-    ['outputs-pending', { when: (s) => s.codeDecision === 'CODE-APPROVED' && s.isExecuting }],
-    // Code approved but not yet executing: the approved code screen.
+    // Code approved: the outputs step ("code processing") from the moment of approval, not only once
+    // the enclave reports a stage (OTTER-673, spec: "Code approved" always has a Next step). The gap
+    // between CODE-APPROVED and JOB-PACKAGING, and a packaging failure awaiting triage, both land
+    // here rather than holding the researcher on the code screen with nowhere to go.
+    ['outputs-pending', { when: (s) => s.codeDecision === 'CODE-APPROVED' }],
+    // The approved code screen is reached only by walking back (/view/code, resolveResearcherCodeScreen).
     ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' }],
     // Code rejected or changes requested: read-only code feedback.
     [
