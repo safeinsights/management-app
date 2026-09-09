@@ -41,7 +41,7 @@ const getCodeSubmittedDate = (job: LatestJobForStudy): string | null => {
 const SubmittedTimestamp: FC<{ label: string; date: string | null }> = ({ label, date }) => {
     if (!date) return null
     return (
-        <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
+        <Text fz={12} c="charcoal.7" ta="right" data-testid="code-submitted-timestamp">
             {label} {date}
         </Text>
     )
@@ -194,9 +194,7 @@ export function CodePostSubmissionView({
                     <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
-                    <Group justify="flex-end" align="center">
-                        <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
-                    </Group>
+                    <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
                     <Divider my="md" />
                     <UnderReviewBanner
                         isVisible={isUnderReview}
