@@ -14,6 +14,7 @@ import {
 
 const at = (status: StudyJobStatus) => ({ status })
 const files = (...fileTypes: FileType[]) => fileTypes.map((fileType) => ({ fileType }))
+const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
 
 describe('jobFailureStage', () => {
     // JOB-READY is the containerizer reporting success, so its absence identifies a packaging
@@ -47,8 +48,6 @@ describe('jobFailureStage', () => {
 })
 
 describe('jobErrorDetails', () => {
-    const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
-
     it('explains the stage even when nothing else is known', () => {
         const details = jobErrorDetails(packagingFailure, [])
 
@@ -121,8 +120,6 @@ describe('jobErrorDetails', () => {
 // OTTER-769: entering the key is the whole of what a reviewer does next when the log can be read,
 // so the banner drops the stage sentence the log itself is about to explain.
 describe('errored banner text', () => {
-    const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
-
     it('is one sentence when a key can open the log', () => {
         const details = jobErrorDetails([at('JOB-RUNNING'), at('JOB-ERRORED')], files('ENCRYPTED-CODE-RUN-LOG'))
 
@@ -159,8 +156,6 @@ describe('errored banner text', () => {
 // OTTER-524: the reviewer may see only sentences this app authored, so no AWS or deployment
 // detail can reach a screen another organization reads.
 describe('recorded failure reasons', () => {
-    const packagingFailure = [at('JOB-PACKAGING'), at('JOB-ERRORED')]
-
     it('explains a known failure class in our own words', () => {
         const details = jobErrorDetails(packagingFailure, [], 'BASE_IMAGE_UNAVAILABLE')
 
