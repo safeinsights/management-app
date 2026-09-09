@@ -1,6 +1,7 @@
 import { sql } from 'kysely'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
+import { MAX_LEGAL_DOCUMENT_BYTES } from '@/schema/legal-document'
 import { signedUrlForFile, storeS3File } from '@/server/aws'
 import {
     actionResult,
@@ -128,6 +129,31 @@ describe('createLegalDocumentDraftAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
         const result = await createLegalDocumentDraftAction({ type: 'ROPA', file: testUploadFile('ropa.pdf') })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('rejects a file over the size cap', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const tooBig = new File([new Uint8Array(MAX_LEGAL_DOCUMENT_BYTES + 1)], 'terms.md')
+
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: tooBig })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('rejects an empty file', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: new File([], 'terms.md') })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('rejects a file with no name', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: new File(['# terms'], '   ') })
 
         expect(result).toHaveProperty('error')
     })

@@ -4,7 +4,7 @@ import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { LegalMarkdownContent } from '@/components/legal/markdown-content'
 import { LoadingMessage } from '@/components/loading'
-import { errorToString, isActionError } from '@/lib/errors'
+import { actionResult } from '@/lib/utils'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchLegalDocumentContentAction } from '@/server/actions/legal-document.actions'
 
@@ -13,11 +13,7 @@ export function PreviewDocument({ versionId, label }: { versionId: string; label
     const { data, isLoading, isError, error } = useQuery({
         queryKey: legalDocumentQueryKeys.documentContent(versionId),
         staleTime: Infinity,
-        queryFn: async () => {
-            const result = await fetchLegalDocumentContentAction({ versionId })
-            if (isActionError(result)) throw new Error(errorToString(result))
-            return result.content
-        },
+        queryFn: async () => actionResult(await fetchLegalDocumentContentAction({ versionId })).content,
     })
 
     if (isLoading) return <LoadingMessage message="Loading..." />

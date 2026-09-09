@@ -132,6 +132,8 @@ describe.skipIf(!s3Available)('S3 integration', () => {
         expect(url).toMatch(/^https?:\/\//)
     })
 
+    // The key ends in agreement.pdf because S3 substitutes ${filename} from the form part's own
+    // filename, which only resolves if that part is a File. A bare Blob lands the object at "blob".
     it('signs a presigned POST that lands the object under the signed prefix', async () => {
         const prefix = `${TEST_PREFIX}presigned-post`
 

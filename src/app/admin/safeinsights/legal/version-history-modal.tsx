@@ -39,7 +39,7 @@ const PreviewLink: FC<{ versionId: string; label: string }> = ({ versionId, labe
 const documentColumnFor = (type: LegalDocumentType): DataTableColumn<Version> => {
     if (legalDocumentFormats[type] === 'markdown') {
         return {
-            accessor: 'downloadUrl',
+            accessor: 'id',
             title: 'Document',
             render: (version) => <PreviewLink versionId={version.id} label={legalDocumentTypeLabels[type]} />,
         }

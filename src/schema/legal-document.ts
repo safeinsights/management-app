@@ -175,8 +175,6 @@ export const legalDocumentVersionParams = z.object({
     versionId: z.string().uuid(),
 })
 
-export const acknowledgeLegalDocumentSchema = legalDocumentVersionParams
-
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })

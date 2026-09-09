@@ -6,7 +6,6 @@ import type { LegalDocumentType, OrgType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
-    acknowledgeLegalDocumentSchema,
     createLegalDocumentDraftSchema,
     enforcedLegalDocumentTypes,
     type EnforcedLegalDocumentType,
@@ -86,6 +85,21 @@ const noDocumentScope = async () => ({ orgId: undefined, studyId: undefined })
 
 const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
 
+// A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
+// it names the download (the S3 key is a bare uuid).
+const bodyForVersion = async ({
+    type,
+    filePath,
+    fileName,
+}: {
+    type: LegalDocumentType
+    filePath: string
+    fileName: string
+}): Promise<LegalDocumentBody> =>
+    legalDocumentFormats[type] === 'pdf'
+        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
+        : { format: 'markdown', content: await contentOf(filePath) }
+
 export const createLegalDocumentDraftAction = new Action('createLegalDocumentDraftAction', {
     performsMutations: true,
 })
@@ -127,7 +141,8 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        // In the action's transaction, so a failed store rolls the row back instead of leaving a fileless draft.
+        // A failed store rolls the row back; a failed commit still orphans the object, the same
+        // trade storeJobFile accepts.
         await storeS3File({ legalDocumentType: type }, file.stream(), filePath)
 
         return { legalDocument, version }
@@ -229,22 +244,24 @@ export const fetchLegalDocumentContentAction = new Action('fetchLegalDocumentCon
     .handler(async ({ db, params: { versionId } }) => {
         const version = await db
             .selectFrom('legalDocumentVersion')
-            .select(['filePath', 'format'])
-            .where('id', '=', versionId)
+            .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+            .select(['legalDocumentVersion.filePath', 'legalDocumentVersion.fileName', 'legalDocument.type'])
+            .where('legalDocumentVersion.id', '=', versionId)
             .executeTakeFirstOrThrow()
 
-        // A pdf would come back as binary junk in a string, so refuse rather than return it.
-        if (version.format !== 'markdown') {
+        // Through bodyForVersion so one place decides how a format maps to a body.
+        const body = await bodyForVersion(version)
+        if (body.format !== 'markdown') {
             throw new ActionFailure({ version: 'is not a markdown document' })
         }
 
-        return { content: await contentOf(version.filePath) }
+        return { content: body.content }
     })
 
 export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocumentAction', {
     performsMutations: true,
 })
-    .params(acknowledgeLegalDocumentSchema)
+    .params(legalDocumentVersionParams)
     .middleware(scopeFromVersionId)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, params: { versionId }, session }) => {
@@ -329,21 +346,6 @@ const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise
     if (!owed.length) return null
     return owed
 }
-
-// A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
-// it names the download (the S3 key is a bare uuid).
-const bodyForVersion = async ({
-    type,
-    filePath,
-    fileName,
-}: {
-    type: LegalDocumentType
-    filePath: string
-    fileName: string
-}): Promise<LegalDocumentBody> =>
-    legalDocumentFormats[type] === 'pdf'
-        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
-        : { format: 'markdown', content: await contentOf(filePath) }
 
 // The next document the signed-in user still owes. Superseded versions are not backfilled: the
 // obligation is to the terms in force, matching what the SI-admin audit reports. One at a time, the
