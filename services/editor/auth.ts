@@ -147,6 +147,18 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
     }
 }
 
+// True once the job carries a terminal files decision. Shared by the persist gate below and the
+// outputs stateless-event gate, which must not kick peers out before the decision has landed.
+export async function hasFilesDecision(jobId: string, db: Pick<DbQuery, 'query'>): Promise<boolean> {
+    const decided = await db.query<{ exists: boolean }>(
+        `SELECT 1 FROM job_status_change
+          WHERE study_job_id = $1 AND status::text IN ('FILES-APPROVED', 'FILES-REJECTED')
+          LIMIT 1`,
+        [jobId],
+    )
+    return decided.rowCount !== 0
+}
+
 // Persist-time gate: returns true when the canonical Yjs state for this
 // document is still allowed to advance. Connection-time auth (`authenticate`)
 // covers new and reconnecting clients, but already-connected clients keep
@@ -161,13 +173,7 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     if (parsed.kind === 'code-review-feedback') return true
 
     if (parsed.kind === 'outputs-review-feedback') {
-        const decided = await db.query<{ exists: boolean }>(
-            `SELECT 1 FROM job_status_change
-              WHERE study_job_id = $1 AND status::text IN ('FILES-APPROVED', 'FILES-REJECTED')
-              LIMIT 1`,
-            [parsed.jobId],
-        )
-        return decided.rowCount === 0
+        return !(await hasFilesDecision(parsed.jobId, db))
     }
 
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
@@ -177,7 +183,11 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     return isDocumentEditable(parsed, { status })
 }
 
-export type EventType = 'proposal-submitted' | 'proposal-review-submitted' | 'code-review-submitted'
+export type EventType =
+    | 'proposal-submitted'
+    | 'proposal-review-submitted'
+    | 'code-review-submitted'
+    | 'outputs-review-submitted'
 
 export type StatelessSubmissionEvent = {
     type: EventType
@@ -190,6 +200,8 @@ export type StatelessSubmissionEvent = {
      * an authorized but uninvolved collaborator is dropped before rebroadcast.
      */
     submittedByClerkId: string
+    /** Required for `outputs-review-submitted` only, and matched against the document's own job id. */
+    studyJobId?: string
 }
 
 // Server-side validation of stateless events the client emits via
@@ -207,15 +219,26 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
 
     if (!parsed || typeof parsed !== 'object') return null
     const obj = parsed as Record<string, unknown>
-    const { type, studyId, submittedByName, submittedByTabId, submittedByClerkId } = obj
+    const { type, studyId, submittedByName, submittedByTabId, submittedByClerkId, studyJobId } = obj
 
-    if (type !== 'proposal-submitted' && type !== 'proposal-review-submitted' && type !== 'code-review-submitted') {
+    if (
+        type !== 'proposal-submitted' &&
+        type !== 'proposal-review-submitted' &&
+        type !== 'code-review-submitted' &&
+        type !== 'outputs-review-submitted'
+    ) {
         return null
     }
     if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
     if (typeof submittedByName !== 'string' || submittedByName.length === 0) return null
     if (typeof submittedByTabId !== 'string' || submittedByTabId.length === 0) return null
     if (typeof submittedByClerkId !== 'string' || submittedByClerkId.length === 0) return null
+
+    if (type === 'outputs-review-submitted') {
+        // Scoping by job is what stops a later output round in a new Yjs room cross-notifying.
+        if (typeof studyJobId !== 'string' || !UUID_RE.test(studyJobId)) return null
+        return { type, studyId, studyJobId, submittedByName, submittedByTabId, submittedByClerkId }
+    }
 
     return { type, studyId, submittedByName, submittedByTabId, submittedByClerkId }
 }
@@ -232,6 +255,9 @@ export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent
     if (event.type === 'proposal-submitted') return parsed.kind === 'proposal-fields'
     if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
     if (event.type === 'code-review-submitted') return parsed.kind === 'code-review-feedback'
+    if (event.type === 'outputs-review-submitted') {
+        return parsed.kind === 'outputs-review-feedback' && parsed.jobId === event.studyJobId
+    }
     return false
 }
 
@@ -240,6 +266,7 @@ export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent
 // 2. event.studyId matches the studyId resolved at connection time
 // 3. sender's clerk id matches the authenticated user on this connection
 // 4. for proposal flows, DB study status is plausible for the claimed event type
+// 5. for outputs review, the job already carries a terminal files decision
 //
 // Without (2)-(3) any authorized collaborator could spoof a kick-out event and
 // redirect the room without an actual submit. Code-review docs do not gate on
@@ -251,12 +278,18 @@ export function assertStatelessEventConsistent(args: {
     documentStudyId: string
     connectionUserClerkId: string
     studyStatus: StudyStatus | null
+    /** Outputs review only. Omitted reads as "not decided", so the gate fails closed. */
+    jobDecided?: boolean | null
 }): boolean {
-    const { event, parsed, documentStudyId, connectionUserClerkId, studyStatus } = args
+    const { event, parsed, documentStudyId, connectionUserClerkId, studyStatus, jobDecided = null } = args
     if (!isStatelessEventValidForDocument(event, parsed)) return false
     if (event.studyId !== documentStudyId) return false
     if (event.submittedByClerkId !== connectionUserClerkId) return false
 
+    // The study sits at APPROVED throughout the outputs round, so only the job status proves the
+    // decision landed. Gating on it stops an authorized but uninvolved collaborator forging a
+    // premature kick-out.
+    if (event.type === 'outputs-review-submitted') return jobDecided === true
     if (event.type === 'code-review-submitted') return true
     if (studyStatus === null) return false
     if (event.type === 'proposal-submitted') return studyStatus === 'PENDING-REVIEW'
