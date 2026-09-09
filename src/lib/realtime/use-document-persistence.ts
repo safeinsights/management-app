@@ -16,8 +16,9 @@ export const PERSISTENCE_WAIT_MS = 8_000
 
 type StoredAck = { type?: unknown; documentName?: unknown; stateVector?: unknown }
 
+// atob rather than Buffer: this runs in the browser bundle, where Buffer is not a global.
 const decodeVector = (base64: string): Map<number, number> =>
-    Y.decodeStateVector(Uint8Array.from(Buffer.from(base64, 'base64')))
+    Y.decodeStateVector(Uint8Array.from(atob(base64), (char) => char.charCodeAt(0)))
 
 /**
  * `awaitFeedbackStored` answers one question: is every edit this tab made contained in a database

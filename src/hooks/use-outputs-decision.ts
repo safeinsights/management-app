@@ -59,9 +59,7 @@ export const readStashedDecision = (jobId: string): OutputsDecision | null => {
         if (!raw) return null
         sessionStorage.removeItem(stashKey(jobId))
         const parsed = JSON.parse(raw) as { decision?: unknown }
-        return parsed.decision === 'share-outputs' || parsed.decision === 'share-feedback-only'
-            ? parsed.decision
-            : null
+        return parsed.decision === 'share-outputs' || parsed.decision === 'share-feedback-only' ? parsed.decision : null
     } catch {
         return null
     }

@@ -265,7 +265,7 @@ describe('isStatelessEventValidForDocument', () => {
         )
     })
 
-    it('rejects outputs-review-submitted on another job\'s outputs-review-feedback document', () => {
+    it("rejects outputs-review-submitted on another job's outputs-review-feedback document", () => {
         expect(
             isStatelessEventValidForDocument(outputsEvent, { kind: 'outputs-review-feedback', jobId: OTHER_JOB_ID }),
         ).toBe(false)
@@ -812,7 +812,7 @@ describe('assertStatelessEventConsistent', () => {
             ).toBe(false)
         })
 
-        it('rejects the event on another job\'s document even when decided', () => {
+        it("rejects the event on another job's document even when decided", () => {
             expect(
                 assertStatelessEventConsistent({
                     ...outputsArgs,

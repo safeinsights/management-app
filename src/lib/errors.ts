@@ -106,7 +106,8 @@ export function isStaleDeploymentError(error: unknown): boolean {
     return error instanceof Error && error.name === 'UnrecognizedActionError'
 }
 
-export const STALE_DEPLOYMENT_MESSAGE = 'The application was updated while this page was open. Reload the page to continue.'
+export const STALE_DEPLOYMENT_MESSAGE =
+    'The application was updated while this page was open. Reload the page to continue.'
 
 export class ActionFailure extends Error {
     constructor(public error: ActionError['error']) {

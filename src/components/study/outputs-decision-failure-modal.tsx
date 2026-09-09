@@ -69,12 +69,7 @@ export const OutputsDecisionFailureModal: FC<Props> = ({ failure, onDismiss, onR
         <AppModal isOpen={failure !== null} onClose={onDismiss} title={FAILURE_TITLE}>
             <Stack gap="xl">
                 <Text size="md">{body}</Text>
-                <FailureActions
-                    isStale={isStale}
-                    saved={saved}
-                    onDismiss={onDismiss}
-                    onReload={onReload}
-                />
+                <FailureActions isStale={isStale} saved={saved} onDismiss={onDismiss} onReload={onReload} />
             </Stack>
         </AppModal>
     )

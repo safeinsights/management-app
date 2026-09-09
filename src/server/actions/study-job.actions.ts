@@ -334,11 +334,7 @@ export const getOutputsDecisionStatusAction = new Action('getOutputsDecisionStat
         const decisionComment = await db
             .selectFrom('studyReviewComment')
             .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
-            .select([
-                'studyReviewComment.authorId',
-                'studyReviewComment.createdAt',
-                'author.fullName as authorName',
-            ])
+            .select(['studyReviewComment.authorId', 'studyReviewComment.createdAt', 'author.fullName as authorName'])
             .where('studyReviewComment.studyJobId', '=', studyJobId)
             .where('studyReviewComment.reviewKind', '=', 'RESULTS')
             .where('studyReviewComment.entryType', '=', 'DECISION')

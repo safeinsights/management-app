@@ -1,10 +1,7 @@
 'use client'
 
 import { createContext, useContext, useMemo, type FC, type ReactNode } from 'react'
-import {
-    useOutputsDecisionMonitor,
-    type OwnSubmission,
-} from '@/hooks/use-outputs-decision-monitor'
+import { useOutputsDecisionMonitor, type OwnSubmission } from '@/hooks/use-outputs-decision-monitor'
 import type { OutputsDecisionStatus } from '@/lib/outputs-review'
 
 type Coordination = {
