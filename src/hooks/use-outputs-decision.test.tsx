@@ -178,8 +178,6 @@ describe('useOutputsDecision', () => {
 
 describe('useOutputsDecision submission failures', () => {
     beforeEach(() => {
-        submitMock.mockReset()
-        statusMock.mockReset()
         memoryRouter.setCurrentUrl('/start')
     })
 

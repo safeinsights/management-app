@@ -4,10 +4,8 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
-// The editor service acknowledges each completed write with the state vector of the snapshot it
-// wrote. Hocuspocus snapshots the document before the store callback awaits the database, so an
-// edit made during that write is synced but not yet persisted; only the vector distinguishes the
-// two (OTTER-726).
+// The editor acknowledges each completed write with the state vector of the snapshot it wrote,
+// which is the only way to tell a persisted edit from one still in flight (OTTER-726).
 export const DOCUMENT_STORED_EVENT = 'document-stored'
 
 // The server debounces a store 2 s after the last keystroke, and a reviewer sitting on a failed
@@ -20,14 +18,9 @@ type StoredAck = { type?: unknown; documentName?: unknown; stateVector?: unknown
 const decodeVector = (base64: string): Map<number, number> =>
     Y.decodeStateVector(Uint8Array.from(atob(base64), (char) => char.charCodeAt(0)))
 
-/**
- * `awaitFeedbackStored` answers one question: is every edit this tab made contained in a database
- * write that has completed?
- *
- * `true` yes. `false` no, and the editor is known to report writes. `null` cannot tell, because this
- * editor has never acknowledged a write, which in practice means a build that does not send them.
- * Callers must not present `null` as lost work.
- */
+// Answers whether every edit this tab made is in a completed database write. `null` means the
+// editor has never acknowledged one, so the answer is unknown and callers must not read it as
+// lost work.
 export function useDocumentPersistence(provider: HocuspocusProvider | null, documentName: string) {
     const persistedVectorRef = useRef<Map<number, number> | null>(null)
     const hasEverAcknowledgedRef = useRef(false)

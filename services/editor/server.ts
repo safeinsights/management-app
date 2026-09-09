@@ -117,11 +117,8 @@ const server = new Server({
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
 
-                // The acknowledgment has to describe what was written, not the live document:
-                // Hocuspocus snapshots `state` before this callback awaits the gate and the INSERT,
-                // so edits arriving meanwhile are in `document` but not in the row. Clients compare
-                // their own clock against this vector to decide whether their work is durable
-                // (OTTER-726). A decided job returns above, so it never acknowledges.
+                // Describes the snapshot that was written, not the live document, which may have
+                // moved on during the awaits above. A decided job returns before this (OTTER-726).
                 const persisted = new Y.Doc()
                 Y.applyUpdate(persisted, new Uint8Array(state))
                 const stateVector = Buffer.from(Y.encodeStateVector(persisted)).toString('base64')

@@ -53,7 +53,7 @@ const clearStashedDecision = (jobId: string) => {
     }
 }
 
-export const readStashedDecision = (jobId: string): OutputsDecision | null => {
+const readStashedDecision = (jobId: string): OutputsDecision | null => {
     try {
         const raw = sessionStorage.getItem(stashKey(jobId))
         if (!raw) return null

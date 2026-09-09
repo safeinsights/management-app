@@ -78,8 +78,6 @@ const renderMonitor = ({ enabled = true }: { enabled?: boolean } = {}) =>
 describe('useOutputsDecisionMonitor', () => {
     beforeEach(() => {
         captured.current = null
-        statusActionMock.mockReset()
-        showMock.mockClear()
         memoryRouter.setCurrentUrl('/start')
     })
 

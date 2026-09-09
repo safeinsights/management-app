@@ -300,10 +300,9 @@ export const getJobAnalysisAction = new Action('getJobAnalysisAction')
             await jobAnalysisUpdateForJob(studyJob, { scanSettled: scanSettled ?? false }),
     )
 
-// Finality for the outputs round, read for the peer kick-out, for a submit whose response was lost,
-// and to confirm a peer event before acting on it. Finality comes from the job status row, because
-// approveStudyJobFilesAction and rejectStudyJobFilesAction close a round without writing a decision
-// comment. The comment supplies attribution when it exists (OTTER-726).
+// Finality comes from the job status row, because approveStudyJobFilesAction and
+// rejectStudyJobFilesAction close a round without writing a decision comment. The comment supplies
+// attribution when it exists (OTTER-726).
 export const getOutputsDecisionStatusAction = new Action('getOutputsDecisionStatusAction')
     .params(z.object({ studyJobId: z.string().uuid() }))
     .middleware(async ({ params: { studyJobId } }) => {
