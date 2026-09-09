@@ -45,7 +45,8 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
                 key={form.key('orgSlug')}
                 allowDeselect={false}
                 data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
-                placeholder="Select a Data Partner"
+                // Step 1 shows no placeholder text, like Step 2 (OTTER-691).
+                placeholder=""
                 // A query held back by `enabled` reports isLoading false, so the Select would
                 // otherwise open with an empty list.
                 disabled={isLoading || !isSessionReady}

@@ -27,7 +27,6 @@ type ProposalRequestProps = {
     initialExpanded?: boolean
     statusBadge?: string
     entries?: ProposalFeedbackEntry[]
-    showStudyTitle?: boolean
 }
 
 // Plain text, not clamped Lexical: an empty paragraph in the stored value would spend one of the
@@ -179,7 +178,6 @@ export function ProposalRequest({
     initialExpanded = true,
     statusBadge = 'Submitted on',
     entries = [],
-    showStudyTitle = true,
 }: ProposalRequestProps) {
     const { expanded, expand, collapse, focusToggle } = useProposalCard(initialExpanded)
     const timestampDate = decisionTimestampForProposalHeader(study, entries)
@@ -189,14 +187,13 @@ export function ProposalRequest({
             <ProposalStepHeader
                 stepLabel={stepLabel}
                 heading={heading}
-                studyTitle={showStudyTitle ? study.title : undefined}
                 timestampDate={timestampDate}
                 timestampLabel={statusBadge}
                 banner={banner}
             />
 
             {/* The proposal owns its own card (OTTER-755), so the status card above it holds the
-                step, title and banner only. Collapsing swaps the card's content for a snippet
+                step, timestamp and banner only. Collapsing swaps the card's content for a snippet
                 rather than hiding it, which is why there is no Mantine Collapse here. */}
             <Paper p="xxl" data-testid="proposal-card">
                 <ProposalSnippet isVisible={!expanded} study={study} onExpand={expand} focusToggle={focusToggle} />

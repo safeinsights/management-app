@@ -1,18 +1,17 @@
 import type { ReactNode } from 'react'
-import type { Route } from 'next'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { ButtonLink } from '@/components/links'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 
 // The header and the status message arrive via slots, keeping this free of data fetching so it
 // renders in isolation (e.g. Ladle).
 export type StudyDetailsResearcherViewProps = {
     header: ReactNode
-    previousHref?: Route
+    nav: StepNav
     statusMessage: ReactNode
 }
 
-export function StudyDetailsResearcherView({ header, previousHref, statusMessage }: StudyDetailsResearcherViewProps) {
+export function StudyDetailsResearcherView({ header, nav, statusMessage }: StudyDetailsResearcherViewProps) {
     return (
         <Stack px="xl" py="xl" gap="xl">
             {header}
@@ -31,13 +30,7 @@ export function StudyDetailsResearcherView({ header, previousHref, statusMessage
                     {statusMessage}
                 </Stack>
             </Paper>
-            {previousHref && (
-                <Group>
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous
-                    </ButtonLink>
-                </Group>
-            )}
+            <StepNavigation nav={nav} />
         </Stack>
     )
 }

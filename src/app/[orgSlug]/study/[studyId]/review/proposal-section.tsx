@@ -67,7 +67,6 @@ export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersi
             orgSlug={orgSlug}
             stepLabel="STEP 1"
             heading={proposalReviewHeading(reviewVersion)}
-            showStudyTitle={false}
             banner={<StatusBanner labName={labName} isResubmission={isResubmission} />}
             initialExpanded={!isResubmission}
             statusBadge={isResubmission ? 'Resubmitted on' : undefined}

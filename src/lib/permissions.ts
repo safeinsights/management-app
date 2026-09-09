@@ -54,6 +54,8 @@ export function defineAbilityFor(session: UserSession) {
     // so it would expose drafts and version history.
     permit('view', 'OrgLegalDocuments', { orgId: { $in: usersAdminOrgIds } })
 
+    permit('view', 'UserLegalDocuments')
+
     // Unconditioned; the action itself filters to what the user may see.
     permit('view', 'Studies')
 

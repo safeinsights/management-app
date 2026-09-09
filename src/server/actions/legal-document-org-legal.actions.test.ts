@@ -68,40 +68,86 @@ const publishAgreementAsSiAdmin = async (
 const asOrgAdmin = (slug: string, orgType: 'enclave' | 'lab') =>
     mockSessionWithTestData({ orgSlug: slug, orgType, isAdmin: true })
 
+const SORT = { columnAccessor: 'signedAt', direction: 'desc' } as const
+
 describe('fetchOrgStudyAgreementsAction', () => {
     it('lists an approved study with no agreement yet, naming the Research Lab as the counterparty', async () => {
         const { study, dataPartner, researchLab } = await insertStudyWithDistinctOrgs({ title: 'Awaiting signature' })
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
         const row = rows.find((candidate) => candidate.studyId === study.id)
 
         expect(row).toBeDefined()
         expect(row?.studyTitle).toBe('Awaiting signature')
         expect(row?.counterpartyName).toBe(researchLab.name)
         expect(row?.signedAt).toBeNull()
-        expect(row?.downloadUrl).toBeNull()
+        expect(row?.versionId).toBeNull()
+    })
+
+    // Each accessor is a raw ORDER BY expression naming source columns, so one no test drives is
+    // a 500 on the first header click rather than a mis-sort.
+    const insertTitledStudies = async (titles: string[]) => {
+        const { dataPartner, researchLab } = await insertPartyOrgs()
+        for (const title of titles) {
+            await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title, status: 'APPROVED' })
+        }
+        return dataPartner
+    }
+
+    it('sorts by study title in both directions', async () => {
+        const dataPartner = await insertTitledStudies(['Zulu study', 'Alpha study'])
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const titlesSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchOrgStudyAgreementsAction({
+                    orgSlug: dataPartner.slug,
+                    sort: { columnAccessor: 'studyTitle', direction },
+                }),
+            ).map((row) => row.studyTitle)
+
+        expect(await titlesSortedBy('asc')).toEqual(['Alpha study', 'Zulu study'])
+        expect(await titlesSortedBy('desc')).toEqual(['Zulu study', 'Alpha study'])
+    })
+
+    it('sorts by study id in both directions', async () => {
+        const dataPartner = await insertTitledStudies(['First', 'Second'])
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const idsSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchOrgStudyAgreementsAction({
+                    orgSlug: dataPartner.slug,
+                    sort: { columnAccessor: 'studyId', direction },
+                }),
+            ).map((row) => row.studyId)
+
+        const ascending = await idsSortedBy('asc')
+
+        expect(ascending).toHaveLength(2)
+        expect(await idsSortedBy('desc')).toEqual([...ascending].reverse())
     })
 
     it('names the Data Partner as the counterparty for the Research Lab admin', async () => {
         const { study, dataPartner, researchLab } = await insertStudyWithDistinctOrgs()
         await asOrgAdmin(researchLab.slug, 'lab')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: researchLab.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: researchLab.slug, sort: SORT }))
 
         expect(rows.find((candidate) => candidate.studyId === study.id)?.counterpartyName).toBe(dataPartner.name)
     })
 
-    it('carries the signed date and a download url once an agreement is published', async () => {
+    it('carries the signed date and the downloadable version once an agreement is published', async () => {
         const { study, dataPartner } = await insertStudyWithDistinctOrgs()
-        await publishAgreementAsSiAdmin({ studyId: study.id }, '2026-06-17')
+        const version = await publishAgreementAsSiAdmin({ studyId: study.id }, '2026-06-17')
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
         const row = rows.find((candidate) => candidate.studyId === study.id)
 
         expect(row?.signedAt).toBe('2026-06-17')
-        expect(row?.downloadUrl).toBe('https://mock-signed-url.example.com/file')
+        expect(row?.versionId).toBe(version.id)
     })
 
     it('shows only the latest published version, and one row per study', async () => {
@@ -110,7 +156,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         await publishAgreementAsSiAdmin({ studyId: study.id }, '2026-05-05')
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
         const matching = rows.filter((candidate) => candidate.studyId === study.id)
 
         expect(matching).toHaveLength(1)
@@ -123,18 +169,18 @@ describe('fetchOrgStudyAgreementsAction', () => {
         actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'draft.pdf' }))
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
         const row = rows.find((candidate) => candidate.studyId === study.id)
 
         expect(row).toBeDefined()
-        expect(row?.downloadUrl).toBeNull()
+        expect(row?.versionId).toBeNull()
     })
 
     it('omits a study that has not reached the agreement stage', async () => {
         const { study, dataPartner } = await insertStudyWithDistinctOrgs({ status: 'PENDING-REVIEW' })
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
 
         expect(rows.find((candidate) => candidate.studyId === study.id)).toBeUndefined()
     })
@@ -145,7 +191,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         await db.updateTable('study').set({ status: 'ARCHIVED' }).where('id', '=', study.id).execute()
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
 
         expect(rows.find((candidate) => candidate.studyId === study.id)?.signedAt).toBe('2026-03-03')
     })
@@ -156,7 +202,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', study.id).execute()
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
 
         expect(rows.find((candidate) => candidate.studyId === study.id)).toBeUndefined()
     })
@@ -171,7 +217,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         await publishAgreementAsSiAdmin({ studyId: signed.id }, '2026-02-02')
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
 
         expect(rows.map((row) => row.studyTitle).sort()).toEqual(['Has an agreement', 'Nothing signed'])
         expect(rows.find((row) => row.studyTitle === 'Has an agreement')?.signedAt).toBe('2026-02-02')
@@ -182,7 +228,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         const { dataPartner } = await insertStudyWithDistinctOrgs()
         await mockSessionWithTestData({ orgSlug: faker.string.alpha(10), orgType: 'enclave', isAdmin: true })
 
-        const result = await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug })
+        const result = await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT })
 
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
     })
@@ -191,7 +237,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         const { dataPartner } = await insertStudyWithDistinctOrgs()
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: false })
 
-        const result = await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug })
+        const result = await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT })
 
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
     })
@@ -200,7 +246,7 @@ describe('fetchOrgStudyAgreementsAction', () => {
         const { study, dataPartner } = await insertStudyWithDistinctOrgs()
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug }))
+        const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))
 
         expect(rows.find((candidate) => candidate.studyId === study.id)).toBeDefined()
     })
@@ -225,14 +271,14 @@ describe('fetchOrgParticipationAgreementAction', () => {
             orgType: 'lab',
             isAdmin: true,
         })
-        await publishAgreementAsSiAdmin({ orgId: org.id, type: 'ROPA' }, '2026-04-04')
+        const version = await publishAgreementAsSiAdmin({ orgId: org.id, type: 'ROPA' }, '2026-04-04')
         await asOrgAdmin(org.slug, 'lab')
 
         const result = actionResult(await fetchOrgParticipationAgreementAction({ orgSlug: org.slug }))
 
         expect(result.type).toBe('ROPA')
         expect(result.agreement?.signedAt).toBe('2026-04-04')
-        expect(result.agreement?.downloadUrl).toBe('https://mock-signed-url.example.com/file')
+        expect(result.agreement?.versionId).toBe(version.id)
     })
 
     it('returns the latest published version', async () => {

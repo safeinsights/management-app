@@ -39,12 +39,11 @@ export async function OutputsPendingScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title}
                     banner={<ProcessingBanner approvedAt={approvedAt} />}
                 />
                 <Group justify="space-between">
                     <PreviousStepLink previousHref={previousHref} />
-                    <ButtonLink href={dashboardHref as Route} variant="filled" size="md">
+                    <ButtonLink href={dashboardHref} variant="filled" size="md">
                         Back to my studies
                     </ButtonLink>
                 </Group>

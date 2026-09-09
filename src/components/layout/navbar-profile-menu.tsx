@@ -11,6 +11,7 @@ import { useClerk } from '@clerk/nextjs'
 import { NavLink } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
 import {
+    FileTextIcon,
     GearIcon,
     GlobeIcon,
     LockIcon,
@@ -116,6 +117,20 @@ export function NavbarProfileMenu() {
                 variant="filled"
                 className={styles.navLinkProfileHover}
                 aria-label="Security key"
+                role="menuitem"
+                component="button"
+            />
+
+            <NavLink
+                label="Legal"
+                leftSection={<FileTextIcon aria-hidden="true" />}
+                onClick={navigateTo(Routes.legal)}
+                c="white"
+                active={pathname === Routes.legal}
+                color="blue.7"
+                variant="filled"
+                className={styles.navLinkProfileHover}
+                aria-label="Legal"
                 role="menuitem"
                 component="button"
             />

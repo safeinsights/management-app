@@ -63,11 +63,12 @@ describe('StudyViewCode (/view/code)', () => {
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
-        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view`)
+        // Forward goes to plain /view, which resolves to the results screen for a results study.
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
         expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
-        expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     it('threads returnTo=org onto the forward link and dashboardHref', async () => {
@@ -78,8 +79,7 @@ describe('StudyViewCode (/view/code)', () => {
             searchParams: Promise.resolve({ returnTo: 'org' }),
         })
 
-        expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
-        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
     })
 
     // /view/code stays on this screen while the job runs, but plain /view resolves to the
@@ -93,11 +93,11 @@ describe('StudyViewCode (/view/code)', () => {
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
-        expect(page?.props.nextStepHref).toBe(`/${org.slug}/study/${study.id}/view`)
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
         expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
-        expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     // Before the enclave picks the job up, /view resolves to this same screen, so a forward link
@@ -110,10 +110,10 @@ describe('StudyViewCode (/view/code)', () => {
             searchParams: Promise.resolve({}),
         })
 
-        expect(page?.props.nextStepHref).toBeUndefined()
+        expect(page?.props.nav.forward.label).toBe('Back to my studies')
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('cta-go-to-dashboard')).toBeInTheDocument()
+        expect(screen.getByTestId('cta-back-to-my-studies')).toBeInTheDocument()
         expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
     })
 

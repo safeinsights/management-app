@@ -7,6 +7,7 @@ import {
     substituteEntryPointFile,
     orgInitialsTitle,
     displayLabName,
+    plural,
 } from './string'
 
 describe('orgInitialsTitle', () => {
@@ -159,5 +160,20 @@ describe('displayLabName', () => {
 
     it('falls back to the slug when the name strips to nothing', () => {
         expect(displayLabName('Lab', 'genius-lab')).toBe('genius-lab')
+    })
+})
+
+describe('plural', () => {
+    it('keeps the singular at exactly one', () => {
+        expect(plural(1, 'minute')).toBe('1 minute')
+    })
+
+    it('adds an s for every other count, zero included', () => {
+        expect(plural(0, 'minute')).toBe('0 minutes')
+        expect(plural(2, 'minute')).toBe('2 minutes')
+    })
+
+    it('takes an explicit plural for nouns the bare s gets wrong', () => {
+        expect(plural(2, 'Terms of Service', 'Terms of Service')).toBe('2 Terms of Service')
     })
 })

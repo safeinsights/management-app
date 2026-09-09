@@ -5,15 +5,16 @@ import type { ReactNode } from 'react'
 import { PageHeader } from '@/components/page-header'
 
 // The tabs are injected as a slot so a story cannot drift from the real page.
-export type OrgLegalViewProps = {
-    orgName: string
+export type LegalPageShellProps = {
+    title: string
+    eyebrow?: string
     tabs: ReactNode
 }
 
-export function OrgLegalView({ orgName, tabs }: OrgLegalViewProps) {
+export function LegalPageShell({ title, eyebrow, tabs }: LegalPageShellProps) {
     return (
         <Stack p="md">
-            <PageHeader eyebrow={orgName} title="Legal center" />
+            <PageHeader eyebrow={eyebrow} title={title} />
             {tabs}
         </Stack>
     )

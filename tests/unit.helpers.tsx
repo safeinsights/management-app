@@ -725,7 +725,21 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 
     const session = { user, org: { id: org.id, slug: org.slug } }
 
-    return { session, org, user, orgUser, ...mocks }
+    // Publishing needs an SI admin, which replaces the session. Callers that then act as this user
+    // again need their own session back, not a fresh member of the same org.
+    const restoreSession = () =>
+        mockClerkSession({
+            userId: user.id,
+            clerkUserId: user.clerkId,
+            email: user.email ?? undefined,
+            orgSlug: org.slug,
+            orgId: org.id,
+            roles: { isAdmin: options.isAdmin ?? false },
+            orgType: org.type,
+            isSiAdmin: options.isSiAdmin,
+        })
+
+    return { session, org, user, orgUser, restoreSession, ...mocks }
 }
 
 // A signed-in user holding no key, with a live invite to a second org. Every sign-in screen has to

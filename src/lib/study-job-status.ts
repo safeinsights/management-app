@@ -87,3 +87,46 @@ export const latestSubmittedJobHasLiveCodeDecision = (
 // A resubmission tips this back to true while study.status stays APPROVED (OTTER-552).
 export const latestCodeChangeIsSubmission = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>
     hasJobStatus(statusChanges, CODE_UNDER_REVIEW_JOB_STATUSES) && !latestSubmittedJobHasLiveCodeDecision(statusChanges)
+
+// A resubmission reuses its study job, so the job's own createdAt can predate the current round by
+// days. The latest CODE-SUBMITTED event is the only timestamp that anchors what "this round" means
+// — for the generation timeout, the "Submitted/Resubmitted on" label, and whether a stored review
+// belongs to the code on screen. Scanned for the max rather than trusting array order, so an
+// unsorted caller still gets the newest submission back.
+export function latestCodeSubmittedAt(job: {
+    createdAt: Date | string
+    // Deliberately `string`, not StudyJobStatus: callers pass rows from queries whose status union
+    // is wider than the job statuses, and only CODE-SUBMITTED is matched here.
+    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
+}): Date | string {
+    const submissions = job.statusChanges.filter((change) => change.status === 'CODE-SUBMITTED')
+    if (submissions.length === 0) return job.createdAt
+    return submissions.reduce((latest, change) =>
+        new Date(change.createdAt).getTime() > new Date(latest.createdAt).getTime() ? change : latest,
+    ).createdAt
+}
+
+// A failure row can be written by a run that started just before the submission it is racing, so it
+// is allowed to predate the round by this much. Wide enough for the write to land either side of
+// the status row, far short of a previous round.
+const FAILURE_ROW_GRACE_MS = 5_000
+
+// attachCodeToRoundJob deletes the review row on resubmit, which is what makes createdAt
+// trustworthy: the replacement is a fresh insert, never a rename carrying the old timestamp
+// forward.
+//
+// This closes the leftover-row case, not the concurrent one: generation takes no round token, so a
+// previous round's run that finishes after the resubmit still writes a createdAt inside this round
+// and passes. Closing that needs the token (OTTER-775 review).
+export function reviewForCurrentRound<T extends { createdAt: Date | string; summaryFailedAt: Date | string | null }>(
+    review: T | null,
+    submittedAt: Date | string,
+): T | null {
+    if (!review) return null
+
+    const age = new Date(review.createdAt).getTime() - new Date(submittedAt).getTime()
+    // persistFailure upserts, so a stale failure can overwrite this round's good report. Trusting
+    // failure rows at any age let that surface as a permanent error on current-round code.
+    if (review.summaryFailedAt != null) return age >= -FAILURE_ROW_GRACE_MS ? review : null
+    return age >= 0 ? review : null
+}

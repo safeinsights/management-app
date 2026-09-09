@@ -2,11 +2,13 @@
 
 import { type FC } from 'react'
 import { Alert, Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
-import { ButtonLink, LinkWithIcon } from '@/components/links'
+import { LinkWithIcon } from '@/components/links'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -24,8 +26,8 @@ interface CodePostSubmissionViewProps {
     study: SelectedStudy
     job: LatestJobForStudy
     reviewingOrgName: string
-    dashboardHref?: Route
-    returnTo?: 'org'
+    nav: StepNav
+    /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
@@ -39,7 +41,7 @@ const getCodeSubmittedDate = (job: LatestJobForStudy): string | null => {
 const SubmittedTimestamp: FC<{ label: string; date: string | null }> = ({ label, date }) => {
     if (!date) return null
     return (
-        <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
+        <Text fz={12} c="charcoal.7" ta="right" data-testid="code-submitted-timestamp">
             {label} {date}
         </Text>
     )
@@ -164,8 +166,7 @@ export function CodePostSubmissionView({
     study,
     job,
     reviewingOrgName,
-    dashboardHref,
-    returnTo,
+    nav,
     submissionVersion = 1,
     feedbackEntries = [],
     isUnderReview = true,
@@ -177,9 +178,7 @@ export function CodePostSubmissionView({
     const timestampLabel = isResubmission ? 'Resubmitted on' : 'Submitted on'
     const submittedOn = getCodeSubmittedDate(job)
 
-    const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
@@ -195,12 +194,7 @@ export function CodePostSubmissionView({
                     <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
-                    <Group justify="space-between" align="center">
-                        <Text c="charcoal.9" maw="60ch" style={{ wordBreak: 'break-word' }}>
-                            Title: {study.title}
-                        </Text>
-                        <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
-                    </Group>
+                    <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
                     <Divider my="md" />
                     <UnderReviewBanner
                         isVisible={isUnderReview}
@@ -223,14 +217,7 @@ export function CodePostSubmissionView({
 
                 <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />
 
-                <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Back
-                    </ButtonLink>
-                    <ButtonLink href={dashboard} size="md">
-                        Go to dashboard
-                    </ButtonLink>
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

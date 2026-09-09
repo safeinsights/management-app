@@ -73,6 +73,8 @@ type Abilities =
     // orgId here is the VIEWING org, not the document's scope. Separate from LegalDocument's
     // 'view' because widening that verb would expose unpublished drafts and version history.
     | Ability<'OrgLegalDocuments', 'view', { orgId?: UUID }>
+    // Unconditioned: the handler keys the rows to session.user.id, so there is no scope to authorize.
+    | Ability<'UserLegalDocuments', 'view', object>
     // Both optional: `load IDE` is granted by two OR-combined rules (OTTER-719), and every field
     // used in a condition must appear on the arm.
     | Ability<'IDE', 'load', { researcherId?: UUID; submittedByOrgId?: UUID }>

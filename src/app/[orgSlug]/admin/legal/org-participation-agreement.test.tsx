@@ -21,7 +21,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 const publishParticipationAgreement = async (orgId: string, type: 'DOPA' | 'ROPA', signedAt: string) => {
     await mockSessionWithTestData({ isSiAdmin: true })
     const { version } = actionResult(await createLegalDocumentDraftAction({ type, orgId, fileName: 'agreement.pdf' }))
-    actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
+    return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
 describe('OrgParticipationAgreement', () => {
@@ -44,16 +44,13 @@ describe('OrgParticipationAgreement', () => {
             orgType: 'enclave',
             isAdmin: true,
         })
-        await publishParticipationAgreement(org.id, 'DOPA', '2026-04-04')
+        const version = await publishParticipationAgreement(org.id, 'DOPA', '2026-04-04')
         await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave', isAdmin: true })
 
         renderWithProviders(<OrgParticipationAgreement orgSlug={org.slug} type="DOPA" />)
 
         await waitFor(() => expect(screen.getByText('Effective on: Apr 04, 2026')).toBeDefined())
-        expect(screen.getByRole('link', { name: /PDF/ })).toHaveProperty(
-            'href',
-            'https://mock-signed-url.example.com/file',
-        )
+        expect(screen.getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
     it('titles the panel with the lab agreement name for a Research Lab', async () => {
