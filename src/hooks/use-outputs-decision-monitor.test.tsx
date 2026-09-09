@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { vi } from 'vitest'
 import { notifications } from '@mantine/notifications'
 import * as RouterMock from 'next-router-mock'
@@ -5,8 +6,10 @@ import { act, beforeEach, describe, expect, it, render, waitFor, type Mock } fro
 import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { getOutputsDecisionStatusAction } from '@/server/actions/study-job.actions'
 import type { OutputsDecisionStatus } from '@/lib/outputs-review'
-import { OutputsDecisionCoordinationProvider } from '@/components/study/outputs-decision-coordination'
-import { useOutputsDecisionCoordination } from '@/components/study/outputs-decision-coordination'
+import {
+    OutputsDecisionCoordinationProvider,
+    useOutputsDecisionCoordination,
+} from '@/components/study/outputs-decision-coordination'
 import { peerDecisionMessage } from './use-outputs-decision-monitor'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,10 +43,20 @@ const decidedBy = (name: string): OutputsDecisionStatus => ({
     decidedAt: '2026-08-11T13:53:00.000Z',
 })
 
-let coordination: ReturnType<typeof useOutputsDecisionCoordination>
+type Coordination = ReturnType<typeof useOutputsDecisionCoordination>
 
+const captured: { current: Coordination | null } = { current: null }
+const coordination = () => {
+    if (!captured.current) throw new Error('coordination context was not captured')
+    return captured.current
+}
+
+// Publishing in an effect keeps render pure; the value is stable across renders anyway.
 const Probe = () => {
-    coordination = useOutputsDecisionCoordination()
+    const value = useOutputsDecisionCoordination()
+    useEffect(() => {
+        captured.current = value
+    }, [value])
     return null
 }
 
@@ -64,6 +77,7 @@ const renderMonitor = ({ enabled = true }: { enabled?: boolean } = {}) =>
 
 describe('useOutputsDecisionMonitor', () => {
     beforeEach(() => {
+        captured.current = null
         statusActionMock.mockReset()
         showMock.mockClear()
         memoryRouter.setCurrentUrl('/start')
@@ -100,8 +114,8 @@ describe('useOutputsDecisionMonitor', () => {
 
         await waitFor(() => expect(showMock).toHaveBeenCalledTimes(1))
         await act(async () => {
-            await coordination.checkStatus()
-            coordination.finalizeDecided(decidedBy('Malar Natarajan'))
+            await coordination().checkStatus()
+            coordination().finalizeDecided(decidedBy('Malar Natarajan'))
         })
 
         expect(showMock).toHaveBeenCalledTimes(1)
@@ -115,9 +129,9 @@ describe('useOutputsDecisionMonitor', () => {
         await waitFor(() => expect(statusActionMock).toHaveBeenCalled())
 
         act(() => {
-            coordination.setOwnSubmission('pending')
-            coordination.setOwnSubmission('succeeded')
-            coordination.finalizeDecided(decidedBy('Malar Natarajan'))
+            coordination().setOwnSubmission('pending')
+            coordination().setOwnSubmission('succeeded')
+            coordination().finalizeDecided(decidedBy('Malar Natarajan'))
         })
 
         expect(showMock).not.toHaveBeenCalled()
@@ -129,12 +143,12 @@ describe('useOutputsDecisionMonitor', () => {
     it('holds a decision seen while this tab is submitting, then applies it when the attempt ends', async () => {
         statusActionMock.mockResolvedValue(decidedBy('Malar Natarajan'))
         renderMonitor()
-        act(() => coordination.setOwnSubmission('pending'))
+        act(() => coordination().setOwnSubmission('pending'))
 
         await waitFor(() => expect(statusActionMock).toHaveBeenCalled())
         expect(showMock).not.toHaveBeenCalled()
 
-        act(() => coordination.setOwnSubmission('idle'))
+        act(() => coordination().setOwnSubmission('idle'))
 
         await waitFor(() => expect(showMock).toHaveBeenCalledTimes(1))
         expect(memoryRouter.asPath).toBe(`/${ORG}/study/${STUDY_ID}/review`)

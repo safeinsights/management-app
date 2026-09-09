@@ -6,6 +6,7 @@ import {
     fillLexicalField,
     insertLexicalLink,
     goto,
+    openContextWithSavedRole,
     withRole,
     type Page,
 } from './e2e.helpers'
@@ -732,6 +733,38 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'researcher', async (page) => {
         await verifyOutputsSharedDisplay(page, studyTitle)
     })
+})
+
+// OTTER-726: a decision submitted anywhere ends the review for every other tab. Both contexts are
+// the same reviewer account, which is the case that matters: the guard is the tab identity, so a
+// reviewer's second tab is a peer and has to be told.
+test('Peer tab leaves the outputs review when the decision is submitted elsewhere', async ({
+    browser,
+    studyFeatures,
+}) => {
+    const studyTitle = studyFeatures.uniqueTitle('peer-outputs')
+    const { jobId } = await seedCodeApprovedJobReady(studyTitle)
+    uploadResults(jobId!)
+
+    const deciding = await openContextWithSavedRole(browser, 'reviewer')
+    const peer = await openContextWithSavedRole(browser, 'reviewer')
+
+    try {
+        await reviewerDecryptsAvailableOutputs(deciding.page, studyTitle)
+        await reviewerDecryptsAvailableOutputs(peer.page, studyTitle)
+
+        // The peer types so its editor, and the provider the notice travels on, are live.
+        await fillLexicalField(peer.page, 'Decision feedback', 'Second reviewer still drafting.')
+
+        await reviewerSharesOutputs(deciding.page, 'Reviewed the outputs, nothing sensitive present.')
+
+        await expect(peer.page.getByText(/has proceeded to submit a decision on this output/)).toBeVisible()
+        await expect(peer.page.getByTestId('outputs-decision-section')).toBeHidden()
+        await expect(peer.page.getByTestId('outputs-files-section')).toBeHidden()
+    } finally {
+        await deciding.context.close()
+        await peer.context.close()
+    }
 })
 
 // Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
