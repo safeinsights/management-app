@@ -1,9 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, type FC } from 'react'
 import { vi } from 'vitest'
 import { notifications } from '@mantine/notifications'
 import * as RouterMock from 'next-router-mock'
+import type { HocuspocusProvider } from '@hocuspocus/provider'
 import { act, beforeEach, describe, expect, it, render, waitFor, type Mock } from '@/tests/unit.helpers'
-import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
+import {
+    OutputsReviewFeedbackProviderShare,
+    usePublishOutputsReviewFeedbackProvider,
+} from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { getOutputsDecisionStatusAction } from '@/server/actions/study-job.actions'
 import type { OutputsDecisionStatus } from '@/lib/outputs-review'
 import {
@@ -60,7 +64,41 @@ const Probe = () => {
     return null
 }
 
-const renderMonitor = ({ enabled = true }: { enabled?: boolean } = {}) =>
+type StatelessHandler = (event: { payload: unknown }) => void
+
+// Only the stateless channel of a provider is needed here, and a real HocuspocusProvider would
+// open a websocket.
+const stubProvider = () => {
+    const handlers = new Set<StatelessHandler>()
+    const provider = {
+        on: (name: string, handler: StatelessHandler) => {
+            if (name === 'stateless') handlers.add(handler)
+        },
+        off: (name: string, handler: StatelessHandler) => {
+            if (name === 'stateless') handlers.delete(handler)
+        },
+    } as unknown as HocuspocusProvider
+    return { provider, emit: (payload: unknown) => handlers.forEach((handler) => handler({ payload })) }
+}
+
+const PublishProvider: FC<{ provider: HocuspocusProvider }> = ({ provider }) => {
+    const publish = usePublishOutputsReviewFeedbackProvider()
+    useEffect(() => publish(provider), [publish, provider])
+    return null
+}
+
+const peerEvent = (overrides: Record<string, string> = {}) =>
+    JSON.stringify({
+        type: 'outputs-review-submitted',
+        studyId: STUDY_ID,
+        studyJobId: JOB_ID,
+        submittedByTabId: 'tab-other',
+        submittedByClerkId: 'user_other',
+        submittedByName: 'Name From The Payload',
+        ...overrides,
+    })
+
+const renderMonitor = ({ enabled = true, provider }: { enabled?: boolean; provider?: HocuspocusProvider } = {}) =>
     render(
         <OutputsReviewFeedbackProviderShare>
             <OutputsDecisionCoordinationProvider
@@ -71,6 +109,7 @@ const renderMonitor = ({ enabled = true }: { enabled?: boolean } = {}) =>
                 enabled={enabled}
             >
                 <Probe />
+                {provider ? <PublishProvider provider={provider} /> : null}
             </OutputsDecisionCoordinationProvider>
         </OutputsReviewFeedbackProviderShare>,
     )
@@ -168,5 +207,53 @@ describe('useOutputsDecisionMonitor', () => {
 
         expect(showMock).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    // The two triggers e2e cannot reach: it runs with SINGLE_USER_EDITING, so no provider is ever
+    // published, and headless Chromium keeps every page visible.
+    it('checks again when a peer broadcasts, and names the decider from the database', async () => {
+        statusActionMock.mockResolvedValueOnce(undecided).mockResolvedValue(decidedBy('Malar Natarajan'))
+        const { provider, emit } = stubProvider()
+        renderMonitor({ provider })
+
+        await waitFor(() => expect(statusActionMock).toHaveBeenCalledTimes(1))
+        expect(showMock).not.toHaveBeenCalled()
+
+        act(() => emit(peerEvent()))
+
+        await waitFor(() => expect(showMock).toHaveBeenCalledTimes(1))
+        expect(showMock).toHaveBeenCalledWith(
+            expect.objectContaining({ message: peerDecisionMessage('Malar Natarajan') }),
+        )
+    })
+
+    it('ignores a broadcast from its own tab, and one for another job', async () => {
+        statusActionMock.mockResolvedValueOnce(undecided).mockResolvedValue(decidedBy('Malar Natarajan'))
+        const { provider, emit } = stubProvider()
+        renderMonitor({ provider })
+
+        await waitFor(() => expect(statusActionMock).toHaveBeenCalledTimes(1))
+
+        act(() => {
+            emit(peerEvent({ submittedByTabId: TAB_ID }))
+            emit(peerEvent({ studyJobId: '019ddb2a-5f38-74ea-b401-94fd79839000' }))
+            emit('not json at all')
+        })
+
+        expect(statusActionMock).toHaveBeenCalledTimes(1)
+        expect(showMock).not.toHaveBeenCalled()
+    })
+
+    it('checks again when the tab becomes visible', async () => {
+        statusActionMock.mockResolvedValueOnce(undecided).mockResolvedValue(decidedBy('Malar Natarajan'))
+        renderMonitor()
+
+        await waitFor(() => expect(statusActionMock).toHaveBeenCalledTimes(1))
+        expect(showMock).not.toHaveBeenCalled()
+
+        act(() => document.dispatchEvent(new Event('visibilitychange')))
+
+        await waitFor(() => expect(showMock).toHaveBeenCalledTimes(1))
+        expect(memoryRouter.asPath).toBe(`/${ORG}/study/${STUDY_ID}/review`)
     })
 })

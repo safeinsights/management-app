@@ -28,6 +28,10 @@ export const OutputsReviewFeedbackProviderShare: FC<{ children: ReactNode }> = (
             },
             subscribe: (notify) => {
                 subscribers.add(notify)
+                // The editor publishes from a child effect, which React runs before this
+                // subscription is established in the parent, so a late subscriber has to be
+                // handed what it missed or it waits forever for an edge that already passed.
+                notify(current)
                 return () => {
                     subscribers.delete(notify)
                 }
