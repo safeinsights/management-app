@@ -22,7 +22,7 @@ export const ResearcherField: FC<ResearcherFieldProps> = ({ researcherName, orgN
     <Stack gap={4}>
         <Text fw={600} size="sm">
             {LABEL}{' '}
-            <Text component="span" c="red.7" aria-hidden>
+            <Text component="span" c="red.10" aria-hidden>
                 *
             </Text>
         </Text>
