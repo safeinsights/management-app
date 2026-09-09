@@ -1,14 +1,17 @@
 'use client'
 
-import { FC, ReactNode } from 'react'
+import { FC, ReactNode, useState } from 'react'
 import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
+import { OutputsDecisionCoordinationProvider } from '@/components/study/outputs-decision-coordination'
+import { OutputsDecisionFailureModal } from '@/components/study/outputs-decision-failure-modal'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
+import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
@@ -49,6 +52,9 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     allowDecisionWithoutArtifacts = false,
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+    // Distinguishes this tab from the same reviewer's other tabs, which are peers and must still be
+    // told when one of them submits.
+    const [tabSessionId] = useState(() => crypto.randomUUID())
 
     // Read from the job's own files, never from an empty fetchEncryptedJobFiles result, which
     // also returns [] with no registered key and would let decryption be skipped (OTTER-675).
@@ -65,22 +71,40 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     const canShareOutputs = requiresKey
 
     return (
-        <Box bg="grey.10">
-            <Stack px="xl" gap="xxl" py="xl">
-                {header}
-                <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
-                <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
-                <UnlockedPhase
-                    decryptedFiles={reviewableFiles}
-                    canShareOutputs={canShareOutputs}
-                    orgSlug={orgSlug}
-                    studyId={studyId}
-                    job={job}
-                    labName={labName}
-                    previousHref={previousHref}
-                />
-            </Stack>
-        </Box>
+        // Both providers sit above the locked/unlocked split, so a reviewer who has not entered
+        // their security key is redirected too and both phases share one finalization latch.
+        <OutputsReviewFeedbackProviderShare>
+            <OutputsDecisionCoordinationProvider
+                orgSlug={orgSlug}
+                studyId={studyId}
+                jobId={job.id}
+                tabSessionId={tabSessionId}
+                enabled
+            >
+                <Box bg="grey.10">
+                    <Stack px="xl" gap="xxl" py="xl">
+                        {header}
+                        <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
+                        <LockedPhase
+                            isVisible={isLocked}
+                            job={job}
+                            previousHref={previousHref}
+                            onDecrypted={onDecrypted}
+                        />
+                        <UnlockedPhase
+                            decryptedFiles={reviewableFiles}
+                            canShareOutputs={canShareOutputs}
+                            orgSlug={orgSlug}
+                            studyId={studyId}
+                            job={job}
+                            labName={labName}
+                            previousHref={previousHref}
+                            tabSessionId={tabSessionId}
+                        />
+                    </Stack>
+                </Box>
+            </OutputsDecisionCoordinationProvider>
+        </OutputsReviewFeedbackProviderShare>
     )
 }
 
@@ -115,6 +139,7 @@ type UnlockedPhaseProps = {
     job: NonNullable<LatestJobForStudy>
     labName: string
     previousHref: Route
+    tabSessionId: string
 }
 
 // Split from the panel so mounting the collaborative editor and its websocket waits until
@@ -127,6 +152,7 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     job,
     labName,
     previousHref,
+    tabSessionId,
 }) => {
     if (decryptedFiles === null) return null
     return (
@@ -138,6 +164,7 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
             job={job}
             labName={labName}
             previousHref={previousHref}
+            tabSessionId={tabSessionId}
         />
     )
 }
@@ -162,8 +189,16 @@ const ReviewBody: FC<ReviewBodyProps> = ({
     job,
     labName,
     previousHref,
+    tabSessionId,
 }) => {
-    const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, decryptedFiles })
+    const decision = useOutputsDecision({
+        orgSlug,
+        studyId,
+        jobId: job.id,
+        labName,
+        decryptedFiles,
+        tabSessionId,
+    })
 
     return (
         <>
@@ -198,6 +233,11 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 isSubmitting={decision.isSubmitting}
                 onClose={decision.closeModal}
                 onConfirm={decision.confirmSubmit}
+            />
+            <OutputsDecisionFailureModal
+                failure={decision.failure}
+                onDismiss={decision.dismissFailure}
+                onReload={decision.reloadForUpdate}
             />
         </>
     )
