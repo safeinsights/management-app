@@ -16,7 +16,6 @@ export interface UseDocumentFilesReturn {
         irbDocPath?: string | null
         agreementDocPath?: string | null
     }) => void
-    resetDocumentFiles: () => void
 }
 
 export function useDocumentFiles(): UseDocumentFilesReturn {
@@ -61,17 +60,11 @@ export function useDocumentFiles(): UseDocumentFilesReturn {
         [],
     )
 
-    const resetDocumentFiles = useCallback(() => {
-        setDocumentFilesState(initialDocumentFilesState)
-        setExistingFiles(undefined)
-    }, [])
-
     return {
         documentFiles,
         existingFiles,
         setDocumentFile,
         setExistingDocuments,
         initDocumentFilesFromPaths,
-        resetDocumentFiles,
     }
 }

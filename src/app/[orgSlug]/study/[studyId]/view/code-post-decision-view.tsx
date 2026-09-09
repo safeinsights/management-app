@@ -65,15 +65,14 @@ const DecisionBanner: FC<{ copy: BannerCopy; decidedAt: Date | string | null }> 
 )
 
 type StepCardProps = {
-    study: Submitted<SelectedStudy>
     banner: ReactNode
     expanded: boolean
     onToggle: () => void
 }
 
-function StepCard({ study, banner, expanded, onToggle }: StepCardProps) {
+function StepCard({ banner, expanded, onToggle }: StepCardProps) {
     return (
-        <ProposalStepHeader stepLabel="STEP 4" heading="Study code" studyTitle={study.title} banner={banner}>
+        <ProposalStepHeader stepLabel="STEP 4" heading="Study code" banner={banner}>
             <StudyCodeToggle isVisible={!expanded} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
     )
@@ -141,7 +140,7 @@ export function CodePostDecisionView({
             <StudyPageHeader study={study} />
 
             <Stack gap="xxl">
-                <StepCard study={study} banner={banner} expanded={expanded} onToggle={toggle} />
+                <StepCard banner={banner} expanded={expanded} onToggle={toggle} />
                 <SubmittedCodePanel
                     expanded={expanded}
                     jobId={job.id}

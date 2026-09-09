@@ -29,7 +29,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}
-                studyTitle={result.title}
                 previousHref={
                     result.status === 'APPROVED'
                         ? Routes.studySubmitted({ orgSlug, studyId })

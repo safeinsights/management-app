@@ -62,10 +62,10 @@ describe('ProposalSection', () => {
         expect(screen.getByRole('heading', { name: 'Review initial request' })).toBeInTheDocument()
     })
 
-    it('renders the study title in the header', () => {
+    it('does not render the study title in the section header', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        expect(screen.getByText(/Title: Test Study Title/)).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).not.toHaveTextContent(study.title!)
     })
 
     it('renders all proposal fields with correct labels', async () => {

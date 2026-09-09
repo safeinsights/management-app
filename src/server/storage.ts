@@ -1,9 +1,10 @@
-import { fetchS3File, signedUrlForFile, storeS3File } from './aws'
+import { deleteS3File, fetchS3File, signedUrlForFile, storeS3File } from './aws'
 import { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
 import { db, type DBExecutor } from '@/database'
 import { FileType } from '@/database/types'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 
 export async function fetchFileContents(filePath: string) {
@@ -44,8 +45,8 @@ export async function roundIsClosed(studyJobId: string, executor: DBExecutor = d
 
 // Those keys were wrapped from the ciphertext currently at this path, so replacing that object
 // leaves them unwrappable and the recipient loses an already-shared file.
-async function artifactWasShared(studyJobFileId: string): Promise<boolean> {
-    const shared = await db
+async function artifactWasShared(studyJobFileId: string, executor: DBExecutor = db): Promise<boolean> {
+    const shared = await executor
         .selectFrom('studyJobFileRecipientKey')
         .select('id')
         .where('studyJobFileId', '=', studyJobFileId)
@@ -138,4 +139,69 @@ export async function storeStudyLogFile(info: MinimalJobInfo, file: File, fileTy
 // each inner file's key separately.
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
+}
+
+const SCAN_LOG_FILE_TYPES = [
+    'SECURITY-SCAN-LOG',
+    'ENCRYPTED-SECURITY-SCAN-LOG',
+    'APPROVED-SECURITY-SCAN-LOG',
+] satisfies FileType[]
+
+// A change-requested resubmit reuses the job, so last round's scan log would otherwise still be
+// on screen as this round's verdict (OTTER-775). Row and object go together: leaving the object
+// behind would let the next delivery take storeJobFile's insert path and overwrite it without
+// consulting unreplaceableReason.
+//
+// Only the rows are deleted here. The objects cannot go in the caller's transaction: a rollback
+// would restore rows over objects that are already gone, leaving jobScanResultForJob permanently in
+// its catch branch with a download that 404s and no way to self-repair. The returned paths are the
+// caller's to sweep once it has committed (OTTER-775 review).
+export async function discardStaleScanLogRows(studyJobId: string, executor: DBExecutor = db): Promise<string[]> {
+    const stale = await executor
+        .selectFrom('studyJobFile')
+        .select(['id', 'path'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', 'in', SCAN_LOG_FILE_TYPES)
+        .execute()
+
+    if (stale.length === 0) return []
+
+    // Deleting an object whose keys are wrapped strands the recipient, exactly as replacing it
+    // would. Sharing one log holds back the whole job rather than only that row: the delivery route
+    // couples the plaintext and encrypted writes, so dropping one half leaves the next scan unable
+    // to write either and the panel pending for the round (OTTER-775 review).
+    const shared = await Promise.all(stale.map((file) => artifactWasShared(file.id, executor)))
+    if (shared.some(Boolean)) {
+        logger.warn(
+            `keeping all scan logs for job ${studyJobId}: keys for ${stale
+                .filter((_, i) => shared[i])
+                .map((file) => file.path)
+                .join(', ')} have already been wrapped for recipients`,
+        )
+        return []
+    }
+
+    await executor
+        .deleteFrom('studyJobFile')
+        .where(
+            'id',
+            'in',
+            stale.map((file) => file.id),
+        )
+        .execute()
+
+    return stale.map((file) => file.path)
+}
+
+// Best-effort companion to discardStaleScanLogRows, run after the caller commits. A failure here
+// leaves an orphaned object, which the next delivery replaces; the rows are already gone, so the
+// reviewer never sees the stale verdict either way.
+export async function deleteDiscardedScanLogObjects(paths: ReadonlyArray<string>) {
+    for (const path of paths) {
+        try {
+            await deleteS3File(path)
+        } catch (error) {
+            logger.warn(`failed to delete discarded scan log ${path}: ${errorToString(error)}`)
+        }
+    }
 }

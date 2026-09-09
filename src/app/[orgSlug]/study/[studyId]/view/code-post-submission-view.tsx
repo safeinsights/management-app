@@ -194,9 +194,6 @@ export function CodePostSubmissionView({
                     <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
-                    <Text c="charcoal.9" maw="60ch" style={{ wordBreak: 'break-word' }}>
-                        Title: {study.title}
-                    </Text>
                     <Divider my="md" />
                     <UnderReviewBanner
                         isVisible={isUnderReview}

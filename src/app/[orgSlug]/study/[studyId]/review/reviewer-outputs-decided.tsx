@@ -67,7 +67,6 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
-                    studyTitle={study.title}
                     banner={
                         <OutputsDecidedBanner
                             resultsErrored={state.resultsErrored}

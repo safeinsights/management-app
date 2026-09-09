@@ -49,13 +49,11 @@ describe('ProposalReviewView', () => {
         expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
     })
 
-    it('renders the study title in proposal section', () => {
+    it('does not repeat the study title in the proposal section', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        // Scoped to the section: counting occurrences would also pass on the new h1 alone, and
-        // OTTER-754 takes the title out of this header.
         const sectionHeader = within(screen.getByTestId('proposal-section-header'))
-        expect(sectionHeader.getByText(/Test Study Title/)).toBeInTheDocument()
+        expect(sectionHeader.queryByText(/Test Study Title/)).not.toBeInTheDocument()
     })
 
     it('renders the back button', () => {

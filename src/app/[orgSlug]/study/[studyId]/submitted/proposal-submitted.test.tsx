@@ -408,7 +408,8 @@ describe('ProposalSubmitted', () => {
             expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
             expect(screen.getByTestId('proposal-body')).toBeVisible()
             expect(screen.queryByTestId('proposal-snippet')).not.toBeInTheDocument()
-            expect(screen.getByText(`Title: ${study.title}`)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
         it('displays study proposal content as read-only with no editable fields', async () => {

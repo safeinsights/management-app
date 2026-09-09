@@ -12,7 +12,6 @@ import { EditStudyCodeFooter } from './edit-study-code-footer'
 
 interface EditStudyCodeViewProps {
     studyId: string
-    studyTitle: string
     orgName: string
     feedbackEntries: CodeReviewFeedbackEntry[]
     studyHasCodeEnv: boolean
@@ -20,7 +19,6 @@ interface EditStudyCodeViewProps {
 
 export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     studyId,
-    studyTitle,
     orgName,
     feedbackEntries,
     studyHasCodeEnv,
@@ -32,7 +30,6 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
         <Stack gap="xxl">
             <StudyCodePanel
                 ide={ide}
-                studyTitle={studyTitle}
                 stepLabel="STEP 4"
                 heading="Edit study code"
                 showLaunchIde={studyHasCodeEnv}
