@@ -5,6 +5,7 @@ import {
     researcherProposalBanner,
     reviewerCodeDecisionBanner,
     reviewerCodeNeedsReviewBanner,
+    reviewerOutputsDecisionBanner,
     reviewerProposalDecisionBanner,
     reviewerProposalNeedsReviewBanner,
 } from './study-banners'
@@ -155,5 +156,52 @@ describe('reviewerCodeDecisionBanner', () => {
         )
         expect(reviewerCodeDecisionBanner('APPROVE', params).body).not.toContain(RESEARCH_LAB)
         expect(reviewerCodeDecisionBanner('REJECT', params).body).not.toContain(RESEARCH_LAB)
+    })
+})
+
+describe('reviewerOutputsDecisionBanner', () => {
+    it.each([
+        ['Code errored. Outputs and feedback shared', true, true],
+        ['Code errored. Feedback shared', true, false],
+        ['Outputs and feedback shared', false, true],
+        ['Feedback shared', false, false],
+    ] as const)(
+        'attributes "%s" to the reviewer who submitted the decision',
+        (action, resultsErrored, resultsApproved) => {
+            expect(
+                reviewerOutputsDecisionBanner(
+                    { resultsErrored, resultsApproved },
+                    { researchLab: RESEARCH_LAB, reviewerName: REVIEWER },
+                ),
+            ).toMatchObject({
+                variant: 'informative',
+                title: `${action} by ${REVIEWER}`,
+            })
+        },
+    )
+
+    it.each([null, undefined])('drops the attribution when no reviewer is known (%s)', (reviewerName) => {
+        expect(
+            reviewerOutputsDecisionBanner(
+                { resultsErrored: false, resultsApproved: true },
+                { researchLab: RESEARCH_LAB, reviewerName },
+            ).title,
+        ).toBe('Outputs and feedback shared')
+    })
+
+    it('names the lab in every body', () => {
+        const params = { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }
+        expect(reviewerOutputsDecisionBanner({ resultsErrored: true, resultsApproved: true }, params).body).toContain(
+            RESEARCH_LAB,
+        )
+        expect(reviewerOutputsDecisionBanner({ resultsErrored: true, resultsApproved: false }, params).body).toContain(
+            RESEARCH_LAB,
+        )
+        expect(reviewerOutputsDecisionBanner({ resultsErrored: false, resultsApproved: true }, params).body).toContain(
+            RESEARCH_LAB,
+        )
+        expect(reviewerOutputsDecisionBanner({ resultsErrored: false, resultsApproved: false }, params).body).toContain(
+            RESEARCH_LAB,
+        )
     })
 })

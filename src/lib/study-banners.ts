@@ -145,6 +145,9 @@ export function reviewerCodeDecisionBanner(
     { researchLab, reviewerName }: ReviewerBannerParams,
 ): BannerCopy {
     switch (decision) {
+        // Happy path never shows this: approve queues the job, so reviewer-outputs-pending
+        // (isExecuting) outranks reviewer-code-feedback. Surfaces only if CODE-APPROVED is
+        // set but execution never started.
         case 'APPROVE':
             return {
                 variant: STATUS_ALERT_VARIANT.informative,
@@ -163,5 +166,42 @@ export function reviewerCodeDecisionBanner(
                 title: attributedTo('Code declined', reviewerName),
                 body: 'This study code was rejected and the study was ended. No further action is required at this time.',
             }
+    }
+}
+
+type ReviewerOutputsDecisionFlags = {
+    resultsErrored: boolean
+    resultsApproved: boolean
+}
+
+export function reviewerOutputsDecisionBanner(
+    { resultsErrored, resultsApproved }: ReviewerOutputsDecisionFlags,
+    { researchLab, reviewerName }: ReviewerBannerParams,
+): BannerCopy {
+    if (resultsErrored && resultsApproved) {
+        return {
+            variant: STATUS_ALERT_VARIANT.informative,
+            title: attributedTo('Code errored. Outputs and feedback shared', reviewerName),
+            body: `The study code failed to process. Outputs and feedback have been shared with ${researchLab}. We will notify you when they resubmit.`,
+        }
+    }
+    if (resultsErrored) {
+        return {
+            variant: STATUS_ALERT_VARIANT.informative,
+            title: attributedTo('Code errored. Feedback shared', reviewerName),
+            body: `The study code failed to process. Feedback has been shared with ${researchLab} without the outputs. We will notify you when they resubmit.`,
+        }
+    }
+    if (resultsApproved) {
+        return {
+            variant: STATUS_ALERT_VARIANT.informative,
+            title: attributedTo('Outputs and feedback shared', reviewerName),
+            body: `The outputs from the latest code run were reviewed and shared with ${researchLab} along with your feedback.`,
+        }
+    }
+    return {
+        variant: STATUS_ALERT_VARIANT.informative,
+        title: attributedTo('Feedback shared', reviewerName),
+        body: `Feedback has been shared with ${researchLab} without the outputs. We will notify you when they resubmit.`,
     }
 }
