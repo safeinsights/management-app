@@ -1,3 +1,4 @@
+import { unstable_isUnrecognizedActionError } from 'next/navigation'
 import { capitalize } from 'remeda'
 
 export type ClerkAPIErrorObject = {
@@ -97,6 +98,16 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
+// Next rejects an action id that is missing from the running build's manifest, which is what an
+// open tab posts after a deploy moved, renamed or removed that action. No application code can make
+// the id resolve, so the only correct response is to replace the client bundle (OTTER-726).
+export function isStaleDeploymentError(error: unknown): boolean {
+    if (unstable_isUnrecognizedActionError(error)) return true
+    return error instanceof Error && error.name === 'UnrecognizedActionError'
+}
+
+export const STALE_DEPLOYMENT_MESSAGE = 'The application was updated while this page was open. Reload the page to continue.'
+
 export class ActionFailure extends Error {
     constructor(public error: ActionError['error']) {
         super(typeof error === 'string' ? error : JSON.stringify(error))
@@ -131,6 +142,10 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
             if (customError) return clerkOverrides[customError.code]
         }
         return error.errors.map((e) => `${e.longMessage || e.message}`).join('\n')
+    }
+
+    if (isStaleDeploymentError(error)) {
+        return STALE_DEPLOYMENT_MESSAGE
     }
 
     if (error instanceof Error) {

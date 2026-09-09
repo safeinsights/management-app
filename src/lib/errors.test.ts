@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AccessDeniedError, ActionFailure, isClerkApiError, isActionError, errorToString } from './errors'
+import {
+    AccessDeniedError,
+    ActionFailure,
+    isClerkApiError,
+    isActionError,
+    errorToString,
+    isStaleDeploymentError,
+    STALE_DEPLOYMENT_MESSAGE,
+} from './errors'
 
 describe('AccessDeniedError', () => {
     it('should be an instance of Error', () => {
@@ -129,5 +137,35 @@ describe('errorToString', () => {
     it('returns undefined for objects that do not match any condition', () => {
         const nonMatching = { some: 'object' }
         expect(errorToString(nonMatching)).toBe('Unknown error occurred')
+    })
+})
+
+const staleDeploymentError = () => {
+    const err = new Error('Server Action "7f60224d" was not found on the server.')
+    err.name = 'UnrecognizedActionError'
+    return err
+}
+
+describe('isStaleDeploymentError', () => {
+    it('detects the error Next throws for an action id the build does not have', () => {
+        expect(isStaleDeploymentError(staleDeploymentError())).toBe(true)
+    })
+
+    it('does not claim an ordinary failure is a deployment change', () => {
+        expect(isStaleDeploymentError(new Error('network unreachable'))).toBe(false)
+        expect(isStaleDeploymentError(new ActionFailure('study has no outputs ready'))).toBe(false)
+        expect(isStaleDeploymentError({ errors: [{ code: 'form_password_incorrect', message: 'nope' }] })).toBe(false)
+        expect(isStaleDeploymentError(null)).toBe(false)
+        expect(isStaleDeploymentError('a string')).toBe(false)
+    })
+})
+
+describe('errorToString for a stale deployment', () => {
+    it('replaces the framework text with an instruction the reviewer can act on', () => {
+        const result = errorToString(staleDeploymentError())
+
+        expect(result).toBe(STALE_DEPLOYMENT_MESSAGE)
+        expect(result).not.toContain('Server Action')
+        expect(result).not.toContain('UnrecognizedActionError')
     })
 })
