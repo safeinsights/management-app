@@ -14,6 +14,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
+import { NO_ERROR_LOG_TEXT } from '@/lib/job-error-details'
 import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
@@ -77,6 +78,19 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent('Code errored')
+    })
+
+    // OTTER-769: with a readable log the banner is the design's single sentence, and nothing about
+    // the stage that failed, which the log itself explains.
+    it('asks for the key in one sentence when the log can be decrypted', async () => {
+        const { org, study, raw } = await setupWithArtifact()
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
+        expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
+        expect(alert).not.toHaveTextContent(NO_ERROR_LOG_TEXT)
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
     })
 
     it('hides the outputs table, decision section and submit until a key validates', async () => {

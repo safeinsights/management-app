@@ -71,7 +71,7 @@ export async function OutputsFeedbackScreen({
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <Group justify="space-between">
                     <PreviousStepLink previousHref={previousHref} />
-                    <ButtonLink href={editCodeHref} variant="outline" size="md">
+                    <ButtonLink href={editCodeHref} variant="filled" size="md">
                         Edit code
                     </ButtonLink>
                 </Group>

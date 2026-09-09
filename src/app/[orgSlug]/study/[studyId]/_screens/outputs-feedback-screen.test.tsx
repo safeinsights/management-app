@@ -399,7 +399,7 @@ describe('OutputsFeedbackScreen', () => {
     })
 
     describe('navigation', () => {
-        it('wires Previous step (subtle) to the code step page and Edit code (outline, enabled) to the resubmit page', async () => {
+        it('wires Previous step (subtle) to the code step page and Edit code (filled, enabled) to the resubmit page', async () => {
             const { org, study, raw } = await setupFeedbackOnly()
             await renderScreen(study, raw, org.slug)
 
@@ -409,7 +409,7 @@ describe('OutputsFeedbackScreen', () => {
 
             const edit = screen.getByRole('link', { name: /edit code/i })
             expect(edit).toHaveAttribute('href', Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
-            expect(edit).toHaveAttribute('data-variant', 'outline')
+            expect(edit).toHaveAttribute('data-variant', 'filled')
             expect(edit).not.toHaveAttribute('data-disabled')
         })
 
