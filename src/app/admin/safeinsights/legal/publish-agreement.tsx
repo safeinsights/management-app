@@ -19,8 +19,7 @@ type DraftScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 type PublishVariables = { scope: DraftScope; signedAt: string; file: File }
 
-// Publish runs last, so a failed draft save leaves nothing published rather than a live agreement
-// with no file behind it.
+// Publish runs last, so a failed draft save leaves nothing published rather than a fileless agreement.
 const usePublishAgreement = ({
     invalidateKeys,
     onComplete,

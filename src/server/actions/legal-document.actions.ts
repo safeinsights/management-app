@@ -127,8 +127,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        // Inside the action's transaction, so a failed store rolls the row back rather than
-        // leaving a draft that points at a file which never arrived.
+        // In the action's transaction, so a failed store rolls the row back instead of leaving a fileless draft.
         await storeS3File({ legalDocumentType: type }, file.stream(), filePath)
 
         return { legalDocument, version }
@@ -222,8 +221,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
         }
     })
 
-// Read here rather than in the browser: fetching the presigned S3 URL from the page would need a
-// GET CORS rule on every environment's bucket.
+// Read server-side: fetching the presigned S3 URL from the page needs a GET CORS rule on every bucket.
 export const fetchLegalDocumentContentAction = new Action('fetchLegalDocumentContentAction')
     .params(legalDocumentVersionParams)
     .middleware(scopeFromVersionId)

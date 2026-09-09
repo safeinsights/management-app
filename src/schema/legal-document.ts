@@ -128,8 +128,7 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
 
 export const legalDocumentScopeSchema = scopeSchema.superRefine(refineScope)
 
-// The upload rides the action itself, so it has to fit inside next.config's serverActions
-// bodySizeLimit with room left for the rest of the payload.
+// The upload rides the action, so it must fit next.config's serverActions bodySizeLimit with headroom.
 export const MAX_LEGAL_DOCUMENT_BYTES = 5 * 1024 * 1024
 export const MAX_LEGAL_DOCUMENT_SIZE_TEXT = '5MB'
 
