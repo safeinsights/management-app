@@ -57,7 +57,6 @@ function UploadModalContents({
             <ReviewPrePublishForm
                 doctype={doctype}
                 draftId={draft.id}
-                draftUrl={draft.downloadUrl}
                 onBack={() => setPage('upload')}
                 onConfirm={() => setPage('confirm')}
             />
@@ -88,7 +87,7 @@ function CurrentVersion({ version, doctype }: { version: PublishedVersion | null
                 Version {version.versionNumber}
             </Anchor>
             <AppModal title="Review version" isOpen={viewModalOpened} onClose={closeViewModal}>
-                <PreviewDocument versionId={version.id} url={version.downloadUrl} label={label} />
+                <PreviewDocument versionId={version.id} label={label} />
             </AppModal>
             <Text>Published on {formatInstant(version.publishedAt)}</Text>
         </Group>

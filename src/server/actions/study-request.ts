@@ -5,17 +5,10 @@ import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
-import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
-import { StudyDocumentType } from '@/lib/types'
+import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
-import {
-    codeBuildRepositoryUrl,
-    deleteFolderContents,
-    createSignedUploadUrl,
-    storeS3File,
-    triggerScanForStudyJob,
-} from '@/server/aws'
+import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
@@ -121,9 +114,7 @@ async function attachCodeToRoundJob(
             .executeTakeFirstOrThrow()
     }
 
-    const urlForCodeUpload = await createSignedUploadUrl(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
-
-    return { studyJobId, urlForCodeUpload, discardedScanLogPaths }
+    return { studyJobId, discardedScanLogPaths }
 }
 
 // Once per submission round, not per job: a change-requested resubmit stays on the same job,
@@ -195,18 +186,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        return {
-            studyId,
-            urlForAgreementUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-            ),
-            urlForIrbUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-            ),
-            urlForDescriptionUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-            ),
-        }
+        return { studyId }
     })
 
 // Deliberately permissive on title: this schema also serves the CHANGE-REQUESTED resubmit
@@ -221,9 +201,9 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .params(onUpdateDraftStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, submittedByOrgId }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, status, submittedByOrgId }) => {
         // The row filter below repeats CASL's lab scope so a caller holding a broader grant
-        // (`manage all`) is hard-rejected rather than handed signed upload URLs.
+        // (`manage all`) is hard-rejected rather than allowed to update the study.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
@@ -278,18 +258,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
-        return {
-            studyId,
-            urlForAgreementUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-            ),
-            urlForIrbUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-            ),
-            urlForDescriptionUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-            ),
-        }
+        return { studyId }
     })
 
 const onSubmitDraftStudyActionArgsSchema = z.object({
@@ -320,7 +289,7 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
         }
 
-        const { studyJobId, urlForCodeUpload, discardedScanLogPaths } = await attachCodeToRoundJob(
+        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
@@ -329,11 +298,7 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        return {
-            studyId,
-            studyJobId,
-            urlForCodeUpload,
-        }
+        return { studyId, studyJobId }
     })
 
 const finalizeStudySubmissionInfoSchema = z

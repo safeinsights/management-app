@@ -22,6 +22,7 @@ import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
 import { Signer } from '@aws-sdk/rds-signer'
 import PG from 'pg'
+import type { LegalDocumentType } from '@/database/types'
 import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import {
@@ -361,7 +362,7 @@ export const getAWSInfo = async () => {
 }
 
 export const storeS3File = async (
-    info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo,
+    info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo | { legalDocumentType: LegalDocumentType },
     body: ReadableStream,
     Key: string,
 ) => {
@@ -395,17 +396,6 @@ export const createSignedUploadUrl = async (path: string) => {
         Expires: 3600,
         Conditions: [['starts-with', '$key', prefixedPath]],
         Key: prefixedPath + '/${filename}', // single quotes intentional: S3 substitutes ${filename}
-    })
-}
-
-// `eq` rather than `starts-with`, so the browser cannot land the object anywhere but the recorded path.
-export const createSignedUploadUrlForKey = async (path: string) => {
-    const prefixedPath = withS3Prefix(path)
-    return await createPresignedPost(getS3BrowserClient(), {
-        Bucket: s3BucketName(),
-        Expires: 3600,
-        Conditions: [['eq', '$key', prefixedPath]],
-        Key: prefixedPath,
     })
 }
 

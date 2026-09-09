@@ -2,9 +2,13 @@
 
 import { useMutation, useState, type FC } from '@/common'
 import { reportError } from '@/components/errors'
-import { uploadFiles } from '@/hooks/upload'
-import { isActionError } from '@/lib/errors'
-import { legalDocumentTypeLabels, type GlobalLegalDocumentType } from '@/schema/legal-document'
+import { actionResult } from '@/lib/utils'
+import {
+    legalDocumentTypeLabels,
+    MAX_LEGAL_DOCUMENT_BYTES,
+    MAX_LEGAL_DOCUMENT_SIZE_TEXT,
+    type GlobalLegalDocumentType,
+} from '@/schema/legal-document'
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
@@ -52,18 +56,12 @@ export function DraftForm({
         notifications.show({
             color: 'red',
             title: 'Unsupported file',
-            message: 'Please upload a single Markdown (.md) file.',
+            message: `Please upload a single Markdown (.md) file smaller than ${MAX_LEGAL_DOCUMENT_SIZE_TEXT}.`,
         })
     }
-    // Both steps sit inside the mutation so an action error or a rejected S3 upload lands in
-    // onError rather than as an unhandled rejection.
     const saveDraft = useMutation({
-        mutationFn: async (draftFile: File) => {
-            const result = await createLegalDocumentDraftAction({ type: doctype, fileName: draftFile.name })
-            if (isActionError(result)) return result
-            await uploadFiles([[draftFile, result.upload]])
-            return result
-        },
+        mutationFn: async (draftFile: File) =>
+            actionResult(await createLegalDocumentDraftAction({ type: doctype, file: draftFile })),
         onSuccess: () => onDraftSaved(),
         onError: (error: unknown) => reportError(error, 'Could not save draft'),
     })
@@ -83,6 +81,7 @@ export function DraftForm({
                     onReject={handleReject}
                     accept={{ 'text/markdown': ['.md', '.markdown'] }}
                     maxFiles={1}
+                    maxSize={MAX_LEGAL_DOCUMENT_BYTES}
                     p="md"
                 >
                     <Group gap="xs" justify="center">
@@ -120,13 +119,11 @@ export function DraftForm({
 export function ReviewPrePublishForm({
     doctype,
     draftId,
-    draftUrl,
     onBack,
     onConfirm,
 }: {
     doctype: GlobalLegalDocumentType
     draftId: string
-    draftUrl: string
     onBack: () => void
     onConfirm: () => void
 }) {
@@ -135,7 +132,7 @@ export function ReviewPrePublishForm({
             <Title order={4} pb="sm">
                 Review your saved draft:
             </Title>
-            <PreviewDocument versionId={draftId} url={draftUrl} label={legalDocumentTypeLabels[doctype]} />
+            <PreviewDocument versionId={draftId} label={legalDocumentTypeLabels[doctype]} />
             <Group pt="md">
                 <Button variant="outline" onClick={onBack}>
                     Back
