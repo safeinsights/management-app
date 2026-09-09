@@ -70,7 +70,6 @@ const FAILURE_REASON_EXPLANATION: Record<JobFailureReason, string> = {
 export type JobErrorDetails = {
     explanation: string
     logSentence: string
-    /** What the errored banner renders. */
     bannerText: string
 }
 

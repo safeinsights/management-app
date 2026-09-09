@@ -14,6 +14,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
+import { NO_ERROR_LOG_TEXT } from '@/lib/job-error-details'
 import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
@@ -88,7 +89,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
         expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
-        expect(alert).not.toHaveTextContent('review the error log')
+        expect(alert).not.toHaveTextContent(NO_ERROR_LOG_TEXT)
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
     })
 

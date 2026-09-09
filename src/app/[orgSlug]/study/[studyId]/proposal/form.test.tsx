@@ -158,6 +158,18 @@ describe('ProposalForm field hints (OTTER-769)', () => {
         expect(screen.queryByText(/from your lab/)).not.toBeInTheDocument()
     })
 
+    // The one asterisk on this page that the theme's `required` selector cannot reach, so the only
+    // one that can drift out of step with the others.
+    it('paints the researcher asterisk with the shared design color', () => {
+        renderForm()
+
+        const asterisk = screen.getByText('Researcher').querySelector('span')
+
+        expect(asterisk).toHaveTextContent('*')
+        // Mantine maps `c` to an inline CSS variable, so the resolved color is not assertable.
+        expect(asterisk?.getAttribute('style') || '').toContain('--mantine-color-red-10')
+    })
+
     // The one hand-rolled description on the page, so the only one that can drift from the size
     // Mantine gives the rest.
     it('renders the researcher hint at the size every other description uses', () => {
