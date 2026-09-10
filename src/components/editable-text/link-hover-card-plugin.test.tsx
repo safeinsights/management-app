@@ -8,12 +8,13 @@ import {
     it,
     expect,
     vi,
+    fireEvent,
+    within,
     mockSessionWithTestData,
     insertTestStudyData,
 } from '@/tests/unit.helpers'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, $isElementNode, $isTextNode, type LexicalEditor } from 'lexical'
-import { fireEvent, within } from '@testing-library/react'
 import { LINK_CARD_LABELS, LINK_CARD_DIALOG_LABEL, INVALID_URL_MESSAGE } from '@/components/link-hover-card/copy'
 import { displayOrgName } from '@/lib/string'
 import { SingleUserEditor } from './single-user-editor'

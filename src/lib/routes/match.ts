@@ -1,7 +1,7 @@
 import type { Route } from 'next'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { safeRedirectUrl } from '@/lib/utils'
-import { StudyParams } from './definitions'
+import { Routes, StudyParams } from './definitions'
 
 /**
  * What a link preview can say about a destination inside the app. `unknown` covers a real page the
@@ -23,13 +23,13 @@ export type InternalRouteMatch =
  * value are resolved instead, and pages with no heading of their own are left out on purpose.
  */
 const APP_PAGES: Record<string, { title: string; category: string | null }> = {
-    '/dashboard': { title: 'My dashboard', category: null },
-    '/user-key': { title: 'Security key', category: 'Account' },
-    '/account/keys': { title: 'Security key', category: 'Account' },
-    '/researcher/profile': { title: 'Researcher profile', category: null },
-    '/legal': { title: 'Legal', category: null },
-    '/admin/safeinsights': { title: 'Organizations', category: 'Admin' },
-    '/admin/safeinsights/legal': { title: 'SafeInsights Legal', category: 'Admin' },
+    [Routes.dashboard]: { title: 'My dashboard', category: null },
+    [Routes.userKey]: { title: 'Security key', category: 'Account' },
+    [Routes.accountKeys]: { title: 'Security key', category: 'Account' },
+    [Routes.researcherProfile]: { title: 'Researcher profile', category: null },
+    [Routes.legal]: { title: 'Legal', category: null },
+    [Routes.adminSafeinsights]: { title: 'Organizations', category: 'Admin' },
+    [Routes.adminSafeinsightsLegal]: { title: 'SafeInsights Legal', category: 'Admin' },
 }
 
 /** Keyed by the path under the org slug. The category is the org's own name. */

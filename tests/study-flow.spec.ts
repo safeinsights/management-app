@@ -125,6 +125,14 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
         // Confirm before submitting: an unmarked link here would navigate the
         // researcher out of the app on click.
         await expect(page.locator(`a[href="${PROPOSAL_LINK_URL}"]`)).toHaveAttribute('target', '_blank')
+
+        // OTTER-776: a click on link text opens the card over the link rather than following it.
+        await page.locator(`a[href="${PROPOSAL_LINK_URL}"]`).click()
+        const linkCard = page.getByRole('dialog', { name: 'Link details' })
+        await expect(linkCard).toContainText(PROPOSAL_LINK_URL)
+        await expect(linkCard.getByRole('button', { name: 'Edit link' })).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(linkCard).toBeHidden()
     }
 
     const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
@@ -591,6 +599,16 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         const submittedLink = proposalBody.getByRole('link', { name: PROPOSAL_LINK_TEXT })
         await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
         await expect(submittedLink).toHaveAttribute('target', '_blank')
+
+        // OTTER-776: reading the submitted proposal, the click shows the card and stays on the page.
+        const submittedUrl = page.url()
+        await submittedLink.click()
+        const readOnlyCard = page.getByRole('dialog', { name: 'Link details' })
+        await expect(readOnlyCard).toContainText(PROPOSAL_LINK_URL)
+        await expect(readOnlyCard.getByRole('button', { name: 'Copy link' })).toBeVisible()
+        expect(page.url()).toBe(submittedUrl)
+        await page.keyboard.press('Escape')
+        await expect(readOnlyCard).toBeHidden()
 
         // OTTER-764 state 3 on a proposal genuinely pending review. Step 1 is a record here, so no
         // field has an input left and the CTA only steps forward. The title has been locked since
