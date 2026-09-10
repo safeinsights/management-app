@@ -124,7 +124,10 @@ const renderScreen = async (
 
 const decrypt = async () => {
     await screen.findByRole('button', { name: 'View' })
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
+    // By name: the feedback section on this screen contributes a second textbox.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Security key' }), {
+        target: { value: await readTestSupportFile('private_key.pem') },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
     await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
 }
