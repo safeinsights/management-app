@@ -94,6 +94,38 @@ export const createTestQueryClient = () => {
     return client
 }
 
+// Captured before any test installs fake timers, so teardown cannot stall on a forgotten reset.
+const realSetTimeout = globalThis.setTimeout
+const realDateNow = Date.now
+
+const busyTestQueryClients = () =>
+    [...liveTestQueryClients].filter((client) => client.isFetching() || client.isMutating()).length
+
+let pendingWorkExpected = false
+
+// Exempts the current test from the teardown barrier, for work parked on purpose that never
+// settles. Such work never reaches the database, so it cannot escape the transaction.
+export const allowPendingWorkAtTeardown = () => {
+    pendingWorkExpected = true
+}
+
+/**
+ * Blocks until no tracked client has a query or mutation in flight, returning how many are still
+ * busy if the budget runs out (kept under vitest's 10s hook timeout). `cancelQueries` is no
+ * substitute: it rejects TanStack's retryer without ever awaiting the query function.
+ */
+export const waitForTestQueryClientsIdle = async (timeoutMs = 2_000) => {
+    const optedOut = pendingWorkExpected
+    pendingWorkExpected = false
+    if (optedOut) return 0
+
+    const deadline = realDateNow() + timeoutMs
+    while (busyTestQueryClients() && realDateNow() < deadline) {
+        await new Promise((resolve) => realSetTimeout(resolve, 0))
+    }
+    return busyTestQueryClients()
+}
+
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {
     for (const client of liveTestQueryClients) {

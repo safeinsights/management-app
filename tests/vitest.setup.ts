@@ -49,11 +49,14 @@ mockState.setRunWithLocalStorage((cb) => {
 
 // Deferred side effects must land before a test continues, e.g. a deferred CODE-SCANNED insert
 // must commit before the next status change, or the time-ordered v7 ids invert.
-// Snapshot-then-clear keeps callbacks queued mid-drain for afterEach; relies on the mock pushing synchronously.
+// A draining callback can queue more, so drain until empty. Bounded, or a callback that always
+// re-queues would hang the run. Relies on the mock pushing synchronously.
 export async function flushDeferred() {
-    const toRun = mockState.pendingDeferredCallbacks.slice()
-    mockState.pendingDeferredCallbacks.length = 0
-    await Promise.allSettled(toRun)
+    for (let pass = 0; pass < 20 && mockState.pendingDeferredCallbacks.length; pass++) {
+        const toRun = mockState.pendingDeferredCallbacks.slice()
+        mockState.pendingDeferredCallbacks.length = 0
+        await Promise.allSettled(toRun)
+    }
 }
 
 // Vitest hoists vi.mock above imports, so factory-referenced values must come from vi.hoisted.
@@ -276,13 +279,9 @@ beforeEach(async () => {
     })
 })
 
-afterEach(async () => {
-    mockState.headers.clear()
-    await Promise.allSettled(mockState.pendingDeferredCallbacks)
-    mockState.pendingDeferredCallbacks.length = 0
-    await testTransaction.rollback()
-    await fs.promises.rm(tmpDir, { recursive: true })
-    delete process.env.UPLOAD_TMP_DIRECTORY
+// Runs even when the quiesce or the rollback throws, so the next test cannot inherit a stale
+// client, provider or temp directory. The filesystem call goes last, being the likeliest to fail.
+const resetTestEnvironment = async () => {
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
     // `__instances` is module-scoped, so a helper asking for "this test's provider" would otherwise
@@ -290,13 +289,48 @@ afterEach(async () => {
     const { HocuspocusProvider } = await import('@hocuspocus/provider')
     const providerCtor = HocuspocusProvider as unknown as { __instances?: unknown[] }
     if (providerCtor.__instances) providerCtor.__instances.length = 0
-    // Unmount before clearing the clients, or a surviving refetchInterval observer carries
-    // in-flight state into the next test.
-    cleanup()
+    // Already unmounted by the quiesce, so the observers are gone; this clears the data behind them.
     const { resetTestQueryClients } = await import('@/tests/unit.helpers')
     resetTestQueryClients()
+    delete process.env.UPLOAD_TMP_DIRECTORY
+    await fs.promises.rm(tmpDir, { recursive: true })
+}
+
+afterEach(async () => {
+    mockState.headers.clear()
+
+    try {
+        try {
+            // Quiesce the UI before giving up the transaction. A mounted tree or a live query
+            // client can still issue a write, and once the transaction is gone Postgres commits
+            // it for real.
+            cleanup()
+            const { waitForTestQueryClientsIdle } = await import('@/tests/unit.helpers')
+            const busy = await waitForTestQueryClientsIdle()
+            if (busy) {
+                // Failing beats warning: the test would otherwise pass while its writes escaped.
+                throw new Error(
+                    `${busy} query client(s) still in flight at teardown, so their writes can escape the ` +
+                        `test transaction. Await the work in the test, or call allowPendingWorkAtTeardown() ` +
+                        `if it is parked on purpose.`,
+                )
+            }
+            await flushDeferred()
+        } finally {
+            // The quiesce can throw; the transaction still has to go, or its rows outlive the test.
+            await testTransaction.rollback()
+        }
+    } finally {
+        await resetTestEnvironment()
+    }
 })
 
 afterAll(async () => {
+    // close() drops the pg patch and issues no ROLLBACK, so anything in flight past this point
+    // commits for real. afterEach already quiesced the clients, so only deferred work is left; the
+    // extra turn is best effort for dispatched promises, not a barrier.
+    await flushDeferred()
+    await new Promise((resolve) => setImmediate(resolve))
+
     await testTransaction.close()
 })
