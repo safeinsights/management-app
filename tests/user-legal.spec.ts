@@ -39,7 +39,10 @@ test.describe('Personal legal page', () => {
 
         await page.getByRole('tab', { name: 'Privacy Notice' }).click()
 
-        await expect(page.getByRole('heading', { name: 'Privacy Notice' })).toBeVisible()
-        await expect(page.getByText('Version 1. Seeded for end-to-end tests.')).toBeVisible()
+        // The panel title and the document's own markdown heading share the name, so pin the level:
+        // an unscoped heading locator matches both once the body has loaded and fails strict mode.
+        const panel = page.getByRole('tabpanel', { name: 'Privacy Notice' })
+        await expect(panel.getByRole('heading', { name: 'Privacy Notice', level: 1 })).toBeVisible()
+        await expect(panel.getByText('Version 1. Seeded for end-to-end tests.')).toBeVisible()
     })
 })
