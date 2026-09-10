@@ -80,7 +80,7 @@ describe('button colors', () => {
 // palette's 11th shade the way grey.10 and yellow.10 already are.
 describe('required asterisk color', () => {
     it('carries the library error value', () => {
-        expect(theme.colors?.red?.[10]).toBe('#7E241E')
+        expect(theme.colors?.red?.[11]).toBe('#7E241E')
     })
 
     // Every Mantine asterisk resolves through this one entry, Radio.Group's included, because

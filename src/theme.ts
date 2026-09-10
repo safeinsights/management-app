@@ -202,7 +202,7 @@ export const theme = createTheme({
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: red[10] } },
+            styles: { required: { color: red[11] } },
         }),
         Table: {
             styles: () => ({
