@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
+import { authFileFor, expect, goto, openTab, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
@@ -163,9 +163,8 @@ test.describe('Organization Admin', () => {
         await expect(page.getByRole('heading', { name: 'Legal center' })).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Study Agreement' })).toBeVisible()
 
-        const participationTab = page.getByRole('tab', { name: 'Data Organization Participation Agreement' })
-        await expect(participationTab).toBeVisible()
-        await participationTab.click()
+        await openTab(page, 'Data Organization Participation Agreement')
+
         await expect(page.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeVisible()
     })
 })

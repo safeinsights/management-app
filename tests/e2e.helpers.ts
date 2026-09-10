@@ -1,7 +1,14 @@
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
 import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
-import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
+import {
+    expect,
+    type Browser,
+    type BrowserContext,
+    type BrowserType,
+    type Page,
+    test as baseTest,
+} from '@playwright/test'
 import fs from 'fs'
 import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
@@ -179,6 +186,21 @@ export const authFileFor = (role: TestingRole) =>
 // storageState (the __e2e_role cookie), then wait for hydration.
 export const visitAsRole = async (page: Page, url: string) => {
     await goto(page, url)
+}
+
+// A tab is clickable in the server-rendered HTML before its island attaches a handler, so the
+// first click can be delivered and discarded, leaving the panel unmounted. Retry the interaction
+// rather than the whole test; toPass still fails if the tab genuinely cannot be opened.
+export async function openTab(page: Page, name: string) {
+    const tab = page.getByRole('tab', { name })
+    await expect(tab).toBeVisible()
+
+    // Read the attribute instead of asserting on it: toPass ignores the configured expect
+    // timeout, so a polling assertion would spend the whole budget on a single attempt.
+    await expect(async () => {
+        await tab.click()
+        expect(await tab.getAttribute('aria-selected')).toBe('true')
+    }).toPass()
 }
 
 export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
