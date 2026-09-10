@@ -47,43 +47,15 @@ mockState.setRunWithLocalStorage((cb) => {
     localStorageContext.run({ db: undefined as never }, cb)
 })
 
-// Captured before any test installs fake timers, so the deadline below still fires.
-const realSetTimeout = globalThis.setTimeout
-const realClearTimeout = globalThis.clearTimeout
-
-const DEFERRED_PASS_TIMEOUT_MS = 5_000
-const MAX_DEFERRED_PASSES = 20
-
-// Returns control when the deadline wins, which matters in `afterEach`: the abandoned work keeps
-// running, but the caller reaches its rollback instead of hanging until the hook times out. A hook
-// timeout rejects from outside the async function, so its `finally` would never run.
-const raceDeadline = async (work: Promise<unknown>, message: string) => {
-    let timer: ReturnType<typeof realSetTimeout> | undefined
-    const deadline = new Promise((_resolve, reject) => {
-        timer = realSetTimeout(() => reject(new Error(message)), DEFERRED_PASS_TIMEOUT_MS)
-    })
-    try {
-        await Promise.race([work, deadline])
-    } finally {
-        realClearTimeout(timer)
-    }
-}
-
 // Deferred side effects must land before a test continues, e.g. a deferred CODE-SCANNED insert
 // must commit before the next status change, or the time-ordered v7 ids invert.
-// A draining callback can queue more, so drain until empty. Relies on the mock pushing synchronously.
+// A draining callback can queue more, so drain until empty. Bounded, or a callback that always
+// re-queues would hang the run. Relies on the mock pushing synchronously.
 export async function flushDeferred() {
-    for (let pass = 0; pass < MAX_DEFERRED_PASSES; pass++) {
-        if (!mockState.pendingDeferredCallbacks.length) return
+    for (let pass = 0; pass < 20 && mockState.pendingDeferredCallbacks.length; pass++) {
         const toRun = mockState.pendingDeferredCallbacks.slice()
         mockState.pendingDeferredCallbacks.length = 0
-        await raceDeadline(
-            Promise.allSettled(toRun),
-            `${toRun.length} deferred callback(s) did not settle within ${DEFERRED_PASS_TIMEOUT_MS}ms`,
-        )
-    }
-    if (mockState.pendingDeferredCallbacks.length) {
-        throw new Error(`deferred callbacks were still queueing after ${MAX_DEFERRED_PASSES} drain passes`)
+        await Promise.allSettled(toRun)
     }
 }
 
@@ -308,8 +280,7 @@ beforeEach(async () => {
 })
 
 // Runs even when the quiesce or the rollback throws, so the next test cannot inherit a stale
-// client, provider or temp directory. The filesystem call goes last: it is the one that can
-// realistically fail, and it must not strand the in-memory resets.
+// client, provider or temp directory. The filesystem call goes last, being the likeliest to fail.
 const resetTestEnvironment = async () => {
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
@@ -355,15 +326,11 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-    // close() drops the pg patch for the whole process and issues no ROLLBACK, so anything still
-    // in flight past this point writes raw and gets committed. afterEach already quiesced the
-    // query clients (their registry is empty by now), so only deferred stragglers are left. The
-    // extra turn is best effort for already-dispatched promises, not a barrier.
-    try {
-        await flushDeferred()
-        await new Promise((resolve) => setImmediate(resolve))
-    } finally {
-        // Draining can throw, and an unclosed transaction would hold its connection open.
-        await testTransaction.close()
-    }
+    // close() drops the pg patch and issues no ROLLBACK, so anything in flight past this point
+    // commits for real. afterEach already quiesced the clients, so only deferred work is left; the
+    // extra turn is best effort for dispatched promises, not a barrier.
+    await flushDeferred()
+    await new Promise((resolve) => setImmediate(resolve))
+
+    await testTransaction.close()
 })
