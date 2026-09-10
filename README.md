@@ -225,12 +225,61 @@ To have Claude Code use docker unit tests, see the "Claude Code integration" sec
 
 ### E2E Testing with Playwright 🎭
 
-To run playwright tests locally, you'll need to install playwright:
+Playwright always runs on your host, so interactive debugging works. The local entrypoint also
+runs the app on the host; the Docker entrypoint runs the app with its infrastructure inside
+Compose. Either way an isolated test database is used and your dev database is never touched.
+
+One-time setup:
 
 - `pnpm install`
 - `pnpm exec playwright install`
 
-And then run playwright: `pnpm exec playwright test --ui` to view status, or run `pnpm exec playwright test --headed` to interact with browser as it runs.
+**If Postgres + SeaweedFS run in Docker: `./bin/docker-e2e`**
+
+Brings up the dedicated stack in `docker-compose.e2e.yml` (its own Postgres on port 5433 and
+SeaweedFS on 8334, distinct from dev's), migrates and seeds it inside the container, starts a
+dedicated app container on port 4101, then runs Playwright on the host. No host `psql` needed.
+
+- `./bin/docker-e2e` — full suite (headless)
+- `./bin/docker-e2e -- --ui` — Playwright UI (interactive)
+- `./bin/docker-e2e -- --headed` — watch the browser run
+- `./bin/docker-e2e -- tests/signin.spec.ts` — a subset (any Playwright args after `--`)
+
+Stack management: `--clean` (fresh DB + storage, reseed), `--down` (stop containers, keep
+volumes), `--prune` (remove everything including volumes), and `--print-environment` (show
+non-secret endpoints without starting the stack).
+
+Docker e2e loads `.env` as its base and then applies `.env.test` when present. Docker-owned
+database, S3, local AWS credentials, bucket, fake-auth, and app endpoint values are applied
+last so the seed container, host Playwright, and Docker app cannot be redirected to dev services.
+Customize the published ports with `E2E_PG_PORT`, `E2E_S3_PORT`, or `E2E_APP_PORT`. This does
+not change the regular environment started by `docker compose up`. Remote database secret,
+application secret, and Claude API selectors are removed from the Docker e2e host processes.
+The app's `.next` directory is a disposable Docker volume that masks the bind-mounted checkout,
+so Docker e2e never reads or writes the host checkout's `.next` directory.
+
+**If you run Postgres + SeaweedFS yourself: `./bin/local-e2e`**
+
+Uses your own Postgres (default `localhost:5432`) and SeaweedFS (`8333`, e.g. via
+`pnpm run s3:local`). Creates the separate `si_mgmnt_test` database if missing, migrates and
+seeds it, then runs Playwright. Playwright arguments are forwarded with or without a leading
+`--`, so `./bin/local-e2e --ui` and `./bin/local-e2e -- --ui` are equivalent. Also available as
+`pnpm run test:e2e:up`, kept for compatibility.
+
+Point the migration step at a different local database with `E2E_TEST_DB`, `PGHOST`, or
+`PGPORT`. As on `main`, Playwright and the app use `.env.test` when it exists and otherwise
+retain the normal environment-loading behavior.
+
+Requires the Postgres client tools (`pg_isready`, `createdb`, `psql`) on your PATH; if you
+don't have them, use `./bin/docker-e2e` instead.
+
+**Bare `pnpm run test:e2e`** is plain `playwright test`, used by CI. It assumes the infra is
+already up and seeded, and that `DATABASE_URL` / `S3_ENDPOINT` are in your environment: the
+specs open their own database connection to build fixtures (`tests/e2e.seed.ts`), so without
+those it fails even though the app itself would start. The Docker entrypoint provides its own
+authoritative values; local e2e retains the environment behavior from `main`. If you would
+rather use bare Playwright, put those two values in a `.env.test`, which `playwright.config.ts`
+loads outside Docker mode.
 
 If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
