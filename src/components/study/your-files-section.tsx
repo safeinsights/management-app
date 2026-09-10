@@ -5,9 +5,12 @@ import { Divider, Group, Paper, Skeleton, Stack, Title } from '@mantine/core'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { FileDropOverlay } from './file-drop-overlay'
-import { LaunchProgress } from './launch-progress'
+import { IdeLaunchFailedModal } from './ide-launch-failed-modal'
+import { IdeLaunchProgressModal } from './ide-launch-progress-modal'
 import { StudyCodeEmptyView } from './study-code-empty-view'
-import { isFilesReviewState, StudyCodeFileActions } from './study-code-files'
+import { isFilesReviewState } from './study-code-files'
+import { LaunchIdeControl } from './launch-ide-control'
+import { UploadFilesButton } from './upload-files-button'
 import { YourFilesTable } from './your-files-table'
 
 const SECTION_TITLE = 'Code files'
@@ -48,12 +51,6 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
 
     return (
         <Stack gap="md">
-            <LaunchProgress
-                isVisible={ide.isLaunching}
-                buildLog={ide.launchBuildLog}
-                agentLog={ide.launchAgentLog}
-                lastUpdatedAt={ide.launchLastUpdatedAt}
-            />
             {/* The overlay is what the header's Upload button actually opens, via openRef, as well
                 as taking drops onto the table. Row 8 moves the entry point into "Already have
                 code?", at which point this ref crosses fewer components. */}
@@ -116,16 +113,29 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
     return (
         <>
             <Paper p="xxl" data-testid="your-files-section">
-                <Group justify="space-between" wrap="nowrap" align="center">
+                <Group justify="space-between" wrap="nowrap" align="flex-start">
                     <Title order={3} fz="lg" c="charcoal.9">
                         {SECTION_TITLE}
                     </Title>
-                    <StudyCodeFileActions
-                        isVisible={isReviewState && isEditable}
-                        ide={ide}
-                        showLaunchIde={showLaunchIde}
-                        openRef={openRef}
-                    />
+                    <Group gap="sm" wrap="nowrap" align="flex-start">
+                        <UploadFilesButton
+                            isVisible={isReviewState && isEditable}
+                            openRef={openRef}
+                            disabled={ide.isUploading}
+                        />
+                        <LaunchIdeControl
+                            // The card ties display to editability alone, because its design has no
+                            // empty state — the template row is always there. Until that pre-load
+                            // lands, the empty view still owns the launch affordance, so gating on
+                            // review state is what keeps exactly one Launch IDE on screen.
+                            isVisible={isEditable && showLaunchIde && isReviewState}
+                            isClaimed={ide.isIdeClaimed}
+                            canLaunch={ide.canEditInIde}
+                            ideOwnerName={ide.ideOwnerName}
+                            isLaunching={ide.isLaunching}
+                            onLaunch={ide.launchWorkspace}
+                        />
+                    </Group>
                 </Group>
                 <Divider my={SECTION_GAP} color="charcoal.1" data-testid="your-files-divider" />
                 <FilesBody
@@ -138,6 +148,22 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
             </Paper>
 
             <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
+
+            <IdeLaunchProgressModal
+                isOpen={ide.isLaunching}
+                onAbandon={ide.abandonLaunch}
+                dataPartnerName={dataPartnerName}
+                buildLog={ide.launchBuildLog}
+                agentLog={ide.launchAgentLog}
+            />
+
+            {/* Retry re-launches rather than just dismissing: clearing the error alone would leave
+                the researcher looking at an unchanged card with no sign of what to do next. */}
+            <IdeLaunchFailedModal
+                isOpen={Boolean(ide.launchError)}
+                onClose={ide.clearLaunchError}
+                onRetry={ide.launchWorkspace}
+            />
         </>
     )
 }

@@ -75,9 +75,11 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const {
         launchWorkspace,
+        abandonLaunch,
         isLaunching: isLaunchingWorkspace,
         isCreatingWorkspace,
         error: launchError,
+        clearError: clearLaunchError,
         status: launchStatus,
         lastUpdatedAt: launchLastUpdatedAt,
         buildLog: launchBuildLog,
@@ -291,7 +293,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     return {
         launchWorkspace,
         isLaunching,
+        abandonLaunch,
         launchError,
+        clearLaunchError,
         launchStatus,
         launchLastUpdatedAt,
         launchBuildLog,
@@ -316,6 +320,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         // Unclaimed reads as editable: the card enables the IDE controls for everyone until the
         // first launch takes them. Undefined while the query is in flight, hence the `!== false`.
         canEditInIde: ideOwner?.isClaimed !== true || ideOwner.isOwnedByViewer,
+        // Distinct from canEditInIde, which is also true when nobody has claimed it: the Launch IDE
+        // button needs the two apart to pick its solid-vs-outline variant.
+        isIdeClaimed: ideOwner?.isClaimed === true,
         ideOwnerName: ideOwner?.ownerName ?? null,
         uploadFiles,
         isUploading: uploadMutation.isPending,

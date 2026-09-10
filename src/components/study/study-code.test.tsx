@@ -24,7 +24,7 @@ import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile } from '@/server/aws'
-import { createUserAndWorkspace } from '@/server/coder'
+import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
@@ -47,18 +47,21 @@ vi.mock('@/server/coder', async () => {
     return {
         ...actual,
         createUserAndWorkspace: vi.fn(),
-        getCoderWorkspaceLaunchStatus: vi.fn().mockResolvedValue({
-            buildStatus: 'running',
-            buildLogLines: [],
-            agentStatus: null,
-            agentLogLines: [],
-            ready: true,
-            failed: false,
-            reason: 'test workspace ready',
-            cursors: { build: null, agent: null },
-            url: 'https://coder.test.example/workspace',
-        }),
+        getCoderWorkspaceLaunchStatus: vi.fn(),
     }
+})
+
+const launchStatus = (overrides: Record<string, unknown> = {}) => ({
+    buildStatus: 'running',
+    buildLogLines: [],
+    agentStatus: null,
+    agentLogLines: [],
+    ready: true,
+    failed: false,
+    reason: 'test workspace ready',
+    cursors: { build: null, agent: null },
+    url: 'https://coder.test.example/workspace',
+    ...overrides,
 })
 
 const workspaceRoots: string[] = []
@@ -112,6 +115,9 @@ describe('StudyCode component', () => {
             success: true,
             workspace: { id: 'ws-test' } as Awaited<ReturnType<typeof createUserAndWorkspace>>['workspace'],
         })
+        vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+            launchStatus() as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+        )
     })
 
     afterEach(async () => {
@@ -660,6 +666,191 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('button', { name: 'Edit spare.R in IDE' })).toBeDisabled()
             // Download and delete are unaffected: the lock is on IDE editing, not the whole row.
             expect(screen.getByRole('button', { name: 'Download main.R' })).toBeEnabled()
+        })
+    })
+
+    describe('Launch IDE button (OTTER-693)', () => {
+        const FILES = { 'main.R': 'print(1)' }
+        const launchButton = () => screen.getByRole('button', { name: /launch ide/i })
+
+        /**
+         * `owner` resolves after the session exists, so 'viewer' genuinely means the signed-in
+         * researcher holds the IDE rather than a second user who merely looks like them.
+         */
+        const renderWithOwner = async (owner: 'none' | 'viewer' | 'other') => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            let ownerName: string | null = null
+            if (owner !== 'none') {
+                const ideOwner =
+                    owner === 'viewer'
+                        ? { id: user.id, fullName: user.fullName }
+                        : await db
+                              .insertInto('user')
+                              .values({ clerkId: `clerk-ide-${study.id}`, firstName: 'Ada', lastName: 'Lovelace' })
+                              .returning(['id', 'fullName'])
+                              .executeTakeFirstOrThrow()
+                ownerName = ideOwner.fullName
+                await db.updateTable('study').set({ ideOwnerId: ideOwner.id }).where('id', '=', study.id).execute()
+            }
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, FILES)
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+            return { study, user, ownerName }
+        }
+
+        it('sits in the card header, once, alongside the section title', async () => {
+            await renderWithOwner('none')
+
+            const card = screen.getByTestId('your-files-section')
+            expect(within(card).getAllByRole('button', { name: /launch ide/i })).toHaveLength(1)
+        })
+
+        it('is enabled with the locking warning while nobody has claimed it', async () => {
+            await renderWithOwner('none')
+
+            expect(launchButton()).toBeEnabled()
+            expect(screen.getByText('Launching locks the IDE to you for this study.')).toBeInTheDocument()
+        })
+
+        it('drops the locking warning once the viewer has claimed it', async () => {
+            await renderWithOwner('viewer')
+
+            await waitFor(() => {
+                expect(screen.queryByText('Launching locks the IDE to you for this study.')).not.toBeInTheDocument()
+            })
+            // Still the owner's to use, so it stays clickable.
+            expect(launchButton()).toBeEnabled()
+        })
+
+        it('disables the button when another researcher holds the IDE', async () => {
+            await renderWithOwner('other')
+
+            await waitFor(() => expect(launchButton()).toBeDisabled())
+            expect(screen.queryByText('Launching locks the IDE to you for this study.')).not.toBeInTheDocument()
+        })
+
+        it('explains on hover why the IDE is unavailable, naming the owner', async () => {
+            const { ownerName } = await renderWithOwner('other')
+            await waitFor(() => expect(launchButton()).toBeDisabled())
+
+            await userEvent.setup().hover(launchButton())
+
+            await waitFor(() => {
+                expect(screen.getByText('IDE unavailable')).toBeInTheDocument()
+            })
+            expect(screen.getByText(new RegExp(`${ownerName} is using the IDE for this study\\.`))).toBeInTheDocument()
+        })
+
+        it('explains on hover what launching does when it is available', async () => {
+            await renderWithOwner('none')
+
+            await userEvent.setup().hover(launchButton())
+
+            await waitFor(() => {
+                expect(
+                    screen.getByText(/Opens your files in the IDE where you can edit and refine/),
+                ).toBeInTheDocument()
+            })
+        })
+    })
+
+    describe('IDE launch progress modal (OTTER-693)', () => {
+        const FILES = { 'main.R': 'print(1)' }
+
+        // Keeps the launch in flight the way a real one is: the workspace provisions but is not
+        // ready yet, so no url arrives and the modal stays up. Every promise still settles, which
+        // a never-resolving one did not — it hung every test that ran after these.
+        const stillProvisioning = () =>
+            vi
+                .mocked(getCoderWorkspaceLaunchStatus)
+                .mockResolvedValue(
+                    launchStatus({ ready: false, url: undefined, reason: 'provisioning' }) as Awaited<
+                        ReturnType<typeof getCoderWorkspaceLaunchStatus>
+                    >,
+                )
+
+        const startLaunch = async () => {
+            const rendered = await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+            await userEvent.setup().click(screen.getByRole('button', { name: /launch ide/i }))
+            return rendered
+        }
+
+        it('opens on launch with the countdown, the bar and the sync copy', async () => {
+            stillProvisioning()
+            await startLaunch()
+
+            const dialog = await screen.findByRole('dialog')
+            expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
+            expect(dialog).toHaveTextContent('Launching the IDE in a new tab')
+            expect(dialog).toHaveTextContent(/Ready in \d+ minutes/)
+            expect(within(dialog).getByRole('progressbar', { name: 'Launch progress' })).toBeInTheDocument()
+            expect(dialog).toHaveTextContent(/The IDE opens in a new tab\./)
+            expect(dialog).toHaveTextContent(`to ${DATA_PARTNER} for review.`)
+        })
+
+        it('abandons the launch when dismissed, so no IDE tab opens', async () => {
+            stillProvisioning()
+            const openSpy = vi.spyOn(window, 'open')
+            await startLaunch()
+
+            const dialog = await screen.findByRole('dialog')
+            await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Close' }))
+
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            // The card's rule: a launch the researcher walked away from must not steal a tab.
+            expect(openSpy).not.toHaveBeenCalled()
+            openSpy.mockRestore()
+        })
+    })
+
+    describe('IDE launch failure modal (OTTER-693)', () => {
+        const FILES = { 'main.R': 'print(1)' }
+
+        it('replaces the launch with a failure modal, and retries on Try again', async () => {
+            vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /launch ide/i }))
+
+            // The progress modal gives way to this one, and Mantine keeps it mounted through its
+            // exit transition, so both dialogs exist for a moment. Reaching up from the failure
+            // heading picks the right one regardless of timing.
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
+            expect(dialog).toHaveTextContent(/If the issue persists, contact SafeInsights support with Ref:/)
+
+            // Try again re-attempts rather than only dismissing. Awaited because the retry goes
+            // through the launch mutation rather than firing on the click itself.
+            vi.mocked(createUserAndWorkspace).mockClear()
+            await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
+            await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+        })
+
+        it('closes without retrying when dismissed', async () => {
+            vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /launch ide/i }))
+
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+
+            await waitFor(() => expect(screen.queryByText('IDE failed to launch')).not.toBeInTheDocument())
         })
     })
 

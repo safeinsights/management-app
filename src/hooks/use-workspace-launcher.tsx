@@ -49,6 +49,7 @@ interface LaunchOptions {
 
 interface UseWorkspaceLauncherReturn {
     launchWorkspace: (options?: LaunchOptions) => void
+    abandonLaunch: () => void
     isLaunching: boolean
     isCreatingWorkspace: boolean
     error: Error | null
@@ -74,11 +75,16 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     // Latched at click time because the workspace opens asynchronously, after polling resolves.
     const sameWindowRef = useRef(false)
 
+    // OTTER-693: set when the researcher dismisses the launch before it finished. The card requires
+    // that a launch they walked away from does not then steal focus with a new tab, and the url can
+    // still arrive in the same tick the state is torn down.
+    const abandonedRef = useRef(false)
+
     // Latched to the url so a re-render or StrictMode double-invoke cannot open the tab twice.
     const handledUrlRef = useRef<string | null>(null)
     useEffect(() => {
         const url = buildStatus.url
-        if (!url || handledUrlRef.current === url) return
+        if (!url || handledUrlRef.current === url || abandonedRef.current) return
 
         handledUrlRef.current = url
         const { blocked } = openWorkspace(url, studyId, sameWindowRef.current)
@@ -113,11 +119,22 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     const launchWorkspace = useCallback(
         (options?: LaunchOptions) => {
             sameWindowRef.current = options?.sameWindow ?? false
+            abandonedRef.current = false
             clearError()
             ensure.mutate({ studyId })
         },
         [clearError, ensure, studyId],
     )
+
+    /**
+     * Gives up on a launch in flight: stops the polling and, via abandonedRef, suppresses the tab
+     * even if the workspace finishes provisioning anyway. Navigating away needs no equivalent —
+     * unmounting stops the renders that would open it.
+     */
+    const abandonLaunch = useCallback(() => {
+        abandonedRef.current = true
+        clearError()
+    }, [clearError])
 
     const statusFailure = buildStatus.failed ? new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE) : null
     const waitingForWorkspace = ensure.isSuccess && !buildStatus.url && !buildStatus.failed && !buildStatus.error
@@ -125,6 +142,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
 
     return {
         launchWorkspace,
+        abandonLaunch,
         isLaunching,
         isCreatingWorkspace: ensure.isPending,
         error: toLaunchError(ensure.error || buildStatus.error || statusFailure || null),

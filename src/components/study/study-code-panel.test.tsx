@@ -10,8 +10,10 @@ const sampleFiles = [
 function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
     return {
         launchWorkspace: vi.fn(),
+        abandonLaunch: vi.fn(),
         isLaunching: false,
         launchError: null,
+        clearLaunchError: vi.fn(),
         launchStatus: undefined,
         launchLastUpdatedAt: null,
         launchBuildLog: '',
@@ -28,6 +30,7 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
         viewFile: vi.fn(),
         downloadFile: vi.fn(),
         canEditInIde: true,
+        isIdeClaimed: false,
         ideOwnerName: null,
         templateFileNames: [],
         editFileInIde: vi.fn(),
