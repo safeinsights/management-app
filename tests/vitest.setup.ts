@@ -319,6 +319,10 @@ afterEach(async () => {
         } finally {
             // The quiesce can throw; the transaction still has to go, or its rows outlive the test.
             await testTransaction.rollback()
+            // Between here and the next test's start() there is no transaction to nest into, so a
+            // straggling write autocommits and a straggling db.transaction() commits for real.
+            // Re-arming makes both a savepoint inside a transaction the next rollback discards.
+            testTransaction.start()
         }
     } finally {
         await resetTestEnvironment()
