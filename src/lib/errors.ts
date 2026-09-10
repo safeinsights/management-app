@@ -97,6 +97,16 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
+// The id an open tab posts after a deploy moved or removed that action, which only a new client
+// bundle can fix (OTTER-726). Matched by name because Next's unstable_isUnrecognizedActionError is
+// client-only and this module is imported into the server graph.
+export function isStaleDeploymentError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'UnrecognizedActionError'
+}
+
+export const STALE_DEPLOYMENT_MESSAGE =
+    'The application was updated while this page was open. Reload the page to continue.'
+
 export class ActionFailure extends Error {
     constructor(public error: ActionError['error']) {
         super(typeof error === 'string' ? error : JSON.stringify(error))
@@ -131,6 +141,10 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
             if (customError) return clerkOverrides[customError.code]
         }
         return error.errors.map((e) => `${e.longMessage || e.message}`).join('\n')
+    }
+
+    if (isStaleDeploymentError(error)) {
+        return STALE_DEPLOYMENT_MESSAGE
     }
 
     if (error instanceof Error) {

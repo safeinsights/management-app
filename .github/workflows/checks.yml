@@ -319,7 +319,10 @@ jobs:
             - name: provision db
               run: pnpm run db:migrate
             - name: build and run server
-              run: pnpm run ci:server -- server_output.log
+              # No `--` before the argument: pnpm forwards it, so the script would take "--" as
+              # the log path and write the build output to a file of that name, leaving the
+              # "Display server log" step below with nothing to show for a failed build.
+              run: pnpm run ci:server server_output.log
             # Playwright deps run synchronously here. Backgrounding them to overlap the build
             # was tried and reverted: `playwright install-deps` shells out to sudo/apt, which
             # hangs intermittently when detached from the step (~1 in 3 runs), violating the

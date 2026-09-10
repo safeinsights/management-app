@@ -11,6 +11,8 @@ import {
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
+import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import type { OutputsDecisionStatus } from '@/lib/outputs-review'
 import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { FileType } from '@/database/types'
 import {
@@ -248,6 +250,15 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         } else {
             onStudyResultsRejected({ studyId, userId })
         }
+
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        // The peer notification names the reviewer, and only the server can be trusted for it.
+        return { submitterFullName: submitter.fullName }
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
@@ -288,6 +299,57 @@ export const getJobAnalysisAction = new Action('getJobAnalysisAction')
         async ({ studyJob, params: { scanSettled } }) =>
             await jobAnalysisUpdateForJob(studyJob, { scanSettled: scanSettled ?? false }),
     )
+
+// Finality comes from the job status row, because approveStudyJobFilesAction and
+// rejectStudyJobFilesAction close a round without writing a decision comment. The comment supplies
+// attribution when it exists (OTTER-726).
+export const getOutputsDecisionStatusAction = new Action('getOutputsDecisionStatusAction')
+    .params(z.object({ studyJobId: z.string().uuid() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId }, db }): Promise<OutputsDecisionStatus> => {
+        const statusRow = await db
+            .selectFrom('jobStatusChange')
+            .leftJoin('user', 'user.id', 'jobStatusChange.userId')
+            .select([
+                'jobStatusChange.status',
+                'jobStatusChange.userId',
+                'jobStatusChange.createdAt',
+                'user.fullName as actorName',
+            ])
+            .where('jobStatusChange.studyJobId', '=', studyJobId)
+            .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES)
+            .orderBy('jobStatusChange.createdAt', 'desc')
+            .orderBy('jobStatusChange.id', 'desc')
+            .executeTakeFirst()
+
+        if (!statusRow) {
+            return { decided: false, decision: null, decidedById: null, decidedByName: null, decidedAt: null }
+        }
+
+        const decisionComment = await db
+            .selectFrom('studyReviewComment')
+            .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+            .select(['studyReviewComment.authorId', 'studyReviewComment.createdAt', 'author.fullName as authorName'])
+            .where('studyReviewComment.studyJobId', '=', studyJobId)
+            .where('studyReviewComment.reviewKind', '=', 'RESULTS')
+            .where('studyReviewComment.entryType', '=', 'DECISION')
+            .orderBy('studyReviewComment.createdAt', 'desc')
+            .executeTakeFirst()
+
+        const decidedAt = decisionComment?.createdAt ?? statusRow.createdAt
+
+        return {
+            decided: true,
+            decision: statusRow.status === 'FILES-APPROVED' ? 'share-outputs' : 'share-feedback-only',
+            decidedById: decisionComment?.authorId ?? statusRow.userId,
+            decidedByName: decisionComment?.authorName ?? statusRow.actorName,
+            decidedAt: decidedAt ? new Date(decidedAt).toISOString() : null,
+        }
+    })
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))

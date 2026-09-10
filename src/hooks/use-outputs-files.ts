@@ -31,10 +31,15 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
     const [viewing, setViewing] = useState<OutputFileRowData | null>(null)
     const [isPreparingZip, setIsPreparingZip] = useState(false)
 
-    const { data: activity, isSuccess: isActivityLoaded } = useQuery({
+    const { data: activity } = useQuery({
         queryKey: activityQueryKey(jobId),
         queryFn: () => fetchJobFileActivityAction({ jobId }),
     })
+
+    // Presence of data, not isSuccess: a failed background refetch (the global 15-minute
+    // refetchInterval) flips the query status to 'error' while TanStack keeps the last good data,
+    // and reading isSuccess there blanked every row's activity (OTTER-726).
+    const isActivityLoaded = activity !== undefined
 
     const { mutate: recordActivity } = useMutation({
         mutationFn: async (variables: { files: OutputFileRowData[]; action: StudyJobFileAction }) =>

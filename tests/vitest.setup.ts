@@ -70,6 +70,12 @@ vi.mock('next/navigation', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mockRouter = require('next-router-mock')
     const useRouter = mockRouter.useRouter
+    // next-router-mock models the pages router, so it has no app-router refresh(). Production code
+    // pairs push() with refresh() whenever the destination resolves the same URL, and without this
+    // those paths throw inside the component under test.
+    if (typeof mockRouter.memoryRouter.refresh !== 'function') {
+        mockRouter.memoryRouter.refresh = vi.fn()
+    }
 
     return {
         ...mockRouter,

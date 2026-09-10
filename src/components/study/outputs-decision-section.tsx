@@ -8,6 +8,7 @@ import { RequiredIndicator } from '@/components/required-indicator'
 import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { usePublishOutputsReviewFeedbackProvider } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 
@@ -167,6 +168,9 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     canShareOutputs = true,
 }) => {
     const websocketProvider = useYjsWebsocket()
+    // Shared with the decision hook and the monitor: the winner broadcasts on it, and peers use it
+    // to notice a decision without waiting for the next poll.
+    const publishProvider = usePublishOutputsReviewFeedbackProvider()
 
     return (
         <Paper p="xxl" data-testid="outputs-decision-section">
@@ -184,6 +188,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     inputId={FEEDBACK_INPUT_ID}
                     studyId={studyId}
                     websocketProvider={websocketProvider}
+                    onProviderReady={publishProvider}
                     contentStyle={contentStyle}
                     onChange={onFeedbackChange}
                     error={feedbackError}

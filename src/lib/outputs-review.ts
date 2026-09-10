@@ -36,6 +36,16 @@ export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
 export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, ROUND_CLOSING_JOB_STATUSES)
 
+// Read by the outputs decision monitor. `decidedById` is whoever closed the round, taken from the
+// decision comment when one exists and from the job status row otherwise.
+export type OutputsDecisionStatus = {
+    decided: boolean
+    decision: OutputsDecision | null
+    decidedById: string | null
+    decidedByName: string | null
+    decidedAt: string | null
+}
+
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
 
 export const OUTPUTS_DECISION_ERRORS = {

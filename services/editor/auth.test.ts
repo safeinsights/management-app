@@ -4,6 +4,7 @@ import {
     assertStatelessEventConsistent,
     authenticate,
     AuthFailureError,
+    hasFilesDecision,
     isDocumentEditable,
     isStatelessEventValidForDocument,
     parseDocumentName,
@@ -17,6 +18,8 @@ import {
 
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
 const JOB_ID = '019ddb2a-5f38-74ea-b401-94fd798390ff'
+const OTHER_JOB_ID = '019ddb2a-5f38-74ea-b401-94fd798390aa'
+const OTHER_STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd798390bb'
 
 describe('parseDocumentName', () => {
     it.each([1, 2, 17, 123])('parses versioned review-feedback documents (v%i)', (version) => {
@@ -178,6 +181,25 @@ describe('parseStatelessEvent', () => {
     it('rejects empty submittedByClerkId', () => {
         expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, submittedByClerkId: '' }))).toBeNull()
     })
+
+    const outputsEvent = { ...baseEvent, type: 'outputs-review-submitted', studyJobId: JOB_ID }
+
+    it('accepts a well-formed outputs-review-submitted event', () => {
+        expect(parseStatelessEvent(JSON.stringify(outputsEvent))).toEqual(outputsEvent)
+    })
+
+    it('rejects an outputs-review-submitted event with no studyJobId', () => {
+        const { studyJobId: _omitted, ...withoutJob } = outputsEvent
+        expect(parseStatelessEvent(JSON.stringify(withoutJob))).toBeNull()
+    })
+
+    it('rejects an outputs-review-submitted event whose studyJobId is not a uuid', () => {
+        expect(parseStatelessEvent(JSON.stringify({ ...outputsEvent, studyJobId: 'nope' }))).toBeNull()
+    })
+
+    it('drops studyJobId from the other event types', () => {
+        expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, studyJobId: JOB_ID }))).toEqual(baseEvent)
+    })
 })
 
 describe('isStatelessEventValidForDocument', () => {
@@ -233,6 +255,28 @@ describe('isStatelessEventValidForDocument', () => {
                 { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
             ),
         ).toBe(false)
+    })
+
+    const outputsEvent = { ...event, type: 'outputs-review-submitted' as const, studyJobId: JOB_ID }
+
+    it('accepts outputs-review-submitted on its own outputs-review-feedback document', () => {
+        expect(isStatelessEventValidForDocument(outputsEvent, { kind: 'outputs-review-feedback', jobId: JOB_ID })).toBe(
+            true,
+        )
+    })
+
+    it("rejects outputs-review-submitted on another job's outputs-review-feedback document", () => {
+        expect(
+            isStatelessEventValidForDocument(outputsEvent, { kind: 'outputs-review-feedback', jobId: OTHER_JOB_ID }),
+        ).toBe(false)
+    })
+
+    it.each([
+        ['proposal-fields', { kind: 'proposal-fields' as const, studyId: STUDY_ID }],
+        ['review-feedback', { kind: 'review-feedback' as const, studyId: STUDY_ID, version: 1 }],
+        ['code-review-feedback', { kind: 'code-review-feedback' as const, jobId: JOB_ID }],
+    ])('rejects outputs-review-submitted on a %s document', (_label, parsed) => {
+        expect(isStatelessEventValidForDocument(outputsEvent, parsed)).toBe(false)
     })
 })
 
@@ -721,6 +765,64 @@ describe('assertStatelessEventConsistent', () => {
         ).toBe(false)
     })
 
+    describe('outputs-review-submitted', () => {
+        const outputsEvent: StatelessSubmissionEvent = {
+            ...baseEvent,
+            type: 'outputs-review-submitted',
+            studyJobId: JOB_ID,
+        }
+        const outputsArgs = {
+            event: outputsEvent,
+            parsed: { kind: 'outputs-review-feedback' as const, jobId: JOB_ID },
+            documentStudyId: STUDY_ID,
+            connectionUserClerkId: 'user_alice',
+            studyStatus: 'APPROVED' as const,
+        }
+
+        it('accepts once the job carries a terminal files decision', () => {
+            expect(assertStatelessEventConsistent({ ...outputsArgs, jobDecided: true })).toBe(true)
+        })
+
+        // The peer kick-out must never precede the decision it announces.
+        it('rejects while the job has no files decision', () => {
+            expect(assertStatelessEventConsistent({ ...outputsArgs, jobDecided: false })).toBe(false)
+        })
+
+        it('rejects when the decided state could not be resolved', () => {
+            expect(assertStatelessEventConsistent({ ...outputsArgs, jobDecided: null })).toBe(false)
+        })
+
+        it('fails closed when jobDecided is omitted', () => {
+            expect(assertStatelessEventConsistent(outputsArgs)).toBe(false)
+        })
+
+        it('rejects a mismatched study id even when decided', () => {
+            expect(
+                assertStatelessEventConsistent({ ...outputsArgs, documentStudyId: OTHER_STUDY_ID, jobDecided: true }),
+            ).toBe(false)
+        })
+
+        it('rejects a sender that is not the connection user', () => {
+            expect(
+                assertStatelessEventConsistent({
+                    ...outputsArgs,
+                    connectionUserClerkId: 'user_mallory',
+                    jobDecided: true,
+                }),
+            ).toBe(false)
+        })
+
+        it("rejects the event on another job's document even when decided", () => {
+            expect(
+                assertStatelessEventConsistent({
+                    ...outputsArgs,
+                    parsed: { kind: 'outputs-review-feedback', jobId: OTHER_JOB_ID },
+                    jobDecided: true,
+                }),
+            ).toBe(false)
+        })
+    })
+
     it('accepts code-review-submitted when sender clerkId matches and studyId matches the document', () => {
         const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
         expect(
@@ -833,5 +935,25 @@ describe('shouldPersistDocument', () => {
         await expect(
             shouldPersistDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, fakeDb([{ status: 'x' }])),
         ).resolves.toBe(false)
+    })
+})
+
+describe('hasFilesDecision', () => {
+    const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
+        query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
+    })
+
+    it('is false for a job with no terminal files status', async () => {
+        await expect(hasFilesDecision(JOB_ID, fakeDb([]))).resolves.toBe(false)
+    })
+
+    it('is true once a terminal files status exists', async () => {
+        await expect(hasFilesDecision(JOB_ID, fakeDb([{ status: 'FILES-APPROVED' }]))).resolves.toBe(true)
+    })
+
+    it('queries by the job id it was given', async () => {
+        const query = vi.fn(async () => ({ rows: [], rowCount: 0 }))
+        await hasFilesDecision(JOB_ID, { query } as unknown as DbQuery)
+        expect(query).toHaveBeenCalledWith(expect.stringContaining('job_status_change'), [JOB_ID])
     })
 })

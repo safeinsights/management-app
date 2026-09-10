@@ -31,10 +31,19 @@ export type SubmissionEvent =
           submittedByClerkId: string
           submittedByName: string
       }
+    | {
+          type: 'outputs-review-submitted'
+          studyId: string
+          /** Scopes the event to one output round, so a later job in a new Yjs room cannot notify. */
+          studyJobId: string
+          submittedByTabId: string
+          submittedByClerkId: string
+          submittedByName: string
+      }
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 
-const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
+export const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     if (typeof raw !== 'object' || raw === null) return null
     const obj = raw as Record<string, unknown>
     if (
@@ -73,10 +82,20 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
             submittedByName: obj.submittedByName,
         }
     }
+    if (obj.type === 'outputs-review-submitted' && isString(obj.studyJobId)) {
+        return {
+            type: 'outputs-review-submitted',
+            studyId: obj.studyId,
+            studyJobId: obj.studyJobId,
+            submittedByTabId: obj.submittedByTabId,
+            submittedByClerkId: obj.submittedByClerkId,
+            submittedByName: obj.submittedByName,
+        }
+    }
     return null
 }
 
-const tryDecodeStateless = (payload: unknown): SubmissionEvent | null => {
+export const tryDecodeStateless = (payload: unknown): SubmissionEvent | null => {
     let raw: unknown = payload
     if (typeof raw === 'string') {
         try {
@@ -107,6 +126,10 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
         const handle = (event: SubmissionEvent) => {
             if (hasFiredRef.current) return
             if (event.studyId !== studyId) return
+            // The outputs monitor owns this event: it confirms finality against the database before
+            // redirecting, and covers tabs with no editor mounted. Returning before the latch below
+            // keeps this listener's one-shot guard intact for the events it does handle.
+            if (event.type === 'outputs-review-submitted') return
             // The broadcaster's own tab already navigated from its mutation onSuccess. Compared on
             // tab id, not user, so the same user's other tabs still get kicked out.
             if (event.submittedByTabId === currentTabId) {

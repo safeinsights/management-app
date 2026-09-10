@@ -2,6 +2,7 @@ import { Server } from '@hocuspocus/server'
 import { Database } from '@hocuspocus/extension-database'
 import { verifyToken } from '@clerk/backend'
 import type { IncomingMessage, ServerResponse } from 'http'
+import * as Y from 'yjs'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 import {
     type AuthenticatedContext,
@@ -10,6 +11,7 @@ import {
     InfraUnavailableError,
     assertStatelessEventConsistent,
     authenticate,
+    hasFilesDecision,
     parseDocumentName,
     parseStatelessEvent,
     shouldPersistDocument,
@@ -114,6 +116,21 @@ const server = new Server({
                     [documentName, Buffer.from(state), studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
+
+                // Describes the snapshot that was written, not the live document, which may have
+                // moved on during the awaits above. A decided job returns before this (OTTER-726).
+                const persisted = new Y.Doc()
+                Y.applyUpdate(persisted, new Uint8Array(state))
+                const stateVector = Buffer.from(Y.encodeStateVector(persisted)).toString('base64')
+                persisted.destroy()
+                document.broadcastStateless(
+                    JSON.stringify({
+                        type: 'document-stored',
+                        documentName,
+                        stateVector,
+                        storedAt: new Date().toISOString(),
+                    }),
+                )
 
                 // Best-effort: Yjs is already persisted above; a mirror failure must not
                 // fail the store hook or roll back the canonical document write.
@@ -231,10 +248,14 @@ const server = new Server({
         if (!connectionUserClerkId || !documentStudyId) return
 
         // Code-review docs do not gate on DB status here; the action layer is
-        // the single enforcer. Proposal/review-feedback events still need the
-        // study-status sanity check.
+        // the single enforcer. Outputs-review docs gate on their own job status
+        // instead, because the study stays APPROVED for the whole outputs round.
+        // Proposal/review-feedback events still need the study-status sanity check.
         let studyStatus: StudyStatus | null = null
-        if (parsedDoc.kind !== 'code-review-feedback') {
+        let jobDecided: boolean | null = null
+        if (parsedDoc.kind === 'outputs-review-feedback') {
+            jobDecided = await hasFilesDecision(parsedDoc.jobId, pool)
+        } else if (parsedDoc.kind !== 'code-review-feedback') {
             const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
                 documentStudyId,
             ])
@@ -249,6 +270,7 @@ const server = new Server({
                 documentStudyId,
                 connectionUserClerkId,
                 studyStatus,
+                jobDecided,
             })
         ) {
             return
