@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as 
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { mergeRegister } from '@lexical/utils'
 import {
+    $setSelection,
     COMMAND_PRIORITY_CRITICAL,
     COMMAND_PRIORITY_LOW,
     isDOMNode,
@@ -20,6 +21,7 @@ import {
     AnchoredLinkCard,
     useClickWithoutDrag,
     useExclusiveLinkCard,
+    useFocusOnOpen,
     useLinkCardTriggerAria,
 } from './link-card-popover'
 import {
@@ -49,10 +51,14 @@ function useEditorLinkCard(editor: LexicalEditor) {
     const open = useCallback(
         (found: LinkCardTarget) => {
             claim()
+            // The card takes focus, so the field holds no caret while it is open. Clearing the
+            // selection is also what keeps it: Lexical re-applies its stored selection on the next
+            // selectionchange, which pulls focus straight back out of the card.
+            editor.update(() => $setSelection(null))
             setLink(found)
             setView('card')
         },
-        [claim],
+        [claim, editor],
     )
 
     const closeAndReturnFocus = useCallback(() => {
@@ -252,9 +258,7 @@ function LinkCardBody({
     const firstActionRef = useRef<HTMLButtonElement>(null)
 
     // OTTER-776 asks for focus to land in the card as it opens, from click as well as keyboard.
-    useEffect(() => {
-        firstActionRef.current?.focus()
-    }, [])
+    useFocusOnOpen(firstActionRef)
 
     const preview = useLinkPreview(link.url)
 
@@ -282,9 +286,7 @@ function LinkEditBody({
 }) {
     const textInputRef = useRef<HTMLInputElement>(null)
 
-    useEffect(() => {
-        textInputRef.current?.focus()
-    }, [])
+    useFocusOnOpen(textInputRef)
 
     return (
         <LinkEditForm

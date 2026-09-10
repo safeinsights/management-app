@@ -1,3 +1,9 @@
+/* Doubled selector because Mantine's subtle variant clamps its icon color to shade 6, so the
+   `color` prop cannot reach the darker glyph the design asks for. */
+.action.action {
+    color: var(--mantine-color-charcoal-7);
+}
+
 .action:hover,
 .action:active {
     background-color: rgba(218, 222, 225, 0.5);

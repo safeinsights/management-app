@@ -64,6 +64,22 @@ function useLinkAnchorPosition(
     }, [editor, nodeKey, hostRef, anchorRef])
 }
 
+/**
+ * Moves focus into the card as it opens, in two passes. Lexical re-applies the DOM selection right
+ * after the click that opened the card, which pulls focus back to the field, so a single pass on
+ * mount does not hold. That happens once per click, and the second pass lands after it.
+ */
+export function useFocusOnOpen(target: RefObject<HTMLElement | null>) {
+    useEffect(() => {
+        const focusTarget = () => target.current?.focus()
+
+        focusTarget()
+        const frame = requestAnimationFrame(focusTarget)
+
+        return () => cancelAnimationFrame(frame)
+    }, [target])
+}
+
 const DRAG_SLOP_PX = 3
 
 /**

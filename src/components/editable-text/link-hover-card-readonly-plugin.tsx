@@ -9,6 +9,7 @@ import {
     AnchoredLinkCard,
     useClickWithoutDrag,
     useExclusiveLinkCard,
+    useFocusOnOpen,
     useLinkCardTriggerAria,
 } from './link-card-popover'
 import { $linkAtDomNode, type LinkCardTarget } from './link-card-node'
@@ -153,9 +154,7 @@ function ReadOnlyCardContent({ link }: { link: LinkCardTarget | null }) {
 function ReadOnlyCardBody({ link }: { link: LinkCardTarget }) {
     const firstActionRef = useRef<HTMLButtonElement>(null)
 
-    useEffect(() => {
-        firstActionRef.current?.focus()
-    }, [])
+    useFocusOnOpen(firstActionRef)
 
     const preview = useLinkPreview(link.url)
     const openInNewTab = () => window.open(link.url, '_blank', 'noopener,noreferrer')

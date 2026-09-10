@@ -14,7 +14,7 @@ import {
     insertTestStudyData,
 } from '@/tests/unit.helpers'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { $getRoot, $isElementNode, $isTextNode, type LexicalEditor } from 'lexical'
+import { $getRoot, $getSelection, $isElementNode, $isTextNode, type LexicalEditor } from 'lexical'
 import { LINK_CARD_LABELS, LINK_CARD_DIALOG_LABEL, INVALID_URL_MESSAGE } from '@/components/link-hover-card/copy'
 import { displayOrgName } from '@/lib/string'
 import { SingleUserEditor } from './single-user-editor'
@@ -131,6 +131,17 @@ describe('LinkHoverCardPlugin', () => {
         fireEvent.click(anchor, { clientX: 21, clientY: 20 })
 
         expect(await findCard()).toHaveTextContent(URL)
+    })
+
+    // The field holds no caret while the card is open. Lexical would otherwise re-apply the stored
+    // selection on the next selectionchange and pull focus back out of the card.
+    it('clears the field selection as the card takes focus', async () => {
+        const { anchor, editor } = await renderLinkedEditor('card-selection')
+
+        openCard(anchor)
+        await findCard()
+
+        expect(editor.read(() => $getSelection())).toBeNull()
     })
 
     it('marks the link as the open card trigger', async () => {
