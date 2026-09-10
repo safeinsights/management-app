@@ -14,14 +14,14 @@ import { LINK_CARD_LABELS, LINK_COPIED_ANNOUNCEMENT, UNAVAILABLE_LINK_BODY, UNAV
 import { formatCategoryLine, type LinkPreview } from './link-preview'
 import classes from './link-hover-card.module.css'
 
-export const COPIED_RESET_MS = 3000
+const COPIED_RESET_MS = 3000
 
 const ICON_SIZE = 16
 const TOOLTIP_EVENTS = { hover: true, focus: true, touch: false }
 
-export type LinkCardMode = 'edit' | 'readOnly'
+type LinkCardMode = 'edit' | 'readOnly'
 
-export interface LinkCardActionVisibility {
+interface LinkCardActionVisibility {
     openInNewTab: boolean
     edit: boolean
     remove: boolean
@@ -31,7 +31,7 @@ export interface LinkCardActionVisibility {
  * Read-only offers "open in a new tab" only for links not already stored to open there. The broken
  * state has no reachable destination, so it offers the repair actions alone.
  */
-export function linkCardActionVisibility(
+function linkCardActionVisibility(
     mode: LinkCardMode,
     preview: LinkPreview,
     opensInNewTab: boolean,

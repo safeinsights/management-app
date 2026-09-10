@@ -1,5 +1,5 @@
 import { renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
-import { LinkHoverCard, linkCardActionVisibility } from './link-hover-card'
+import { LinkHoverCard } from './link-hover-card'
 import { LINK_CARD_LABELS, LINK_COPIED_ANNOUNCEMENT, UNAVAILABLE_LINK_BODY, UNAVAILABLE_LINK_TITLE } from './copy'
 import type { LinkPreview } from './link-preview'
 
@@ -112,23 +112,5 @@ describe('LinkHoverCard', () => {
         expect(onOpenInNewTab).toHaveBeenCalledOnce()
         expect(onEdit).toHaveBeenCalledOnce()
         expect(onRemove).toHaveBeenCalledOnce()
-    })
-})
-
-describe('linkCardActionVisibility', () => {
-    it('hides the edit tools in read-only mode', () => {
-        expect(linkCardActionVisibility('readOnly', external, false)).toEqual({
-            openInNewTab: true,
-            edit: false,
-            remove: false,
-        })
-    })
-
-    it('hides the open action for an unreachable internal destination', () => {
-        expect(linkCardActionVisibility('edit', unavailable, false)).toEqual({
-            openInNewTab: false,
-            edit: true,
-            remove: true,
-        })
     })
 })

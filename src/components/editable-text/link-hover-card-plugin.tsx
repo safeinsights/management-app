@@ -11,11 +11,13 @@ import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { linkAttributes } from './config'
 import {
     AnchoredLinkCard,
+    openLinkInNewTab,
     useClickWithoutDrag,
     useEscapeOnCard,
     useExclusiveLinkCard,
     useFocusOnOpen,
     useLinkCardTriggerAria,
+    useRootDomListeners,
 } from './link-card-popover'
 import {
     $linkAtDomNode,
@@ -81,14 +83,7 @@ function useEditorLinkCard(editor: LexicalEditor) {
         [editor, movedSincePress, open],
     )
 
-    useEffect(() => {
-        return editor.registerRootListener((rootElement, prevRootElement) => {
-            prevRootElement?.removeEventListener('mousedown', rememberPress)
-            prevRootElement?.removeEventListener('click', openFromClick)
-            rootElement?.addEventListener('mousedown', rememberPress)
-            rootElement?.addEventListener('click', openFromClick)
-        })
-    }, [editor, openFromClick, rememberPress])
+    useRootDomListeners(editor, { mousedown: rememberPress, click: openFromClick })
 
     useEffect(() => {
         return editor.registerCommand(
@@ -128,7 +123,7 @@ function useEditorLinkCard(editor: LexicalEditor) {
     }, [editor, link, close])
 
     const openInNewTab = useCallback(() => {
-        if (link) window.open(link.url, '_blank', 'noopener,noreferrer')
+        if (link) openLinkInNewTab(link.url)
     }, [link])
 
     const startEdit = useCallback(() => setView('edit'), [])

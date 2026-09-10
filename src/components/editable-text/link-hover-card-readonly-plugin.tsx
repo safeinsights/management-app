@@ -1,17 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import {
     AnchoredLinkCard,
+    openLinkInNewTab,
     useClickWithoutDrag,
     useEscapeOnCard,
     useExclusiveLinkCard,
     useFocusOnOpen,
     useLinkCardTriggerAria,
+    useRootDomListeners,
 } from './link-card-popover'
 import { $linkAtDomNode, type LinkCardTarget } from './link-card-node'
 
@@ -78,7 +80,7 @@ export function LinkHoverCardReadOnlyPlugin() {
             if (movedSincePress(event)) return
 
             if (event.button === 1 || event.metaKey || event.ctrlKey) {
-                window.open(hit.found.url, '_blank', 'noopener,noreferrer')
+                openLinkInNewTab(hit.found.url)
                 return
             }
 
@@ -101,18 +103,12 @@ export function LinkHoverCardReadOnlyPlugin() {
         [linkFromEvent, open],
     )
 
-    useEffect(() => {
-        return editor.registerRootListener((rootElement, prevRootElement) => {
-            prevRootElement?.removeEventListener('mousedown', rememberPress)
-            prevRootElement?.removeEventListener('click', handleClick)
-            prevRootElement?.removeEventListener('auxclick', handleClick)
-            prevRootElement?.removeEventListener('keydown', handleKeyDown)
-            rootElement?.addEventListener('mousedown', rememberPress)
-            rootElement?.addEventListener('click', handleClick)
-            rootElement?.addEventListener('auxclick', handleClick)
-            rootElement?.addEventListener('keydown', handleKeyDown)
-        })
-    }, [editor, handleClick, handleKeyDown, rememberPress])
+    useRootDomListeners(editor, {
+        mousedown: rememberPress,
+        click: handleClick,
+        auxclick: handleClick,
+        keydown: handleKeyDown,
+    })
 
     useLinkCardTriggerAria(editor, link?.nodeKey ?? null, dropdownId)
     useEscapeOnCard(link !== null, closeAndReturnFocus)
@@ -145,7 +141,7 @@ function ReadOnlyCardBody({ link }: { link: LinkCardTarget }) {
     useFocusOnOpen(firstActionRef)
 
     const preview = useLinkPreview(link.url)
-    const openInNewTab = () => window.open(link.url, '_blank', 'noopener,noreferrer')
+    const openInNewTab = () => openLinkInNewTab(link.url)
 
     return (
         <LinkHoverCard

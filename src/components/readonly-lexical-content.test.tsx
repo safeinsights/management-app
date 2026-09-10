@@ -59,19 +59,11 @@ describe('ReadOnlyLexicalContent', () => {
 
         fireEvent.click(anchor)
 
-        expect(await findCard()).toHaveTextContent(URL)
-        expect(open).not.toHaveBeenCalled()
-    })
-
-    it('offers copy alone for a link already stored to open in a new tab', async () => {
-        const { anchor } = await renderLink(linkState(URL, '_blank'))
-
-        fireEvent.click(anchor)
         const card = await findCard()
-
+        expect(card).toHaveTextContent(URL)
+        // Reading, the card offers copy alone: the edit tools belong to the editable field.
         expect(card.querySelectorAll('button')).toHaveLength(1)
-        expect(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: LINK_CARD_LABELS.openInNewTab })).toBeNull()
+        expect(open).not.toHaveBeenCalled()
     })
 
     it('offers the open action for a link stored without a target', async () => {

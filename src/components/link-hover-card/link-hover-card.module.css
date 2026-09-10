@@ -6,7 +6,7 @@
 
 .action:hover,
 .action:active {
-    background-color: rgba(218, 222, 225, 0.5);
+    background-color: color-mix(in srgb, var(--mantine-color-grey-1) 50%, transparent);
 }
 
 /* Doubled selector so the reduced-motion rule below always outranks Mantine's global

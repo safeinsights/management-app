@@ -20,6 +20,10 @@ const CLICK_OUTSIDE_EVENTS = ['mousedown', 'touchstart']
 const ANCHOR_HOST_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, width: 0, height: 0 }
 const ANCHOR_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }
 
+export function openLinkInNewTab(url: string) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 /**
  * Lays the invisible anchor over the link, sized to it, so the card points where the link is. The
  * box is written to the element rather than held in state: this runs on every scroll frame, and a
@@ -126,6 +130,31 @@ export function useClickWithoutDrag() {
     }, [])
 
     return { rememberPress, movedSincePress }
+}
+
+interface RootListeners {
+    mousedown?: (event: MouseEvent) => void
+    click?: (event: MouseEvent) => void
+    auxclick?: (event: MouseEvent) => void
+    keydown?: (event: KeyboardEvent) => void
+}
+
+/**
+ * Listens on the editor's root, which Lexical swaps out on its own. One list drives both the add
+ * and the remove, so a handler cannot be left behind on the root it was attached to.
+ */
+export function useRootDomListeners(editor: LexicalEditor, { mousedown, click, auxclick, keydown }: RootListeners) {
+    useEffect(() => {
+        const listeners = Object.entries({ mousedown, click, auxclick, keydown }) as [string, EventListener?][]
+
+        return editor.registerRootListener((rootElement, prevRootElement) => {
+            for (const [type, handler] of listeners) {
+                if (!handler) continue
+                prevRootElement?.removeEventListener(type, handler)
+                rootElement?.addEventListener(type, handler)
+            }
+        })
+    }, [editor, mousedown, click, auxclick, keydown])
 }
 
 let closeOpenCard: (() => void) | null = null
