@@ -94,8 +94,7 @@ export const createTestQueryClient = () => {
     return client
 }
 
-// Captured before any test can install fake timers, so teardown cannot stall on a suite that
-// forgets `vi.useRealTimers()`.
+// Captured before any test installs fake timers, so teardown cannot stall on a forgotten reset.
 const realSetTimeout = globalThis.setTimeout
 const realDateNow = Date.now
 
@@ -104,24 +103,16 @@ const busyTestQueryClients = () =>
 
 let pendingWorkExpected = false
 
-/**
- * Opts the current test out of the teardown barrier below. For a test that parks a query or
- * mutation that never settles on purpose: waiting for it is pointless, and it cannot reach the
- * database, so it cannot escape the transaction either.
- */
+// Exempts the current test from the teardown barrier, for work parked on purpose that never
+// settles. Such work never reaches the database, so it cannot escape the transaction.
 export const allowPendingWorkAtTeardown = () => {
     pendingWorkExpected = true
 }
 
 /**
- * Blocks until no tracked client has a query or mutation in flight, and returns how many are still
- * busy if it gives up. Cancelling is not a substitute: `cancelQueries` rejects TanStack's retryer
- * without waiting for the query function, and our wrapper drops the AbortSignal, so a server action
- * keeps running and lands after the test transaction is given up. pg-transactional-tests removes
- * its pg patch in `close()` without rolling back, so that late write commits for real.
- *
- * The budget stays well under vitest's 10s hook timeout: real work here is milliseconds, so
- * exhausting it means something is stuck, and blowing the hook would skip the rest of teardown.
+ * Blocks until no tracked client has a query or mutation in flight, returning how many are still
+ * busy if the budget runs out (kept under vitest's 10s hook timeout). `cancelQueries` is no
+ * substitute: it rejects TanStack's retryer without ever awaiting the query function.
  */
 export const waitForTestQueryClientsIdle = async (timeoutMs = 2_000) => {
     const optedOut = pendingWorkExpected
