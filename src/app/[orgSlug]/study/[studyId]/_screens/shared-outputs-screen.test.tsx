@@ -122,14 +122,7 @@ const renderScreen = async (
         }),
     )
 
-const decrypt = async (jobId: string) => {
-    const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-    const artifact = await seedEncryptedArtifact(jobId, {
-        fileType: 'ENCRYPTED-RESULT',
-        files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
-    })
-    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
-
+const decrypt = async () => {
     await screen.findByRole('button', { name: 'View' })
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
@@ -186,6 +179,16 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
             .where('id', '=', job.id)
             .execute()
     }
+
+    // The wrapped-key fetch must answer before the first render: an empty answer latches
+    // SecurityKeyForm's no-wrapped-key notice (OTTER-688), which has no View button. Assigned per
+    // setup so the mock's value cannot leak between tests.
+    const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
+    const artifact = await seedEncryptedArtifact(job.id, {
+        fileType: 'ENCRYPTED-RESULT',
+        files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+    })
+    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const raw = await requireRawState(dbStudy.id)
@@ -355,9 +358,9 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
     })
 
     it("resolves this screen's post-decryption nav from the step-nav table", async () => {
-        const { org, study, raw, job } = await setupShared(variant)
+        const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
-        await decrypt(job.id)
+        await decrypt()
 
         expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
         expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('data-variant', 'subtle')
