@@ -59,6 +59,38 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
             .execute()
     })
 
+/**
+ * OTTER-693: persists the star. Saved on click rather than at submit so the choice survives a
+ * reload, and so the page's autosave indicator is telling the truth when it says everything is
+ * saved. The name is not validated against the workspace here — a file can be deleted after being
+ * chosen, and the page falls back when the saved name is no longer present.
+ */
+export const setMainCodeFileAction = new Action('setMainCodeFileAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string(), fileName: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ db, params: { studyId, fileName } }) => {
+        await db
+            .updateTable('study')
+            .set({ mainCodeFileName: sanitizeFileName(fileName) })
+            .where('id', '=', studyId)
+            .execute()
+    })
+
+export const getMainCodeFileAction = new Action('getMainCodeFileAction', {})
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ db, params: { studyId } }) => {
+        const study = await db
+            .selectFrom('study')
+            .select('mainCodeFileName')
+            .where('id', '=', studyId)
+            .executeTakeFirst()
+
+        return { mainCodeFileName: study?.mainCodeFileName ?? null }
+    })
+
 export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))

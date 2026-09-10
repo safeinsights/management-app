@@ -40,6 +40,7 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
         pendingDuplicate: null,
         resolveDuplicate: vi.fn(),
         isUploading: false,
+        saveStatus: 'idle' as const,
         isDeleting: false,
         canSubmit: false,
         submitDisabledReason: null,

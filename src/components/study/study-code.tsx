@@ -8,6 +8,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
+import { SaveStatusIndicator } from '@/components/save-status'
 import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
@@ -62,9 +63,14 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
         </ButtonLink>
         <Stack align="flex-end" gap="xs">
             <SubmitBlockedReason reason={ide.submitDisabledReason} />
-            <Button disabled={!ide.canSubmit} loading={ide.isDirectSubmitting} onClick={onSubmitClick}>
-                Submit code
-            </Button>
+            {/* The card puts the autosave state to the left of the submit button, so the researcher
+                sees their work is kept at the moment they decide to hand it over. */}
+            <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
+                <SaveStatusIndicator status={ide.saveStatus} />
+                <Button disabled={!ide.canSubmit} loading={ide.isDirectSubmitting} onClick={onSubmitClick}>
+                    Submit code
+                </Button>
+            </Group>
         </Stack>
     </Group>
 )

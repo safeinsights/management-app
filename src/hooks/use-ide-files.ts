@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
 import { downloadBlob } from '@/lib/download-blob'
+import type { SaveStatusValue } from '@/components/save-status'
 import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
 import { useUploadQueue } from './use-upload-queue'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
@@ -14,6 +15,8 @@ import {
     deleteWorkspaceFileAction,
     readWorkspaceFileAction,
     recordWorkspaceFileEditAction,
+    getMainCodeFileAction,
+    setMainCodeFileAction,
 } from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-request'
 import {
@@ -69,6 +72,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     // OTTER-558: `filesChanged` cannot drive the resubmit footer's Cancel toggle, because it
     // compares mtimes and is already true on load.
     const [userEditedFiles, setUserEditedFiles] = useState(false)
+    // OTTER-693 row 9: null until something has actually been persisted, so the indicator starts
+    // idle rather than claiming a page nobody has touched is saved.
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
     const onLaunchSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
@@ -108,14 +114,23 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         queryFn: () => getIdeOwnerAction({ studyId }),
     })
 
+    const { data: savedMainFile } = useQuery({
+        queryKey: ['main-code-file', studyId],
+        queryFn: () => getMainCodeFileAction({ studyId }),
+    })
+
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
     const previousMainFile = lastJob?.mainFileName ?? null
+    const persistedMainFile = savedMainFile?.mainCodeFileName ?? null
     const mainFile = useMemo(() => {
+        // This session's click first, then the saved choice, and only then the conveniences: a
+        // deliberate selection must outrank auto-picking the sole file.
         if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
+        if (persistedMainFile && fileNames.includes(persistedMainFile)) return persistedMainFile
         if (fileNames.length === 1) return fileNames[0]
         if (previousMainFile && fileNames.includes(previousMainFile)) return previousMainFile
         return ''
-    }, [mainFileOverride, previousMainFile, fileNames])
+    }, [mainFileOverride, persistedMainFile, previousMainFile, fileNames])
 
     const filesChanged = useMemo(
         () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
@@ -153,10 +168,22 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         return null
     })()
 
-    const setMainFile = useCallback((fileName: string) => {
-        setMainFileOverride(fileName)
-        setUserEditedFiles(true)
-    }, [])
+    const setMainFileMutation = useMutation({
+        mutationFn: (fileName: string) => setMainCodeFileAction({ studyId, fileName }),
+        onSuccess: () => setLastSavedAt(new Date()),
+        onError: reportMutationError('Failed to save your main file selection'),
+    })
+
+    const setMainFile = useCallback(
+        (fileName: string) => {
+            // Optimistic: the star moves on click and the save follows, so the radio never lags a
+            // round trip behind the pointer.
+            setMainFileOverride(fileName)
+            setUserEditedFiles(true)
+            setMainFileMutation.mutate(fileName)
+        },
+        [setMainFileMutation],
+    )
 
     const invalidateFiles = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
@@ -169,7 +196,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
             }
         },
-        onSuccess: () => invalidateFiles(),
+        onSuccess: () => {
+            invalidateFiles()
+            setLastSavedAt(new Date())
+        },
         onError: reportMutationError('Failed to delete file'),
     })
 
@@ -239,6 +269,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 showUploadSucceeded(file.name)
             }
         },
+        onSuccess: () => setLastSavedAt(new Date()),
         onSettled: () => {
             invalidateFiles()
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
@@ -258,6 +289,13 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         existingNames: fileNames,
         startUpload,
     })
+
+    /**
+     * OTTER-693 row 9. Everything this page can change — uploading, deleting, picking the main
+     * file — persists on the spot, so the indicator reports on all three rather than on a form.
+     */
+    const isSavingChanges = uploadMutation.isPending || deleteMutation.isPending || setMainFileMutation.isPending
+    const saveStatus: SaveStatusValue = isSavingChanges ? 'saving' : lastSavedAt ? 'saved' : 'idle'
 
     const submitMutation = useMutation({
         mutationFn: async () => {
@@ -344,6 +382,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         pendingDuplicate,
         resolveDuplicate,
         isUploading: uploadMutation.isPending,
+        saveStatus,
         isDeleting: deleteMutation.isPending,
 
         canSubmit,

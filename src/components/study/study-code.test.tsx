@@ -764,6 +764,85 @@ describe('StudyCode component', () => {
         })
     })
 
+    describe('main file persistence and autosave (OTTER-693)', () => {
+        const savedMainFile = async (studyId: string) => {
+            const row = await db
+                .selectFrom('study')
+                .select('mainCodeFileName')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            return row.mainCodeFileName
+        }
+
+        const renderTwoFiles = async () => {
+            const rendered = await renderIDE('openstax-lab', {
+                'main.R': 'print("main")',
+                'helper.R': 'print("helper")',
+            })
+            await waitFor(() => expect(screen.getByText('helper.R')).toBeInTheDocument())
+            return rendered
+        }
+
+        it('saves the main file when the star is clicked', async () => {
+            const { study } = await renderTwoFiles()
+            expect(await savedMainFile(study.id)).toBeNull()
+
+            await userEvent.setup().click(screen.getByRole('radio', { name: /set helper\.R as main file/i }))
+
+            await waitFor(async () => {
+                expect(await savedMainFile(study.id)).toBe('helper.R')
+            })
+        })
+
+        it('restores the saved main file on a fresh render', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await db.updateTable('study').set({ mainCodeFileName: 'helper.R' }).where('id', '=', study.id).execute()
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print(1)', 'helper.R': 'print(2)' })
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+
+            // The selection outlives the page, which is what the star being saved buys.
+            await waitFor(() => {
+                expect(screen.getByRole('radio', { name: /helper\.R is the main file/i })).toBeChecked()
+            })
+        })
+
+        it('starts idle and reports saved once a change has persisted', async () => {
+            await renderTwoFiles()
+
+            // Nothing has been changed yet, so the page must not claim to have saved anything.
+            expect(screen.queryByText('All changes saved')).not.toBeInTheDocument()
+
+            await userEvent.setup().click(screen.getByRole('radio', { name: /set helper\.R as main file/i }))
+
+            await waitFor(() => {
+                expect(screen.getByText('All changes saved')).toBeInTheDocument()
+            })
+        })
+
+        it('puts the indicator beside the submit button', async () => {
+            await renderTwoFiles()
+            await userEvent.setup().click(screen.getByRole('radio', { name: /set helper\.R as main file/i }))
+
+            // "Saving…" shares this testid, so waiting for the element alone would assert against
+            // the in-flight state whenever the save has not landed yet.
+            await waitFor(() => {
+                expect(within(screen.getByTestId('submit-row')).getByTestId('autosave-status')).toHaveTextContent(
+                    'All changes saved',
+                )
+            })
+
+            const row = screen.getByTestId('submit-row')
+            expect(within(row).getByRole('button', { name: /submit code/i })).toBeInTheDocument()
+        })
+    })
+
     describe('Already have code section (OTTER-693)', () => {
         const codeFile = (name: string, contents = 'print(1)') => new File([contents], name, { type: 'text/plain' })
 

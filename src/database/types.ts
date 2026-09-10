@@ -266,6 +266,7 @@ export interface Study {
     irbProtocols: string | null
     language: Generated<Language>
     lastUpdatedAt: Generated<Timestamp>
+    mainCodeFileName: string | null
     orgId: string
     outputMimeType: string | null
     piName: string
