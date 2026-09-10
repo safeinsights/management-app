@@ -15,6 +15,7 @@ import { getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
 import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
+import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { connection } from 'next/server'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -44,7 +45,10 @@ export default async function RootLayout({
         <html lang="en" translate="no" className={globalFont.className}>
             <body>
                 <Providers singleUserEditing={SINGLE_USER_EDITING} posthogProjectToken={postHogProjectToken}>
-                    <Suspense fallback={<GlobalLoading />}>{children}</Suspense>
+                    <Suspense fallback={<GlobalLoading />}>
+                        {children}
+                        <HydrationMarker />
+                    </Suspense>
                     <PiSymbol />
                 </Providers>
             </body>

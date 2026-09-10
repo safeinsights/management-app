@@ -1,4 +1,4 @@
-import { authFileFor, expect, openTab, test, visitAsRole } from './e2e.helpers'
+import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 
 // Any role but `legal`, whose user is left owing ToS v2 and meets a blocking modal on every page.
@@ -27,7 +27,7 @@ test.describe('Personal legal page', () => {
             await expect(page.getByRole('tab', { name })).toBeVisible()
         }
 
-        await openTab(page, 'Terms of Service')
+        await page.getByRole('tab', { name: 'Terms of Service' }).click()
 
         // The seeded reviewer is acked at the latest version, so this shows v2's body and a real date.
         await expect(page.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
@@ -37,7 +37,7 @@ test.describe('Personal legal page', () => {
     test('the privacy notice panel renders its own document', async ({ page }) => {
         await visitAsRole(page, '/legal')
 
-        await openTab(page, 'Privacy Notice')
+        await page.getByRole('tab', { name: 'Privacy Notice' }).click()
 
         await expect(page.getByRole('heading', { name: 'Privacy Notice' })).toBeVisible()
         await expect(page.getByText('Version 1. Seeded for end-to-end tests.')).toBeVisible()
