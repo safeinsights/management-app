@@ -7,6 +7,7 @@ import {
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -21,7 +22,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         // Implementations, not mockResolvedValue: mockReset restores these but wipes a value set
         // afterwards.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -41,7 +42,7 @@ const seedDataPartnerWithStudy = async (title: string) => {
 const publishAgreement = async (studyId: string, signedAt: string) => {
     await mockSessionWithTestData({ isSiAdmin: true })
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'SLA', studyId, fileName: 'agreement.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'SLA', studyId, file: testUploadFile('agreement.pdf') }),
     )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }

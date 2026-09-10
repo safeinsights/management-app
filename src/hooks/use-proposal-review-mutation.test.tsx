@@ -112,6 +112,10 @@ describe('useProposalReviewMutation', () => {
         expect(typeof payload.submittedByName).toBe('string')
         expect(payload.submittedByName.length).toBeGreaterThan(0)
 
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ color: 'green', title: 'Decision submitted' }),
+        )
+
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
         )
@@ -217,13 +221,45 @@ describe('useProposalReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit review',
+            ([arg]) => arg && (arg as { title?: string }).title === 'Decision could not be submitted',
         )
         expect(errorCall).toBeDefined()
+        expect(errorCall![0]).toMatchObject({ message: 'Your work is saved. Try again.' })
         expect(provider.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
 
         const after = await db.selectFrom('study').select('status').where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(after.status).toBe('APPROVED')
+    })
+
+    it('fires the caller-supplied onError callback alongside the hook-level one', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        await setTestStudyStatus(study.id, 'APPROVED')
+        const provider = createStubProvider()
+
+        const callerOnError = vi.fn()
+
+        const { result } = renderHook(
+            () =>
+                useProposalReviewMutation({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    tabSessionId,
+                    reviewVersion: REVIEW_VERSION,
+                }),
+            { wrapper: makeWrapper(provider) },
+        )
+
+        await act(async () => {
+            result.current.submitReview({ decision: 'approve', feedback: validFeedback }, { onError: callerOnError })
+        })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
+
+        expect(callerOnError).toHaveBeenCalledTimes(1)
     })
 })

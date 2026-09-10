@@ -2,6 +2,7 @@
 
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { proposalReviewHeading } from '@/lib/proposal-review'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { reviewerProposalNeedsReviewBanner } from '@/lib/study-banners'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
@@ -42,7 +43,7 @@ export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersi
             study={study}
             orgSlug={orgSlug}
             stepLabel="STEP 1"
-            heading={`Review initial request${isResubmission ? ` v${reviewVersion}.0` : ''}`}
+            heading={proposalReviewHeading(reviewVersion)}
             banner={<StatusBanner labName={labName} reviewVersion={reviewVersion} submittedAt={submittedAt} />}
             initialExpanded={!isResubmission}
         />

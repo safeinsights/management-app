@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { signedUrlForFile } from '@/server/aws'
-import { actionResult, faker, insertTestOrg, mockSessionWithTestData, resetLegalDocuments } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    mockSessionWithTestData,
+    resetLegalDocuments,
+    testUploadFile,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchParticipationAgreementsAction,
@@ -16,7 +23,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -31,7 +38,9 @@ const uploadAndPublish = async (
     signedAt: string,
     fileName = 'agreement.pdf',
 ) => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type, orgId, fileName }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type, orgId, file: testUploadFile(fileName) }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
@@ -81,7 +90,9 @@ describe('fetchParticipationAgreementsAction', () => {
     it('leaves an org whose only version is a draft out of the table', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('DOPA')
-        actionResult(await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
+        )
 
         expect(await rowFor('DOPA', org.id)).toBeUndefined()
     })

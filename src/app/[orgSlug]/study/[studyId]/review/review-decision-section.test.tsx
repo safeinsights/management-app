@@ -60,32 +60,29 @@ describe('ReviewDecisionSection', () => {
         renderWithProviders(<Wrapper study={study} />)
 
         expect(screen.getByRole('radio', { name: /Approve/ })).toBeInTheDocument()
-        expect(screen.getByRole('radio', { name: /Needs clarification/ })).toBeInTheDocument()
-        expect(screen.getByRole('radio', { name: /Reject/ })).toBeInTheDocument()
+        expect(screen.getByRole('radio', { name: /Request revision/ })).toBeInTheDocument()
+        expect(screen.getByRole('radio', { name: /Decline and end study/ })).toBeInTheDocument()
     })
 
     it('renders descriptions for each option', () => {
-        renderWithProviders(<Wrapper study={study} />)
-
-        expect(screen.getByText('Approve this initial request and share your feedback.')).toBeInTheDocument()
-        expect(screen.getByText(/Request clarifications or specific revisions/)).toBeInTheDocument()
-        expect(screen.getByText(/Reject this initial request and share your reasoning/)).toBeInTheDocument()
-    })
-
-    it('renders the reject warning text with semi-bold styling', () => {
-        renderWithProviders(<Wrapper study={study} />)
-
-        const warning = screen.getByText(
-            'This is intended as a last resort due to major, unresolvable issues and will end this study. This action cannot be undone.',
-        )
-        expect(warning).toBeInTheDocument()
-        expect(warning).toHaveStyle({ fontWeight: 600 })
-    })
-
-    it('renders the lab name in the instructional text', () => {
         renderWithProviders(<Wrapper study={study} labName="Rice University" />)
 
-        expect(screen.getByText('Rice University')).toBeInTheDocument()
+        expect(screen.getByText('Approve the proposal to begin the code submission phase.')).toBeInTheDocument()
+        expect(
+            screen.getByText('Send the proposal back to Rice University for changes or additional information.'),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Permanently close this study. Use only for major issues that cannot be resolved. This action cannot be undone.',
+            ),
+        ).toBeInTheDocument()
+    })
+
+    it('does not render the removed instructional paragraph or visible decision label', () => {
+        renderWithProviders(<Wrapper study={study} />)
+
+        expect(screen.queryByText(/Select a decision for this initial request/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Initial request decision/)).not.toBeInTheDocument()
     })
 
     it('preserves the data-testid', () => {
@@ -100,24 +97,24 @@ describe('ReviewDecisionSection', () => {
 
         await user.click(screen.getByRole('radio', { name: /Approve/ }))
         expect(screen.getByRole('radio', { name: /Approve/ })).toBeChecked()
-        expect(screen.getByRole('radio', { name: /Reject/ })).not.toBeChecked()
+        expect(screen.getByRole('radio', { name: /Decline and end study/ })).not.toBeChecked()
 
-        await user.click(screen.getByRole('radio', { name: /Reject/ }))
-        expect(screen.getByRole('radio', { name: /Reject/ })).toBeChecked()
+        await user.click(screen.getByRole('radio', { name: /Decline and end study/ }))
+        expect(screen.getByRole('radio', { name: /Decline and end study/ })).toBeChecked()
         expect(screen.getByRole('radio', { name: /Approve/ })).not.toBeChecked()
     })
 
-    it('allows selecting needs clarification', async () => {
+    it('allows selecting request revision', async () => {
         const user = userEvent.setup()
         renderWithProviders(<Wrapper study={study} />)
 
-        const needsClarification = screen.getByRole('radio', { name: /Needs clarification/ })
+        const requestRevision = screen.getByRole('radio', { name: /Request revision/ })
 
-        expect(needsClarification).not.toBeDisabled()
+        expect(requestRevision).not.toBeDisabled()
 
-        await user.click(needsClarification)
+        await user.click(requestRevision)
 
-        expect(needsClarification).toBeChecked()
+        expect(requestRevision).toBeChecked()
     })
 
     it('returns null when study is APPROVED', () => {
@@ -141,38 +138,35 @@ describe('ReviewDecisionSection', () => {
         expect(screen.queryByTestId('review-decision-section')).not.toBeInTheDocument()
     })
 
-    // Radio.Group's context does not carry `error` to its children, so the circles stayed grey
-    // while the message turned red (OTTER-647).
-    it('marks the radio circles invalid, not just the message', async () => {
+    it('shows the empty error above the options without marking the radios', async () => {
         const user = userEvent.setup()
         renderWithProviders(<Wrapper study={study} withLeaveButton />)
 
-        expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
-
         await user.click(screen.getByRole('button', { name: 'leave the group' }))
 
-        expect(await screen.findByText('Select a decision to continue.')).toBeInTheDocument()
-        expect(screen.getByRole('radio', { name: /Approve/ })).toHaveAttribute('data-error', 'true')
-        expect(screen.getByRole('radio', { name: /Reject/ })).toHaveAttribute('data-error', 'true')
+        const error = await screen.findByText('Select an option before submitting.')
+        const firstRadio = screen.getByRole('radio', { name: /Approve/ })
+        expect(error.compareDocumentPosition(firstRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(error.parentElement?.querySelector('svg')).toBeInTheDocument()
+        expect(firstRadio).not.toHaveAttribute('data-error')
+        expect(screen.getByRole('radio', { name: /Decline and end study/ })).not.toHaveAttribute('data-error')
     })
 
-    it('clears the circles once a decision is picked', async () => {
+    it('clears the error once a decision is picked', async () => {
         const user = userEvent.setup()
         renderWithProviders(<Wrapper study={study} withLeaveButton />)
 
         await user.click(screen.getByRole('button', { name: 'leave the group' }))
-        await screen.findByText('Select a decision to continue.')
+        await screen.findByText('Select an option before submitting.')
 
         await user.click(screen.getByRole('radio', { name: /Approve/ }))
 
-        expect(screen.getByRole('radio', { name: /Approve/ })).not.toHaveAttribute('data-error')
+        expect(screen.queryByText('Select an option before submitting.')).not.toBeInTheDocument()
     })
 
-    // An aria-label on Radio.Group lands on the roleless outer wrapper, so a rendered label is
-    // what actually names the group.
     it('gives the decision radiogroup an accessible name', () => {
         renderWithProviders(<Wrapper study={study} />)
 
-        expect(screen.getByRole('radiogroup', { name: /Initial request decision/i })).toBeInTheDocument()
+        expect(screen.getByRole('radiogroup', { name: 'Decision' })).toBeInTheDocument()
     })
 })

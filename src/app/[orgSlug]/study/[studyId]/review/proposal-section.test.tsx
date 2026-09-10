@@ -59,7 +59,7 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         expect(screen.getByText('STEP 1')).toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: 'Review initial request' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
     })
 
     it('does not render the study title in the section header', () => {
@@ -92,7 +92,7 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
         const labName = study.submittingLabName ?? study.submittedByOrgSlug
-        expect(screen.getByRole('heading', { name: 'Review initial request v2.0' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review proposal v2.0', level: 2 })).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent(`Revised proposal submitted by ${labName}`)
     })
 

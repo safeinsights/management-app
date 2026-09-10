@@ -27,6 +27,21 @@ describe('FormField', () => {
         expect(screen.getByText('Study title')).toHaveStyle({ marginBottom: '4px' })
     })
 
+    // OTTER-769: theme styles reach the DOM as an inline style, so this covers every
+    // Mantine-rendered asterisk in the app, not only this component's.
+    it('paints the required asterisk with the design color', () => {
+        renderWithProviders(
+            <FormField inputId="field" label="Study title" required>
+                <TextInput id="field" aria-label="Study title input" />
+            </FormField>,
+        )
+
+        const asterisk = screen.getByText('Study title').querySelector('span')
+
+        expect(asterisk).toHaveTextContent('*')
+        expect(asterisk).toHaveStyle({ color: '#7E241E' })
+    })
+
     it('renders no error node when there is no error', () => {
         renderWithProviders(
             <FormField inputId="field" label="Study title">

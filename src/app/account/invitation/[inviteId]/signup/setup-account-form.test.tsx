@@ -9,6 +9,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     resetLegalDocuments,
+    testUploadFile,
     userEvent,
 } from '@/tests/unit.helpers'
 import {
@@ -22,7 +23,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -42,7 +43,9 @@ beforeEach(async () => {
 
 const publishTos = async () => {
     await mockSessionWithTestData({ isSiAdmin: true })
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('terms.md') }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 
@@ -66,7 +69,7 @@ const inviteWithParticipationAgreement = async () => {
     await mockSessionWithTestData({ isSiAdmin: true })
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'ROPA', orgId: org.id, fileName: 'ropa.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'ROPA', orgId: org.id, file: testUploadFile('ropa.pdf') }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-07-27' }))
     return await createInvite(org.id)

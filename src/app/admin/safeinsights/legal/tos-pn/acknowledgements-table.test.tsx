@@ -9,6 +9,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
@@ -22,14 +23,16 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
 beforeEach(resetLegalDocuments)
 
 const publishTos = async () => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('terms.md') }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 

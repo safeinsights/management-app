@@ -6,7 +6,6 @@ import type { LegalDocumentType, OrgType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
-    acknowledgeLegalDocumentSchema,
     createLegalDocumentDraftSchema,
     enforcedLegalDocumentTypes,
     type EnforcedLegalDocumentType,
@@ -19,6 +18,7 @@ import {
     participationAgreementTypeForOrgType,
     legalDocumentFormats,
     legalDocumentScopeSchema,
+    legalDocumentVersionParams,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
     globalDocumentTypeParams,
@@ -30,7 +30,7 @@ import {
     type ResolvedLegalDocument,
     type LegalDocumentBody,
 } from '@/schema/legal-document'
-import { createSignedUploadUrlForKey } from '../aws'
+import { storeS3File } from '../aws'
 import {
     findLegalDocument,
     findOrCreateLegalDocument,
@@ -83,12 +83,29 @@ const globalDocumentScope = async () => ({ isGlobal: true, audienceOrgIds: [] })
 // Needed because the all-optional ability conditions are a TS weak type.
 const noDocumentScope = async () => ({ orgId: undefined, studyId: undefined })
 
+const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+
+// A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
+// it names the download (the S3 key is a bare uuid).
+const bodyForVersion = async ({
+    type,
+    filePath,
+    fileName,
+}: {
+    type: LegalDocumentType
+    filePath: string
+    fileName: string
+}): Promise<LegalDocumentBody> =>
+    legalDocumentFormats[type] === 'pdf'
+        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
+        : { format: 'markdown', content: await contentOf(filePath) }
+
 export const createLegalDocumentDraftAction = new Action('createLegalDocumentDraftAction', {
     performsMutations: true,
 })
     .params(createLegalDocumentDraftSchema)
     .requireAbilityTo('create', 'LegalDocument')
-    .handler(async ({ db, params: { type, orgId, studyId, fileName } }) => {
+    .handler(async ({ db, params: { type, orgId, studyId, file } }) => {
         const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
         // For participation agreements: Make sure agreement type matches org's type
@@ -108,7 +125,7 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
             .where('publishedAt', 'is', null)
             .execute()
 
-        // Generated up front so the stored file_path is the key the upload is signed for.
+        // Generated up front so the row and the stored object agree on the key.
         const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersion({ type, legalDocumentId: legalDocument.id, versionId })
 
@@ -118,17 +135,17 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
                 id: versionId,
                 legalDocumentId: legalDocument.id,
                 filePath,
-                fileName,
+                fileName: file.name,
                 format: legalDocumentFormats[type],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        return {
-            legalDocument,
-            version,
-            upload: await createSignedUploadUrlForKey(filePath),
-        }
+        // A failed store rolls the row back; a failed commit still orphans the object, the same
+        // trade storeJobFile accepts.
+        await storeS3File({ legalDocumentType: type }, file.stream(), filePath)
+
+        return { legalDocument, version }
     })
 
 export const publishLegalDocumentVersionAction = new Action('publishLegalDocumentVersionAction', {
@@ -219,10 +236,32 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
         }
     })
 
+// Read server-side: fetching the presigned S3 URL from the page needs a GET CORS rule on every bucket.
+export const fetchLegalDocumentContentAction = new Action('fetchLegalDocumentContentAction')
+    .params(legalDocumentVersionParams)
+    .middleware(scopeFromVersionId)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(async ({ db, params: { versionId } }) => {
+        const version = await db
+            .selectFrom('legalDocumentVersion')
+            .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+            .select(['legalDocumentVersion.filePath', 'legalDocumentVersion.fileName', 'legalDocument.type'])
+            .where('legalDocumentVersion.id', '=', versionId)
+            .executeTakeFirstOrThrow()
+
+        // Through bodyForVersion so one place decides how a format maps to a body.
+        const body = await bodyForVersion(version)
+        if (body.format !== 'markdown') {
+            throw new ActionFailure({ version: 'is not a markdown document' })
+        }
+
+        return { content: body.content }
+    })
+
 export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocumentAction', {
     performsMutations: true,
 })
-    .params(acknowledgeLegalDocumentSchema)
+    .params(legalDocumentVersionParams)
     .middleware(scopeFromVersionId)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, params: { versionId }, session }) => {
@@ -307,23 +346,6 @@ const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise
     if (!owed.length) return null
     return owed
 }
-
-const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
-
-// A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
-// it names the download (the S3 key is a bare uuid).
-const bodyForVersion = async ({
-    type,
-    filePath,
-    fileName,
-}: {
-    type: LegalDocumentType
-    filePath: string
-    fileName: string
-}): Promise<LegalDocumentBody> =>
-    legalDocumentFormats[type] === 'pdf'
-        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
-        : { format: 'markdown', content: await contentOf(filePath) }
 
 // The next document the signed-in user still owes. Superseded versions are not backfilled: the
 // obligation is to the terms in force, matching what the SI-admin audit reports. One at a time, the

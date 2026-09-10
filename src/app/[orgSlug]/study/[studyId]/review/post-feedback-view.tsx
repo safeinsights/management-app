@@ -5,6 +5,7 @@ import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { proposalReviewHeading } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { reviewerCodeDecisionBanner, reviewerProposalDecisionBanner } from '@/lib/study-banners'
@@ -38,16 +39,21 @@ type PostFeedbackViewProps = {
     // Set only when /review resolves past this screen (OTTER-687); the primary action then reads
     // "Next step" instead of "Go to dashboard".
     nextStepHref?: Route
+    /**
+     * Current proposal-review iteration, sourced from `currentReviewVersion`. Drives the
+     * versioned PROPOSAL heading ("Review proposal v{N}.0") so this page matches the editable review
+     * page. Only meaningful for `kind="PROPOSAL"`; the CODE heading is static.
+     */
+    reviewVersion?: number
 }
 
 type KindCopy = {
-    heading: string
     stepLabel: string
 }
 
 const COPY_BY_KIND: Record<PostFeedbackKind, KindCopy> = {
-    PROPOSAL: { heading: 'Review initial request', stepLabel: 'STEP 1' },
-    CODE: { heading: 'Review study code', stepLabel: 'STEP 3' },
+    PROPOSAL: { stepLabel: 'STEP 1' },
+    CODE: { stepLabel: 'STEP 3' },
 }
 
 type DecisionBannerProps = {
@@ -108,18 +114,19 @@ type ProposalSectionProps = {
     isVisible: boolean
     study: Submitted<SelectedStudy>
     orgSlug: string
-    kindCopy: KindCopy
+    stepLabel: string
+    heading: string
     banner: ReactNode
 }
 
-function ProposalSection({ isVisible, study, orgSlug, kindCopy, banner }: ProposalSectionProps) {
+function ProposalSection({ isVisible, study, orgSlug, stepLabel, heading, banner }: ProposalSectionProps) {
     if (!isVisible) return null
     return (
         <ProposalRequest
             study={study}
             orgSlug={orgSlug}
-            stepLabel={kindCopy.stepLabel}
-            heading={kindCopy.heading}
+            stepLabel={stepLabel}
+            heading={heading}
             banner={banner}
             initialExpanded={false}
         />
@@ -136,6 +143,7 @@ export function PostFeedbackView({
     fallback,
     previousHref,
     nextStepHref,
+    reviewVersion = 1,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
     const latestDecision = latest?.decision ?? null
@@ -156,6 +164,8 @@ export function PostFeedbackView({
             decidedAt={timestampDate}
         />
     )
+    // CODE keeps its static heading; PROPOSAL versions per iteration to match the editable page.
+    const heading = isCode ? 'Review study code' : proposalReviewHeading(reviewVersion)
     // The forward link and the dashboard button are mutually exclusive and both sit right, so the
     // row only splits when there is a left button.
     const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
@@ -171,14 +181,15 @@ export function PostFeedbackView({
                     job={job}
                     analysis={analysis}
                     stepLabel={kindCopy.stepLabel}
-                    heading={kindCopy.heading}
+                    heading={heading}
                     banner={banner}
                 />
                 <ProposalSection
                     isVisible={!isCode}
                     study={study}
                     orgSlug={orgSlug}
-                    kindCopy={kindCopy}
+                    stepLabel={kindCopy.stepLabel}
+                    heading={heading}
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />

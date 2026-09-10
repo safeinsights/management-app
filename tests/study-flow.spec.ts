@@ -265,13 +265,13 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
         .getByRole('radio', { name: /^Approve$/i })
         .check()
 
-    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
+    const submitReview = page.getByRole('button', { name: /^Submit decision$/i })
     await expect(submitReview).toBeEnabled()
     await submitReview.click()
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await dialog.getByRole('button', { name: /^Approve proposal$/i }).click()
     await expect(dialog).toBeHidden()
 
     await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
@@ -763,8 +763,9 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        // The title is the page heading, and also body text inside the section header.
+        // The page heading is the study title; "Review proposal" is the section header.
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
@@ -773,13 +774,13 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await page
             .getByTestId('review-decision-section')
-            .getByRole('radio', { name: /^Reject$/i })
+            .getByRole('radio', { name: /^Decline and end study$/i })
             .check()
 
-        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Reject initial request$/i }).click()
+        await dialog.getByRole('button', { name: /^Decline and end study$/i }).click()
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
@@ -848,13 +849,13 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         await page
             .getByTestId('review-decision-section')
-            .getByRole('radio', { name: /Needs clarification/i })
+            .getByRole('radio', { name: /Request revision/i })
             .check()
 
-        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
@@ -907,7 +908,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         // ProposalReviewView re-opens with a fresh decision section.
         await goto(page, `/openstax/study/${studyId}/review`)
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
-        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
     })
 })
 
@@ -1041,18 +1042,19 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        // The page heading is the study title; "Review initial request" is the section header.
+        // The page heading is the study title; "Review proposal" is the section header.
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
         await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
         await expect(page.getByText('Impact', { exact: true })).toBeVisible()
         await expect(page.getByText('Principal Investigator', { exact: true })).toBeVisible()
 
-        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
         const decisionSection = page.getByTestId('review-decision-section')
         await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
-        await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
+        await expect(decisionSection.getByRole('radio', { name: /^Decline and end study$/i })).toBeVisible()
     })
 })
 

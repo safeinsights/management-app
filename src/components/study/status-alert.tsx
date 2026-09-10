@@ -30,7 +30,7 @@ const VARIANTS = {
     informative: { bg: 'purple.0', accent: 'purple.5', Icon: InfoIcon },
     action: { bg: 'yellow.0', accent: 'yellow.10', Icon: WarningCircleIcon },
     success: { bg: 'green.0', accent: 'green.11', Icon: CheckCircleIcon },
-    decline: { bg: 'red.11', accent: 'red.10', Icon: WarningCircleIcon },
+    decline: { bg: 'red.12', accent: 'red.11', Icon: WarningCircleIcon },
 } as const satisfies Record<StatusAlertVariant, { bg: string; accent: string; Icon: typeof InfoIcon }>
 
 // Mantine resolves 'color.shade' in its own style props only, not inside a styles object.
