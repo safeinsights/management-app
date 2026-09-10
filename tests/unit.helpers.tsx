@@ -94,15 +94,45 @@ export const createTestQueryClient = () => {
     return client
 }
 
+// Captured before any test can install fake timers, so teardown cannot stall on a suite that
+// forgets `vi.useRealTimers()`.
+const realSetTimeout = globalThis.setTimeout
+const realDateNow = Date.now
+
+const busyTestQueryClients = () =>
+    [...liveTestQueryClients].filter((client) => client.isFetching() || client.isMutating()).length
+
+let pendingWorkExpected = false
+
 /**
- * Awaits every in-flight query so none of them lands after the test transaction is given up.
- * pg-transactional-tests drops its pg patch in `close()` without rolling back, so a query that
- * arrives afterwards runs raw and Postgres commits it into the shared test database.
+ * Opts the current test out of the teardown barrier below. For a test that parks a query or
+ * mutation that never settles on purpose: waiting for it is pointless, and it cannot reach the
+ * database, so it cannot escape the transaction either.
  */
-export const cancelTestQueryClients = async () => {
-    for (const client of liveTestQueryClients) {
-        await client.cancelQueries()
+export const allowPendingWorkAtTeardown = () => {
+    pendingWorkExpected = true
+}
+
+/**
+ * Blocks until no tracked client has a query or mutation in flight, and returns how many are still
+ * busy if it gives up. Cancelling is not a substitute: `cancelQueries` rejects TanStack's retryer
+ * without waiting for the query function, and our wrapper drops the AbortSignal, so a server action
+ * keeps running and lands after the test transaction is given up. pg-transactional-tests removes
+ * its pg patch in `close()` without rolling back, so that late write commits for real.
+ *
+ * The budget stays well under vitest's 10s hook timeout: real work here is milliseconds, so
+ * exhausting it means something is stuck, and blowing the hook would skip the rest of teardown.
+ */
+export const waitForTestQueryClientsIdle = async (timeoutMs = 2_000) => {
+    const optedOut = pendingWorkExpected
+    pendingWorkExpected = false
+    if (optedOut) return 0
+
+    const deadline = realDateNow() + timeoutMs
+    while (busyTestQueryClients() && realDateNow() < deadline) {
+        await new Promise((resolve) => realSetTimeout(resolve, 0))
     }
+    return busyTestQueryClients()
 }
 
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.

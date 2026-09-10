@@ -9,6 +9,7 @@ import {
     act,
     faker,
     createTestQueryWrapper,
+    allowPendingWorkAtTeardown,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
@@ -100,6 +101,7 @@ describe('useWorkspaceLauncher', () => {
     describe('launchWorkspace', () => {
         it('should set isLaunching true while the ensure mutation is in flight', async () => {
             ensureMock.mockImplementation(() => new Promise(() => {}))
+            allowPendingWorkAtTeardown()
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
