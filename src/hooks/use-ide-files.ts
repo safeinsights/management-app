@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
 import { downloadBlob } from '@/lib/download-blob'
+import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
+import { useUploadQueue } from './use-upload-queue'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import {
@@ -19,6 +21,9 @@ import {
     getLastSubmissionInfoAction,
     getStarterCodeInfoAction,
 } from '@/server/actions/workspaces.actions'
+
+/** The Figma toast's wording for a request that failed rather than a file that was too big. */
+const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -219,13 +224,19 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         [studyId],
     )
 
+    /**
+     * OTTER-693 reports each file's outcome separately, so one bad file no longer abandons the rest
+     * of the batch: every file is attempted and gets its own toast.
+     */
     const uploadMutation = useMutation({
         mutationFn: async (filesToUpload: File[]) => {
             for (const file of filesToUpload) {
                 const result = await uploadWorkspaceFileAction({ studyId, file })
                 if ('error' in result) {
-                    throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
+                    showUploadFailed(file.name, UPLOAD_RETRY_MESSAGE)
+                    continue
                 }
+                showUploadSucceeded(file.name)
             }
         },
         onSettled: () => {
@@ -235,13 +246,18 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         onError: reportMutationError('Failed to upload files'),
     })
 
-    const uploadFiles = useCallback(
+    const startUpload = useCallback(
         (filesToUpload: File[]) => {
             setUserEditedFiles(true)
             uploadMutation.mutate(filesToUpload)
         },
         [uploadMutation],
     )
+
+    const { uploadFiles, pendingDuplicate, resolveDuplicate } = useUploadQueue({
+        existingNames: fileNames,
+        startUpload,
+    })
 
     const submitMutation = useMutation({
         mutationFn: async () => {
@@ -325,6 +341,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         isIdeClaimed: ideOwner?.isClaimed === true,
         ideOwnerName: ideOwner?.ownerName ?? null,
         uploadFiles,
+        pendingDuplicate,
+        resolveDuplicate,
         isUploading: uploadMutation.isPending,
         isDeleting: deleteMutation.isPending,
 

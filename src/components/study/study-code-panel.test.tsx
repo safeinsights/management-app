@@ -37,6 +37,8 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
         viewingFile: null,
         closeFileViewer: vi.fn(),
         uploadFiles: vi.fn(),
+        pendingDuplicate: null,
+        resolveDuplicate: vi.fn(),
         isUploading: false,
         isDeleting: false,
         canSubmit: false,

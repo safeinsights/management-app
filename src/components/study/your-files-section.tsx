@@ -4,9 +4,11 @@ import { useRef, type FC } from 'react'
 import { Divider, Group, Paper, Skeleton, Stack, Title } from '@mantine/core'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
+import { AlreadyHaveCodeSection } from './already-have-code-section'
 import { FileDropOverlay } from './file-drop-overlay'
 import { IdeLaunchFailedModal } from './ide-launch-failed-modal'
 import { IdeLaunchProgressModal } from './ide-launch-progress-modal'
+import { ReplaceFileModal } from './replace-file-modal'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { isFilesReviewState } from './study-code-files'
 import { LaunchIdeControl } from './launch-ide-control'
@@ -78,6 +80,7 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
                     onDelete={ide.removeFile}
                 />
             </FileDropOverlay>
+            <AlreadyHaveCodeSection isVisible={isEditable} openRef={openRef} />
         </Stack>
     )
 }
@@ -148,6 +151,8 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
             </Paper>
 
             <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
+
+            <ReplaceFileModal file={ide.pendingDuplicate} onResolve={ide.resolveDuplicate} />
 
             <IdeLaunchProgressModal
                 isOpen={ide.isLaunching}

@@ -26,6 +26,8 @@ import { vi } from 'vitest'
 import { signedUrlForFile } from '@/server/aws'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import { s3Available } from '@/tests/s3.helpers'
+import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
+import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -758,6 +760,140 @@ describe('StudyCode component', () => {
                 expect(
                     screen.getByText(/Opens your files in the IDE where you can edit and refine/),
                 ).toBeInTheDocument()
+            })
+        })
+    })
+
+    describe('Already have code section (OTTER-693)', () => {
+        const codeFile = (name: string, contents = 'print(1)') => new File([contents], name, { type: 'text/plain' })
+
+        const fileInput = () => document.querySelector('input[type="file"]') as HTMLInputElement
+
+        const renderWithFiles = async (files: Record<string, string> = { 'main.R': 'print(1)' }) => {
+            const rendered = await renderIDE('openstax-lab', files)
+            await waitFor(() => expect(screen.getByTestId('already-have-code')).toBeInTheDocument())
+            return rendered
+        }
+
+        const workspaceNames = async (studyId: string) => {
+            const result = await listWorkspaceFilesAction({ studyId })
+            if ('error' in result) throw new Error('listing failed')
+            return result.files.map((f) => f.name).sort()
+        }
+
+        it('renders the section with its copy and the upload link', async () => {
+            await renderWithFiles()
+
+            const section = screen.getByTestId('already-have-code')
+            expect(section).toHaveTextContent('Already have code?')
+            expect(section).toHaveTextContent(
+                /Download the template file from the table above\. Add your code, then edit and test it in the SafeInsights IDE against example data\./,
+            )
+            expect(section).toHaveTextContent(
+                '(Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb. File size: 3 MB max.)',
+            )
+            expect(within(section).getByRole('button', { name: 'Upload your existing files' })).toBeInTheDocument()
+        })
+
+        it('uploads a new file and reports it as a success', async () => {
+            const { study } = await renderWithFiles()
+
+            await userEvent.setup().upload(fileInput(), codeFile('extra.R'))
+
+            await waitFor(async () => {
+                expect(await workspaceNames(study.id)).toEqual(['extra.R', 'main.R'])
+            })
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'extra.R is uploaded.', color: 'green' }),
+            )
+        })
+
+        it('rejects a file over 3 MB, naming it, without uploading', async () => {
+            const { study } = await renderWithFiles()
+            const tooBig = codeFile('huge.R', 'x'.repeat(MAX_UPLOAD_FILE_BYTES + 1))
+
+            await userEvent.setup().upload(fileInput(), tooBig)
+
+            await waitFor(() => {
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'huge.R failed to upload.',
+                        message: 'Maximum file size is 3 MB.',
+                        color: 'red',
+                    }),
+                )
+            })
+            expect(await workspaceNames(study.id)).toEqual(['main.R'])
+        })
+
+        it('categorises its toasts so later logic can key on the kind, not the colour', async () => {
+            await renderWithFiles()
+
+            await userEvent.setup().upload(fileInput(), codeFile('extra.R'))
+
+            // The card asks for Success/Error to be explicit, because later work builds on it.
+            await waitFor(() => {
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({ 'data-toast-kind': 'success' }),
+                )
+            })
+        })
+
+        describe('duplicate file names', () => {
+            const uploadColliding = async () => {
+                const rendered = await renderWithFiles()
+                await userEvent.setup().upload(fileInput(), codeFile('main.R', 'print("new")'))
+                await screen.findByText('Replace existing file?')
+                return rendered
+            }
+
+            it('asks before overwriting, naming the file', async () => {
+                await uploadColliding()
+
+                const heading = screen.getByText('Replace existing file?')
+                const dialog = heading.closest('[role="dialog"]') as HTMLElement
+                expect(dialog).toHaveTextContent(
+                    /A file named main\.R already exists in SafeInsights\. Replacing this file will overwrite and permanently delete the current version/,
+                )
+                expect(within(dialog).getByRole('button', { name: 'Replace' })).toBeInTheDocument()
+                expect(within(dialog).getByRole('button', { name: 'Keep both' })).toBeInTheDocument()
+                expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+            })
+
+            it('leaves the workspace untouched on Cancel', async () => {
+                const { study } = await uploadColliding()
+
+                await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel' }))
+
+                await waitFor(() => expect(screen.queryByText('Replace existing file?')).not.toBeInTheDocument())
+                expect(await workspaceNames(study.id)).toEqual(['main.R'])
+            })
+
+            it('overwrites in place on Replace', async () => {
+                const { study } = await uploadColliding()
+
+                await userEvent.setup().click(screen.getByRole('button', { name: 'Replace' }))
+
+                await waitFor(() => {
+                    expect(notifications.show).toHaveBeenCalledWith(
+                        expect.objectContaining({ title: 'main.R is uploaded.' }),
+                    )
+                })
+                // Same name, new contents: no second file appears.
+                expect(await workspaceNames(study.id)).toEqual(['main.R'])
+            })
+
+            it('suffixes the arriving file on Keep both, leaving the original alone', async () => {
+                const { study } = await uploadColliding()
+
+                await userEvent.setup().click(screen.getByRole('button', { name: 'Keep both' }))
+
+                await waitFor(async () => {
+                    expect(await workspaceNames(study.id)).toEqual(['main (1).R', 'main.R'])
+                })
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({ title: 'main (1).R is uploaded.' }),
+                )
             })
         })
     })
