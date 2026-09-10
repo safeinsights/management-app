@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { mergeRegister } from '@lexical/utils'
-import { $setSelection, COMMAND_PRIORITY_LOW, isDOMNode, SELECTION_CHANGE_COMMAND, type LexicalEditor } from 'lexical'
+import {
+    $setSelection,
+    COMMAND_PRIORITY_LOW,
+    isDOMNode,
+    KEY_MODIFIER_COMMAND,
+    SELECTION_CHANGE_COMMAND,
+    type LexicalEditor,
+} from 'lexical'
 import { LINK_CARD_DIALOG_LABEL, LINK_EDIT_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkEditForm, type LinkEditValues } from '@/components/link-hover-card/link-edit-form'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
@@ -11,6 +18,7 @@ import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { linkAttributes } from './config'
 import {
     AnchoredLinkCard,
+    hasPrimaryModifier,
     openLinkInNewTab,
     useClickWithoutDrag,
     useEscapeOnCard,
@@ -31,6 +39,9 @@ import {
 } from './link-card-node'
 
 type CardView = 'card' | 'edit'
+
+/** Cmd on a Mac and Ctrl elsewhere, which is what every editor with a link balloon uses. */
+const OPEN_CARD_KEY = 'k'
 
 function useEditorLinkCard(editor: LexicalEditor) {
     const [link, setLink] = useState<LinkCardTarget | null>(null)
@@ -85,18 +96,31 @@ function useEditorLinkCard(editor: LexicalEditor) {
 
     useRootDomListeners(editor, { mousedown: rememberPress, click: openFromClick })
 
-    useEffect(() => {
-        return editor.registerCommand(
-            OPEN_LINK_CARD_COMMAND,
-            () => {
-                const found = editor.read($linkAtSelection)
-                if (!found) return false
-                open(found)
-                return true
-            },
-            COMMAND_PRIORITY_LOW,
-        )
+    const openLinkAtCaret = useCallback(() => {
+        const found = editor.read($linkAtSelection)
+        if (!found) return false
+
+        open(found)
+        return true
     }, [editor, open])
+
+    useEffect(() => {
+        return mergeRegister(
+            editor.registerCommand(OPEN_LINK_CARD_COMMAND, openLinkAtCaret, COMMAND_PRIORITY_LOW),
+            editor.registerCommand(
+                KEY_MODIFIER_COMMAND,
+                (event) => {
+                    if (event.key.toLowerCase() !== OPEN_CARD_KEY || !hasPrimaryModifier(event)) return false
+                    if (!openLinkAtCaret()) return false
+
+                    // Held back until the card is open, so the browser keeps the key otherwise.
+                    event.preventDefault()
+                    return true
+                },
+                COMMAND_PRIORITY_LOW,
+            ),
+        )
+    }, [editor, openLinkAtCaret])
 
     useEffect(() => {
         if (!link) return

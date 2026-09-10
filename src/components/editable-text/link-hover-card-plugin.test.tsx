@@ -180,6 +180,25 @@ describe('LinkHoverCardPlugin', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
+    it('opens the card from the keyboard shortcut when the caret sits in a link', async () => {
+        const { container, editor } = await renderLinkedEditor('card-shortcut')
+
+        selectInside(editor, 'link')
+        fireEvent.keyDown(container.querySelector('[contenteditable="true"]')!, { key: 'k', ctrlKey: true })
+
+        expect(await findCard()).toHaveTextContent(URL)
+    })
+
+    it('leaves the shortcut to the browser when the caret sits outside a link', async () => {
+        const { container, editor } = await renderLinkedEditor('card-shortcut-outside')
+
+        selectInside(editor, 'tail')
+        const contentEditable = container.querySelector('[contenteditable="true"]')!
+
+        expect(fireEvent.keyDown(contentEditable, { key: 'k', ctrlKey: true })).toBe(true)
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
     it('opens from the toolbar link button when the caret is already in a link', async () => {
         const user = userEvent.setup()
         const { editor, container } = await renderLinkedEditor('card-toolbar')
