@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 /**
  * DEV-ONLY: fill the local database with studies so the admin pickers have something to
- * offer. The SLA upload cascade (Data Partner > Research Lab > study) reads approved
- * studies with no SLA yet, so on a fresh database every dropdown is empty and looks
+ * offer. The study agreement upload cascade (Data Partner > Research Lab > study) reads approved
+ * studies with no agreement yet, so on a fresh database every dropdown is empty and looks
  * broken.
  *
  * Studies are spread across every enclave/lab pair except SafeInsights, which is the
@@ -19,7 +19,7 @@ import { testingDataAllowed } from './lib/testing-data-gate'
 // Enough to see the cascade narrow at each step without burying the table.
 const DEFAULT_PER_PAIR = 2
 
-// One in this many is left PENDING-REVIEW, so the SLA picker demonstrably excludes them.
+// One in this many is left PENDING-REVIEW, so the agreement picker demonstrably excludes them.
 const PENDING_EVERY = 3
 
 const TOPICS = [

@@ -39,6 +39,7 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
     const study = await db
@@ -693,6 +694,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('review', 'Study')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
         const userId = session.user.id
 

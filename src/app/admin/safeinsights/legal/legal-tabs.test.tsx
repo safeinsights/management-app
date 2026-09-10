@@ -12,7 +12,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 describe('LegalTabs', () => {
-    it('opens on Terms of Service and switches to the SLA panel', async () => {
+    it('opens on Terms of Service and switches to the study agreement panel', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
         renderWithProviders(<LegalTabs />)

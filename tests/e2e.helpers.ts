@@ -181,10 +181,12 @@ export const visitAsRole = async (page: Page, url: string) => {
     await goto(page, url)
 }
 
+// pressSequentially, not page.keyboard.type: the latter goes wherever focus happens to be, so if the
+// editor loses focus the keystrokes land on the page — and a space activates whatever button has it.
 export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
     const field = page.locator(`[aria-label="${ariaLabel}"]`)
     await field.click()
-    await page.keyboard.type(text)
+    await field.pressSequentially(text)
 }
 
 // Types `text` into a rich-text field and hyperlinks all of it through the editor
@@ -192,8 +194,9 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
 // one Lexical instance (and one toolbar) per rich-text field.
 export async function insertLexicalLink(page: Page, ariaLabel: string, text: string, url: string) {
     const editor = page.locator(`.collaborative-editor-container:has([aria-label="${ariaLabel}"])`)
-    await editor.locator(`[aria-label="${ariaLabel}"]`).click()
-    await page.keyboard.type(text)
+    const field = editor.locator(`[aria-label="${ariaLabel}"]`)
+    await field.click()
+    await field.pressSequentially(text)
     await page.keyboard.press('ControlOrMeta+a')
 
     await editor.getByLabel('Link').click()
