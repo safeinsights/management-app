@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as 
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
-import type { LinkPreview } from '@/components/link-hover-card/link-preview'
+import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { AnchoredLinkCard, useExclusiveLinkCard, useLinkCardTriggerAria } from './link-card-popover'
 import { $linkAtDomNode, type LinkCardTarget } from './link-card-node'
 
@@ -148,7 +148,7 @@ function ReadOnlyCardBody({ link }: { link: LinkCardTarget }) {
         firstActionRef.current?.focus()
     }, [])
 
-    const preview: LinkPreview = { kind: 'external', href: link.url }
+    const preview = useLinkPreview(link.url)
     const openInNewTab = () => window.open(link.url, '_blank', 'noopener,noreferrer')
 
     return (

@@ -14,7 +14,7 @@ import {
 import { LINK_CARD_DIALOG_LABEL, LINK_EDIT_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkEditForm, type LinkEditValues } from '@/components/link-hover-card/link-edit-form'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
-import type { LinkPreview } from '@/components/link-hover-card/link-preview'
+import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { linkAttributes } from './config'
 import { AnchoredLinkCard, useExclusiveLinkCard, useLinkCardTriggerAria } from './link-card-popover'
 import {
@@ -248,7 +248,7 @@ function LinkCardBody({
         firstActionRef.current?.focus()
     }, [])
 
-    const preview: LinkPreview = { kind: 'external', href: link.url }
+    const preview = useLinkPreview(link.url)
 
     return (
         <LinkHoverCard

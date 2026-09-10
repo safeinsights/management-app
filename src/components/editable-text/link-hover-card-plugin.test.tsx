@@ -1,8 +1,21 @@
-import { renderWithProviders, screen, act, waitFor, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
+import {
+    renderWithProviders,
+    screen,
+    act,
+    waitFor,
+    userEvent,
+    describe,
+    it,
+    expect,
+    vi,
+    mockSessionWithTestData,
+    insertTestStudyData,
+} from '@/tests/unit.helpers'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, $isElementNode, $isTextNode, type LexicalEditor } from 'lexical'
 import { fireEvent, within } from '@testing-library/react'
 import { LINK_CARD_LABELS, LINK_CARD_DIALOG_LABEL, INVALID_URL_MESSAGE } from '@/components/link-hover-card/copy'
+import { displayOrgName } from '@/lib/string'
 import { SingleUserEditor } from './single-user-editor'
 
 const URL = 'https://example.com/prior-study'
@@ -14,7 +27,7 @@ function textNode(text: string) {
 }
 
 /** A paragraph holding one link plus trailing plain text, so the caret has somewhere else to go. */
-function linkedJson({ target }: { target: string | null } = { target: '_blank' }) {
+function linkedJson({ target, url }: { target: string | null; url: string }) {
     return JSON.stringify({
         root: {
             children: [
@@ -30,7 +43,7 @@ function linkedJson({ target }: { target: string | null } = { target: '_blank' }
                             rel: target ? 'noopener noreferrer' : null,
                             target,
                             title: null,
-                            url: URL,
+                            url,
                         },
                         textNode(TAIL_TEXT),
                     ],
@@ -57,10 +70,10 @@ function CaptureEditor({ onReady }: { onReady: (editor: LexicalEditor) => void }
     return null
 }
 
-async function renderLinkedEditor(id: string, target: string | null = '_blank') {
+async function renderLinkedEditor(id: string, target: string | null = '_blank', url: string = URL) {
     let editor: LexicalEditor | null = null
     const { container } = renderWithProviders(
-        <SingleUserEditor id={id} initialValue={linkedJson({ target })} ariaLabel="Feedback">
+        <SingleUserEditor id={id} initialValue={linkedJson({ target, url })} ariaLabel="Feedback">
             <CaptureEditor onReady={(e) => (editor = e)} />
         </SingleUserEditor>,
     )
@@ -197,6 +210,19 @@ describe('LinkHoverCardPlugin', () => {
             expect(updated.getAttribute('rel')).toContain('noopener')
             expect(updated.textContent).toBe('newer writeup')
         })
+    })
+
+    it('names the destination of a link into the app', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { studyId } = await insertTestStudyData({ org })
+        const href = `${window.location.origin}/${org.slug}/study/${studyId}/view`
+
+        const { anchor } = await renderLinkedEditor('card-internal', '_blank', href)
+        openCard(anchor)
+        const card = await findCard()
+
+        expect(await within(card).findByText('my 1st study')).toBeInTheDocument()
+        expect(within(card).getByText(`SafeInsights · ${displayOrgName(org.name)}`)).toBeInTheDocument()
     })
 
     it('refuses to save an invalid URL', async () => {
