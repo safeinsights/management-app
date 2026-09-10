@@ -9,7 +9,7 @@ describe('RequiredIndicator', () => {
 
         expect(indicator).toHaveTextContent('*')
         // Mantine maps `c` to an inline CSS variable, so the resolved color is not assertable.
-        expect(indicator.getAttribute('style') || '').toContain('--mantine-color-red-10')
+        expect(indicator.getAttribute('style') || '').toContain('--mantine-color-red-11')
     })
 
     it('renders nothing for a field that is not required', () => {

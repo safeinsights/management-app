@@ -167,7 +167,7 @@ describe('ProposalForm field hints (OTTER-769)', () => {
 
         expect(asterisk).toHaveTextContent('*')
         // Mantine maps `c` to an inline CSS variable, so the resolved color is not assertable.
-        expect(asterisk?.getAttribute('style') || '').toContain('--mantine-color-red-10')
+        expect(asterisk?.getAttribute('style') || '').toContain('--mantine-color-red-11')
     })
 
     // The one hand-rolled description on the page, so the only one that can drift from the size
