@@ -6,6 +6,7 @@ import {
     defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
+    Input,
     MantineColorsTuple,
     type VariantColorsResolver,
 } from '@mantine/core'
@@ -197,6 +198,12 @@ export const theme = createTheme({
                 color: charcoal[9],
             },
         },
+        // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
+        // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
+        // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
+        InputWrapper: Input.Wrapper.extend({
+            styles: { required: { color: red[10] } },
+        }),
         Table: {
             styles: () => ({
                 th: {

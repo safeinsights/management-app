@@ -1,13 +1,10 @@
-import type { Route } from 'next'
-import { Box, Group, Stack } from '@mantine/core'
-import { ButtonLink } from '@/components/links'
+import { Box, Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { Routes } from '@/lib/routes'
-import { isFeedbackOnlyOutcome, runErrored } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
@@ -40,8 +37,9 @@ export async function OutputsFeedbackScreen({
     study,
     raw,
     orgSlug,
+    dashboardHref,
     returnTo,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'>) {
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
     const result = await guardOutputsFeedbackScreen({
         study,
         raw,
@@ -54,10 +52,15 @@ export async function OutputsFeedbackScreen({
     })
     if (!('job' in result)) return result
 
-    const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
-    const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
-    const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
-    const banner = bannerCopy(runErrored(job.statusChanges), dataPartner)
+    const { entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const state = projectStudyState(raw)
+    const banner = bannerCopy(state.runErrored, dataPartner)
+    const nav = resolveStepNav('outputs-feedback', state, {
+        orgSlug,
+        studyId: study.id,
+        dashboardHref,
+        returnTo,
+    })
 
     return (
         <Box bg="grey.10">
@@ -69,12 +72,7 @@ export async function OutputsFeedbackScreen({
                     banner={<FeedbackBanner title={banner.title} message={banner.message} decidedAt={decidedAt} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <Group justify="space-between">
-                    <PreviousStepLink previousHref={previousHref} />
-                    <ButtonLink href={editCodeHref} variant="outline" size="md">
-                        Edit code
-                    </ButtonLink>
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Box>
     )

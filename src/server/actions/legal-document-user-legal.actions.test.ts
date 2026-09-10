@@ -10,6 +10,7 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
@@ -26,7 +27,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -45,7 +46,9 @@ const publishAsSiAdmin = async (
     signedAt?: string,
 ) => {
     await mockSessionWithTestData({ isSiAdmin: true })
-    const { version } = actionResult(await createLegalDocumentDraftAction({ ...scope, fileName: 'agreement.pdf' }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ ...scope, file: testUploadFile('agreement.pdf') }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 

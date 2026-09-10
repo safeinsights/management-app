@@ -75,3 +75,19 @@ describe('button colors', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')
     })
 })
+
+// Locks the mandatory-field asterisk (OTTER-769). Figma status/error/text-icon, carried as the
+// palette's 11th shade the way grey.10 and yellow.10 already are.
+describe('required asterisk color', () => {
+    it('carries the library error value', () => {
+        expect(theme.colors?.red?.[10]).toBe('#7E241E')
+    })
+
+    // Every Mantine asterisk resolves through this one entry, Radio.Group's included, because
+    // Input.Label registers its styles under the InputWrapper name.
+    it('paints every Mantine-rendered asterisk from it', () => {
+        const styles = theme.components?.InputWrapper?.styles as { required?: { color?: string } } | undefined
+
+        expect(styles?.required?.color).toBe('#7E241E')
+    })
+})

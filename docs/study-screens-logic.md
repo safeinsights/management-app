@@ -141,8 +141,8 @@ raw jobs.
 | 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`       |
 | 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`         |
 | 4   | `hasResults && !awaitingFilesDecisionOnError`                                       | `study-results`          |
-| 5   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                   | `outputs-pending`        |
-| 6   | `codeDecision === 'CODE-APPROVED'`                                                  | `code-approved`          |
+| 5   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `outputs-pending`        |
+| 6   | `codeDecision === 'CODE-APPROVED'` (only via `/view/code`, walking back)            | `code-approved`          |
 | 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`          |
 | 8   | `codeAwaitingDecision`                                                              | `code-under-review`      |
 | 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`      |
@@ -201,7 +201,10 @@ submission and is already surfaced on the code review step, so it says nothing a
 errored job carrying only a scan log has nothing to review here, and offering to share it as the
 run's outputs would repeat the conflation this card fixed.
 
-The same screen's banner no longer promises error logs unconditionally. It names the stage that
+The same screen's banner no longer promises error logs unconditionally. When the job holds an error
+log a reviewer's key can open, the banner is a single sentence, `Enter your security key below to
+access the outputs and see what went wrong.` (OTTER-769): entering the key is the whole of what the
+reviewer does next, and the log itself carries the detail. In every other case it names the stage that
 failed, derived from the status history (`JOB-PACKAGING` without `JOB-READY` means packaging failed;
 `JOB-RUNNING` means the code ran; a job that errored before packaging even started is told neither,
 since `/api/services/job-scan-results` and `/api/job/[jobId]` can both record `JOB-ERRORED` first).
@@ -221,6 +224,8 @@ read through a reviewer-scoped query (never the shared job queries, which the su
 can reach), that query selects only known codes so a later code-less or free-text `JOB-ERRORED` row
 cannot mask one, and anything unrecognized still falls back to the stage sentence. Service-supplied
 text is never echoed, which keeps AWS and deployment detail off a screen another organization reads.
+A job holding both a readable log and a recognized reason shows the single OTTER-769 sentence
+instead, since the reason it would otherwise name is in the log the key opens.
 
 `reviewer-outputs-decided` (#3) hides its post-decision `View outputs again` key form when the job
 holds no encrypted artifact describing the run's outcome, for the same reason: an errored run can now
@@ -275,7 +280,7 @@ each fetches its own feedback/job data, exactly as the researcher screens do. Tw
 a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScreen` (researcher), and
 `reviewer-code-feedback` branches internally on the decision for the reviewer. `outputs-pending` →
 `OutputsPendingScreen` (researcher) and `reviewer-outputs-pending` → `ReviewerOutputsPendingScreen`
-share a `guardExecutionStage` helper for their common precondition checks.
+share a `guardSubmittedJob` helper for the submitted-job precondition; each reads the execution stage or approval date it displays off the job itself.
 
 ---
 

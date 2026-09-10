@@ -171,7 +171,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         inputId="piName"
                         label="Principal Investigator"
                         required
-                        description="Select a Principal Investigator from your lab."
+                        description="Select the Principal Investigator for this study."
                         error={form.errors.piName as string | undefined}
                     >
                         <Box w="30%">

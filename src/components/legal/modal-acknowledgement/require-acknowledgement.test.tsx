@@ -6,6 +6,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     resetLegalDocuments,
+    testUploadFile,
     userEvent,
 } from '@/tests/unit.helpers'
 import {
@@ -20,7 +21,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -37,7 +38,7 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 beforeEach(resetLegalDocuments)
 
 const publish = async (type: 'TOS' | 'PN', fileName: string) => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type, fileName }))
+    const { version } = actionResult(await createLegalDocumentDraftAction({ type, file: testUploadFile(fileName) }))
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 

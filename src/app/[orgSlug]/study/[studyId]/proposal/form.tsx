@@ -165,7 +165,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                             inputId={PI_SELECT_ID}
                             label="Principal Investigator"
                             required
-                            description="Select a Principal Investigator from your lab."
+                            description="Select the Principal Investigator for this study."
                             error={form.errors.piName}
                         >
                             <Box w="30%">
