@@ -16,7 +16,9 @@ import type { LexicalEditor } from 'lexical'
 
 const CARD_WIDTH = 420
 const CLICK_OUTSIDE_EVENTS = ['mousedown', 'touchstart']
-const ANCHOR_HOST_STYLE: CSSProperties = { position: 'relative', height: 0 }
+// Out of flow and sized to nothing, so mounting the card inside read-only content cannot add a
+// line to a clamped block. Only the measured box matters, never where the host itself lands.
+const ANCHOR_HOST_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, width: 0, height: 0 }
 const ANCHOR_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }
 
 /**

@@ -1,5 +1,8 @@
-import { renderWithProviders, fireEvent, waitFor, describe, it, expect, vi } from '@/tests/unit.helpers'
+import { renderWithProviders, fireEvent, screen, waitFor, describe, it, expect, vi } from '@/tests/unit.helpers'
+import { LINK_CARD_DIALOG_LABEL, LINK_CARD_LABELS } from '@/components/link-hover-card/copy'
 import { ReadOnlyLexicalContent } from './readonly-lexical-content'
+
+const URL = 'https://example.com'
 
 function textNode(text: string) {
     return { detail: 0, format: 0, mode: 'normal', style: '', text, type: 'text', version: 1 }
@@ -13,8 +16,7 @@ function root(children: object[]) {
     return JSON.stringify({ root: { children, direction: 'ltr', format: '', indent: 0, type: 'root', version: 1 } })
 }
 
-// Mirrors how links were persisted before target/rel were set on insertion.
-function legacyLinkState(url: string) {
+function linkState(url: string, target: string | null) {
     return root([
         paragraph([
             {
@@ -24,8 +26,8 @@ function legacyLinkState(url: string) {
                 indent: 0,
                 type: 'link',
                 version: 1,
-                rel: null,
-                target: null,
+                rel: target ? 'noopener noreferrer' : null,
+                target,
                 title: null,
                 url,
             },
@@ -33,23 +35,78 @@ function legacyLinkState(url: string) {
     ])
 }
 
-describe('ReadOnlyLexicalContent', () => {
-    it('opens a link stored without a target in a new tab', async () => {
-        const open = vi.spyOn(window, 'open').mockReturnValue(null)
-        const { container } = renderWithProviders(
-            <ReadOnlyLexicalContent value={legacyLinkState('https://example.com')} />,
-        )
+/** Mirrors how links were persisted before target/rel were set on insertion. */
+const legacyLinkState = (url: string) => linkState(url, null)
 
-        const anchor = await waitFor(() => {
-            const found = container.querySelector('a')
-            expect(found).not.toBeNull()
-            return found!
-        })
-        expect(anchor.getAttribute('target')).toBeNull()
+async function renderLink(value: string) {
+    const { container } = renderWithProviders(<ReadOnlyLexicalContent value={value} />)
+
+    const anchor = await waitFor(() => {
+        const found = container.querySelector('a')
+        expect(found).not.toBeNull()
+        return found!
+    })
+
+    return { container, anchor }
+}
+
+const findCard = () => screen.findByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })
+
+describe('ReadOnlyLexicalContent', () => {
+    it('opens the link card on a click instead of navigating', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
 
         fireEvent.click(anchor)
 
-        await waitFor(() => expect(open).toHaveBeenCalledWith('https://example.com', '_blank'))
+        expect(await findCard()).toHaveTextContent(URL)
+        expect(open).not.toHaveBeenCalled()
+    })
+
+    it('offers copy alone for a link already stored to open in a new tab', async () => {
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        fireEvent.click(anchor)
+        const card = await findCard()
+
+        expect(card.querySelectorAll('button')).toHaveLength(1)
+        expect(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: LINK_CARD_LABELS.openInNewTab })).toBeNull()
+    })
+
+    it('offers the open action for a link stored without a target', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        const { anchor } = await renderLink(legacyLinkState(URL))
+        expect(anchor.getAttribute('target')).toBeNull()
+
+        fireEvent.click(anchor)
+        await findCard()
+        fireEvent.click(screen.getByRole('button', { name: LINK_CARD_LABELS.openInNewTab }))
+
+        expect(open).toHaveBeenCalledWith(URL, '_blank', 'noopener,noreferrer')
+    })
+
+    it('opens the destination straight away on a modified click', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        fireEvent.click(anchor, { ctrlKey: true })
+
+        expect(open).toHaveBeenCalledWith(URL, '_blank', 'noopener,noreferrer')
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('opens the card from the keyboard and returns focus to the link on Escape', async () => {
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        anchor.focus()
+        fireEvent.keyDown(anchor, { key: 'Enter' })
+        const card = await findCard()
+
+        fireEvent.keyDown(card, { key: 'Escape' })
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(document.activeElement).toBe(anchor)
     })
 
     it('renders paragraphs with the themed class that removes the default margin', async () => {
