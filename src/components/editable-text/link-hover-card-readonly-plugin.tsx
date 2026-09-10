@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
@@ -8,6 +8,7 @@ import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import {
     AnchoredLinkCard,
     useClickWithoutDrag,
+    useEscapeOnCard,
     useExclusiveLinkCard,
     useFocusOnOpen,
     useLinkCardTriggerAria,
@@ -88,10 +89,6 @@ export function LinkHoverCardReadOnlyPlugin() {
 
     const handleKeyDown = useCallback(
         (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                if (triggerRef.current) closeAndReturnFocus()
-                return
-            }
             if (!OPEN_KEYS.includes(event.key)) return
 
             const hit = linkFromEvent(event.target)
@@ -101,7 +98,7 @@ export function LinkHoverCardReadOnlyPlugin() {
             event.preventDefault()
             open(hit.found, hit.anchor)
         },
-        [closeAndReturnFocus, linkFromEvent, open],
+        [linkFromEvent, open],
     )
 
     useEffect(() => {
@@ -118,15 +115,7 @@ export function LinkHoverCardReadOnlyPlugin() {
     }, [editor, handleClick, handleKeyDown, rememberPress])
 
     useLinkCardTriggerAria(editor, link?.nodeKey ?? null, dropdownId)
-
-    const dismissOnEscape = useCallback(
-        (event: ReactKeyboardEvent<HTMLDivElement>) => {
-            if (event.key !== 'Escape') return
-            event.stopPropagation()
-            closeAndReturnFocus()
-        },
-        [closeAndReturnFocus],
-    )
+    useEscapeOnCard(link !== null, closeAndReturnFocus)
 
     return (
         <AnchoredLinkCard
@@ -138,7 +127,6 @@ export function LinkHoverCardReadOnlyPlugin() {
             dropdownId={dropdownId}
             ariaLabel={LINK_CARD_DIALOG_LABEL}
             onDismiss={close}
-            onKeyDown={dismissOnEscape}
         >
             <ReadOnlyCardContent link={link} />
         </AnchoredLinkCard>

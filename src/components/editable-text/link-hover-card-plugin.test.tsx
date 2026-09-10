@@ -154,12 +154,17 @@ describe('LinkHoverCardPlugin', () => {
         expect(anchor.getAttribute('aria-controls')).toBe(card.getAttribute('id'))
     })
 
+    // Escape is pressed on the focused action, which is where it lands in a browser.
     it('closes on Escape and puts the caret back in the link', async () => {
+        const user = userEvent.setup()
         const { anchor, container } = await renderLinkedEditor('card-escape')
         openCard(anchor)
-        const card = await findCard()
+        await findCard()
 
-        fireEvent.keyDown(card, { key: 'Escape' })
+        await waitFor(() =>
+            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
+        )
+        await user.keyboard('{Escape}')
 
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
         await waitFor(() => expect(document.activeElement).toBe(container.querySelector('[contenteditable="true"]')))

@@ -1,17 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { mergeRegister } from '@lexical/utils'
-import {
-    $setSelection,
-    COMMAND_PRIORITY_CRITICAL,
-    COMMAND_PRIORITY_LOW,
-    isDOMNode,
-    KEY_ESCAPE_COMMAND,
-    SELECTION_CHANGE_COMMAND,
-    type LexicalEditor,
-} from 'lexical'
+import { $setSelection, COMMAND_PRIORITY_LOW, isDOMNode, SELECTION_CHANGE_COMMAND, type LexicalEditor } from 'lexical'
 import { LINK_CARD_DIALOG_LABEL, LINK_EDIT_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkEditForm, type LinkEditValues } from '@/components/link-hover-card/link-edit-form'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
@@ -20,6 +12,7 @@ import { linkAttributes } from './config'
 import {
     AnchoredLinkCard,
     useClickWithoutDrag,
+    useEscapeOnCard,
     useExclusiveLinkCard,
     useFocusOnOpen,
     useLinkCardTriggerAria,
@@ -131,17 +124,8 @@ function useEditorLinkCard(editor: LexicalEditor) {
                 },
                 COMMAND_PRIORITY_LOW,
             ),
-            // Above EscapeFocusPlugin, which would otherwise blur the whole field.
-            editor.registerCommand(
-                KEY_ESCAPE_COMMAND,
-                () => {
-                    closeAndReturnFocus()
-                    return true
-                },
-                COMMAND_PRIORITY_CRITICAL,
-            ),
         )
-    }, [editor, link, close, closeAndReturnFocus])
+    }, [editor, link, close])
 
     const openInNewTab = useCallback(() => {
         if (link) window.open(link.url, '_blank', 'noopener,noreferrer')
@@ -171,25 +155,20 @@ function useEditorLinkCard(editor: LexicalEditor) {
         editor.update(() => $unwrapLink(nodeKey))
     }, [close, editor, link])
 
-    const handleKeyDown = useCallback(
-        (event: ReactKeyboardEvent<HTMLDivElement>) => {
-            if (event.key !== 'Escape') return
-            event.stopPropagation()
-
-            if (view === 'edit') {
-                setView('card')
-                return
-            }
-            closeAndReturnFocus()
-        },
-        [closeAndReturnFocus, view],
-    )
+    // From the edit form, Escape discards it and returns to the card; from the card it closes.
+    const handleEscape = useCallback(() => {
+        if (view === 'edit') {
+            setView('card')
+            return
+        }
+        closeAndReturnFocus()
+    }, [closeAndReturnFocus, view])
 
     return {
         link,
         view,
         close,
-        handleKeyDown,
+        handleEscape,
         openInNewTab,
         startEdit,
         cancelEdit,
@@ -206,6 +185,7 @@ export function LinkHoverCardPlugin() {
     const dropdownId = useId()
 
     useLinkCardTriggerAria(editor, card.link?.nodeKey ?? null, dropdownId)
+    useEscapeOnCard(card.link !== null, card.handleEscape)
 
     const ariaLabel = card.view === 'edit' ? LINK_EDIT_DIALOG_LABEL : LINK_CARD_DIALOG_LABEL
 
@@ -220,7 +200,6 @@ export function LinkHoverCardPlugin() {
             dropdownId={dropdownId}
             ariaLabel={ariaLabel}
             onDismiss={card.close}
-            onKeyDown={card.handleKeyDown}
         >
             <LinkCardContent card={card} />
         </AnchoredLinkCard>

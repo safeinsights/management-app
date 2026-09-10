@@ -110,9 +110,13 @@ describe('ReadOnlyLexicalContent', () => {
 
         anchor.focus()
         fireEvent.keyDown(anchor, { key: 'Enter' })
-        const card = await findCard()
+        await findCard()
 
-        fireEvent.keyDown(card, { key: 'Escape' })
+        // From the focused action inside the card, which is where a browser sends the key.
+        await waitFor(() =>
+            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
+        )
+        fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
 
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
         expect(document.activeElement).toBe(anchor)

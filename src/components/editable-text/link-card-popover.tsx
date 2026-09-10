@@ -5,7 +5,6 @@ import {
     useEffect,
     useRef,
     type CSSProperties,
-    type KeyboardEvent,
     type MouseEvent as ReactMouseEvent,
     type ReactNode,
     type RefObject,
@@ -78,6 +77,29 @@ export function useFocusOnOpen(target: RefObject<HTMLElement | null>) {
 
         return () => cancelAnimationFrame(frame)
     }, [target])
+}
+
+/**
+ * Escape acts on the card wherever focus sits: on one of its actions, or back in the field. A
+ * native listener on the document is what makes that reliable. A React handler on the dropdown
+ * never sees a key pressed on an action inside it, and stopping the event here also keeps it from
+ * reaching the field, where EscapeFocusPlugin would blur the whole editor.
+ */
+export function useEscapeOnCard(isOpen: boolean, onEscape: () => void) {
+    useEffect(() => {
+        if (!isOpen) return
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.stopPropagation()
+            onEscape()
+        }
+
+        document.addEventListener('keydown', handleEscape, true)
+
+        return () => document.removeEventListener('keydown', handleEscape, true)
+    }, [isOpen, onEscape])
 }
 
 const DRAG_SLOP_PX = 3
@@ -163,7 +185,6 @@ interface AnchoredLinkCardProps {
     dropdownId: string
     ariaLabel: string
     onDismiss: () => void
-    onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
     children: ReactNode
 }
 
@@ -177,7 +198,6 @@ export function AnchoredLinkCard({
     dropdownId,
     ariaLabel,
     onDismiss,
-    onKeyDown,
     children,
 }: AnchoredLinkCardProps) {
     const hostRef = useRef<HTMLDivElement>(null)
@@ -222,7 +242,6 @@ export function AnchoredLinkCard({
                     role="dialog"
                     aria-label={ariaLabel}
                     p="sm"
-                    onKeyDown={onKeyDown}
                     onMouseDown={keepEditorSelection}
                 >
                     {children}
