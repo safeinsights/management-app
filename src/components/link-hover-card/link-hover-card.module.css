@@ -1,0 +1,20 @@
+.action:hover,
+.action:active {
+    background-color: rgba(218, 222, 225, 0.5);
+}
+
+/* Doubled selector so the reduced-motion rule below always outranks Mantine's global
+   `.mantine-active:active` nudge, whichever stylesheet loads last. */
+.action.action:active {
+    transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .action.action:active {
+        transform: none;
+    }
+}
+
+.url {
+    word-break: break-word;
+}
