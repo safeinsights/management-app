@@ -23,6 +23,7 @@ import { type StudyForReview } from './review-types'
 const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 
 const FEEDBACK_INPUT_ID = 'review-feedback'
+const ACTIONS_BAR_ID = 'review-actions-bar'
 
 function scrollToFirstInvalidField(feedbackFlagged: boolean) {
     const target = feedbackFlagged
@@ -82,7 +83,7 @@ function useProposalReview({
             {
                 onError: () => {
                     closeModal()
-                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                    document.getElementById(ACTIONS_BAR_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
                 },
             },
         )
@@ -110,7 +111,7 @@ const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isPending, onSubmi
         return null
     }
     return (
-        <Group justify="flex-end">
+        <Group justify="flex-end" id={ACTIONS_BAR_ID}>
             <Button onClick={onSubmit} disabled={isPending}>
                 Submit decision
             </Button>
