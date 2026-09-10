@@ -11,6 +11,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 import type { PhasedStepNav } from '@/lib/study-screen'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -29,17 +30,17 @@ const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
 
 const LOCKED_HEADING = 'Decrypt outputs to view code error'
-const UNLOCKED_HEADING = 'Outputs and feedback available'
+const UNLOCKED_HEADING = 'Resolve the code error to proceed'
 const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
 const UNLOCKED_BODY =
-    "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit."
+    'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.'
 
 const LOCKED_TITLE = `${LOCKED_HEADING} • Aug 05, 2026`
 const UNLOCKED_TITLE = `${UNLOCKED_HEADING} • Aug 05, 2026`
 
 const BANNER = {
-    locked: { title: LOCKED_HEADING, body: LOCKED_BODY },
-    unlocked: { title: UNLOCKED_HEADING, body: UNLOCKED_BODY },
+    locked: { variant: STATUS_ALERT_VARIANT.action, title: LOCKED_HEADING, body: LOCKED_BODY },
+    unlocked: { variant: STATUS_ALERT_VARIANT.action, title: UNLOCKED_HEADING, body: UNLOCKED_BODY },
 }
 
 const PREVIOUS_HREF = '/test-lab/study/abc/view/code' as Route
@@ -187,14 +188,37 @@ describe('SharedOutputsPanel', () => {
     })
 
     describe('after decryption', () => {
-        it('swaps the action banner for the success banner with the exact copy and the same date', async () => {
+        it('swaps to the unlocked copy and variant with the same decision date', async () => {
             renderPanel()
             await decrypt()
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveAttribute('data-variant', 'success')
+            expect(alert).toHaveAttribute('data-variant', 'action')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
             expect(alert).toHaveTextContent(UNLOCKED_BODY)
             expect(alert).not.toHaveTextContent('Decrypt outputs to view code error')
+        })
+
+        it('renders a success unlocked banner when that is the copy it is given', async () => {
+            renderWithProviders(
+                <SharedOutputsPanel
+                    decidedAt={DECIDED_AT}
+                    banner={{
+                        ...BANNER,
+                        unlocked: {
+                            variant: STATUS_ALERT_VARIANT.success,
+                            title: 'Outputs and feedback available',
+                            body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+                        },
+                    }}
+                    job={job}
+                    feedbackSection={<FeedbackProbe />}
+                    nav={NAV}
+                />,
+            )
+            await decrypt()
+            const alert = screen.getByTestId('status-alert')
+            expect(alert).toHaveAttribute('data-variant', 'success')
+            expect(alert).toHaveTextContent('Outputs and feedback available • Aug 05, 2026')
         })
 
         it('announces the swap in the SAME polite live region rather than remounting it', async () => {

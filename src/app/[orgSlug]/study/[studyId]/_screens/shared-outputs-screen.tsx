@@ -3,6 +3,7 @@ import { Box, Stack } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
@@ -16,10 +17,16 @@ import type { ScreenComponentProps } from './types'
 
 type ShareScreenId = Extract<ScreenId, 'outputs-shared' | 'outputs-errored-shared'>
 
+type BannerPhase = {
+    variant: StatusAlertVariant
+    title: string
+}
+
 type ShareScreenConfig = {
     /** This screen's routing rule, re-checked by the guard so rendering cannot disagree with it. */
     matches: (state: StudyState) => boolean
-    lockedBanner: { title: string; body: (dataPartner: string) => string }
+    lockedBanner: BannerPhase & { body: (dataPartner: string) => string }
+    unlockedBanner: BannerPhase & { body: string }
 }
 
 /**
@@ -27,9 +34,9 @@ type ShareScreenConfig = {
  * reads the outputs and feedback, then either resubmits or leaves.
  *
  * Two screens, one component, keyed by the screen the rule table picked — the same shape
- * `CodeDecisionScreen` uses for `code-approved`/`code-feedback`. They diverge only in the routing
- * predicate and the locked-phase copy; the unlocked banner below is shared outright, because both
- * phases end in the same place once the key has done its job.
+ * `CodeDecisionScreen` uses for `code-approved`/`code-feedback`. They diverge in the routing
+ * predicate and in both banner phases: a clean share concludes, an errored share still needs a
+ * resubmit (OTTER-781).
  *
  * The third outcome, withheld outputs, is `outputs-feedback` (OTTER-695/697) and shows no key form
  * at all, so it is a genuinely different screen rather than a third entry here.
@@ -39,34 +46,37 @@ const SHARE_SCREENS = {
     'outputs-shared': {
         matches: isOutputsSharedOutcome,
         lockedBanner: {
+            variant: STATUS_ALERT_VARIANT.action,
             title: 'Decrypt to view your outputs',
             body: (dataPartner) =>
                 `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
         },
+        unlockedBanner: {
+            variant: STATUS_ALERT_VARIANT.success,
+            title: 'Outputs and feedback available',
+            body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+        },
     },
-    // OTTER-696: an errored run (JOB-ERRORED + FILES-APPROVED) the researcher decrypts to diagnose.
+    // OTTER-696 / OTTER-781: an errored run the researcher decrypts to diagnose, then resubmits.
     'outputs-errored-shared': {
         matches: isErroredOutputsSharedOutcome,
         lockedBanner: {
+            variant: STATUS_ALERT_VARIANT.action,
             title: 'Decrypt outputs to view code error',
             body: (dataPartner) =>
                 `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+        },
+        unlockedBanner: {
+            variant: STATUS_ALERT_VARIANT.action,
+            title: 'Resolve the code error to proceed',
+            body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
         },
     },
 } as const satisfies Record<ShareScreenId, ShareScreenConfig>
 
 const isShareScreen = (screen: ScreenId): screen is ShareScreenId => screen in SHARE_SCREENS
 
-// Same state, same guard, both screens — so it lives here for the same reason UNLOCKED_BANNER does:
-// per-entry copies are two places to edit and one drift away from disagreeing.
 const NOT_FOUND = { title: 'Outputs not found', message: 'This study has no shared outputs to display yet.' }
-
-// Identical for both screens, so it lives here rather than in each entry above: duplicating it into
-// the config would preserve exactly the drift this consolidation removes.
-const UNLOCKED_BANNER = {
-    title: 'Outputs and feedback available',
-    body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
-}
 
 export async function SharedOutputsScreen({
     descriptor,
@@ -102,21 +112,22 @@ export async function SharedOutputsScreen({
         returnTo,
     })
 
+    const banner = {
+        locked: {
+            variant: config.lockedBanner.variant,
+            title: config.lockedBanner.title,
+            body: config.lockedBanner.body(dataPartner),
+        },
+        unlocked: config.unlockedBanner,
+    }
+
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
-                {/* Banner titles are undated on purpose — the panel appends the shared decision date
-                    to both, so the two phases can never disagree about when it was made. */}
                 <SharedOutputsPanel
                     decidedAt={decidedAt}
-                    banner={{
-                        locked: {
-                            title: config.lockedBanner.title,
-                            body: config.lockedBanner.body(dataPartner),
-                        },
-                        unlocked: UNLOCKED_BANNER,
-                    }}
+                    banner={banner}
                     job={job}
                     feedbackSection={
                         <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
