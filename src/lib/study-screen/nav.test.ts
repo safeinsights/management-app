@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Route } from 'next'
 import type { StudyState } from './state.types'
 import type { ResearcherScreenId } from './screens'
-import { RESEARCHER_STEP_NAV, resolveStepNav, type NavCtx, type StepNav } from './nav'
+import { RESEARCHER_STEP_NAV, resolvePhasedStepNav, resolveStepNav, type NavCtx, type StepNav } from './nav'
 
 const state = (overrides: Partial<StudyState>): StudyState => ({
     status: 'DRAFT',
@@ -19,6 +19,7 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     resultsApproved: false,
     resultsRejected: false,
     resultsErrored: false,
+    runErrored: false,
     resultsDisplayStatus: null,
     submissionRound: 0,
     hasSavedEdits: false,
@@ -94,9 +95,10 @@ describe('resolveStepNav — code phase', () => {
         expect(nav.forward?.label).toBe('Back to my studies')
     })
 
-    it('code approved with no results yet → forward blocked until the run lands', () => {
+    // Spec: "Code approved" always offers Next step — the outputs step exists from approval onward.
+    it('code approved with no run yet → forward opens to the outputs step', () => {
         const nav = resolveStepNav('code-approved', state({ ...submitted, codeDecision: 'CODE-APPROVED' }), ctx)
-        expect(nav.forward?.label).toBe('Back to my studies')
+        expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/view`, variant: 'solid' })
     })
 
     it('code approved with results → forward opens to the results step', () => {
@@ -108,13 +110,14 @@ describe('resolveStepNav — code phase', () => {
         expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/view` })
     })
 
-    it('an errored run still hidden from the researcher does not open forward (OTTER-598)', () => {
+    // The outputs step still discloses nothing about the failure; it only stops being a dead end.
+    it('an errored run still hidden from the researcher forwards to the outputs step (OTTER-598)', () => {
         const nav = resolveStepNav(
             'code-approved',
             state({ ...submitted, codeDecision: 'CODE-APPROVED', hasResults: true, resultsErrored: true }),
             ctx,
         )
-        expect(nav.forward?.label).toBe('Back to my studies')
+        expect(nav.forward).toMatchObject({ label: 'Next step', href: `${base}/view` })
     })
 
     it('code revision requested → "Edit code" is the forward action', () => {
@@ -129,6 +132,15 @@ describe('resolveStepNav — code phase', () => {
     it('code rejected → terminal, no further submissions offered', () => {
         const nav = resolveStepNav('code-feedback', state({ ...submitted, codeDecision: 'CODE-REJECTED' }), ctx)
         expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+    })
+})
+
+describe('resolvePhasedStepNav', () => {
+    it('keeps only Previous step while locked and the full nav once decrypted', () => {
+        const s = state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })
+        const { locked, unlocked } = resolvePhasedStepNav('outputs-shared', s, ctx)
+        expect(labels(locked)).toEqual(['Previous step', undefined, undefined])
+        expect(unlocked).toEqual(resolveStepNav('outputs-shared', s, ctx))
     })
 })
 

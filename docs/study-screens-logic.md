@@ -141,8 +141,8 @@ raw jobs.
 | 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`       |
 | 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`         |
 | 4   | `hasResults && !awaitingFilesDecisionOnError`                                       | `study-results`          |
-| 5   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                   | `outputs-pending`        |
-| 6   | `codeDecision === 'CODE-APPROVED'`                                                  | `code-approved`          |
+| 5   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `outputs-pending`        |
+| 6   | `codeDecision === 'CODE-APPROVED'` (only via `/view/code`, walking back)            | `code-approved`          |
 | 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`          |
 | 8   | `codeAwaitingDecision`                                                              | `code-under-review`      |
 | 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`      |
@@ -280,7 +280,7 @@ each fetches its own feedback/job data, exactly as the researcher screens do. Tw
 a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScreen` (researcher), and
 `reviewer-code-feedback` branches internally on the decision for the reviewer. `outputs-pending` →
 `OutputsPendingScreen` (researcher) and `reviewer-outputs-pending` → `ReviewerOutputsPendingScreen`
-share a `guardExecutionStage` helper for their common precondition checks.
+share a `guardSubmittedJob` helper for the submitted-job precondition; each reads the execution stage or approval date it displays off the job itself.
 
 ---
 
