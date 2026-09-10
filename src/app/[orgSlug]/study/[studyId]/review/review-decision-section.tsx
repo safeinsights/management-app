@@ -70,6 +70,7 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
                 {...widgetBlur}
                 name={DECISION_RADIO_NAME}
                 label={<VisuallyHidden>Decision</VisuallyHidden>}
+                // VisuallyHidden clips the text; position:absolute collapses Mantine's wrapper div.
                 styles={{ label: { position: 'absolute' }, error: { marginBottom: 24 } }}
                 error={errorNode}
                 inputWrapperOrder={['label', 'description', 'error', 'input']}

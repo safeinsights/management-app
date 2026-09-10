@@ -101,16 +101,19 @@ function useProposalReview({
 
 type ReviewActionsBarProps = {
     study: StudyForReview
+    isPending: boolean
     onSubmit: () => void
 }
 
-const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, onSubmit }) => {
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isPending, onSubmit }) => {
     if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
     return (
         <Group justify="flex-end">
-            <Button onClick={onSubmit}>Submit decision</Button>
+            <Button onClick={onSubmit} disabled={isPending}>
+                Submit decision
+            </Button>
         </Group>
     )
 }
@@ -161,7 +164,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 />
             }
             decision={<ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />}
-            actions={<ReviewActionsBar study={study} onSubmit={handleSubmit} />}
+            actions={<ReviewActionsBar study={study} isPending={isPending} onSubmit={handleSubmit} />}
             modals={
                 <DecisionConfirmationModal
                     decision={decision.selected}
