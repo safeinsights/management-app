@@ -86,8 +86,9 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
+        // The submit button stays clickable; OTTER-693 validates on click instead of gating it.
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+            expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
         })
     })
 })

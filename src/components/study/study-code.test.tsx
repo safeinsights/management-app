@@ -109,6 +109,19 @@ const renderIDE = async (
 
 const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
 
+/**
+ * The submit button is never disabled now (OTTER-693 row 10): validation runs on click, so the
+ * button's state no longer says whether a submit will go through. `canSubmit` waits on the last-job
+ * query, which has no UI signal, so this retries the click until the confirmation opens rather than
+ * clicking once and hoping the query has landed.
+ */
+const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
+    await waitFor(async () => {
+        await user.click(screen.getByRole('button', { name: /submit code for review/i }))
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+}
+
 describe('StudyCode component', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
@@ -132,8 +145,9 @@ describe('StudyCode component', () => {
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
             expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
+        // The button is never disabled now; a blocked attempt says why instead.
+        expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
     })
 
     it('does not auto-select a main file when multiple files exist', async () => {
@@ -145,7 +159,6 @@ describe('StudyCode component', () => {
         await waitFor(() => {
             expect(screen.getByText('main.r')).toBeInTheDocument()
             expect(screen.getByText('helper.r')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
 
         expect(screen.getByRole('radio', { name: /set main\.r as main file/i })).toHaveAttribute(
@@ -156,6 +169,9 @@ describe('StudyCode component', () => {
             'aria-checked',
             'false',
         )
+        // Nothing is said until the researcher tries: validation is on click, not on render.
+        expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
+        await userEvent.setup().click(screen.getByRole('button', { name: /submit code for review/i }))
         expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
     })
 
@@ -182,10 +198,6 @@ describe('StudyCode component', () => {
             'aria-checked',
             'false',
         )
-        // Submit-enable depends on the async last-job query, so it cannot be asserted synchronously.
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
     })
 
     it('shows the Launch IDE button for all orgs', async () => {
@@ -200,11 +212,7 @@ describe('StudyCode component', () => {
         const user = userEvent.setup()
         await renderIDE('openstax-lab', { 'main.r': 'print("main")' })
 
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
 
         const dialog = screen.getByRole('dialog')
         expect(dialog).toHaveTextContent('Confirm study code submission?')
@@ -229,11 +237,7 @@ describe('StudyCode component', () => {
 
         await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
 
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         const dialog = screen.getByRole('dialog')
         await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 
@@ -263,10 +267,9 @@ describe('StudyCode component', () => {
                 'aria-checked',
                 'true',
             )
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         const dialog2 = screen.getByRole('dialog')
         await user.click(within(dialog2).getByRole('button', { name: 'Yes, submit study code' }))
 
@@ -764,6 +767,87 @@ describe('StudyCode component', () => {
         })
     })
 
+    describe('navigation and submit validation (OTTER-693)', () => {
+        const submitButton = () => screen.getByRole('button', { name: 'Submit code for review' })
+
+        it('labels the back link as Previous step and points it at the previous screen', async () => {
+            const { previousHref } = await renderIDE()
+
+            const link = screen.getByRole('link', { name: /Previous step/i })
+            expect(link).toHaveAttribute('href', previousHref)
+        })
+
+        it('keeps the submit button enabled with nothing uploaded', async () => {
+            await renderIDE()
+
+            await waitFor(() => expect(submitButton()).toBeEnabled())
+        })
+
+        it('blocks a submit with no changes and says so, without opening the confirmation', async () => {
+            // A pristine starter file: present, but nothing has been changed since the baseline.
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() + 60_000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("starter")' })
+
+            renderWithProviders(
+                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+            )
+            await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
+
+            await userEvent.setup().click(submitButton())
+
+            expect(
+                screen.getByText(
+                    'No changes have been made to your file yet. Update your code before submitting for review.',
+                ),
+            ).toBeInTheDocument()
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        })
+
+        it('puts the message under the files table, where the change has to be made', async () => {
+            await renderIDE('openstax-lab', { 'a.R': 'print(1)', 'b.R': 'print(2)' })
+            await waitFor(() => expect(screen.getByText('b.R')).toBeInTheDocument())
+
+            await userEvent.setup().click(submitButton())
+
+            const card = screen.getByTestId('your-files-section')
+            expect(within(card).getByText(/select a main file to submit/i)).toBeInTheDocument()
+        })
+
+        it('announces the message politely and keeps it reachable from the button', async () => {
+            await renderIDE('openstax-lab', { 'a.R': 'print(1)', 'b.R': 'print(2)' })
+            await waitFor(() => expect(screen.getByText('b.R')).toBeInTheDocument())
+
+            // Mounted before there is anything to say, so the region owns its content and the
+            // change is announced rather than the region appearing fully formed.
+            const region = document.getElementById('submit-code-error')
+            expect(region).toHaveAttribute('aria-live', 'polite')
+            expect(submitButton()).toHaveAttribute('aria-describedby', 'submit-code-error')
+
+            await userEvent.setup().click(submitButton())
+
+            expect(region).toHaveTextContent(/select a main file to submit/i)
+        })
+
+        it('clears the message once the problem is fixed and the submit goes through', async () => {
+            const user = userEvent.setup()
+            await renderIDE('openstax-lab', { 'a.R': 'print(1)', 'b.R': 'print(2)' })
+            await waitFor(() => expect(screen.getByText('b.R')).toBeInTheDocument())
+
+            await user.click(submitButton())
+            expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
+
+            await user.click(screen.getByRole('radio', { name: /set a\.R as main file/i }))
+            await openSubmitConfirmation(user)
+
+            expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
+        })
+    })
+
     describe('main file persistence and autosave (OTTER-693)', () => {
         const savedMainFile = async (studyId: string) => {
             const row = await db
@@ -1251,17 +1335,22 @@ describe('StudyCode component', () => {
             })
         })
 
-        it('disables submit when starter file has not been modified since IDE launch', async () => {
+        it('blocks submit when the starter file has not been modified since IDE launch', async () => {
             await renderWithCodeEnv({ 'main.R': 'print("starter")' }, { backdate: false })
 
-            await waitFor(() => {
-                expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
-                expect(screen.getByText('Modify a file or upload new ones before submitting')).toBeInTheDocument()
-            })
+            await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
+
+            await userEvent.setup().click(screen.getByRole('button', { name: /submit code for review/i }))
+
+            expect(
+                screen.getByText(
+                    'No changes have been made to your file yet. Update your code before submitting for review.',
+                ),
+            ).toBeInTheDocument()
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
 
-        it('enables submit when files are newer than baseline job', async () => {
+        it('allows submit when files are newer than the baseline job', async () => {
             const user = userEvent.setup()
             await renderWithCodeEnv({
                 'main.R': 'print("starter")',
@@ -1275,9 +1364,8 @@ describe('StudyCode component', () => {
 
             await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
 
-            await waitFor(() => {
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-            })
+            // Readiness is no longer visible on the button, so it is proven by submitting.
+            await openSubmitConfirmation(user)
         })
     })
 
@@ -1315,11 +1403,7 @@ describe('StudyCode component', () => {
             const user = userEvent.setup()
             await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
 
-            await waitFor(() => {
-                expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-            })
-
-            await user.click(screen.getByRole('button', { name: /submit code/i }))
+            await openSubmitConfirmation(user)
             const dialog = screen.getByRole('dialog')
             await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
 

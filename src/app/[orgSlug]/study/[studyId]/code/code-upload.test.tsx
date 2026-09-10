@@ -60,6 +60,19 @@ const renderPage = async (orgSlug = 'openstax') => {
     return { study }
 }
 
+/**
+ * The submit button is never disabled now (OTTER-693 row 10): validation runs on click, so the
+ * button's state no longer says whether a submit will go through. `canSubmit` waits on the last-job
+ * query, which has no UI signal, so this retries the click until the confirmation opens rather than
+ * clicking once and hoping the query has landed.
+ */
+const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
+    await waitFor(async () => {
+        await user.click(screen.getByRole('button', { name: /submit code for review/i }))
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+}
+
 const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
     const dialog = screen.getByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
@@ -112,8 +125,9 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
+        // Always clickable now; a blocked attempt reports the reason instead.
+        expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
     })
 
     // Cleanup hits real S3, so skip when SeaweedFS is not running locally; CI has it.
@@ -144,11 +158,7 @@ describe('CodeUploadPage', () => {
         const user = userEvent.setup()
         await user.click(screen.getByRole('radio', { name: /set main\.r as main file/i }))
 
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
@@ -187,12 +197,8 @@ describe('CodeUploadPage', () => {
             />,
         )
 
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
         const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
@@ -226,11 +232,10 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         await confirmStudyCodeSubmission(user)
 
         await waitFor(() => {

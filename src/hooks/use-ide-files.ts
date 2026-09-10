@@ -6,6 +6,7 @@ import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
 import { downloadBlob } from '@/lib/download-blob'
 import type { SaveStatusValue } from '@/components/save-status'
+import { NO_CHANGES_MESSAGE } from '@/components/study/submit-code-error'
 import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
 import { useUploadQueue } from './use-upload-queue'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
@@ -159,12 +160,19 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    // OTTER-647: the main file is required but is a star toggle with no field to blur, so the
-    // reason is named beside the disabled button instead of through useField.
+    /**
+     * Why a submit attempt would be refused, or null when it would go through. OTTER-693 row 10
+     * shows this only after a blocked click, and supplies the wording for the no-changes case —
+     * which covers both "nothing uploaded" and "nothing touched since the baseline", since neither
+     * is a change the Data Partner could review.
+     *
+     * OTTER-647: the main file has no field to blur, being a star, so its reason is named here
+     * rather than through useField.
+     */
     const submitDisabledReason = (() => {
-        if (fileNames.length === 0) return null
+        if (fileNames.length === 0) return NO_CHANGES_MESSAGE
         if (mainFile === '') return 'Select a main file to submit'
-        if (!filesChanged) return 'Modify a file or upload new ones before submitting'
+        if (!filesChanged) return NO_CHANGES_MESSAGE
         return null
     })()
 

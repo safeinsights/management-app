@@ -1,6 +1,6 @@
 'use client'
 
-import type { FC } from 'react'
+import { useState, type FC } from 'react'
 import type { Route } from 'next'
 import { type StudyCodeIDE, useIDEFiles } from '@/hooks/use-ide-files'
 import { Button, Group, Stack, Text } from '@mantine/core'
@@ -9,6 +9,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SaveStatusIndicator } from '@/components/save-status'
+import { SUBMIT_CODE_ERROR_ID } from './submit-code-error'
 import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
@@ -38,46 +39,46 @@ const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) =
     </Text>
 )
 
-const SubmitBlockedReason: FC<{ reason: string | null }> = ({ reason }) => {
-    if (!reason) return null
-
-    return (
-        <Text size="sm" c="dimmed">
-            {reason}
-        </Text>
-    )
-}
-
 type SubmitCodeFooterProps = {
     previousHref: Route
     ide: StudyCodeIDE
     onSubmitClick: () => void
 }
 
-// OTTER-693 rows 9-11 rework this row (autosave indicator, an always-enabled submit whose
-// validation happens on click), so it is extracted for that work to land in one place.
 const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubmitClick }) => (
     <Group justify="space-between" w="100%">
         <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
-            Previous
+            Previous step
         </ButtonLink>
-        <Stack align="flex-end" gap="xs">
-            <SubmitBlockedReason reason={ide.submitDisabledReason} />
-            {/* The card puts the autosave state to the left of the submit button, so the researcher
-                sees their work is kept at the moment they decide to hand it over. */}
-            <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
-                <SaveStatusIndicator status={ide.saveStatus} />
-                <Button disabled={!ide.canSubmit} loading={ide.isDirectSubmitting} onClick={onSubmitClick}>
-                    Submit code
-                </Button>
-            </Group>
-        </Stack>
+        {/* The card puts the autosave state to the left of the submit button, so the researcher
+            sees their work is kept at the moment they decide to hand it over. */}
+        <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
+            <SaveStatusIndicator status={ide.saveStatus} />
+            {/* Never disabled, per the card: validation happens on click so the reason can be
+                stated, rather than leaving a dead button to be puzzled over. aria-describedby
+                keeps that reason reachable if the researcher tabs back here after it is read out. */}
+            <Button loading={ide.isDirectSubmitting} onClick={onSubmitClick} aria-describedby={SUBMIT_CODE_ERROR_ID}>
+                Submit code for review
+            </Button>
+        </Group>
     </Group>
 )
 
 export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSuccess }: StudyCodeProps) => {
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+    const [submitError, setSubmitError] = useState<string | null>(null)
+
+    // The card's rule: the button always clicks, and a blocked attempt says why.
+    const handleSubmitClick = () => {
+        if (ide.submitDisabledReason) {
+            setSubmitError(ide.submitDisabledReason)
+            return
+        }
+
+        setSubmitError(null)
+        openConfirm()
+    }
 
     const handleConfirmSubmit = () => {
         closeConfirm()
@@ -99,9 +100,9 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
                     </Stack>
                 </ProposalStepHeader>
 
-                <YourFilesSection ide={ide} dataPartnerName={dataPartnerName} />
+                <YourFilesSection ide={ide} dataPartnerName={dataPartnerName} submitError={submitError} />
 
-                <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={openConfirm} />
+                <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={handleSubmitClick} />
             </Stack>
 
             <SubmitConfirmationModal

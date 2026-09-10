@@ -9,6 +9,7 @@ import { FileDropOverlay } from './file-drop-overlay'
 import { IdeLaunchFailedModal } from './ide-launch-failed-modal'
 import { IdeLaunchProgressModal } from './ide-launch-progress-modal'
 import { ReplaceFileModal } from './replace-file-modal'
+import { SubmitCodeError } from './submit-code-error'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { isFilesReviewState } from './study-code-files'
 import { LaunchIdeControl } from './launch-ide-control'
@@ -25,10 +26,11 @@ type FilesBodyProps = {
     dataPartnerName: string
     isEditable: boolean
     showLaunchIde: boolean
+    submitError: string | null
     openRef: React.RefObject<(() => void) | null>
 }
 
-const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showLaunchIde, openRef }) => {
+const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showLaunchIde, submitError, openRef }) => {
     if (ide.isLoadingFiles) return <Skeleton height={240} radius="md" />
 
     // Starter files only reach the workspace on the first IDE launch, so a study nobody has
@@ -80,6 +82,7 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
                     onDelete={ide.removeFile}
                 />
             </FileDropOverlay>
+            <SubmitCodeError message={submitError} />
             <AlreadyHaveCodeSection isVisible={isEditable} openRef={openRef} />
         </Stack>
     )
@@ -88,6 +91,8 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
 type YourFilesSectionProps = {
     ide: StudyCodeIDE
     dataPartnerName: string
+    /** Set once a submit attempt was blocked; rendered under the table, per the design. */
+    submitError?: string | null
     /** False puts the table in view-only mode: the star and the row actions go disabled. */
     isEditable?: boolean
     showLaunchIde?: boolean
@@ -105,6 +110,7 @@ type YourFilesSectionProps = {
 export const YourFilesSection: FC<YourFilesSectionProps> = ({
     ide,
     dataPartnerName,
+    submitError = null,
     isEditable = true,
     showLaunchIde = true,
 }) => {
@@ -146,6 +152,7 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
                     dataPartnerName={dataPartnerName}
                     isEditable={isEditable}
                     showLaunchIde={showLaunchIde}
+                    submitError={submitError}
                     openRef={openRef}
                 />
             </Paper>
