@@ -23,6 +23,8 @@ export type CollectV8CodeCoverageOptions = {
 
 export async function goto(page: Page, url: string) {
     await page.goto(url, { waitUntil: 'domcontentloaded' })
+    // Set by HydrationMarker once the root Suspense boundary's content has hydrated. Segments with
+    // their own loading.tsx hydrate in a nested boundary later, so this does not cover them.
     await page.waitForFunction(() => window.isReactHydrated)
 }
 
