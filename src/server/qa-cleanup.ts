@@ -1,8 +1,12 @@
 // These routes run in production, so `assertQaEmail` is the only thing between them and real
 // customer data — never add a /api/qa/* path that reaches these helpers without it. The unguarded
 // findUser/deleteUserCompletely pair exists for DELETE /api/admin/users/[userId], which deletes a
-// real account under its own SI-admin guard; keeping them separate is what stops an accidental
+// real account under its own org-admin guard; keeping them separate is what stops an accidental
 // unguarded call.
+//
+// Authentication (requireQaAuth) no longer implies authorization: it identifies the caller, and
+// every route must then call requireAdminOfOrgs with the org(s) that request targets. A new route
+// that skips that second call is authenticated-but-unauthorized — any signed-in user reaches it.
 //
 // Deletion order is FK-safe by hand: a new table referencing user.id without ON DELETE CASCADE
 // breaks deletion at runtime, so give it a cascade or add it below.
@@ -17,7 +21,9 @@ import { pathForStudy } from '@/lib/paths'
 import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
 
-export type QaAuthResult = { ok: true; user: SessionUser } | { ok: false; status: number; message: string }
+export type QaAuthResult =
+    | { ok: true; user: SessionUser; isSiAdmin: boolean }
+    | { ok: false; status: number; message: string }
 
 export class QaForbiddenError extends Error {}
 
@@ -37,15 +43,17 @@ export function assertQaEmail(email: string | null, context: string) {
 }
 
 /**
- * Gate QA routes to an authenticated SI admin.
+ * Authenticate a QA route caller. Authorization is a separate step: every caller must
+ * then pass the resolved auth to requireAdminOfOrgs with the org(s) the request
+ * targets. Authentication alone grants nothing.
  *
  * These live under /api/*, which clerkMiddleware() is configured to skip (see the
  * matcher in proxy.ts), so the middleware-coupled `auth()` helper has no context to
- * read and throws. Instead we verify the SI admin's Clerk session token directly from
+ * read and throws. Instead we verify the caller's Clerk session token directly from
  * the `Authorization: Bearer <token>` header with `verifyToken` — the standalone
  * primitive that does not require the middleware to have run.
  */
-export async function requireQaAdmin(): Promise<QaAuthResult> {
+export async function requireQaAuth(): Promise<QaAuthResult> {
     const authHeader = (await headers()).get('Authorization') || ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : ''
     if (!token) {
@@ -64,14 +72,77 @@ export async function requireQaAdmin(): Promise<QaAuthResult> {
     }
 
     const session = await marshalSession(claims.sub, claims)
-    if (!session?.user.isSiAdmin) {
-        return { ok: false, status: 403, message: 'SI admin access required' }
+    if (!session) {
+        return { ok: false, status: 401, message: 'Authentication required' }
     }
 
-    return { ok: true, user: session.user }
+    return { ok: true, user: session.user, isSiAdmin: session.user.isSiAdmin }
 }
 
 export class QaCleanupNotFoundError extends Error {}
+
+/**
+ * Orgs the actor administers, read from org_user rather than the session claims: the
+ * claims are cached Clerk metadata that marshalSession will happily serve stale, and a
+ * revoked admin must not keep deleting things until their token refreshes.
+ */
+async function adminOrgSlugs(db: Kysely<DB>, userId: string) {
+    const rows = await db
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .select('org.slug')
+        .where('orgUser.userId', '=', userId)
+        .where('orgUser.isAdmin', '=', true)
+        .execute()
+    return new Set(rows.map((row) => row.slug))
+}
+
+/**
+ * Authorize a QA request against the org(s) it targets: the actor must be an admin of
+ * EVERY one of them. An SI admin passes unconditionally — org admin is a loosening of
+ * that guard, not a replacement, so the QA tooling no longer needs an SI account.
+ *
+ * Requiring every org rather than any is what keeps a request inside the caller's
+ * blast radius: an admin of org A must not reach a record that org B also owns.
+ */
+export async function requireAdminOfOrgs(
+    db: Kysely<DB>,
+    auth: { user: SessionUser; isSiAdmin: boolean },
+    orgSlugs: string[],
+): Promise<QaAuthResult> {
+    if (auth.isSiAdmin) return { ok: true, user: auth.user, isSiAdmin: true }
+
+    const administered = await adminOrgSlugs(db, auth.user.id)
+    const missing = orgSlugs.filter((slug) => !administered.has(slug))
+    if (orgSlugs.length === 0 || missing.length > 0) {
+        return {
+            ok: false,
+            status: 403,
+            message: `admin access required for ${missing.join(', ') || 'the targeted organization'}`,
+        }
+    }
+
+    return { ok: true, user: auth.user, isSiAdmin: false }
+}
+
+/**
+ * Resolve the org that owns a user, for the routes whose target is an account rather
+ * than a single record.
+ *
+ * Deleting or reprovisioning a user is not org-scoped — it takes the Clerk account, every
+ * membership, and every study they own, wherever those live. So an org admin may only act
+ * on an account that belongs to exactly their org: a user in two orgs has no single owner
+ * and stays SI-admin-only, rather than letting org A destroy org B's data.
+ */
+export async function orgSlugsForUser(db: Kysely<DB>, userId: string) {
+    const rows = await db
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .select('org.slug')
+        .where('orgUser.userId', '=', userId)
+        .execute()
+    return rows.map((row) => row.slug)
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

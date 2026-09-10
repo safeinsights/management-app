@@ -29,15 +29,23 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return { ...actual, deleteFolderContents: vi.fn(async () => {}) }
 })
 
-const { requireQaAdmin, deleteUserById, deleteStudyById, QaCleanupNotFoundError, QaForbiddenError, assertQaEmail } =
-    await import('./qa-cleanup')
+const {
+    requireQaAuth,
+    requireAdminOfOrgs,
+    orgSlugsForUser,
+    deleteUserById,
+    deleteStudyById,
+    QaCleanupNotFoundError,
+    QaForbiddenError,
+    assertQaEmail,
+} = await import('./qa-cleanup')
 
 beforeEach(() => {
     configState.PROD_ENV = false
 })
 
-async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
-    const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
+async function authenticateAs(options: { isSiAdmin?: boolean; isAdmin?: boolean; orgSlug?: string } = {}) {
+    const mocks = await mockSessionWithTestData(options)
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')
     const { userId, sessionClaims } = mocks.auth()
     ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
@@ -45,16 +53,16 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
     return mocks
 }
 
-describe('requireQaAdmin', () => {
+describe('requireQaAuth', () => {
     it('allows an SI admin in production', async () => {
         configState.PROD_ENV = true
-        await authenticateAsSiAdmin({ isSiAdmin: true })
-        const result = await requireQaAdmin()
+        await authenticateAs({ isSiAdmin: true })
+        const result = await requireQaAuth()
         expect(result.ok).toBe(true)
     })
 
     it('rejects when the Authorization header is missing', async () => {
-        const result = await requireQaAdmin()
+        const result = await requireQaAuth()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(401)
     })
@@ -62,32 +70,127 @@ describe('requireQaAdmin', () => {
     it('rejects when the token fails verification', async () => {
         ;(verifyToken as Mock).mockRejectedValue(new Error('invalid token'))
         ;(await headers()).set('Authorization', 'Bearer bad-token')
-        const result = await requireQaAdmin()
+        const result = await requireQaAuth()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(401)
     })
 
-    it('rejects a non SI admin', async () => {
-        await authenticateAsSiAdmin({ isSiAdmin: false })
-        const result = await requireQaAdmin()
-        expect(result.ok).toBe(false)
-        if (!result.ok) expect(result.status).toBe(403)
+    // Authentication no longer implies authorization — a non-admin gets past this guard and is
+    // stopped by requireAdminOfOrgs, which is why every route must call it.
+    it('authenticates a non-admin and reports them as not an SI admin', async () => {
+        const { user } = await authenticateAs({ isSiAdmin: false })
+        const result = await requireQaAuth()
+        expect(result).toMatchObject({ ok: true, user: { id: user.id }, isSiAdmin: false })
     })
 
     it('allows an SI admin and returns them', async () => {
-        const { user } = await authenticateAsSiAdmin({ isSiAdmin: true })
-        const result = await requireQaAdmin()
-        expect(result).toMatchObject({ ok: true, user: { id: user.id, isSiAdmin: true } })
+        const { user } = await authenticateAs({ isSiAdmin: true })
+        const result = await requireQaAuth()
+        expect(result).toMatchObject({ ok: true, user: { id: user.id, isSiAdmin: true }, isSiAdmin: true })
     })
 
     // Standalone verifyToken does not read CLERK_SECRET_KEY from the env, so the guard must pass
     // it explicitly. Asserted by key, not value: the key is unset in the test env.
     it('passes the Clerk secret key to verifyToken', async () => {
-        await authenticateAsSiAdmin({ isSiAdmin: true })
-        await requireQaAdmin()
+        await authenticateAs({ isSiAdmin: true })
+        await requireQaAuth()
 
         const [, options] = (verifyToken as Mock).mock.calls.at(-1) ?? []
         expect(Object.keys(options ?? {})).toContain('secretKey')
+    })
+})
+
+describe('requireAdminOfOrgs', () => {
+    const authFor = (user: { id: string }, isSiAdmin = false) => ({
+        user: { id: user.id, isSiAdmin, clerkUserId: 'clerk-id' },
+        isSiAdmin,
+    })
+
+    it('allows an admin of the targeted org', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: true })
+
+        expect(await requireAdminOfOrgs(db, authFor(user), [org.slug])).toMatchObject({ ok: true })
+    })
+
+    it('rejects a member of the targeted org who is not its admin', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: false })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [org.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    it('rejects an admin of a different org', async () => {
+        const own = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: own, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [other.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    // The blast-radius rule: every targeted org must be administered, not merely one of them.
+    it('rejects when the actor administers only some of the targeted orgs', async () => {
+        const own = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: own, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [own.slug, other.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.message).toContain(other.slug)
+    })
+
+    it('allows an admin of every targeted org', async () => {
+        const first = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const second = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: first, isAdmin: true })
+        await db.insertInto('orgUser').values({ orgId: second.id, userId: user.id, isAdmin: true }).execute()
+
+        expect(await requireAdminOfOrgs(db, authFor(user), [first.slug, second.slug])).toMatchObject({ ok: true })
+    })
+
+    // An orgless account has no owning admin, so only an SI admin can reach it.
+    it('rejects an empty target list for an org admin', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    it('allows an SI admin regardless of the targeted orgs', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const unrelated = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: false })
+
+        expect(await requireAdminOfOrgs(db, authFor(user, true), [unrelated.slug])).toMatchObject({ ok: true })
+        expect(await requireAdminOfOrgs(db, authFor(user, true), [])).toMatchObject({ ok: true })
+    })
+
+    // Admin rights are read from org_user, not the cached session claims, so a revoked admin
+    // stops passing immediately rather than when their token next refreshes.
+    it('rejects an actor whose admin flag was revoked in the database', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: true })
+        await db.updateTable('orgUser').set({ isAdmin: false }).where('userId', '=', user.id).execute()
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [org.slug])
+        expect(result.ok).toBe(false)
+    })
+})
+
+describe('orgSlugsForUser', () => {
+    it('returns every org the user belongs to', async () => {
+        const first = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const second = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: first })
+        await db.insertInto('orgUser').values({ orgId: second.id, userId: user.id, isAdmin: false }).execute()
+
+        expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([first.slug, second.slug].sort())
     })
 })
 

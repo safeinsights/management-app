@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/database'
-import { requireQaAdmin, findQaStudy, deleteStudyCompletely } from '@/server/qa-cleanup'
+import { requireQaAuth, requireAdminOfOrgs, findQaStudy, deleteStudyCompletely } from '@/server/qa-cleanup'
 import { qaErrorResponse } from '../../responses'
 import { auditQaOperation } from '../../audit'
 
 export const DELETE = async (_req: Request, { params }: { params: Promise<{ studyId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
@@ -14,6 +14,12 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ stud
     try {
         // Resolved first so a 404/non-QA target is rejected before an attempt is audited.
         const study = await findQaStudy(db, studyId)
+
+        // A study belongs to exactly one org, so that org is the whole blast radius.
+        const authorized = await requireAdminOfOrgs(db, auth, [study.orgSlug])
+        if (!authorized.ok) {
+            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+        }
 
         await auditQaOperation(
             {

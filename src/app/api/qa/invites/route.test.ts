@@ -109,6 +109,33 @@ describe('POST /api/qa/invites', () => {
         expect(entry.metadata).toMatchObject({ email, orgSlug: org.slug, via: 'qa-api' })
     })
 
+    // The QA tooling invites as an org admin; the invite's own orgSlug is the target.
+    it('lets an org admin invite into their own org', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+
+        const response = await postInvite({ email: qaEmail(), orgSlug: org.slug })
+
+        expect(response.status).toBe(201)
+        const invites = await db.selectFrom('pendingUser').select(['id']).where('orgId', '=', org.id).execute()
+        expect(invites).toHaveLength(1)
+    })
+
+    // Otherwise an org admin could seed itself an admin account inside someone else's org.
+    it('rejects an org admin inviting into an org they do not administer', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const own = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.insertInto('orgUser').values({ orgId: own.id, userId: mocks.user.id, isAdmin: true }).execute()
+
+        const response = await postInvite({ email: qaEmail(), orgSlug: other.slug, isAdmin: true })
+
+        expect(response.status).toBe(403)
+        const invites = await db.selectFrom('pendingUser').select(['id']).where('orgId', '=', other.id).execute()
+        expect(invites).toHaveLength(0)
+    })
+
     it('rejects a caller who is not an SI admin', async () => {
         await authenticateAsSiAdmin({ isSiAdmin: false })
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
