@@ -16,7 +16,12 @@ import { LinkEditForm, type LinkEditValues } from '@/components/link-hover-card/
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { linkAttributes } from './config'
-import { AnchoredLinkCard, useExclusiveLinkCard, useLinkCardTriggerAria } from './link-card-popover'
+import {
+    AnchoredLinkCard,
+    useClickWithoutDrag,
+    useExclusiveLinkCard,
+    useLinkCardTriggerAria,
+} from './link-card-popover'
 import {
     $linkAtDomNode,
     $linkAtSelection,
@@ -60,28 +65,31 @@ function useEditorLinkCard(editor: LexicalEditor) {
         editor.update(() => $selectLinkEnd(nodeKey))
     }, [close, editor, link])
 
+    const { rememberPress, movedSincePress } = useClickWithoutDrag()
+
     const openFromClick = useCallback(
         (event: MouseEvent) => {
-            // Modified and middle clicks belong to the browser, and a click ending a drag is the
-            // user selecting text rather than reaching for the link.
+            // Modified and middle clicks belong to the browser, and a click that ends a drag is
+            // the user selecting text rather than reaching for the link.
             if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+            if (movedSincePress(event)) return
             if (!isDOMNode(event.target)) return
-            const domSelection = window.getSelection()
-            if (domSelection && !domSelection.isCollapsed) return
 
             const target = event.target
             const found = editor.read(() => $linkAtDomNode(target))
             if (found) open(found)
         },
-        [editor, open],
+        [editor, movedSincePress, open],
     )
 
     useEffect(() => {
         return editor.registerRootListener((rootElement, prevRootElement) => {
+            prevRootElement?.removeEventListener('mousedown', rememberPress)
             prevRootElement?.removeEventListener('click', openFromClick)
+            rootElement?.addEventListener('mousedown', rememberPress)
             rootElement?.addEventListener('click', openFromClick)
         })
-    }, [editor, openFromClick])
+    }, [editor, openFromClick, rememberPress])
 
     useEffect(() => {
         return editor.registerCommand(

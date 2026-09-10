@@ -606,7 +606,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         const readOnlyCard = page.getByRole('dialog', { name: 'Link details' })
         await expect(readOnlyCard).toContainText(PROPOSAL_LINK_URL)
         await expect(readOnlyCard.getByRole('button', { name: 'Copy link' })).toBeVisible()
-        expect(page.url()).toBe(submittedUrl)
+        await expect(page).toHaveURL(submittedUrl)
         await page.keyboard.press('Escape')
         await expect(readOnlyCard).toBeHidden()
 

@@ -6,7 +6,7 @@ import {
     useRef,
     type CSSProperties,
     type KeyboardEvent,
-    type MouseEvent,
+    type MouseEvent as ReactMouseEvent,
     type ReactNode,
     type RefObject,
 } from 'react'
@@ -62,6 +62,32 @@ function useLinkAnchorPosition(
             window.removeEventListener('scroll', position, true)
         }
     }, [editor, nodeKey, hostRef, anchorRef])
+}
+
+const DRAG_SLOP_PX = 3
+
+/**
+ * Tells a plain click from the end of a drag. The DOM selection cannot answer this, because a
+ * browser keeps a selection alive through a press inside it, in case the press becomes a drag of
+ * the selected text. So a click on text that is already selected still looks like a selection.
+ */
+export function useClickWithoutDrag() {
+    const pressRef = useRef<{ x: number; y: number } | null>(null)
+
+    const rememberPress = useCallback((event: MouseEvent) => {
+        pressRef.current = { x: event.clientX, y: event.clientY }
+    }, [])
+
+    // Consumed on read, so an earlier press cannot answer for a later click that had none.
+    const movedSincePress = useCallback((event: MouseEvent) => {
+        const press = pressRef.current
+        pressRef.current = null
+        if (!press) return false
+
+        return Math.abs(event.clientX - press.x) > DRAG_SLOP_PX || Math.abs(event.clientY - press.y) > DRAG_SLOP_PX
+    }, [])
+
+    return { rememberPress, movedSincePress }
 }
 
 let closeOpenCard: (() => void) | null = null
@@ -144,7 +170,7 @@ export function AnchoredLinkCard({
 
     // A press inside the card must not move the caret or read as leaving the field, but a press in
     // one of its inputs still has to place that input's own cursor.
-    const keepEditorSelection = (event: MouseEvent<HTMLDivElement>) => {
+    const keepEditorSelection = (event: ReactMouseEvent<HTMLDivElement>) => {
         event.stopPropagation()
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
     }

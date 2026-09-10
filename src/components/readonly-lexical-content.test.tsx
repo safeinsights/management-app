@@ -86,6 +86,15 @@ describe('ReadOnlyLexicalContent', () => {
         expect(open).toHaveBeenCalledWith(URL, '_blank', 'noopener,noreferrer')
     })
 
+    it('stays closed when the click ends a drag across the link', async () => {
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        fireEvent.mouseDown(anchor, { clientX: 20, clientY: 20 })
+        fireEvent.click(anchor, { clientX: 160, clientY: 44 })
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
     it('opens the destination straight away on a modified click', async () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(null)
         const { anchor } = await renderLink(linkState(URL, '_blank'))

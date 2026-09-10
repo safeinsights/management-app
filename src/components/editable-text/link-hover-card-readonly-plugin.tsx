@@ -5,7 +5,12 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
-import { AnchoredLinkCard, useExclusiveLinkCard, useLinkCardTriggerAria } from './link-card-popover'
+import {
+    AnchoredLinkCard,
+    useClickWithoutDrag,
+    useExclusiveLinkCard,
+    useLinkCardTriggerAria,
+} from './link-card-popover'
 import { $linkAtDomNode, type LinkCardTarget } from './link-card-node'
 
 const OPEN_KEYS = ['Enter', ' ']
@@ -57,6 +62,8 @@ export function LinkHoverCardReadOnlyPlugin() {
         [editor],
     )
 
+    const { rememberPress, movedSincePress } = useClickWithoutDrag()
+
     const handleClick = useCallback(
         (event: MouseEvent) => {
             const hit = linkFromEvent(event.target)
@@ -65,8 +72,8 @@ export function LinkHoverCardReadOnlyPlugin() {
             // Nothing here ever navigates the SafeInsights tab away (OTTER-463).
             event.preventDefault()
 
-            const domSelection = window.getSelection()
-            if (domSelection && !domSelection.isCollapsed) return
+            // A click that ends a drag is the reader selecting text across the link.
+            if (movedSincePress(event)) return
 
             if (event.button === 1 || event.metaKey || event.ctrlKey) {
                 window.open(hit.found.url, '_blank', 'noopener,noreferrer')
@@ -75,7 +82,7 @@ export function LinkHoverCardReadOnlyPlugin() {
 
             open(hit.found, hit.anchor)
         },
-        [linkFromEvent, open],
+        [linkFromEvent, movedSincePress, open],
     )
 
     const handleKeyDown = useCallback(
@@ -98,14 +105,16 @@ export function LinkHoverCardReadOnlyPlugin() {
 
     useEffect(() => {
         return editor.registerRootListener((rootElement, prevRootElement) => {
+            prevRootElement?.removeEventListener('mousedown', rememberPress)
             prevRootElement?.removeEventListener('click', handleClick)
             prevRootElement?.removeEventListener('auxclick', handleClick)
             prevRootElement?.removeEventListener('keydown', handleKeyDown)
+            rootElement?.addEventListener('mousedown', rememberPress)
             rootElement?.addEventListener('click', handleClick)
             rootElement?.addEventListener('auxclick', handleClick)
             rootElement?.addEventListener('keydown', handleKeyDown)
         })
-    }, [editor, handleClick, handleKeyDown])
+    }, [editor, handleClick, handleKeyDown, rememberPress])
 
     useLinkCardTriggerAria(editor, link?.nodeKey ?? null, dropdownId)
 

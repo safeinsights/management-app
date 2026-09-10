@@ -117,6 +117,22 @@ describe('LinkHoverCardPlugin', () => {
         )
     })
 
+    // A browser keeps a selection through a press inside it, so the card cannot read "text is
+    // selected" as "the user is still selecting".
+    it('opens on a press and release in the same place, and not at the end of a drag', async () => {
+        const { anchor } = await renderLinkedEditor('card-drag')
+
+        fireEvent.mouseDown(anchor, { clientX: 20, clientY: 20 })
+        fireEvent.click(anchor, { clientX: 140, clientY: 60 })
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+
+        fireEvent.mouseDown(anchor, { clientX: 20, clientY: 20 })
+        fireEvent.click(anchor, { clientX: 21, clientY: 20 })
+
+        expect(await findCard()).toHaveTextContent(URL)
+    })
+
     it('marks the link as the open card trigger', async () => {
         const { anchor } = await renderLinkedEditor('card-aria')
 
