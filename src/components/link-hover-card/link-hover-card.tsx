@@ -29,18 +29,20 @@ interface LinkCardActionVisibility {
 
 /**
  * Read-only offers "open in a new tab" only for links not already stored to open there. The broken
- * state has no reachable destination, so it offers the repair actions alone.
+ * state has no reachable destination, so neither mode offers a way to open it.
  */
 function linkCardActionVisibility(
     mode: LinkCardMode,
     preview: LinkPreview,
     opensInNewTab: boolean,
 ): LinkCardActionVisibility {
+    const canOpen = preview.kind !== 'unavailable'
+
     if (mode === 'readOnly') {
-        return { openInNewTab: !opensInNewTab, edit: false, remove: false }
+        return { openInNewTab: canOpen && !opensInNewTab, edit: false, remove: false }
     }
 
-    return { openInNewTab: preview.kind !== 'unavailable', edit: true, remove: true }
+    return { openInNewTab: canOpen, edit: true, remove: true }
 }
 
 interface LinkHoverCardProps {

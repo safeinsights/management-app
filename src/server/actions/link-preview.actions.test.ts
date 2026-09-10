@@ -8,6 +8,7 @@ import {
     BLANK_UUID,
 } from '@/tests/unit.helpers'
 import { displayOrgName } from '@/lib/string'
+import { Routes } from '@/lib/routes'
 import { resolveInternalLinkAction } from './link-preview.actions'
 
 describe('resolveInternalLinkAction', () => {
@@ -73,6 +74,54 @@ describe('resolveInternalLinkAction', () => {
             kind: 'internal',
             title: 'Security key',
             category: 'Account',
+        })
+    })
+
+    it('refuses an SI admin page to everyone but an SI admin', async () => {
+        await mockSessionWithTestData()
+
+        expect(await resolveInternalLinkAction({ pathname: Routes.adminSafeinsights })).toEqual({
+            kind: 'unavailable',
+        })
+
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        expect(await resolveInternalLinkAction({ pathname: Routes.adminSafeinsights })).toEqual({
+            kind: 'internal',
+            title: 'Organizations',
+            category: 'Admin',
+        })
+    })
+
+    it('refuses an org admin page to a member who does not administer that org', async () => {
+        const member = await mockSessionWithTestData({ orgType: 'lab', isAdmin: false })
+
+        expect(await resolveInternalLinkAction({ pathname: Routes.adminTeam({ orgSlug: member.org.slug }) })).toEqual({
+            kind: 'unavailable',
+        })
+
+        const admin = await mockSessionWithTestData({ orgType: 'lab', isAdmin: true })
+
+        expect(await resolveInternalLinkAction({ pathname: Routes.adminTeam({ orgSlug: admin.org.slug }) })).toEqual({
+            kind: 'internal',
+            title: 'Manage team',
+            category: displayOrgName(admin.org.name),
+        })
+    })
+
+    it('refuses the researcher profile to a caller who belongs to no lab', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+
+        expect(await resolveInternalLinkAction({ pathname: Routes.researcherProfile })).toEqual({
+            kind: 'unavailable',
+        })
+
+        await mockSessionWithTestData({ orgType: 'lab' })
+
+        expect(await resolveInternalLinkAction({ pathname: Routes.researcherProfile })).toEqual({
+            kind: 'internal',
+            title: 'Researcher profile',
+            category: null,
         })
     })
 

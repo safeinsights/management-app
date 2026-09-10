@@ -22,26 +22,50 @@ describe('matchInternalRoute', () => {
             kind: 'orgPage',
             orgSlug: 'openstax-lab',
             title: 'Dashboard',
+            needsOrgAdmin: false,
         })
         expect(matchInternalRoute('/openstax-lab/admin/team')).toEqual({
             kind: 'orgPage',
             orgSlug: 'openstax-lab',
             title: 'Manage team',
+            needsOrgAdmin: true,
         })
     })
 
     it('matches the app pages that carry a fixed heading', () => {
-        expect(matchInternalRoute('/dashboard')).toEqual({ kind: 'appPage', title: 'My dashboard', category: null })
-        expect(matchInternalRoute('/user-key')).toEqual({ kind: 'appPage', title: 'Security key', category: 'Account' })
+        expect(matchInternalRoute('/dashboard')).toEqual({
+            kind: 'appPage',
+            title: 'My dashboard',
+            category: null,
+            access: null,
+        })
+        expect(matchInternalRoute('/user-key')).toEqual({
+            kind: 'appPage',
+            title: 'Security key',
+            category: 'Account',
+            access: null,
+        })
         expect(matchInternalRoute('/admin/safeinsights')).toEqual({
             kind: 'appPage',
             title: 'Organizations',
             category: 'Admin',
+            access: 'siAdmin',
+        })
+        expect(matchInternalRoute('/researcher/profile')).toEqual({
+            kind: 'appPage',
+            title: 'Researcher profile',
+            category: null,
+            access: 'researcher',
         })
     })
 
     it('ignores a trailing slash', () => {
-        expect(matchInternalRoute('/dashboard/')).toEqual({ kind: 'appPage', title: 'My dashboard', category: null })
+        expect(matchInternalRoute('/dashboard/')).toEqual({
+            kind: 'appPage',
+            title: 'My dashboard',
+            category: null,
+            access: null,
+        })
     })
 
     it('returns null for a page it does not name', () => {

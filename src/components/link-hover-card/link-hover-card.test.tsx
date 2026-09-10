@@ -75,6 +75,13 @@ describe('LinkHoverCard', () => {
         expect(buttonNames()).toEqual([LINK_CARD_LABELS.copy, LINK_CARD_LABELS.openInNewTab])
     })
 
+    it('drops the open action for a read-only link whose destination is out of reach', () => {
+        renderCard(unavailable, { mode: 'readOnly', opensInNewTab: false })
+
+        expect(screen.getByText(UNAVAILABLE_LINK_TITLE)).toBeInTheDocument()
+        expect(buttonNames()).toEqual([LINK_CARD_LABELS.copy])
+    })
+
     it('copies the URL and announces it', async () => {
         // userEvent.setup installs its own clipboard stub, so the write lands there.
         const user = userEvent.setup()

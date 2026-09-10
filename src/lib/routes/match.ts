@@ -13,31 +13,37 @@ export type ResolvedInternalLink =
     | { kind: 'unavailable' }
     | { kind: 'unknown' }
 
+/**
+ * What the caller must be for the page to open, mirroring the guards in `proxy.ts`. A preview that
+ * named a page the caller cannot reach would promise a destination that bounces them home.
+ */
+export type PageAccess = 'siAdmin' | 'researcher' | null
+
 export type InternalRouteMatch =
     | { kind: 'study'; orgSlug: string; studyId: string }
-    | { kind: 'orgPage'; orgSlug: string; title: string }
-    | { kind: 'appPage'; title: string; category: string | null }
+    | { kind: 'orgPage'; orgSlug: string; title: string; needsOrgAdmin: boolean }
+    | { kind: 'appPage'; title: string; category: string | null; access: PageAccess }
 
 /**
  * Titles are the headings these pages actually show. Pages whose heading is a record or a live form
  * value are resolved instead, and pages with no heading of their own are left out on purpose.
  */
-const APP_PAGES: Record<string, { title: string; category: string | null }> = {
-    [Routes.dashboard]: { title: 'My dashboard', category: null },
-    [Routes.userKey]: { title: 'Security key', category: 'Account' },
-    [Routes.accountKeys]: { title: 'Security key', category: 'Account' },
-    [Routes.researcherProfile]: { title: 'Researcher profile', category: null },
-    [Routes.legal]: { title: 'Legal', category: null },
-    [Routes.adminSafeinsights]: { title: 'Organizations', category: 'Admin' },
-    [Routes.adminSafeinsightsLegal]: { title: 'SafeInsights Legal', category: 'Admin' },
+const APP_PAGES: Record<string, { title: string; category: string | null; access: PageAccess }> = {
+    [Routes.dashboard]: { title: 'My dashboard', category: null, access: null },
+    [Routes.userKey]: { title: 'Security key', category: 'Account', access: null },
+    [Routes.accountKeys]: { title: 'Security key', category: 'Account', access: null },
+    [Routes.researcherProfile]: { title: 'Researcher profile', category: null, access: 'researcher' },
+    [Routes.legal]: { title: 'Legal', category: null, access: null },
+    [Routes.adminSafeinsights]: { title: 'Organizations', category: 'Admin', access: 'siAdmin' },
+    [Routes.adminSafeinsightsLegal]: { title: 'SafeInsights Legal', category: 'Admin', access: 'siAdmin' },
 }
 
 /** Keyed by the path under the org slug. The category is the org's own name. */
-const ORG_PAGES: Record<string, string> = {
-    dashboard: 'Dashboard',
-    'admin/settings': 'Settings',
-    'admin/team': 'Manage team',
-    'admin/legal': 'Legal center',
+const ORG_PAGES: Record<string, { title: string; needsOrgAdmin: boolean }> = {
+    dashboard: { title: 'Dashboard', needsOrgAdmin: false },
+    'admin/settings': { title: 'Settings', needsOrgAdmin: true },
+    'admin/team': { title: 'Manage team', needsOrgAdmin: true },
+    'admin/legal': { title: 'Legal center', needsOrgAdmin: true },
 }
 
 const UNSAFE_PATH = '' as Route
@@ -63,7 +69,7 @@ export function matchInternalRoute(pathname: string): InternalRouteMatch | null 
     if (!path) return null
 
     const appPage = APP_PAGES[path]
-    if (appPage) return { kind: 'appPage', title: appPage.title, category: appPage.category }
+    if (appPage) return { kind: 'appPage', ...appPage }
 
     const orgSlug = extractOrgSlugFromPath(path)
     if (!orgSlug) return null
@@ -73,8 +79,8 @@ export function matchInternalRoute(pathname: string): InternalRouteMatch | null 
     const studyId = studyIdIn(orgSlug, underOrg)
     if (studyId) return { kind: 'study', orgSlug, studyId }
 
-    const orgPageTitle = ORG_PAGES[underOrg]
-    if (orgPageTitle) return { kind: 'orgPage', orgSlug, title: orgPageTitle }
+    const orgPage = ORG_PAGES[underOrg]
+    if (orgPage) return { kind: 'orgPage', orgSlug, ...orgPage }
 
     return null
 }

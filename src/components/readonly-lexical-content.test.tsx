@@ -52,6 +52,10 @@ async function renderLink(value: string) {
 
 const findCard = () => screen.findByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })
 
+/** fireEvent has no auxClick shorthand, and the button is what the handler reads. */
+const auxClick = (anchor: HTMLAnchorElement, button: number) =>
+    fireEvent(anchor, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button }))
+
 describe('ReadOnlyLexicalContent', () => {
     it('opens the link card on a click instead of navigating', async () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(null)
@@ -95,6 +99,38 @@ describe('ReadOnlyLexicalContent', () => {
 
         expect(open).toHaveBeenCalledWith(URL, '_blank', 'noopener,noreferrer')
         expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('opens the destination straight away on a middle click', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        auxClick(anchor, 1)
+
+        expect(open).toHaveBeenCalledWith(URL, '_blank', 'noopener,noreferrer')
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('leaves the secondary click to the browser, so the context menu stands alone', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        // Not prevented, or the browser would have nothing to build its menu from.
+        expect(auxClick(anchor, 2)).toBe(true)
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(open).not.toHaveBeenCalled()
+    })
+
+    it('leaves a shift or alt click to the browser', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
+        const { anchor } = await renderLink(linkState(URL, '_blank'))
+
+        expect(fireEvent.click(anchor, { shiftKey: true })).toBe(true)
+        expect(fireEvent.click(anchor, { altKey: true })).toBe(true)
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+        expect(open).not.toHaveBeenCalled()
     })
 
     it('opens the card from the keyboard and returns focus to the link on Escape', async () => {

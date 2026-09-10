@@ -7,6 +7,8 @@ import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import {
     AnchoredLinkCard,
+    hasPrimaryModifier,
+    isSecondaryClick,
     openLinkInNewTab,
     useClickWithoutDrag,
     useEscapeOnCard,
@@ -18,6 +20,7 @@ import {
 import { $linkAtDomNode, type LinkCardTarget } from './link-card-node'
 
 const OPEN_KEYS = ['Enter', ' ']
+const MIDDLE_BUTTON = 1
 
 const closestAnchor = (target: EventTarget | null) => (target instanceof Element ? target.closest('a') : null)
 
@@ -73,13 +76,17 @@ export function LinkHoverCardReadOnlyPlugin() {
             const hit = linkFromEvent(event.target)
             if (!hit) return
 
-            // Nothing here ever navigates the SafeInsights tab away (OTTER-463).
+            // The context menu, a new window and a download all keep their usual meaning: none of
+            // them unloads this tab, and the reader asked the browser for them, not for the card.
+            if (isSecondaryClick(event) || event.shiftKey || event.altKey) return
+
+            // Nothing past here ever navigates the SafeInsights tab away (OTTER-463).
             event.preventDefault()
 
             // A click that ends a drag is the reader selecting text across the link.
             if (movedSincePress(event)) return
 
-            if (event.button === 1 || event.metaKey || event.ctrlKey) {
+            if (event.button === MIDDLE_BUTTON || hasPrimaryModifier(event)) {
                 openLinkInNewTab(hit.found.url)
                 return
             }

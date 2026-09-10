@@ -20,8 +20,23 @@ const CLICK_OUTSIDE_EVENTS = ['mousedown', 'touchstart']
 const ANCHOR_HOST_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, width: 0, height: 0 }
 const ANCHOR_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }
 
+const SECONDARY_BUTTON = 2
+const APPLE_PLATFORM = /Mac|iPhone|iPad|iPod/i
+
+const isApplePlatform = () => typeof navigator !== 'undefined' && APPLE_PLATFORM.test(navigator.userAgent)
+
 export function openLinkInNewTab(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+/** Cmd on Apple platforms and Ctrl everywhere else, because macOS gives Ctrl to the secondary click. */
+export function hasPrimaryModifier(event: { ctrlKey: boolean; metaKey: boolean }) {
+    return isApplePlatform() ? event.metaKey : event.ctrlKey
+}
+
+/** The gesture that asks for the context menu, which on macOS is also ctrl with the main button. */
+export function isSecondaryClick(event: MouseEvent) {
+    return event.button === SECONDARY_BUTTON || (isApplePlatform() && event.ctrlKey)
 }
 
 /**

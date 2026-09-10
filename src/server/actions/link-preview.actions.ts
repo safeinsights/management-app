@@ -2,12 +2,34 @@
 
 import { Action, z } from '@/server/actions/action'
 import { toRecord } from '@/lib/permissions'
-import { matchInternalRoute, type ResolvedInternalLink } from '@/lib/routes/match'
+import {
+    matchInternalRoute,
+    type InternalRouteMatch,
+    type PageAccess,
+    type ResolvedInternalLink,
+} from '@/lib/routes/match'
 import { displayOrgName, UNTITLED_STUDY_TITLE } from '@/lib/string'
+import { getLabOrg, isOrgAdmin, type UserSession } from '@/lib/types'
 
 // Deleted, never there, and not allowed all answer the same way, so a preview cannot be used to
 // probe for studies or orgs the caller has no access to.
 const UNAVAILABLE: ResolvedInternalLink = { kind: 'unavailable' }
+
+function canReachAppPage(session: UserSession, access: PageAccess) {
+    if (access === 'siAdmin') return session.user.isSiAdmin
+    if (access === 'researcher') return Boolean(getLabOrg(session))
+
+    return true
+}
+
+function canReachOrgPage(session: UserSession, match: Extract<InternalRouteMatch, { kind: 'orgPage' }>) {
+    if (session.user.isSiAdmin) return true
+
+    const org = session.orgs[match.orgSlug]
+    if (!org) return false
+
+    return !match.needsOrgAdmin || isOrgAdmin(org)
+}
 
 export const resolveInternalLinkAction = new Action('resolveInternalLinkAction')
     .params(z.object({ pathname: z.string().max(2048) }))
@@ -18,6 +40,8 @@ export const resolveInternalLinkAction = new Action('resolveInternalLinkAction')
         if (!match) return { kind: 'unknown' }
 
         if (match.kind === 'appPage') {
+            if (!canReachAppPage(session, match.access)) return UNAVAILABLE
+
             return { kind: 'internal', title: match.title, category: match.category }
         }
 
@@ -31,8 +55,7 @@ export const resolveInternalLinkAction = new Action('resolveInternalLinkAction')
         const category = displayOrgName(org.name)
 
         if (match.kind === 'orgPage') {
-            const isMember = session.user.isSiAdmin || Boolean(session.orgs[match.orgSlug])
-            return isMember ? { kind: 'internal', title: match.title, category } : UNAVAILABLE
+            return canReachOrgPage(session, match) ? { kind: 'internal', title: match.title, category } : UNAVAILABLE
         }
 
         const study = await db
