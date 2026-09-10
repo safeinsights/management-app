@@ -15,6 +15,7 @@ import {
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { CodeReview } from './code-review'
 
 const ORG_SLUG = 'test-org'
@@ -75,43 +76,27 @@ describe('CodeReview', () => {
             expect(screen.getByTestId('proposal-section-header')).not.toHaveTextContent(study.title!)
         })
 
-        it('renders "Submitted on {date}" formatted from the latest job createdAt', async () => {
+        it('dates the banner title from the latest job createdAt', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
             const formatted = dayjs(jobCreatedAt).format('MMM DD, YYYY')
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(`Submitted on ${formatted}`)
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} ${formatted}`)
         })
 
-        it('renders the status banner with the first-submission intro copy', async () => {
+        it('renders the action banner with the first-submission title', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
-            const banner = screen.getByTestId('code-review-status-banner')
-            expect(banner).toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
-            expect(banner).toHaveTextContent(labName)
-            expect(banner).toHaveTextContent(
-                'has submitted their study code for review. Below, you will review their code and an AI-generated summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these criteria:',
-            )
-            expect(banner).not.toHaveTextContent('has resubmitted')
+            expect(banner).toHaveAttribute('data-variant', 'action')
+            expect(banner).toHaveTextContent(`New code submitted by ${labName}`)
+            expect(banner).toHaveTextContent('Review the code files, security log, and AI summary')
+            expect(banner).not.toHaveTextContent('Revised code submitted')
 
             const strongs = banner.querySelectorAll('strong')
             for (const strong of strongs) {
                 expect(strong.textContent ?? '').not.toContain(labName)
             }
-        })
-
-        it('renders all four review criteria', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
-
-            const criteria = screen.getByTestId('code-review-criteria')
-            expect(criteria).toHaveTextContent(
-                'Proposal alignment: Does the code align with the approved research proposal?',
-            )
-            expect(criteria).toHaveTextContent('Agreement compliance: Does the code comply with all the agreements?')
-            expect(criteria).toHaveTextContent('Security checks: Have security and vulnerability checks been passed?')
-            expect(criteria).toHaveTextContent(
-                'Privacy protection: Is there any risk of PII exposure expected in the outputs?',
-            )
         })
 
         it('does not render a Feedback and notes section', async () => {
@@ -170,23 +155,13 @@ describe('CodeReview', () => {
         })
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
-        it('renders "Resubmitted on {date}" in place of "Submitted on"', async () => {
+        it('switches the banner title to the revised wording', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
 
-            const formatted = dayjs(jobCreatedAt).format('MMM DD, YYYY')
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(`Resubmitted on ${formatted}`)
-            expect(screen.getByTestId('proposal-timestamp')).not.toHaveTextContent('Submitted on')
-        })
-
-        it('renders the resubmission banner copy', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
-
-            const banner = screen.getByTestId('code-review-status-banner')
+            const banner = screen.getByTestId('status-alert')
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
-            expect(banner).toHaveTextContent(labName)
-            expect(banner).toHaveTextContent(
-                'has resubmitted their study code for review. Below, you will review their code and an AI-generated summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these criteria:',
-            )
+            expect(banner).toHaveTextContent(`Revised code submitted by ${labName}`)
+            expect(banner).not.toHaveTextContent('New code submitted')
         })
 
         it('reflects the resubmission version in the section heading', async () => {

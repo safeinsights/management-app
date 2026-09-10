@@ -5,8 +5,7 @@ import { Divider, Paper, Stack, Text } from '@mantine/core'
 import { stringifyJson } from '@/lib/string'
 import { extractTextFromLexical } from '@/lib/lexical'
 import { useExpandable } from '@/hooks/use-expandable'
-import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import { decisionTimestampForProposalHeader } from '@/lib/studies'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { type Submitted } from '@/schema/study'
 import { CollapseToggleLink } from './collapse-toggle-link'
 import { DatasetsField, FieldDivider, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
@@ -25,8 +24,6 @@ type ProposalRequestProps = {
     heading: string
     banner: ReactNode
     initialExpanded?: boolean
-    statusBadge?: string
-    entries?: ProposalFeedbackEntry[]
 }
 
 // Plain text, not clamped Lexical: an empty paragraph in the stored value would spend one of the
@@ -176,24 +173,15 @@ export function ProposalRequest({
     heading,
     banner,
     initialExpanded = true,
-    statusBadge = 'Submitted on',
-    entries = [],
 }: ProposalRequestProps) {
     const { expanded, expand, collapse, focusToggle } = useProposalCard(initialExpanded)
-    const timestampDate = decisionTimestampForProposalHeader(study, entries)
 
     return (
         <Stack gap="xxl" data-testid="proposal-section">
-            <ProposalStepHeader
-                stepLabel={stepLabel}
-                heading={heading}
-                timestampDate={timestampDate}
-                timestampLabel={statusBadge}
-                banner={banner}
-            />
+            <ProposalStepHeader stepLabel={stepLabel} heading={heading} banner={banner} />
 
             {/* The proposal owns its own card (OTTER-755), so the status card above it holds the
-                step, timestamp and banner only. Collapsing swaps the card's content for a snippet
+                step and banner only. Collapsing swaps the card's content for a snippet
                 rather than hiding it, which is why there is no Mantine Collapse here. */}
             <Paper p="xxl" data-testid="proposal-card">
                 <ProposalSnippet isVisible={!expanded} study={study} onExpand={expand} focusToggle={focusToggle} />

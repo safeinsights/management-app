@@ -28,18 +28,4 @@ describe('ProposalStepHeader', () => {
 
         expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
     })
-
-    it('renders the timestamp without a study title line', () => {
-        renderWithProviders(
-            <ProposalStepHeader
-                stepLabel="STEP 3"
-                heading="Review outputs"
-                timestampDate="2026-08-12"
-                timestampLabel="Submitted on"
-            />,
-        )
-
-        expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Aug 12, 2026')
-        expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
-    })
 })

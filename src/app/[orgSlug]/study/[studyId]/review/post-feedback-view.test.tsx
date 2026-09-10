@@ -22,6 +22,7 @@ import {
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { PostFeedbackView } from './post-feedback-view'
 
 vi.mock('@/server/storage', async () => {
@@ -66,7 +67,9 @@ describe('PostFeedbackView', () => {
     })
 
     describe('decision header', () => {
-        it('renders "Approved on {date}" timestamp for approve decision', () => {
+        // Dated from the decision comment, not study.approvedAt: the same row supplies the reviewer
+        // name, so name and date cannot disagree.
+        it('dates the approved banner title and attributes it to the reviewer', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
@@ -75,22 +78,24 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={approvedStudy} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved by Reviewer One ${STATUS_ALERT_SEPARATOR} Apr 16, 2026`,
+            )
         })
 
-        it('renders "Clarification requested on {date}" for needs-clarification', () => {
+        it('dates the revision-requested banner title', () => {
             const changeRequestedStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             const entries = [
                 buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
             ]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={changeRequestedStudy} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
-                'Clarification requested on Apr 18, 2026',
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Revision requested by Reviewer One ${STATUS_ALERT_SEPARATOR} Apr 18, 2026`,
             )
         })
 
-        it('renders "Rejected on {date}" for reject decision', () => {
+        it('dates the declined banner title', () => {
             const rejectedStudy = {
                 ...study,
                 status: 'REJECTED' as const,
@@ -99,7 +104,9 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={rejectedStudy} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal declined by Reviewer One ${STATUS_ALERT_SEPARATOR} Apr 16, 2026`,
+            )
         })
 
         it('renders the page title and the "Review proposal" section heading', () => {
@@ -133,39 +140,37 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry({ decision: 'APPROVE' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            const banner = screen.getByTestId('decision-banner-approved')
-            expect(banner).toHaveTextContent(
-                "This initial request has been approved. You'll receive email notifications when the researcher proceeds to the next step.",
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('This proposal has been approved.')
+            expect(banner).toHaveTextContent('moves to the next step')
         })
 
         it('renders the clarification banner with the expected copy', () => {
             const entries = [buildEntry({ decision: 'NEEDS-CLARIFICATION' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            const banner = screen.getByTestId('decision-banner-clarification')
-            expect(banner).toHaveTextContent(
-                'You have requested clarification. The researcher has been notified, and we will inform you once they resubmit.',
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('A revision has been requested.')
+            expect(banner).toHaveTextContent('resubmits the proposal')
         })
 
         it('renders the rejected banner with the expected copy', () => {
             const entries = [buildEntry({ decision: 'REJECT' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            const banner = screen.getByTestId('decision-banner-rejected')
-            expect(banner).toHaveTextContent(
-                'This initial request has been rejected. No further action is required at this time.',
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('This proposal has been declined. No further action is required.')
         })
 
         it('renders only one banner at a time', () => {
             const entries = [buildEntry({ decision: 'APPROVE' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('decision-banner-approved')).toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-rejected')).not.toBeInTheDocument()
+            expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
+            expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'informative')
         })
     })
 
@@ -354,46 +359,47 @@ describe('PostFeedbackView', () => {
             expect(screen.getByText('Review study code')).toBeInTheDocument()
         })
 
-        it('renders the code-approved banner with code-review-specific copy', () => {
+        it('renders the informative banner with code-approved copy', () => {
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
 
-            const banner = screen.getByTestId('decision-banner-code-approved')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('Code approved')
             expect(banner).toHaveTextContent(
-                'This study code has been approved. You will be notified when the study results are available for review.',
+                'This code has been approved. You will be notified when the study results are available for review.',
             )
-            expect(screen.queryByTestId('decision-banner-approved')).not.toBeInTheDocument()
         })
 
-        it('renders the code-rejected banner with code-review-specific copy', () => {
+        it('renders the decline banner with code-rejected copy', () => {
             const entries = [buildCodeEntry({ decision: 'REJECT' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
 
-            const banner = screen.getByTestId('decision-banner-code-rejected')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('Code declined')
             expect(banner).toHaveTextContent(
                 'This study code was rejected and the study was ended. No further action is required at this time.',
             )
-            expect(screen.queryByTestId('decision-banner-rejected')).not.toBeInTheDocument()
         })
 
-        it('renders the change-requested banner with the right copy and yellow background', () => {
+        it('renders the informative banner naming the lab that must resubmit', () => {
             const entries = [buildCodeEntry({ decision: 'NEEDS-CLARIFICATION' })]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
 
-            const banner = screen.getByTestId('decision-banner-code-change-requested')
-            expect(banner).toHaveTextContent(
-                'You have requested changes or more information about the study code. The researcher has been notified, and you will be notified once they resubmit.',
-            )
-            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('Revision requested')
+            expect(banner).toHaveTextContent('resubmits their code')
         })
 
-        it('uses "Change requested on" timestamp prefix for NEEDS-CLARIFICATION', () => {
+        it('dates the revision-requested banner title for NEEDS-CLARIFICATION', () => {
             const entries = [
                 buildCodeEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
             ]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Change requested on Apr 18, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Apr 18, 2026`)
         })
 
         it('uses "Review study code" crumb (not "Review initial request") for kind=CODE', () => {
@@ -488,8 +494,10 @@ describe('PostFeedbackView', () => {
                 )
 
                 expect(screen.getByText('Review study code')).toBeInTheDocument()
-                expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
-                expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 21, 2026')
+                // No decision comment, so the title carries the date but no reviewer attribution.
+                expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                    `Code approved ${STATUS_ALERT_SEPARATOR} Apr 21, 2026`,
+                )
                 expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
                 // Without a job there is no Submitted code panel, so the opener would expand an
                 // empty card with no way back.

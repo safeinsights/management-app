@@ -4,17 +4,26 @@ import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { OutputsDecidedBanner } from './outputs-decided-banner'
 
 const labName = 'Acme Research Lab'
+const reviewerName = 'Pat Reviewer'
 const decidedAt = new Date('2026-07-15T14:30:00Z')
 const formattedDate = dayjs(decidedAt).format('MMM DD, YYYY')
 
 describe('OutputsDecidedBanner', () => {
     it('errored + outputs shared: shows errored title with outputs-and-feedback copy', async () => {
         renderWithProviders(
-            <OutputsDecidedBanner resultsErrored resultsApproved labName={labName} decidedAt={decidedAt} />,
+            <OutputsDecidedBanner
+                resultsErrored
+                resultsApproved
+                labName={labName}
+                reviewerName={reviewerName}
+                decidedAt={decidedAt}
+            />,
         )
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(`Code errored. Outputs and feedback shared • ${formattedDate}`)
+        expect(alert).toHaveTextContent(
+            `Code errored. Outputs and feedback shared by ${reviewerName} • ${formattedDate}`,
+        )
         expect(alert).toHaveTextContent(
             `The study code failed to process. Outputs and feedback have been shared with ${labName}. We will notify you when they resubmit.`,
         )
@@ -23,11 +32,17 @@ describe('OutputsDecidedBanner', () => {
 
     it('errored + feedback only: shows errored title with feedback-only copy', async () => {
         renderWithProviders(
-            <OutputsDecidedBanner resultsErrored resultsApproved={false} labName={labName} decidedAt={decidedAt} />,
+            <OutputsDecidedBanner
+                resultsErrored
+                resultsApproved={false}
+                labName={labName}
+                reviewerName={reviewerName}
+                decidedAt={decidedAt}
+            />,
         )
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(`Code errored. Feedback shared • ${formattedDate}`)
+        expect(alert).toHaveTextContent(`Code errored. Feedback shared by ${reviewerName} • ${formattedDate}`)
         expect(alert).toHaveTextContent(
             `The study code failed to process. Feedback has been shared with ${labName} without the outputs. We will notify you when they resubmit.`,
         )
@@ -35,11 +50,17 @@ describe('OutputsDecidedBanner', () => {
 
     it('available + outputs shared: shows outputs-and-feedback title without errored prefix', async () => {
         renderWithProviders(
-            <OutputsDecidedBanner resultsErrored={false} resultsApproved labName={labName} decidedAt={decidedAt} />,
+            <OutputsDecidedBanner
+                resultsErrored={false}
+                resultsApproved
+                labName={labName}
+                reviewerName={reviewerName}
+                decidedAt={decidedAt}
+            />,
         )
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(`Outputs and feedback shared • ${formattedDate}`)
+        expect(alert).toHaveTextContent(`Outputs and feedback shared by ${reviewerName} • ${formattedDate}`)
         expect(alert).not.toHaveTextContent('Code errored')
         expect(alert).toHaveTextContent(
             `The outputs from the latest code run were reviewed and shared with ${labName} along with your feedback.`,
@@ -52,25 +73,27 @@ describe('OutputsDecidedBanner', () => {
                 resultsErrored={false}
                 resultsApproved={false}
                 labName={labName}
+                reviewerName={reviewerName}
                 decidedAt={decidedAt}
             />,
         )
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(`Feedback shared • ${formattedDate}`)
+        expect(alert).toHaveTextContent(`Feedback shared by ${reviewerName} • ${formattedDate}`)
         expect(alert).not.toHaveTextContent('Code errored')
         expect(alert).toHaveTextContent(
             `Feedback has been shared with ${labName} without the outputs. We will notify you when they resubmit.`,
         )
     })
 
-    it('degrades to an undated banner when decidedAt is null', async () => {
+    it('degrades to an undated banner without attribution when reviewerName and decidedAt are missing', async () => {
         renderWithProviders(
             <OutputsDecidedBanner resultsErrored={false} resultsApproved labName={labName} decidedAt={null} />,
         )
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Outputs and feedback shared')
+        expect(alert).not.toHaveTextContent(/shared by /)
         expect(alert).not.toHaveTextContent('•')
     })
 
@@ -88,6 +111,7 @@ describe('OutputsDecidedBanner', () => {
                     resultsErrored={resultsErrored}
                     resultsApproved={resultsApproved}
                     labName={labName}
+                    reviewerName={reviewerName}
                     decidedAt={decidedAt}
                 />,
             )
