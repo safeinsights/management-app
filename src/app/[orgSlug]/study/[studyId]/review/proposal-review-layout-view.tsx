@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Box, Stack } from '@mantine/core'
+import { Box, Paper, Stack } from '@mantine/core'
 
 // Presentational only: each section arrives as a slot, so this renders in isolation (e.g. Ladle).
 export type ProposalReviewLayoutViewProps = {
@@ -31,8 +31,12 @@ export function ProposalReviewLayoutView({
                 {header}
                 {proposal}
                 {feedbackAndNotes}
-                {feedback}
-                {decision}
+                <Paper p="xxl">
+                    <Stack gap={24} data-testid="decision-card-body">
+                        {feedback}
+                        {decision}
+                    </Stack>
+                </Paper>
                 {actions}
             </Stack>
             {modals}

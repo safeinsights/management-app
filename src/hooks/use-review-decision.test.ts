@@ -18,7 +18,7 @@ describe('useReviewDecision', () => {
             await result.current.onBlur()
         })
 
-        expect(result.current.error).toBe('Select a decision to continue.')
+        expect(result.current.error).toBe('Select an option before submitting.')
     })
 
     it('clears the error once a decision is chosen', async () => {
@@ -27,7 +27,7 @@ describe('useReviewDecision', () => {
         await act(async () => {
             await result.current.onBlur()
         })
-        expect(result.current.error).toBe('Select a decision to continue.')
+        expect(result.current.error).toBe('Select an option before submitting.')
 
         act(() => result.current.onSelect('approve'))
         await act(async () => {

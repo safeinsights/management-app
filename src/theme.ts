@@ -3,10 +3,12 @@ import {
     type ButtonVariant,
     createTheme,
     CSSVariablesResolver,
+    defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
     Input,
     MantineColorsTuple,
+    type VariantColorsResolver,
 } from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
@@ -45,6 +47,7 @@ const red: MantineColorsTuple = [
     '#FF0505',
     '#E60000',
     '#C70000',
+    '#A83028',
     '#7E241E',
 ]
 const green: MantineColorsTuple = [
@@ -134,6 +137,22 @@ declare module '@mantine/core' {
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
     }
+
+    export interface ButtonProps {
+        variant?: ButtonVariant | 'error'
+    }
+}
+
+const variantColorResolver: VariantColorsResolver = (input) => {
+    if (input.variant === 'error') {
+        return {
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        }
+    }
+    return defaultVariantColorsResolver(input)
 }
 
 // Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
@@ -162,6 +181,7 @@ export const theme = createTheme({
         fontFamily: 'Open Sans',
         fontWeight: '700',
     },
+    variantColorResolver,
     colors: {
         navy,
         charcoal,
@@ -182,7 +202,7 @@ export const theme = createTheme({
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: red[10] } },
+            styles: { required: { color: red[11] } },
         }),
         Table: {
             styles: () => ({
@@ -210,6 +230,8 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
     variables: {
         '--mantine-color-placeholder': theme.colors.grey[7],
         '--mantine-color-dimmed': theme.colors.gray[7],
+        '--mantine-color-error': theme.colors.red[11],
+        '--mantine-color-error-filled': theme.colors.red[10],
     },
     dark: {},
     light: {},

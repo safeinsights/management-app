@@ -17,7 +17,6 @@ import {
     screen,
     userEvent,
     waitFor,
-    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -103,14 +102,29 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
         })
 
-        it('renders the page title without repeating it in the section header', () => {
+        it('renders the page title and the "Review proposal" section heading', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-            expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            const sectionHeader = within(screen.getByTestId('proposal-section-header'))
-            expect(sectionHeader.queryByText(/Effect of Reading Comprehension Tools/)).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
+        })
+
+        it('does not repeat the study title in the proposal section header', () => {
+            const entries = [buildEntry()]
+            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+
+            // Scoped to the section: the page h1 also carries the title (OTTER-619).
+            expect(screen.getByTestId('proposal-section-header')).not.toHaveTextContent(study.title!)
+        })
+
+        it('renders the versioned heading on a resubmission (reviewVersion > 1)', () => {
+            const entries = [buildEntry()]
+            renderWithProviders(
+                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} reviewVersion={3} />,
+            )
+
+            expect(screen.getByRole('heading', { name: 'Review proposal v3.0', level: 2 })).toBeInTheDocument()
         })
     })
 

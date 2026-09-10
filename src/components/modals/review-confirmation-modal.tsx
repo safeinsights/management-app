@@ -1,5 +1,5 @@
 import { type FC, type ReactNode } from 'react'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import { Button, Group, Stack } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 
 interface ReviewConfirmationModalProps {
@@ -9,7 +9,7 @@ interface ReviewConfirmationModalProps {
     isPending: boolean
     title: string
     confirmLabel: string
-    variant?: 'default' | 'destructive'
+    variant?: 'default' | 'error'
     children: ReactNode
 }
 
@@ -23,7 +23,8 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
     variant = 'default',
     children,
 }) => {
-    const isDestructive = variant === 'destructive'
+    const confirmVariant = variant === 'error' ? 'error' : 'filled'
+
     return (
         <AppModal
             isOpen={isOpen}
@@ -40,7 +41,7 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
                     <Button variant="outline" onClick={onClose} disabled={isPending}>
                         Cancel
                     </Button>
-                    <Button color={isDestructive ? 'red' : undefined} onClick={onConfirm} loading={isPending}>
+                    <Button variant={confirmVariant} onClick={onConfirm} loading={isPending}>
                         {confirmLabel}
                     </Button>
                 </Group>
@@ -48,10 +49,3 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
         </AppModal>
     )
 }
-
-export const REJECTION_WARNING = (
-    <Text size="md" fw={600} c="red.9">
-        Rejection: This is intended as a last resort due to major, unresolvable issues and will end this study. This
-        action cannot be undone.
-    </Text>
-)

@@ -1,4 +1,5 @@
 import type { ButtonVariant } from '@mantine/core'
+import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { buttonVars, theme } from './theme'
 
@@ -6,6 +7,7 @@ import { buttonVars, theme } from './theme'
 // hand-copied from Figma, so drift would otherwise be invisible in review.
 describe('button colors', () => {
     const navy = theme.colors?.navy ?? []
+    const mantineTheme = mergeMantineTheme(DEFAULT_THEME, theme)
 
     it('carries the library brand ramp', () => {
         expect(navy[5]).toBe('#01215E')
@@ -37,6 +39,24 @@ describe('button colors', () => {
         },
     )
 
+    it('resolves error idle and hover to the library error tokens', () => {
+        expect(theme.colors?.red?.[10]).toBe('#A83028')
+        expect(theme.colors?.red?.[11]).toBe('#7E241E')
+        expect(
+            theme.variantColorResolver?.({
+                variant: 'error',
+                color: 'navy',
+                theme: mantineTheme,
+                autoContrast: false,
+            }),
+        ).toEqual({
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        })
+    })
+
     // QA rejected the first attempt because these lived in a `styles` callback, which Mantine emits
     // as an inline style — the :disabled selector it needed was dropped by the browser and every
     // button kept Mantine's stock grey. Asserting the custom properties keeps the delivery
@@ -60,7 +80,7 @@ describe('button colors', () => {
 // palette's 11th shade the way grey.10 and yellow.10 already are.
 describe('required asterisk color', () => {
     it('carries the library error value', () => {
-        expect(theme.colors?.red?.[10]).toBe('#7E241E')
+        expect(theme.colors?.red?.[11]).toBe('#7E241E')
     })
 
     // Every Mantine asterisk resolves through this one entry, Radio.Group's included, because
