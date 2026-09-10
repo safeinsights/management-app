@@ -49,11 +49,14 @@ mockState.setRunWithLocalStorage((cb) => {
 
 // Deferred side effects must land before a test continues, e.g. a deferred CODE-SCANNED insert
 // must commit before the next status change, or the time-ordered v7 ids invert.
-// Snapshot-then-clear keeps callbacks queued mid-drain for afterEach; relies on the mock pushing synchronously.
+// A draining callback can queue more, so keep going until the queue stays empty. Bounded, or a
+// callback that always re-queues would hang the run. Relies on the mock pushing synchronously.
 export async function flushDeferred() {
-    const toRun = mockState.pendingDeferredCallbacks.slice()
-    mockState.pendingDeferredCallbacks.length = 0
-    await Promise.allSettled(toRun)
+    for (let pass = 0; pass < 20 && mockState.pendingDeferredCallbacks.length; pass++) {
+        const toRun = mockState.pendingDeferredCallbacks.slice()
+        mockState.pendingDeferredCallbacks.length = 0
+        await Promise.allSettled(toRun)
+    }
 }
 
 // Vitest hoists vi.mock above imports, so factory-referenced values must come from vi.hoisted.
@@ -279,15 +282,22 @@ beforeEach(async () => {
 afterEach(async () => {
     mockState.headers.clear()
 
-    // Quiesce the UI before giving up the transaction. A mounted tree or a live query client can
-    // still issue a write, and once the transaction is gone Postgres commits it for real.
-    cleanup()
-    const { cancelTestQueryClients } = await import('@/tests/unit.helpers')
-    await cancelTestQueryClients()
-
-    await Promise.allSettled(mockState.pendingDeferredCallbacks)
-    mockState.pendingDeferredCallbacks.length = 0
-    await testTransaction.rollback()
+    try {
+        // Quiesce the UI before giving up the transaction. A mounted tree or a live query client
+        // can still issue a write, and once the transaction is gone Postgres commits it for real.
+        cleanup()
+        const { waitForTestQueryClientsIdle } = await import('@/tests/unit.helpers')
+        const busy = await waitForTestQueryClientsIdle()
+        if (busy) {
+            console.warn(
+                `${busy} query client(s) still in flight at teardown; their writes can escape the test transaction`,
+            )
+        }
+        await flushDeferred()
+    } finally {
+        // Unmounting can throw; the transaction still has to go, or its rows outlive the test.
+        await testTransaction.rollback()
+    }
     await fs.promises.rm(tmpDir, { recursive: true })
     delete process.env.UPLOAD_TMP_DIRECTORY
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
@@ -305,11 +315,9 @@ afterEach(async () => {
 
 afterAll(async () => {
     // close() drops the pg patch for the whole process and issues no ROLLBACK, so anything still
-    // in flight past this point writes raw and gets committed. Drain first, then give dispatched
-    // promises one turn to settle while the patch is still installed.
-    cleanup()
-    const { cancelTestQueryClients } = await import('@/tests/unit.helpers')
-    await cancelTestQueryClients()
+    // in flight past this point writes raw and gets committed. afterEach already quiesced the
+    // query clients (their registry is empty by now), so only deferred stragglers are left. The
+    // extra turn is best effort for already-dispatched promises, not a barrier.
     await flushDeferred()
     await new Promise((resolve) => setImmediate(resolve))
 
