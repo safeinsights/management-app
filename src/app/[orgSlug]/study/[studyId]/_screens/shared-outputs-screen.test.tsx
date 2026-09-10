@@ -50,7 +50,7 @@ const DASHBOARD_HREF = '/dashboard'
 /**
  * One component now serves both share screens, so the wiring below is asserted once per variant
  * rather than in two mirror-image files (PR #1003 review). Each variant carries only what actually
- * differs: the run status that routes to it, its locked-banner copy, its feedback text, and the
+ * differs: the run status that routes to it, its banner copy, its feedback text, and the
  * adjacent outcomes that must NOT reach it.
  */
 type Variant = {
@@ -60,6 +60,9 @@ type Variant = {
     runStatus: StudyJobStatus
     lockedTitle: string
     lockedBody: (dataPartner: string) => string
+    unlockedVariant: 'action' | 'success'
+    unlockedTitle: string
+    unlockedBody: string
     feedbackBody: string
     /** Adjacent outcomes that must fall through to the not-found guard. */
     guardedAgainst: [string, StudyJobStatus[]][]
@@ -75,6 +78,10 @@ const VARIANTS: Variant[] = [
         lockedTitle: 'Decrypt to view your outputs',
         lockedBody: (dataPartner) =>
             `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
+        unlockedVariant: 'success',
+        unlockedTitle: 'Outputs and feedback available',
+        unlockedBody:
+            "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
         feedbackBody: 'Reviewed and approved. The results meet the study criteria.',
         guardedAgainst: [
             ['a completed run still awaiting the reviewer files decision', ['RUN-COMPLETE']],
@@ -93,6 +100,10 @@ const VARIANTS: Variant[] = [
         lockedTitle: 'Decrypt outputs to view code error',
         lockedBody: (dataPartner) =>
             `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+        unlockedVariant: 'action',
+        unlockedTitle: 'Resolve the code error to proceed',
+        unlockedBody:
+            'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
         feedbackBody: 'The run failed on the join; the logs are in the outputs.',
         guardedAgainst: [
             ['an errored run still awaiting the reviewer files decision', ['JOB-ERRORED']],
@@ -227,10 +238,9 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
 })
 
 describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
-    // The two-phase behaviour — banner swap, live-region identity, key form removal, outputs table,
-    // post-decryption nav — is the panel's contract and is covered in shared-outputs-panel.test.tsx.
-    // What is this screen's own job is the wiring: this study's page header, partner, decision date,
-    // and routing predicate.
+    // The two-phase behaviour — live-region identity, key form removal, outputs table — is the
+    // panel's contract. This file owns the wiring: this study's copy, partner, decision date,
+    // routing predicate, and which unlocked banner each screen actually hands the panel.
     it('wires the page header without repeating its title in the section header', async () => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
@@ -258,6 +268,22 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, raw, org.slug)
 
         expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.lockedTitle)
+        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlockedTitle)
+    })
+
+    it('renders the post-decryption banner with this screen’s copy and variant', async () => {
+        const sibling = VARIANTS.find((v) => v.screen !== variant.screen)!
+        const { org, study, raw } = await setupShared(variant)
+        await renderScreen(variant, study, raw, org.slug)
+        await decrypt()
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveAttribute('data-variant', variant.unlockedVariant)
+        expect(alert).toHaveTextContent(variant.unlockedTitle)
+        expect(alert).toHaveTextContent(variant.unlockedBody)
+        expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
+        expect(alert).not.toHaveTextContent(variant.lockedTitle)
+        expect(alert).not.toHaveTextContent(sibling.unlockedTitle)
     })
 
     it('dates the banner from the FILES-APPROVED decision — not the run, code approval, or today', async () => {
