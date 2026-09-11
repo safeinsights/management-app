@@ -1,0 +1,26 @@
+/* Doubled selector because Mantine's subtle variant clamps its icon color to shade 6, so the
+   `color` prop cannot reach the darker glyph the design asks for. */
+.action.action {
+    color: var(--mantine-color-charcoal-7);
+}
+
+.action:hover,
+.action:active {
+    background-color: color-mix(in srgb, var(--mantine-color-grey-1) 50%, transparent);
+}
+
+/* Doubled selector so the reduced-motion rule below always outranks Mantine's global
+   `.mantine-active:active` nudge, whichever stylesheet loads last. */
+.action.action:active {
+    transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .action.action:active {
+        transform: none;
+    }
+}
+
+.url {
+    word-break: break-word;
+}

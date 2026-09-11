@@ -4,8 +4,8 @@ import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin'
 import { lexicalTheme, lexicalNodes } from '@/components/editable-text/config'
+import { LinkHoverCardReadOnlyPlugin } from '@/components/editable-text/link-hover-card-readonly-plugin'
 import type { JsonValue } from '@/database/types'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
@@ -35,9 +35,9 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
                 placeholder={null}
                 ErrorBoundary={LexicalErrorBoundary}
             />
-            {/* newTab forces _blank even for links stored before target was set,
-                and preventing the default click keeps us from unloading the app. */}
-            <ClickableLinkPlugin newTab />
+            {/* Owns link clicks: they open the card instead of a tab, and a modified or middle
+                click still opens the destination. Nothing here unloads the app (OTTER-463). */}
+            <LinkHoverCardReadOnlyPlugin />
         </LexicalComposer>
     )
 }
