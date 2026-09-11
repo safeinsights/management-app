@@ -97,7 +97,10 @@ function useEditorLinkCard(editor: LexicalEditor) {
     useRootDomListeners(editor, { mousedown: rememberPress, click: openFromClick })
 
     const openLinkAtCaret = useCallback(() => {
-        const found = editor.read($linkAtSelection)
+        // The committed state, not editor.read. A command dispatched from a keydown runs while
+        // Lexical is mid-update, and reading the live editor there both answers with no range
+        // selection and settles the pending one, so the caret's link goes missing either way.
+        const found = editor.getEditorState().read($linkAtSelection)
         if (!found) return false
 
         open(found)
