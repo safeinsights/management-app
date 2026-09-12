@@ -12,9 +12,9 @@ function resolveToken(token: string): string {
 // in theme.ts (OTTER-652).
 describe('STATUS_BANNER_BG', () => {
     it.each([
-        ['approved', '#E8F8EB'],
-        ['rejected', '#FFE0E0'],
-        ['changesRequestedReviewer', '#FFF9E5'],
+        ['approved', '#ECF4EE'],
+        ['rejected', '#FBECEB'],
+        ['changesRequestedReviewer', '#FFFAE7'],
         ['changesRequestedResearcher', '#EAE8FC'],
     ] as const)('%s resolves to %s', (key, hex) => {
         expect(resolveToken(STATUS_BANNER_BG[key]).toUpperCase()).toBe(hex)
