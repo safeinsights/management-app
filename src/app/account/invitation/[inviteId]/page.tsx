@@ -103,7 +103,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                 >
                     Login with existing account
                 </ButtonLink>
-                <Text size="sm" c="red.8">
+                <Text size="sm" c="red.7">
                     <b>Note:</b> Strongly recommended if you already have an account, since merging accounts later is
                     not supported.
                 </Text>

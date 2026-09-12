@@ -56,7 +56,7 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
         <>
             <ActionIcon
                 variant="subtle"
-                color="red.9"
+                color="red.7"
                 onClick={open}
                 aria-label={`Delete draft study ${draftLabel}`}
                 data-testid="delete-draft-button"
@@ -78,7 +78,7 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
                         <Button variant="outline" onClick={close} disabled={isPending}>
                             Cancel
                         </Button>
-                        <Button variant="filled" color="red.9" onClick={confirm} loading={isPending}>
+                        <Button variant="filled" color="red.6" onClick={confirm} loading={isPending}>
                             Yes, delete proposal draft
                         </Button>
                     </Group>

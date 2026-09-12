@@ -3,7 +3,7 @@
 
 .row:hover,
 .row:focus-within {
-    background-color: var(--mantine-color-grey-0);
+    background-color: var(--si-color-surface-hover);
 }
 
 .fileName {

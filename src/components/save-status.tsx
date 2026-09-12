@@ -25,8 +25,8 @@ const SavedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
     return (
         <Group gap={8} wrap="nowrap" data-testid="autosave-status">
-            <CheckCircleIcon size={16} color={theme.colors.green[9]} weight="fill" />
-            <Text size="xs" c="green.9" fw={600}>
+            <CheckCircleIcon size={16} color={theme.colors.green[7]} weight="fill" />
+            <Text size="xs" c="green.7" fw={600}>
                 {SAVED_LABEL}
             </Text>
         </Group>

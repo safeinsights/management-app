@@ -174,8 +174,8 @@ function ApprovedBadge() {
         <Flex
             align="center"
             gap={4}
-            bg="green.1"
-            c="green.9"
+            bg="green.0"
+            c="green.7"
             bdrs={100}
             px={16}
             py={4}

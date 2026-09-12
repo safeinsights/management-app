@@ -16,8 +16,8 @@ const COLORS = {
     draft: { bg: 'grey.0', c: 'gray.9' },
     needsReview: { bg: 'purple.1', c: 'purple.7' },
     underReview: { bg: 'yellow.0', c: 'dark.9' },
-    rejected: { bg: 'red.1', c: 'red.8' },
-    approved: { bg: 'green.1', c: 'green.8' },
+    rejected: { bg: 'red.0', c: 'red.7' },
+    approved: { bg: 'green.0', c: 'green.7' },
     clarification: { bg: 'blue.1', c: 'blue.8' },
     default: { bg: 'gray.1', c: 'dark.5' },
 }

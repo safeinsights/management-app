@@ -8,7 +8,7 @@ export const PROPOSAL_GRID_SPAN = {
 }
 
 export const ENCLAVE_BG = 'purple.6'
-export const LAB_BG = 'green.8'
+export const LAB_BG = 'green.6'
 
 // Exported so Ladle's canvas shares the app's source of truth.
 export const APP_MAIN_BG = 'grey.0'

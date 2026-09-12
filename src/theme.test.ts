@@ -1,32 +1,43 @@
 import type { ButtonVariant } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { buttonVars, theme } from './theme'
+import { semanticShades } from './theme/tokens'
 
-// Locks the values transcribed from the SI UI Component Library (OTTER-761). Hex values are
-// hand-copied from the token file, so drift would otherwise be invisible in review.
-describe('button colors', () => {
-    const navy = theme.colors?.navy ?? []
-
+// Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
+// hand-copied from its Variables panel, so drift would otherwise be invisible in review.
+describe('palette', () => {
     it('carries the library brand ramp', () => {
+        const navy = theme.colors?.navy ?? []
         expect(navy[5]).toBe('#01215e')
         expect(navy[6]).toBe('#011a4b')
         expect(navy[0]).toBe('#e6e9ef')
     })
 
-    it('makes every button navy without repainting the rest of the app', () => {
-        expect(theme.components?.Button?.defaultProps).toEqual({ color: 'navy', radius: 'xs' })
-        expect(theme.components?.Button?.vars).toBe(buttonVars)
-        expect(theme.primaryColor).toBe('purple')
-    })
+    // Figma indexes every ramp 0-9 and defines no 950 step. An eleventh entry makes Mantine emit
+    // --mantine-color-<name>-10, which call sites then depend on — the bug this card had to unpick.
+    it.each(['navy', 'turquoise', 'red', 'green', 'yellow', 'blue', 'purple', 'grey', 'charcoal'])(
+        'gives %s exactly ten shades',
+        (name) => {
+            expect(theme.colors?.[name]).toHaveLength(10)
+        },
+    )
 
-    it('resolves filled to brand/Default and its hover to brand/Hover via primaryShade', () => {
+    it('takes brand/default as the primary colour', () => {
+        expect(theme.primaryColor).toBe('navy')
         expect(theme.primaryShade).toBe(5)
-        expect(navy[(theme.primaryShade as number) + 1]).toBe('#011a4b')
     })
 
+    // Every semantic token must point at a shade that exists, or it silently resolves to undefined.
+    it.each(Object.entries(semanticShades))('resolves %s -> %s', (_token, ref) => {
+        const [family, shade] = ref.split('.')
+        expect(theme.colors?.[family]?.[Number(shade)]).toMatch(/^#[0-9a-f]{6}$/)
+    })
+})
+
+describe('buttons', () => {
     // light resolves its hover from the same alpha as outline and subtle, so it needs the override
     // too — missing it was the gap review caught.
-    it.each<ButtonVariant>(['outline', 'subtle', 'light'])('supplies brand/Light as the %s hover', (variant) => {
+    it.each<ButtonVariant>(['outline', 'subtle', 'light'])('supplies brand/light as the %s hover', (variant) => {
         expect(buttonVars({}, { variant }).root['--button-hover']).toBe('#e6e9ef')
     })
 
@@ -55,8 +66,6 @@ describe('button colors', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')
     })
 
-    // OTTER-661's size geometry shares the one `vars` slot Mantine calls, so it has to travel
-    // through buttonVars rather than its own component entry.
     it('carries the library size geometry alongside the colours', () => {
         expect(buttonVars({}, { size: 'lg' }).root).toMatchObject({
             '--button-height': '50px',

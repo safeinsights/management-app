@@ -1,6 +1,5 @@
 import type { Story } from '@ladle/react'
-import { Alert, Button, Group, Stack } from '@mantine/core'
-import { Heading, Text } from '@/components/ui'
+import { Alert, Button, Group, Stack, Text, Title } from '@mantine/core'
 
 // Variant matrices mirroring the Figma component pages so they can be compared side by side.
 //   Button 4216:2 · Alert 61:5826
@@ -24,7 +23,7 @@ const BUTTON_VARIANTS = [
 const ALERT_COLORS = [
     { label: 'Red', color: 'red' },
     { label: 'Green', color: 'green' },
-    { label: 'Purple', color: 'purple' },
+    { label: 'Navy', color: 'navy' },
     { label: 'Blue', color: 'blue' },
     { label: 'Yellow', color: 'yellow' },
 ] as const
@@ -35,8 +34,8 @@ const ALERT_VARIANTS = ['light', 'filled', 'outline'] as const
 export const Buttons: Story = () => (
     <Stack p="xl" gap="xl">
         <Stack gap="xs">
-            <Heading size="page-sm">Button — sizes</Heading>
-            <Text size="body-sm" c="dimmed">
+            <Title order={2}>Button — sizes</Title>
+            <Text size="sm" c="dimmed">
                 Figma 4216:2. xs h30/pad14/font12 → xl h60/pad32/font20, radius 2 throughout.
             </Text>
             <Group align="center">
@@ -49,10 +48,10 @@ export const Buttons: Story = () => (
         </Stack>
 
         <Stack gap="xs">
-            <Heading size="page-sm">Button — variants</Heading>
+            <Title order={2}>Button — variants</Title>
             {BUTTON_VARIANTS.map(({ label, props }) => (
                 <Group key={label} align="center">
-                    <Text size="description" c="dimmed" w={220}>
+                    <Text size="xs" c="dimmed" w={220}>
                         {label}
                     </Text>
                     <Button {...props}>Button</Button>
@@ -65,14 +64,14 @@ export const Buttons: Story = () => (
 export const Alerts: Story = () => (
     <Stack p="xl" gap="xl">
         <Stack gap="xs">
-            <Heading size="page-sm">Alert</Heading>
-            <Text size="body-sm" c="dimmed">
+            <Title order={2}>Alert</Title>
+            <Text size="sm" c="dimmed">
                 Figma 61:5826. Pad 12/16, gap 8. Light = shade 0, filled = shade 5, outline = white + shade-5 border.
             </Text>
         </Stack>
         {ALERT_VARIANTS.map((variant) => (
             <Stack key={variant} gap="xs">
-                <Text size="body-md" fw={700}>
+                <Text size="md" fw={700}>
                     {variant}
                 </Text>
                 {ALERT_COLORS.map(({ label, color }) => (

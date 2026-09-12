@@ -7,26 +7,14 @@ import {
     DefaultMantineSize,
     MantineColorsTuple,
 } from '@mantine/core'
-import type { HeadingSize, TextSize } from './components/ui/typography'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
-import { semanticCssVariables } from './theme/tokens'
+import { semanticColor, semanticCssVariables, typographyCssVariables } from './theme/tokens'
 
-// Generated from "Interim design tokens - handoff - Jul 2026" (W3C DTCG).
-// Ramps map 50..900 onto Mantine index 0..9. Grey/Purple carry an extra 950
-// step, kept in slot 10 and referenced via the semantic tokens below.
+// Transcribed 1:1 from the "SI UI Component Library" Figma file, collection `color primitive`
+// (read from Dev Mode → Variables). Every ramp is exactly ten shades indexed 0-9 — Figma defines
+// no 950 step and no 50-900 naming. Do not add an eleventh entry: Mantine will happily emit
+// --mantine-color-<name>-10 for it, and call sites start depending on a shade design never shipped.
 
-const red: MantineColorsTuple = [
-    '#ffe0e0',
-    '#ffcccc',
-    '#ffadad',
-    '#ff8a8a',
-    '#ff6b6b',
-    '#ff4747',
-    '#ff2929',
-    '#ff0505',
-    '#a83028',
-    '#7e241e',
-]
 const navy: MantineColorsTuple = [
     '#e6e9ef',
     '#ccd3df',
@@ -51,57 +39,44 @@ const turquoise: MantineColorsTuple = [
     '#005352',
     '#002a29',
 ]
-const charcoal: MantineColorsTuple = [
-    '#f8f9fa',
-    '#d9d9d9',
-    '#bfbfbf',
-    '#a6a6a6',
-    '#8c8c8c',
-    '#737373',
-    '#595959',
-    '#404040',
-    '#262626',
-    '#0d0d0d',
-]
-const grey: MantineColorsTuple = [
-    '#f1f3f5',
-    '#dadee1',
-    '#c4c9cf',
-    '#aab3bb',
-    '#949ea9',
-    '#7a8794',
-    '#64707c',
-    '#525c66',
-    '#3d454c',
-    '#2b3036',
-    '#212529',
+const red: MantineColorsTuple = [
+    '#fbeceb',
+    '#f6d8d6',
+    '#edb1ad',
+    '#e48a84',
+    '#db635b',
+    '#d23c32',
+    '#a83028',
+    '#7e241e',
+    '#541814',
+    '#2a0c0a',
 ]
 const green: MantineColorsTuple = [
-    '#e8f8eb',
-    '#d8f3dd',
-    '#c1ecc9',
-    '#a6e3b2',
-    '#8edc9e',
-    '#77d58a',
-    '#5ccc72',
-    '#44c55e',
+    '#ecf4ee',
+    '#d9e9dc',
+    '#b3d4ba',
+    '#8ebe97',
+    '#68a975',
+    '#429352',
     '#357642',
     '#285831',
+    '#1a3b21',
+    '#0d1d10',
 ]
 const yellow: MantineColorsTuple = [
-    '#fff9e5',
-    '#fff6db',
-    '#fff0c2',
-    '#ffe9a8',
-    '#ffe38f',
-    '#ffdd75',
-    '#ffd65c',
-    '#ffd042',
+    '#fffae7',
+    '#fbeed8',
+    '#f7ddb1',
+    '#f4cd89',
+    '#f0bc62',
+    '#ecab3b',
+    '#bd892f',
     '#8e6723',
     '#5e4418',
+    '#2f220c',
 ]
 const blue: MantineColorsTuple = [
-    '#e4f0ff',
+    '#e7f1fe',
     '#bddcff',
     '#94c6ff',
     '#6bb0ff',
@@ -123,31 +98,45 @@ const purple: MantineColorsTuple = [
     '#19107a',
     '#100a4c',
     '#070524',
-    '#040212',
+]
+const grey: MantineColorsTuple = [
+    '#f1f3f5',
+    '#dadee1',
+    '#c4c9cf',
+    '#aab3bb',
+    '#949ea9',
+    '#7a8794',
+    '#64707c',
+    '#525c66',
+    '#3d454c',
+    '#2b3036',
+]
+const charcoal: MantineColorsTuple = [
+    '#f8f9fa',
+    '#d9d9d9',
+    '#bfbfbf',
+    '#a6a6a6',
+    '#8c8c8c',
+    '#737373',
+    '#595959',
+    '#404040',
+    '#262626',
+    '#0d0d0d',
 ]
 
-// The handoff's alpha primitives (Purple/50 50%, Purple/900 75%) cannot live in a Mantine
-// tuple; they are defined as non-ramp entries in src/theme/tokens.ts instead.
-
 type ExtendedCustomColors =
-    | 'purple'
-    | 'blue'
-    | 'charcoal'
-    | 'grey'
+    | 'navy'
+    | 'turquoise'
     | 'red'
     | 'green'
     | 'yellow'
-    | 'navy'
-    | 'turquoise'
+    | 'blue'
+    | 'purple'
+    | 'grey'
+    | 'charcoal'
     | DefaultMantineColor
 
 type ExtendedCustomSpacing = 'xxs' | 'xxl' | DefaultMantineSize
-
-// The handoff's composed type styles, addressable as font-size/line-height keys so the
-// ui/ Heading and Text components can pass their `size` straight through to Mantine's
-// `fz`/`lh`. These sit alongside Mantine's xs-xl scale rather than replacing it, because
-// existing call sites across the app still use size="sm" etc.
-type ExtendedCustomFontSize = HeadingSize | TextSize | DefaultMantineSize
 
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {
@@ -156,11 +145,10 @@ declare module '@mantine/core' {
 
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
-        fontSizes: Record<ExtendedCustomFontSize, string>
-        lineHeights: Record<ExtendedCustomFontSize, string>
     }
 }
 
+// Figma collection `font-family`.
 const fontFamilySans = '"Open Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 const fontFamilyMono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
 
@@ -173,6 +161,7 @@ const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'li
 // travel as custom properties: `vars` reaches the DOM as an inline style, and an inline style cannot
 // carry the :disabled pseudo-class a `styles` callback would need.
 const DISABLED_VARS: Record<string, string> = {
+    // surface/Disabled medium, text/Disabled
     '--mantine-color-disabled': grey[1],
     '--mantine-color-disabled-color': charcoal[6],
 }
@@ -190,67 +179,32 @@ export const theme = createTheme({
     fontFamilyMonospace: fontFamilyMono,
     headings: {
         fontFamily: fontFamilySans,
+        // Figma collection `font-weight`: regular 400, semibold 600, bold 700. There is no 500.
+        // Per-heading sizes are deliberately not set: the file's "Text styles" frame still carries
+        // Carbon-era names and 140%/165% line heights that contradict the `line-height` collection
+        // (1.2/1.35/1.5), so there is no composed heading style to transcribe. See OTTER-661.
         fontWeight: '700',
-        sizes: {
-            h1: { fontSize: '2.125rem', lineHeight: '1.35' },
-            h2: { fontSize: '1.375rem', lineHeight: '1.35' },
-            h3: { fontSize: '1.25rem', lineHeight: '1.35' },
-            h4: { fontSize: '1rem', lineHeight: '1.35' },
-        },
     },
-    // Mantine's xs-xl scale (used by existing call sites) plus the handoff's composed
-    // type-style names (used by the ui/ Heading and Text components). Both resolve to the
-    // same font-size primitives from the token file.
+    // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Five of those line up
+    // with Mantine's xs-xl scale, which is what existing call sites pass; the rest reach components
+    // as --si-font-size-* rather than being bolted onto Mantine keys design never named.
     fontSizes: {
-        xs: '0.625rem',
-        sm: '0.75rem',
-        md: '0.875rem',
-        lg: '1rem',
-        xl: '1.125rem',
-
-        display: '2.5rem',
-        page: '2.125rem',
-        'page-sm': '1.375rem',
-        card: '1.25rem',
-        minor: '1rem',
-        'body-lg': '1.125rem',
-        'body-md': '1rem',
-        'body-sm': '0.875rem',
-        'label-md': '0.875rem',
-        'label-sm': '0.75rem',
-        description: '0.75rem',
-    },
-    // Only three line-height primitives exist in the handoff (1.2 / 1.35 / 1.5); the
-    // composed styles express them as 120% / 135% / 150%, which mean the same thing.
-    lineHeights: {
-        xs: '1.2',
-        sm: '1.2',
-        md: '1.5',
-        lg: '1.5',
-        xl: '1.5',
-
-        display: '1.2',
-        page: '1.35',
-        'page-sm': '1.35',
-        card: '1.35',
-        minor: '1.35',
-        'body-lg': '1.5',
-        'body-md': '1.5',
-        'body-sm': '1.5',
-        'label-md': '1.2',
-        'label-sm': '1.2',
-        description: '1.5',
+        xs: '0.75rem',
+        sm: '0.875rem',
+        md: '1rem',
+        lg: '1.125rem',
+        xl: '1.25rem',
     },
     colors: {
-        charcoal,
-        grey,
+        navy,
+        turquoise,
         red,
         green,
         yellow,
-        purple,
         blue,
-        navy,
-        turquoise,
+        purple,
+        grey,
+        charcoal,
     },
     components: {
         // uiThemeComponents carries the Figma-transcribed Alert/TextInput overrides; it is spread
@@ -259,8 +213,7 @@ export const theme = createTheme({
         Table: {
             styles: () => ({
                 th: {
-                    // surface/Background/table header
-                    backgroundColor: charcoal[0],
+                    backgroundColor: semanticColor('surface.tableheader'),
                 },
             }),
         },
@@ -268,14 +221,16 @@ export const theme = createTheme({
         // `vars` function, because Mantine only calls one per component.
         Button: {
             defaultProps: {
-                color: 'navy',
                 radius: 'xs',
             },
             vars: buttonVars,
         },
     },
+    // brand/default is navy/5 and brand/hover navy/6, so primaryShade 5 makes Mantine resolve the
+    // filled variant and its hover straight off the brand ramp.
     primaryShade: 5,
-    primaryColor: 'purple',
+    primaryColor: 'navy',
+    // Figma collection `Brand` > Spacing and Corner-radius.
     spacing: {
         xxs: '0.25rem',
         xs: '0.5rem',
@@ -292,6 +247,9 @@ export const theme = createTheme({
         lg: '1rem',
         xl: '2rem',
     },
+    // Figma collection `Brand` > Shadow, composed from its blur/spread/position/opacity variables.
+    // The file defines no shadow colour, so these compose over black. Note xs blur (3) is larger
+    // than sm (2) in Figma itself — transcribed faithfully, flagged for design.
     shadows: {
         xs: '0 1px 3px rgba(0, 0, 0, 0.05)',
         sm: '0 1px 2px rgba(0, 0, 0, 0.1)',
@@ -302,9 +260,9 @@ export const theme = createTheme({
 })
 
 export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
-    // Every --si-color-* variable comes from src/theme/tokens.ts, which is also what the ui/
-    // components read through semanticColor(). One definition, two consumers.
-    variables: semanticCssVariables(theme),
+    // Every --si-* variable comes from src/theme/tokens.ts, which is also what components read
+    // through semanticColor(). One definition, two consumers.
+    variables: { ...semanticCssVariables(theme), ...typographyCssVariables },
     dark: {},
     light: {},
 })

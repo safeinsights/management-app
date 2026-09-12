@@ -25,10 +25,9 @@ type StatusAlertProps = {
     announce?: boolean
 }
 
-// Figma status/success/text-icon — 7.5:1 against green.0, the AA ratio a bold 14px title needs
-// (OTTER-482). The OTTER-661 ramp now carries this exact value at green.9; swapping the literal for
-// the token belongs to the call-site migration.
-const SUCCESS_TITLE = '#285831'
+// Figma status/success/text-icon. 7.5:1 against green.0 — the AA ratio a bold 14px title needs,
+// which the old palette could not reach (OTTER-482).
+const SUCCESS_TITLE = 'green.7'
 
 const VARIANTS = {
     informative: {
@@ -40,16 +39,16 @@ const VARIANTS = {
     },
     action: {
         bg: 'yellow.0',
-        titleColor: 'yellow.9',
+        titleColor: 'yellow.8',
         titleWeight: 700,
-        iconColor: 'var(--mantine-color-yellow-9)',
+        iconColor: 'var(--si-color-warning-text)',
         Icon: WarningCircleIcon,
     },
     success: {
         bg: 'green.0',
         titleColor: SUCCESS_TITLE,
         titleWeight: 700,
-        iconColor: SUCCESS_TITLE,
+        iconColor: 'var(--si-color-success-text)',
         Icon: CheckCircleIcon,
     },
 } as const satisfies Record<
