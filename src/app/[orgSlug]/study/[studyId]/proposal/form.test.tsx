@@ -150,6 +150,37 @@ describe('ProposalForm researcher field (OTTER-691)', () => {
     })
 })
 
+describe('ProposalForm field hints (OTTER-769)', () => {
+    it('describes the PI field with the card wording', () => {
+        renderForm()
+
+        expect(screen.getByText('Select the Principal Investigator for this study.')).toBeInTheDocument()
+        expect(screen.queryByText(/from your lab/)).not.toBeInTheDocument()
+    })
+
+    // The one asterisk on this page that the theme's `required` selector cannot reach, so the only
+    // one that can drift out of step with the others.
+    it('paints the researcher asterisk with the shared design color', () => {
+        renderForm()
+
+        const asterisk = screen.getByText('Researcher').querySelector('span')
+
+        expect(asterisk).toHaveTextContent('*')
+        // Mantine maps `c` to an inline CSS variable, so the resolved color is not assertable.
+        expect(asterisk?.getAttribute('style') || '').toContain('--mantine-color-red-11')
+    })
+
+    // The one hand-rolled description on the page, so the only one that can drift from the size
+    // Mantine gives the rest.
+    it('renders the researcher hint at the size every other description uses', () => {
+        renderForm(draftData, { isDraftCreator: true })
+
+        const hint = screen.getByText('Update your profile to share your research experience with Rice University.')
+
+        expect(hint.getAttribute('style') || '').toContain('--text-fz: var(--mantine-font-size-xs)')
+    })
+})
+
 describe('ProposalForm submit-click validation (OTTER-691)', () => {
     const emptyDraft: ProposalFormValues = {
         ...draftData,

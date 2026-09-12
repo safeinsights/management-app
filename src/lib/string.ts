@@ -126,6 +126,10 @@ export function displayLabName(labName: string | null | undefined, fallbackSlug:
 // saved with the field left empty, so both places head it with these words.
 export const UNTITLED_STUDY_TITLE = 'Untitled study'
 
+export function plural(count: number, noun: string, pluralNoun = `${noun}s`): string {
+    return `${count} ${count === 1 ? noun : pluralNoun}`
+}
+
 export function toSentence(items: string[], conjunction: string = 'and'): string {
     if (items.length === 0) return ''
     if (items.length === 1) return items[0]

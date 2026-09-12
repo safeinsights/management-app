@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useRef, type FC, type ReactNode } from 'react'
 import { Divider, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
@@ -11,11 +11,30 @@ import { UploadFilesButton } from './upload-files-button'
 
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 
+const LaunchIdeAction: FC<{ isVisible: boolean; ide: StudyCodeIDE }> = ({ isVisible, ide }) => {
+    if (!isVisible) return null
+
+    return (
+        <InfoTooltip
+            label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
+            withArrow
+            multiline
+            w={320}
+        >
+            <LaunchIdeButton
+                onClick={(event) => ide.launchWorkspace({ sameWindow: event.shiftKey })}
+                isLaunching={ide.isLaunching}
+                launchError={ide.launchError}
+                variant="outline"
+            />
+        </InfoTooltip>
+    )
+}
+
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
     stepLabel?: string
     heading?: string
-    studyTitle: string | null
     footer: ReactNode
     showLaunchIde?: boolean
 }
@@ -24,7 +43,6 @@ export const StudyCodePanel = ({
     ide,
     stepLabel,
     heading = 'Study code',
-    studyTitle,
     footer,
     showLaunchIde = true,
 }: StudyCodePanelProps) => {
@@ -74,22 +92,8 @@ export const StudyCodePanel = ({
     }
 
     const reviewButtons = isReviewState ? (
-        <Group wrap="nowrap">
-            {showLaunchIde && (
-                <InfoTooltip
-                    label="After creating or editing files in the IDE, please return here to submit your code to the Data Partner."
-                    withArrow
-                    multiline
-                    w={320}
-                >
-                    <LaunchIdeButton
-                        onClick={(event) => ide.launchWorkspace({ sameWindow: event.shiftKey })}
-                        isLaunching={ide.isLaunching}
-                        launchError={ide.launchError}
-                        variant="outline"
-                    />
-                </InfoTooltip>
-            )}
+        <Group justify="flex-end" wrap="nowrap">
+            <LaunchIdeAction isVisible={showLaunchIde} ide={ide} />
             <UploadFilesButton openRef={openRef} disabled={ide.isUploading} />
         </Group>
     ) : null
@@ -106,13 +110,7 @@ export const StudyCodePanel = ({
                     <Title order={2} size="h4">
                         {heading}
                     </Title>
-                    <Group justify="space-between" wrap="nowrap" align="baseline">
-                        {/* 65ch ≈ 75 rendered chars in Open Sans */}
-                        <Text size="sm" c="dimmed" maw="65ch" style={{ overflowWrap: 'break-word' }}>
-                            Title: {studyTitle ?? 'Untitled draft'}
-                        </Text>
-                        {reviewButtons}
-                    </Group>
+                    {reviewButtons}
                 </Stack>
                 <Divider my="lg" />
                 {body}

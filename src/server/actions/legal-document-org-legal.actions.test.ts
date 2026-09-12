@@ -8,6 +8,7 @@ import {
     insertTestStudyOnly,
     mockSessionWithTestData,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -22,7 +23,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -58,8 +59,8 @@ const publishAgreementAsSiAdmin = async (
     const { version } = actionResult(
         await createLegalDocumentDraftAction(
             'studyId' in scope
-                ? { type: 'SLA', studyId: scope.studyId, fileName: 'agreement.pdf' }
-                : { type: scope.type, orgId: scope.orgId, fileName: 'agreement.pdf' },
+                ? { type: 'SLA', studyId: scope.studyId, file: testUploadFile('agreement.pdf') }
+                : { type: scope.type, orgId: scope.orgId, file: testUploadFile('agreement.pdf') },
         ),
     )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
@@ -166,7 +167,9 @@ describe('fetchOrgStudyAgreementsAction', () => {
     it('ignores an unpublished draft', async () => {
         const { study, dataPartner } = await insertStudyWithDistinctOrgs()
         await mockSessionWithTestData({ isSiAdmin: true })
-        actionResult(await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'draft.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, file: testUploadFile('draft.pdf') }),
+        )
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
         const rows = actionResult(await fetchOrgStudyAgreementsAction({ orgSlug: dataPartner.slug, sort: SORT }))

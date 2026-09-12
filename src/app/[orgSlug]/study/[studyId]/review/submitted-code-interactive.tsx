@@ -8,6 +8,7 @@ import {
     Group,
     Loader,
     Menu,
+    Paper,
     Skeleton,
     Stack,
     Text,
@@ -16,10 +17,11 @@ import {
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon, EyeIcon, WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
+import { isActionError } from '@/lib/errors'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
@@ -28,11 +30,10 @@ import { SCAN_LOG_FILE_NAME, scanLogDownloadURL, studyCodeURL } from '@/lib/path
 import {
     fetchScanLogAction,
     fetchStudyJobCodeFileAction,
-    getJobScanResultAction,
-    getStudyReviewAction,
+    getJobAnalysisAction,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
@@ -93,11 +94,23 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
     )
 }
 
-const REVIEW_POLL_INTERVAL_MS = 5_000
+const ANALYSIS_POLL_INTERVAL_MS = 5_000
 
 // Backstop for a generation that hangs without throwing; a real failure persists summaryFailedAt.
 // Measured from submission, not page open, so opening late does not reset the clock.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
+
+// Same backstop shape as the AI summary, but a longer clock: the scan log is written by the
+// enclave pipeline at the end of a run, not generated on request.
+const SCAN_TIMEOUT_MS = 600_000
+
+// Unlike the review row, this query always resolves to an object, so "still running" is both
+// statuses being null rather than a missing result. A log that parsed to unknown statuses still
+// reports a logFile, which is why that alone does not stop the poll.
+function isScanPending(scan: JobScanResult | undefined) {
+    if (!scan) return true
+    return scan.trivy === null && scan.sonarqube === null
+}
 
 // `since` is read once on mount and later prop changes are ignored, so a new submission must
 // arrive via a fresh server render or an explicit reset().
@@ -119,15 +132,45 @@ function useElapsedSince(since: Date | string, ms: number) {
     }
 }
 
-function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
+// A resubmit reuses the job id, so keying on it alone lets the cache serve the previous round as
+// current — the same defect the server-side round rule closes, reintroduced on the client by a 60s
+// staleTime over a singleton query client (OTTER-775 review).
+const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
+    ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
+
+// The summary and the scan describe the same submission and land at different times, so one query
+// feeds both panels. The server drops a review belonging to a previous round, so a null review here
+// means "generating", never "last round's" (OTTER-775).
+//
+// The backstops deliberately do not appear here: they decide what a panel renders, not whether the
+// poll runs. 8.4% of measured generations finish past the summary backstop, and stopping there
+// stranded a report that was already in the database until a reload (OTTER-775 review).
+function useJobAnalysisPoll(studyJobId: string, submittedAt: Date | string, initial: JobAnalysis, intervalMs: number) {
+    // Holds the scan once it has reported, so later ticks can tell the server not to re-read it. A
+    // ref rather than the cache because the shared useQuery wrapper's queryFn takes no context.
+    const settledScan = useRef<JobScanResult | null>(isScanPending(initial.scan) ? null : initial.scan)
+
     return useQuery({
-        queryKey: ['study-review', studyJobId],
-        queryFn: () => getStudyReviewAction({ studyJobId }),
-        initialData: initialReview,
+        queryKey: jobAnalysisKey(studyJobId, submittedAt),
+        queryFn: async () => {
+            const held = settledScan.current
+            const response = await getJobAnalysisAction({ studyJobId, scanSettled: held != null })
+            if (isActionError(response)) return response
+
+            // A null scan means "unchanged": the server skipped the re-read because we said we
+            // already had it, so the value we held is the one to keep.
+            const scan = response.scan ?? held ?? initial.scan
+            if (!isScanPending(scan)) settledScan.current = scan
+            return { review: response.review, scan }
+        },
+        initialData: initial,
+        // The server render is already stale by the time it reaches the browser; without this the
+        // seeded value counts as fresh and the first interval tick is skipped.
+        initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
-            if (query.state.data != null) return false
-            return REVIEW_POLL_INTERVAL_MS
+            const data = query.state.data
+            return data?.review == null || isScanPending(data?.scan) ? intervalMs : false
         },
     })
 }
@@ -208,12 +251,17 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
-function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
+function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[], onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
         onSuccess: () => {
-            queryClient.setQueryData(['study-review', studyJobId], null)
+            // Must be the poll's own key, round included, or this clears an entry nothing reads and
+            // the panel keeps rendering the failure it just retried.
+            // Clears only the review half; the scan in the same payload is unaffected by a regen.
+            queryClient.setQueryData(analysisKey, (prev: JobAnalysis | undefined) =>
+                prev ? { ...prev, review: null } : prev,
+            )
             onRetryStarted()
         },
     })
@@ -221,38 +269,31 @@ function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
 
 type AiSummaryProps = {
     studyJobId: string
-    initialReview: StudyReviewWithMeta | null
-    // Anchors the stuck-generation backstop so opening the page late does not restart the clock.
-    submittedAt: Date | string
-    // Both overridable so tests can exercise polling and the backstop without faking timers.
-    timeoutMs?: number
-    pollIntervalMs?: number
+    analysisKey: readonly unknown[]
+    review: StudyReviewWithMeta | null
+    hasError: boolean
+    timedOut: boolean
+    onRetryStarted: () => void
 }
 
-export function AiSummaryCollapsible({
-    studyJobId,
-    initialReview,
-    submittedAt,
-    timeoutMs = AI_SUMMARY_TIMEOUT_MS,
-}: AiSummaryProps) {
+function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timedOut, onRetryStarted }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
-    const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    const timeout = useElapsedSince(submittedAt, timeoutMs)
-    const retry = useRetryStudyReview(studyJobId, timeout.reset)
-    const timedOut = timeout.elapsed
+    const retry = useRetryStudyReview(studyJobId, analysisKey, onRetryStarted)
     const summary = review?.report?.codeExplanation ?? null
 
     const onRetry = () => retry.mutate()
     const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
 
+    // A summary already on screen outranks a failed poll tick: the poll keeps running for the scan
+    // long after the report lands, and a late failure must not replace good content the reviewer is
+    // reading — it never came back, because an error stops the poll (OTTER-775 review).
     const renderBody = () => {
-        if (error != null) return errorState
         if (review != null) {
             if (review.summaryFailedAt != null) return errorState
             if (!summary) return <AiSummaryEmpty />
             return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
         }
-        if (timedOut) return errorState
+        if (hasError || timedOut) return errorState
         return <AiSummaryPending />
     }
 
@@ -261,6 +302,59 @@ export function AiSummaryCollapsible({
             <Text fw={700}>AI Summary: Analysis of all files</Text>
             {renderBody()}
         </Stack>
+    )
+}
+
+export type JobAnalysisPanelsProps = {
+    studyJobId: string
+    initialAnalysis: JobAnalysis
+    // Anchors both backstops so opening the page late does not restart either clock.
+    submittedAt: Date | string
+    // Overridable so tests can exercise the backstops and polling without faking timers.
+    summaryTimeoutMs?: number
+    scanTimeoutMs?: number
+    pollIntervalMs?: number
+}
+
+// Owns the single poll both panels read from; each renders its own pending/timeout state off it.
+export function JobAnalysisPanels({
+    studyJobId,
+    initialAnalysis,
+    submittedAt,
+    summaryTimeoutMs = AI_SUMMARY_TIMEOUT_MS,
+    scanTimeoutMs = SCAN_TIMEOUT_MS,
+    pollIntervalMs = ANALYSIS_POLL_INTERVAL_MS,
+}: JobAnalysisPanelsProps) {
+    const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
+    const scanTimeout = useElapsedSince(submittedAt, scanTimeoutMs)
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
+    const analysis = data ?? initialAnalysis
+    const isScanWaiting = isScanPending(analysis.scan)
+    // Only the clock decides the scan will not report. A failed request is transient and gets its
+    // own state, since the enclave run it knows nothing about is usually still going.
+    const scanGivenUp = scanTimeout.elapsed && isScanWaiting
+
+    return (
+        <Group align="stretch" grow gap="xl" wrap="nowrap">
+            <Paper withBorder p="lg" radius={0}>
+                <AiSummaryCollapsible
+                    studyJobId={studyJobId}
+                    analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
+                    review={analysis.review}
+                    hasError={error != null}
+                    timedOut={summaryTimeout.elapsed}
+                    onRetryStarted={summaryTimeout.reset}
+                />
+            </Paper>
+            <Paper withBorder p="lg" radius={0}>
+                <SecurityScanLog
+                    studyJobId={studyJobId}
+                    scan={analysis.scan}
+                    givenUp={scanGivenUp}
+                    isUnreachable={error != null && isScanWaiting}
+                />
+            </Paper>
+        </Group>
     )
 }
 
@@ -690,40 +784,6 @@ function ScanLogBody({ scan }: { scan: JobScanResult }) {
     )
 }
 
-const SCAN_POLL_INTERVAL_MS = 5_000
-
-// Same backstop shape as the AI summary, but a longer clock: the scan log is written by the
-// enclave pipeline at the end of a run, not generated on request.
-const SCAN_TIMEOUT_MS = 600_000
-
-// Unlike the review row, this query always resolves to an object, so "still running" is both
-// statuses being null rather than a missing result. A log that parsed to unknown statuses still
-// reports a logFile, which is why that alone does not stop the poll.
-function isScanPending(scan: JobScanResult | undefined) {
-    if (!scan) return true
-    return scan.trivy === null && scan.sonarqube === null
-}
-
-function useJobScanResultPoll(
-    studyJobId: string,
-    initialScan: JobScanResult,
-    stopPolling: boolean,
-    intervalMs: number,
-) {
-    return useQuery({
-        queryKey: ['job-scan-result', studyJobId],
-        queryFn: () => getJobScanResultAction({ studyJobId }),
-        initialData: initialScan,
-        // The server render is already stale by the time it reaches the browser; without this the
-        // seeded value counts as fresh and the first interval tick is skipped.
-        initialDataUpdatedAt: 0,
-        refetchInterval: (query) => {
-            if (query.state.error || stopPolling) return false
-            return isScanPending(query.state.data) ? intervalMs : false
-        },
-    })
-}
-
 // There is no scan equivalent of the summary's Retry: the log comes from the enclave run, so the
 // app cannot re-request one. A scan that never reports says so instead of spinning forever.
 function ScanTimedOut() {
@@ -734,34 +794,36 @@ function ScanTimedOut() {
     )
 }
 
-type SecurityScanLogProps = {
-    studyJobId: string
-    initialScan: JobScanResult
-    // Anchors the backstop so opening the page late does not restart the clock.
-    submittedAt: Date | string
-    // Both overridable so tests can exercise polling and the backstop without faking timers.
-    timeoutMs?: number
-    pollIntervalMs?: number
+// Deliberately not ScanTimedOut's wording: a failed request says nothing about the enclave run,
+// which is usually still going. Only the clock may claim the scan will not report.
+function ScanUnreachable() {
+    return (
+        <Text size="sm" c="dimmed" data-testid="security-scan-unreachable">
+            Could not check the scan status. Refresh the page to try again.
+        </Text>
+    )
 }
 
-export function SecurityScanLog({
-    studyJobId,
-    initialScan,
-    submittedAt,
-    timeoutMs = SCAN_TIMEOUT_MS,
-    pollIntervalMs = SCAN_POLL_INTERVAL_MS,
-}: SecurityScanLogProps) {
-    const timeout = useElapsedSince(submittedAt, timeoutMs)
-    const { data, error } = useJobScanResultPoll(studyJobId, initialScan, timeout.elapsed, pollIntervalMs)
-    const scan = data ?? initialScan
-    const givenUp = (timeout.elapsed || error != null) && isScanPending(scan)
+type SecurityScanLogProps = {
+    studyJobId: string
+    scan: JobScanResult
+    givenUp: boolean
+    isUnreachable: boolean
+}
+
+function SecurityScanLog({ studyJobId, scan, givenUp, isUnreachable }: SecurityScanLogProps) {
+    const renderBody = () => {
+        if (givenUp) return <ScanTimedOut />
+        if (isUnreachable) return <ScanUnreachable />
+        return <ScanLogBody scan={scan} />
+    }
 
     return (
         <Stack gap="lg" data-testid="security-scan-log">
             <Text fw={700} fz={16}>
                 Security scan log
             </Text>
-            {givenUp ? <ScanTimedOut /> : <ScanLogBody scan={scan} />}
+            {renderBody()}
             <ScanLogActions studyJobId={studyJobId} isVisible={scan.logFile != null} />
         </Stack>
     )

@@ -71,6 +71,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const resultsApproved = jobStatuses.has('FILES-APPROVED')
     const resultsRejected = jobStatuses.has('FILES-REJECTED')
     const resultsErrored = jobStatuses.has('JOB-ERRORED')
+    const runErrored = resultsErrored && !jobStatuses.has('RUN-COMPLETE')
     const resultsDisplayStatus = RESULTS_PRIORITY.find((r) => r && jobStatuses.has(r)) ?? null
 
     // Status changes are append-only, so a finished job keeps its JOB-RUNNING row; gating on
@@ -111,6 +112,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsApproved,
         resultsRejected,
         resultsErrored,
+        runErrored,
         resultsDisplayStatus,
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
@@ -148,11 +150,6 @@ export const codeDecisionForScreen = (
     if (screen === 'code-feedback' && s.codeDecision !== null) return { screen, status: s.codeDecision }
     return null
 }
-
-// Narrower than resultsErrored: the scanner and containerizer also write JOB-ERRORED, so a
-// packaging error before a good run leaves both that and RUN-COMPLETE on the job (OTTER-697).
-export const runErrored = (statusChanges: RawJob['statusChanges']): boolean =>
-    statusChanges.some((c) => c.status === 'JOB-ERRORED') && !statusChanges.some((c) => c.status === 'RUN-COMPLETE')
 
 // Shared by the rule table and the screen's render guard so routing and rendering cannot
 // disagree (OTTER-696).

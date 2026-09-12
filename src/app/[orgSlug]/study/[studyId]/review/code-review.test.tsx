@@ -69,10 +69,10 @@ describe('CodeReview', () => {
             expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
         })
 
-        it('renders the study title in the section header', async () => {
+        it('does not render the study title in the section header', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
 
-            expect(screen.getByText(/Title: Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getByTestId('proposal-section-header')).not.toHaveTextContent(study.title!)
         })
 
         it('renders "Submitted on {date}" formatted from the latest job createdAt', async () => {

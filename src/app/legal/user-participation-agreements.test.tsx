@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
-import { actionResult, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
+import { actionResult, mockSessionWithTestData, renderWithProviders, testUploadFile } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
@@ -13,7 +13,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -23,7 +23,7 @@ const seedAcknowledgedAgreement = async (type: 'DOPA' | 'ROPA', signedAt: string
 
     await mockSessionWithTestData({ isSiAdmin: true })
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type, orgId: org.id, fileName: 'agreement.pdf' }),
+        await createLegalDocumentDraftAction({ type, orgId: org.id, file: testUploadFile('agreement.pdf') }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 

@@ -1,4 +1,5 @@
 import type { ButtonVariant } from '@mantine/core'
+import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { buttonVars, theme } from './theme'
 import { semanticShades } from './theme/tokens'
@@ -48,6 +49,25 @@ describe('buttons', () => {
         },
     )
 
+    it('resolves error idle and hover to the library error tokens', () => {
+        const mantineTheme = mergeMantineTheme(DEFAULT_THEME, theme)
+        expect(theme.colors?.red?.[6]).toBe('#a83028')
+        expect(theme.colors?.red?.[7]).toBe('#7e241e')
+        expect(
+            theme.variantColorResolver?.({
+                variant: 'error',
+                color: 'navy',
+                theme: mantineTheme,
+                autoContrast: false,
+            }),
+        ).toEqual({
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        })
+    })
+
     // QA rejected the first attempt because these lived in a `styles` callback, which Mantine emits
     // as an inline style — the :disabled selector it needed was dropped by the browser and every
     // button kept Mantine's stock grey. Asserting the custom properties keeps the delivery
@@ -76,5 +96,21 @@ describe('buttons', () => {
 
     it('falls back to the md geometry for an unsized button', () => {
         expect(buttonVars({}, {}).root['--button-height']).toBe('42px')
+    })
+})
+
+// Locks the mandatory-field asterisk (OTTER-769). Figma status/error/text-icon, i.e. red.7 on
+// the ten-shade ramp.
+describe('required asterisk color', () => {
+    it('carries the library error value', () => {
+        expect(theme.colors?.red?.[7]).toBe('#7e241e')
+    })
+
+    // Every Mantine asterisk resolves through this one entry, Radio.Group's included, because
+    // Input.Label registers its styles under the InputWrapper name.
+    it('paints every Mantine-rendered asterisk from it', () => {
+        const styles = theme.components?.InputWrapper?.styles as { required?: { color?: string } } | undefined
+
+        expect(styles?.required?.color).toBe('#7e241e')
     })
 })

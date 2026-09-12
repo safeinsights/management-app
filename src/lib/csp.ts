@@ -12,6 +12,10 @@ export const REPORTING_ENDPOINTS_HEADER = 'Reporting-Endpoints'
 
 const CSP_REPORT_GROUP = 'csp-report'
 
+// Enforced from next.config.ts and repeated in the nonce policy below, so the two cannot disagree
+// once that policy stops being report-only (SIINFOSEC-1460/1461).
+export const OBJECT_SRC_DIRECTIVE = "object-src 'none'"
+
 export function generateNonce(): string {
     const bytes = new Uint8Array(16)
     crypto.getRandomValues(bytes)
@@ -44,7 +48,7 @@ export function cspHeaderValue(nonce: string, reportUrl?: string): string {
         // Sentry Session Replay compresses in a blob-URL worker, which some browsers resolve
         // through script-src.
         "worker-src 'self' blob:",
-        "object-src 'none'",
+        OBJECT_SRC_DIRECTIVE,
     ]
     if (reportUrl) {
         // report-uri is kept for browsers without the Reporting API.

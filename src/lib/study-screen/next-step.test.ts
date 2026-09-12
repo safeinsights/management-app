@@ -21,8 +21,10 @@ const state = (overrides: Partial<StudyState> = {}): StudyState =>
 
 describe('hasNextStepFromCode', () => {
     describe('researcher', () => {
-        it('is false while /view still resolves to the code screen', () => {
-            expect(hasNextStepFromCode('researcher', state(), 'code-approved')).toBe(false)
+        // /view serves the outputs step from approval onward (OTTER-673), so the code screen is only
+        // ever a step behind.
+        it('is true as soon as the code is approved, before the enclave reports a stage', () => {
+            expect(hasNextStepFromCode('researcher', state(), 'code-approved')).toBe(true)
         })
 
         it('is true once results have landed and /view resolves to the results screen', () => {
@@ -34,11 +36,11 @@ describe('hasNextStepFromCode', () => {
             expect(hasNextStepFromCode('researcher', executing, 'code-approved')).toBe(true)
         })
 
-        // A packaging failure records no execution substatus, so isExecuting stays false and the
-        // researcher is held on the code screen while the reviewer triages.
-        it('is false for a job that errored before execution started', () => {
+        // A packaging failure records no execution substatus; the researcher still moves to the
+        // outputs step, which says "processing" until the reviewer triages (OTTER-598).
+        it('is true for a job that errored before execution started', () => {
             const errored = state({ hasResults: true, resultsErrored: true, isExecuting: false })
-            expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(false)
+            expect(hasNextStepFromCode('researcher', errored, 'code-approved')).toBe(true)
         })
 
         // outputs-pending reports the last execution stage and discloses nothing about a failure

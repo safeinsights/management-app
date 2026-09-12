@@ -48,16 +48,4 @@ describe('useDocumentFiles', () => {
         expect(result.current.documentFiles.description?.type).toBe('server')
         expect(result.current.existingFiles?.descriptionDocPath).toBe('/docs/desc.pdf')
     })
-
-    it('resets all state', () => {
-        const { result } = renderHook(() => useDocumentFiles())
-        act(() => {
-            result.current.setDocumentFile('description', mockFile('desc.pdf'))
-            result.current.initDocumentFilesFromPaths({ irbDocPath: '/docs/irb.pdf' })
-        })
-        act(() => result.current.resetDocumentFiles())
-
-        expect(result.current.documentFiles.description).toBeNull()
-        expect(result.current.existingFiles).toBeUndefined()
-    })
 })

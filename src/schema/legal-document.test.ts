@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { legalDocumentQueryKeys, publishLegalDocumentVersionSchema } from './legal-document'
+import { legalDocumentQueryKeys, MAX_LEGAL_DOCUMENT_BYTES, publishLegalDocumentVersionSchema } from './legal-document'
 
 const publishWith = (signedAt: string) =>
     publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version', signedAt })
@@ -49,5 +50,18 @@ describe('legalDocumentQueryKeys', () => {
         const otherType = legalDocumentQueryKeys.versions({ type: 'SLA', studyId: 'study-1' })
 
         expect(otherType.slice(0, prefix.length)).not.toEqual([...prefix])
+    })
+})
+
+// The cap only holds if next.config still carries a body limit above it: the upload rides a server
+// action, and Next rejects an over-limit body before any of our validation runs.
+describe('MAX_LEGAL_DOCUMENT_BYTES', () => {
+    it('stays under the serverActions body limit next.config sets', () => {
+        const config = readFileSync('next.config.ts', 'utf-8')
+        const limit = config.match(/bodySizeLimit:\s*'(\d+)mb'/)
+
+        // Asserted before the comparison so a reformat fails here rather than passing vacuously.
+        expect(limit).not.toBeNull()
+        expect(MAX_LEGAL_DOCUMENT_BYTES).toBeLessThan(Number(limit![1]) * 1024 * 1024)
     })
 })

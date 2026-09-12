@@ -5,7 +5,12 @@ import { type DB, type StudyJobStatus, type StudyStatus, type FileType } from '@
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { getOrgPublicKeys } from '@/server/db/queries'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
-import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
+import {
+    deleteDiscardedScanLogObjects,
+    discardStaleScanLogRows,
+    storeStudyEncryptedLogFile,
+    storeStudyEncryptedResultsFile,
+} from '@/server/storage'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
 
@@ -111,6 +116,15 @@ export async function setQaStudyState(
 
     // job_status_change is append-only; the current status is its newest row.
     if (update.jobStatus && studyJobId) {
+        // The real submission path clears the round-scoped state alongside the status row, and
+        // getStudyReviewForJob relies on that: a summary older than the newest CODE-SUBMITTED is
+        // treated as the previous round's and dropped. Writing the status alone would leave QA
+        // looking at a pending panel that never resolves (OTTER-775 review).
+        if (update.jobStatus === 'CODE-SUBMITTED') {
+            await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
+            const discarded = await discardStaleScanLogRows(studyJobId, db)
+            await deleteDiscardedScanLogObjects(discarded)
+        }
         await db.insertInto('jobStatusChange').values({ studyJobId, status: update.jobStatus }).execute()
     }
 

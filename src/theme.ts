@@ -3,9 +3,12 @@ import {
     type ButtonVariant,
     createTheme,
     CSSVariablesResolver,
+    defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
+    Input,
     MantineColorsTuple,
+    type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
 import { semanticColor, semanticCssVariables, typographyCssVariables } from './theme/tokens'
@@ -146,6 +149,22 @@ declare module '@mantine/core' {
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
     }
+
+    export interface ButtonProps {
+        variant?: ButtonVariant | 'error'
+    }
+}
+
+const variantColorResolver: VariantColorsResolver = (input) => {
+    if (input.variant === 'error') {
+        return {
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        }
+    }
+    return defaultVariantColorsResolver(input)
 }
 
 // Figma collection `font-family`.
@@ -195,6 +214,7 @@ export const theme = createTheme({
         lg: '1.125rem',
         xl: '1.25rem',
     },
+    variantColorResolver,
     colors: {
         navy,
         turquoise,
@@ -210,6 +230,12 @@ export const theme = createTheme({
         // uiThemeComponents carries the Figma-transcribed Alert/TextInput overrides; it is spread
         // first so the app-specific entries below win on any shared key.
         ...uiThemeComponents,
+        // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
+        // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
+        // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
+        InputWrapper: Input.Wrapper.extend({
+            styles: { required: { color: red[7] } },
+        }),
         Table: {
             styles: () => ({
                 th: {

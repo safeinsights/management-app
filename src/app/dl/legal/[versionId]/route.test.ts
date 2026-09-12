@@ -8,6 +8,7 @@ import {
     insertTestOrg,
     insertTestStudyOnly,
     mockSessionWithTestData,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
@@ -32,7 +33,7 @@ const seedStudyAgreement = async () => {
 
     await mockSessionWithTestData({ isSiAdmin: true })
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, fileName: 'agreement.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'SLA', studyId: study.id, file: testUploadFile('agreement.pdf') }),
     )
 
     return { version, dataPartner, researchLab }

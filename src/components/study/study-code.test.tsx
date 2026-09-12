@@ -68,7 +68,7 @@ const renderIDE = async (studyOrgSlug = 'openstax-lab', files?: Record<string, s
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
+    renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
     return { study, previousHref }
 }
@@ -280,7 +280,7 @@ describe('StudyCode component', () => {
                 await writeWorkspaceFiles(root, study.id, files)
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
-            renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
             return { study }
         }
 
@@ -336,9 +336,7 @@ describe('StudyCode component', () => {
             })
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-            const { unmount } = renderWithProviders(
-                <StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />,
-            )
+            const { unmount } = renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()
@@ -346,7 +344,7 @@ describe('StudyCode component', () => {
 
             unmount()
 
-            renderWithProviders(<StudyCode studyId={study.id} studyTitle={study.title} previousHref={previousHref} />)
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
 
             await waitFor(() => {
                 expect(screen.getByText('main.R')).toBeInTheDocument()

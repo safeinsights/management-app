@@ -140,6 +140,8 @@ export const semanticCssVariables = (theme: MantineTheme): Record<string, string
     // Mantine built-ins that should follow the semantic layer rather than its own defaults.
     vars['--mantine-color-placeholder'] = resolveShade(theme, semanticShades['text.placeholder'])
     vars['--mantine-color-dimmed'] = resolveShade(theme, semanticShades['text.secondary'])
+    vars['--mantine-color-error'] = resolveShade(theme, semanticShades['error.text'])
+    vars['--mantine-color-error-filled'] = resolveShade(theme, semanticShades['error.bg.dark'])
 
     return vars
 }

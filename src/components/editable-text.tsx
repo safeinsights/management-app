@@ -95,7 +95,7 @@ export const EditableText: FC<EditableTextProps> = ({
     const isEditable = !disabled && !readOnly
 
     const borderColor = error
-        ? 'var(--mantine-color-red-filled)'
+        ? 'var(--mantine-color-error)'
         : isFocused
           ? 'var(--mantine-color-blue-filled)'
           : 'var(--mantine-color-gray-4)'
