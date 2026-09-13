@@ -31,6 +31,13 @@ export type SubmissionEvent =
           submittedByClerkId: string
           submittedByName: string
       }
+    | {
+          type: 'outputs-review-submitted'
+          studyId: string
+          submittedByTabId: string
+          submittedByClerkId: string
+          submittedByName: string
+      }
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 
@@ -67,6 +74,15 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     if (obj.type === 'code-review-submitted') {
         return {
             type: 'code-review-submitted',
+            studyId: obj.studyId,
+            submittedByTabId: obj.submittedByTabId,
+            submittedByClerkId: obj.submittedByClerkId,
+            submittedByName: obj.submittedByName,
+        }
+    }
+    if (obj.type === 'outputs-review-submitted') {
+        return {
+            type: 'outputs-review-submitted',
             studyId: obj.studyId,
             submittedByTabId: obj.submittedByTabId,
             submittedByClerkId: obj.submittedByClerkId,
@@ -134,6 +150,20 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                     autoClose: NOTIFICATION_DISPLAY_MS,
                 })
                 router.push(Routes.studyReview({ orgSlug, studyId }))
+                return
+            }
+
+            if (event.type === 'outputs-review-submitted') {
+                notifications.show({
+                    color: 'blue',
+                    title: 'Decision submitted',
+                    message: `${event.submittedByName} has proceeded to submit a decision on this output. No further edits are allowed at this point.`,
+                    autoClose: NOTIFICATION_DISPLAY_MS,
+                })
+                router.push(Routes.studyReview({ orgSlug, studyId }))
+                // The editable and decided outputs screens answer the same URL, so the push alone
+                // is a no-op that leaves the decrypted form on screen.
+                router.refresh()
                 return
             }
 

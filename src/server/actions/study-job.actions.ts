@@ -248,6 +248,15 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         } else {
             onStudyResultsRejected({ studyId, userId })
         }
+
+        const submitter = await db
+            .selectFrom('user')
+            .select(['fullName'])
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+
+        // Names the reviewer in the notice the other tabs raise, which only the server can supply.
+        return { submitterFullName: submitter.fullName }
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
