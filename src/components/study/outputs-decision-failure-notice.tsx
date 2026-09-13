@@ -1,8 +1,7 @@
 'use client'
 
-import { FC } from 'react'
-import { Button, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
+import { ReloadNotice } from '@/components/errors'
 import { isStaleDeploymentError } from '@/lib/errors'
 import { OUTPUTS_DECISION_FAILURE } from '@/lib/outputs-review'
 
@@ -10,23 +9,12 @@ import { OUTPUTS_DECISION_FAILURE } from '@/lib/outputs-review'
 // one that never closes (OTTER-726).
 export const FAILURE_NOTIFICATION_ID = 'outputs-decision-failure'
 
-export const RELOAD_BUTTON_LABEL = 'Reload'
-
 const retryMessage = (isSaved: boolean) => (isSaved ? OUTPUTS_DECISION_FAILURE.saved : OUTPUTS_DECISION_FAILURE.unsaved)
 
+// Reloading costs the security key and any feedback the editor has not taken yet, which is why the
+// unsaved variant asks for a copy first.
 const staleMessage = (isSaved: boolean) =>
     isSaved ? OUTPUTS_DECISION_FAILURE.staleSaved : OUTPUTS_DECISION_FAILURE.staleUnsaved
-
-// A control rather than an automatic reload: reloading costs the security key and any feedback the
-// editor has not taken yet, so the reviewer chooses the moment.
-const ReloadNotice: FC<{ isSaved: boolean }> = ({ isSaved }) => (
-    <Stack gap="xs" align="flex-start">
-        <Text size="sm">{staleMessage(isSaved)}</Text>
-        <Button size="compact-sm" onClick={() => window.location.reload()}>
-            {RELOAD_BUTTON_LABEL}
-        </Button>
-    </Stack>
-)
 
 // One place decides what a failed submit says, so the copy cannot drift from the condition that
 // earns it. `isSaved` must be false unless the feedback is provably with the editor service.
@@ -39,7 +27,7 @@ export function showOutputsDecisionFailure({ error, isSaved }: { error: unknown;
             color: 'red',
             autoClose: false,
             title: OUTPUTS_DECISION_FAILURE.title,
-            message: <ReloadNotice isSaved={isSaved} />,
+            message: <ReloadNotice message={staleMessage(isSaved)} />,
         })
         return
     }

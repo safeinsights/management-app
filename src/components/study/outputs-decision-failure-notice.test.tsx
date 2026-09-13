@@ -2,11 +2,8 @@ import { describe, expect, it, renderWithProviders, screen, userEvent, vi, type 
 import { notifications } from '@mantine/notifications'
 import { ActionFailure } from '@/lib/errors'
 import { OUTPUTS_DECISION_FAILURE } from '@/lib/outputs-review'
-import {
-    FAILURE_NOTIFICATION_ID,
-    RELOAD_BUTTON_LABEL,
-    showOutputsDecisionFailure,
-} from './outputs-decision-failure-notice'
+import { RELOAD_BUTTON_LABEL } from '@/components/errors'
+import { FAILURE_NOTIFICATION_ID, showOutputsDecisionFailure } from './outputs-decision-failure-notice'
 
 // What Next names the error when the posted action id is absent from the build now serving, which
 // is what an open outputs review does after a deployment (OTTER-726).

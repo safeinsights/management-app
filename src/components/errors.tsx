@@ -17,13 +17,15 @@ import { difference } from 'remeda'
 // Fixed so repeated attempts keep one notification instead of stacking a new one per retry.
 export const STALE_DEPLOYMENT_NOTIFICATION_ID = 'stale-deployment'
 
-// A control rather than an automatic reload: the page may hold work that exists nowhere else, so
-// the reader chooses the moment.
-const StaleDeploymentMessage: FC = () => (
+export const RELOAD_BUTTON_LABEL = 'Reload'
+
+// The body of any notice whose only remedy is a reload. A control rather than an automatic reload:
+// the page may hold work that exists nowhere else, so the reader chooses the moment.
+export const ReloadNotice: FC<{ message: string }> = ({ message }) => (
     <Stack gap="xs" align="flex-start">
-        <Text size="sm">{STALE_DEPLOYMENT_MESSAGE}</Text>
+        <Text size="sm">{message}</Text>
         <Button size="compact-sm" onClick={() => window.location.reload()}>
-            Reload
+            {RELOAD_BUTTON_LABEL}
         </Button>
     </Stack>
 )
@@ -36,14 +38,15 @@ const reportStaleDeployment = () =>
         color: 'blue',
         autoClose: false,
         title: STALE_DEPLOYMENT_TITLE,
-        message: <StaleDeploymentMessage />,
+        message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
     })
 
 export const reportError = (error: unknown, title = 'An error occurred') => {
+    // Captured on purpose for a stale action id too: these events are the only client-side measure
+    // of how often a deploy lands under an open tab. Only the reference id is withheld from the
+    // notice, because the copy already says the one thing the reader can do.
     const eventId = captureException(error)
 
-    // No Sentry reference on this one: the copy already says the only thing the reader can do, and
-    // an action id is not something they can report usefully.
     if (isStaleDeploymentError(error)) {
         reportStaleDeployment()
         return
