@@ -2,14 +2,21 @@ import {
     actionResult,
     describe,
     expect,
+    fireEvent,
     insertTestStudyJobData,
     it,
     type Mock,
     mockSessionWithTestData,
+    readTestSupportFile,
     renderWithProviders,
     requireRawState,
     screen,
+    waitFor,
 } from '@/tests/unit.helpers'
+// vi from vitest itself: vi.mock is hoisted above the imports, so it must come from the module the
+// hoister rewrites, not a re-export.
+import { vi } from 'vitest'
+import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { notFound, useParams } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
 import dayjs from 'dayjs'
@@ -21,6 +28,17 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { SharedOutputsScreen } from './shared-outputs-screen'
 import type { ScreenComponentProps } from './types'
+
+// Same seam the panel test uses: decrypting for real needs the wrapped-key fetch to return a
+// fixture artifact, since the DB seed has no researcher-wrapped keys.
+vi.mock('@/server/actions/study-job.actions', () => ({
+    fetchEncryptedJobFilesAction: vi.fn(() => []),
+}))
+
+vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
+    fetchJobFileActivityAction: vi.fn(() => []),
+    recordJobFileActivityAction: vi.fn(() => ({})),
+}))
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
@@ -45,6 +63,8 @@ type Variant = {
     feedbackBody: string
     /** Adjacent outcomes that must fall through to the not-found guard. */
     guardedAgainst: [string, StudyJobStatus[]][]
+    /** The post-decryption nav the rule table gives this screen. */
+    nav: { editCodeVariant: 'outline' | 'filled'; backToMyStudies: boolean }
 }
 
 const VARIANTS: Variant[] = [
@@ -64,6 +84,7 @@ const VARIANTS: Variant[] = [
             // conservative feedback-only screen keeps it, agreeing with the pill, which reads Rejected.
             ['a job carrying both files decisions', ['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED']],
         ],
+        nav: { editCodeVariant: 'outline', backToMyStudies: true },
     },
     {
         screen: 'outputs-errored-shared',
@@ -78,6 +99,8 @@ const VARIANTS: Variant[] = [
             ['a clean approved run, which has its own outputs-shared screen', ['RUN-COMPLETE', 'FILES-APPROVED']],
             ['an errored run decided feedback-only', ['JOB-ERRORED', 'FILES-REJECTED']],
         ],
+        // The errored share is not a conclusion: Edit code is the forward action, so no exit is offered.
+        nav: { editCodeVariant: 'filled', backToMyStudies: false },
     },
 ]
 
@@ -98,6 +121,16 @@ const renderScreen = async (
             returnTo,
         }),
     )
+
+const decrypt = async () => {
+    await screen.findByRole('button', { name: 'View' })
+    // By name: the feedback section on this screen contributes a second textbox.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Security key' }), {
+        target: { value: await readTestSupportFile('private_key.pem') },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+}
 
 // The run status plus FILES-APPROVED and a RESULTS decision comment — the state that routes here.
 const setupShared = async (variant: Variant, { withNote = false }: { withNote?: boolean } = {}) => {
@@ -149,6 +182,16 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
             .where('id', '=', job.id)
             .execute()
     }
+
+    // The wrapped-key fetch must answer before the first render: an empty answer latches
+    // SecurityKeyForm's no-wrapped-key notice (OTTER-688), which has no View button. Assigned per
+    // setup so the mock's value cannot leak between tests.
+    const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
+    const artifact = await seedEncryptedArtifact(job.id, {
+        fileType: 'ENCRYPTED-RESULT',
+        files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+    })
+    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const raw = await requireRawState(dbStudy.id)
@@ -315,6 +358,23 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
             'href',
             `/${org.slug}/study/${study.id}/view/code`,
         )
+    })
+
+    it("resolves this screen's post-decryption nav from the step-nav table", async () => {
+        const { org, study, raw } = await setupShared(variant)
+        await renderScreen(variant, study, raw, org.slug)
+        await decrypt()
+
+        expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
+        expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('data-variant', 'subtle')
+        const edit = screen.getByTestId('cta-edit-code')
+        expect(edit).toHaveAttribute('href', `/${org.slug}/study/${study.id}/resubmit`)
+        expect(edit).toHaveAttribute('data-variant', variant.nav.editCodeVariant)
+        if (variant.nav.backToMyStudies) {
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('data-variant', 'filled')
+        } else {
+            expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
+        }
     })
 
     it('passes returnTo through to the Previous step link', async () => {

@@ -17,6 +17,7 @@ export const studyState = (overrides: Partial<StudyState> = {}): StudyState => (
     resultsApproved: false,
     resultsRejected: false,
     resultsErrored: false,
+    runErrored: false,
     resultsDisplayStatus: null,
     submissionRound: 0,
     hasSavedEdits: false,

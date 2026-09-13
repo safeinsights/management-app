@@ -6,7 +6,6 @@ import {
     isFeedbackOnlyOutcome,
     isOutputsSharedOutcome,
     projectStudyState,
-    runErrored,
 } from './state'
 import { resolveResearcherCodeScreen, resolveScreen } from './resolve'
 
@@ -229,12 +228,15 @@ describe('projectStudyState', () => {
 })
 
 describe('runErrored', () => {
+    const runErrored = (statuses: string[]) =>
+        projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).runErrored
+
     // Narrower than resultsErrored: a packaging JOB-ERRORED before a good run is not a failed run.
     it('separates a failed run from a packaging error that a RUN-COMPLETE followed', () => {
-        expect(runErrored(job(ID1, ['JOB-ERRORED']).statusChanges)).toBe(true)
-        expect(runErrored(job(ID1, ['JOB-ERRORED', 'RUN-COMPLETE']).statusChanges)).toBe(false)
-        expect(runErrored(job(ID1, ['RUN-COMPLETE']).statusChanges)).toBe(false)
-        expect(runErrored(job(ID1, ['CODE-SUBMITTED']).statusChanges)).toBe(false)
+        expect(runErrored(['JOB-ERRORED'])).toBe(true)
+        expect(runErrored(['JOB-ERRORED', 'RUN-COMPLETE'])).toBe(false)
+        expect(runErrored(['RUN-COMPLETE'])).toBe(false)
+        expect(runErrored(['CODE-SUBMITTED'])).toBe(false)
     })
 })
 

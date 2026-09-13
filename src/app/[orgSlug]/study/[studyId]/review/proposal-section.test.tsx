@@ -58,7 +58,7 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         expect(screen.getByText('STEP 1')).toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: 'Review initial request' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
     })
 
     it('does not render the study title in the section header', () => {
@@ -90,7 +90,7 @@ describe('ProposalSection', () => {
     it('shows resubmission copy and versioned heading when reviewVersion > 1', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
-        expect(screen.getByRole('heading', { name: 'Review initial request v2.0' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Review proposal v2.0', level: 2 })).toBeInTheDocument()
         expect(screen.getByTestId('status-banner')).toHaveTextContent(
             'has resubmitted a revised initial request requesting permission to use your data',
         )
@@ -102,7 +102,7 @@ describe('ProposalSection', () => {
         const banner = screen.getByTestId('status-banner')
         expect(banner).toBeInTheDocument()
         expect(banner).toHaveTextContent('has submitted an initial request requesting permission to use your data')
-        expect(screen.getByTestId('evaluation-criteria')).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-review-criteria')).toBeInTheDocument()
         expect(screen.getByText(/Feasibility:/)).toBeInTheDocument()
         expect(screen.getByText(/Can this study be supported with your available data/)).toBeInTheDocument()
         expect(screen.getByText(/Could the results advance the understanding/)).toBeInTheDocument()

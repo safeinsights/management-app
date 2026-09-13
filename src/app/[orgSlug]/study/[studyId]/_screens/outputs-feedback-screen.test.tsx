@@ -32,6 +32,7 @@ const ERRORED_AT = new Date('2026-07-15T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
 const DATA_PARTNER = 'Riverside University'
+const DASHBOARD_HREF = '/dashboard'
 
 // The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
 // would still match.
@@ -46,7 +47,7 @@ const renderScreen = async (
     raw: RawStudyState,
     orgSlug: string,
     returnTo?: 'org',
-) => renderWithProviders(await OutputsFeedbackScreen({ study, raw, orgSlug, returnTo }))
+) => renderWithProviders(await OutputsFeedbackScreen({ study, raw, orgSlug, dashboardHref: DASHBOARD_HREF, returnTo }))
 
 const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
@@ -399,19 +400,29 @@ describe('OutputsFeedbackScreen', () => {
     })
 
     describe('navigation', () => {
-        it('wires Previous step (subtle) to the code step page and Edit code (outline, enabled) to the resubmit page', async () => {
-            const { org, study, raw } = await setupFeedbackOnly()
-            await renderScreen(study, raw, org.slug)
+        // Spec: feedback without outputs has no successful flow to conclude, so Edit code is the one
+        // solid action (the QA rejection on PR #1001 caught it rendering outline, leaving a dead end).
+        it.each([
+            ['clean run', setupFeedbackOnly],
+            ['errored run', setupErroredFeedbackOnly],
+        ])(
+            '%s: Previous step (subtle) to the code step and Edit code (solid) to resubmit, via the step nav',
+            async (_label, setup) => {
+                const { org, study, raw } = await setup()
+                await renderScreen(study, raw, org.slug)
 
-            const previous = screen.getByRole('link', { name: /previous step/i })
-            expect(previous).toHaveAttribute('href', Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }))
-            expect(previous).toHaveAttribute('data-variant', 'subtle')
+                expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
+                const previous = screen.getByTestId('cta-previous-step')
+                expect(previous).toHaveAttribute('href', Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }))
+                expect(previous).toHaveAttribute('data-variant', 'subtle')
 
-            const edit = screen.getByRole('link', { name: /edit code/i })
-            expect(edit).toHaveAttribute('href', Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
-            expect(edit).toHaveAttribute('data-variant', 'outline')
-            expect(edit).not.toHaveAttribute('data-disabled')
-        })
+                const edit = screen.getByTestId('cta-edit-code')
+                expect(edit).toHaveAttribute('href', Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
+                expect(edit).toHaveAttribute('data-variant', 'filled')
+                expect(edit).not.toHaveAttribute('data-disabled')
+                expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
+            },
+        )
 
         it('passes returnTo through to the Previous step link', async () => {
             const { org, study, raw } = await setupFeedbackOnly()

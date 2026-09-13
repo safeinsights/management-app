@@ -1,13 +1,13 @@
-import type { Route } from 'next'
 import { notFound } from 'next/navigation'
 import { Box, Stack } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { Routes } from '@/lib/routes'
 import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
+    projectStudyState,
+    resolvePhasedStepNav,
     type ScreenId,
     type StudyState,
 } from '@/lib/study-screen'
@@ -95,6 +95,12 @@ export async function SharedOutputsScreen({
     if (!('job' in result)) return result
 
     const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const nav = resolvePhasedStepNav(descriptor.screen, projectStudyState(raw), {
+        orgSlug,
+        studyId: study.id,
+        dashboardHref,
+        returnTo,
+    })
 
     return (
         <Box bg="grey.10">
@@ -115,9 +121,7 @@ export async function SharedOutputsScreen({
                     feedbackSection={
                         <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                     }
-                    previousHref={Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route}
-                    editCodeHref={Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route}
-                    dashboardHref={dashboardHref}
+                    nav={nav}
                 />
             </Stack>
         </Box>

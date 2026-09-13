@@ -1,15 +1,13 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
-import type { Route } from 'next'
-import { Group } from '@mantine/core'
-import { ButtonLink } from '@/components/links'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
+import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 
 // Copy rather than two ReactNodes: announcing the phase change needs ONE StatusAlert whose props
@@ -25,23 +23,15 @@ type SharedOutputsPanelProps = {
     job: { id: string }
     /** A node, not a render, so the phase flip cannot remount it and reset expand/collapse state. */
     feedbackSection: ReactNode
-    previousHref: Route
-    editCodeHref: Route
-    dashboardHref: Route
+    /** One nav per phase, like `banner`: the panel picks, it does not derive. */
+    nav: PhasedStepNav
 }
 
-export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
-    decidedAt,
-    banner,
-    job,
-    feedbackSection,
-    previousHref,
-    editCodeHref,
-    dashboardHref,
-}) => {
+export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({ decidedAt, banner, job, feedbackSection, nav }) => {
     const { decryptedFiles, isLocked, onDecrypted } = useDecryptPhase()
     const { title, body } = isLocked ? banner.locked : banner.unlocked
     const variant = isLocked ? STATUS_ALERT_VARIANT.action : STATUS_ALERT_VARIANT.success
+    const phaseNav = isLocked ? nav.locked : nav.unlocked
 
     const bannerAlert = (
         <StatusAlert variant={variant} title={statusAlertTitle(title, decidedAt)} announce>
@@ -55,14 +45,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
             {feedbackSection}
             <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
             <UnlockedPhase decryptedFiles={decryptedFiles} jobId={job.id} />
-            <Group justify="space-between">
-                <PreviousStepLink previousHref={previousHref} />
-                <PostDecryptionActions
-                    isVisible={!isLocked}
-                    editCodeHref={editCodeHref}
-                    dashboardHref={dashboardHref}
-                />
-            </Group>
+            <StepNavigation nav={phaseNav} />
         </>
     )
 }
@@ -88,26 +71,4 @@ type UnlockedPhaseProps = {
 const UnlockedPhase: FC<UnlockedPhaseProps> = ({ decryptedFiles, jobId }) => {
     if (decryptedFiles === null) return null
     return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
-}
-
-type PostDecryptionActionsProps = {
-    isVisible: boolean
-    editCodeHref: Route
-    dashboardHref: Route
-}
-
-const PostDecryptionActions: FC<PostDecryptionActionsProps> = ({ isVisible, editCodeHref, dashboardHref }) => {
-    if (!isVisible) return null
-    return (
-        <Group gap="md">
-            {/* Both enabled from the moment they render: nothing further is required of the
-                researcher before editing or leaving. */}
-            <ButtonLink href={editCodeHref} variant="outline" size="md">
-                Edit code
-            </ButtonLink>
-            <ButtonLink href={dashboardHref} variant="filled" size="md">
-                Back to my studies
-            </ButtonLink>
-        </Group>
-    )
 }

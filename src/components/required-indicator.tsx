@@ -10,7 +10,7 @@ type RequiredIndicatorProps = {
 export const RequiredIndicator: FC<RequiredIndicatorProps> = ({ isVisible = true, fz, fw }) => {
     if (!isVisible) return null
     return (
-        <Text span c="red.9" fz={fz} fw={fw} ml={4} aria-label="required">
+        <Text span c="red.11" fz={fz} fw={fw} ml={4} aria-label="required">
             *
         </Text>
     )

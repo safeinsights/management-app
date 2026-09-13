@@ -1,17 +1,19 @@
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Routes } from '@/lib/routes'
+import { currentExecutionStage } from '@/lib/study-job-status'
 import { SecondaryAnalysisView } from '../review/secondary-analysis-view'
-import { guardExecutionStage } from './execution-stage-guard'
+import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
 
 export async function ReviewerOutputsPendingScreen({
     study,
     orgSlug,
 }: Pick<ScreenComponentProps, 'study' | 'orgSlug'>) {
-    const result = await guardExecutionStage(study, { noJobMessage: 'This study has no submitted code to review.' })
+    const result = await guardSubmittedJob(study, { noJobMessage: 'This study has no submitted code to review.' })
     if (!('job' in result)) return result
 
-    const { stage } = result
+    // isExecuting routed us here, which implies a pipeline row exists.
+    const stage = currentExecutionStage(result.job.statusChanges)!
     return (
         <SecondaryAnalysisView
             header={<StudyPageHeader study={study} />}
