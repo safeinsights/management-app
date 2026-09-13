@@ -41,9 +41,14 @@ export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
 export const isOutputsReviewEditable = ({ latestJobStatus }: { latestJobStatus: string | null }): boolean =>
     !hasOutputsDecision(latestJobStatus ? [latestJobStatus] : [])
 
+// Carried by both paths that close the round, so a reviewer whose own submit lost the race and who
+// also receives the winner's event is told once rather than twice (OTTER-726).
+export const OUTPUTS_DECIDED_NOTIFICATION_ID = 'outputs-decision-closed'
+
 // Shown to every tab that finds the decision by asking rather than by receiving the live event,
-// where there is no reviewer to name (OTTER-726).
+// where there is no reviewer to name.
 export const OUTPUTS_DECIDED_NOTICE = {
+    id: OUTPUTS_DECIDED_NOTIFICATION_ID,
     title: 'Decision submitted',
     message: 'A decision has been submitted for this output. No further edits are allowed at this point.',
 } as const

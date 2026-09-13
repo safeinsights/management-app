@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, renderHook, faker, type Mock } from '
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 
+import { OUTPUTS_DECIDED_NOTICE } from '@/lib/outputs-review'
 import { useSubmissionRedirectListener } from './use-submission-redirect-listener'
 
 type Listener = (data: { payload: unknown }) => void
@@ -144,6 +145,9 @@ describe('useSubmissionRedirectListener', () => {
         expect(arg.message).toBe(
             'Dana has proceeded to submit a decision on this output. No further edits are allowed at this point.',
         )
+        // A submit that lost the race reaches the same conclusion through the status backstop, and
+        // the shared id keeps that from becoming a second notice.
+        expect(arg.id).toBe(OUTPUTS_DECIDED_NOTICE.id)
         expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
     })
 

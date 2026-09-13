@@ -17,7 +17,9 @@ export type EditableSnapshot = {
     latestJobStatus: StudyJobStatus | null
 }
 
-export type KickOutNotice = { title: string; message: string }
+// `id` lets a screen share one notification with its own live-event path, so a race that trips both
+// shows a single notice.
+export type KickOutNotice = { title: string; message: string; id?: string }
 
 // What a proposal tab is told. Every screen that closes for another reason passes its own.
 const PROPOSAL_SUBMITTED_NOTICE: KickOutNotice = {

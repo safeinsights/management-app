@@ -7,6 +7,7 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 
 import { Routes } from '@/lib/routes'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { OUTPUTS_DECIDED_NOTIFICATION_ID } from '@/lib/outputs-review'
 
 export type SubmissionEvent =
     | {
@@ -155,6 +156,9 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
 
             if (event.type === 'outputs-review-submitted') {
                 notifications.show({
+                    // Shared with the status backstop, which may reach the same conclusion a moment
+                    // later through this tab's own failed submit.
+                    id: OUTPUTS_DECIDED_NOTIFICATION_ID,
                     color: 'blue',
                     title: 'Decision submitted',
                     message: `${event.submittedByName} has proceeded to submit a decision on this output. No further edits are allowed at this point.`,
