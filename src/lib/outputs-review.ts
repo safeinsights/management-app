@@ -36,6 +36,29 @@ export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
 export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, ROUND_CLOSING_JOB_STATUSES)
 
+// True while this job can still take a decision. Keyed on the job, because the study stays APPROVED
+// for the whole outputs round and says nothing about whether the round is open.
+export const isOutputsReviewEditable = ({ latestJobStatus }: { latestJobStatus: string | null }): boolean =>
+    !hasOutputsDecision(latestJobStatus ? [latestJobStatus] : [])
+
+// Shown to every tab that finds the decision by asking rather than by receiving the live event,
+// where there is no reviewer to name (OTTER-726).
+export const OUTPUTS_DECIDED_NOTICE = {
+    title: 'Decision submitted',
+    message: 'A decision has been submitted for this output. No further edits are allowed at this point.',
+} as const
+
+export const OUTPUTS_DECISION_FAILURE = {
+    title: 'Decision could not be submitted',
+    saved: 'Your work is saved. Try again.',
+    // Never promises the work is safe: without a collaborative session the feedback is only on screen.
+    unsaved: 'We could not save your work. Keep this tab open and try again.',
+    // A retry cannot succeed until the page loads the build now serving, and that costs the key.
+    staleSaved: 'Your work is saved. Reload the page and try again. You will be asked for your security key again.',
+    staleUnsaved:
+        'Reload the page and try again. You will be asked for your security key again, so copy your feedback somewhere safe first.',
+} as const
+
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
 
 export const OUTPUTS_DECISION_ERRORS = {

@@ -1,12 +1,23 @@
+import type { ReactNode } from 'react'
 import { act, createTestQueryWrapper, describe, expect, faker, it, renderHook } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
+import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { useOutputsDecision } from './use-outputs-decision'
 
 const LAB = 'Rice Lab'
 
-const renderDecision = () =>
-    renderHook(
+// The hook reads the outputs editor's provider to broadcast the decision and to tell whether the
+// feedback has reached the editor service, so its share has to be mounted above it.
+const renderDecision = () => {
+    const QueryWrapper = createTestQueryWrapper()
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryWrapper>
+            <OutputsReviewFeedbackProviderShare>{children}</OutputsReviewFeedbackProviderShare>
+        </QueryWrapper>
+    )
+
+    return renderHook(
         () =>
             useOutputsDecision({
                 orgSlug: 'openstax',
@@ -14,9 +25,11 @@ const renderDecision = () =>
                 jobId: faker.string.uuid(),
                 labName: LAB,
                 decryptedFiles: [],
+                tabSessionId: faker.string.uuid(),
             }),
-        { wrapper: createTestQueryWrapper() },
+        { wrapper },
     )
+}
 
 // OTTER-675: flagging the feedback field on blur moved the submit button between mousedown and
 // mouseup, costing the click that caused it, so the reviewer saw one problem per click.

@@ -17,6 +17,14 @@ export type EditableSnapshot = {
     latestJobStatus: StudyJobStatus | null
 }
 
+export type KickOutNotice = { title: string; message: string }
+
+// What a proposal tab is told. Every screen that closes for another reason passes its own.
+const PROPOSAL_SUBMITTED_NOTICE: KickOutNotice = {
+    title: 'Submission complete',
+    message: 'This proposal has already been submitted. No further edits are allowed at this point.',
+}
+
 type Args = {
     studyId: string
     orgSlug: string
@@ -24,10 +32,13 @@ type Args = {
     /** Takes precedence over `editableStatuses`, to gate on latest job status as well. */
     isEditable?: (snapshot: EditableSnapshot) => boolean
     redirectTarget: 'studySubmitted' | 'studyReview'
+    /** This screen's wording for a round that closed without this tab seeing the live event. */
+    notice?: KickOutNotice
     enabled?: boolean
 }
 
-type KickOutTrigger = () => void
+/** Resolves true when the screen was closed, so a caller can drop its own failure message. */
+type KickOutTrigger = () => Promise<boolean>
 
 const KickOutContext = createContext<KickOutTrigger | null>(null)
 
@@ -38,7 +49,7 @@ export function useTriggerStudyKickOut(): KickOutTrigger {
     return trigger ?? noop
 }
 
-const noop: KickOutTrigger = () => {}
+const noop: KickOutTrigger = async () => false
 
 // Backstop for the kick-out flow: stateless events are not replayed, so a tab that was disconnected
 // or opened cold would miss a peer's submission.
@@ -48,6 +59,7 @@ export function useStudyStatusOnReconnect({
     editableStatuses,
     isEditable,
     redirectTarget,
+    notice = PROPOSAL_SUBMITTED_NOTICE,
     enabled = true,
 }: Args) {
     const router = useRouter()
@@ -61,29 +73,32 @@ export function useStudyStatusOnReconnect({
     const isEditableRef = useRef(isEditable)
     const orgSlugRef = useRef(orgSlug)
     const redirectTargetRef = useRef(redirectTarget)
+    const noticeRef = useRef(notice)
     useEffect(() => {
         editableStatusesRef.current = editableStatuses
         isEditableRef.current = isEditable
         orgSlugRef.current = orgSlug
         redirectTargetRef.current = redirectTarget
-    }, [editableStatuses, isEditable, orgSlug, redirectTarget])
+        noticeRef.current = notice
+    }, [editableStatuses, isEditable, orgSlug, redirectTarget, notice])
 
     const checkStatus = useCallback(async () => {
-        if (hasRedirectedRef.current) return
+        // True rather than false: a redirect is already under way, so a caller must not add its own
+        // message on top of it.
+        if (hasRedirectedRef.current) return true
         const result = await getStudyStatusAction({ studyId })
-        if (isActionError(result)) return
+        if (isActionError(result)) return false
         const predicate = isEditableRef.current
         if (predicate) {
-            if (predicate({ status: result.status, latestJobStatus: result.latestJobStatus })) return
+            if (predicate({ status: result.status, latestJobStatus: result.latestJobStatus })) return false
         } else if (editableStatusesRef.current.includes(result.status)) {
-            return
+            return false
         }
 
         hasRedirectedRef.current = true
         notifications.show({
             color: 'blue',
-            title: 'Submission complete',
-            message: 'This proposal has already been submitted. No further edits are allowed at this point.',
+            ...noticeRef.current,
             autoClose: NOTIFICATION_DISPLAY_MS,
         })
         if (redirectTargetRef.current === 'studySubmitted') {
@@ -91,6 +106,10 @@ export function useStudyStatusOnReconnect({
         } else {
             router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
         }
+        // An editable screen and the screen that replaces it can answer the same URL, where push
+        // alone is a no-op that leaves the closed form mounted.
+        router.refresh()
+        return true
     }, [studyId, router])
 
     useEffect(() => {
