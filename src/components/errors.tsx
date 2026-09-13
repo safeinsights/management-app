@@ -1,15 +1,54 @@
 'use client'
 
-import { errorToString, extractActionFailure } from '@/lib/errors'
-import { Alert, AlertProps, Group, Text } from '@mantine/core'
+import {
+    errorToString,
+    extractActionFailure,
+    isStaleDeploymentError,
+    STALE_DEPLOYMENT_MESSAGE,
+    STALE_DEPLOYMENT_TITLE,
+} from '@/lib/errors'
+import { Alert, AlertProps, Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
+// Fixed so repeated attempts keep one notification instead of stacking a new one per retry.
+export const STALE_DEPLOYMENT_NOTIFICATION_ID = 'stale-deployment'
+
+// A control rather than an automatic reload: the page may hold work that exists nowhere else, so
+// the reader chooses the moment.
+const StaleDeploymentMessage: FC = () => (
+    <Stack gap="xs" align="flex-start">
+        <Text size="sm">{STALE_DEPLOYMENT_MESSAGE}</Text>
+        <Button size="compact-sm" onClick={() => window.location.reload()}>
+            Reload
+        </Button>
+    </Stack>
+)
+
+// Every action carries an id minted by the build that served the page, so a deploy under an open
+// tab can fail any of them. Answered once here rather than at each call site (OTTER-726).
+const reportStaleDeployment = () =>
+    notifications.show({
+        id: STALE_DEPLOYMENT_NOTIFICATION_ID,
+        color: 'blue',
+        autoClose: false,
+        title: STALE_DEPLOYMENT_TITLE,
+        message: <StaleDeploymentMessage />,
+    })
+
 export const reportError = (error: unknown, title = 'An error occurred') => {
     const eventId = captureException(error)
+
+    // No Sentry reference on this one: the copy already says the only thing the reader can do, and
+    // an action id is not something they can report usefully.
+    if (isStaleDeploymentError(error)) {
+        reportStaleDeployment()
+        return
+    }
+
     notifications.show({
         color: 'red',
         title,

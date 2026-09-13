@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AccessDeniedError, ActionFailure, isClerkApiError, isActionError, errorToString } from './errors'
+import {
+    AccessDeniedError,
+    ActionFailure,
+    isClerkApiError,
+    isActionError,
+    isStaleDeploymentError,
+    errorToString,
+    STALE_DEPLOYMENT_MESSAGE,
+} from './errors'
 
 describe('AccessDeniedError', () => {
     it('should be an instance of Error', () => {
@@ -129,5 +137,30 @@ describe('errorToString', () => {
     it('returns undefined for objects that do not match any condition', () => {
         const nonMatching = { some: 'object' }
         expect(errorToString(nonMatching)).toBe('Unknown error occurred')
+    })
+})
+
+// Next names this error on the client when the posted action id is absent from the build now
+// serving, which is what an open tab does after a deploy (OTTER-726).
+const staleActionError = () => {
+    const error = new Error('Server Action "7f60224d81" was not found on the server.')
+    error.name = 'UnrecognizedActionError'
+    return error
+}
+
+describe('isStaleDeploymentError', () => {
+    it('recognizes the framework error a stale tab receives', () => {
+        expect(isStaleDeploymentError(staleActionError())).toBe(true)
+    })
+
+    it('leaves every other failure alone', () => {
+        expect(isStaleDeploymentError(new Error('Network request failed'))).toBe(false)
+        expect(isStaleDeploymentError(new ActionFailure({ study: 'is already decided' }))).toBe(false)
+        expect(isStaleDeploymentError('UnrecognizedActionError')).toBe(false)
+        expect(isStaleDeploymentError(null)).toBe(false)
+    })
+
+    it('replaces the framework text with copy the reader can act on', () => {
+        expect(errorToString(staleActionError())).toBe(STALE_DEPLOYMENT_MESSAGE)
     })
 })
