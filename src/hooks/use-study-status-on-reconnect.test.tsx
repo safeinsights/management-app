@@ -235,6 +235,99 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submission complete' }))
     })
 
+    // OTTER-726: a failed submit calls the trigger before it shows its own message. When the status
+    // request itself cannot be made, the caller has to be told "not closed", not left hanging.
+    it('resolves false without throwing when the status request fails at the transport', async () => {
+        getStudyStatusActionMock.mockRejectedValue(new Error('Failed to fetch'))
+
+        let outcome: boolean | undefined
+        const Trigger = () => {
+            const triggerKickOut = useTriggerStudyKickOut()
+            return (
+                <button
+                    type="button"
+                    data-testid="trigger"
+                    onClick={() => {
+                        void triggerKickOut().then((closed) => (outcome = closed))
+                    }}
+                >
+                    trigger
+                </button>
+            )
+        }
+
+        const { getByTestId } = render(
+            <YjsWebsocketProvider>
+                <StudyKickOutProvider
+                    studyId={STUDY_ID}
+                    orgSlug="org"
+                    editableStatuses={['DRAFT']}
+                    redirectTarget="studySubmitted"
+                >
+                    <Trigger />
+                </StudyKickOutProvider>
+            </YjsWebsocketProvider>,
+        )
+
+        act(() => {
+            getByTestId('trigger').click()
+        })
+
+        await waitFor(() => expect(outcome).toBe(false))
+        expect(showMock).not.toHaveBeenCalled()
+        expect(memoryRouter.asPath).toBe('/')
+    })
+
+    // A tab parked on the security key form has no editor and so no live event; asking when the
+    // reviewer returns to it is the moment that matters.
+    it('checks again when the tab becomes visible', async () => {
+        getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT', latestJobStatus: null, jobStatuses: [] })
+        mount()
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+        act(() => {
+            document.dispatchEvent(new Event('visibilitychange'))
+        })
+
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(2))
+    })
+
+    // The newest status row is CODE-SCANNED, written by the scanner after the decision. Only the
+    // full status list of the named job shows that the round is closed.
+    it('hands the named job status list to the predicate, so a late scan row cannot hide a decision', async () => {
+        getStudyStatusActionMock.mockResolvedValue({
+            status: 'APPROVED',
+            latestJobStatus: 'CODE-SCANNED',
+            jobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED', 'CODE-SCANNED'],
+        })
+        const JOB_ID = '00000000-0000-0000-0000-00000000000a'
+
+        const Predicated = () => {
+            useStudyStatusOnReconnect({
+                studyId: STUDY_ID,
+                studyJobId: JOB_ID,
+                orgSlug: 'org',
+                editableStatuses: [],
+                isEditable: ({ jobStatuses }) => !jobStatuses.includes('FILES-APPROVED'),
+                redirectTarget: 'studyReview',
+                notice: { title: 'Decision submitted', message: 'Closed.' },
+                enabled: true,
+            })
+            return null
+        }
+
+        render(
+            <YjsWebsocketProvider>
+                <Predicated />
+            </YjsWebsocketProvider>,
+        )
+
+        await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
+        expect(getStudyStatusActionMock).toHaveBeenCalledWith({ studyId: STUDY_ID, studyJobId: JOB_ID })
+        expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Decision submitted' }))
+    })
+
     it('does not redirect twice if both reconnect and trigger fire', async () => {
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
 

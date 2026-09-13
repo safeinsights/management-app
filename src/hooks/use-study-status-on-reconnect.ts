@@ -15,6 +15,8 @@ import type { StudyJobStatus, StudyStatus } from '@/database/types'
 export type EditableSnapshot = {
     status: StudyStatus
     latestJobStatus: StudyJobStatus | null
+    /** Every status row of the job named by `studyJobId`, oldest first; empty when none was named. */
+    jobStatuses: readonly StudyJobStatus[]
 }
 
 // `id` lets a screen share one notification with its own live-event path, so a race that trips both
@@ -30,6 +32,12 @@ const PROPOSAL_SUBMITTED_NOTICE: KickOutNotice = {
 type Args = {
     studyId: string
     orgSlug: string
+    /**
+     * The job this screen reviews. Set it when the round is closed by a job status rather than the
+     * study status: the newest status row alone can hide a decision, because an asynchronous
+     * CODE-SCANNED row may land after FILES-APPROVED on the same job.
+     */
+    studyJobId?: string
     editableStatuses: readonly string[]
     /** Takes precedence over `editableStatuses`, to gate on latest job status as well. */
     isEditable?: (snapshot: EditableSnapshot) => boolean
@@ -57,6 +65,7 @@ const noop: KickOutTrigger = async () => false
 // or opened cold would miss a peer's submission.
 export function useStudyStatusOnReconnect({
     studyId,
+    studyJobId,
     orgSlug,
     editableStatuses,
     isEditable,
@@ -88,11 +97,27 @@ export function useStudyStatusOnReconnect({
         // True rather than false: a redirect is already under way, so a caller must not add its own
         // message on top of it.
         if (hasRedirectedRef.current) return true
-        const result = await getStudyStatusAction({ studyId })
+
+        // Server-side failures arrive as error envelopes; only the transport throws, which is
+        // exactly what happens with no network or with an action id a new build no longer holds.
+        // The callers cannot act on either, and one of them is a failed submit that still has to
+        // show its own message.
+        let result: Awaited<ReturnType<typeof getStudyStatusAction>>
+        try {
+            result = await getStudyStatusAction({ studyId, studyJobId })
+        } catch {
+            return false
+        }
         if (isActionError(result)) return false
+
         const predicate = isEditableRef.current
         if (predicate) {
-            if (predicate({ status: result.status, latestJobStatus: result.latestJobStatus })) return false
+            const snapshot: EditableSnapshot = {
+                status: result.status,
+                latestJobStatus: result.latestJobStatus,
+                jobStatuses: result.jobStatuses,
+            }
+            if (predicate(snapshot)) return false
         } else if (editableStatusesRef.current.includes(result.status)) {
             return false
         }
@@ -112,7 +137,22 @@ export function useStudyStatusOnReconnect({
         // alone is a no-op that leaves the closed form mounted.
         router.refresh()
         return true
-    }, [studyId, router])
+    }, [studyId, studyJobId, router])
+
+    // A tab that stayed connected while it was in the background received no event if it had no
+    // editor mounted, and no status change either. Asking when the reviewer comes back to it is
+    // the moment that matters.
+    useEffect(() => {
+        if (!enabled) return undefined
+
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') void checkStatus()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+        }
+    }, [enabled, checkStatus])
 
     useEffect(() => {
         if (!enabled || !socket) return undefined

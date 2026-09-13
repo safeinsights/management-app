@@ -36,10 +36,12 @@ export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
 export const hasOutputsDecision = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, ROUND_CLOSING_JOB_STATUSES)
 
-// True while this job can still take a decision. Keyed on the job, because the study stays APPROVED
-// for the whole outputs round and says nothing about whether the round is open.
-export const isOutputsReviewEditable = ({ latestJobStatus }: { latestJobStatus: string | null }): boolean =>
-    !hasOutputsDecision(latestJobStatus ? [latestJobStatus] : [])
+// True while this job can still take a decision. Reads every status row of the job, the same test
+// the decision action applies, rather than the newest row: an asynchronous CODE-SCANNED can land
+// after FILES-APPROVED and would otherwise hide the decision. The study status says nothing here,
+// because it stays APPROVED for the whole outputs round.
+export const isOutputsReviewEditable = ({ jobStatuses }: { jobStatuses: readonly string[] }): boolean =>
+    !hasOutputsDecision(jobStatuses)
 
 // Carried by both paths that close the round, so a reviewer whose own submit lost the race and who
 // also receives the winner's event is told once rather than twice (OTTER-726).

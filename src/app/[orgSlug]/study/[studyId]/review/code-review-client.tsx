@@ -216,7 +216,8 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
         isPending,
     } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, previousHref })
 
-    const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
+    // The code review gate reads the newest status only, so it names no job and gets no status list.
+    const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus, jobStatuses: [] })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (

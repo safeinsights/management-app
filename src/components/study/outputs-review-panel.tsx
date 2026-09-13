@@ -76,6 +76,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     return (
         <StudyKickOutProvider
             studyId={studyId}
+            studyJobId={job.id}
             orgSlug={orgSlug}
             editableStatuses={[]}
             isEditable={isOutputsReviewEditable}

@@ -1,8 +1,28 @@
 import type { ReactNode } from 'react'
-import { act, createTestQueryWrapper, describe, expect, faker, it, renderHook } from '@/tests/unit.helpers'
+import {
+    act,
+    createTestQueryWrapper,
+    describe,
+    expect,
+    faker,
+    it,
+    renderHook,
+    waitFor,
+    type Mock,
+} from '@/tests/unit.helpers'
+import { notifications } from '@mantine/notifications'
+import { memoryRouter } from 'next-router-mock'
 import { lexicalJson } from '@/lib/lexical'
-import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
+import {
+    isOutputsReviewEditable,
+    OUTPUTS_DECIDED_NOTICE,
+    OUTPUTS_DECISION_ERRORS,
+    OUTPUTS_DECISION_FAILURE,
+    OUTPUTS_FEEDBACK_MAX_CHARACTERS,
+} from '@/lib/outputs-review'
 import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
+import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { useOutputsDecision } from './use-outputs-decision'
 
 const LAB = 'Rice Lab'
@@ -120,5 +140,73 @@ describe('useOutputsDecision', () => {
         act(() => result.current.attemptSubmit())
 
         expect(result.current.confirming).toBe('share-feedback-only')
+    })
+})
+
+// OTTER-726: the failure path runs the real status backstop before it speaks. With no session and
+// no such study, the submit and the status read both come back as error envelopes, which is the
+// shape a reviewer meets when the server refuses the decision for an ordinary reason.
+describe('useOutputsDecision after a refused submit', () => {
+    const renderWithBackstop = () => {
+        const studyId = faker.string.uuid()
+        const jobId = faker.string.uuid()
+        const QueryWrapper = createTestQueryWrapper()
+        const wrapper = ({ children }: { children: ReactNode }) => (
+            <QueryWrapper>
+                <YjsWebsocketProvider singleUserEditing>
+                    <StudyKickOutProvider
+                        studyId={studyId}
+                        studyJobId={jobId}
+                        orgSlug="openstax"
+                        editableStatuses={[]}
+                        isEditable={isOutputsReviewEditable}
+                        redirectTarget="studyReview"
+                        notice={OUTPUTS_DECIDED_NOTICE}
+                    >
+                        <OutputsReviewFeedbackProviderShare>{children}</OutputsReviewFeedbackProviderShare>
+                    </StudyKickOutProvider>
+                </YjsWebsocketProvider>
+            </QueryWrapper>
+        )
+
+        return renderHook(
+            () =>
+                useOutputsDecision({
+                    orgSlug: 'openstax',
+                    studyId,
+                    jobId,
+                    labName: LAB,
+                    decryptedFiles: [],
+                    tabSessionId: faker.string.uuid(),
+                }),
+            { wrapper },
+        )
+    }
+
+    it('closes the confirmation and reports the failure without claiming the work is saved', async () => {
+        ;(notifications.show as Mock).mockClear()
+        memoryRouter.setCurrentUrl('/start')
+        const { result } = renderWithBackstop()
+
+        act(() => result.current.onFeedbackChange(lexicalJson('Outputs look clean, no PII observed.')))
+        act(() => result.current.onSelect('share-feedback-only'))
+        act(() => result.current.attemptSubmit())
+        expect(result.current.confirming).toBe('share-feedback-only')
+
+        await act(async () => result.current.confirmSubmit())
+
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    title: OUTPUTS_DECISION_FAILURE.title,
+                    // Single-user editing has no collaborative document behind it, so the feedback
+                    // exists only on screen and the notice must not promise otherwise.
+                    message: OUTPUTS_DECISION_FAILURE.unsaved,
+                }),
+            ),
+        )
+        expect(result.current.confirming).toBeNull()
+        // The round was not decided, so the backstop must not have redirected.
+        expect(memoryRouter.asPath).toBe('/start')
     })
 })
