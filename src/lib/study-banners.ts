@@ -145,9 +145,6 @@ export function reviewerCodeDecisionBanner(
     { researchLab, reviewerName }: ReviewerBannerParams,
 ): BannerCopy {
     switch (decision) {
-        // Happy path never shows this: approve queues the job, so reviewer-outputs-pending
-        // (isExecuting) outranks reviewer-code-feedback. Surfaces only if CODE-APPROVED is
-        // set but execution never started.
         case 'APPROVE':
             return {
                 variant: STATUS_ALERT_VARIANT.informative,

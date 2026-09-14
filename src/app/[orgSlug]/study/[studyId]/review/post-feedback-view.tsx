@@ -47,13 +47,9 @@ type PostFeedbackViewProps = {
     reviewVersion?: number
 }
 
-type KindCopy = {
-    stepLabel: string
-}
-
-const COPY_BY_KIND: Record<PostFeedbackKind, KindCopy> = {
-    PROPOSAL: { stepLabel: 'STEP 1' },
-    CODE: { stepLabel: 'STEP 3' },
+const STEP_LABEL_BY_KIND: Record<PostFeedbackKind, string> = {
+    PROPOSAL: 'STEP 1',
+    CODE: 'STEP 3',
 }
 
 type DecisionBannerProps = {
@@ -152,7 +148,7 @@ export function PostFeedbackView({
         return null
     }
 
-    const kindCopy = COPY_BY_KIND[kind]
+    const stepLabel = STEP_LABEL_BY_KIND[kind]
     const timestampDate = latestDecision ? latest?.createdAt : (fallback?.timestamp ?? null)
     const isCode = kind === 'CODE'
     const banner = (
@@ -180,7 +176,7 @@ export function PostFeedbackView({
                     study={study}
                     job={job}
                     analysis={analysis}
-                    stepLabel={kindCopy.stepLabel}
+                    stepLabel={stepLabel}
                     heading={heading}
                     banner={banner}
                 />
@@ -188,7 +184,7 @@ export function PostFeedbackView({
                     isVisible={!isCode}
                     study={study}
                     orgSlug={orgSlug}
-                    stepLabel={kindCopy.stepLabel}
+                    stepLabel={stepLabel}
                     heading={heading}
                     banner={banner}
                 />

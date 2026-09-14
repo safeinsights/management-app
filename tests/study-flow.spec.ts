@@ -206,7 +206,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     // Code submission redirects to CodePostSubmissionView; wait on its banner (it
     // only appears after the mutation completes), not a URL change.
-    await expect(page.getByTestId('status-alert')).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
 
     return mainFileName
 }
@@ -317,8 +317,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
     // lands on the outputs-pending "Review outputs" screen rather than the approval confirmation.
-    await expect(page.getByTestId('status-alert')).toBeVisible()
-    await expect(page.getByText(/Outputs not ready/)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Outputs not ready')
     await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
