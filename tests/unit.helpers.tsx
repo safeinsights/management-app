@@ -145,6 +145,15 @@ export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
 
+// What Next names the error when the posted action id is absent from the build now serving, which
+// is what an open tab meets after a deployment. Only the name carries the meaning, so building it
+// by hand is the only way to reach that branch without a second build (OTTER-726).
+export const staleActionError = () => {
+    const error = new Error('Server Action "7f60224d81" was not found on the server.')
+    error.name = 'UnrecognizedActionError'
+    return error
+}
+
 // faker.internet.email() draws from ~1.9M addresses, narrow enough that a full run repeats one
 // and user_email_lower_unique rejects the insert. The counter and token make them unique.
 let emailSequence = 0

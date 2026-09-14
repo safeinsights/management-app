@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import { renderWithProviders, staleActionError, userEvent } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import React from 'react'
@@ -130,12 +130,6 @@ describe('reportError', () => {
     // OTTER-726: an action id the current build cannot resolve reached the reviewer as framework
     // text, and each retry added another notification that never closed.
     describe('a stale action id after a deployment', () => {
-        const staleActionError = () => {
-            const error = new Error('Server Action "7f60224d81" was not found on the server.')
-            error.name = 'UnrecognizedActionError'
-            return error
-        }
-
         it('offers a reload instead of the framework text, whatever the caller titled it', () => {
             reportError(staleActionError(), 'Failed to submit your decision')
 

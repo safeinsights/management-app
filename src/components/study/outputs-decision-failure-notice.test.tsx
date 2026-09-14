@@ -1,17 +1,19 @@
-import { describe, expect, it, renderWithProviders, screen, userEvent, vi, type Mock } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    renderWithProviders,
+    screen,
+    staleActionError,
+    userEvent,
+    vi,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
 import { ActionFailure } from '@/lib/errors'
 import { OUTPUTS_DECISION_FAILURE } from '@/lib/outputs-review'
 import { RELOAD_BUTTON_LABEL } from '@/components/errors'
 import { FAILURE_NOTIFICATION_ID, showOutputsDecisionFailure } from './outputs-decision-failure-notice'
-
-// What Next names the error when the posted action id is absent from the build now serving, which
-// is what an open outputs review does after a deployment (OTTER-726).
-const staleActionError = () => {
-    const error = new Error('Server Action "7f60224d81" was not found on the server.')
-    error.name = 'UnrecognizedActionError'
-    return error
-}
 
 const lastNotification = () => (notifications.show as Mock).mock.calls.at(-1)?.[0]
 

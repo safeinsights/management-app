@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { staleActionError } from '@/tests/unit.helpers'
 import {
     AccessDeniedError,
     ActionFailure,
@@ -139,14 +140,6 @@ describe('errorToString', () => {
         expect(errorToString(nonMatching)).toBe('Unknown error occurred')
     })
 })
-
-// Next names this error on the client when the posted action id is absent from the build now
-// serving, which is what an open tab does after a deploy (OTTER-726).
-const staleActionError = () => {
-    const error = new Error('Server Action "7f60224d81" was not found on the server.')
-    error.name = 'UnrecognizedActionError'
-    return error
-}
 
 describe('isStaleDeploymentError', () => {
     it('recognizes the framework error a stale tab receives', () => {
