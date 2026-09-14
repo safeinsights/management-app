@@ -9,6 +9,7 @@ import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { Decision } from '@/lib/review-decision'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const EDITOR_SKELETON_HEIGHT = 400
 
@@ -40,7 +41,7 @@ type CodeReviewFeedbackSectionProps = {
 
 function FeedbackIntro({ labName }: { labName: string }) {
     return (
-        <Text fz={16} c="charcoal.9">
+        <Text fz={16} c={semanticColor('text.primary')}>
             Share your feedback on this code submission with {labName}. Your comments should address the code’s
             alignment with the approved study proposal/initial request and all the agreements, whether the security log
             surfaced issues, and whether the analysis code risks exposing PII. You can also request clarifications about
@@ -174,11 +175,11 @@ export function CodeReviewFeedbackSection({
     return (
         <Paper p="xxl" data-testid="code-review-section">
             <Stack gap="lg">
-                <Group gap={4} align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
+                <Group gap="xxs" align="center">
+                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Code review
                     </Text>
-                    <RequiredIndicator fz={20} fw={700} />
+                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider />
                 <FeedbackIntro labName={labName} />

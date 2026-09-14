@@ -10,6 +10,7 @@ import { type Submitted } from '@/schema/study'
 import { CollapseToggleLink } from './collapse-toggle-link'
 import { DatasetsField, FieldDivider, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
 import { ProposalStepHeader } from './proposal-step-header'
+import { fontWeight } from '@/theme/tokens'
 
 const EXPAND_LABEL = 'View full proposal'
 const COLLAPSE_LABEL = 'Hide full proposal'
@@ -38,8 +39,8 @@ const ResearchQuestionSnippet: FC<{ preview: string }> = ({ preview }) => {
     if (!preview) return null
 
     return (
-        <Stack gap={4}>
-            <Text fw={600} size="sm">
+        <Stack gap="xxs">
+            <Text fw={fontWeight.semibold} size="sm">
                 Research question(s)
             </Text>
             <Text size="md" lineClamp={SNIPPET_LINE_CLAMP} data-testid="proposal-snippet-question">

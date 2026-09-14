@@ -35,7 +35,7 @@ function DatasetPills({ names }: { names: string[] }) {
     return (
         <Group gap="md">
             {names.map((name) => (
-                <Box key={name} bg="grey.10" px="sm" py={4} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
+                <Box key={name} bg="grey.0" px="sm" py={4} style={{ borderRadius: 'var(--mantine-radius-sm)' }}>
                     <Text size="sm" c="charcoal.9">
                         {name}
                     </Text>
@@ -169,8 +169,8 @@ function ApprovedBadge() {
         <Flex
             align="center"
             gap={4}
-            bg="green.1"
-            c="green.9"
+            bg="green.0"
+            c="green.7"
             bdrs={100}
             px={16}
             py={4}

@@ -39,7 +39,7 @@ describe('FormField', () => {
         const asterisk = screen.getByText('Study title').querySelector('span')
 
         expect(asterisk).toHaveTextContent('*')
-        expect(asterisk).toHaveStyle({ color: '#7E241E' })
+        expect(asterisk).toHaveStyle({ color: '#7e241e' })
     })
 
     it('renders no error node when there is no error', () => {

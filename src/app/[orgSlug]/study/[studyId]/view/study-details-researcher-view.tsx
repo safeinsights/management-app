@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -19,7 +20,7 @@ export function StudyDetailsResearcherView({ header, nav, statusMessage }: Study
                 Study Details
             </Title>
             <Divider />
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={3} size="xl">

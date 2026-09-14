@@ -22,12 +22,12 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
     const pill = (
         <Flex
             align="center"
-            gap={4}
+            gap="xxs"
             bg={bg}
             c={c}
             bdrs={100}
-            px={16}
-            py={4}
+            px="md"
+            py="xxs"
             style={{ display: 'inline-flex', whiteSpace: 'nowrap', cursor: tooltip ? 'pointer' : 'default' }}
         >
             {showResultsIcon && <TrophyIcon size={12} weight="fill" />}

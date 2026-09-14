@@ -6,6 +6,7 @@ import { CopyingInput } from '@/components/copying-input'
 import { useJobStatus, type StatusChange } from '@/hooks/use-job-results-status'
 import { isLogType } from '@/lib/file-type-helpers'
 import { type FileType } from '@/database/types'
+import { fontWeight } from '@/theme/tokens'
 
 type StatusFlags = {
     isApproved: boolean
@@ -35,7 +36,7 @@ function resolveStatusBody(flags: StatusFlags, files: { fileType: FileType }[], 
                 message,
                 additionalContent: (
                     <Group justify="flex-start" align="center">
-                        <Text size="sm" fw={600}>
+                        <Text size="sm" fw={fontWeight.semibold}>
                             Job ID:
                         </Text>
                         <CopyingInput value={jobId} tooltipLabel="Copy" />

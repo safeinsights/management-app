@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { notFound } from 'next/navigation'
 import { Box, Stack } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
@@ -103,7 +104,7 @@ export async function SharedOutputsScreen({
     })
 
     return (
-        <Box bg="grey.10">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 {/* Banner titles are undated on purpose — the panel appends the shared decision date

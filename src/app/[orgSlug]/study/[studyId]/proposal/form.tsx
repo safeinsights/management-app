@@ -18,6 +18,7 @@ import { editableTextFields } from './field-config'
 import { ProposalTextFieldEntry } from './collaborative-proposal-text-field'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const PROPOSAL_EDITABLE_STATUSES = ['DRAFT', 'CHANGE-REQUESTED'] as const
 
@@ -93,7 +94,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     Literal 24 rather than gap="lg": this app's Mantine `lg` is 20px while the design
                     token is 24px. Once the theme scale is aligned these can switch to the token. */}
                 <ProposalStepHeader stepLabel="STEP 2" heading="Study proposal">
-                    <Stack gap={24}>
+                    <Stack gap="lg">
                         <Text>{intro}</Text>
 
                         {/* No Study title field: it moved to Step 1 with OTTER-690, which owns
@@ -132,10 +133,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     size="sm"
-                                    c="blue.7"
-                                    fw={600}
+                                    c={semanticColor('link.default')}
+                                    fw={fontWeight.semibold}
                                 >
-                                    <Group gap={4} wrap="nowrap">
+                                    <Group gap="xxs" wrap="nowrap">
                                         Explore data catalog
                                         <ArrowSquareOutIcon size={16} weight="bold" />
                                     </Group>

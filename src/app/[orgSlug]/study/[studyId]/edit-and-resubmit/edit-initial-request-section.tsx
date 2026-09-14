@@ -14,6 +14,7 @@ import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-s
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
 import { ProposalTextFieldEntry } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export interface MemberOption {
     value: string
@@ -55,10 +56,10 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
             <Paper p="xxl">
                 <Stack gap="xxl">
                     <Box>
-                        <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                        <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
                             STEP 2
                         </Text>
-                        <Title fz={20} order={2} c="charcoal.9">
+                        <Title fz={20} order={2} c={semanticColor('text.primary')}>
                             Edit proposal
                         </Title>
                         <Divider my="md" />
@@ -139,10 +140,10 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 size="sm"
-                                c="blue.7"
-                                fw={600}
+                                c={semanticColor('link.default')}
+                                fw={fontWeight.semibold}
                             >
-                                <Group gap={4} wrap="nowrap">
+                                <Group gap="xxs" wrap="nowrap">
                                     Explore data catalog
                                     <ArrowSquareOutIcon size={16} weight="bold" />
                                 </Group>
@@ -215,10 +216,10 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 size="sm"
-                                c="blue.7"
-                                fw={600}
+                                c={semanticColor('link.default')}
+                                fw={fontWeight.semibold}
                             >
-                                <Group gap={4} wrap="nowrap">
+                                <Group gap="xxs" wrap="nowrap">
                                     View profile
                                     <ArrowSquareOutIcon size={16} weight="bold" />
                                 </Group>

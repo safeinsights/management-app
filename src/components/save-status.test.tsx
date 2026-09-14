@@ -27,7 +27,7 @@ describe('SaveStatusIndicator', () => {
         renderWithProviders(<SaveStatusIndicator status="saved" />)
         const checkmark = screen.getByTestId('autosave-status').querySelector('svg')
         expect(checkmark).toBeInTheDocument()
-        expect(checkmark).toHaveAttribute('fill', theme.colors!.green![9])
+        expect(checkmark).toHaveAttribute('fill', theme.colors!.green![7])
     })
 
     it('renders nothing when hidden, even in the saved state (OTTER-674)', () => {

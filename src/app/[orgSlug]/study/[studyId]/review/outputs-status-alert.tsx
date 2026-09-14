@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { useCallback, useState, type ReactNode } from 'react'
 import dayjs from 'dayjs'
 import { Anchor } from '@mantine/core'
@@ -30,7 +31,13 @@ export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
 }
 
 const SlackDPSupportLink = () => (
-    <Anchor href={SAFE_INSIGHTS_SLACK_URL} target="_blank" rel="noopener noreferrer" c="blue.7" inherit>
+    <Anchor
+        href={SAFE_INSIGHTS_SLACK_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        c={semanticColor('link.default')}
+        inherit
+    >
         Slack
         <ArrowSquareOutIcon size={16} style={{ marginLeft: 4, verticalAlign: 'text-bottom' }} />
     </Anchor>

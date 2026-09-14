@@ -10,6 +10,7 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { JobReviewButtons } from './job-review-buttons'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const StudyResults: FC<{
     job: LatestJobForStudy | null
@@ -32,7 +33,7 @@ export const StudyResults: FC<{
         }
 
         return (
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Title order={3} size="xl">
                         Study Status
@@ -55,7 +56,7 @@ export const StudyResults: FC<{
     }
 
     return (
-        <Paper bg="white" p="xxl">
+        <Paper bg={semanticColor('surface.raised')} p="xxl">
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="xl">
@@ -111,7 +112,7 @@ export const JobStatusHelpText: FC<{
                 </Text>
                 {hasEncryptedLogs && (
                     <Group justify="flex-start" align="center">
-                        <Text size="sm" fw={600}>
+                        <Text size="sm" fw={fontWeight.semibold}>
                             Job ID:
                         </Text>
                         <CopyingInput value={job.id} tooltipLabel="Copy" />

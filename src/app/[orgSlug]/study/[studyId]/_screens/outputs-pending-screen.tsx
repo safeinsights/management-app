@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -54,7 +55,7 @@ export async function OutputsPendingScreen({
     })
 
     return (
-        <Box bg="grey.10">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader

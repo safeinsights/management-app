@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { forwardRef, type ReactNode, type Ref } from 'react'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
@@ -28,7 +29,7 @@ export const NavbarProfileMenuView = forwardRef(function NavbarProfileMenuView(
                     label={userName}
                     leftSection={avatar}
                     rightSection={<CaretRightIcon aria-hidden="true" />}
-                    c="white"
+                    c={semanticColor('text.white')}
                     className={styles.navLinkProfileHover}
                     onClick={onToggle}
                     aria-haspopup="true"

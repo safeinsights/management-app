@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const STATUS_ALERT_SEPARATOR = '•'
 
@@ -26,11 +27,14 @@ type StatusAlertProps = {
     announce?: boolean
 }
 
+// Backgrounds are the status ramps' shade 0, accents the text/icon shade the semantic tokens point
+// at (success.text, warning.text, error.text). Informative has no status token: purple is the
+// brand-side banner and sits on its own ramp.
 const VARIANTS = {
     informative: { bg: 'purple.0', accent: 'purple.5', Icon: InfoIcon },
-    action: { bg: 'yellow.0', accent: 'yellow.10', Icon: WarningCircleIcon },
-    success: { bg: 'green.0', accent: 'green.11', Icon: CheckCircleIcon },
-    decline: { bg: 'red.12', accent: 'red.11', Icon: WarningCircleIcon },
+    action: { bg: 'yellow.0', accent: 'yellow.8', Icon: WarningCircleIcon },
+    success: { bg: 'green.0', accent: 'green.7', Icon: CheckCircleIcon },
+    decline: { bg: 'red.0', accent: 'red.7', Icon: WarningCircleIcon },
 } as const satisfies Record<StatusAlertVariant, { bg: string; accent: string; Icon: typeof InfoIcon }>
 
 // Mantine resolves 'color.shade' in its own style props only, not inside a styles object.
@@ -57,10 +61,10 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             {...liveRegion}
         >
             <Stack gap="xs">
-                <Text fz={14} fw={700} c={accent}>
+                <Text fz={14} fw={fontWeight.bold} c={accent}>
                     {title}
                 </Text>
-                <Text fz={14} c="charcoal.9">
+                <Text fz={14} c={semanticColor('text.primary')}>
                     {children}
                 </Text>
             </Stack>

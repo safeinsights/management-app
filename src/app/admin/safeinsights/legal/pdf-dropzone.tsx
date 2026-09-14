@@ -42,7 +42,7 @@ export const PdfDropzone: FC<{ label: string; file: File | null; onChange: (file
     }
 
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Text size="sm" fw={500}>
                 {label}
             </Text>

@@ -14,6 +14,7 @@ import {
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_REVIEW_CRITERIA, type CodeReviewCriterion } from './code-review-criteria'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
     { value: 'yes', label: 'Yes' },
@@ -93,14 +94,14 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
     return (
         <Paper p="xxl" data-testid="code-evaluation-section">
             <Stack gap="lg">
-                <Group gap={4} align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
+                <Group gap="xxs" align="center">
+                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Code evaluation
                     </Text>
-                    <RequiredIndicator fz={20} fw={700} />
+                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider />
-                <Text fz={14} c="charcoal.9">
+                <Text fz={14} c={semanticColor('text.primary')}>
                     Use this checklist to guide your review. Consider each criterion based on the submitted code, AI
                     summary, and security scan results.
                 </Text>
@@ -108,14 +109,14 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
                     color="red"
                     variant="light"
                     title="Attention"
-                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--mantine-color-red-9)" />}
-                    styles={{ title: { color: 'var(--mantine-color-red-9)' } }}
+                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--si-color-error-text)" />}
+                    styles={{ title: { color: 'var(--si-color-error-text)' } }}
                     data-testid="code-evaluation-attention"
                 >
                     This checklist is provided as guidance. As the reviewer(s), you are responsible for the final
                     decision based on your professional judgment and understanding of your data.
                 </Alert>
-                <Text fz={16} fw={700} c="charcoal.9">
+                <Text fz={16} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     Evaluation criteria
                 </Text>
                 <Stack gap="md">{criterionRows}</Stack>

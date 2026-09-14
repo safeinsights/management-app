@@ -3,6 +3,7 @@
 import { FC, ReactNode } from 'react'
 import { Box, Group, Text, VisuallyHidden, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type SaveStatusValue = 'idle' | 'saving' | 'saved'
 
@@ -24,9 +25,9 @@ const SavedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Group gap={8} wrap="nowrap" data-testid="autosave-status">
-            <CheckCircleIcon size={16} color={theme.colors.green[9]} weight="fill" />
-            <Text size="xs" c="green.9" fw={600}>
+        <Group gap="xs" wrap="nowrap" data-testid="autosave-status">
+            <CheckCircleIcon size={16} color={theme.colors.green[7]} weight="fill" />
+            <Text size="xs" c={semanticColor('success.text')} fw={fontWeight.semibold}>
                 {SAVED_LABEL}
             </Text>
         </Group>

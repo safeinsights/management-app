@@ -10,6 +10,7 @@ import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Step } from './mfa'
 import { useCompleteSignIn } from './use-complete-sign-in'
+import { fontWeight } from '@/theme/tokens'
 
 export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
@@ -93,7 +94,13 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         Sign in
                     </Button>
                     <Group gap="xs" justify="center">
-                        <Button onClick={() => setStep('select')} mt="md" fw={600} fz="md" variant="subtle">
+                        <Button
+                            onClick={() => setStep('select')}
+                            mt="md"
+                            fw={fontWeight.semibold}
+                            fz="md"
+                            variant="subtle"
+                        >
                             <CaretLeftIcon size={20} />
                             Back to options
                         </Button>

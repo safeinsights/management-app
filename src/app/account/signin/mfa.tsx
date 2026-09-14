@@ -1,4 +1,5 @@
 'use client'
+import { semanticColor } from '@/theme/tokens'
 import { useForm, useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
@@ -99,7 +100,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     if (!isLoaded) return <Loader />
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
             {step === 'select' && (
                 <Stack mb="xxl">
                     <Title mb="xs" ta="center" order={3}>
@@ -111,7 +112,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     </Text>
                     {hasNoFactors ? (
                         <>
-                            <Text size="sm" c="red.7" mb="xs">
+                            <Text size="sm" c={semanticColor('error.text')} mb="xs">
                                 No MFA factors are configured for your account. Please contact your administrator to set
                                 up MFA, or use a recovery code if you have one.
                             </Text>

@@ -77,7 +77,7 @@ export function ResearchInterestsInput({
 function InterestsHelperText({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
     return (
-        <Text size="sm" mt={4}>
+        <Text size="sm" mt="xxs">
             Include up to five area(s) of research interest.
         </Text>
     )

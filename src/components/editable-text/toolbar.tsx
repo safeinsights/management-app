@@ -176,7 +176,7 @@ export const Toolbar = () => {
 
     return (
         <Box
-            p={4}
+            p="xxs"
             onMouseDown={(e: React.MouseEvent) => {
                 if (!(e.target instanceof HTMLInputElement)) {
                     e.preventDefault()

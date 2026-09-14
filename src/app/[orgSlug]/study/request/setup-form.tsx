@@ -37,7 +37,7 @@ export const SetupForm: FC<SetupFormProps> = ({
     // Literal 24 rather than gap="lg": this app's Mantine `lg` is 20px while the design token is
     // 24px.
     <ProposalStepHeader stepLabel="STEP 1" heading="Set up study">
-        <Stack gap={24}>
+        <Stack gap="lg">
             <Text>{INTRO}</Text>
             <Stack gap="xl">
                 <StudyTitleField

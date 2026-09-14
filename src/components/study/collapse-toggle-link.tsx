@@ -3,6 +3,7 @@
 import { forwardRef } from 'react'
 import { Anchor, type MantineColor, type MantineSpacing } from '@mantine/core'
 import { ToggleChevron } from '@/components/icons'
+import { fontWeight } from '@/theme/tokens'
 
 type CollapseToggleLinkProps = {
     label: string
@@ -18,7 +19,7 @@ type CollapseToggleLinkProps = {
 }
 
 export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLinkProps>(function CollapseToggleLink(
-    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = 'blue.10' },
+    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = 'navy.5' },
     ref,
 ) {
     if (!isVisible) return null
@@ -30,7 +31,7 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             // the reviewer decision form when the proposal is collapsed.
             type="button"
             size="sm"
-            fw={700}
+            fw={fontWeight.bold}
             c={c}
             mt={mt}
             autoFocus={autoFocus}

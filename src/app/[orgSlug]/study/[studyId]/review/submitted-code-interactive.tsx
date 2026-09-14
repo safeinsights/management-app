@@ -1,5 +1,6 @@
 'use client'
 
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import {
     ActionIcon,
     Alert,
@@ -183,7 +184,7 @@ function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onTogg
             type="button"
             onClick={onToggle}
             size="sm"
-            fw={700}
+            fw={fontWeight.bold}
             display="inline-flex"
             w="fit-content"
             style={{ alignItems: 'center', gap: 4 }}
@@ -241,7 +242,7 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     return (
         <>
             <Stack gap="xs">
-                <Text fw={600} size="sm">
+                <Text fw={fontWeight.semibold} size="sm">
                     Overview
                 </Text>
                 <AiSummaryBody isExpanded={isExpanded} summary={summary} />
@@ -299,7 +300,7 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
 
     return (
         <Stack gap="lg" data-testid="ai-summary">
-            <Text fw={700}>AI Summary: Analysis of all files</Text>
+            <Text fw={fontWeight.bold}>AI Summary: Analysis of all files</Text>
             {renderBody()}
         </Stack>
     )
@@ -404,7 +405,7 @@ function FileTab({
                 py="xs"
                 style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={fontWeight.regular}>
                     {display}
                 </Text>
             </UnstyledButton>
@@ -448,8 +449,8 @@ function OverflowFilesMenu({
                     py="xs"
                     style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
                 >
-                    <Group gap={4} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
-                        <Text size="sm" c="charcoal.7" component="span">
+                    <Group gap="xxs" wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm" c={semanticColor('text.secondary')} component="span">
                             +{hidden.length} more files
                         </Text>
                         <CaretRightIcon size={12} weight="bold" />
@@ -715,8 +716,8 @@ const SONARQUBE_LABELS: ScanStatusLabels = {
 // pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
 // rather than introducing a new treatment. Provisional along with the labels above.
 const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
-    FAILED: 'var(--mantine-color-red-9)',
-    INDETERMINATE: 'var(--mantine-color-yellow-10)',
+    FAILED: 'var(--si-color-error-text)',
+    INDETERMINATE: 'var(--si-color-warning-text)',
 }
 
 type ScanRowProps = {
@@ -744,9 +745,9 @@ function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; label
         )
     }
     return (
-        <Group gap={4} wrap="nowrap" align="center">
+        <Group gap="xxs" wrap="nowrap" align="center">
             <ScanWarningIcon color={SCAN_ICON_COLORS[status]} />
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {labels[status]}
             </Text>
         </Group>
@@ -820,7 +821,7 @@ function SecurityScanLog({ studyJobId, scan, givenUp, isUnreachable }: SecurityS
 
     return (
         <Stack gap="lg" data-testid="security-scan-log">
-            <Text fw={700} fz={16}>
+            <Text fw={fontWeight.bold} fz={16}>
                 Security scan log
             </Text>
             {renderBody()}

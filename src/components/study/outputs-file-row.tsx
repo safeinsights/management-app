@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC } from 'react'
 import { ActionIcon, Table, Text, Tooltip, UnstyledButton, VisuallyHidden } from '@mantine/core'
 import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
@@ -34,14 +35,14 @@ const LastActivityCell: FC<{ activity: JobFileActivity | null; isKnown: boolean 
 
     if (!activity) {
         return (
-            <Text fz={14} c="charcoal.9">
+            <Text fz={14} c={semanticColor('text.primary')}>
                 No activity yet
             </Text>
         )
     }
 
     return (
-        <Text fz={14} c="charcoal.9">
+        <Text fz={14} c={semanticColor('text.primary')}>
             {activity.actorName}
             <VisuallyHidden>, </VisuallyHidden>
             <span aria-hidden="true"> · </span>
@@ -77,7 +78,7 @@ export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownloa
                         aria-label={fileNameLabel}
                         data-testid={`outputs-file-name-${row.key}`}
                     >
-                        <Text component="span" fz={14} c="charcoal.9" inherit>
+                        <Text component="span" fz={14} c={semanticColor('text.primary')} inherit>
                             {truncateFileName(row.name)}
                         </Text>
                     </UnstyledButton>

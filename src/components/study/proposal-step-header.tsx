@@ -1,5 +1,6 @@
 import type { FC, ReactNode } from 'react'
 import { Divider, Paper, Text, Title } from '@mantine/core'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type ProposalStepHeaderProps = {
     stepLabel: string
@@ -11,7 +12,7 @@ type ProposalStepHeaderProps = {
 const HeaderDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
-    return <Divider my={24} color="charcoal.1" data-testid="proposal-header-divider" />
+    return <Divider my="lg" color="charcoal.1" data-testid="proposal-header-divider" />
 }
 
 export function ProposalStepHeader({ stepLabel, heading, banner, children }: ProposalStepHeaderProps) {
@@ -21,10 +22,10 @@ export function ProposalStepHeader({ stepLabel, heading, banner, children }: Pro
 
     return (
         <Paper p="xxl" data-testid="proposal-section-header">
-            <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+            <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
                 {stepLabel}
             </Text>
-            <Title order={2} fz="xl" c="charcoal.9" pb={4}>
+            <Title order={2} fz="xl" c={semanticColor('text.primary')} pb="xxs">
                 {heading}
             </Title>
             <HeaderDivider isVisible={hasContentBelowRule} />
