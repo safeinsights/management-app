@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
+import { captureException } from '@sentry/nextjs'
 import { downloadBlob } from '@/lib/download-blob'
 import type { SaveStatusValue } from '@/components/save-status'
 import { NO_CHANGES_MESSAGE } from '@/components/study/submit-code-error'
@@ -29,9 +30,15 @@ import {
 /** The Figma toast's wording for a request that failed rather than a file that was too big. */
 const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
 
+const SUBMIT_SUCCESS_TITLE = 'Code submitted.'
+const SUBMIT_ERROR_TITLE = 'Code could not be submitted.'
+const SUBMIT_ERROR_MESSAGE = 'Your work is saved. Try again.'
+
 interface UseIDEFilesOptions {
     studyId: string
     onSubmitSuccess?: () => void
+    /** Lets the page close its confirmation and bring the submit button back into view. */
+    onSubmitError?: () => void
 }
 
 type LastJobInfo = {
@@ -64,7 +71,7 @@ function hasChangedSinceLastJob(
     return false
 }
 
-export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
+export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
     const router = useRouter()
 
@@ -325,10 +332,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
 
             notifications.show({
-                title: 'Study Code Submitted',
-                message:
-                    'Your code has been successfully submitted to the Data Partner. Check your dashboard for status updates.',
+                title: SUBMIT_SUCCESS_TITLE,
+                message: '',
                 color: 'green',
+                'data-toast-kind': 'success',
             })
 
             if (onSubmitSuccess) {
@@ -337,7 +344,19 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 router.push(Routes.dashboard)
             }
         },
-        onError: reportMutationError('Unable to submit study'),
+        onError: (error: unknown) => {
+            // Captured for Sentry, but shown with the design's fixed reassurance rather than the
+            // raw error: the wording can promise the work is safe because uploads, deletions and
+            // the main-file choice all persist as they happen — only the submission failed.
+            captureException(error)
+            notifications.show({
+                title: SUBMIT_ERROR_TITLE,
+                message: SUBMIT_ERROR_MESSAGE,
+                color: 'red',
+                'data-toast-kind': 'error',
+            })
+            onSubmitError?.()
+        },
     })
 
     const submitDirectly = useCallback(() => {

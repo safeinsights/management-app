@@ -75,7 +75,7 @@ const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) 
 
 const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
     const dialog = screen.getByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Submit code' }))
 }
 
 // The durable submit marker is the job's CODE-SUBMITTED status change, not study.status.
@@ -240,7 +240,7 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Unable to submit study' }),
+                expect.objectContaining({ color: 'red', title: 'Code could not be submitted.' }),
             )
         })
 

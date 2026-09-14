@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FC } from 'react'
+import { useCallback, useRef, useState, type FC } from 'react'
 import type { Route } from 'next'
 import { type StudyCodeIDE, useIDEFiles } from '@/hooks/use-ide-files'
 import { Button, Group, Stack, Text } from '@mantine/core'
@@ -65,9 +65,21 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
 )
 
 export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSuccess }: StudyCodeProps) => {
-    const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [submitError, setSubmitError] = useState<string | null>(null)
+    const footerRef = useRef<HTMLDivElement>(null)
+
+    /**
+     * A failed submission drops the confirmation and brings the button back into view, so the
+     * retry the toast suggests is one click away rather than a scroll away. Guarded because
+     * scrollIntoView is not implemented in the test DOM.
+     */
+    const handleSubmitError = useCallback(() => {
+        closeConfirm()
+        footerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
+    }, [closeConfirm])
+
+    const ide = useIDEFiles({ studyId, onSubmitSuccess, onSubmitError: handleSubmitError })
 
     // The card's rule: the button always clicks, and a blocked attempt says why.
     const handleSubmitClick = () => {
@@ -80,8 +92,14 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
         openConfirm()
     }
 
+    /**
+     * The confirmation deliberately stays open: the card wants both of its buttons dead and a
+     * loading state showing until the submission resolves, which is what stops a second click
+     * becoming a second submission. Success navigates away; failure closes it via
+     * handleSubmitError.
+     */
     const handleConfirmSubmit = () => {
-        closeConfirm()
+        if (ide.isDirectSubmitting) return
         ide.submitDirectly()
     }
 
@@ -102,7 +120,9 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
 
                 <YourFilesSection ide={ide} dataPartnerName={dataPartnerName} submitError={submitError} />
 
-                <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={handleSubmitClick} />
+                <div ref={footerRef}>
+                    <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={handleSubmitClick} />
+                </div>
             </Stack>
 
             <SubmitConfirmationModal
@@ -110,9 +130,9 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
                 isSubmitting={ide.isDirectSubmitting}
-                title="Confirm study code submission?"
-                body="Please confirm you are ready to submit your study code. Further edits are not permitted once submitted."
-                confirmLabel="Yes, submit study code"
+                title="Submit code for review?"
+                body={`Your code will be sent to ${dataPartnerName} for review. If approved, it will run in the secure enclave. You will not be able to make changes after you submit.`}
+                confirmLabel="Submit code"
             />
         </>
     )

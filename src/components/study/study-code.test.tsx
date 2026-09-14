@@ -23,7 +23,7 @@ import { StudyCode } from './study-code'
 import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
 import { vi } from 'vitest'
-import { signedUrlForFile } from '@/server/aws'
+import { signedUrlForFile, storeS3File } from '@/server/aws'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import { s3Available } from '@/tests/s3.helpers'
 import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
@@ -208,19 +208,20 @@ describe('StudyCode component', () => {
         })
     })
 
-    it('shows the confirmation modal when Submit study code is clicked', async () => {
+    it('shows the confirmation modal when Submit code for review is clicked', async () => {
         const user = userEvent.setup()
         await renderIDE('openstax-lab', { 'main.r': 'print("main")' })
 
         await openSubmitConfirmation(user)
 
         const dialog = screen.getByRole('dialog')
-        expect(dialog).toHaveTextContent('Confirm study code submission?')
+        expect(dialog).toHaveTextContent('Submit code for review?')
         expect(dialog).toHaveTextContent(
-            /Please confirm you are ready to submit your study code\. Further edits are not permitted once submitted\./,
+            `Your code will be sent to ${DATA_PARTNER} for review. If approved, it will run in the secure enclave. ` +
+                'You will not be able to make changes after you submit.',
         )
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-        expect(within(dialog).getByRole('button', { name: 'Yes, submit study code' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Submit code' })).toBeInTheDocument()
     })
 
     // Job cleanup hits real S3, which is not running locally by default; CI has it.
@@ -239,7 +240,7 @@ describe('StudyCode component', () => {
 
         await openSubmitConfirmation(user)
         const dialog = screen.getByRole('dialog')
-        await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Submit code' }))
 
         await waitFor(async () => {
             expect(await codeSubmittedCount(study.id)).toBe(1)
@@ -251,7 +252,7 @@ describe('StudyCode component', () => {
         ])
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
+            expect.objectContaining({ color: 'green', title: 'Code submitted.' }),
         )
     })
 
@@ -271,7 +272,7 @@ describe('StudyCode component', () => {
 
         await openSubmitConfirmation(user)
         const dialog2 = screen.getByRole('dialog')
-        await user.click(within(dialog2).getByRole('button', { name: 'Yes, submit study code' }))
+        await user.click(within(dialog2).getByRole('button', { name: 'Submit code' }))
 
         await waitFor(async () => {
             expect(await codeSubmittedCount(study.id)).toBe(1)
@@ -764,6 +765,51 @@ describe('StudyCode component', () => {
                     screen.getByText(/Opens your files in the IDE where you can edit and refine/),
                 ).toBeInTheDocument()
             })
+        })
+    })
+
+    describe('submission confirmation (OTTER-693)', () => {
+        const readyToSubmit = async () => {
+            const rendered = await renderIDE('openstax-lab', { 'main.R': 'print(1)' })
+            await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
+            return rendered
+        }
+
+        it('reports a failed submission without losing the researcher’s work', async () => {
+            const user = userEvent.setup()
+            // storeS3File is what the submit action reaches for; failing it fails the submission.
+            vi.mocked(storeS3File).mockRejectedValueOnce(new Error('s3 unavailable'))
+            const { study } = await readyToSubmit()
+
+            await openSubmitConfirmation(user)
+            await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit code' }))
+
+            await waitFor(() => {
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'Code could not be submitted.',
+                        message: 'Your work is saved. Try again.',
+                        color: 'red',
+                    }),
+                )
+            })
+
+            // The confirmation gives way so the button underneath is reachable again...
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            // ...and nothing was submitted, while the files and the main-file choice remain.
+            expect(await codeSubmittedCount(study.id)).toBe(0)
+            expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
+        })
+
+        it('closes on Cancel without submitting', async () => {
+            const user = userEvent.setup()
+            const { study } = await readyToSubmit()
+
+            await openSubmitConfirmation(user)
+            await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            expect(await codeSubmittedCount(study.id)).toBe(0)
         })
     })
 
@@ -1405,7 +1451,7 @@ describe('StudyCode component', () => {
 
             await openSubmitConfirmation(user)
             const dialog = screen.getByRole('dialog')
-            await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
+            await user.click(within(dialog).getByRole('button', { name: 'Submit code' }))
 
             await waitFor(async () => {
                 expect(await codeSubmittedCount(study.id)).toBe(1)
@@ -1417,7 +1463,7 @@ describe('StudyCode component', () => {
             ])
 
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'green', title: 'Study Code Submitted' }),
+                expect.objectContaining({ color: 'green', title: 'Code submitted.' }),
             )
         })
     })
