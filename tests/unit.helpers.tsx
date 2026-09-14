@@ -151,10 +151,10 @@ export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
 
-// The error Next raises when the posted action id is absent from the build now serving, which is
-// what an open tab meets after a deployment. The real class rather than a hand-built stand-in, so a
-// Next upgrade that renames it fails errors.test.ts instead of silently sending every stale tab
-// back to the framework text (OTTER-726).
+// The error Next raises when the posted action id is absent from the build now serving, which an
+// open tab meets when the key rotates or the action moved, renamed or was removed. The real class
+// rather than a hand-built stand-in, so a Next upgrade that renames it fails errors.test.ts instead
+// of silently sending such a tab back to the framework text (OTTER-726).
 export const staleActionError = () =>
     new UnrecognizedActionError('Server Action "7f60224d81" was not found on the server.')
 

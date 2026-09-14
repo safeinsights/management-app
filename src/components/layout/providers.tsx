@@ -12,21 +12,20 @@ import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
-import { reportError, reportStaleDeployment } from '@/components/errors'
+import { reportError } from '@/components/errors'
 import { isStaleDeploymentError } from '@/lib/errors'
 
 function makeQueryClient() {
     return new QueryClient({
         // Queries carry no error handling of their own, so before this a failed poll ended in the
-        // cache and reached nobody. Reporting is opt-in through `meta` rather than automatic, so a
+        // cache and reached nobody. A stale action id always reports, because a poll meeting one is
+        // the only measure of how often that happens; everything else is opt-in through `meta`, so a
         // page of background polls cannot stack one toast per query (OTTER-726).
         queryCache: new QueryCache({
             onError: (error, query) => {
-                if (isStaleDeploymentError(error)) {
-                    reportStaleDeployment()
-                    return
+                if (isStaleDeploymentError(error) || query.meta?.errorMessage) {
+                    reportError(error, query.meta?.errorMessage)
                 }
-                if (query.meta?.errorMessage) reportError(error, query.meta.errorMessage)
             },
         }),
         defaultOptions: {

@@ -38,11 +38,11 @@ export const showOrReplaceNotification = (notification: NotificationData) => {
     notifications.show(notification)
 }
 
-// An action id is a hash of the build's encryption key, the module path and the export name, so a
-// pinned key keeps ids stable across builds and an ordinary edit does not move them. What does move
-// one is the action changing module or name, or the key rotating. Rare, but it reaches any action
-// and no retry resolves it, so it is answered once here rather than at each call site (OTTER-726).
-export const reportStaleDeployment = () =>
+// An action id is hashed with the pinned Server Actions key, so it survives an ordinary deploy. It
+// stops resolving when the key rotates or the action moved, renamed or was removed between builds,
+// and then no request from the open tab can succeed. Answered once here rather than at each call
+// site (OTTER-726).
+const reportStaleDeployment = () =>
     showOrReplaceNotification({
         id: STALE_DEPLOYMENT_NOTIFICATION_ID,
         color: 'blue',

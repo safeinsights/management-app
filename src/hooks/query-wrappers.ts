@@ -16,7 +16,7 @@ import { type ActionResponse, isActionError, ActionFailure } from '@/lib/errors'
 /**
  * Read by the shared QueryCache handler in `providers.tsx`. A query opts in to having its failure
  * told to the reader by naming the title to show; without it the failure is reported nowhere, which
- * is what left a deploy under an open tab silent until the next submit (OTTER-726).
+ * is what left a failed poll silent until the next submit (OTTER-726).
  */
 type QueryMeta = { errorMessage?: string }
 
