@@ -22,6 +22,7 @@ import {
     getStudyJobInfo,
     jobAnalysisUpdateForJob,
     latestJobForStudy,
+    fetchUserFullName,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
@@ -249,14 +250,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             onStudyResultsRejected({ studyId, userId })
         }
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         // Names the reviewer in the notice the other tabs raise, which only the server can supply.
-        return { submitterFullName: submitter.fullName }
+        return { submitterFullName }
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')

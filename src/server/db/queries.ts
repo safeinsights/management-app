@@ -311,6 +311,13 @@ export const getUserById = async (userId: string) => {
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
+// The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
+// actions were asking for it the same way.
+export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
+    const user = await db.selectFrom('user').select('fullName').where('id', '=', userId).executeTakeFirstOrThrow()
+    return user.fullName
+}
+
 export const getOrgNameFromId = async (orgId: string) => {
     const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()
     return result.name
