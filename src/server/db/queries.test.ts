@@ -10,6 +10,7 @@ import {
 import { db } from '@/database'
 import {
     codeSubmissionVersion,
+    outputsDecisionVersion,
     currentReviewVersion,
     getStudyReviewForJob,
     latestJobForStudy,
@@ -492,5 +493,76 @@ describe('codeSubmissionVersion', () => {
             .values({ studyJobId: newJob.id, status: 'CODE-CHANGES-REQUESTED' })
             .execute()
         expect(await codeSubmissionVersion(study.id)).toBe(3)
+    })
+})
+
+describe('outputsDecisionVersion', () => {
+    const givenOutputsDecision = async (studyId: string, studyJobId: string, authorId: string, round: number) =>
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId,
+                studyJobId,
+                authorId,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: { root: { type: 'root', children: [] } },
+                round,
+            })
+            .execute()
+
+    // The reported bug: the code round had climbed to 2, so the first outputs decision read v2.0.
+    it('is v1 for a first outputs decision however far the code rounds have climbed', async () => {
+        const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
+                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
+                { studyJobId: job.id, status: 'CODE-APPROVED' },
+            ])
+            .execute()
+
+        expect(await codeSubmissionVersion(study.id)).toBe(2)
+        expect(await outputsDecisionVersion(study.id)).toBe(1)
+    })
+
+    it('climbs to v2 once one outputs decision exists', async () => {
+        const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        await givenOutputsDecision(study.id, job.id, study.researcherId, 1)
+
+        expect(await outputsDecisionVersion(study.id)).toBe(2)
+    })
+
+    // rejectStudyJobFilesAction writes the status with no comment; counting it would leave the first
+    // visible entry labeled v2.0 with no v1.0 anywhere.
+    it('ignores a FILES-REJECTED written without a decision comment', async () => {
+        const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
+
+        expect(await outputsDecisionVersion(study.id)).toBe(1)
+    })
+
+    it('ignores code-review decisions and other studies', async () => {
+        const { study, job, org } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: study.researcherId,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: { root: { type: 'root', children: [] } },
+                round: 1,
+            })
+            .execute()
+
+        const other = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+        await givenOutputsDecision(other.study.id, other.job.id, other.study.researcherId, 1)
+
+        expect(await outputsDecisionVersion(study.id)).toBe(1)
     })
 })

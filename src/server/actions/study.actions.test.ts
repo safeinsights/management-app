@@ -26,7 +26,6 @@ import {
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getOutputsDecisionFeedbackAction,
-    getOutputsFeedbackThreadAction,
     getStudyAction,
     rejectStudyProposalAction,
     softDeleteStudyAction,
@@ -2281,67 +2280,7 @@ describe('submitCodeReviewDecisionAction', () => {
     })
 })
 
-describe('getOutputsFeedbackThreadAction', () => {
-    it('returns RESULTS decision rows with resubmission notes, newest first, and excludes CODE rows', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            jobStatus: 'CODE-SUBMITTED',
-        })
-
-        await db
-            .updateTable('jobStatusChange')
-            .set({ createdAt: new Date('2026-07-01T00:00:00Z') })
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'CODE-SUBMITTED')
-            .execute()
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('my resubmission note')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
-
-        await db
-            .insertInto('studyReviewComment')
-            .values({
-                studyId: study.id,
-                studyJobId: job.id,
-                authorId: user.id,
-                reviewKind: 'CODE',
-                entryType: 'DECISION',
-                decision: 'APPROVE',
-                body: JSON.parse(lexicalJson('code approval note')),
-                round: 1,
-                createdAt: new Date('2026-07-02T00:00:00Z'),
-            })
-            .execute()
-        const outputs = await db
-            .insertInto('studyReviewComment')
-            .values({
-                studyId: study.id,
-                studyJobId: job.id,
-                authorId: user.id,
-                reviewKind: 'RESULTS',
-                entryType: 'DECISION',
-                decision: 'NEEDS-CLARIFICATION',
-                body: JSON.parse(lexicalJson('outputs withheld, fix aggregation')),
-                round: 1,
-                createdAt: new Date('2026-08-05T00:00:00Z'),
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        const rows = actionResult(await getOutputsFeedbackThreadAction({ studyId: study.id }))
-
-        expect(rows).toHaveLength(2)
-        expect(rows[0].id).toBe(outputs.id)
-        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
-        expect(rows[0].version).toBe(1)
-        expect(rows[1].entryType).toBe('RESUBMISSION-NOTE')
-        expect(rows[1].version).toBe(1)
-    })
-
+describe('getCodeReviewFeedbackAction', () => {
     it('kind isolation is symmetric: the CODE action does not return RESULTS rows', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
@@ -2367,9 +2306,7 @@ describe('getOutputsFeedbackThreadAction', () => {
         const codeRows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
         expect(codeRows.filter((r) => r.entryType === 'REVIEWER-FEEDBACK')).toHaveLength(0)
     })
-})
 
-describe('getCodeReviewFeedbackAction', () => {
     it('returns code-review rows ordered newest first and excludes proposal-review rows', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
@@ -2645,6 +2582,58 @@ describe('getOutputsDecisionFeedbackAction', () => {
         expect(rows[1].id).toBe(older.id)
         expect(rows.every((r) => r.entryType === 'REVIEWER-FEEDBACK')).toBe(true)
         expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
+    })
+
+    it('excludes the code-phase resubmission note (OTTER-766)', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson('my resubmission note')), resubmissionRound: 2 })
+            .where('id', '=', job.id)
+            .execute()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('outputs withheld, fix aggregation')),
+                round: 1,
+            })
+            .execute()
+
+        const rows = actionResult(await getOutputsDecisionFeedbackAction({ studyId: study.id }))
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
+        expect(rows[0].version).toBe(1)
+    })
+
+    it('denies a viewer from an unrelated org', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const otherOrg = await insertTestOrg()
+        const { user: otherUser } = await insertTestUser({ org: otherOrg })
+        mockClerkSession({
+            clerkUserId: otherUser.clerkId,
+            orgSlug: otherOrg.slug,
+            userId: otherUser.id,
+            orgId: otherOrg.id,
+        })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const result = await getOutputsDecisionFeedbackAction({ studyId: study.id })
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
     })
 })
 
