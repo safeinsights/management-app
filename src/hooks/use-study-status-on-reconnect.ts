@@ -25,10 +25,21 @@ export type KickOutNotice = { title: string; message: string; id?: string }
 
 export const STATUS_CHECK_FAILURE_TITLE = 'Failed to check the review status'
 
-// What a proposal tab is told. Every screen that closes for another reason passes its own.
 const PROPOSAL_SUBMITTED_NOTICE: KickOutNotice = {
     title: 'Submission complete',
     message: 'This proposal has already been submitted. No further edits are allowed at this point.',
+}
+
+const REVIEW_DECIDED_NOTICE: KickOutNotice = {
+    title: 'Decision submitted',
+    message: 'A decision has already been submitted for this review. No further edits are allowed at this point.',
+}
+
+// Follows the screen the hook redirects to, so no caller can pick the wording of the other kind of
+// round. A screen that shares an id with its own live event still passes its own.
+const DEFAULT_NOTICE: Record<Args['redirectTarget'], KickOutNotice> = {
+    studySubmitted: PROPOSAL_SUBMITTED_NOTICE,
+    studyReview: REVIEW_DECIDED_NOTICE,
 }
 
 type Args = {
@@ -44,7 +55,7 @@ type Args = {
     /** Takes precedence over `editableStatuses`, to gate on latest job status as well. */
     isEditable?: (snapshot: EditableSnapshot) => boolean
     redirectTarget: 'studySubmitted' | 'studyReview'
-    /** This screen's wording for a round that closed without this tab seeing the live event. */
+    /** Overrides the default wording for a round that closed without this tab seeing the live event. */
     notice?: KickOutNotice
     enabled?: boolean
 }
@@ -76,7 +87,7 @@ export function useStudyStatusOnReconnect({
     editableStatuses,
     isEditable,
     redirectTarget,
-    notice = PROPOSAL_SUBMITTED_NOTICE,
+    notice = DEFAULT_NOTICE[redirectTarget],
     enabled = true,
 }: Args) {
     const router = useRouter()

@@ -182,6 +182,16 @@ describe('useStudyStatusOnReconnect', () => {
         )
 
         await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
+        // A review screen says a decision was submitted. The proposal wording belongs to the
+        // screen that redirects to studySubmitted, and the default now follows the target.
+        expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Decision submitted' }))
+    })
+
+    it('gives a proposal screen and a review screen different default wording', async () => {
+        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
+        mount()
+
+        await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submission complete' }))
     })
 })
