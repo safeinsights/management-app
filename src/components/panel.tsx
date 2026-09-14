@@ -30,8 +30,8 @@ export const SuccessPanel: React.FC<PanelProps & { onContinue(): void }> = ({
 
     return (
         <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold" {...flexProps}>
-            <CheckCircleIcon size={28} color={theme.colors.green[9]} weight="fill" />
-            <Text c="green.9" size="md" fw="bold">
+            <CheckCircleIcon size={28} color={theme.colors.green[7]} weight="fill" />
+            <Text c="green.7" size="md" fw="bold">
                 {title}
             </Text>
             <Anchor component="button" mt={16} size="sm" c="blue.8" fw={600} onClick={onContinue}>
@@ -51,8 +51,8 @@ export const ErrorPanel: React.FC<PanelProps & { onContinue(): void }> = ({
 
     return (
         <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold" {...flexProps}>
-            <ProhibitIcon size={28} color={theme.colors.red[9]} weight="fill" />
-            <Text c="red.9" size="md" fw="bold">
+            <ProhibitIcon size={28} color={theme.colors.red[7]} weight="fill" />
+            <Text c="red.7" size="md" fw="bold">
                 {title}
             </Text>
             <Anchor component="button" mt={16} size="sm" c="blue.8" fw={600} onClick={onContinue}>

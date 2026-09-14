@@ -103,7 +103,7 @@ export async function SharedOutputsScreen({
     })
 
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 {/* Banner titles are undated on purpose — the panel appends the shared decision date

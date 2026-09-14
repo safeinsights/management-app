@@ -77,7 +77,7 @@ const ConfirmKeyResetModal: FC<{
                     <Button variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button color="red.9" onClick={onConfirmAndClose}>
+                    <Button color="red.6" onClick={onConfirmAndClose}>
                         Generate new key
                     </Button>
                 </Group>

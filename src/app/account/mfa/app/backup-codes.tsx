@@ -85,8 +85,8 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                                 </Button>
                                 {copied && (
                                     <Group gap={6} justify="center" align="center">
-                                        <CheckIcon size={16} color={theme.colors.green[9]} />
-                                        <Text size="sm" c="green.9" fw={600}>
+                                        <CheckIcon size={16} color={theme.colors.green[7]} />
+                                        <Text size="sm" c="green.7" fw={600}>
                                             Copied!
                                         </Text>
                                     </Group>
@@ -134,7 +134,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConf
     <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your MFA recovery codes?">
         <Stack>
             <Text size="md">Make sure you have securely saved your MFA recovery codes.</Text>
-            <Text size="sm" c="red.9">
+            <Text size="sm" c="red.7">
                 <b>Note:</b> Each code can be used once. We will not show these codes again.
             </Text>
             <Text size="md" mb="md">

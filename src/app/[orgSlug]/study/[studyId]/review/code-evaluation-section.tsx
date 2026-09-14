@@ -108,8 +108,8 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
                     color="red"
                     variant="light"
                     title="Attention"
-                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--mantine-color-red-9)" />}
-                    styles={{ title: { color: 'var(--mantine-color-red-9)' } }}
+                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--si-color-error-text)" />}
+                    styles={{ title: { color: 'var(--si-color-error-text)' } }}
                     data-testid="code-evaluation-attention"
                 >
                     This checklist is provided as guidance. As the reviewer(s), you are responsible for the final
