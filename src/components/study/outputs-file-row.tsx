@@ -8,14 +8,20 @@ import type { JobFileActivity } from '@/server/db/queries'
 import { OUTPUTS_FILE_NAME_MAX_LENGTH } from '@/lib/outputs-review'
 import classes from './outputs-file-row.module.css'
 
+/**
+ * One value rather than a pair of flags, so "loaded and also failed" cannot be represented. A failed
+ * request has to stay distinct from an answered one: the last good rows are not evidence of what is
+ * true now (OTTER-726).
+ */
+export type ActivityState = 'pending' | 'unavailable' | 'known'
+
 export type OutputFileRowData = {
     key: string
     studyJobFileId: string
     filePath: string
     name: string
     contents: ArrayBuffer
-    /** False while the activity query is still in flight or has failed. */
-    isActivityKnown: boolean
+    activityState: ActivityState
     activity: JobFileActivity | null
 }
 
@@ -28,9 +34,17 @@ export const formatActivityDate = (date: Date | string): string => dayjs(date).f
 
 // The dots are hidden from AT and paired with connective text; read straight through they would
 // announce as one run-on phrase.
-const LastActivityCell: FC<{ activity: JobFileActivity | null; isKnown: boolean }> = ({ activity, isKnown }) => {
+const LastActivityCell: FC<{ activity: JobFileActivity | null; state: ActivityState }> = ({ activity, state }) => {
     // "No activity yet" is a claim, so it waits for the query rather than asserting it blind.
-    if (!isKnown) return null
+    if (state === 'pending') return null
+
+    if (state === 'unavailable') {
+        return (
+            <Text fz={14} c="dimmed">
+                Unavailable
+            </Text>
+        )
+    }
 
     if (!activity) {
         return (
@@ -84,7 +98,7 @@ export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownloa
                 </Tooltip>
             </Table.Td>
             <Table.Td>
-                <LastActivityCell activity={row.activity} isKnown={row.isActivityKnown} />
+                <LastActivityCell activity={row.activity} state={row.activityState} />
             </Table.Td>
             <Table.Td ta="right">
                 {/* The sole control in this cell, so the icon carries the accessible name rather

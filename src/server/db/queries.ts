@@ -169,6 +169,23 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
     return Number(row?.count ?? 0) + 1
 }
 
+// Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
+// first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
+// rather than FILES-* rows, because rejectStudyJobFilesAction writes the status with no comment and
+// counting it would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
+// Count and insert are separate, and the unique constraint backing them is per job, so a caller that
+// writes the counted round must lock the study row first (see submitOutputsDecisionAction).
+export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+    const row = await db
+        .selectFrom('studyReviewComment')
+        .where('studyId', '=', studyId)
+        .where('reviewKind', '=', 'RESULTS')
+        .where('entryType', '=', 'DECISION')
+        .select((eb) => eb.fn.countAll().as('count'))
+        .executeTakeFirst()
+    return Number(row?.count ?? 0) + 1
+}
+
 export const jobInfoForJobId = async (jobId: string) => {
     return await Action.db
         .selectFrom('studyJob')
@@ -310,6 +327,13 @@ export const getUserById = async (userId: string) => {
 // the mongo $in conditions fail CLOSED. Throwing would distinguish "no such org" from "not yours".
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
+
+// The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
+// actions were asking for it the same way.
+export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
+    const user = await db.selectFrom('user').select('fullName').where('id', '=', userId).executeTakeFirstOrThrow()
+    return user.fullName
+}
 
 export const getOrgNameFromId = async (orgId: string) => {
     const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()

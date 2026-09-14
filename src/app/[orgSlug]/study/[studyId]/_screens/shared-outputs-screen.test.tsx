@@ -295,17 +295,18 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         expect(alert).not.toHaveTextContent('•')
     })
 
-    it("renders the reused feedback-and-notes section with this study's outputs feedback", async () => {
+    // OTTER-766: the note belongs to the code step, so it stays on the code screens.
+    it("renders the reused feedback-and-notes section with this study's outputs feedback alone", async () => {
         const { org, user, study, raw } = await setupShared(variant, { withNote: true })
         await renderScreen(variant, study, raw, org.slug)
 
         const section = screen.getByTestId('feedback-and-notes-section')
         expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
         expect(section).toHaveTextContent(variant.feedbackBody)
-        expect(section).toHaveTextContent('Resubmission note (v1.0)')
-        expect(section).toHaveTextContent('Adjusted the aggregation query.')
+        expect(section).not.toHaveTextContent('Resubmission note')
+        expect(section).not.toHaveTextContent('Adjusted the aggregation query.')
         expect(section).toHaveTextContent(user.fullName)
-        expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+        expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
     })
 
     it("shows only this study's feedback, not another study's", async () => {

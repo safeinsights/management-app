@@ -5,6 +5,7 @@ import { notifications } from '@mantine/notifications'
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
+import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
@@ -30,13 +31,7 @@ function useDeleteDraft(study: StudyRow) {
                 color: 'green',
             })
         },
-        onError: (error) => {
-            notifications.show({
-                title: 'Failed to delete proposal draft',
-                message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-                color: 'red',
-            })
-        },
+        onError: reportMutationError('Failed to delete proposal draft'),
     })
 
     return {

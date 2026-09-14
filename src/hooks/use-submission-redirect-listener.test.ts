@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, renderHook, faker, type Mock } from '
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 
+import { OUTPUTS_DECIDED_NOTICE } from '@/lib/outputs-review'
 import { useSubmissionRedirectListener } from './use-submission-redirect-listener'
 
 type Listener = (data: { payload: unknown }) => void
@@ -123,6 +124,30 @@ describe('useSubmissionRedirectListener', () => {
         )
         // The reviewer state machine resolves bare /review to the post-feedback screen once a
         // decision exists.
+        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
+    })
+
+    // OTTER-726: the outputs round closes for everyone at once, and the reviewer who is still
+    // typing has to be told who ended it rather than finding out when their own submit fails.
+    it('fires kick-out for a same-user other tab on outputs-review-submitted', () => {
+        mountListener()
+        provider.emitStateless(
+            JSON.stringify({
+                type: 'outputs-review-submitted',
+                studyId,
+                submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_dana',
+                submittedByName: 'Dana',
+            }),
+        )
+        expect(notifications.show).toHaveBeenCalledTimes(1)
+        const arg = (notifications.show as Mock).mock.calls[0][0]
+        expect(arg.message).toBe(
+            'Dana has proceeded to submit a decision on this output. No further edits are allowed at this point.',
+        )
+        // A submit that lost the race reaches the same conclusion through the status backstop, and
+        // the shared id keeps that from becoming a second notice.
+        expect(arg.id).toBe(OUTPUTS_DECIDED_NOTICE.id)
         expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review`)
     })
 
