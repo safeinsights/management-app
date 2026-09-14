@@ -178,6 +178,19 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
         await waitFor(() => expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument())
     })
 
+    // Focusing an empty Lexical root appends a paragraph, which the editor reports as a change.
+    // Resubmit focuses the flagged note right after raising the error, so this is the path that
+    // would otherwise wipe the error the moment it appears.
+    it('keeps a required error when focus lands on the still-empty editor', async () => {
+        const user = userEvent.setup()
+        renderSingleUserSection({ initialError: PROPOSAL_REQUIRED_NOTE_ERROR })
+
+        const editor = await screen.findByLabelText('Resubmission Note')
+        await user.click(editor)
+
+        expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+    })
+
     it('clears a required error as soon as the researcher types', async () => {
         const user = userEvent.setup()
         renderSingleUserSection({ initialError: PROPOSAL_REQUIRED_NOTE_ERROR })

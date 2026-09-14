@@ -8,12 +8,16 @@ import {
     renderWithProviders,
     screen,
     simulateEditorSave,
+    userEvent,
     vi,
+    waitFor,
 } from '@/tests/unit.helpers'
 import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical'
+import { useForm } from '@/common'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { CollaborativeProposalTextField } from './collaborative-proposal-text-field'
+import { CollaborativeProposalTextField, ProposalTextFieldEntry } from './collaborative-proposal-text-field'
 import { editableTextFields, type EditableTextField } from './field-config'
+import { initialProposalValues, type ProposalFormValues } from './schema'
 import { lexicalJson } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { SAVED_LABEL } from '@/components/save-status'
@@ -171,5 +175,48 @@ describe('CollaborativeProposalTextField save status through an edit', () => {
         setEditorText(surface, '')
         await simulateEditorSave()
         expect(screen.queryByTestId('autosave-status')).toBeNull()
+    })
+})
+
+// Focusing an empty Lexical root appends a paragraph, which the editor reports as a change. Submit
+// focuses the first flagged field right after raising its error, so without this guard the error
+// would vanish the moment it appeared (OTTER-762).
+describe('ProposalTextFieldEntry focus on an empty field', () => {
+    const field = fieldWhere((f) => !!f.required, 'required')
+    const REQUIRED_ERROR = 'Enter your research questions before continuing.'
+
+    const Harness = () => {
+        const form = useForm<ProposalFormValues>({
+            initialValues: initialProposalValues,
+            initialErrors: { [field.id]: REQUIRED_ERROR },
+        })
+        return (
+            <ProposalTextFieldEntry
+                field={field}
+                form={form}
+                studyId={faker.string.uuid()}
+                websocketProvider={null}
+                liveCharacterLimit
+            />
+        )
+    }
+
+    it('keeps a required error when focus lands on the still-empty editor', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />, { singleUserEditing: true })
+
+        await user.click(await screen.findByLabelText(field.label))
+
+        expect(screen.getByText(REQUIRED_ERROR)).toBeInTheDocument()
+    })
+
+    it('clears the error as soon as the researcher types', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<Harness />, { singleUserEditing: true })
+
+        await user.click(await screen.findByLabelText(field.label))
+        await user.paste('A question?')
+
+        await waitFor(() => expect(screen.queryByText(REQUIRED_ERROR)).not.toBeInTheDocument())
     })
 })

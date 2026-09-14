@@ -9,7 +9,7 @@ import { fieldCounterId, FormField, fieldDescribedBy } from '@/components/form-f
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { countCharactersFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
@@ -137,6 +137,10 @@ export const ProposalTextFieldEntry: FC<{
     const error = form.errors[field.id] as string | undefined
 
     const onChange = (val: string) => {
+        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
+        // is not an edit, and letting it through would clear the required error Submit has just
+        // raised on the field it then focuses (OTTER-762).
+        if (!hasLexicalContent(val) && !hasLexicalContent(value)) return
         form.setFieldValue(field.id, val)
         if (liveCharacterLimit && countCharactersFromLexical(val) > field.maxCharacters) {
             form.setFieldError(field.id, overCharacterLimitError(field.label, field.maxCharacters))

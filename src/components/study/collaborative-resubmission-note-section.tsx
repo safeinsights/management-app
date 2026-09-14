@@ -16,6 +16,7 @@ import {
     RESUBMISSION_NOTE_FIELD_ID,
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteCharacterCount,
+    resubmissionNoteIsBlank,
     resubmissionNoteIsOverLimit,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
@@ -74,6 +75,10 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     // Only the over-limit half of the rule is live; the required half belongs to blur and Resubmit,
     // so clearing the box does not flash an error mid-edit (OTTER-762).
     const onNoteChange = (json: string) => {
+        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
+        // is not an edit, and letting it through would clear the required error Resubmit has just
+        // raised on the field it then focuses.
+        if (resubmissionNoteIsBlank(json) && resubmissionNoteIsBlank(value)) return
         noteForm.setFieldValue(RESUBMISSION_NOTE_FIELD_ID, json)
         if (resubmissionNoteIsOverLimit(json)) noteForm.setFieldError(RESUBMISSION_NOTE_FIELD_ID, NOTE_MAX_ERROR)
     }
