@@ -8,6 +8,8 @@ import {
     resolvePhasedStepNav,
     resolveReviewerPhasedStepNav,
     resolveReviewerStepNav,
+    resolveProposalStatusNav,
+    proposalStatusScreen,
     resolveStepNav,
     type NavCtx,
     type StepNav,
@@ -49,6 +51,11 @@ describe('resolveStepNav — spec pattern invariants', () => {
     // "Every state contains one solid button to ensure the user never encounters a dead end."
     // The draft overview is the sole exemption: its forward action lives in the wizard footer.
     const everyScreen: Array<[ResearcherScreenId, StudyState]> = [
+        ['study-overview', state({ status: 'PENDING-REVIEW', isDraft: false })],
+        ['proposal-feedback', state({ status: 'APPROVED', isDraft: false })],
+        ['proposal-feedback', state({ status: 'CHANGE-REQUESTED', isDraft: false })],
+        ['proposal-feedback', state({ status: 'REJECTED', isDraft: false })],
+        ['proposal-feedback', state({ status: 'PENDING-REVIEW', isDraft: false, hasSubmittedCode: true })],
         ['code-under-review', state({ status: 'APPROVED', isDraft: false, codeAwaitingDecision: true })],
         ['code-approved', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED' })],
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-CHANGES-REQUESTED' })],
@@ -69,9 +76,8 @@ describe('resolveStepNav — spec pattern invariants', () => {
         }
     })
 
-    // Their nav moves with the card that adds the read-only Step 1 page it depends on.
-    it.each(['study-overview', 'proposal-feedback'] as const)('%s is left unconverted', (screen) => {
-        expect(resolveStepNav(screen, state({ status: 'APPROVED', isDraft: false }), ctx)).toEqual({})
+    it('a draft carries its forward action in the wizard footer, so the step nav is empty', () => {
+        expect(resolveStepNav('study-overview', state({ status: 'DRAFT', isDraft: true }), ctx)).toEqual({})
     })
 
     it('covers every researcher screen', () => {
@@ -87,6 +93,71 @@ describe('resolveStepNav — spec pattern invariants', () => {
             'study-overview',
             'study-results',
         ])
+    })
+})
+
+describe('resolveStepNav — proposal phase', () => {
+    const submitted = { isDraft: false } as const
+
+    it('anchors "Previous step" to the read-only Step 1 record, carrying the entry point', () => {
+        const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status: 'APPROVED' }), {
+            ...ctx,
+            returnTo: 'org',
+        })
+        expect(nav.back).toMatchObject({ label: 'Previous step', variant: 'subtle', href: `${base}/edit?returnTo=org` })
+    })
+
+    it('under review: the Data Partner holds the next move, so the exit is elevated', () => {
+        const nav = resolveStepNav('study-overview', state({ ...submitted, status: 'PENDING-REVIEW' }), ctx)
+        expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+        expect(nav.back?.href).toBe(`${base}/edit`)
+    })
+
+    it('approved, no code yet: "Next step" opens Step 3', () => {
+        const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status: 'APPROVED' }), ctx)
+        expect(labels(nav)).toEqual(['Previous step', undefined, 'Next step'])
+        expect(nav.forward?.href).toBe(`${base}/code`)
+    })
+
+    it('revision requested: "Edit proposal" is the solid action', () => {
+        const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status: 'CHANGE-REQUESTED' }), ctx)
+        expect(nav.forward).toMatchObject({
+            label: 'Edit proposal',
+            variant: 'solid',
+            href: `${base}/edit-and-resubmit`,
+        })
+    })
+
+    it('declined is terminal, so the exit is the action', () => {
+        const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status: 'REJECTED' }), ctx)
+        expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+    })
+
+    // Submitting code and code decisions rewrite study.status; a submitted job means the proposal
+    // was approved and this page was reached by walking back from the code phase.
+    it.each(['PENDING-REVIEW', 'CHANGE-REQUESTED', 'REJECTED', 'APPROVED'] as const)(
+        'once code is submitted, forward returns to the read-only code step (status %s)',
+        (status) => {
+            const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status, hasSubmittedCode: true }), {
+                ...ctx,
+                returnTo: 'org',
+            })
+            expect(labels(nav)).toEqual(['Previous step', undefined, 'Next step'])
+            expect(nav.forward?.href).toBe(`${base}/view/code?returnTo=org`)
+        },
+    )
+
+    describe('proposalStatusScreen', () => {
+        it('is the overview only while the proposal itself is under review', () => {
+            expect(proposalStatusScreen(state({ ...submitted, status: 'PENDING-REVIEW' }))).toBe('study-overview')
+            expect(proposalStatusScreen(state({ ...submitted, status: 'APPROVED' }))).toBe('proposal-feedback')
+        })
+
+        it('treats a study whose code is under review as a decided proposal', () => {
+            const s = state({ ...submitted, status: 'PENDING-REVIEW', hasSubmittedCode: true })
+            expect(proposalStatusScreen(s)).toBe('proposal-feedback')
+            expect(resolveProposalStatusNav(s, ctx)).toEqual(resolveStepNav('proposal-feedback', s, ctx))
+        })
     })
 })
 

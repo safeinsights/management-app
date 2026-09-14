@@ -17,6 +17,13 @@ export {
     resolveDashboardAction,
 } from './resolve'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
-export { resolveStepNav, resolvePhasedStepNav, resolveReviewerStepNav, resolveReviewerPhasedStepNav } from './nav'
+export {
+    resolveStepNav,
+    resolvePhasedStepNav,
+    resolveReviewerStepNav,
+    resolveReviewerPhasedStepNav,
+    resolveProposalStatusNav,
+    proposalStatusScreen,
+} from './nav'
 export type { StepNav, NavAction, NavCtx, NavVariant, PhasedStepNav } from './nav'
 export { canResearcherResubmitCode } from './eligibility'

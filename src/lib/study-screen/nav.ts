@@ -76,9 +76,21 @@ const editCode = (ctx: NavCtx, variant: NavVariant): NavAction => ({
     testId: 'cta-edit-code',
 })
 
+const editProposal = (ctx: NavCtx): NavAction => ({
+    label: 'Edit proposal',
+    href: Routes.studyEditAndResubmit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
+    variant: 'solid',
+    testId: 'cta-edit-proposal',
+})
+
 // --- phase anchors -------------------------------------------------------------------------------
 // "Previous step" is anchored per phase rather than to the page the user arrived from, which is what
 // lets this table stay a pure function of state.
+
+// Proposal phase anchors to Step 1, which serves a submitted study as a read-only record (OTTER-764).
+// returnTo rides along so the round trip lands back on the same entry point, exit included.
+const proposalPreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studyEdit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
 
 // Code phase anchors to the approved proposal, matching the spec's RL table. This branch originally
 // anchored it to Agreements, the step that used to sit between them; OTTER-727 has since hidden that
@@ -93,9 +105,31 @@ const resultsPreviousStep = (ctx: NavCtx): NavAction =>
 
 // --- per-screen rules ----------------------------------------------------------------------------
 
-// The proposal screens are not converted here: their nav moves with the card that adds the read-only
-// Step 1 page it depends on. Empty entries keep the table total without claiming those screens.
-const notConvertedYet: NavRule = () => ({})
+// PENDING-REVIEW is pattern 3: the Data Partner holds the next move. A DRAFT lands here too, but its
+// forward action is the wizard's own footer, so the step nav stays empty.
+const studyOverviewNav: NavRule = (state, ctx) =>
+    state.isDraft ? {} : { back: proposalPreviousStep(ctx), forward: backToMyStudies(ctx) }
+
+// Submitting code and code decisions rewrite study.status, so a submitted job is checked first: it
+// means the proposal was approved and this page was reached by walking back, so forward returns to
+// the read-only code step. Before code, forward is Step 3, the fix, or the exit, by proposal decision.
+const proposalFeedbackNav: NavRule = (state, ctx) => {
+    const back = proposalPreviousStep(ctx)
+    if (state.hasSubmittedCode) {
+        return {
+            back,
+            forward: nextStep(
+                Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }),
+            ),
+        }
+    }
+    if (state.status === 'CHANGE-REQUESTED') return { back, forward: editProposal(ctx) }
+    if (state.status === 'REJECTED') return { back, forward: backToMyStudies(ctx) }
+    if (state.status === 'APPROVED') {
+        return { back, forward: nextStep(Routes.studyCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
+    }
+    return { back, forward: backToMyStudies(ctx) }
+}
 
 const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     back: codePreviousStep(ctx),
@@ -150,8 +184,8 @@ const studyResultsNav: NavRule = (state, ctx) => {
 // Total by construction: a new researcher screen without nav is a compile error, matching the
 // guarantee SCREEN_COMPONENTS gives the screen registry.
 export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
-    'study-overview': notConvertedYet,
-    'proposal-feedback': notConvertedYet,
+    'study-overview': studyOverviewNav,
+    'proposal-feedback': proposalFeedbackNav,
     'code-under-review': codeUnderReviewNav,
     'code-approved': codeApprovedNav,
     'code-feedback': codeFeedbackNav,
@@ -169,6 +203,16 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
 
 export function resolveStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): StepNav {
     return RESEARCHER_STEP_NAV[screen](state, ctx)
+}
+
+// The /submitted route IS the proposal-status page whatever the study has done since: it is the anchor
+// every code-phase "Previous step" walks back to. Its nav therefore comes from the proposal phase
+// directly, not from resolveScreen, which would forward-jump to a code screen for the same state.
+export const proposalStatusScreen = (state: StudyState): ResearcherScreenId =>
+    state.status === 'PENDING-REVIEW' && !state.hasSubmittedCode ? 'study-overview' : 'proposal-feedback'
+
+export function resolveProposalStatusNav(state: StudyState, ctx: NavCtx): StepNav {
+    return resolveStepNav(proposalStatusScreen(state), state, ctx)
 }
 
 // The shared-outputs screens split on a phase the state table cannot see (whether the security key

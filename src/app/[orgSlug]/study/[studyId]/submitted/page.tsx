@@ -1,4 +1,7 @@
 import { getStudyAction } from '@/server/actions/study.actions'
+import { Routes } from '@/lib/routes'
+import { projectStudyState, resolveProposalStatusNav } from '@/lib/study-screen'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
@@ -23,7 +26,14 @@ export default async function StudySubmittedRoute(props: {
         return <AlertNotFound title="Study was not found" message="This study has not been submitted yet" />
     }
 
+    const raw = await rawStudyStateForStudy(studyId)
+    if (!raw) {
+        return <AlertNotFound title="Study was not found" message="No such study exists" />
+    }
+
     const { orgName, entries, studyVersion, feedbackError } = await loadProposalSubmittedData(result)
+    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
+    const nav = resolveProposalStatusNav(projectStudyState(raw), { orgSlug, studyId, dashboardHref, returnTo })
 
     return (
         <ProposalSubmitted
@@ -33,7 +43,7 @@ export default async function StudySubmittedRoute(props: {
             entries={entries}
             studyVersion={studyVersion}
             feedbackError={feedbackError}
-            returnTo={returnTo}
+            nav={nav}
         />
     )
 }

@@ -300,15 +300,16 @@ table a pure function of state.
 
 **Researcher table:**
 
-| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                           |
-| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `study-overview` / `proposal-feedback`       | not converted yet                | not converted yet (OTTER-673, proposal phase lands with OTTER-762)                                                     |
-| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                   |
-| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                            |
-| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                           |
-| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                   |
-| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                            |
-| `outputs-shared`, `study-results`            | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies` |
+| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                   |
+| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                            |
+| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code`; CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
+| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                           |
+| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                    |
+| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                   |
+| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                           |
+| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                    |
+| `outputs-shared`, `study-results`            | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
 
 **Reviewer table:**
 
@@ -321,6 +322,10 @@ table a pure function of state.
 | `reviewer-code-feedback`                 | `/review/proposal`               | CODE-APPROVED: `Next step` → `/review` (always); else `Back to my studies` |
 | `reviewer-outputs-pending`, `-decided`   | `/review/code`                   | `Back to my studies`                                                       |
 | `reviewer-outputs-errored`, `-available` | `/review/code`                   | — (`View` / `Submit decision` are the panel's)                             |
+
+`/submitted` is the anchor every code-phase "Previous step" walks back to, so it resolves its nav
+from the proposal phase directly (`resolveProposalStatusNav` → `proposalStatusScreen`) rather than
+through `resolveScreen`, which would forward-jump to a code screen for the same state.
 
 `Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
 for reviewers, and for researchers the org dashboard only when the study was entered with
