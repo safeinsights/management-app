@@ -35,7 +35,7 @@ type Props = {
 
 // Driven by the job status alone: gating on study.status showed "Code review is closed" for
 // legitimate resubmissions, which leave the study at APPROVED.
-const isCodeReviewEditable = ({ latestJobStatus }: EditableSnapshot): boolean =>
+const isCodeReviewEditable = ({ latestJobStatus }: Pick<EditableSnapshot, 'latestJobStatus'>): boolean =>
     latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
 
 const CONFIRM_BODY =
@@ -216,8 +216,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
         isPending,
     } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, previousHref })
 
-    // The code review gate reads the newest status only, so it names no job and gets no status list.
-    const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus, jobStatuses: [] })
+    const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
