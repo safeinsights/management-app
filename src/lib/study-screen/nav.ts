@@ -1,7 +1,7 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import type { ResearcherScreenId, ReviewerScreenId } from './screens'
-import type { StudyState } from './state.types'
+import type { ResearcherScreenId, ReviewerScreenId, ScreenId } from './screens'
+import type { StudyRole, StudyState } from './state.types'
 import { canResearcherResubmitCode } from './eligibility'
 
 // In-content step navigation (OTTER-673). The spec ("Otter - Front-End Logic" § Navigation) reduces
@@ -215,16 +215,13 @@ export function resolveProposalStatusNav(state: StudyState, ctx: NavCtx): StepNa
     return resolveStepNav(proposalStatusScreen(state), state, ctx)
 }
 
-// The shared-outputs screens split on a phase the state table cannot see (whether the security key
-// has been entered in this session). While locked, the key form's View button is the forward action,
-// so the step nav keeps only Previous; the full nav applies once decrypted (spec: "Outputs available,
-// before decryption"). Kept here so the panel renders what it is handed rather than deriving it.
+// The security-key screens split on a phase the state table cannot see (whether the key has been
+// entered in this session). While locked, the key form's View button is the forward action, so the
+// step nav keeps only Previous; the full nav applies once decrypted (spec: "Outputs available, before
+// decryption"). Derived here so the panels render what they are handed rather than deriving it.
 export type PhasedStepNav = { locked: StepNav; unlocked: StepNav }
 
-export function resolvePhasedStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): PhasedStepNav {
-    const unlocked = resolveStepNav(screen, state, ctx)
-    return { locked: { back: unlocked.back }, unlocked }
-}
+export const phasedStepNav = (nav: StepNav): PhasedStepNav => ({ locked: { back: nav.back }, unlocked: nav })
 
 // --- Data Partner ---------------------------------------------------------------------------------
 // The reviewer's forward action on the active review screens is "Submit decision", which opens a
@@ -290,7 +287,12 @@ export function resolveReviewerStepNav(screen: ReviewerScreenId, state: StudySta
     return REVIEWER_STEP_NAV[screen](state, ctx)
 }
 
-export function resolveReviewerPhasedStepNav(screen: ReviewerScreenId, state: StudyState, ctx: NavCtx): PhasedStepNav {
-    const unlocked = resolveReviewerStepNav(screen, state, ctx)
-    return { locked: { back: unlocked.back }, unlocked }
+const isReviewerScreen = (screen: ScreenId): screen is ReviewerScreenId => screen in REVIEWER_STEP_NAV
+const isResearcherScreen = (screen: ScreenId): screen is ResearcherScreenId => screen in RESEARCHER_STEP_NAV
+
+// The single entry point for the screen dispatcher: the role picks the table, the resolved screen picks
+// the rule. A screen outside its role's table (the reviewer fallback to study-overview) has no nav.
+export function resolveScreenNav(role: StudyRole, screen: ScreenId, state: StudyState, ctx: NavCtx): StepNav {
+    if (role === 'reviewer') return isReviewerScreen(screen) ? resolveReviewerStepNav(screen, state, ctx) : {}
+    return isResearcherScreen(screen) ? resolveStepNav(screen, state, ctx) : {}
 }

@@ -24,6 +24,7 @@ import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { OutputsFeedbackScreen } from './outputs-feedback-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
@@ -47,7 +48,19 @@ const renderScreen = async (
     raw: RawStudyState,
     orgSlug: string,
     returnTo?: 'org',
-) => renderWithProviders(await OutputsFeedbackScreen({ study, raw, orgSlug, dashboardHref: DASHBOARD_HREF, returnTo }))
+) =>
+    renderWithProviders(
+        await OutputsFeedbackScreen({
+            study,
+            raw,
+            ...screenNavProps('researcher', 'outputs-feedback', raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+                returnTo,
+            }),
+        }),
+    )
 
 const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })

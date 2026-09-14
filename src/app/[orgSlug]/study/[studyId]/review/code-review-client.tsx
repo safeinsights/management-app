@@ -18,7 +18,7 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
 import { CodeEvaluationSection } from './code-evaluation-section'
-import { CodeDecisionConfirmationModal } from './code-decision-confirmation-modal'
+import { CODE_DECISION_MODAL_CONTENT, DecisionConfirmationModal } from './decision-confirmation-modal'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
 import { CODE_REVIEW_CRITERIA_KEYS } from '@/hooks/use-code-review-evaluation-map'
@@ -239,9 +239,10 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                 <NonEditableBody isVisible={!initiallyEditable} nav={nav} />
             </CodeReviewFeedbackProviderShare>
 
-            <CodeDecisionConfirmationModal
+            <DecisionConfirmationModal
                 decision={decision.selected}
                 labName={labName}
+                content={CODE_DECISION_MODAL_CONTENT}
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}

@@ -1,4 +1,3 @@
-import type { Route } from 'next'
 import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -9,17 +8,16 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { latestStatusAt } from '@/lib/study-job-status'
-import type { RawStudyState } from '@/lib/study-screen'
-import { projectStudyState, resolveReviewerStepNav } from '@/lib/study-screen'
+import type { RawStudyState, StepNav } from '@/lib/study-screen'
+import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {
-    orgSlug: string
     study: SelectedStudy
     raw: RawStudyState
-    dashboardHref: Route
+    nav: StepNav
 }
 
 function outputsDecisionAttribution(
@@ -36,7 +34,7 @@ function outputsDecisionAttribution(
     }
 }
 
-export async function ReviewerOutputsDecided({ study, orgSlug, raw, dashboardHref }: ReviewerOutputsDecidedProps) {
+export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutputsDecidedProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -59,7 +57,6 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw, dashboardHre
     // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
     // submission-time scan log does not count as an output (OTTER-524).
     const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
-    const nav = resolveReviewerStepNav('reviewer-outputs-decided', state, { orgSlug, studyId: study.id, dashboardHref })
 
     return (
         <Box bg="grey.10">

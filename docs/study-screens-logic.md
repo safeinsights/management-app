@@ -289,8 +289,12 @@ share a `guardSubmittedJob` helper for the submitted-job precondition; each read
 The in-content "Previous step / Next step / Back to my studies" row (OTTER-673) is a second rule
 table keyed on the **same** `StudyState`, one per role: `RESEARCHER_STEP_NAV` and
 `REVIEWER_STEP_NAV`, both `Record<ScreenId, NavRule>` so a screen without an entry is a compile
-error. Screens call `resolveStepNav` / `resolveReviewerStepNav` (or the `*PhasedStepNav` variants
-when a security key gates the page) and hand the result to `StepNavigation`, which only lays it out.
+error. The dispatcher (`_screens/render-screen.tsx`) resolves it **once** per request through
+`resolveScreenNav(role, screen, state, ctx)` and passes `nav` (plus `phasedNav`, the same nav with
+only `Previous step` while a security key is still required) in `ScreenComponentProps`. Screens
+never derive nav themselves: they hand what they are given to `StepNavigation`, which only lays it
+out. The one route outside the registry, `/submitted`, resolves its own through
+`resolveProposalStatusNav` (see below).
 
 The spec's governing rule: every state carries **exactly one solid button**, so no screen is a dead
 end. A Submit / View action that opens a modal or decrypts is not navigation and stays with its form

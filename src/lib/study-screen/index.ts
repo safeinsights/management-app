@@ -19,9 +19,9 @@ export {
 export { resolvePillStatus, resolveRowHighlight } from './pill'
 export {
     resolveStepNav,
-    resolvePhasedStepNav,
     resolveReviewerStepNav,
-    resolveReviewerPhasedStepNav,
+    resolveScreenNav,
+    phasedStepNav,
     resolveProposalStatusNav,
     proposalStatusScreen,
 } from './nav'

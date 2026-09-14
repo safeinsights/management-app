@@ -4,7 +4,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { latestStatusAt } from '@/lib/study-job-status'
-import { projectStudyState, resolveStepNav } from '@/lib/study-screen'
+import { projectStudyState } from '@/lib/study-screen'
 import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
 
@@ -33,25 +33,13 @@ const ProcessingBanner = ({ runErrored, approvedAt }: { runErrored: boolean; app
     )
 }
 
-export async function OutputsPendingScreen({
-    study,
-    raw,
-    orgSlug,
-    dashboardHref,
-    returnTo,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
+export async function OutputsPendingScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardSubmittedJob(study, { noJobMessage: 'This study has no submitted code yet.' })
     if (!('job' in result)) return result
 
     // CODE-APPROVED is what routed us here, so it is the date the step opened.
     const approvedAt = latestStatusAt(result.job.statusChanges, 'CODE-APPROVED')
     const state = projectStudyState(raw)
-    const nav = resolveStepNav('outputs-pending', state, {
-        orgSlug,
-        studyId: study.id,
-        dashboardHref,
-        returnTo,
-    })
 
     return (
         <Box bg="grey.10">

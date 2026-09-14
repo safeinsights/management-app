@@ -18,6 +18,7 @@ import type { RawStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { seedJobFileRow } from '@/tests/artifact.helpers'
+import { projectStudyState, resolveScreenNav } from '@/lib/study-screen'
 import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 
 const setupDecided = async ({
@@ -42,7 +43,17 @@ const setupDecided = async ({
 }
 
 const renderView = async (study: SelectedStudy, raw: RawStudyState, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsDecided({ study, raw, orgSlug, dashboardHref: Routes.dashboard }))
+    renderWithProviders(
+        await ReviewerOutputsDecided({
+            study,
+            raw,
+            nav: resolveScreenNav('reviewer', 'reviewer-outputs-decided', projectStudyState(raw), {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: Routes.dashboard,
+            }),
+        }),
+    )
 
 describe('ReviewerOutputsDecided', () => {
     it('renders the shared page and section headers', async () => {

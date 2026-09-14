@@ -4,8 +4,7 @@ import { AlertNotFound } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import { proposalReviewDecision } from '@/lib/review-decision'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
-import { renderStudyScreen } from '../../_screens/render-screen'
-import { ReviewerProposalFeedbackScreen } from '../../_screens/reviewer-proposal-feedback-screen'
+import { renderScreenById, renderStudyScreen } from '../../_screens/render-screen'
 import { reviewerPageGuard } from '../reviewer-page-guard'
 
 // Shows the decided proposal even when the canonical /review screen is code-stage. Decided-ness
@@ -30,11 +29,8 @@ export default async function ReviewProposalPage(props: { params: Promise<{ orgS
         })
     }
 
-    return (await ReviewerProposalFeedbackScreen({
-        descriptor: { screen: 'reviewer-proposal-feedback' },
-        study,
-        raw,
-        orgSlug,
-        dashboardHref: Routes.dashboard,
-    })) as React.JSX.Element
+    return renderScreenById(
+        { screen: 'reviewer-proposal-feedback' },
+        { role: 'reviewer', study, raw, orgSlug, dashboardHref: Routes.dashboard },
+    )
 }

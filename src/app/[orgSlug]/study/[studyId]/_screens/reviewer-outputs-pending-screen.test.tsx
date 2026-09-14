@@ -17,6 +17,7 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { ReviewerOutputsPendingScreen } from './reviewer-outputs-pending-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 const requireRawState = async (studyId: string) => {
@@ -25,15 +26,16 @@ const requireRawState = async (studyId: string) => {
     return raw
 }
 
-const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) =>
-    renderWithProviders(
+const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) => {
+    const raw = await requireRawState(study.id)
+    const ctx = { orgSlug, studyId: study.id, dashboardHref: Routes.dashboard }
+    return renderWithProviders(
         await ReviewerOutputsPendingScreen({
             study,
-            raw: await requireRawState(study.id),
-            orgSlug,
-            dashboardHref: Routes.dashboard,
+            ...screenNavProps('reviewer', 'reviewer-outputs-pending', raw, ctx),
         }),
     )
+}
 
 const setupApproved = async (jobStatuses: StudyJobStatus[]) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })

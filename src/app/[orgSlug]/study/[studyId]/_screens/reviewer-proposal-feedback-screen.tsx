@@ -2,13 +2,12 @@ import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { proposalReviewDecision } from '@/lib/review-decision'
-import { projectStudyState, resolveReviewerStepNav } from '@/lib/study-screen'
 import { currentReviewVersion } from '@/server/db/queries'
 import { getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
 
-export async function ReviewerProposalFeedbackScreen({ study, raw, orgSlug, dashboardHref }: ScreenComponentProps) {
+export async function ReviewerProposalFeedbackScreen({ study, orgSlug, nav }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
@@ -21,11 +20,6 @@ export async function ReviewerProposalFeedbackScreen({ study, raw, orgSlug, dash
     const fallback = decision
         ? { decision, timestamp: study.approvedAt ?? study.rejectedAt ?? study.createdAt }
         : undefined
-    const nav = resolveReviewerStepNav('reviewer-proposal-feedback', projectStudyState(raw), {
-        orgSlug,
-        studyId: study.id,
-        dashboardHref,
-    })
     return (
         <PostFeedbackView
             orgSlug={orgSlug}

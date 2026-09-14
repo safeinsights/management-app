@@ -29,6 +29,7 @@ import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions
 import { latestJobForStudy } from '@/server/db/queries'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { Routes } from '@/lib/routes'
+import { screenNavProps } from './render-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
@@ -49,7 +50,18 @@ const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
 }
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug, dashboardHref: Routes.dashboard }))
+    renderWithProviders(
+        await ReviewerOutputsAvailableScreen({
+            study,
+            raw,
+            orgSlug,
+            ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: Routes.dashboard,
+            }),
+        }),
+    )
 
 // Single-user editing so the feedback editor renders synchronously instead of a collaborative
 // skeleton.
@@ -59,7 +71,16 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
             <MantineProvider theme={theme}>
                 <YjsWebsocketProvider singleUserEditing>
                     <ModalsProvider>
-                        {await ReviewerOutputsAvailableScreen({ study, raw, orgSlug, dashboardHref: Routes.dashboard })}
+                        {await ReviewerOutputsAvailableScreen({
+                            study,
+                            raw,
+                            orgSlug,
+                            ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
+                                orgSlug,
+                                studyId: study.id,
+                                dashboardHref: Routes.dashboard,
+                            }),
+                        })}
                     </ModalsProvider>
                 </YjsWebsocketProvider>
             </MantineProvider>

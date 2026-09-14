@@ -5,7 +5,7 @@ import { ButtonLink } from '@/components/links'
 import type { NavAction, NavVariant, StepNav } from '@/lib/study-screen'
 
 // The single in-content step navigation for the study flow (OTTER-673). What each button says, where
-// it goes and how heavy it looks is decided by resolveStepNav; this component only lays it out.
+// it goes and how heavy it looks is decided by the nav table (resolveScreenNav); this only lays it out.
 
 // Mantine has no "solid" — the spec's three weights map onto filled / outline / subtle.
 const MANTINE_VARIANT: Record<NavVariant, ButtonVariant> = {

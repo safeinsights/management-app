@@ -5,9 +5,9 @@ import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import {
     RESEARCHER_STEP_NAV,
     REVIEWER_STEP_NAV,
-    resolvePhasedStepNav,
-    resolveReviewerPhasedStepNav,
+    phasedStepNav,
     resolveReviewerStepNav,
+    resolveScreenNav,
     resolveProposalStatusNav,
     proposalStatusScreen,
     resolveStepNav,
@@ -215,12 +215,36 @@ describe('resolveStepNav — code phase', () => {
     })
 })
 
-describe('resolvePhasedStepNav', () => {
+describe('phasedStepNav', () => {
     it('keeps only Previous step while locked and the full nav once decrypted', () => {
         const s = state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })
-        const { locked, unlocked } = resolvePhasedStepNav('outputs-shared', s, ctx)
+        const nav = resolveStepNav('outputs-shared', s, ctx)
+        const { locked, unlocked } = phasedStepNav(nav)
         expect(labels(locked)).toEqual(['Previous step', undefined, undefined])
-        expect(unlocked).toEqual(resolveStepNav('outputs-shared', s, ctx))
+        expect(unlocked).toBe(nav)
+    })
+})
+
+describe('resolveScreenNav', () => {
+    const approved = state({
+        status: 'APPROVED',
+        isDraft: false,
+        hasSubmittedCode: true,
+        codeDecision: 'CODE-APPROVED',
+    })
+
+    it('picks the table by role', () => {
+        expect(resolveScreenNav('researcher', 'code-approved', approved, ctx)).toEqual(
+            resolveStepNav('code-approved', approved, ctx),
+        )
+        expect(resolveScreenNav('reviewer', 'reviewer-code-feedback', approved, ctx)).toEqual(
+            resolveReviewerStepNav('reviewer-code-feedback', approved, ctx),
+        )
+    })
+
+    it("gives a screen outside its role's table no nav (the reviewer fallback to study-overview)", () => {
+        expect(resolveScreenNav('reviewer', 'study-overview', approved, ctx)).toEqual({})
+        expect(resolveScreenNav('researcher', 'reviewer-code-review', approved, ctx)).toEqual({})
     })
 })
 
@@ -405,9 +429,9 @@ describe('resolveReviewerStepNav — outputs phase', () => {
         '%s keeps only "Previous step": View and Submit decision belong to the panel',
         (screen) => {
             const s = state({ ...approved, hasResults: true })
-            const { locked, unlocked } = resolveReviewerPhasedStepNav(screen, s, ctx)
+            const { locked, unlocked } = phasedStepNav(resolveReviewerStepNav(screen, s, ctx))
             expect(labels(locked)).toEqual(['Previous step', undefined, undefined])
-            expect(unlocked).toEqual(resolveReviewerStepNav(screen, s, ctx))
+            expect(labels(unlocked)).toEqual(['Previous step', undefined, undefined])
             expect(unlocked.back?.href).toBe(`${base}/review/code`)
         },
     )
