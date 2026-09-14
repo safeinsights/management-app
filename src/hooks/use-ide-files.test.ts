@@ -68,6 +68,7 @@ describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
         await waitFor(() => expect(result.current.userEditedFiles).toBe(false))
         act(() => result.current.uploadFiles([new File(['print(1)'], 'extra.R')]))
         await waitFor(() => expect(result.current.userEditedFiles).toBe(true))
+        await waitFor(() => expect(result.current.isUploading).toBe(false))
     })
 
     it('flips to true after the user removes a file', async () => {

@@ -144,7 +144,7 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
 
-    it('keeps the confirmation up and the form locked while publishing', async () => {
+    it('locks the form while publishing and closes the confirmation once published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const title = `SLA study ${faker.string.alpha(6)}`
         await seedSignedSla({ signedAt: '2026-07-27', title })
@@ -167,8 +167,6 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).getByText('Publish this file?')).toBeDefined()
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled())
 
-        // The publish is still running. Wait for it to land inside this test's transaction: after
-        // teardown the pg patch is gone, so Postgres would commit it into the shared database.
         await waitFor(() => expect(screen.queryByText('Publish this file?')).toBeNull())
     })
 
