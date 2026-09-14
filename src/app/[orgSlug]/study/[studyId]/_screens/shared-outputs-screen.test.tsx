@@ -27,6 +27,7 @@ import type { RawStudyState, ScreenId } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { SharedOutputsScreen } from './shared-outputs-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 // Same seam the panel test uses: decrypting for real needs the wrapped-key fetch to return a
@@ -116,9 +117,12 @@ const renderScreen = async (
             descriptor: { screen: variant.screen },
             study,
             raw,
-            orgSlug,
-            dashboardHref: DASHBOARD_HREF,
-            returnTo,
+            ...screenNavProps('researcher', variant.screen, raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+                returnTo,
+            }),
         }),
     )
 
@@ -218,8 +222,11 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
             descriptor: { screen: 'study-overview' },
             study,
             raw,
-            orgSlug: org.slug,
-            dashboardHref: DASHBOARD_HREF,
+            ...screenNavProps('researcher', 'study-overview', raw, {
+                orgSlug: org.slug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+            }),
         })
 
         expect(notFound).toHaveBeenCalled()

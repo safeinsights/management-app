@@ -52,7 +52,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
         // Yjs autosave is inactive in single-user mode, so flush explicitly.
         const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
         if (!fieldsSaved || !noteSaved) return
-        router.push(Routes.studySubmitted({ orgSlug, studyId }))
+        router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     const handleOpenReviewer = async () => {
@@ -75,7 +75,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
                     loading={isSavingNote || isSaving}
                     onClick={handleBack}
                 >
-                    Back
+                    Previous step
                 </Button>
                 <Group align="flex-start">
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>

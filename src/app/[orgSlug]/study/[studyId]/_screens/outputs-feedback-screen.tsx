@@ -4,7 +4,7 @@ import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { isFeedbackOnlyOutcome, projectStudyState, resolveStepNav } from '@/lib/study-screen'
+import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
@@ -33,13 +33,7 @@ const bannerCopy = (errored: boolean, dataPartner: string) =>
               message: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
           }
 
-export async function OutputsFeedbackScreen({
-    study,
-    raw,
-    orgSlug,
-    dashboardHref,
-    returnTo,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
+export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardOutputsFeedbackScreen({
         study,
         raw,
@@ -55,12 +49,6 @@ export async function OutputsFeedbackScreen({
     const { entries, feedbackLoadError, dataPartner, decidedAt } = result
     const state = projectStudyState(raw)
     const banner = bannerCopy(state.runErrored, dataPartner)
-    const nav = resolveStepNav('outputs-feedback', state, {
-        orgSlug,
-        studyId: study.id,
-        dashboardHref,
-        returnTo,
-    })
 
     return (
         <Box bg="grey.10">

@@ -16,8 +16,7 @@ export {
     resolveReviewerCodeScreen,
     resolveDashboardAction,
 } from './resolve'
-export { hasNextStepFromCode } from './next-step'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
-export { resolveStepNav, resolvePhasedStepNav } from './nav'
+export { resolveStepNav, resolveReviewerStepNav, resolveScreenNav, phasedStepNav } from './nav'
 export type { StepNav, NavAction, NavCtx, NavVariant, PhasedStepNav } from './nav'
 export { canResearcherResubmitCode } from './eligibility'

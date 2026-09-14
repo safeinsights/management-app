@@ -4,7 +4,6 @@ import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
-import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
 import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
@@ -22,14 +21,16 @@ export async function ReviewerOutputsErroredScreen({
     study,
     raw,
     orgSlug,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug'>) {
+    phasedNav,
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'phasedNav'>) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
     // The same predicate the routing rules use, so routing and rendering cannot disagree.
-    if (!awaitingFilesDecisionOnError(projectStudyState(raw))) {
+    const state = projectStudyState(raw)
+    if (!awaitingFilesDecisionOnError(state)) {
         return <AlertNotFound title="No error found" message="This study has not encountered an error." />
     }
 
@@ -50,7 +51,7 @@ export async function ReviewerOutputsErroredScreen({
             header={<StudyPageHeader study={study} />}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
-            previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
+            nav={phasedNav}
             // A failed run producing nothing is routine, so the round must still be closable.
             // Deliberately not set on the outputs-available screen (OTTER-524).
             allowDecisionWithoutArtifacts

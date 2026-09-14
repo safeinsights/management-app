@@ -1,21 +1,18 @@
 'use client'
 
-import type { FC } from 'react'
-import { Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
+import { Stack } from '@mantine/core'
 import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { Routes } from '@/lib/routes'
-import { Link } from '@/components/links'
+import type { StepNav } from '@/lib/study-screen'
 import { effectiveProposalStatus } from '@/lib/review-decision'
-import { decisionTimestampForProposalHeader, researcherCodeStepHref } from '@/lib/studies'
+import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
 
@@ -26,7 +23,8 @@ interface ProposalSubmittedProps {
     entries: ProposalFeedbackEntry[]
     studyVersion: number
     feedbackError?: boolean
-    returnTo?: 'org'
+    // Resolved by the route from the researcher nav table (OTTER-673).
+    nav: StepNav
 }
 
 function StatusBanner({
@@ -45,71 +43,6 @@ function StatusBanner({
             {copy.body}
         </StatusAlert>
     )
-}
-
-const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?: 'org' }> = ({
-    orgSlug,
-    study,
-    returnTo,
-}) => {
-    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
-    const editAndResubmitHref = Routes.studyEditAndResubmit({ orgSlug, studyId: study.id })
-    // Step 1, which serves the submitted study as a read-only record (OTTER-764). returnTo rides
-    // along so the round trip back here lands on the same page the researcher came from, exit
-    // included, rather than silently switching to the personal dashboard.
-    const setupHref = Routes.studyEdit({ orgSlug, studyId: study.id, returnTo })
-    const proposalStatus = effectiveProposalStatus(study)
-
-    const proceedHref = researcherCodeStepHref(study, { orgSlug, returnTo })
-
-    switch (proposalStatus) {
-        case 'CHANGE-REQUESTED':
-            return (
-                <Group justify="space-between">
-                    <Button
-                        component={Link}
-                        href={dashboardHref}
-                        variant="subtle"
-                        size="md"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Back
-                    </Button>
-                    <Button component={Link} href={editAndResubmitHref} size="md">
-                        Edit proposal
-                    </Button>
-                </Group>
-            )
-        case 'APPROVED':
-            return (
-                <Group justify="space-between">
-                    <Button
-                        component={Link}
-                        href={dashboardHref}
-                        variant="subtle"
-                        size="md"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Back
-                    </Button>
-                    <Button component={Link} href={proceedHref} size="md">
-                        Proceed to step 3
-                    </Button>
-                </Group>
-            )
-        default:
-            // No forward action exists from here, so the researcher gets a step back to the read-only
-            // Step 1 record alongside the exit (OTTER-764). The two branches above keep their own
-            // designed navigation.
-            return (
-                <Group justify="space-between">
-                    <PreviousStepLink previousHref={setupHref} size="md" />
-                    <Button component={Link} href={dashboardHref} size="md">
-                        Go to dashboard
-                    </Button>
-                </Group>
-            )
-    }
 }
 
 const STATUSES_EXPECTING_FEEDBACK: StudyStatus[] = ['APPROVED', 'REJECTED', 'CHANGE-REQUESTED']
@@ -132,7 +65,7 @@ export function ProposalSubmitted({
     entries,
     studyVersion,
     feedbackError,
-    returnTo,
+    nav,
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
     const bannerCopy = researcherProposalBanner(proposalStatus, {
@@ -160,7 +93,7 @@ export function ProposalSubmitted({
                 />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
-                <ProposalNavigation orgSlug={orgSlug} study={study} returnTo={returnTo} />
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

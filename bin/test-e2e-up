@@ -88,5 +88,10 @@ fi
 note "Migrating + seeding ${TEST_DB} (faked Clerk — DB users/orgs only)…"
 DATABASE_URL="$TEST_DATABASE_URL" pnpm run db:migrate
 
+# The Playwright process runs the seed (tests/e2e.seed.ts) itself, so it needs the same treatment
+# bin/app-test gives the app: a shell AWS_PROFILE makes the SDK prefer (expired) SSO over the static
+# SeaweedFS credentials in .env.test.
+unset AWS_PROFILE
+
 note "Infra ready. Running e2e against ${TEST_DATABASE_URL}"
 exec pnpm run test:e2e "$@"

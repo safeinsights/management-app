@@ -230,17 +230,17 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         await user.type(screen.getByLabelText('Study Title Probe'), ' edited')
     }
 
-    it('flushes edited fields to the study row and leaves the title alone, then navigates back to the submitted view', async () => {
+    it('flushes edited fields to the study row and leaves the title alone, then steps back to the read-only Step 1 record', async () => {
         const user = userEvent.setup()
         const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
 
         renderFooterForStudy(study.id, researcher.id)
         await dirtyTheForm(user)
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
             { timeout: 5000 },
         )
 
@@ -285,7 +285,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         renderFooterForStudy(study.id, researcher.id)
         await dirtyTheForm(user)
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
         const errorCall = (notifications.show as Mock).mock.calls.find(
@@ -305,10 +305,10 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
         renderFooterForStudy(study.id, researcher.id)
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
             { timeout: 5000 },
         )
         expect(notifications.show).not.toHaveBeenCalled()
