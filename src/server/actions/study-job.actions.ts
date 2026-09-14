@@ -14,7 +14,6 @@ import {
 import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { FileType } from '@/database/types'
 import {
-    codeSubmissionVersion,
     getLabPublicKeysForStudy,
     getUserPublicKey,
     getSharedFileIdsForJob,
@@ -23,6 +22,7 @@ import {
     jobAnalysisUpdateForJob,
     latestJobForStudy,
     fetchUserFullName,
+    outputsDecisionVersion,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
@@ -193,7 +193,11 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             assertSharesEveryArtifact(studyJob.files, sharedFiles)
         }
 
-        const round = await codeSubmissionVersion(studyId, db)
+        // The round is counted study-wide but the unique index is per job, so two reviewers deciding
+        // different jobs of one study could otherwise read the same round. Serialize on the study row.
+        await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().executeTakeFirstOrThrow()
+
+        const round = await outputsDecisionVersion(studyId, db)
 
         try {
             await db

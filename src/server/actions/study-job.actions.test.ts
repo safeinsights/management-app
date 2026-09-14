@@ -24,6 +24,7 @@ import {
     rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
+import { codeSubmissionVersion } from '@/server/db/queries'
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
@@ -469,6 +470,82 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(0)
+        })
+
+        // OTTER-766: the decision used to inherit the code submission round, so a study on its first
+        // outputs decision showed "Reviewer feedback (v2.0)" after one code resubmit.
+        test('the first outputs decision is round 1 however far the code rounds have climbed', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture()
+            await db
+                .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
+                    { studyJobId: job.id, status: 'CODE-SUBMITTED' },
+                    { studyJobId: job.id, status: 'CODE-APPROVED' },
+                ])
+                .execute()
+            expect(await codeSubmissionVersion(study.id)).toBe(2)
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-feedback-only',
+                    feedback: 'The totals still disclose a small cell count.',
+                    sharedFiles: [],
+                }),
+            )
+
+            expect(await resultsComment(study.id)).toMatchObject({ round: 1 })
+        })
+
+        test('a second outputs decision on a later job is round 2', async () => {
+            const { enclave, job, study } = await setupResultApprovalFixture()
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-feedback-only',
+                    feedback: 'The totals still disclose a small cell count.',
+                    sharedFiles: [],
+                }),
+            )
+
+            const secondJob = await db
+                .insertInto('studyJob')
+                .values({ studyId: study.id })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId: secondJob.id, status: 'CODE-SUBMITTED' },
+                    { studyJobId: secondJob.id, status: 'CODE-APPROVED' },
+                    { studyJobId: secondJob.id, status: 'RUN-COMPLETE' },
+                ])
+                .execute()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: secondJob.id,
+                    decision: 'share-feedback-only',
+                    feedback: 'Closer, but the log still names a participant.',
+                    sharedFiles: [],
+                }),
+            )
+
+            const rounds = await db
+                .selectFrom('studyReviewComment')
+                .select(['studyJobId', 'round'])
+                .where('studyId', '=', study.id)
+                .where('reviewKind', '=', 'RESULTS')
+                .orderBy('round')
+                .execute()
+            expect(rounds).toEqual([
+                { studyJobId: job.id, round: 1 },
+                { studyJobId: secondJob.id, round: 2 },
+            ])
         })
 
         test('rejects empty feedback without touching the job status', async () => {

@@ -30,7 +30,6 @@ export function ClerkProvider({ children }: { children: ReactNode; publishableKe
         // Re-sync from the cookie so consumers that rendered signed-out during SSR flip
         // to the real role.
         notifyAuthChanged()
-        ;(window as unknown as { isReactHydrated?: boolean }).isReactHydrated = true
     }, [])
     return <>{children}</>
 }

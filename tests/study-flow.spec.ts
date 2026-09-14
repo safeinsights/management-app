@@ -142,7 +142,7 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
     await expect(confirmDialog.getByText('Submit your proposal?')).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Submit proposal' }).click()
 
-    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
 
     // Button component={Link} renders as an anchor.
     await page
@@ -207,7 +207,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     // Code submission redirects to CodePostSubmissionView; wait on its banner (it
     // only appears after the mutation completes), not a URL change.
-    await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
 
     return mainFileName
 }
@@ -275,7 +275,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await dialog.getByRole('button', { name: /^Approve proposal$/i }).click()
     await expect(dialog).toBeHidden()
 
-    await expect(page.getByText(/Approved on/)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
     await page.getByTestId('go-to-dashboard').click()
     await page.waitForURL('**/dashboard')
 }
@@ -318,8 +318,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
     // lands on the outputs-pending "Review outputs" screen rather than the approval confirmation.
-    await expect(page.getByTestId('status-alert')).toBeVisible()
-    await expect(page.getByText(/Outputs not ready/)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Outputs not ready')
     await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
@@ -610,7 +609,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByText(/successfully submitted/i)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
     })
 })
 
@@ -697,7 +696,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
         await goto(page, RESEARCHER_DASHBOARD)
         await viewStudyDetails(page, studyTitle)
         await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
-        await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
     })
 })
 
@@ -833,7 +832,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await dialog.getByRole('button', { name: /^Decline and end study$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
         await page.getByTestId('go-to-dashboard').click()
         await page.waitForURL('**/dashboard')
 
@@ -853,7 +852,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
 
         // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
         await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
@@ -908,8 +907,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Clarification requested on/)).toBeVisible()
-        await expect(page.getByTestId('decision-banner-clarification')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         await page.getByTestId('go-to-dashboard').click()
         await page.waitForURL('**/dashboard')
     })
@@ -922,8 +920,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByTestId('status-banner-CHANGE-REQUESTED')).toBeVisible()
-        await expect(page.getByText(/Clarification requested on/)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         await page.getByRole('link', { name: /Edit and resubmit/i }).click()
@@ -989,7 +986,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Change requested on/)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         await page.getByTestId('go-to-dashboard').click()
         await page.waitForURL('**/dashboard')
     })
@@ -1001,7 +998,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await expect(studyRow).toBeVisible()
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
-        await expect(page.getByTestId('decision-banner-code-change-requested')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
         await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
@@ -1066,8 +1063,7 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'reviewer', async (page) => {
         await goto(page, `/openstax/study/${studyId}/review`)
 
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
-        await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Code declined')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -1078,7 +1074,7 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
         // CODE-REJECTED is terminal: rejected banner + the elevated exit only (no resubmit CTA).
-        await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Code declined')
         await expect(page.getByTestId('cta-back-to-my-studies')).toBeVisible()
         await expect(page.getByTestId('cta-edit-code')).not.toBeVisible()
     })

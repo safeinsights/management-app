@@ -477,19 +477,21 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 
     it('records a view against the file when its name is clicked', async () => {
         const { job } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        await waitFor(() => expect(screen.getByText('No activity yet')).toBeInTheDocument())
 
         fireEvent.click(screen.getByRole('button', { name: 'run.log' }))
 
-        await waitFor(async () => {
-            const rows = await db
-                .selectFrom('studyJobFileActivity')
-                .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
-                .where('studyJobFile.studyJobId', '=', job.id)
-                .selectAll('studyJobFileActivity')
-                .execute()
-            expect(rows).toHaveLength(1)
-            expect(rows[0].action).toBe('VIEWED')
-            expect(rows[0].filePath).toBe('run.log')
-        })
+        // The cell is refetched when the recording settles, so the row is already there after this.
+        await waitFor(() => expect(screen.queryByText('No activity yet')).toBeNull())
+
+        const rows = await db
+            .selectFrom('studyJobFileActivity')
+            .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
+            .where('studyJobFile.studyJobId', '=', job.id)
+            .selectAll('studyJobFileActivity')
+            .execute()
+        expect(rows).toHaveLength(1)
+        expect(rows[0].action).toBe('VIEWED')
+        expect(rows[0].filePath).toBe('run.log')
     })
 })

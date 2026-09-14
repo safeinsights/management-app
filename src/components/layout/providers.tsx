@@ -3,7 +3,7 @@
 import { cssVariablesResolver, theme } from '@/theme'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
-import { useEffect, type FC, type ReactNode } from 'react'
+import { type FC, type ReactNode } from 'react'
 // QueryClientProvider relies on useContext, hence 'use client':
 // https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -57,10 +57,6 @@ export function getQueryClient() {
 export const Providers: FC<Props> = ({ children, singleUserEditing = false, posthogProjectToken = '' }) => {
     const queryClient = getQueryClient()
     usePostHogInit(posthogProjectToken)
-
-    useEffect(() => {
-        window.isReactHydrated = true
-    }, [])
 
     return (
         <QueryClientProvider client={queryClient}>
