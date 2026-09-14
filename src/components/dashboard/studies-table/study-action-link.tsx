@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
@@ -58,7 +59,7 @@ function ReviewerLink({ study, orgSlug, isHighlighted }: { study: StudyRow; orgS
     const href = Routes.studyReview({ orgSlug: slug, studyId: study.id })
 
     return (
-        <Link href={href} c="blue.7" fw={isHighlighted ? 600 : undefined}>
+        <Link href={href} c={semanticColor('link.default')} fw={isHighlighted ? 600 : undefined}>
             View
         </Link>
     )

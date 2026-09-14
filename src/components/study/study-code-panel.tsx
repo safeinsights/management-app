@@ -8,6 +8,7 @@ import { LaunchProgress } from './launch-progress'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
 import { UploadFilesButton } from './upload-files-button'
+import { fontWeight } from '@/theme/tokens'
 
 export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
 
@@ -103,7 +104,7 @@ export const StudyCodePanel = ({
             <Paper p="xl">
                 <Stack gap="xs">
                     {stepLabel && (
-                        <Text fz="sm" fw={700} c="gray.7">
+                        <Text fz="sm" fw={fontWeight.bold} c="gray.7">
                             {stepLabel}
                         </Text>
                     )}

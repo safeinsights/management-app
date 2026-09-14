@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { orgInitialsTitle } from '@/lib/string'
 import { ExternalLinks } from '@/lib/routes'
 import { type ActionSuccessType, isEnclaveOrg } from '@/lib/types'
@@ -52,7 +53,7 @@ export const NavOrgLinksView: React.FC<NavOrgLinksViewProps> = ({ org, adminLink
 
     return (
         <Stack>
-            <Title c="white" py="md" px="sm" order={4}>
+            <Title c={semanticColor('text.white')} py="md" px="sm" order={4}>
                 {orgInitialsTitle(org.name, org.type)}
             </Title>
             <Divider />

@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Button, Group, Stack } from '@mantine/core'
@@ -65,7 +66,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     const canShareOutputs = requiresKey
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
                 <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />

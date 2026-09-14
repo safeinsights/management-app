@@ -2,6 +2,7 @@
 
 import { Text } from '@mantine/core'
 import type { ReactNode } from 'react'
+import { fontWeight } from '@/theme/tokens'
 
 interface DisplayFieldProps {
     label: string
@@ -11,7 +12,7 @@ interface DisplayFieldProps {
 export function DisplayField({ label, children }: DisplayFieldProps) {
     return (
         <div>
-            <Text fw={600} size="sm" mb={4}>
+            <Text fw={fontWeight.semibold} size="sm" mb="xxs">
                 {label}
             </Text>
             {children}

@@ -56,7 +56,7 @@ const MAIN_FILE_TOOLTIP =
 
 function MainFileColumnHeader() {
     return (
-        <Group gap={4} wrap="nowrap" align="center">
+        <Group gap="xxs" wrap="nowrap" align="center">
             <Text component="span" inherit>
                 Main file
             </Text>

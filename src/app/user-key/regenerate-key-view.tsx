@@ -4,6 +4,7 @@ import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { PageHeader } from '@/components/page-header'
+import { fontWeight } from '@/theme/tokens'
 
 export type RegenerateKeyViewProps = {
     generatedOn: string
@@ -23,10 +24,10 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
     onConfirmGenerate,
 }) => {
     return (
-        <Stack p="xl" mx="sm" gap={40}>
+        <Stack p="xl" mx="sm" gap="xxl">
             <PageHeader title="Security key" />
 
-            <Stack gap={16}>
+            <Stack gap="md">
                 <Title order={2} fz={20}>
                     Existing security key
                 </Title>
@@ -37,7 +38,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 </Text>
             </Stack>
 
-            <Stack gap={16}>
+            <Stack gap="md">
                 <Title order={2} fz={20}>
                     Lost access to your key?
                 </Title>
@@ -46,7 +47,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                     Outputs can be accessed only with a security key. If you have lost yours, ask another member of your
                     organization to access them with their key. To restore your own access going forward, you can
                     generate a new key below.{' '}
-                    <Text component="b" fw={700} inherit>
+                    <Text component="b" fw={fontWeight.bold} inherit>
                         A new key cannot decrypt your current outputs. It works only for outputs encrypted after you
                         generate it.
                     </Text>

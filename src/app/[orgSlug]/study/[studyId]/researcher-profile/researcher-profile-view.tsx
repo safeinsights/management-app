@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Group, Stack, Title } from '@mantine/core'
 import { Link } from '@/components/links'
@@ -29,8 +30,8 @@ export function ResearcherProfileView({ header, orgSlug, studyId, profileData, o
     return (
         <Stack px="xl" gap="xl">
             {header}
-            <Link href={backHref} c="blue.7">
-                <Group gap={4} display="inline-flex">
+            <Link href={backHref} c={semanticColor('link.default')}>
+                <Group gap="xxs" display="inline-flex">
                     <ArrowLeftIcon size={16} />
                     Back to study proposal
                 </Group>

@@ -10,6 +10,7 @@ import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { usePopover } from '@/hooks/use-popover'
 import { type ProposalFormValues } from './schema'
 import { editableTextFields } from './field-config'
+import { fontWeight } from '@/theme/tokens'
 
 interface ReviewerPreviewProps {
     studyId: string
@@ -37,19 +38,19 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
     return (
         <Stack gap="lg">
             <Box>
-                <Text size="sm" fw={600} mb="xs">
+                <Text size="sm" fw={fontWeight.semibold} mb="xs">
                     Study title
                 </Text>
-                <Text size="md" fw={400}>
+                <Text size="md" fw={fontWeight.regular}>
                     {studyTitle?.trim() || 'Not provided'}
                 </Text>
             </Box>
 
             <Box>
-                <Text size="sm" fw={600} mb="xs">
+                <Text size="sm" fw={fontWeight.semibold} mb="xs">
                     Dataset(s) of interest
                 </Text>
-                <Text size="md" fw={400}>
+                <Text size="md" fw={fontWeight.regular}>
                     {values.datasets.length > 0
                         ? values.datasets
                               .map((id) => datasetOptions.find((o) => o.value === id)?.label || id)
@@ -66,13 +67,13 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
 
                 return (
                     <Box key={field.id}>
-                        <Text size="sm" fw={600} mb="xs">
+                        <Text size="sm" fw={fontWeight.semibold} mb="xs">
                             {field.label}
                         </Text>
                         {hasContent ? (
                             <EditableText value={fieldValue} readOnly borderless resizable={false} />
                         ) : (
-                            <Text size="md" fw={400}>
+                            <Text size="md" fw={fontWeight.regular}>
                                 Not provided
                             </Text>
                         )}
@@ -83,7 +84,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
             <Divider />
 
             <Box>
-                <Text size="sm" fw={600} mb="xs">
+                <Text size="sm" fw={fontWeight.semibold} mb="xs">
                     Principal Investigator
                 </Text>
                 {values.piUserId ? (
@@ -101,7 +102,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
             </Box>
 
             <Box>
-                <Text size="sm" fw={600} mb="xs">
+                <Text size="sm" fw={fontWeight.semibold} mb="xs">
                     Researcher
                 </Text>
                 <ResearcherProfilePopover

@@ -4,6 +4,7 @@ import type { FileWithPath } from '@mantine/dropzone'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { FileDropOverlay } from './file-drop-overlay'
 import { FileReviewTable } from './file-review-table'
+import { fontWeight } from '@/theme/tokens'
 
 interface StudyCodeReviewViewProps {
     uploadFiles: (files: FileWithPath[]) => void
@@ -30,8 +31,8 @@ export function StudyCodeReviewView({
 }: StudyCodeReviewViewProps) {
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Text fw={600}>Review files</Text>
+            <Stack gap="xxs">
+                <Text fw={fontWeight.semibold}>Review files</Text>
                 <Text size="sm" c="dimmed">
                     Review and manage submitted code files. You can update files, delete them, or upload new ones.
                 </Text>

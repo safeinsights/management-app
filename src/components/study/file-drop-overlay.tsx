@@ -6,6 +6,7 @@ import { Dropzone, type FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { fontWeight } from '@/theme/tokens'
 
 const ACCEPTED_EXTENSIONS = new Set(
     Object.values(ACCEPTED_FILE_TYPES)
@@ -42,7 +43,7 @@ function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
                     <ThemeIcon variant="light" color="blue" size="xl" radius="xl">
                         <FileArrowUpIcon size={28} />
                     </ThemeIcon>
-                    <Text fw={600} size="md">
+                    <Text fw={fontWeight.semibold} size="md">
                         Drop files to include
                     </Text>
                     <Text size="xs" c="dimmed">

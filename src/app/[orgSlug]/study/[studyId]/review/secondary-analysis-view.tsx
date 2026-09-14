@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import type { Route } from 'next'
 import { Box, Group, Stack } from '@mantine/core'
@@ -24,7 +25,7 @@ export function SecondaryAnalysisView({
     dashboardHref,
 }: SecondaryAnalysisViewProps) {
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
                 <ProposalStepHeader

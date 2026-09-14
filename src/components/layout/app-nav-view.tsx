@@ -35,7 +35,7 @@ export function AppNavView({
                 <NavbarOrgSquares isMainDashboard={isMainDashboard} focusedOrgSlug={focusedOrgSlug} orgs={orgs} />
                 <Stack h="100%" flex={1}>
                     {isDesktop && (
-                        <Box p={24}>
+                        <Box p="lg">
                             <Link href={Routes.home}>
                                 <SafeInsightsLogo width={140} />
                             </Link>

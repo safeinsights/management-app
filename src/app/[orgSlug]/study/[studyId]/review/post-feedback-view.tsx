@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { ButtonLink } from '@/components/links'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -167,7 +168,7 @@ export function PostFeedbackView({
     const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <CollapsibleSubmittedCodeSection

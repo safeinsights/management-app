@@ -7,6 +7,7 @@ import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeButton } from './launch-ide-button'
 import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
+import { fontWeight } from '@/theme/tokens'
 
 interface StarterFile {
     name: string
@@ -52,7 +53,7 @@ export function StudyCodeEmptyView({
             {showLaunchIde && (
                 <Paper bg="violet.0" p="lg" radius="md">
                     <Stack gap="sm">
-                        <Text fw={700}>Write and test your code in IDE (recommended)</Text>
+                        <Text fw={fontWeight.bold}>Write and test your code in IDE (recommended)</Text>
                         <Text size="sm" c="dimmed">
                             IDE is pre-configured to help you write your code and test it against example data. It will
                             open in a new tab and you can write your code there. All files created in the IDE will
@@ -73,7 +74,7 @@ export function StudyCodeEmptyView({
                             lastUpdatedAt={launchLastUpdatedAt}
                         />
                         <Text size="sm">
-                            <Text span fw={700}>
+                            <Text span fw={fontWeight.bold}>
                                 Note:{' '}
                             </Text>
                             After creating or editing files in the IDE, please return here to submit your code to the
@@ -88,7 +89,7 @@ export function StudyCodeEmptyView({
             <FileDropOverlay onDrop={uploadFiles} disabled={isUploading} showHelperText={false} openRef={openRef}>
                 <Paper withBorder p="lg" radius="md">
                     <Stack gap="sm">
-                        <Text fw={700}>Upload your files</Text>
+                        <Text fw={fontWeight.bold}>Upload your files</Text>
                         <Text size="sm" c="dimmed">
                             Make sure that your main file contains the <StarterCodeLink file={starterLink} /> provided
                             by the Data Partner for accessing their datasets. You may also continue to edit your
@@ -99,7 +100,7 @@ export function StudyCodeEmptyView({
                                 <ThemeIcon variant="light" color="gray" size="xl" radius="md">
                                     <FileArrowUpIcon size={24} />
                                 </ThemeIcon>
-                                <Text fw={600}>Drop your files</Text>
+                                <Text fw={fontWeight.semibold}>Drop your files</Text>
                                 <Text size="xs" c="dimmed">
                                     {ACCEPTED_FILE_FORMATS_TEXT}
                                 </Text>

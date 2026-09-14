@@ -10,6 +10,7 @@ import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/fo
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
@@ -34,16 +35,16 @@ const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labN
     // not have.
     if (!canShareOutputs) {
         return (
-            <Text component="div" fz={16} c="charcoal.9">
+            <Text component="div" fz={16} c={semanticColor('text.primary')}>
                 Sharing outputs is not available for this run. Describe what happened in your feedback so {labName} can
                 revise the code.
             </Text>
         )
     }
     return (
-        <Text component="div" fz={16} c="charcoal.9">
+        <Text component="div" fz={16} c={semanticColor('text.primary')}>
             Based on your review:
-            <List spacing={4} size="md" pt={4}>
+            <List spacing={4} size="md" pt="xxs">
                 <List.Item>
                     If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
                     your feedback so {labName} can revise the code.
@@ -172,10 +173,10 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
         <Paper p="xxl" data-testid="outputs-decision-section">
             <Stack gap="lg">
                 <Group gap={0} align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
+                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Decision
                     </Text>
-                    <RequiredIndicator fz={20} fw={700} />
+                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider color="charcoal.1" />
                 <DecisionIntro labName={labName} canShareOutputs={canShareOutputs} />

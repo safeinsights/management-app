@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { useMutation, useQuery } from '@/common'
 import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
@@ -85,14 +86,14 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     if (isLoading || !org) {
         return (
-            <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
                 <LoadingMessage message="Loading account invitation" />
             </Paper>
         )
     }
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <Title order={3} ta="center" mb="md">
                     You’ve been invited to join {org.name}.
@@ -107,13 +108,19 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in
                     your email inbox.
                 </Text>
-                <Text size="sm" c="red.7" mb="md">
+                <Text size="sm" c={semanticColor('error.text')} mb="md">
                     <b>Note:</b> This invitation will expire in 7 days.
                 </Text>
-                <Button variant="filled" size="lg" onClick={() => joinTeam()} loading={isJoining || isDisabled} mb={4}>
+                <Button
+                    variant="filled"
+                    size="lg"
+                    onClick={() => joinTeam()}
+                    loading={isJoining || isDisabled}
+                    mb="xxs"
+                >
                     Accept invitation
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb={4} loading={isRevoking}>
+                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb="xxs" loading={isRevoking}>
                     Decline invitation
                 </Button>
 
@@ -146,7 +153,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConf
     <AppModal isOpen={isOpen} onClose={onClose} title="Decline invitation?">
         <Stack>
             <Text size="md">Are you sure you want to decline the invitation to join {orgName}?</Text>
-            <Text size="sm" c="red.7">
+            <Text size="sm" c={semanticColor('error.text')}>
                 <b>Note:</b> If you decline this invitation, you will need to request a new one if you want to join this
                 organization later.
             </Text>

@@ -4,6 +4,7 @@ import { FC } from 'react'
 import { Button, Divider, Group, Paper, Stack, Table, Text } from '@mantine/core'
 import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { OutputsFileRow, type OutputFileRowData } from './outputs-file-row'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // With one file the row's own download icon already does the job.
 const DOWNLOAD_ALL_MIN_FILES = 2
@@ -55,7 +56,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
         <Paper p="xxl" data-testid="outputs-files-section">
             <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
+                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Output files
                     </Text>
                     <DownloadAllButton
@@ -69,7 +70,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                     Actions column is the first thing pushed off a narrow viewport. */}
                 <Table.ScrollContainer minWidth={520}>
                     <Table verticalSpacing="md" data-testid="outputs-files-table">
-                        <Table.Thead bg="grey.0">
+                        <Table.Thead bg={semanticColor('surface.page')}>
                             <Table.Tr>
                                 <Table.Th scope="col">File name</Table.Th>
                                 <Table.Th scope="col">Last activity</Table.Th>

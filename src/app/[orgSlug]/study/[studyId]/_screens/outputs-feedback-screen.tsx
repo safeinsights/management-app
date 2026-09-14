@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
@@ -63,7 +64,7 @@ export async function OutputsFeedbackScreen({
     })
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader

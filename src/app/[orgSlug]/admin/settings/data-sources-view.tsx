@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
@@ -69,7 +70,7 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
                         <DataSourceUrlLink key={u.id} url={u.url} description={u.description} />
                     ))}
                 </Box>
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     {actions}
                 </Group>
             </Group>
@@ -84,7 +85,7 @@ export type DataSourcesViewProps = {
 
 export function DataSourcesView({ onAdd, children }: DataSourcesViewProps) {
     return (
-        <Paper bg="white" p="xxl">
+        <Paper bg={semanticColor('surface.raised')} p="xxl">
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="lg">

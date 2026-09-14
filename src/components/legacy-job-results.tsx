@@ -11,6 +11,7 @@ import { isApprovedLogType, isPlaintextLogType, logLabel } from '@/lib/file-type
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
+import { fontWeight } from '@/theme/tokens'
 
 // Results are attacker-controlled job output, so they must never be written as markup; the
 // preview modal renders them through escaped viewers (OTTER-721).
@@ -79,7 +80,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
     const theme = useMantineTheme()
     return (
         <Group gap="xs">
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {logLabel(file.fileType)}:
             </Text>
             <ViewResultsLink content={file.contents} path={file.path} />

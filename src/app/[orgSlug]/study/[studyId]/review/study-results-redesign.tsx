@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { EncryptedFilesPanel } from '@/components/encrypted-files-panel'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { isEncryptedLogType } from '@/lib/file-type-helpers'
@@ -42,7 +43,7 @@ export const StudyResultsRedesign: FC<{
     }
 
     return (
-        <Paper bg="white" p="xxl">
+        <Paper bg={semanticColor('surface.raised')} p="xxl">
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="xl">
