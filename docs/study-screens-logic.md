@@ -293,8 +293,8 @@ error. The dispatcher (`_screens/render-screen.tsx`) resolves it **once** per re
 `resolveScreenNav(role, screen, state, ctx)` and passes `nav` (plus `phasedNav`, the same nav with
 only `Previous step` while a security key is still required) in `ScreenComponentProps`. Screens
 never derive nav themselves: they hand what they are given to `StepNavigation`, which only lays it
-out. The one route outside the registry, `/submitted`, resolves its own through
-`resolveProposalStatusNav` (see below).
+out. Routes that pin a screen rather than resolve one (`/submitted`, `/review/proposal`) go through
+the same dispatcher via `renderScreenById`, so they share the prop set.
 
 The spec's governing rule: every state carries **exactly one solid button**, so no screen is a dead
 end. A Submit / View action that opens a modal or decrypts is not navigation and stays with its form
@@ -327,9 +327,9 @@ table a pure function of state.
 | `reviewer-outputs-pending`, `-decided`   | `/review/code`                   | `Back to my studies`                                                       |
 | `reviewer-outputs-errored`, `-available` | `/review/code`                   | — (`View` / `Submit decision` are the panel's)                             |
 
-`/submitted` is the anchor every code-phase "Previous step" walks back to, so it resolves its nav
-from the proposal phase directly (`resolveProposalStatusNav` → `proposalStatusScreen`) rather than
-through `resolveScreen`, which would forward-jump to a code screen for the same state.
+`/submitted` is the anchor every code-phase "Previous step" walks back to, so it pins
+`proposal-feedback` (`renderScreenById`) rather than going through `resolveScreen`, which would
+forward-jump to a code screen for the same state.
 
 `Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
 for reviewers, and for researchers the org dashboard only when the study was entered with

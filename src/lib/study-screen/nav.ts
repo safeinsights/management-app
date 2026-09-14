@@ -205,16 +205,6 @@ export function resolveStepNav(screen: ResearcherScreenId, state: StudyState, ct
     return RESEARCHER_STEP_NAV[screen](state, ctx)
 }
 
-// The /submitted route IS the proposal-status page whatever the study has done since: it is the anchor
-// every code-phase "Previous step" walks back to. Its nav therefore comes from the proposal phase
-// directly, not from resolveScreen, which would forward-jump to a code screen for the same state.
-export const proposalStatusScreen = (state: StudyState): ResearcherScreenId =>
-    state.status === 'PENDING-REVIEW' && !state.hasSubmittedCode ? 'study-overview' : 'proposal-feedback'
-
-export function resolveProposalStatusNav(state: StudyState, ctx: NavCtx): StepNav {
-    return resolveStepNav(proposalStatusScreen(state), state, ctx)
-}
-
 // The security-key screens split on a phase the state table cannot see (whether the key has been
 // entered in this session). While locked, the key form's View button is the forward action, so the
 // step nav keeps only Previous; the full nav applies once decrypted (spec: "Outputs available, before

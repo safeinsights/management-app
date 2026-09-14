@@ -8,8 +8,6 @@ import {
     phasedStepNav,
     resolveReviewerStepNav,
     resolveScreenNav,
-    resolveProposalStatusNav,
-    proposalStatusScreen,
     resolveStepNav,
     type NavCtx,
     type StepNav,
@@ -146,19 +144,6 @@ describe('resolveStepNav — proposal phase', () => {
             expect(nav.forward?.href).toBe(`${base}/view/code?returnTo=org`)
         },
     )
-
-    describe('proposalStatusScreen', () => {
-        it('is the overview only while the proposal itself is under review', () => {
-            expect(proposalStatusScreen(state({ ...submitted, status: 'PENDING-REVIEW' }))).toBe('study-overview')
-            expect(proposalStatusScreen(state({ ...submitted, status: 'APPROVED' }))).toBe('proposal-feedback')
-        })
-
-        it('treats a study whose code is under review as a decided proposal', () => {
-            const s = state({ ...submitted, status: 'PENDING-REVIEW', hasSubmittedCode: true })
-            expect(proposalStatusScreen(s)).toBe('proposal-feedback')
-            expect(resolveProposalStatusNav(s, ctx)).toEqual(resolveStepNav('proposal-feedback', s, ctx))
-        })
-    })
 })
 
 describe('resolveStepNav — code phase', () => {
