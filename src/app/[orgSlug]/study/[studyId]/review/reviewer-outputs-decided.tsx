@@ -12,14 +12,28 @@ import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
-import type { SelectedStudy } from '@/server/actions/study.actions'
+import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {
     orgSlug: string
     study: SelectedStudy
     raw: RawStudyState
+}
+
+function outputsDecisionAttribution(
+    entries: OutputsDecisionFeedbackEntry[],
+    statusChanges: LatestJobForStudy['statusChanges'],
+) {
+    const latestDecision = entries[0]
+    return {
+        reviewerName: latestDecision?.authorName ?? null,
+        decidedAt:
+            latestDecision?.createdAt ??
+            latestStatusAt(statusChanges, 'FILES-APPROVED') ??
+            latestStatusAt(statusChanges, 'FILES-REJECTED'),
+    }
 }
 
 export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOutputsDecidedProps) {
@@ -39,10 +53,8 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
     }
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const decidedAt =
-        latestStatusAt(job.statusChanges, 'FILES-APPROVED') ?? latestStatusAt(job.statusChanges, 'FILES-REJECTED')
-
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
+    const { reviewerName, decidedAt } = outputsDecisionAttribution(feedbackEntries, job.statusChanges)
 
     // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
     // submission-time scan log does not count as an output (OTTER-524).
@@ -60,6 +72,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
                             resultsErrored={state.resultsErrored}
                             resultsApproved={state.resultsApproved}
                             labName={labName}
+                            reviewerName={reviewerName}
                             decidedAt={decidedAt}
                         />
                     }

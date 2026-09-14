@@ -13,6 +13,8 @@ export const REVIEWER_SCREEN_RULES = [
     // present once results land.
     ['reviewer-outputs-decided', { when: (s) => s.hasResults }],
 
+    // Approving code queues the job, so an approved study sits here while it runs; the code-feedback
+    // rule below shows an APPROVE decision only when execution never started.
     ['reviewer-outputs-pending', { when: (s) => s.isExecuting }],
 
     ['reviewer-code-feedback', { when: (s) => s.codeDecision !== null }],

@@ -3,7 +3,7 @@ import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-const STATUS_ALERT_SEPARATOR = '•'
+export const STATUS_ALERT_SEPARATOR = '•'
 
 export const statusAlertTitle = (title: string, at: Date | string | null | undefined): string =>
     at ? `${title} ${STATUS_ALERT_SEPARATOR} ${dayjs(at).format('MMM DD, YYYY')}` : title
@@ -12,6 +12,7 @@ export const STATUS_ALERT_VARIANT = {
     informative: 'informative',
     action: 'action',
     success: 'success',
+    decline: 'decline',
 } as const
 
 export type StatusAlertVariant = (typeof STATUS_ALERT_VARIANT)[keyof typeof STATUS_ALERT_VARIANT]
@@ -25,51 +26,33 @@ type StatusAlertProps = {
     announce?: boolean
 }
 
-// Figma status/success/text-icon. 7.5:1 against green.0 — the AA ratio a bold 14px title needs,
-// which the old palette could not reach (OTTER-482).
-const SUCCESS_TITLE = 'green.7'
-
+// Backgrounds are the status ramps' shade 0, accents the text/icon shade the semantic tokens point
+// at (success.text, warning.text, error.text). Informative has no status token: purple is the
+// brand-side banner and sits on its own ramp.
 const VARIANTS = {
-    informative: {
-        bg: 'purple.0',
-        titleColor: 'purple.5',
-        titleWeight: 700,
-        iconColor: 'var(--mantine-color-purple-5)',
-        Icon: InfoIcon,
-    },
-    action: {
-        bg: 'yellow.0',
-        titleColor: 'yellow.8',
-        titleWeight: 700,
-        iconColor: 'var(--si-color-warning-text)',
-        Icon: WarningCircleIcon,
-    },
-    success: {
-        bg: 'green.0',
-        titleColor: SUCCESS_TITLE,
-        titleWeight: 700,
-        iconColor: 'var(--si-color-success-text)',
-        Icon: CheckCircleIcon,
-    },
-} as const satisfies Record<
-    StatusAlertVariant,
-    { bg: string; titleColor: string; titleWeight: number; iconColor: string; Icon: typeof InfoIcon }
->
+    informative: { bg: 'purple.0', accent: 'purple.5', Icon: InfoIcon },
+    action: { bg: 'yellow.0', accent: 'yellow.8', Icon: WarningCircleIcon },
+    success: { bg: 'green.0', accent: 'green.7', Icon: CheckCircleIcon },
+    decline: { bg: 'red.0', accent: 'red.7', Icon: WarningCircleIcon },
+} as const satisfies Record<StatusAlertVariant, { bg: string; accent: string; Icon: typeof InfoIcon }>
+
+// Mantine resolves 'color.shade' in its own style props only, not inside a styles object.
+const cssColor = (color: string) => `var(--mantine-color-${color.replace('.', '-')})`
 
 // aria-atomic so the swap is read as one banner (title AND body), not just the changed title.
 const announceProps = { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } as const
 
 export function StatusAlert({ variant, title, children, announce = false }: StatusAlertProps) {
-    const { bg, titleColor, titleWeight, iconColor, Icon } = VARIANTS[variant]
+    const { bg, accent, Icon } = VARIANTS[variant]
     const liveRegion = announce ? announceProps : {}
     return (
         <Alert
             variant="light"
             radius={0}
             bg={bg}
-            icon={<Icon size={20} weight="fill" color={iconColor} />}
+            icon={<Icon size={20} weight="fill" />}
             styles={{
-                icon: { color: iconColor, marginInlineEnd: 'var(--mantine-spacing-xs)' },
+                icon: { color: cssColor(accent), marginInlineEnd: 'var(--mantine-spacing-xs)' },
                 wrapper: { alignItems: 'flex-start' },
             }}
             data-testid="status-alert"
@@ -77,7 +60,7 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             {...liveRegion}
         >
             <Stack gap="xs">
-                <Text fz={14} fw={titleWeight} c={titleColor}>
+                <Text fz={14} fw={700} c={accent}>
                     {title}
                 </Text>
                 <Text fz={14} c="charcoal.9">
