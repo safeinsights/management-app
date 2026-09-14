@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/database'
 import { requireQaAuth, requireAdminOfOrgs, orgSlugsForUser, findUser, deleteUserCompletely } from '@/server/qa-cleanup'
-import { qaErrorResponse } from '@/app/api/qa/responses'
+import { qaErrorResponse, qaRefusedResponse } from '@/app/api/qa/responses'
 import { auditQaOperation } from '@/app/api/qa/audit'
 
 /**
@@ -16,8 +16,8 @@ import { auditQaOperation } from '@/app/api/qa/audit'
  *
  * The consequence is that authentication plus org-admin authorization is the ONLY thing
  * guarding this route. There is no undo — the DB rows, the S3 objects, and the Clerk account
- * all go, and the studies the account owns go with them. As on the QA route, an org admin may
- * only delete an account belonging solely to their own org; SI admins are unrestricted.
+ * all go, and the studies the account owns go with them. As on the QA route, an org admin must
+ * administer every org the account touches (see orgSlugsForUser); SI admins are unrestricted.
  *
  * The `userId` segment accepts a user id or a URL-encoded email address.
  */
@@ -33,10 +33,18 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
         // is answered before anything is written to the audit trail. findUser rather than
         // findQaUser: this route is deliberately not QA-restricted.
         const target = await findUser(db, userId)
+        const entry = {
+            actorUserId: auth.user.id,
+            eventType: 'DELETED',
+            recordType: 'USER',
+            recordId: target.id,
+            via: 'admin-api',
+            metadata: { email: target.email },
+        } as const
 
         const authorized = await requireAdminOfOrgs(db, auth, await orgSlugsForUser(db, target.id))
         if (!authorized.ok) {
-            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+            return await qaRefusedResponse(entry, authorized)
         }
 
         // Refusing self-deletion keeps the actor available to attribute the audit rows to,
@@ -45,17 +53,7 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
             return NextResponse.json({ error: 'cannot delete your own account' }, { status: 400 })
         }
 
-        await auditQaOperation(
-            {
-                actorUserId: auth.user.id,
-                eventType: 'DELETED',
-                recordType: 'USER',
-                recordId: target.id,
-                via: 'admin-api',
-                metadata: { email: target.email },
-            },
-            () => deleteUserCompletely(db, target),
-        )
+        await auditQaOperation(entry, () => deleteUserCompletely(db, target))
     } catch (error) {
         return qaErrorResponse(error)
     }

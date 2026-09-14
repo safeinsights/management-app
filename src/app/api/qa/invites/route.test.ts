@@ -146,4 +146,21 @@ describe('POST /api/qa/invites', () => {
         const invites = await db.selectFrom('pendingUser').select(['id']).where('orgId', '=', org.id).execute()
         expect(invites).toHaveLength(0)
     })
+
+    // No invite row exists to hang the refusal on, so it is filed against the caller.
+    it('audits a refused invite against the caller', async () => {
+        const { user: caller } = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const email = qaEmail()
+
+        await postInvite({ email, orgSlug: org.slug })
+
+        const entry = await db
+            .selectFrom('audit')
+            .select(['eventType', 'recordType', 'userId', 'metadata'])
+            .where('recordId', '=', caller.id)
+            .executeTakeFirstOrThrow()
+        expect(entry).toMatchObject({ eventType: 'INVITED', recordType: 'USER', userId: caller.id })
+        expect(entry.metadata).toMatchObject({ outcome: 'refused', email, orgSlug: org.slug })
+    })
 })

@@ -84,7 +84,8 @@ export class QaCleanupNotFoundError extends Error {}
 /**
  * Orgs the actor administers, read from org_user rather than the session claims: the
  * claims are cached Clerk metadata that marshalSession will happily serve stale, and a
- * revoked admin must not keep deleting things until their token refreshes.
+ * revoked org admin must not keep deleting things until their token refreshes. The SI-admin
+ * flag still comes from those claims, so that path does not get the same guarantee.
  */
 async function adminOrgSlugs(db: Kysely<DB>, userId: string) {
     const rows = await db
@@ -115,32 +116,41 @@ export async function requireAdminOfOrgs(
     const administered = await adminOrgSlugs(db, auth.user.id)
     const missing = orgSlugs.filter((slug) => !administered.has(slug))
     if (orgSlugs.length === 0 || missing.length > 0) {
-        return {
-            ok: false,
-            status: 403,
-            message: `admin access required for ${missing.join(', ') || 'the targeted organization'}`,
-        }
+        // Any signed-in user reaches this far, so the message must not name the target's orgs.
+        return { ok: false, status: 403, message: 'admin access required' }
     }
 
     return { ok: true, user: auth.user, isSiAdmin: false }
 }
 
 /**
- * Resolve the org that owns a user, for the routes whose target is an account rather
- * than a single record.
+ * Every org an account touches, for the routes whose target is an account rather than a
+ * single record: its memberships plus both orgs of every study it owns.
  *
  * Deleting or reprovisioning a user is not org-scoped — it takes the Clerk account, every
- * membership, and every study they own, wherever those live. So an org admin may only act
- * on an account that belongs to exactly their org: a user in two orgs has no single owner
- * and stays SI-admin-only, rather than letting org A destroy org B's data.
+ * membership, and every study they own, wherever those live. A study's files sit under the
+ * enclave (org_id) while the researcher's membership is usually the lab (submitted_by_org_id),
+ * so membership alone would let a lab admin erase an enclave's data. An org admin must
+ * administer all of these; otherwise the account stays SI-admin-only.
  */
 export async function orgSlugsForUser(db: Kysely<DB>, userId: string) {
-    const rows = await db
+    const memberships = db
         .selectFrom('orgUser')
         .innerJoin('org', 'org.id', 'orgUser.orgId')
         .select('org.slug')
         .where('orgUser.userId', '=', userId)
-        .execute()
+    const studyEnclaves = db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select('org.slug')
+        .where('study.researcherId', '=', userId)
+    const studyLabs = db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.submittedByOrgId')
+        .select('org.slug')
+        .where('study.researcherId', '=', userId)
+
+    const rows = await memberships.union(studyEnclaves).union(studyLabs).execute()
     return rows.map((row) => row.slug)
 }
 
@@ -222,22 +232,31 @@ export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, stu
  * A study has no email of its own, so the guard is applied to its researcher: only
  * studies owned by a qa- prefixed account are eligible. Split from the delete itself so
  * callers can reject an ineligible target before auditing an attempt against it.
+ *
+ * `orgSlug` is the enclave that holds the study's files; `orgSlugs` adds the lab that
+ * submitted it, which is what a route must authorize against — the study is both orgs' data.
  */
 export async function findQaStudy(db: Kysely<DB>, studyId: string) {
     if (!UUID_RE.test(studyId)) throw new QaCleanupNotFoundError(`study ${studyId} not found`)
 
     const study = await db
         .selectFrom('study')
-        .innerJoin('org', 'org.id', 'study.orgId')
+        .innerJoin('org as enclave', 'enclave.id', 'study.orgId')
+        .innerJoin('org as lab', 'lab.id', 'study.submittedByOrgId')
         .innerJoin('user as researcher', 'researcher.id', 'study.researcherId')
-        .select(['study.id as studyId', 'org.slug as orgSlug', 'researcher.email as researcherEmail'])
+        .select([
+            'study.id as studyId',
+            'enclave.slug as orgSlug',
+            'lab.slug as submittedByOrgSlug',
+            'researcher.email as researcherEmail',
+        ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 
     if (!study) throw new QaCleanupNotFoundError(`study ${studyId} not found`)
     assertQaEmail(study.researcherEmail, `study ${studyId} researcher`)
 
-    return study
+    return { ...study, orgSlugs: [...new Set([study.orgSlug, study.submittedByOrgSlug])] }
 }
 
 /**

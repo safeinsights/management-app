@@ -4,6 +4,7 @@ import {
     insertTestOrg,
     insertTestUser,
     insertTestStudyData,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     readTestSupportFile,
     faker,
@@ -213,7 +214,7 @@ describe('org admin authorization', () => {
     })
 
     // Deleting an account takes its Clerk login and every study it owns, in every org — so a
-    // second membership puts it outside one org admin's blast radius.
+    // second membership puts it outside a single org admin's blast radius.
     it('rejects an org admin deleting a QA user who also belongs to another org', async () => {
         const { org } = await authenticateAsOrgAdmin()
         const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -224,6 +225,31 @@ describe('org admin authorization', () => {
 
         expect(response.status).toBe(403)
         expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeDefined()
+    })
+
+    // A study's files sit under its enclave, so a lab admin's reach ends where the enclave begins.
+    it('rejects an org admin deleting a QA user who owns a study in another org', async () => {
+        const { org } = await authenticateAsOrgAdmin()
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: org, researcherId: user.id })
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(403)
+        expect(await db.selectFrom('study').select('id').where('id', '=', study.id).executeTakeFirst()).toBeDefined()
+    })
+
+    it('audits a refused request against the caller', async () => {
+        const { user: caller } = await authenticateAsOrgAdmin()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: other, email: qaEmail() })
+
+        await deleteUser(user.id)
+
+        const refused = await auditRowFor(user.id, 'refused')
+        expect(refused).toMatchObject({ eventType: 'DELETED', recordType: 'USER', userId: caller.id })
+        expect(refused.metadata).toMatchObject({ via: 'qa-api', email: user.email })
     })
 
     it('lets an org admin provision a QA user within their own org', async () => {

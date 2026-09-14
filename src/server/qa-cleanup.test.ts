@@ -5,6 +5,7 @@ import {
     insertTestOrg,
     insertTestUser,
     insertTestStudyData,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     faker,
     qaEmail,
@@ -140,7 +141,18 @@ describe('requireAdminOfOrgs', () => {
 
         const result = await requireAdminOfOrgs(db, authFor(user), [own.slug, other.slug])
         expect(result.ok).toBe(false)
-        if (!result.ok) expect(result.message).toContain(other.slug)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    // Any signed-in user reaches this check, so the refusal must not reveal the target's orgs.
+    it('does not name the targeted orgs in the refusal', async () => {
+        const own = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: own, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [other.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.message).not.toContain(other.slug)
     })
 
     it('allows an admin of every targeted org', async () => {
@@ -171,9 +183,10 @@ describe('requireAdminOfOrgs', () => {
         expect(await requireAdminOfOrgs(db, authFor(user, true), [])).toMatchObject({ ok: true })
     })
 
-    // Admin rights are read from org_user, not the cached session claims, so a revoked admin
-    // stops passing immediately rather than when their token next refreshes.
-    it('rejects an actor whose admin flag was revoked in the database', async () => {
+    // Org-admin rights are read from org_user, not the cached session claims, so a revoked org
+    // admin stops passing immediately rather than when their token next refreshes. (The SI-admin
+    // flag still comes from the claims and does not get this guarantee.)
+    it('rejects an actor whose org admin flag was revoked in the database', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10) })
         const { user } = await insertTestUser({ org, isAdmin: true })
         await db.updateTable('orgUser').set({ isAdmin: false }).where('userId', '=', user.id).execute()
@@ -191,6 +204,31 @@ describe('orgSlugsForUser', () => {
         await db.insertInto('orgUser').values({ orgId: second.id, userId: user.id, isAdmin: false }).execute()
 
         expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([first.slug, second.slug].sort())
+    })
+
+    // A study is data of both its enclave (org_id) and its lab (submitted_by_org_id), and the
+    // researcher usually belongs to neither or only the lab — membership alone misses the enclave.
+    it('includes both orgs of every study the user owns', async () => {
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org: lab })
+        await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
+
+        expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([enclave.slug, lab.slug].sort())
+    })
+
+    it('does not count studies the user merely reviews or is PI on', async () => {
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org: lab })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab })
+        await db
+            .updateTable('study')
+            .set({ reviewerId: user.id, piUserId: user.id })
+            .where('id', '=', study.id)
+            .execute()
+
+        expect(await orgSlugsForUser(db, user.id)).toEqual([lab.slug])
     })
 })
 

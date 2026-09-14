@@ -4,6 +4,7 @@ import {
     insertTestOrg,
     insertTestUser,
     insertTestStudyData,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     faker,
     qaEmail,
@@ -75,6 +76,50 @@ describe('DELETE /api/qa/studies/[studyId]', () => {
 
         expect(response.status).toBe(403)
         expect(await studyExists(studyId)).toBe(true)
+    })
+
+    // A study is data of both the enclave that holds it and the lab that submitted it.
+    it('rejects an admin of only the enclave when the lab is a different org', async () => {
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: lab, email: qaEmail() })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
+        await authenticate({ isAdmin: true, adminOf: enclave })
+
+        const response = await deleteStudy(study.id)
+
+        expect(response.status).toBe(403)
+        expect(await studyExists(study.id)).toBe(true)
+    })
+
+    it('lets an admin of both the enclave and the lab delete it', async () => {
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: lab, email: qaEmail() })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
+        const mocks = await authenticate({ isAdmin: true, adminOf: enclave })
+        await db.insertInto('orgUser').values({ orgId: lab.id, userId: mocks.user.id, isAdmin: true }).execute()
+
+        const response = await deleteStudy(study.id)
+
+        expect(response.status).toBe(200)
+        expect(await studyExists(study.id)).toBe(false)
+    })
+
+    it('audits a refused request against the caller', async () => {
+        const { studyId } = await insertQaStudy()
+        const { user: caller } = await authenticate({ isAdmin: true })
+
+        await deleteStudy(studyId)
+
+        const rows = await db
+            .selectFrom('audit')
+            .select(['eventType', 'recordType', 'userId', 'metadata'])
+            .where('recordId', '=', studyId)
+            .execute()
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({ eventType: 'DELETED', recordType: 'STUDY', userId: caller.id })
+        expect(rows[0].metadata).toMatchObject({ outcome: 'refused' })
     })
 
     it('rejects a non-admin member of the study org', async () => {

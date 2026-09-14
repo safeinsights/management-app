@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { db } from '@/database'
 import { requireQaAuth, requireAdminOfOrgs } from '@/server/qa-cleanup'
 import { createQaInvite } from '@/server/qa-provision'
-import { qaErrorResponse } from '../responses'
+import { qaErrorResponse, qaRefusedResponse } from '../responses'
 import { auditQaInvocation } from '../audit'
 
 const createInviteSchema = z.object({
@@ -25,7 +25,17 @@ export const POST = async (req: Request) => {
         // admin must not invite an account (least of all an admin one) into another org.
         const authorized = await requireAdminOfOrgs(db, auth, [invite.orgSlug])
         if (!authorized.ok) {
-            return NextResponse.json({ error: authorized.message }, { status: authorized.status })
+            // No invite row exists yet, so the refusal is filed against the caller.
+            return await qaRefusedResponse(
+                {
+                    actorUserId: auth.user.id,
+                    eventType: 'INVITED',
+                    recordType: 'USER',
+                    recordId: auth.user.id,
+                    metadata: { email: invite.email, orgSlug: invite.orgSlug },
+                },
+                authorized,
+            )
         }
 
         const result = await createQaInvite(db, invite, auth.user.id)

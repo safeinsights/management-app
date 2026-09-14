@@ -5,8 +5,9 @@ import type { AuditEventType, AuditRecordType } from '@/database/types'
 /**
  * `attempted` is written before destructive work and `succeeded`/`failed` after, so a
  * run that dies partway through still leaves a record that production was touched.
+ * `refused` records an authenticated caller the authorization step turned away.
  */
-type QaAuditOutcome = 'attempted' | 'succeeded' | 'failed'
+type QaAuditOutcome = 'attempted' | 'succeeded' | 'failed' | 'refused'
 
 /**
  * Which route surface made the call. Recorded as `via` so QA fixture churn can be told
@@ -15,8 +16,8 @@ type QaAuditOutcome = 'attempted' | 'succeeded' | 'failed'
  */
 export type QaAuditVia = 'qa-api' | 'admin-api'
 
-type QaAuditEntry = {
-    /** The SI admin who invoked the route, not the account being acted on. */
+export type QaAuditEntry = {
+    /** The caller who invoked the route, not the account being acted on. */
     actorUserId: string
     eventType: AuditEventType
     recordType: AuditRecordType
