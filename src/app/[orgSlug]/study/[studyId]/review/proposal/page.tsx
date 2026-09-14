@@ -26,7 +26,7 @@ export default async function ReviewProposalPage(props: { params: Promise<{ orgS
             raw,
             study,
             orgSlug,
-            dashboardHref: Routes.orgDashboard({ orgSlug }),
+            dashboardHref: Routes.dashboard,
         })
     }
 
@@ -35,6 +35,6 @@ export default async function ReviewProposalPage(props: { params: Promise<{ orgS
         study,
         raw,
         orgSlug,
-        dashboardHref: Routes.orgDashboard({ orgSlug }),
+        dashboardHref: Routes.dashboard,
     })) as React.JSX.Element
 }

@@ -28,6 +28,7 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { setupStudyAction } from '@/tests/db-action.helpers'
+import { Routes } from '@/lib/routes'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
@@ -48,7 +49,7 @@ const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
 }
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug }))
+    renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug, dashboardHref: Routes.dashboard }))
 
 // Single-user editing so the feedback editor renders synchronously instead of a collaborative
 // skeleton.
@@ -57,7 +58,9 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
         <QueryClientProvider client={createTestQueryClient()}>
             <MantineProvider theme={theme}>
                 <YjsWebsocketProvider singleUserEditing>
-                    <ModalsProvider>{await ReviewerOutputsAvailableScreen({ study, raw, orgSlug })}</ModalsProvider>
+                    <ModalsProvider>
+                        {await ReviewerOutputsAvailableScreen({ study, raw, orgSlug, dashboardHref: Routes.dashboard })}
+                    </ModalsProvider>
                 </YjsWebsocketProvider>
             </MantineProvider>
         </QueryClientProvider>,

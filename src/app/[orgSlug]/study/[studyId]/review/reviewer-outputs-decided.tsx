@@ -1,17 +1,16 @@
-import { Box, Group, Stack } from '@mantine/core'
+import type { Route } from 'next'
+import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
-import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState } from '@/lib/study-screen'
-import { projectStudyState } from '@/lib/study-screen'
+import { projectStudyState, resolveReviewerStepNav } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
@@ -20,6 +19,7 @@ type ReviewerOutputsDecidedProps = {
     orgSlug: string
     study: SelectedStudy
     raw: RawStudyState
+    dashboardHref: Route
 }
 
 function outputsDecisionAttribution(
@@ -36,7 +36,7 @@ function outputsDecisionAttribution(
     }
 }
 
-export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOutputsDecidedProps) {
+export async function ReviewerOutputsDecided({ study, orgSlug, raw, dashboardHref }: ReviewerOutputsDecidedProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -59,6 +59,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
     // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
     // submission-time scan log does not count as an output (OTTER-524).
     const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
+    const nav = resolveReviewerStepNav('reviewer-outputs-decided', state, { orgSlug, studyId: study.id, dashboardHref })
 
     return (
         <Box bg="grey.10">
@@ -79,12 +80,7 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
                 />
                 <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecryptAndViewOutputs job={job} isVisible={hasDecryptableOutputs} />
-                <Group justify="space-between">
-                    <PreviousStepLink previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })} />
-                    <ButtonLink href={Routes.dashboard} variant="filled" size="md">
-                        Back to my studies
-                    </ButtonLink>
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Box>
     )

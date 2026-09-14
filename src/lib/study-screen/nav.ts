@@ -1,6 +1,6 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import type { ResearcherScreenId } from './screens'
+import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import type { StudyState } from './state.types'
 import { canResearcherResubmitCode } from './eligibility'
 
@@ -13,8 +13,9 @@ import { canResearcherResubmitCode } from './eligibility'
 //   3. forward blocked — waiting on the other party, or terminal            [Previous] [Back to my studies]
 //
 // Pattern 3 elevates the exit into the solid slot precisely BECAUSE there is no forward action, so no
-// screen is ever a dead end. Researcher (Research Lab) screens only; the Data Partner half follows
-// with the card that converts those views, so the table and the screens land together.
+// screen is ever a dead end. Two tables, one per role: RESEARCHER_STEP_NAV (Research Lab) and
+// REVIEWER_STEP_NAV (Data Partner). Submit actions that open a confirmation modal are not navigation
+// and stay with the form that owns them, so a rule may legitimately return only "Previous step".
 
 export type NavVariant = 'solid' | 'outline' | 'subtle'
 
@@ -178,5 +179,74 @@ export type PhasedStepNav = { locked: StepNav; unlocked: StepNav }
 
 export function resolvePhasedStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): PhasedStepNav {
     const unlocked = resolveStepNav(screen, state, ctx)
+    return { locked: { back: unlocked.back }, unlocked }
+}
+
+// --- Data Partner ---------------------------------------------------------------------------------
+// The reviewer's forward action on the active review screens is "Submit decision", which opens a
+// confirmation modal rather than navigating, so it stays with the form that owns the decision. This
+// table supplies only the navigational buttons for those screens.
+
+// Code-phase screens anchor back to the decided proposal, mirroring the researcher side.
+const reviewerCodePreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studyReviewProposal({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
+
+// Outputs-phase screens anchor back to the approved-code step, which /review/code already serves.
+const reviewerResultsPreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studyReviewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
+
+// The spec gives the post-decision proposal screen no back button: the proposal step is where the
+// reviewer already stands. Once code exists the screen is only reached by walking back from it, so
+// forward returns there (spec: "Previous step, then Next step back").
+const reviewerProposalFeedbackNav: NavRule = (state, ctx) => {
+    if (state.hasSubmittedCode) {
+        return { forward: nextStep(Routes.studyReviewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
+    }
+    return { forward: backToMyStudies(ctx) }
+}
+
+const reviewerCodeReviewNav: NavRule = (_state, ctx) => ({ back: reviewerCodePreviousStep(ctx) })
+
+// Approved code always offers "Next step": /review serves the outputs step from the moment of approval
+// (reviewer-screen-rules), so the forward step is unconditional whether or not the run has started.
+// Changes requested or rejected leave the next move with the researcher, or end the study.
+const reviewerCodeFeedbackNav: NavRule = (state, ctx) => {
+    const back = reviewerCodePreviousStep(ctx)
+    if (state.codeDecision === 'CODE-APPROVED') {
+        return { back, forward: nextStep(Routes.studyReview({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
+    }
+    return { back, forward: backToMyStudies(ctx) }
+}
+
+// Waiting on the run, or the round is closed: nothing is ahead, so the exit takes the solid slot.
+const reviewerOutputsExitNav: NavRule = (_state, ctx) => ({
+    back: reviewerResultsPreviousStep(ctx),
+    forward: backToMyStudies(ctx),
+})
+
+// Decrypting ("View") and "Submit decision" both belong to the panel, so only Previous is navigation.
+const reviewerOutputsDecisionNav: NavRule = (_state, ctx) => ({ back: reviewerResultsPreviousStep(ctx) })
+
+// Total over the reviewer screens, same guarantee as the researcher table.
+export const REVIEWER_STEP_NAV: Record<ReviewerScreenId, NavRule> = {
+    // The proposal review form owns its only action; the spec lists no back button for it.
+    'reviewer-proposal-review': () => ({}),
+    'reviewer-proposal-feedback': reviewerProposalFeedbackNav,
+    // Unreachable since OTTER-727 and carries its own footer.
+    'reviewer-agreements': () => ({}),
+    'reviewer-code-review': reviewerCodeReviewNav,
+    'reviewer-code-feedback': reviewerCodeFeedbackNav,
+    'reviewer-outputs-pending': reviewerOutputsExitNav,
+    'reviewer-outputs-errored': reviewerOutputsDecisionNav,
+    'reviewer-outputs-available': reviewerOutputsDecisionNav,
+    'reviewer-outputs-decided': reviewerOutputsExitNav,
+}
+
+export function resolveReviewerStepNav(screen: ReviewerScreenId, state: StudyState, ctx: NavCtx): StepNav {
+    return REVIEWER_STEP_NAV[screen](state, ctx)
+}
+
+export function resolveReviewerPhasedStepNav(screen: ReviewerScreenId, state: StudyState, ctx: NavCtx): PhasedStepNav {
+    const unlocked = resolveReviewerStepNav(screen, state, ctx)
     return { locked: { back: unlocked.back }, unlocked }
 }

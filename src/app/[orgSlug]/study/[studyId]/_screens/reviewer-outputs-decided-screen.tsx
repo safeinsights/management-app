@@ -5,6 +5,7 @@ export function ReviewerOutputsDecidedScreen({
     study,
     raw,
     orgSlug,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug'>) {
-    return <ReviewerOutputsDecided orgSlug={orgSlug} study={study} raw={raw} />
+    dashboardHref,
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'dashboardHref'>) {
+    return <ReviewerOutputsDecided orgSlug={orgSlug} study={study} raw={raw} dashboardHref={dashboardHref} />
 }

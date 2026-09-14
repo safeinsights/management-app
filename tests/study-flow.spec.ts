@@ -275,7 +275,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await expect(dialog).toBeHidden()
 
     await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
-    await page.getByTestId('go-to-dashboard').click()
+    await page.getByTestId('cta-back-to-my-studies').click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -312,7 +312,8 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByTestId('code-review-submit').click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog.getByText('Approve code?')).toBeVisible()
+    await dialog.getByRole('button', { name: /^Approve code$/i }).click()
     await expect(dialog).toBeHidden()
 
     // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
@@ -783,7 +784,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
-        await page.getByTestId('go-to-dashboard').click()
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
 
         const rejectedRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -858,7 +859,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
-        await page.getByTestId('go-to-dashboard').click()
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
 
@@ -922,6 +923,14 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
     await withRole(browser, 'reviewer', async (page) => {
         await openCodeReviewEditor(page, studyTitle)
 
+        // OTTER-673: the code step walks back to the decided proposal, which steps forward again.
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/review\/proposal$/)
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
+        await page.getByRole('link', { name: /^Next step$/i }).click()
+        await page.waitForURL(/\/review\/code$/)
+        await expect(page.getByTestId('code-review-section')).toBeVisible()
+
         await fillCodeCriteria(page, 'no')
         // "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable), standard confirm modal.
         await page.getByTestId('code-review-decision-needs-clarification').click()
@@ -933,11 +942,12 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.getByTestId('code-review-submit').click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await expect(dialog.getByText('Request revision?')).toBeVisible()
+        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
-        await page.getByTestId('go-to-dashboard').click()
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
 

@@ -42,7 +42,7 @@ const setupDecided = async ({
 }
 
 const renderView = async (study: SelectedStudy, raw: RawStudyState, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsDecided({ study, raw, orgSlug }))
+    renderWithProviders(await ReviewerOutputsDecided({ study, raw, orgSlug, dashboardHref: Routes.dashboard }))
 
 describe('ReviewerOutputsDecided', () => {
     it('renders the shared page and section headers', async () => {

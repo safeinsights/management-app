@@ -1,17 +1,17 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
-import type { Route } from 'next'
-import { Box, Button, Group, Stack } from '@mantine/core'
+import { Box, Button, Stack } from '@mantine/core'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
+import type { PhasedStepNav, StepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
@@ -29,7 +29,9 @@ type OutputsReviewPanelProps = {
     lockedBanner: ReactNode
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
-    previousHref: Route
+    /** Locked keeps only "Previous step": the key form's View button is the forward action until
+     * decryption, after which "Submit decision" is. */
+    nav: PhasedStepNav
     /** Only the errored screen sets this: for a completed run, no artifacts means delivery
      * went wrong, so the key step must not be skipped (OTTER-524). */
     allowDecisionWithoutArtifacts?: boolean
@@ -45,7 +47,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     header,
     lockedBanner,
     unlockedBanner,
-    previousHref,
+    nav,
     allowDecisionWithoutArtifacts = false,
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
@@ -69,7 +71,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
                 <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
-                <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
+                <LockedPhase isVisible={isLocked} job={job} nav={nav.locked} onDecrypted={onDecrypted} />
                 <UnlockedPhase
                     decryptedFiles={reviewableFiles}
                     canShareOutputs={canShareOutputs}
@@ -77,7 +79,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     studyId={studyId}
                     job={job}
                     labName={labName}
-                    previousHref={previousHref}
+                    nav={nav.unlocked}
                 />
             </Stack>
         </Box>
@@ -87,20 +89,18 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
 type LockedPhaseProps = {
     isVisible: boolean
     job: NonNullable<LatestJobForStudy>
-    previousHref: Route
+    nav: StepNav
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDecrypted }) => {
+const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, nav, onDecrypted }) => {
     if (!isVisible) return null
     return (
         <>
             {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
                 keys, so the researcher key set would come back empty. */}
             <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
-            <Group>
-                <PreviousStepLink previousHref={previousHref} />
-            </Group>
+            <StepNavigation nav={nav} />
         </>
     )
 }
@@ -114,7 +114,7 @@ type UnlockedPhaseProps = {
     studyId: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    previousHref: Route
+    nav: StepNav
 }
 
 // Split from the panel so mounting the collaborative editor and its websocket waits until
@@ -126,7 +126,7 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     studyId,
     job,
     labName,
-    previousHref,
+    nav,
 }) => {
     if (decryptedFiles === null) return null
     return (
@@ -137,7 +137,7 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
             studyId={studyId}
             job={job}
             labName={labName}
-            previousHref={previousHref}
+            nav={nav}
         />
     )
 }
@@ -154,15 +154,7 @@ const OutputsSection: FC<{ isVisible: boolean; jobId: string; decryptedFiles: Jo
     return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
 }
 
-const ReviewBody: FC<ReviewBodyProps> = ({
-    decryptedFiles,
-    canShareOutputs,
-    orgSlug,
-    studyId,
-    job,
-    labName,
-    previousHref,
-}) => {
+const ReviewBody: FC<ReviewBodyProps> = ({ decryptedFiles, canShareOutputs, orgSlug, studyId, job, labName, nav }) => {
     const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, decryptedFiles })
 
     return (
@@ -180,18 +172,21 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 decisionError={decision.decisionError}
                 canShareOutputs={canShareOutputs}
             />
-            <Group justify="space-between">
-                <PreviousStepLink previousHref={previousHref} />
-                {/* Enabled from the start: pressing it is how the user learns what is still
-                    missing, rather than facing a dead button with no explanation. */}
-                <Button
-                    onClick={decision.attemptSubmit}
-                    disabled={decision.isSubmitting}
-                    data-testid="outputs-submit-decision"
-                >
-                    Submit decision
-                </Button>
-            </Group>
+            {/* Enabled from the start: pressing it is how the user learns what is still missing,
+                rather than facing a dead button with no explanation. */}
+            <StepNavigation
+                nav={nav}
+                formAction={
+                    <Button
+                        size="md"
+                        onClick={decision.attemptSubmit}
+                        disabled={decision.isSubmitting}
+                        data-testid="outputs-submit-decision"
+                    >
+                        Submit decision
+                    </Button>
+                }
+            />
             <SubmitOutputsDecisionModal
                 decision={decision.confirming}
                 labName={labName}
