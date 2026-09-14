@@ -4,6 +4,7 @@ import {
     assertStatelessEventConsistent,
     authenticate,
     AuthFailureError,
+    hasFilesDecision,
     isDocumentEditable,
     isStatelessEventValidForDocument,
     parseDocumentName,
@@ -144,6 +145,11 @@ describe('parseStatelessEvent', () => {
         expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
     })
 
+    it('accepts a well-formed outputs-review-submitted event', () => {
+        const event = { ...baseEvent, type: 'outputs-review-submitted' }
+        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
+    })
+
     it('rejects non-string payload', () => {
         expect(parseStatelessEvent(42)).toBeNull()
         expect(parseStatelessEvent(null)).toBeNull()
@@ -231,6 +237,25 @@ describe('isStatelessEventValidForDocument', () => {
             isStatelessEventValidForDocument(
                 { ...event, type: 'code-review-submitted' },
                 { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+            ),
+        ).toBe(false)
+    })
+
+    it('accepts outputs-review-submitted on outputs-review-feedback', () => {
+        expect(
+            isStatelessEventValidForDocument(
+                { ...event, type: 'outputs-review-submitted' },
+                { kind: 'outputs-review-feedback', jobId: JOB_ID },
+            ),
+        ).toBe(true)
+    })
+
+    // Both are job-keyed, so only the kind separates the outputs round from the code round.
+    it('rejects outputs-review-submitted on code-review-feedback', () => {
+        expect(
+            isStatelessEventValidForDocument(
+                { ...event, type: 'outputs-review-submitted' },
+                { kind: 'code-review-feedback', jobId: JOB_ID },
             ),
         ).toBe(false)
     })
@@ -758,6 +783,78 @@ describe('assertStatelessEventConsistent', () => {
                 studyStatus: null,
             }),
         ).toBe(false)
+    })
+
+    // OTTER-726: this event closes the review in every other tab, so a reviewer must not be able
+    // to send one until the decision they claim is in the database.
+    describe('outputs-review-submitted', () => {
+        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'outputs-review-submitted' }
+
+        it('accepts the event once the job carries a files decision', () => {
+            expect(
+                assertStatelessEventConsistent({
+                    event,
+                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
+                    documentStudyId: STUDY_ID,
+                    connectionUserClerkId: 'user_alice',
+                    studyStatus: null,
+                    jobDecided: true,
+                }),
+            ).toBe(true)
+        })
+
+        it('rejects the event while the job is still open', () => {
+            expect(
+                assertStatelessEventConsistent({
+                    event,
+                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
+                    documentStudyId: STUDY_ID,
+                    connectionUserClerkId: 'user_alice',
+                    studyStatus: null,
+                    jobDecided: false,
+                }),
+            ).toBe(false)
+        })
+
+        // Fails closed: a caller that cannot resolve the job status must not have its event relayed.
+        it('rejects the event when the job status could not be resolved', () => {
+            expect(
+                assertStatelessEventConsistent({
+                    event,
+                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
+                    documentStudyId: STUDY_ID,
+                    connectionUserClerkId: 'user_alice',
+                    studyStatus: null,
+                }),
+            ).toBe(false)
+        })
+
+        it('rejects the event when the sender is not the connection user', () => {
+            expect(
+                assertStatelessEventConsistent({
+                    event,
+                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
+                    documentStudyId: STUDY_ID,
+                    connectionUserClerkId: 'user_mallory',
+                    studyStatus: null,
+                    jobDecided: true,
+                }),
+            ).toBe(false)
+        })
+    })
+})
+
+describe('hasFilesDecision', () => {
+    const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
+        query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
+    })
+
+    it('is false while the job has no closing status row', async () => {
+        await expect(hasFilesDecision(JOB_ID, fakeDb([]))).resolves.toBe(false)
+    })
+
+    it('is true once a closing status row exists', async () => {
+        await expect(hasFilesDecision(JOB_ID, fakeDb([{ status: 'FILES-APPROVED' }]))).resolves.toBe(true)
     })
 })
 

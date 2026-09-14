@@ -97,6 +97,19 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
+// The id an open tab posts after a deploy moved, renamed or removed that action. No request from
+// that tab can resolve it, so every surface reporting one has to offer a reload (OTTER-726).
+// Matched by name rather than through Next's unstable_isUnrecognizedActionError, which is
+// client-only while this module is also imported into the server graph.
+export function isStaleDeploymentError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'UnrecognizedActionError'
+}
+
+export const STALE_DEPLOYMENT_TITLE = 'Update available'
+
+export const STALE_DEPLOYMENT_MESSAGE =
+    'SafeInsights was updated while this page was open. Reload the page to continue.'
+
 export class ActionFailure extends Error {
     constructor(public error: ActionError['error']) {
         super(typeof error === 'string' ? error : JSON.stringify(error))
@@ -131,6 +144,10 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
             if (customError) return clerkOverrides[customError.code]
         }
         return error.errors.map((e) => `${e.longMessage || e.message}`).join('\n')
+    }
+
+    if (isStaleDeploymentError(error)) {
+        return STALE_DEPLOYMENT_MESSAGE
     }
 
     if (error instanceof Error) {

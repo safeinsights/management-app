@@ -6,6 +6,7 @@ import {
     fillLexicalField,
     insertLexicalLink,
     goto,
+    openContextWithSavedRole,
     withRole,
     type Page,
 } from './e2e.helpers'
@@ -732,6 +733,55 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
         await verifyOutputsSharedDisplay(page, studyTitle)
     })
 })
+
+// OTTER-726: one decision closes the round for every reviewer. Both contexts are the same reviewer,
+// which is the case that matters, because the guard is tab identity rather than user identity. The
+// second reviewer's own submit is the trigger here: the e2e stack runs no editor service, so the
+// live event cannot carry, and the status backstop is what answers. The event path is covered in
+// use-submission-redirect-listener.test.ts.
+test('A second reviewer who submits after the decision is closed out of the round', async ({
+    browser,
+    studyFeatures,
+}) => {
+    const studyTitle = studyFeatures.uniqueTitle('peer-outputs')
+    const { jobId } = await seedCodeApprovedJobReady(studyTitle)
+    uploadResults(jobId!)
+
+    const deciding = await openContextWithSavedRole(browser, 'reviewer')
+    const peer = await openContextWithSavedRole(browser, 'reviewer')
+
+    try {
+        await reviewerDecryptsAvailableOutputs(deciding.page, studyTitle)
+        await reviewerDecryptsAvailableOutputs(peer.page, studyTitle)
+
+        // Drafted before the decision lands, so the peer is mid-review rather than arriving late.
+        await fillLexicalField(peer.page, 'Decision feedback', 'Second reviewer still drafting.')
+
+        await reviewerSharesOutputs(deciding.page, 'Reviewed the outputs, nothing sensitive present.')
+
+        await peerSubmitAfterDecisionClosesTheRound(peer.page)
+    } finally {
+        await deciding.context.close()
+        await peer.context.close()
+    }
+})
+
+// The server refuses the second decision. The client reconciles against the job rather than
+// reporting a failure the reviewer could retry, so the review closes instead.
+async function peerSubmitAfterDecisionClosesTheRound(page: Page): Promise<void> {
+    await page.getByTestId('outputs-decision-share-outputs').check()
+
+    await page.getByTestId('outputs-submit-decision').click()
+
+    const modal = page.getByRole('dialog', { name: 'Submit your decision?' })
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Submit decision' }).click()
+
+    await expect(page.getByText(/A decision has been submitted for this output/)).toBeVisible()
+    // "Try again" would be untrue here: no retry can reopen a decided round.
+    await expect(page.getByText('Decision could not be submitted')).toBeHidden()
+    await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
+}
 
 // Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
 // validation gate, the confirmation modal, and the researcher's view of the shared logs.
