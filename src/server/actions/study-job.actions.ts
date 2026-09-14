@@ -192,6 +192,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             assertSharesEveryArtifact(studyJob.files, sharedFiles)
         }
 
+        // The round is counted study-wide but the unique index is per job, so two reviewers deciding
+        // different jobs of one study could otherwise read the same round. Serialize on the study row.
+        await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().executeTakeFirstOrThrow()
+
         const round = await outputsDecisionVersion(studyId, db)
 
         try {

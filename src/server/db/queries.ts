@@ -173,8 +173,8 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
 // first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
 // rather than FILES-* rows, because rejectStudyJobFilesAction writes the status with no comment and
 // counting it would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
-// Count and insert are separate, and the unique constraint backing them is per job, so it catches
-// two reviewers racing on one job but not two jobs of one study decided at the same instant.
+// Count and insert are separate, and the unique constraint backing them is per job, so a caller that
+// writes the counted round must lock the study row first (see submitOutputsDecisionAction).
 export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
     const row = await db
         .selectFrom('studyReviewComment')

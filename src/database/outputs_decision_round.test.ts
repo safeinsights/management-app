@@ -1,6 +1,6 @@
 import { db, describe, expect, insertTestOrg, insertTestStudyData, it } from '@/tests/unit.helpers'
 import type { Kysely } from 'kysely'
-import { up } from './migrations/1786200000000_outputs_decision_round'
+import { up } from './migrations/1786500000000_outputs_decision_round'
 
 const EMPTY_BODY = { root: { type: 'root', children: [] } }
 
