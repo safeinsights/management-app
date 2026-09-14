@@ -2617,6 +2617,24 @@ describe('getOutputsDecisionFeedbackAction', () => {
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
         expect(rows[0].version).toBe(1)
     })
+
+    it('denies a viewer from an unrelated org', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+
+        const otherOrg = await insertTestOrg()
+        const { user: otherUser } = await insertTestUser({ org: otherOrg })
+        mockClerkSession({
+            clerkUserId: otherUser.clerkId,
+            orgSlug: otherOrg.slug,
+            userId: otherUser.id,
+            orgId: otherOrg.id,
+        })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const result = await getOutputsDecisionFeedbackAction({ studyId: study.id })
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+    })
 })
 
 describe('softDeleteStudyAction', () => {
