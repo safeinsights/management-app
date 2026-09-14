@@ -72,7 +72,7 @@ const renderSingleUserSection = (props: Partial<React.ComponentProps<typeof Harn
 describe('CollaborativeResubmissionNoteSection', () => {
     it('renders the section title with the required indicator', () => {
         renderSection()
-        expect(screen.getByRole('heading', { name: /Resubmission Note/ })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /Resubmission note/ })).toBeInTheDocument()
         expect(screen.getByLabelText('required')).toBeInTheDocument()
     })
 
@@ -132,7 +132,7 @@ describe('CollaborativeResubmissionNoteSection character limit', () => {
 
     it('names the counter in the editor aria-describedby', async () => {
         renderSingleUserSection()
-        const editor = await screen.findByLabelText('Resubmission Note')
+        const editor = await screen.findByLabelText('Resubmission note')
         const counter = screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
         expect(editor.getAttribute('aria-describedby')).toContain(counter.id)
     })
@@ -149,7 +149,7 @@ describe('CollaborativeResubmissionNoteSection character limit', () => {
         const user = userEvent.setup()
         renderSingleUserSection()
 
-        const editor = await screen.findByLabelText('Resubmission Note')
+        const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
         await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
 
@@ -161,7 +161,7 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
     it('renders no placeholder text', async () => {
         renderSingleUserSection()
 
-        await screen.findByLabelText('Resubmission Note')
+        await screen.findByLabelText('Resubmission note')
         expect(screen.queryByText(/Summarize the modifications made to your initial request/)).not.toBeInTheDocument()
     })
 
@@ -169,7 +169,7 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
         const user = userEvent.setup()
         renderSingleUserSection()
 
-        const editor = await screen.findByLabelText('Resubmission Note')
+        const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
         expect(screen.queryByText(PROPOSAL_REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
 
@@ -185,7 +185,7 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
         const user = userEvent.setup()
         renderSingleUserSection({ initialError: PROPOSAL_REQUIRED_NOTE_ERROR })
 
-        const editor = await screen.findByLabelText('Resubmission Note')
+        const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
 
         expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
@@ -196,7 +196,7 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
         renderSingleUserSection({ initialError: PROPOSAL_REQUIRED_NOTE_ERROR })
         expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
 
-        const editor = await screen.findByLabelText('Resubmission Note')
+        const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
         await user.paste('Addressed the feedback.')
 

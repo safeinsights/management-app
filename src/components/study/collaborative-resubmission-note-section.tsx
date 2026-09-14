@@ -96,7 +96,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
             <Stack gap="md">
                 <Box>
                     <Title order={3} size="h4" c="charcoal.9">
-                        Resubmission Note
+                        Resubmission note
                         <RequiredIndicator isVisible />
                     </Title>
                     <Divider my="md" />
@@ -111,7 +111,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         initialValue={editorInitialValue}
                         websocketProvider={websocketProvider}
                         contentStyle={contentStyle}
-                        ariaLabel="Resubmission Note"
+                        ariaLabel="Resubmission note"
                         onChange={onNoteChange}
                         onBlur={() => noteForm.validateField(RESUBMISSION_NOTE_FIELD_ID)}
                         error={error}

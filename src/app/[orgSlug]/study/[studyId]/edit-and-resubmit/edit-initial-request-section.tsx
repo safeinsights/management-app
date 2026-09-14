@@ -72,7 +72,8 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         error={form.errors.datasets as string | undefined}
                     >
                         <Group align="center" gap="xxl">
-                            <Box w="50%">
+                            {/* 60% of the card's inner content width, as on Step 2 (Figma 445-24404). */}
+                            <Box w="60%">
                                 <DatasetMultiSelect
                                     id={DATASETS_FIELD_ID}
                                     value={form.values.datasets}

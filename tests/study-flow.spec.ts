@@ -952,7 +952,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByRole('dialog')).toBeHidden()
 
         // Form is pre-filled; only the resubmission note gates submit.
-        await fillLexicalField(page, 'Resubmission Note', 'Clarified the dataset scope and analysis plan per feedback.')
+        await fillLexicalField(page, 'Resubmission note', 'Clarified the dataset scope and analysis plan per feedback.')
         await expect(page.getByText('Enter your resubmission note before continuing.')).toBeHidden()
 
         await resubmitButton.click()
