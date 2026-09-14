@@ -1,8 +1,10 @@
 'use client'
 
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { proposalReviewHeading } from '@/lib/proposal-review'
-import { ReviewCriteriaBanner } from '@/components/study/review-criteria-banner'
+import { decisionTimestampForProposalHeader } from '@/lib/studies'
+import { reviewerProposalNeedsReviewBanner } from '@/lib/study-banners'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import type { StudyForReview } from './review-types'
 
@@ -15,51 +17,26 @@ type ProposalSectionProps = {
     reviewVersion?: number
 }
 
-const EVALUATION_CRITERIA = [
-    {
-        label: 'Feasibility',
-        description: 'Can this study be supported with your available data and infrastructure?',
-    },
-    {
-        label: 'Impact',
-        description: 'Could the results advance the understanding of teaching and learning?',
-    },
-    {
-        label: 'Researcher background',
-        description:
-            'Does the researcher have relevant expertise? If a student or post-doc, do they have appropriate faculty or PI supervision?',
-    },
-]
-
-function bannerIntro(labName: string, isResubmission: boolean) {
-    const action = isResubmission ? 'has resubmitted a revised initial request' : 'has submitted an initial request'
-    const review = isResubmission
-        ? 'Please review the changes and share your updated feedback and decision.'
-        : 'Please review it and share your feedback and decision.'
-
-    return (
-        <>
-            {labName} {action} requesting permission to use your data. {review} Consider evaluating based on these
-            criteria:
-        </>
-    )
+type StatusBannerProps = {
+    labName: string
+    reviewVersion: number
+    submittedAt: Date | string | null
 }
 
-function StatusBanner({ labName, isResubmission }: { labName: string; isResubmission: boolean }) {
+function StatusBanner({ labName, reviewVersion, submittedAt }: StatusBannerProps) {
+    const copy = reviewerProposalNeedsReviewBanner({ researchLab: labName, version: reviewVersion })
+
     return (
-        <ReviewCriteriaBanner
-            mb="md"
-            testId="status-banner"
-            criteriaTestId="proposal-review-criteria"
-            intro={bannerIntro(labName, isResubmission)}
-            criteria={EVALUATION_CRITERIA}
-        />
+        <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, submittedAt)}>
+            {copy.body}
+        </StatusAlert>
     )
 }
 
 export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersion = 1 }: ProposalSectionProps) {
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
     const isResubmission = reviewVersion > 1
+    const submittedAt = decisionTimestampForProposalHeader(study, priorEntries)
 
     return (
         <ProposalRequest
@@ -67,10 +44,8 @@ export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersi
             orgSlug={orgSlug}
             stepLabel="STEP 1"
             heading={proposalReviewHeading(reviewVersion)}
-            banner={<StatusBanner labName={labName} isResubmission={isResubmission} />}
+            banner={<StatusBanner labName={labName} reviewVersion={reviewVersion} submittedAt={submittedAt} />}
             initialExpanded={!isResubmission}
-            statusBadge={isResubmission ? 'Resubmitted on' : undefined}
-            entries={priorEntries}
         />
     )
 }

@@ -185,6 +185,7 @@ describe('ReviewerOutputsDecided', () => {
         const entry = screen.getByTestId('feedback-entries')
         expect(entry).toHaveTextContent(user.fullName)
         expect(entry).toHaveTextContent(dayjs().format('MMM DD, YYYY'))
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`Outputs and feedback shared by ${user.fullName}`)
     })
 
     it('renders a divider between multiple feedback entries', async () => {
@@ -218,6 +219,15 @@ describe('ReviewerOutputsDecided', () => {
         await renderView(study, raw, org.slug)
 
         expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+    })
+
+    it('leaves the banner unattributed when there is no decision comment', async () => {
+        const { org, study, raw } = await setupDecided()
+        await renderView(study, raw, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs and feedback shared')
+        expect(alert).not.toHaveTextContent(/shared by /)
     })
 
     it('hides the Feedback and notes section when there are no entries', async () => {
