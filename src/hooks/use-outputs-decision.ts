@@ -12,6 +12,8 @@ import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
+import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
 import { useOutputsReviewFeedbackProvider } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import type { SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
@@ -43,7 +45,10 @@ export function useOutputsDecision({
     const router = useRouter()
     const queryClient = useQueryClient()
     const { user } = useUser()
+    // The editor's own provider answers whether the feedback reached the service; the broadcast
+    // goes out on its own connection, which the action's document delete cannot take with it.
     const provider = useOutputsReviewFeedbackProvider()
+    const broadcastProvider = useBroadcastProvider(outputsReviewFeedbackDocName(jobId))
     const triggerKickOut = useTriggerStudyKickOut()
 
     // The feedback lives in the collaborative document, so it is safe once the editor service has
@@ -112,7 +117,7 @@ export function useOutputsDecision({
             // Closes the review in the other tabs at once. The editor service relays this only for
             // a job that already carries its decision, so it cannot end a peer's review early.
             const submittedByClerkId = user?.id
-            if (provider && submittedByClerkId) {
+            if (broadcastProvider && submittedByClerkId) {
                 const event: SubmissionEvent = {
                     type: 'outputs-review-submitted',
                     studyId,
@@ -120,7 +125,7 @@ export function useOutputsDecision({
                     submittedByClerkId,
                     submittedByName: result.submitterFullName,
                 }
-                provider.sendStateless(JSON.stringify(event))
+                broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
             // push() alone is a no-op since /review is already the URL, leaving the decrypted form

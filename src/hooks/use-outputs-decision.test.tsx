@@ -20,6 +20,9 @@ const LAB = 'Rice Lab'
 // The hook reads the outputs editor's provider to broadcast the decision and to tell whether the
 // feedback has reached the editor service, so its share has to be mounted above it.
 const renderDecision = () => {
+    // Fixed per render, not per call: these feed the broadcast document name, and a fresh id on
+    // every render would reopen that connection on every render.
+    const ids = { studyId: faker.string.uuid(), jobId: faker.string.uuid(), tabSessionId: faker.string.uuid() }
     const QueryWrapper = createTestQueryWrapper()
     const wrapper = ({ children }: { children: ReactNode }) => (
         <QueryWrapper>
@@ -31,11 +34,9 @@ const renderDecision = () => {
         () =>
             useOutputsDecision({
                 orgSlug: 'openstax',
-                studyId: faker.string.uuid(),
-                jobId: faker.string.uuid(),
                 labName: LAB,
                 decryptedFiles: [],
-                tabSessionId: faker.string.uuid(),
+                ...ids,
             }),
         { wrapper },
     )
@@ -140,6 +141,7 @@ describe('useOutputsDecision after a refused submit', () => {
     const renderWithBackstop = () => {
         const studyId = faker.string.uuid()
         const jobId = faker.string.uuid()
+        const tabSessionId = faker.string.uuid()
         const QueryWrapper = createTestQueryWrapper()
         const wrapper = ({ children }: { children: ReactNode }) => (
             <QueryWrapper>
@@ -167,7 +169,7 @@ describe('useOutputsDecision after a refused submit', () => {
                     jobId,
                     labName: LAB,
                     decryptedFiles: [],
-                    tabSessionId: faker.string.uuid(),
+                    tabSessionId,
                 }),
             { wrapper },
         )
