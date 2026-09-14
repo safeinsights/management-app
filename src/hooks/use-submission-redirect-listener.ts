@@ -6,6 +6,7 @@ import { notifications } from '@mantine/notifications'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 
 import { Routes } from '@/lib/routes'
+import { showOrReplaceNotification } from '@/components/errors'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import { OUTPUTS_DECIDED_NOTIFICATION_ID } from '@/lib/outputs-review'
 
@@ -155,7 +156,7 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
             }
 
             if (event.type === 'outputs-review-submitted') {
-                notifications.show({
+                showOrReplaceNotification({
                     // Shared with the status backstop, which may reach the same conclusion a moment
                     // later through this tab's own failed submit.
                     id: OUTPUTS_DECIDED_NOTIFICATION_ID,
