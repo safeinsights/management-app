@@ -169,6 +169,21 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
     return Number(row?.count ?? 0) + 1
 }
 
+// Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
+// first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
+// rather than FILES-* rows, because rejectStudyJobFilesAction writes the status with no comment and
+// counting it would leave the first visible entry labelled v2.0 with no v1.0 anywhere.
+export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+    const row = await db
+        .selectFrom('studyReviewComment')
+        .where('studyId', '=', studyId)
+        .where('reviewKind', '=', 'RESULTS')
+        .where('entryType', '=', 'DECISION')
+        .select((eb) => eb.fn.countAll().as('count'))
+        .executeTakeFirst()
+    return Number(row?.count ?? 0) + 1
+}
+
 export const jobInfoForJobId = async (jobId: string) => {
     return await Action.db
         .selectFrom('studyJob')

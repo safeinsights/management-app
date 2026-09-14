@@ -14,7 +14,6 @@ import {
 import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { FileType } from '@/database/types'
 import {
-    codeSubmissionVersion,
     getLabPublicKeysForStudy,
     getUserPublicKey,
     getSharedFileIdsForJob,
@@ -22,6 +21,7 @@ import {
     getStudyJobInfo,
     jobAnalysisUpdateForJob,
     latestJobForStudy,
+    outputsDecisionVersion,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
@@ -192,7 +192,7 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             assertSharesEveryArtifact(studyJob.files, sharedFiles)
         }
 
-        const round = await codeSubmissionVersion(studyId, db)
+        const round = await outputsDecisionVersion(studyId, db)
 
         try {
             await db
