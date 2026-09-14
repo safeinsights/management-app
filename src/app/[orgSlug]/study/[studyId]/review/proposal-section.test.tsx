@@ -15,6 +15,7 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { ProposalSection } from './proposal-section'
 
 // Fully typed so a cast cannot hide a partial object once ProposalRequest reads new fields.
@@ -87,38 +88,22 @@ describe('ProposalSection', () => {
         expect(screen.getByText('Researcher')).toBeInTheDocument()
     })
 
-    it('shows resubmission copy and versioned heading when reviewVersion > 1', () => {
+    it('shows the revised title and versioned heading when reviewVersion > 1', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
+        const labName = study.submittingLabName ?? study.submittedByOrgSlug
         expect(screen.getByRole('heading', { name: 'Review proposal v2.0', level: 2 })).toBeInTheDocument()
-        expect(screen.getByTestId('status-banner')).toHaveTextContent(
-            'has resubmitted a revised initial request requesting permission to use your data',
-        )
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`Revised proposal submitted by ${labName}`)
     })
 
-    it('renders the status banner with evaluation criteria', () => {
-        renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
-
-        const banner = screen.getByTestId('status-banner')
-        expect(banner).toBeInTheDocument()
-        expect(banner).toHaveTextContent('has submitted an initial request requesting permission to use your data')
-        expect(screen.getByTestId('proposal-review-criteria')).toBeInTheDocument()
-        expect(screen.getByText(/Feasibility:/)).toBeInTheDocument()
-        expect(screen.getByText(/Can this study be supported with your available data/)).toBeInTheDocument()
-        expect(screen.getByText(/Could the results advance the understanding/)).toBeInTheDocument()
-        expect(screen.getByText(/Does the researcher have relevant expertise/)).toBeInTheDocument()
-    })
-
-    it('shows the submitting lab name in the status banner, not bold', () => {
+    it('renders the action banner naming the submitting lab', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         const labName = study.submittingLabName ?? study.submittedByOrgSlug
-        const banner = screen.getByTestId('status-banner')
-        expect(banner).toHaveTextContent(labName)
-
-        for (const strong of banner.querySelectorAll('strong')) {
-            expect(strong.textContent ?? '').not.toContain(labName)
-        }
+        const banner = screen.getByTestId('status-alert')
+        expect(banner).toHaveAttribute('data-variant', 'action')
+        expect(banner).toHaveTextContent(`New proposal submitted by ${labName}`)
+        expect(banner).toHaveTextContent('requesting permission to run their code on your data')
     })
 
     it('is expanded by default on first submission', () => {
@@ -302,12 +287,12 @@ describe('ProposalSection', () => {
         })
     })
 
-    it('renders submitted date when study has been submitted', () => {
+    it('dates the banner title from the submission when the study has been submitted', () => {
         const submittedStudy = { ...study, submittedAt: new Date('2025-03-15T12:00:00Z') }
 
         renderWithProviders(<ProposalSection study={submittedStudy} orgSlug="test-org" />)
 
-        expect(screen.getByText('Submitted on Mar 15, 2025')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Mar 15, 2025`)
     })
 
     it('renders the resubmission date (not the original submittedAt) on resubmission', () => {
@@ -330,7 +315,7 @@ describe('ProposalSection', () => {
             <ProposalSection study={submittedStudy} orgSlug="test-org" priorEntries={priorEntries} reviewVersion={2} />,
         )
 
-        expect(screen.getByText('Resubmitted on May 10, 2026')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} May 10, 2026`)
         expect(screen.queryByText(/Mar 15, 2025/)).not.toBeInTheDocument()
     })
 })
