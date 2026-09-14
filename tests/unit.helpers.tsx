@@ -94,6 +94,11 @@ export const createTestQueryClient = () => {
     return client
 }
 
+// Mutations only: a read action opens no transaction and issues plain SELECTs, so a late one
+// cannot commit anything. A pending mutation can, see the teardown check in vitest.setup.ts.
+export const pendingTestMutationCount = () =>
+    [...liveTestQueryClients].reduce((count, client) => count + client.isMutating(), 0)
+
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {
     for (const client of liveTestQueryClients) {
