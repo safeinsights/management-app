@@ -1,11 +1,25 @@
 import { vi } from 'vitest'
 import { notifications } from '@mantine/notifications'
 import * as RouterMock from 'next-router-mock'
-import { act, afterEach, beforeEach, describe, expect, it, render, waitFor, type Mock } from '@/tests/unit.helpers'
+import {
+    act,
+    afterEach,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    render,
+    staleActionError,
+    waitFor,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { YjsWebsocketProvider, __resetSharedYjsWebsocketForTests } from '@/lib/realtime/yjs-websocket-context'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
+import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
+import { STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
 import {
+    STATUS_CHECK_FAILURE_TITLE,
     StudyKickOutProvider,
     useStudyStatusOnReconnect,
     useTriggerStudyKickOut,
@@ -202,7 +216,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         const Trigger = () => {
             const triggerKickOut = useTriggerStudyKickOut()
             return (
-                <button type="button" data-testid="trigger" onClick={triggerKickOut}>
+                <button type="button" data-testid="trigger" onClick={() => void triggerKickOut()}>
                     trigger
                 </button>
             )
@@ -235,9 +249,10 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submission complete' }))
     })
 
-    // OTTER-726: a failed submit calls the trigger before it shows its own message. When the status
-    // request itself cannot be made, the caller has to be told "not closed", not left hanging.
-    it('resolves false without throwing when the status request fails at the transport', async () => {
+    // OTTER-726: when the status request itself cannot be made, the caller has to be told "not
+    // closed" rather than left hanging, and the reader has to be told at all. "Could not ask" is not
+    // the same answer as "the round is open".
+    it('resolves false and reports when the status request fails at the transport', async () => {
         getStudyStatusActionMock.mockRejectedValue(new Error('Failed to fetch'))
 
         let outcome: boolean | undefined
@@ -274,7 +289,9 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         })
 
         await waitFor(() => expect(outcome).toBe(false))
-        expect(showMock).not.toHaveBeenCalled()
+        expect(showMock).toHaveBeenCalledWith(
+            expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+        )
         expect(memoryRouter.asPath).toBe('/')
     })
 
@@ -334,7 +351,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         const Trigger = () => {
             const triggerKickOut = useTriggerStudyKickOut()
             return (
-                <button type="button" data-testid="trigger" onClick={triggerKickOut}>
+                <button type="button" data-testid="trigger" onClick={() => void triggerKickOut()}>
                     trigger
                 </button>
             )
@@ -359,5 +376,94 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         })
         await new Promise((r) => setTimeout(r, 30))
         expect(showMock).toHaveBeenCalledTimes(1)
+    })
+})
+
+// OTTER-726: the transport throws when the tab is offline or posts an action id a new build no
+// longer holds. Before, that was swallowed and read as "the round is still open", so the reviewer
+// was told nothing until a submit failed.
+describe('useStudyStatusOnReconnect when the status request fails', () => {
+    beforeEach(() => {
+        __resetSharedYjsWebsocketForTests()
+        ctorSpy.mockClear()
+        showMock.mockClear()
+        getStudyStatusActionMock.mockReset()
+        memoryRouter.setCurrentUrl('/')
+    })
+
+    afterEach(() => {
+        __resetSharedYjsWebsocketForTests()
+    })
+
+    it('offers a reload when the tab posts an action id the running build has dropped', async () => {
+        getStudyStatusActionMock.mockRejectedValue(staleActionError())
+        mount()
+
+        await waitFor(() =>
+            expect(showMock).toHaveBeenCalledWith(
+                expect.objectContaining({ id: STALE_DEPLOYMENT_NOTIFICATION_ID, title: STALE_DEPLOYMENT_TITLE }),
+            ),
+        )
+        expect(memoryRouter.asPath).toBe('/')
+    })
+
+    it('reports a request that never arrives', async () => {
+        getStudyStatusActionMock.mockRejectedValue(new TypeError('Failed to fetch'))
+        mount()
+
+        await waitFor(() =>
+            expect(showMock).toHaveBeenCalledWith(
+                expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+            ),
+        )
+    })
+
+    it('reports a server that refuses to answer', async () => {
+        getStudyStatusActionMock.mockResolvedValue({ error: 'Access denied: user not allowed access to study' })
+        mount()
+
+        await waitFor(() =>
+            expect(showMock).toHaveBeenCalledWith(
+                expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+            ),
+        )
+    })
+
+    it('stays quiet for a caller that shows its own message', async () => {
+        getStudyStatusActionMock.mockRejectedValue(staleActionError())
+
+        const Trigger = () => {
+            const triggerKickOut = useTriggerStudyKickOut()
+            return (
+                <button
+                    type="button"
+                    data-testid="trigger"
+                    onClick={() => void triggerKickOut({ reportFailure: false })}
+                >
+                    trigger
+                </button>
+            )
+        }
+
+        const { getByTestId } = render(
+            <YjsWebsocketProvider>
+                <StudyKickOutProvider
+                    studyId={STUDY_ID}
+                    orgSlug="org"
+                    editableStatuses={['DRAFT']}
+                    redirectTarget="studyReview"
+                    enabled={false}
+                >
+                    <Trigger />
+                </StudyKickOutProvider>
+            </YjsWebsocketProvider>,
+        )
+
+        act(() => {
+            getByTestId('trigger').click()
+        })
+
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalled())
+        expect(showMock).not.toHaveBeenCalled()
     })
 })

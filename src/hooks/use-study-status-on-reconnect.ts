@@ -2,11 +2,11 @@
 
 import { createContext, createElement, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
 import { WebSocketStatus } from '@hocuspocus/provider'
 
 import { Routes } from '@/lib/routes'
-import { isActionError } from '@/lib/errors'
+import { ActionFailure, isActionError } from '@/lib/errors'
+import { reportError, showOrReplaceNotification } from '@/components/errors'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -22,6 +22,8 @@ export type EditableSnapshot = {
 // `id` lets a screen share one notification with its own live-event path, so a race that trips both
 // shows a single notice.
 export type KickOutNotice = { title: string; message: string; id?: string }
+
+export const STATUS_CHECK_FAILURE_TITLE = 'Failed to check the review status'
 
 // What a proposal tab is told. Every screen that closes for another reason passes its own.
 const PROPOSAL_SUBMITTED_NOTICE: KickOutNotice = {
@@ -47,8 +49,12 @@ type Args = {
     enabled?: boolean
 }
 
+// A caller that shows its own message for a failed request passes `reportFailure: false`, so the
+// reader is not told twice about one failure.
+type KickOutOptions = { reportFailure?: boolean }
+
 /** Resolves true when the screen was closed, so a caller can drop its own failure message. */
-type KickOutTrigger = () => Promise<boolean>
+type KickOutTrigger = (options?: KickOutOptions) => Promise<boolean>
 
 const KickOutContext = createContext<KickOutTrigger | null>(null)
 
@@ -93,51 +99,58 @@ export function useStudyStatusOnReconnect({
         noticeRef.current = notice
     }, [editableStatuses, isEditable, orgSlug, redirectTarget, notice])
 
-    const checkStatus = useCallback(async () => {
-        // True rather than false: a redirect is already under way, so a caller must not add its own
-        // message on top of it.
-        if (hasRedirectedRef.current) return true
+    const checkStatus = useCallback(
+        async ({ reportFailure = true }: KickOutOptions = {}) => {
+            // True rather than false: a redirect is already under way, so a caller must not add its own
+            // message on top of it.
+            if (hasRedirectedRef.current) return true
 
-        // Server-side failures arrive as error envelopes; only the transport throws, which is
-        // exactly what happens with no network or with an action id a new build no longer holds.
-        // The callers cannot act on either, and one of them is a failed submit that still has to
-        // show its own message.
-        let result: Awaited<ReturnType<typeof getStudyStatusAction>>
-        try {
-            result = await getStudyStatusAction({ studyId, studyJobId })
-        } catch {
-            return false
-        }
-        if (isActionError(result)) return false
-
-        const predicate = isEditableRef.current
-        if (predicate) {
-            const snapshot: EditableSnapshot = {
-                status: result.status,
-                latestJobStatus: result.latestJobStatus,
-                jobStatuses: result.jobStatuses,
+            // Only the transport throws, which is what happens with no network or with an action id a
+            // new build no longer holds; a server-side failure arrives as an envelope. Either way this
+            // tab cannot tell whether the round is open, which is not the same answer as "it is", so
+            // the failure is reported rather than assumed away (OTTER-726).
+            let result: Awaited<ReturnType<typeof getStudyStatusAction>>
+            try {
+                result = await getStudyStatusAction({ studyId, studyJobId })
+            } catch (error) {
+                if (reportFailure) reportError(error, STATUS_CHECK_FAILURE_TITLE)
+                return false
             }
-            if (predicate(snapshot)) return false
-        } else if (editableStatusesRef.current.includes(result.status)) {
-            return false
-        }
+            if (isActionError(result)) {
+                if (reportFailure) reportError(new ActionFailure(result.error), STATUS_CHECK_FAILURE_TITLE)
+                return false
+            }
 
-        hasRedirectedRef.current = true
-        notifications.show({
-            color: 'blue',
-            ...noticeRef.current,
-            autoClose: NOTIFICATION_DISPLAY_MS,
-        })
-        if (redirectTargetRef.current === 'studySubmitted') {
-            router.push(Routes.studySubmitted({ orgSlug: orgSlugRef.current, studyId }))
-        } else {
-            router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
-        }
-        // An editable screen and the screen that replaces it can answer the same URL, where push
-        // alone is a no-op that leaves the closed form mounted.
-        router.refresh()
-        return true
-    }, [studyId, studyJobId, router])
+            const predicate = isEditableRef.current
+            if (predicate) {
+                const snapshot: EditableSnapshot = {
+                    status: result.status,
+                    latestJobStatus: result.latestJobStatus,
+                    jobStatuses: result.jobStatuses,
+                }
+                if (predicate(snapshot)) return false
+            } else if (editableStatusesRef.current.includes(result.status)) {
+                return false
+            }
+
+            hasRedirectedRef.current = true
+            showOrReplaceNotification({
+                color: 'blue',
+                ...noticeRef.current,
+                autoClose: NOTIFICATION_DISPLAY_MS,
+            })
+            if (redirectTargetRef.current === 'studySubmitted') {
+                router.push(Routes.studySubmitted({ orgSlug: orgSlugRef.current, studyId }))
+            } else {
+                router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
+            }
+            // An editable screen and the screen that replaces it can answer the same URL, where push
+            // alone is a no-op that leaves the closed form mounted.
+            router.refresh()
+            return true
+        },
+        [studyId, studyJobId, router],
+    )
 
     // A tab that stayed connected while it was in the background received no event if it had no
     // editor mounted, and no status change either. Asking when the reviewer comes back to it is

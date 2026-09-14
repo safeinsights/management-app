@@ -99,8 +99,9 @@ export function useOutputsDecision({
 
             // A peer may have decided while this submit was in flight, which closes the round for
             // everyone and makes a retry impossible. Reconcile against the job before blaming the
-            // submit, and never replay the mutation.
-            if (await triggerKickOut()) return
+            // submit, and never replay the mutation. Quiet, because this screen answers a failed
+            // check with its own wording below, which names what a reload costs the reviewer.
+            if (await triggerKickOut({ reportFailure: false })) return
 
             showOutputsDecisionFailure({ error, isSaved: isFeedbackSaved() })
         },
