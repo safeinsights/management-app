@@ -33,7 +33,7 @@ describe('StudyViewPage', () => {
 
     // OTTER-614: APPROVED-no-code resolves to proposal-feedback, which renders the same
     // ProposalSubmitted page as /submitted (toggle, feedback/notes, status-driven forward).
-    it('renders the ProposalSubmitted page with a Proceed-to-step-3 link for APPROVED study without code', async () => {
+    it('renders the ProposalSubmitted page with a Next step link for APPROVED study without code', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
@@ -45,7 +45,10 @@ describe('StudyViewPage', () => {
 
         expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
-        expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /^next step$/i })).toHaveAttribute(
+            'href',
+            Routes.studyCode({ orgSlug: org.slug, studyId: study.id }),
+        )
     })
 
     it('renders the ProposalSubmitted page for a REJECTED study', async () => {
@@ -63,7 +66,7 @@ describe('StudyViewPage', () => {
         expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'decline')
     })
 
-    it('renders the ProposalSubmitted page with an Edit-and-resubmit link for a CHANGE-REQUESTED study', async () => {
+    it('renders the ProposalSubmitted page with an Edit proposal link for a CHANGE-REQUESTED study', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
@@ -75,7 +78,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'action')
-        expect(screen.getByRole('link', { name: /edit and resubmit/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /^edit proposal$/i })).toBeInTheDocument()
     })
 
     it('renders generic layout for DRAFT study without job', async () => {

@@ -50,6 +50,15 @@ describe('OutputsStatusAlert', () => {
 
     afterEach(() => vi.useRealTimers())
 
+    // Approval routes the reviewer here before the containerizer reports a stage (OTTER-673).
+    it('shows the code-approved copy while no pipeline stage has been reported', () => {
+        renderAt('CODE-APPROVED')
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs not ready, code approved 5 minutes ago')
+        expect(alert).toHaveTextContent('Preparing the code to run in the secure enclave')
+        expect(screen.getByRole('link', { name: /Slack/ })).toHaveAttribute('href', SAFE_INSIGHTS_SLACK_URL)
+    })
+
     it('shows the job-packaging copy with a Slack link that opens in a new tab', () => {
         renderAt('JOB-PACKAGING')
         const alert = screen.getByTestId('status-alert')
@@ -104,10 +113,10 @@ describe('OutputsStatusAlert', () => {
         expect(vi.getTimerCount()).toBe(0)
     })
 
-    it('renders nothing for a status outside the four execution stages', () => {
+    it('renders nothing for a status outside the execution stages', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date(STARTED))
-        renderWithProviders(<OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />)
+        renderWithProviders(<OutputsStatusAlert stageStatus="CODE-SUBMITTED" startedAt={STARTED} />)
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
     })
 })

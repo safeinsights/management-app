@@ -6,8 +6,6 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
-    projectStudyState,
-    resolvePhasedStepNav,
     type ScreenId,
     type StudyState,
 } from '@/lib/study-screen'
@@ -72,10 +70,8 @@ export async function SharedOutputsScreen({
     descriptor,
     study,
     raw,
-    orgSlug,
-    dashboardHref,
-    returnTo,
-}: Pick<ScreenComponentProps, 'descriptor' | 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
+    phasedNav,
+}: Pick<ScreenComponentProps, 'descriptor' | 'study' | 'raw' | 'phasedNav'>) {
     // A screen id routed here without a SHARE_SCREENS entry is a registry bug, not a data state, so
     // it 404s rather than reading `undefined.matches` a line later. Narrowing the prop to
     // ShareScreenId instead would be stricter but does not compile: SCREEN_COMPONENTS is typed
@@ -95,12 +91,6 @@ export async function SharedOutputsScreen({
     if (!('job' in result)) return result
 
     const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
-    const nav = resolvePhasedStepNav(descriptor.screen, projectStudyState(raw), {
-        orgSlug,
-        studyId: study.id,
-        dashboardHref,
-        returnTo,
-    })
 
     return (
         <Box bg="grey.10">
@@ -121,7 +111,7 @@ export async function SharedOutputsScreen({
                     feedbackSection={
                         <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                     }
-                    nav={nav}
+                    nav={phasedNav}
                 />
             </Stack>
         </Box>

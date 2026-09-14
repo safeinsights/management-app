@@ -199,17 +199,17 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         await user.type(screen.getByLabelText('Study Title Probe'), title)
     }
 
-    it('flushes edited fields to the study row, then navigates back to the submitted view', async () => {
+    it('flushes edited fields to the study row, then steps back to the read-only Step 1 record', async () => {
         const user = userEvent.setup()
         const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
 
         renderFooterForStudy(study.id, 'Original title', researcher.id)
-        await retypeTitle(user, 'Saved on Back')
+        await retypeTitle(user, 'Saved on Previous step')
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
             { timeout: 5000 },
         )
 
@@ -218,7 +218,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
             .select(['title', 'status'])
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        expect(after.title).toBe('Saved on Back')
+        expect(after.title).toBe('Saved on Previous step')
         expect(after.status).toBe('CHANGE-REQUESTED')
     })
 
@@ -231,10 +231,10 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         // must skip the title but still save the rest.
         await user.clear(screen.getByLabelText('Study Title Probe'))
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
             { timeout: 5000 },
         )
 
@@ -277,7 +277,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         renderFooterForStudy(study.id, 'Original title', researcher.id)
         await retypeTitle(user, 'Should not persist')
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
         const errorCall = (notifications.show as Mock).mock.calls.find(
@@ -297,10 +297,10 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
         renderFooterForStudy(study.id, 'Original title', researcher.id)
 
-        await user.click(screen.getByRole('button', { name: 'Back' }))
+        await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
             { timeout: 5000 },
         )
         expect(notifications.show).not.toHaveBeenCalled()

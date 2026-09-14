@@ -144,11 +144,8 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
 
     await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
 
-    // Button component={Link} renders as an anchor.
-    await page
-        .getByRole('link', { name: /Go to dashboard/i })
-        .first()
-        .click()
+    // The Data Partner holds the next move, so the exit is the solid action (OTTER-673).
+    await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -165,7 +162,14 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await clickViewLink(page, studyRow)
 
     await page.waitForURL(/\/submitted(\?.*)?$/)
-    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
+
+    // OTTER-673: the approved proposal steps back to the read-only Step 1 record and forward again
+    // before "Next step" opens Step 3.
+    await page.getByRole('link', { name: /Previous step/i }).click()
+    await page.waitForURL(/\/edit(\?.*)?$/)
+    await page.getByRole('button', { name: 'Next step' }).click()
+    await page.waitForURL(/\/submitted(\?.*)?$/)
+    await page.getByRole('link', { name: /^Next step$/i }).click()
     await page.waitForURL(/\/code$/)
 }
 
@@ -276,7 +280,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await expect(dialog).toBeHidden()
 
     await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
-    await page.getByTestId('go-to-dashboard').click()
+    await page.getByTestId('cta-back-to-my-studies').click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -313,7 +317,8 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByTestId('code-review-submit').click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog.getByText('Approve code?')).toBeVisible()
+    await dialog.getByRole('button', { name: /^Approve code$/i }).click()
     await expect(dialog).toBeHidden()
 
     // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
@@ -833,7 +838,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
-        await page.getByTestId('go-to-dashboard').click()
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
 
         const rejectedRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -854,9 +859,9 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
 
-        // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
-        await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
-        await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
+        // A declined proposal is terminal: the exit is the only solid action, no Step-3 progression.
+        await expect(page.getByRole('link', { name: /^Next step$/i })).not.toBeVisible()
+        await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()
 
         // OTTER-764: a submitted proposal steps back to Step 1 as a read-only record, and forward
         // again from there. Every field is a locked group by now, so none of them holds a control.
@@ -908,7 +913,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
-        await page.getByTestId('go-to-dashboard').click()
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
 
@@ -923,7 +928,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
-        await page.getByRole('link', { name: /Edit and resubmit/i }).click()
+        await page.getByRole('link', { name: /^Edit proposal$/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
@@ -972,6 +977,14 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
     await withRole(browser, 'reviewer', async (page) => {
         await openCodeReviewEditor(page, studyTitle)
 
+        // OTTER-673: the code step walks back to the decided proposal, which steps forward again.
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/review\/proposal$/)
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
+        await page.getByRole('link', { name: /^Next step$/i }).click()
+        await page.waitForURL(/\/review\/code$/)
+        await expect(page.getByTestId('code-review-section')).toBeVisible()
+
         await fillCodeCriteria(page, 'no')
         // "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable), standard confirm modal.
         await page.getByTestId('code-review-decision-needs-clarification').click()
@@ -983,11 +996,12 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.getByTestId('code-review-submit').click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await expect(dialog.getByText('Request revision?')).toBeVisible()
+        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
-        await page.getByTestId('go-to-dashboard').click()
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
 
@@ -1009,10 +1023,13 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
         await expect(resubmitButton).toBeEnabled()
         await resubmitButton.click()
-        await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
+        await page
+            .getByRole('dialog')
+            .getByRole('button', { name: /^Resubmit code$/i })
+            .click()
 
         await page.waitForURL('**/view')
     })
@@ -1043,10 +1060,13 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await expect(page.getByText(/All changes saved/i)).toBeVisible()
         await expect(page.getByText(/Study is not editable or you do not have access/i)).toBeHidden()
 
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
         await expect(resubmitButton).toBeEnabled()
         await resubmitButton.click()
-        await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
+        await page
+            .getByRole('dialog')
+            .getByRole('button', { name: /^Resubmit code$/i })
+            .click()
 
         await page.waitForURL('**/view')
     })
