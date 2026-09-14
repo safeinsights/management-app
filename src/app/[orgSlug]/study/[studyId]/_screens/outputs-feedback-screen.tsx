@@ -1,37 +1,19 @@
 import { Box, Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { researcherOutputsFeedbackBanner, type BannerCopy } from '@/lib/study-banners'
 import { isFeedbackOnlyOutcome, projectStudyState, resolveStepNav } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
-const FeedbackBanner = ({
-    title,
-    message,
-    decidedAt,
-}: {
-    title: string
-    message: string
-    decidedAt: Date | string | null
-}) => (
-    <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle(title, decidedAt)}>
-        {message}
+const FeedbackBanner = ({ copy, decidedAt }: { copy: BannerCopy; decidedAt: Date | string | null }) => (
+    <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
+        {copy.body}
     </StatusAlert>
 )
-
-const bannerCopy = (errored: boolean, dataPartner: string) =>
-    errored
-        ? {
-              title: 'Resolve the code error to proceed',
-              message: `${dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
-          }
-        : {
-              title: 'Feedback on outputs available',
-              message: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
-          }
 
 export async function OutputsFeedbackScreen({
     study,
@@ -54,7 +36,7 @@ export async function OutputsFeedbackScreen({
 
     const { entries, feedbackLoadError, dataPartner, decidedAt } = result
     const state = projectStudyState(raw)
-    const banner = bannerCopy(state.runErrored, dataPartner)
+    const banner = researcherOutputsFeedbackBanner({ runErrored: state.runErrored }, { dataPartner })
     const nav = resolveStepNav('outputs-feedback', state, {
         orgSlug,
         studyId: study.id,
@@ -69,7 +51,7 @@ export async function OutputsFeedbackScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    banner={<FeedbackBanner title={banner.title} message={banner.message} decidedAt={decidedAt} />}
+                    banner={<FeedbackBanner copy={banner} decidedAt={decidedAt} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />

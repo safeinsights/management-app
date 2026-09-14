@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import type { PhasedBannerCopy } from '@/lib/study-banners'
 import type { PhasedStepNav } from '@/lib/study-screen'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -38,7 +39,7 @@ const UNLOCKED_BODY =
 const LOCKED_TITLE = `${LOCKED_HEADING} • Aug 05, 2026`
 const UNLOCKED_TITLE = `${UNLOCKED_HEADING} • Aug 05, 2026`
 
-const BANNER = {
+const BANNER: PhasedBannerCopy = {
     locked: { variant: STATUS_ALERT_VARIANT.action, title: LOCKED_HEADING, body: LOCKED_BODY },
     unlocked: { variant: STATUS_ALERT_VARIANT.action, title: UNLOCKED_HEADING, body: UNLOCKED_BODY },
 }
@@ -85,11 +86,11 @@ describe('SharedOutputsPanel', () => {
     // A real row still has to exist for the seeded artifact to hang off.
     let job: { id: string }
 
-    const renderPanel = () =>
+    const renderPanel = (banner = BANNER) =>
         renderWithProviders(
             <SharedOutputsPanel
                 decidedAt={DECIDED_AT}
-                banner={BANNER}
+                banner={banner}
                 job={job}
                 feedbackSection={<FeedbackProbe />}
                 nav={NAV}
@@ -199,26 +200,15 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('renders a success unlocked banner when that is the copy it is given', async () => {
-            renderWithProviders(
-                <SharedOutputsPanel
-                    decidedAt={DECIDED_AT}
-                    banner={{
-                        ...BANNER,
-                        unlocked: {
-                            variant: STATUS_ALERT_VARIANT.success,
-                            title: 'Outputs and feedback available',
-                            body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
-                        },
-                    }}
-                    job={job}
-                    feedbackSection={<FeedbackProbe />}
-                    nav={NAV}
-                />,
-            )
+            renderPanel({
+                ...BANNER,
+                unlocked: { ...BANNER.unlocked, variant: STATUS_ALERT_VARIANT.success },
+            })
             await decrypt()
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'success')
-            expect(alert).toHaveTextContent('Outputs and feedback available • Aug 05, 2026')
+            expect(alert).toHaveTextContent(UNLOCKED_TITLE)
+            expect(alert).toHaveTextContent(UNLOCKED_BODY)
         })
 
         it('announces the swap in the SAME polite live region rather than remounting it', async () => {

@@ -159,7 +159,9 @@ split the decision across run outcome × decision: #1 is an errored run whose ou
 #3 is a clean run whose outputs were **shared**. #1 and #3 render **one component**,
 `SharedOutputsScreen`, keyed on the resolved `ScreenId` (the same shape `CodeDecisionScreen` uses for
 `code-approved`/`code-feedback`); they differ in the routing predicate and in both banner phases — a
-clean share concludes (success), an errored share still needs a resubmit (action, OTTER-781).
+clean share concludes (success), an errored share still needs a resubmit (action, OTTER-781). All
+three screens' banner copy lives in `src/lib/study-banners.ts` with every other status banner
+(OTTER-699): `researcherSharedOutputsBanner` for #1/#3, `researcherOutputsFeedbackBanner` for #2.
 `study-results` (#4) is left with exactly one researcher state: an undecided
 `RUN-COMPLETE`, waiting on the reviewer.
 

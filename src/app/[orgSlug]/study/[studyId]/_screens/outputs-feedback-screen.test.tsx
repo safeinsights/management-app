@@ -20,6 +20,7 @@ import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
+import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
@@ -41,6 +42,9 @@ const givenDataPartner = async (studyId: string) => {
     await db.updateTable('study').set({ orgId: dataPartner.id }).where('id', '=', studyId).execute()
     return dataPartner
 }
+
+const copyFor = (runErrored: boolean, dataPartner = 'Any Data Partner') =>
+    researcherOutputsFeedbackBanner({ runErrored }, { dataPartner })
 
 const renderScreen = async (
     study: ScreenComponentProps['study'],
@@ -174,14 +178,11 @@ describe('OutputsFeedbackScreen', () => {
             const { org, study, raw } = await setupFeedbackOnly()
             await renderScreen(study, raw, org.slug)
 
+            const copy = copyFor(false, displayOrgName(org.name))
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveAttribute('data-variant', 'action')
-            expect(alert).toHaveTextContent(
-                `Feedback on outputs available • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`,
-            )
-            expect(alert).toHaveTextContent(
-                `${displayOrgName(org.name)} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
-            )
+            expect(alert).toHaveAttribute('data-variant', copy.variant)
+            expect(alert).toHaveTextContent(`${copy.title} • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`)
+            expect(alert).toHaveTextContent(copy.body)
         })
 
         it('dates the banner from the FILES-REJECTED decision, not code approval or today', async () => {
@@ -208,7 +209,7 @@ describe('OutputsFeedbackScreen', () => {
             await renderScreen(study, undatedRaw, org.slug)
 
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveTextContent('Feedback on outputs available')
+            expect(alert).toHaveTextContent(copyFor(false).title)
             expect(alert).not.toHaveTextContent('•')
         })
         it('shows clean-run copy when JOB-ERRORED came from packaging but the run completed (RUN-COMPLETE present)', async () => {
@@ -250,9 +251,9 @@ describe('OutputsFeedbackScreen', () => {
             await renderScreen(study, raw, org.slug)
 
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveTextContent('Feedback on outputs available')
-            expect(alert).toHaveTextContent(`${DATA_PARTNER} has shared feedback on the latest code run.`)
-            expect(alert).not.toHaveTextContent('Resolve the code error')
+            expect(alert).toHaveTextContent(copyFor(false, DATA_PARTNER).title)
+            expect(alert).toHaveTextContent(copyFor(false, DATA_PARTNER).body)
+            expect(alert).not.toHaveTextContent(copyFor(true).title)
         })
     })
 
@@ -261,16 +262,13 @@ describe('OutputsFeedbackScreen', () => {
             const { org, study, raw, dataPartner } = await setupErroredFeedbackOnly()
             await renderScreen(study, raw, org.slug)
 
+            const copy = copyFor(true, dataPartner.name)
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveAttribute('data-variant', 'action')
-            expect(alert).toHaveTextContent(
-                `Resolve the code error to proceed • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`,
-            )
-            expect(alert).toHaveTextContent(
-                `${dataPartner.name} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
-            )
+            expect(alert).toHaveAttribute('data-variant', copy.variant)
+            expect(alert).toHaveTextContent(`${copy.title} • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`)
+            expect(alert).toHaveTextContent(copy.body)
             expect(alert).not.toHaveTextContent(displayOrgName(org.name))
-            expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
+            expect(document.body).not.toHaveTextContent(copyFor(false).title)
         })
 
         it('dates the banner from the FILES-REJECTED decision, not the error or code approval', async () => {
@@ -297,7 +295,7 @@ describe('OutputsFeedbackScreen', () => {
             await renderScreen(study, undatedRaw, org.slug)
 
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveTextContent('Resolve the code error to proceed')
+            expect(alert).toHaveTextContent(copyFor(true).title)
             expect(alert).not.toHaveTextContent('•')
         })
     })

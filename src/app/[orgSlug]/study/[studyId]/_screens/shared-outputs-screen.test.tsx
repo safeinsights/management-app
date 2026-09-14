@@ -23,7 +23,8 @@ import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
 import { displayOrgName } from '@/lib/string'
-import type { RawStudyState, ScreenId } from '@/lib/study-screen'
+import { researcherSharedOutputsBanner, type SharedOutputsScreenId } from '@/lib/study-banners'
+import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { SharedOutputsScreen } from './shared-outputs-screen'
@@ -50,19 +51,14 @@ const DASHBOARD_HREF = '/dashboard'
 /**
  * One component now serves both share screens, so the wiring below is asserted once per variant
  * rather than in two mirror-image files (PR #1003 review). Each variant carries only what actually
- * differs: the run status that routes to it, its banner copy, its feedback text, and the
- * adjacent outcomes that must NOT reach it.
+ * differs: the run status that routes to it, its feedback text, and the adjacent outcomes that must
+ * NOT reach it. Copy itself is pinned in study-banners.test.ts.
  */
 type Variant = {
-    screen: Extract<ScreenId, 'outputs-shared' | 'outputs-errored-shared'>
+    screen: SharedOutputsScreenId
     label: string
     /** The run status that, with FILES-APPROVED, routes to this screen. */
     runStatus: StudyJobStatus
-    lockedTitle: string
-    lockedBody: (dataPartner: string) => string
-    unlockedVariant: 'action' | 'success'
-    unlockedTitle: string
-    unlockedBody: string
     feedbackBody: string
     /** Adjacent outcomes that must fall through to the not-found guard. */
     guardedAgainst: [string, StudyJobStatus[]][]
@@ -75,13 +71,6 @@ const VARIANTS: Variant[] = [
         screen: 'outputs-shared',
         label: 'clean run, outputs shared (OTTER-688)',
         runStatus: 'RUN-COMPLETE',
-        lockedTitle: 'Decrypt to view your outputs',
-        lockedBody: (dataPartner) =>
-            `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
-        unlockedVariant: 'success',
-        unlockedTitle: 'Outputs and feedback available',
-        unlockedBody:
-            "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
         feedbackBody: 'Reviewed and approved. The results meet the study criteria.',
         guardedAgainst: [
             ['a completed run still awaiting the reviewer files decision', ['RUN-COMPLETE']],
@@ -97,13 +86,6 @@ const VARIANTS: Variant[] = [
         screen: 'outputs-errored-shared',
         label: 'errored run, outputs shared (OTTER-696)',
         runStatus: 'JOB-ERRORED',
-        lockedTitle: 'Decrypt outputs to view code error',
-        lockedBody: (dataPartner) =>
-            `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
-        unlockedVariant: 'action',
-        unlockedTitle: 'Resolve the code error to proceed',
-        unlockedBody:
-            'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
         feedbackBody: 'The run failed on the join; the logs are in the outputs.',
         guardedAgainst: [
             ['an errored run still awaiting the reviewer files decision', ['JOB-ERRORED']],
@@ -114,6 +96,11 @@ const VARIANTS: Variant[] = [
         nav: { editCodeVariant: 'filled', backToMyStudies: false },
     },
 ]
+
+const copyFor = (screen: SharedOutputsScreenId, dataPartner: string) =>
+    researcherSharedOutputsBanner(screen, { dataPartner })
+
+const siblingOf = (variant: Variant) => VARIANTS.find((v) => v.screen !== variant.screen)!
 
 const renderScreen = async (
     variant: Variant,
@@ -256,34 +243,37 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
+        const { locked } = copyFor(variant.screen, displayOrgName(org.name))
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveAttribute('data-variant', 'action')
-        expect(alert).toHaveTextContent(variant.lockedTitle)
-        expect(alert).toHaveTextContent(variant.lockedBody(displayOrgName(org.name)))
+        expect(alert).toHaveAttribute('data-variant', locked.variant)
+        expect(alert).toHaveTextContent(locked.title)
+        expect(alert).toHaveTextContent(locked.body)
     })
 
     it('does not render the sibling screen’s banner title', async () => {
-        const sibling = VARIANTS.find((v) => v.screen !== variant.screen)!
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.lockedTitle)
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlockedTitle)
+        const sibling = copyFor(siblingOf(variant).screen, displayOrgName(org.name))
+        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.locked.title)
+        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlocked.title)
     })
 
     it('renders the post-decryption banner with this screen’s copy and variant', async () => {
-        const sibling = VARIANTS.find((v) => v.screen !== variant.screen)!
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
         await decrypt()
 
+        const dataPartner = displayOrgName(org.name)
+        const { locked, unlocked } = copyFor(variant.screen, dataPartner)
+        const sibling = copyFor(siblingOf(variant).screen, dataPartner)
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveAttribute('data-variant', variant.unlockedVariant)
-        expect(alert).toHaveTextContent(variant.unlockedTitle)
-        expect(alert).toHaveTextContent(variant.unlockedBody)
+        expect(alert).toHaveAttribute('data-variant', unlocked.variant)
+        expect(alert).toHaveTextContent(unlocked.title)
+        expect(alert).toHaveTextContent(unlocked.body)
         expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
-        expect(alert).not.toHaveTextContent(variant.lockedTitle)
-        expect(alert).not.toHaveTextContent(sibling.unlockedTitle)
+        expect(alert).not.toHaveTextContent(locked.title)
+        expect(alert).not.toHaveTextContent(sibling.unlocked.title)
     })
 
     it('dates the banner from the FILES-APPROVED decision — not the run, code approval, or today', async () => {
@@ -310,7 +300,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, undated, org.slug)
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(variant.lockedTitle)
+        expect(alert).toHaveTextContent(copyFor(variant.screen, displayOrgName(org.name)).locked.title)
         expect(alert).not.toHaveTextContent('•')
     })
 

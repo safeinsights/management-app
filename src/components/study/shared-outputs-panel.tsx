@@ -4,28 +4,18 @@ import { FC, ReactNode } from 'react'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
-import { StatusAlert, statusAlertTitle, type StatusAlertVariant } from '@/components/study/status-alert'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
+import type { PhasedBannerCopy } from '@/lib/study-banners'
 import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 
-// Copy rather than two ReactNodes: announcing the phase change needs ONE StatusAlert whose props
-// vary, since a remount drops the announcement.
-export type SharedOutputsBannerPhase = {
-    variant: StatusAlertVariant
-    title: string
-    body: ReactNode
-}
-
-export type SharedOutputsBannerCopy = {
-    locked: SharedOutputsBannerPhase
-    unlocked: SharedOutputsBannerPhase
-}
-
 type SharedOutputsPanelProps = {
     decidedAt: Date | string | null
-    banner: SharedOutputsBannerCopy
+    // Copy rather than two ReactNodes: announcing the phase change needs ONE StatusAlert whose props
+    // vary, since a remount drops the announcement.
+    banner: PhasedBannerCopy
     job: { id: string }
     /** A node, not a render, so the phase flip cannot remount it and reset expand/collapse state. */
     feedbackSection: ReactNode
