@@ -1,3 +1,4 @@
+import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error'
 import { db } from '@/database'
 
 import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
@@ -149,6 +150,13 @@ export const pageHeaderEyebrow = () => screen.getByTestId('page-header-eyebrow')
 export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
+
+// The error Next raises when the posted action id is absent from the build now serving, which an
+// open tab meets when the key rotates or the action moved, renamed or was removed. The real class
+// rather than a hand-built stand-in, so a Next upgrade that renames it fails errors.test.ts instead
+// of silently sending such a tab back to the framework text (OTTER-726).
+export const staleActionError = () =>
+    new UnrecognizedActionError('Server Action "7f60224d81" was not found on the server.')
 
 // faker.internet.email() draws from ~1.9M addresses, narrow enough that a full run repeats one
 // and user_email_lower_unique rejects the insert. The counter and token make them unique.

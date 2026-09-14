@@ -21,6 +21,7 @@ import {
     getStudyJobInfo,
     jobAnalysisUpdateForJob,
     latestJobForStudy,
+    fetchUserFullName,
     outputsDecisionVersion,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
@@ -252,6 +253,11 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         } else {
             onStudyResultsRejected({ studyId, userId })
         }
+
+        const submitterFullName = await fetchUserFullName(userId, db)
+
+        // Names the reviewer in the notice the other tabs raise, which only the server can supply.
+        return { submitterFullName }
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')

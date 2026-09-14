@@ -1,15 +1,67 @@
 'use client'
 
-import { errorToString, extractActionFailure } from '@/lib/errors'
-import { Alert, AlertProps, Group, Text } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import {
+    errorToString,
+    extractActionFailure,
+    isStaleDeploymentError,
+    STALE_DEPLOYMENT_MESSAGE,
+    STALE_DEPLOYMENT_TITLE,
+} from '@/lib/errors'
+import { Alert, AlertProps, Button, Group, Stack, Text } from '@mantine/core'
+import { notifications, type NotificationData } from '@mantine/notifications'
 import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
+// Fixed so repeated attempts keep one notification instead of stacking a new one per retry.
+export const STALE_DEPLOYMENT_NOTIFICATION_ID = 'stale-deployment'
+
+export const RELOAD_BUTTON_LABEL = 'Reload'
+
+// The body of any notice whose only remedy is a reload. A control rather than an automatic reload:
+// the page may hold work that exists nowhere else, so the reader chooses the moment.
+export const ReloadNotice: FC<{ message: string }> = ({ message }) => (
+    <Stack gap="xs" align="flex-start">
+        <Text size="sm">{message}</Text>
+        <Button size="compact-sm" onClick={() => window.location.reload()}>
+            {RELOAD_BUTTON_LABEL}
+        </Button>
+    </Stack>
+)
+
+// Mantine's `show` is add-if-absent: it keeps the store unchanged when the id is already on screen,
+// so a later notice under a shared id would never replace the first. `update` is a no-op for an
+// absent id, which makes the pair replace-or-add without reading the store (OTTER-726).
+export const showOrReplaceNotification = (notification: NotificationData) => {
+    notifications.update(notification)
+    notifications.show(notification)
+}
+
+// An action id is hashed with the pinned Server Actions key, so it survives an ordinary deploy. It
+// stops resolving when the key rotates or the action moved, renamed or was removed between builds,
+// and then no request from the open tab can succeed. Answered once here rather than at each call
+// site (OTTER-726).
+const reportStaleDeployment = () =>
+    showOrReplaceNotification({
+        id: STALE_DEPLOYMENT_NOTIFICATION_ID,
+        color: 'blue',
+        autoClose: false,
+        title: STALE_DEPLOYMENT_TITLE,
+        message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
+    })
+
 export const reportError = (error: unknown, title = 'An error occurred') => {
+    // Captured on purpose for a stale action id too: these events are the only client-side measure
+    // of how often a deploy lands under an open tab. Only the reference id is withheld from the
+    // notice, because the copy already says the one thing the reader can do.
     const eventId = captureException(error)
+
+    if (isStaleDeploymentError(error)) {
+        reportStaleDeployment()
+        return
+    }
+
     notifications.show({
         color: 'red',
         title,

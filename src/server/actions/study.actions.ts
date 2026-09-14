@@ -20,6 +20,7 @@ import {
     latestJobForStudy,
     latestJobForStudyOrNull,
     type LatestJobForStudy,
+    fetchUserFullName,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
@@ -592,11 +593,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
         await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         // The next round starts fresh from its own -v{N+1} name.
         await db
@@ -607,13 +604,13 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
             purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
-            return { submitterFullName: submitter.fullName }
+            return { submitterFullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
             purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
-            return { submitterFullName: submitter.fullName }
+            return { submitterFullName }
         }
 
         await db
@@ -630,7 +627,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
 
         onStudyNeedsClarification({ studyId, userId })
         purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
-        return { submitterFullName: submitter.fullName }
+        return { submitterFullName }
     })
 
 export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
@@ -732,11 +729,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             throw err
         }
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
@@ -776,7 +769,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
 
-        return { submitterFullName: submitter.fullName }
+        return { submitterFullName }
     })
 
 // The code-phase thread: reviewer decisions interleaved with the researcher's resubmission notes.

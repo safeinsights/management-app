@@ -398,6 +398,24 @@ describe('Study Job Actions', () => {
                 .where('reviewKind', '=', 'RESULTS')
                 .executeTakeFirst()
 
+        // The name reaches the other reviewers' tabs, so it has to come from the server rather
+        // than from the submitting client (OTTER-726).
+        test('names the reviewer who decided', async () => {
+            const { enclave, job, sharedFiles, reviewer } = await setupResultApprovalFixture()
+
+            const result = actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'The outputs look clean and contain no PII.',
+                    sharedFiles,
+                }),
+            )
+
+            expect(result.submitterFullName).toBe(reviewer.fullName)
+        })
+
         test('sharing the outputs approves the files, records the keys and stores the feedback', async () => {
             const { enclave, file, job, reviewer, sharedFiles, study } = await setupResultApprovalFixture()
 
