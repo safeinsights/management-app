@@ -137,7 +137,6 @@ describe('reportError', () => {
         }
 
         it('offers a reload instead of the framework text, whatever the caller titled it', () => {
-            notificationsShowSpy.mockClear()
             reportError(staleActionError(), 'Failed to submit your decision')
 
             expect(notificationsShowSpy).toHaveBeenCalledTimes(1)
@@ -149,7 +148,6 @@ describe('reportError', () => {
         })
 
         it('reuses one notification id, so retrying does not stack notices', () => {
-            notificationsShowSpy.mockClear()
             reportError(staleActionError())
             reportError(staleActionError())
 
@@ -164,7 +162,6 @@ describe('reportError', () => {
                 value: { ...window.location, reload },
             })
 
-            notificationsShowSpy.mockClear()
             reportError(staleActionError())
             const { message } = notificationsShowSpy.mock.calls[0][0]
             renderWithProviders(<>{message}</>)

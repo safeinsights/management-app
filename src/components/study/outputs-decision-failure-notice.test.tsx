@@ -17,7 +17,6 @@ const lastNotification = () => (notifications.show as Mock).mock.calls.at(-1)?.[
 
 describe('showOutputsDecisionFailure', () => {
     it('promises nothing it cannot back when the feedback is only on screen', () => {
-        ;(notifications.show as Mock).mockClear()
         showOutputsDecisionFailure({ error: new ActionFailure({ study: 'is unavailable' }), isSaved: false })
 
         expect(lastNotification()).toMatchObject({
@@ -27,7 +26,6 @@ describe('showOutputsDecisionFailure', () => {
     })
 
     it('tells the reviewer their work is safe once the editor holds it', () => {
-        ;(notifications.show as Mock).mockClear()
         showOutputsDecisionFailure({ error: new ActionFailure({ study: 'is unavailable' }), isSaved: true })
 
         expect(lastNotification()).toMatchObject({
@@ -37,7 +35,6 @@ describe('showOutputsDecisionFailure', () => {
     })
 
     it('keeps one notice however many times the submit is retried', () => {
-        ;(notifications.show as Mock).mockClear()
         showOutputsDecisionFailure({ error: new Error('offline'), isSaved: true })
         showOutputsDecisionFailure({ error: new Error('offline'), isSaved: true })
 
@@ -47,7 +44,6 @@ describe('showOutputsDecisionFailure', () => {
 
     describe('when the page predates the running build', () => {
         it('holds the notice open, because no retry can resolve the action id', () => {
-            ;(notifications.show as Mock).mockClear()
             showOutputsDecisionFailure({ error: staleActionError(), isSaved: true })
 
             expect(lastNotification()).toMatchObject({
@@ -58,7 +54,6 @@ describe('showOutputsDecisionFailure', () => {
         })
 
         it('asks for a reload and warns that the security key is needed again', () => {
-            ;(notifications.show as Mock).mockClear()
             showOutputsDecisionFailure({ error: staleActionError(), isSaved: true })
             renderWithProviders(<>{lastNotification().message}</>)
 
@@ -66,7 +61,6 @@ describe('showOutputsDecisionFailure', () => {
         })
 
         it('tells a reviewer with unsaved feedback to copy it before reloading', () => {
-            ;(notifications.show as Mock).mockClear()
             showOutputsDecisionFailure({ error: staleActionError(), isSaved: false })
             renderWithProviders(<>{lastNotification().message}</>)
 
@@ -79,7 +73,6 @@ describe('showOutputsDecisionFailure', () => {
                 configurable: true,
                 value: { ...window.location, reload },
             })
-            ;(notifications.show as Mock).mockClear()
             showOutputsDecisionFailure({ error: staleActionError(), isSaved: true })
             renderWithProviders(<>{lastNotification().message}</>)
 

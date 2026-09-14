@@ -1,15 +1,5 @@
 import type { ReactNode } from 'react'
-import {
-    act,
-    createTestQueryWrapper,
-    describe,
-    expect,
-    faker,
-    it,
-    renderHook,
-    waitFor,
-    type Mock,
-} from '@/tests/unit.helpers'
+import { act, createTestQueryWrapper, describe, expect, faker, it, renderHook, waitFor } from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
 import { lexicalJson } from '@/lib/lexical'
@@ -184,7 +174,6 @@ describe('useOutputsDecision after a refused submit', () => {
     }
 
     it('closes the confirmation and reports the failure without claiming the work is saved', async () => {
-        ;(notifications.show as Mock).mockClear()
         memoryRouter.setCurrentUrl('/start')
         const { result } = renderWithBackstop()
 
