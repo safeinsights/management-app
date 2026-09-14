@@ -1,7 +1,7 @@
 import { STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
-import type { ScreenId } from '@/lib/study-screen'
+import type { SharedOutputsScreenId } from '@/lib/study-screen'
 
 export type BannerCopy = {
     variant: StatusAlertVariant
@@ -88,8 +88,6 @@ export function researcherCodeDecisionBanner(status: CodeDecisionStatus, { dataP
             }
     }
 }
-
-export type SharedOutputsScreenId = Extract<ScreenId, 'outputs-shared' | 'outputs-errored-shared'>
 
 export type PhasedBannerCopy = {
     locked: BannerCopy

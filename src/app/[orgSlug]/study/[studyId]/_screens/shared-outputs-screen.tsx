@@ -3,13 +3,14 @@ import { Box, Stack } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { researcherSharedOutputsBanner, type SharedOutputsScreenId } from '@/lib/study-banners'
+import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
     projectStudyState,
     resolvePhasedStepNav,
     type ScreenId,
+    type SharedOutputsScreenId,
     type StudyState,
 } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'

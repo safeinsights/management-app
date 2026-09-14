@@ -17,6 +17,10 @@ export type ResearcherScreenId =
     | 'study-results'
     | 'study-overview'
 
+// The two screens SharedOutputsScreen serves, told apart by routing predicate and banner copy —
+// the same shape CodeDecisionScreenId gives code-approved/code-feedback.
+export type SharedOutputsScreenId = Extract<ResearcherScreenId, 'outputs-shared' | 'outputs-errored-shared'>
+
 export type ReviewerScreenId =
     | 'reviewer-proposal-review'
     | 'reviewer-proposal-feedback'
