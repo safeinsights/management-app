@@ -3,11 +3,11 @@ import dotenv from 'dotenv'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
 import { IS_CI, E2E_TIMEOUT, E2E_TIMEOUT_LONG, E2E_EXPECT_TIMEOUT } from './tests/e2e.helpers'
 
-// Load the isolated test env (test port + separate DB). Keeps the suite independent of
-// local dev (.env / port 4000 / real Clerk). On CI the equivalent values are provided as
-// job env, so a missing file here is fine. Auth is faked in-app via E2E_FAKE_CLERK
-// (src/lib/clerk-fake) — no external Clerk server is involved.
-dotenv.config({ path: '.env.test' })
+const IS_DOCKER_E2E = process.env.E2E_MODE === 'docker'
+
+// Docker e2e arrives with .env + .env.test already merged and its infrastructure values
+// applied. Every other path retains main's optional .env.test loading behavior.
+if (!IS_DOCKER_E2E) dotenv.config({ path: '.env.test' })
 
 // The Playwright-owned app instance runs on this port (dev stays on 4000).
 const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4100'
@@ -81,24 +81,20 @@ export default defineConfig({
         timeout: E2E_EXPECT_TIMEOUT,
     },
 
-    // Playwright owns the testing-only app instance (4100): bin/app-test builds the app
-    // (with E2E_FAKE_CLERK so Clerk is faked in-process — no external auth server) and
-    // serves the prebuilt standalone server. We do NOT use `next dev` — its lazy per-route
-    // compilation is slow and unstable under the suite. The shared infra (Postgres +
-    // SeaweedFS + the test DB) is brought up first by `pnpm test:e2e:up`. On CI the app is
-    // built+started by bin/ci-server, so no webServer is managed here. The timeout covers a
-    // full `next build`; `reuseExistingServer` lets you keep a manually-started server
-    // (./bin/app-test, or ./bin/app-test --no-build) running across iterations.
-    webServer: IS_CI
-        ? []
-        : [
-              {
-                  command: 'pnpm run app:test',
-                  url: E2E_BASE_URL,
-                  reuseExistingServer: true,
-                  timeout: 300_000,
-              },
-          ],
+    // Local e2e lets Playwright own a testing-only app on port 4100. Docker e2e starts its app
+    // in Compose before Playwright, with .next masked by a container-owned volume. CI starts
+    // the app through bin/ci-server. We do not use `next dev` in any of these test paths.
+    webServer:
+        IS_CI || IS_DOCKER_E2E
+            ? []
+            : [
+                  {
+                      command: 'pnpm run app:test',
+                      url: E2E_BASE_URL,
+                      reuseExistingServer: true,
+                      timeout: 300_000,
+                  },
+              ],
 
     outputDir: 'test-results/e2e',
 
@@ -108,7 +104,7 @@ export default defineConfig({
             // Specs opt in with `test.use({ storageState: authFileFor(role) })` to start
             // authenticated. The storageState files + route warmup are produced by
             // globalSetup (tests/global.setup.ts); DB users/orgs are seeded by
-            // `pnpm test:e2e:up` (db:migrate). No separate auth-setup project/barrier.
+            // ./bin/docker-e2e or ./bin/local-e2e. No separate auth-setup project/barrier.
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
         },

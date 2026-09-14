@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+#
+# `./bin/local-e2e` entrypoint: run the e2e suite against Postgres + SeaweedFS that YOU run
+# on the host (a local install, or `pnpm run dev:local`). The Docker counterpart is
+# ./bin/docker-e2e, which provides that infra in containers instead. Pick whichever matches
+# your setup; both then run the same host Playwright, so --ui / --headed work either way.
+#
+#   ./bin/local-e2e                      # full suite (headless)
+#   ./bin/local-e2e -- --ui              # Playwright UI (interactive)
+#   ./bin/local-e2e -- --headed          # watch the browser
+#   ./bin/local-e2e -- tests/signin.spec.ts
+#
+# This script only guarantees the shared infra is reachable and that the test database is
+# migrated + seeded. Playwright itself owns the app (port 4100, faked Clerk) via its
+# `webServer` config, so it is NOT started here. There is no external Clerk server: auth is
+# faked in-app (src/lib/clerk-fake).
+#
+# Isolation: a SEPARATE database (si_mgmnt_test) on your local Postgres, so e2e seeding never
+# touches your dev DB.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# Local-only entrypoint (CI runs `pnpm run test:e2e`), so a CI variable inherited from the
+# caller's shell is always wrong here: it sets IS_CI (tests/common.helpers.ts), and
+# playwright.config.ts then uses `webServer: []` — nothing would serve the app on :4100 and
+# every spec would fail against a dead port. Same reasoning as bin/docker-e2e.
+unset CI
+
+# Match main's local e2e environment loading. The migration target is configured separately
+# below; Playwright and app-test inherit .env.test when it exists and otherwise retain main's
+# normal environment loading behavior.
+if [ -f .env.test ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . ./.env.test
+    set +a
+fi
+
+# Auth is faked, so bin/seed-environment.ts seeds orgs only and skips Clerk provisioning.
+export E2E_FAKE_CLERK=1
+export E2E_MODE=local
+
+TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
+PGHOST="${PGHOST:-localhost}"
+PGPORT="${PGPORT:-5432}"
+TEST_DATABASE_URL="postgres://${PGHOST}:${PGPORT}/${TEST_DB}"
+S3_PORT="${S3_PORT:-8333}"
+
+usage() {
+    cat <<EOF
+Usage: $0 [--] [<playwright-args>]
+
+Migrate + seed the local test database (${TEST_DB} on ${PGHOST}:${PGPORT}), then run
+Playwright on the host. For Docker-provided infra use ./bin/docker-e2e instead.
+
+Examples:
+  $0                       # full suite (headless)
+  $0 --ui                  # interactive Playwright UI
+  $0 -- --headed           # watch the browser (leading -- is optional)
+  $0 tests/signin.spec.ts
+EOF
+    exit 0
+}
+
+# Everything that isn't --help is forwarded to Playwright verbatim, with or without a leading
+# `--`. This script has no flags of its own, and bin/test-e2e-up (which it replaces) ended in
+# `exec pnpm run test:e2e "$@"`, so `pnpm run test:e2e:up -- --ui` used to work without the
+# second `--`. Rejecting bare args here would silently break that.
+pw_args=()
+case "${1:-}" in
+    --help | -h) usage ;;
+    --) shift; pw_args=("$@") ;;
+    *) pw_args=("$@") ;;
+esac
+
+note() { echo "[local-e2e] $*"; }
+
+die_local_infra() {
+    echo "[local-e2e] ERROR: $1" >&2
+    echo "[local-e2e] This entrypoint expects infra you run yourself. Either start it, or use" >&2
+    echo "[local-e2e] ./bin/docker-e2e to get Postgres + SeaweedFS from Docker instead." >&2
+    exit 1
+}
+
+for tool in pg_isready createdb psql; do
+    command -v "$tool" >/dev/null 2>&1 || die_local_infra "'$tool' not found (Postgres client tools are required)."
+done
+
+if ! pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1; then
+    die_local_infra "Postgres not reachable on ${PGHOST}:${PGPORT}."
+fi
+note "Postgres reachable on ${PGHOST}:${PGPORT}"
+
+if ! nc -z -w 1 "$PGHOST" "$S3_PORT" >/dev/null 2>&1; then
+    die_local_infra "SeaweedFS not reachable on ${PGHOST}:${S3_PORT} (try 'pnpm run s3:local')."
+fi
+note "SeaweedFS reachable on ${PGHOST}:${S3_PORT}"
+
+if ! psql "postgres://${PGHOST}:${PGPORT}/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
+    note "Creating database ${TEST_DB}…"
+    createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER:+-U "$PGUSER"} "$TEST_DB"
+fi
+
+# The same chain bin/docker-e2e's seed service runs. Deliberately NOT `pnpm run db:migrate`:
+# that also regenerates src/database/types.ts via kysely-codegen, so an e2e run would rewrite
+# a tracked source file from the test database.
+note "Migrating + seeding ${TEST_DATABASE_URL} (faked Clerk — DB users/orgs only)…"
+(
+    export DATABASE_URL="$TEST_DATABASE_URL"
+    pnpm exec kysely migrate:latest
+    pnpm exec kysely seed:run
+    pnpm exec tsx bin/seed-environment.ts
+)
+
+note "Infra ready. Running Playwright on the host with main-compatible environment loading."
+if [ ${#pw_args[@]} -gt 0 ]; then
+    exec pnpm exec playwright test "${pw_args[@]}"
+else
+    exec pnpm exec playwright test
+fi
