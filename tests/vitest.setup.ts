@@ -311,10 +311,7 @@ afterEach(async () => {
             const { pendingTestMutationCount } = await import('@/tests/unit.helpers')
             const pending = pendingTestMutationCount()
             if (pending) {
-                // A mutation running past this point commits for real: every mutating action runs
-                // in db.transaction(), so its BEGIN is already a savepoint and the rollback below
-                // is rewritten to ROLLBACK TO SAVEPOINT, leaving its COMMIT to commit the test's
-                // own transaction. Failing beats warning, the test would pass on escaped writes.
+                // Failing beats warning: an escaped write would let the test pass. Mechanism in PR #1034.
                 throw new Error(`${pending} mutation(s) still pending at teardown; await the outcome in the test.`)
             }
             await flushDeferred()

@@ -80,6 +80,7 @@ describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
         await waitFor(() => expect(result.current.files).toContain('main.R'))
         act(() => result.current.removeFile('main.R'))
         await waitFor(() => expect(result.current.userEditedFiles).toBe(true))
+        await waitFor(() => expect(result.current.isDeleting).toBe(false))
     })
 })
 
