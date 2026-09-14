@@ -23,6 +23,8 @@ import { submitOutputsDecisionAction } from '@/server/actions/study-job.actions'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useOutputsDecision } from './use-outputs-decision'
 
+// Both actions are ours, which the usual rule forbids mocking. A stale action id cannot be produced
+// any other way: it is a transport failure, and a real action never throws one (OTTER-726).
 vi.mock('@/server/actions/study-job.actions', () => ({ submitOutputsDecisionAction: vi.fn() }))
 
 vi.mock('@/server/actions/editor.actions', () => ({

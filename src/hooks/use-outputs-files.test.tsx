@@ -14,6 +14,9 @@ import type { JobFileActivity } from '@/server/db/queries'
 import type { JobFileInfo } from '@/lib/types'
 import { useOutputsFiles } from './use-outputs-files'
 
+// Mocking one of our own actions goes against the usual rule, and it is the only way to reach these
+// branches: a real action resolves or returns an error envelope, it never throws at the transport.
+// These tests exist to prove a failed request is reported, so the failure is injected here (OTTER-726).
 vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
     fetchJobFileActivityAction: vi.fn(),
     recordJobFileActivityAction: vi.fn(),
