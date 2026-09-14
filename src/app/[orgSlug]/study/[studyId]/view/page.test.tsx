@@ -44,7 +44,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Submit proposal')
         expect(screen.getByRole('link', { name: /proceed to step 3/i })).toBeInTheDocument()
     })
 
@@ -63,7 +63,7 @@ describe('StudyViewPage', () => {
         expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'decline')
     })
 
-    it('renders the ProposalSubmitted page with an Edit-and-resubmit link for a CHANGE-REQUESTED study', async () => {
+    it('renders the ProposalSubmitted page with an Edit proposal link for a CHANGE-REQUESTED study', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
@@ -75,7 +75,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'action')
-        expect(screen.getByRole('link', { name: /edit and resubmit/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Edit proposal' })).toBeInTheDocument()
     })
 
     it('renders generic layout for DRAFT study without job', async () => {

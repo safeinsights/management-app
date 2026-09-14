@@ -10,6 +10,7 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -475,7 +476,8 @@ describe('ProposalSubmitted', () => {
             expect(backLink).toHaveAttribute('href', '/dashboard')
         })
 
-        it('shows an "Edit and resubmit" button linking to edit and resubmit page when status is CHANGE-REQUESTED', () => {
+        // OTTER-762: the CTA reads "Edit proposal"; the old "Edit and resubmit" copy is gone.
+        it('shows an "Edit proposal" button linking to the edit proposal page when status is CHANGE-REQUESTED', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
@@ -487,8 +489,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const editLink = screen.getByRole('link', { name: /edit and resubmit/i })
+            const editLink = screen.getByRole('link', { name: 'Edit proposal' })
             expect(editLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/edit-and-resubmit`)
+            expect(screen.queryByRole('link', { name: /edit and resubmit/i })).not.toBeInTheDocument()
         })
 
         it('shows a "Go to dashboard" button linking to dashboard when status is REJECTED', () => {
@@ -603,29 +606,50 @@ describe('ProposalSubmitted', () => {
         })
     })
 
-    describe('section heading iteration label', () => {
-        it('displays "Initial request" on first submission', () => {
+    // OTTER-762: the step card reads the same on every post-submission status, and the round
+    // counter that used to live in the heading is carried by the banner title instead.
+    describe('section header', () => {
+        const statuses = [
+            ['PENDING-REVIEW', { status: 'PENDING-REVIEW' as const, approvedAt: null }],
+            ['APPROVED', { status: 'APPROVED' as const }],
+            ['CHANGE-REQUESTED', { status: 'CHANGE-REQUESTED' as const }],
+            ['REJECTED', { status: 'REJECTED' as const }],
+        ] as const
+
+        it.each(statuses)('reuses the shared step header with "STEP 2 / Submit proposal" when %s', (_, overrides) => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    orgSlug={ORG_SLUG}
+                    study={{ ...study, ...overrides }}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+            expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
+        })
+
+        it('does not repeat the study title as body text in the header', () => {
             renderWithProviders(
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
             )
 
-            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).queryByText(study.title!)).not.toBeInTheDocument()
+            expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
-        it('displays "Initial request 2.0" after the first resubmission', () => {
+        it('no longer numbers the heading by resubmission round', () => {
             renderWithProviders(
                 <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={2} />,
             )
 
-            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 2.0')
-        })
-
-        it('displays "Initial request 3.0" after the second resubmission', () => {
-            renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={3} />,
-            )
-
-            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 3.0')
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).queryByText(/Initial request/)).not.toBeInTheDocument()
+            expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
         })
     })
 

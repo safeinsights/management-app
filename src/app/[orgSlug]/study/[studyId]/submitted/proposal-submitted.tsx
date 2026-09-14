@@ -29,11 +29,6 @@ interface ProposalSubmittedProps {
     returnTo?: 'org'
 }
 
-function proposalHeading(studyVersion: number): string {
-    if (studyVersion <= 1) return 'Initial request'
-    return `Initial request ${studyVersion}.0`
-}
-
 function StatusBanner({
     copy,
     study,
@@ -81,7 +76,7 @@ const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?:
                         Back
                     </Button>
                     <Button component={Link} href={editAndResubmitHref} size="md">
-                        Edit and resubmit
+                        Edit proposal
                     </Button>
                 </Group>
             )
@@ -153,11 +148,13 @@ export function ProposalSubmitted({
         <Stack p="xl" gap="xl">
             <StudyPageHeader study={study} />
             <Stack gap="xxl">
+                {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
+                    longer needs the "Initial request 2.0" counter (OTTER-762). */}
                 <ProposalRequest
                     study={study}
                     orgSlug={orgSlug}
                     stepLabel="STEP 2"
-                    heading={proposalHeading(studyVersion)}
+                    heading="Submit proposal"
                     banner={banner}
                     initialExpanded={false}
                 />

@@ -873,14 +873,16 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
-        await page.getByRole('link', { name: /Edit and resubmit/i }).click()
+        await page.getByRole('link', { name: /^Edit proposal$/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Edit proposal', level: 2 })).toBeVisible()
+        // Step 1 owns the title, so this page no longer offers a field for it (OTTER-762).
+        await expect(page.getByLabel('Study Title')).toHaveCount(0)
 
         // The form must load the previously-saved proposal values for editing, not
         // empty placeholders. These mirror the content seeded by seedProposalPendingReview.
-        await expect(page.getByLabel('Study Title')).toHaveValue(studyTitle)
         await expect(page.getByLabel('Research question(s)')).toContainText(
             'What is the impact of highlighting on student outcomes?',
         )
@@ -891,13 +893,22 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
             'This research will improve understanding of study habits.',
         )
 
-        // Form is pre-filled; only the resubmission note gates submit.
-        await fillLexicalField(page, 'Resubmission Note', 'Clarified the dataset scope and analysis plan per feedback.')
-
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit initial request$/i })
+        // The button is never disabled on validity: clicking with the note empty flags the field
+        // instead of opening the modal (OTTER-762).
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit proposal$/i })
         await expect(resubmitButton).toBeEnabled()
         await resubmitButton.click()
-        await page.getByRole('button', { name: /^Yes, resubmit initial request$/i }).click()
+        await expect(page.getByText('Enter your resubmission note before continuing.')).toBeVisible()
+        await expect(page.getByRole('dialog')).toBeHidden()
+
+        // Form is pre-filled; only the resubmission note gates submit.
+        await fillLexicalField(page, 'Resubmission Note', 'Clarified the dataset scope and analysis plan per feedback.')
+        await expect(page.getByText('Enter your resubmission note before continuing.')).toBeHidden()
+
+        await resubmitButton.click()
+        const resubmitDialog = page.getByRole('dialog')
+        await expect(resubmitDialog.getByText('Resubmit your proposal?')).toBeVisible()
+        await resubmitDialog.getByRole('button', { name: /^Resubmit proposal$/i }).click()
 
         await page.waitForURL(/\/submitted(\?.*)?$/)
     })

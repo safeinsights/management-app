@@ -14,9 +14,7 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { ReviewerPreview } from './reviewer-preview'
 import { useProposalSubmitAttempt } from './use-proposal-submit-attempt'
 import { SUBMIT_BUTTON_ID } from './field-ids'
-
-const CONFIRM_BODY = (orgName: string) =>
-    `Your proposal will be sent to ${orgName} for review. You will not be able to make changes once submitted.`
+import { confirmSubmitBody } from './copy'
 
 interface ProposalFooterProps {
     researcherName: string
@@ -102,7 +100,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
                 onConfirm={submitProposal}
                 isSubmitting={isSubmitting}
                 title="Submit your proposal?"
-                body={CONFIRM_BODY(orgName)}
+                body={confirmSubmitBody(orgName)}
                 confirmLabel="Submit proposal"
                 confirmLoadingLabel="Submitting"
             />

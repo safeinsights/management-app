@@ -2,15 +2,24 @@ import { useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
+import { captureException } from '@sentry/nextjs'
 import { useMutation } from '@/common'
 import { resubmitProposalAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { type ResubmitNoteValue } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from '@/contexts/proposal/hooks/build-study-info'
+import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
+import {
+    SUBMIT_FAILURE_MESSAGE,
+    SUBMIT_FAILURE_TITLE,
+    SUBMIT_FAILURE_UNSAVED_MESSAGE,
+    SUBMIT_SUCCESS_TITLE,
+} from '@/contexts/proposal/hooks/use-submit-proposal'
 
 interface UseResubmitProposalOptions {
     studyId: string
@@ -18,25 +27,40 @@ interface UseResubmitProposalOptions {
     noteForm: UseFormReturnType<ResubmitNoteValue>
     yjsForm: ReturnType<typeof useYjsFormMap>
     tabSessionId: string
+    /** Flushes the note draft; the failure branch relies on it so the toast can promise the work is saved. */
+    flushNote: () => Promise<boolean>
 }
 
-export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId }: UseResubmitProposalOptions) {
+export function useResubmitProposal({
+    studyId,
+    form,
+    noteForm,
+    yjsForm,
+    tabSessionId,
+    flushNote,
+}: UseResubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    // reportErrors false because the failure branch below folds the outcome into its own toast.
+    const { saveDraft } = useSaveProposalDraft(studyId, form, { titleMode: 'omit', reportErrors: false })
 
     const mutation = useMutation({
+        // 'omit' because this page no longer renders the title (OTTER-762): sending the seeded copy
+        // back would let a stale value overwrite the stored one at the moment it becomes immutable.
         mutationFn: async () =>
             actionResult(
                 await resubmitProposalAction({
                     studyId,
-                    // The resubmit form owns the title on a CHANGE-REQUESTED row.
-                    studyInfo: buildStudyInfo(form.getValues(), 'send'),
+                    studyInfo: buildStudyInfo(form.getValues(), 'omit'),
                     resubmissionNote: noteForm.values.resubmissionNote,
                 }),
             ),
         onSuccess: (result) => {
             form.resetDirty()
             noteForm.resetDirty()
+            // Fired before navigating: the Notifications provider lives in the persistent app
+            // shell, so the toast survives the push and lands on the destination page.
+            notifications.show({ color: 'green', title: SUBMIT_SUCCESS_TITLE, message: '' })
             const event: SubmissionEvent = {
                 type: 'proposal-submitted',
                 studyId,
@@ -50,12 +74,21 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
             yjsForm.provider?.sendStateless(JSON.stringify(event))
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: (error) => {
+        onError: async (error) => {
+            // Not reportError: that appends a Sentry reference id to the message, and this copy is
+            // specified exactly.
+            captureException(error)
+
+            // Awaited before the toast because a failed resubmit writes nothing and single-user
+            // mode has no Yjs autosave behind it, so these flushes decide which message is truthful.
+            const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
             notifications.show({
-                title: 'Failed to resubmit proposal',
-                message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
                 color: 'red',
+                title: SUBMIT_FAILURE_TITLE,
+                message: fieldsSaved && noteSaved ? SUBMIT_FAILURE_MESSAGE : SUBMIT_FAILURE_UNSAVED_MESSAGE,
             })
+
+            document.getElementById(SUBMIT_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
         },
     })
 

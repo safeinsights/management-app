@@ -7,7 +7,7 @@ import { useForm, zodResolver } from '@/common'
 import {
     draftProposalFormSchema,
     initialProposalValues,
-    type CollabFieldKey,
+    PROPOSAL_PAGE_COLLAB_KEYS,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
@@ -42,13 +42,9 @@ interface ProposalProviderProps {
     draftData?: DraftStudyData
 }
 
-// Unconditional because this provider only ever serves a DRAFT, the route redirects
-// CHANGE-REQUESTED away. `title` is excluded: Step 1 owns it on a DRAFT (OTTER-690).
-const DRAFT_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
-
 // An explicit `undefined` wins in a spread and would blank out the `initialProposalValues` entry,
 // leaving an untouched draft with a zod type message instead of the field's own required copy.
-function definedDraftFields(draftData?: DraftStudyData): DraftStudyData {
+export function definedDraftFields(draftData?: DraftStudyData): DraftStudyData {
     if (!draftData) return {}
     const entries = Object.entries(draftData).filter(([, value]) => value !== undefined && value !== null)
     return Object.fromEntries(entries) as DraftStudyData
@@ -62,10 +58,12 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         // blur or Submit, but re-validating per keystroke would put it straight back (OTTER-691).
     })
 
+    // Unconditional because this provider only ever serves a DRAFT; the route redirects
+    // CHANGE-REQUESTED away.
     const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({
         studyId,
         form,
-        collabKeys: DRAFT_COLLAB_KEYS,
+        collabKeys: PROPOSAL_PAGE_COLLAB_KEYS,
     })
 
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })

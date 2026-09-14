@@ -1,19 +1,20 @@
 'use client'
 
 import { FC } from 'react'
-import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Box, Group, Paper, Select, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
-import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
-import { CharacterCounter } from '@/components/character-counter'
+import { FormField, nativeFieldProps } from '@/components/form-field'
+import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from '@/components/save-status'
 import { useCollabFieldsSaveStatus } from '@/hooks/use-collab-fields-save-status'
-import { Routes, ExternalLinks } from '@/lib/routes'
-import { countCharacters } from '@/lib/field-limits'
-import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
+import { ExternalLinks } from '@/lib/routes'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
+import { DATASETS_FIELD_ID, PI_SELECT_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
+import { datasetsDescription, proposalIntroText } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { ProposalTextFieldEntry } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
+import { ResearcherField } from '@/app/[orgSlug]/study/[studyId]/proposal/researcher-field'
 
 export interface MemberOption {
     value: string
@@ -25,6 +26,8 @@ interface EditInitialRequestSectionProps {
     members: MemberOption[]
     researcherName: string
     enclaveOrgSlug?: string
+    /** Whether the viewer is the researcher who created the study. Gates the Researcher row's guidance. */
+    isDraftCreator?: boolean
 }
 
 export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
@@ -32,96 +35,46 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
     members,
     researcherName,
     enclaveOrgSlug,
+    isDraftCreator = false,
 }) => {
     const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
-    const titleCharacterCount = countCharacters(form.values.title)
-    const titleInputProps = form.getInputProps('title')
 
-    // All three write into the one proposal-fields Yjs doc, unlike the rich-text editors below,
-    // which each own a document and report their own status from inside the editor (OTTER-748).
+    // Both write into the one proposal-fields Yjs doc, unlike the rich-text editors below, which
+    // each own a document and report their own status from inside the editor (OTTER-748).
     const saveStatusFor = useCollabFieldsSaveStatus(yjsForm)
-    const titleSaveStatus = saveStatusFor('title', form.errors.title)
     const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
     const piSaveStatus = saveStatusFor('piName', form.errors.piName)
 
-    // One provider behind all three, so a live region on each would have a screen reader read
-    // "All changes saved" three times per save cycle. They stay visual and announce from here
+    // One provider behind both, so a live region on each would have a screen reader read
+    // "All changes saved" twice per save cycle. They stay visual and announce from here
     // once (OTTER-675); the editors below keep their own regions.
-    const fieldsAnnouncedStatus = announcedSaveStatus([titleSaveStatus, datasetsSaveStatus, piSaveStatus])
+    const fieldsAnnouncedStatus = announcedSaveStatus([datasetsSaveStatus, piSaveStatus])
+
+    const intro = proposalIntroText(orgName)
+    const datasetsHelp = datasetsDescription(orgName)
 
     return (
         <Stack gap="xxl" data-testid="edit-initial-request-section">
             <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
-            <Paper p="xxl">
-                <Stack gap="xxl">
-                    <Box>
-                        <Text fz={10} fw={700} c="charcoal.7" pb={4}>
-                            STEP 2
-                        </Text>
-                        <Title fz={20} order={2} c="charcoal.9">
-                            Edit proposal
-                        </Title>
-                        <Divider my="md" />
-                        <Text>
-                            Use this form to submit your proposal. The information you share will help {orgName} assess
-                            the feasibility, scientific value, and potential impact of your proposed research on
-                            instructional practice. On review, they may approve or decline the request.
-                        </Text>
-                    </Box>
+            {/* The same card as Step 2 (OTTER-691), re-titled for the revision round. No study
+                title anywhere in it: Step 1 owns the title and the card forbids repeating it as
+                body text (OTTER-762). */}
+            <ProposalStepHeader stepLabel="STEP 2" heading="Edit proposal">
+                <Stack gap={24}>
+                    <Text>{intro}</Text>
 
+                    {/* No Study title field: this page no longer edits study.title (OTTER-762). */}
                     <FormField
-                        inputId="title"
-                        label="Study title"
-                        required
-                        description="Give your study a short, clear title. This will help identify and reference your project on SafeInsights."
-                        error={form.errors.title}
-                        footer={
-                            <CharacterCounter
-                                id={fieldCounterId('title')}
-                                count={titleCharacterCount}
-                                maxCharacters={STUDY_TITLE_MAX_CHARACTERS}
-                            />
-                        }
-                        // Validates on change, so the over-limit message can appear with the caret
-                        // still in the field (OTTER-737).
-                        errorLive
-                    >
-                        <TextInput
-                            id="title"
-                            aria-label="Study Title"
-                            placeholder="Ex. Impact of highlighting on student learning outcomes."
-                            {...titleInputProps}
-                            onChange={(event) => {
-                                titleInputProps.onChange?.(event)
-                                yjsForm.pushField('title', event.currentTarget.value)
-                            }}
-                            value={form.values.title ?? ''}
-                            {...nativeFieldProps(form.errors.title, {
-                                required: true,
-                                describedBy: fieldDescribedBy('title', {
-                                    hasError: false,
-                                    hasDescription: true,
-                                    hasCounter: true,
-                                }),
-                            })}
-                        />
-                        {/* A child of FormField rather than its `footer`, which is right-aligned
-                            and already holds the character counter. This keeps the indicator on
-                            the left under the control, matching the editors below. */}
-                        <SaveStatusIndicator status={titleSaveStatus} announce={false} />
-                    </FormField>
-
-                    <FormField
-                        inputId="datasets"
+                        inputId={DATASETS_FIELD_ID}
                         label="Dataset(s) of interest"
                         required
-                        description="Select the dataset(s) you’d like to use for your research. You’ll find options based on the selected Data Partner in Step 1 and its data availability."
+                        description={datasetsHelp}
                         error={form.errors.datasets as string | undefined}
                     >
                         <Group align="center" gap="xxl">
                             <Box w="50%">
                                 <DatasetMultiSelect
-                                    id="datasets"
+                                    id={DATASETS_FIELD_ID}
                                     value={form.values.datasets}
                                     onChange={(val) => {
                                         form.setFieldValue('datasets', val)
@@ -151,7 +104,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         <SaveStatusIndicator status={datasetsSaveStatus} announce={false} />
                     </FormField>
                 </Stack>
-            </Paper>
+            </ProposalStepHeader>
 
             {editableTextFields.map((field) => (
                 <ProposalTextFieldEntry
@@ -168,7 +121,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
             <Paper p="xxl">
                 <Stack gap="xxl">
                     <FormField
-                        inputId="piName"
+                        inputId={PI_SELECT_ID}
                         label="Principal Investigator"
                         required
                         description="Select the Principal Investigator for this study."
@@ -178,7 +131,7 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                             {/* Cannot spread getInputProps('piName'): this Select's value is the
                                 piUserId while piName holds the label. */}
                             <Select
-                                id="piName"
+                                id={PI_SELECT_ID}
                                 aria-label="Principal Investigator"
                                 placeholder="Choose a PI"
                                 searchable
@@ -198,33 +151,11 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         <SaveStatusIndicator status={piSaveStatus} announce={false} />
                     </FormField>
 
-                    {/* FormField, not FormFieldLabel: the two render labels at different sizes,
-                        which mismatched the field above (OTTER-647). */}
-                    <FormField
-                        inputId="researcher"
-                        label="Researcher"
-                        required
-                        description="Ensure that your profile is complete and updated."
-                    >
-                        <Group align="center" gap="xxl">
-                            <Box w="30%">
-                                <TextInput id="researcher" aria-label="Researcher" value={researcherName} disabled />
-                            </Box>
-                            <Anchor
-                                href={Routes.researcherProfile}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                size="sm"
-                                c="blue.7"
-                                fw={600}
-                            >
-                                <Group gap={4} wrap="nowrap">
-                                    View profile
-                                    <ArrowSquareOutIcon size={16} weight="bold" />
-                                </Group>
-                            </Anchor>
-                        </Group>
-                    </FormField>
+                    <ResearcherField
+                        researcherName={researcherName}
+                        orgName={orgName}
+                        isDraftCreator={isDraftCreator}
+                    />
                 </Stack>
             </Paper>
         </Stack>

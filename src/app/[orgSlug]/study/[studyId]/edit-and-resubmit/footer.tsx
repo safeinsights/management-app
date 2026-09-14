@@ -12,23 +12,35 @@ import { hasLexicalContent } from '@/lib/lexical'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { ReviewerPreview } from '@/app/[orgSlug]/study/[studyId]/proposal/reviewer-preview'
+import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
+import { confirmSubmitBody } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
+import { useResubmitAttempt } from './use-resubmit-attempt'
 
 interface EditResubmitFooterProps {
     researcherName: string
     researcherId: string
     enclaveOrgSlug?: string
+    orgName: string
+    /** The persisted `study.title`, which this page reads for the reviewer preview but no longer edits. */
+    studyTitle?: string | null
 }
 
-export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName, researcherId, enclaveOrgSlug }) => {
+export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
+    researcherName,
+    researcherId,
+    enclaveOrgSlug,
+    orgName,
+    studyTitle,
+}) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
-    // titleMode 'omitIfBlank': nulling the column on a CHANGE-REQUESTED row would violate
-    // study_title_required_when_not_draft.
-    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omitIfBlank' })
+    // titleMode 'omit': the title field left this page (OTTER-762), so the form's copy is only a
+    // seed and sending it back would let a stale value overwrite the stored one.
+    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omit' })
 
     const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
-    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+    const { attemptResubmit, isConfirmOpen, closeConfirm } = useResubmitAttempt({ form, noteForm, isSubmitting })
 
     const isBusy = isSavingNote || isSaving || isSubmitting
 
@@ -36,18 +48,11 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
     const hasContent =
         hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
-    const isFormValid = form.isValid() && noteForm.isValid()
-
     const handleBack = async () => {
         // Yjs autosave is inactive in single-user mode, so flush explicitly.
         const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
         if (!fieldsSaved || !noteSaved) return
         router.push(Routes.studySubmitted({ orgSlug, studyId }))
-    }
-
-    const handleConfirmResubmit = () => {
-        closeConfirm()
-        resubmit()
     }
 
     const handleOpenReviewer = async () => {
@@ -76,8 +81,17 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
                     <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
                         View as reviewer
                     </Button>
-                    <Button size="md" disabled={!isFormValid || isBusy} loading={isSubmitting} onClick={openConfirm}>
-                        Resubmit initial request
+                    {/* Never disabled on validity: clicking it is what surfaces the errors
+                        (OTTER-762). */}
+                    <Button
+                        id={SUBMIT_BUTTON_ID}
+                        size="md"
+                        variant="filled"
+                        disabled={isBusy}
+                        loading={isSubmitting}
+                        onClick={attemptResubmit}
+                    >
+                        Resubmit proposal
                     </Button>
                 </Group>
             </Group>
@@ -85,7 +99,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
                 <ReviewerPreview
                     studyId={studyId}
-                    studyTitle={form.values.title}
+                    studyTitle={studyTitle}
                     values={form.values}
                     researcherName={researcherName}
                     researcherId={researcherId}
@@ -94,13 +108,14 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({ researcherName
             </AppModal>
 
             <SubmitConfirmationModal
-                isOpen={confirmOpen}
+                isOpen={isConfirmOpen}
                 onClose={closeConfirm}
-                onConfirm={handleConfirmResubmit}
+                onConfirm={resubmit}
                 isSubmitting={isSubmitting}
-                title="Confirm initial request resubmission?"
-                body="Please confirm you are ready to resubmit your initial request. Further edits are not permitted once submitted."
-                confirmLabel="Yes, resubmit initial request"
+                title="Resubmit your proposal?"
+                body={confirmSubmitBody(orgName)}
+                confirmLabel="Resubmit proposal"
+                confirmLoadingLabel="Resubmitting"
             />
         </>
     )

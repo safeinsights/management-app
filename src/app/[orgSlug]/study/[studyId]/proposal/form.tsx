@@ -18,13 +18,9 @@ import { editableTextFields } from './field-config'
 import { ProposalTextFieldEntry } from './collaborative-proposal-text-field'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { datasetsDescription, proposalIntroText } from './copy'
 
 const PROPOSAL_EDITABLE_STATUSES = ['DRAFT', 'CHANGE-REQUESTED'] as const
-
-const introText = (orgName: string) =>
-    `Submit your proposal to ${orgName} for review. They will assess its feasibility, scientific value, and potential impact on instructional practice. After review, they may approve it, request revisions, or decline it.`
-
-const datasetsDescription = (orgName: string) => `Select the datasets available through ${orgName} for this study.`
 
 export interface MemberOption {
     value: string
@@ -67,7 +63,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     // their own regions.
     const fieldsAnnouncedStatus = announcedSaveStatus([datasetsSaveStatus, piSaveStatus])
 
-    const intro = introText(orgName)
+    const intro = proposalIntroText(orgName)
     const datasetsHelp = datasetsDescription(orgName)
 
     useSubmissionRedirectListener({
