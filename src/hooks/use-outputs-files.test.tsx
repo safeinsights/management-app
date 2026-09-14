@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import {
     createTestQueryClient,
     describe,
@@ -12,6 +13,11 @@ import type { ReactNode } from 'react'
 import type { JobFileActivity } from '@/server/db/queries'
 import type { JobFileInfo } from '@/lib/types'
 import { useOutputsFiles } from './use-outputs-files'
+
+vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
+    fetchJobFileActivityAction: vi.fn(),
+    recordJobFileActivityAction: vi.fn(),
+}))
 
 const activityQueryKey = (jobId: string) => ['job-file-activity', jobId]
 
@@ -37,12 +43,26 @@ const renderFiles = (jobId: string, decryptedFiles: JobFileInfo[], seed?: JobFil
     return { client, ...renderHook(() => useOutputsFiles({ jobId, decryptedFiles }), { wrapper }) }
 }
 
+const failRefetch = async (client: ReturnType<typeof createTestQueryClient>, jobId: string) => {
+    await client
+        .fetchQuery({
+            queryKey: activityQueryKey(jobId),
+            queryFn: () => Promise.reject(new Error('refetch failed')),
+            retry: false,
+        })
+        .catch(() => undefined)
+
+    await waitFor(() => {
+        expect(client.getQueryState(activityQueryKey(jobId))?.status).toBe('error')
+    })
+}
+
 describe('useOutputsFiles activity display', () => {
     it('asserts nothing about activity while the first request is in flight', () => {
         const file = decryptedFile('logs.json')
         const { result } = renderFiles(faker.string.uuid(), [file])
 
-        expect(result.current.rows[0].isActivityKnown).toBe(false)
+        expect(result.current.rows[0].activityState).toBe('pending')
         expect(result.current.rows[0].activity).toBeNull()
     })
 
@@ -50,7 +70,7 @@ describe('useOutputsFiles activity display', () => {
         const file = decryptedFile('logs.json')
         const { result } = renderFiles(faker.string.uuid(), [file], [])
 
-        expect(result.current.rows[0].isActivityKnown).toBe(true)
+        expect(result.current.rows[0].activityState).toBe('known')
         expect(result.current.rows[0].activity).toBeNull()
     })
 
@@ -58,31 +78,29 @@ describe('useOutputsFiles activity display', () => {
         const file = decryptedFile('security-scan-log.txt')
         const { result } = renderFiles(faker.string.uuid(), [file], [activityFor(file)])
 
-        expect(result.current.rows[0].isActivityKnown).toBe(true)
+        expect(result.current.rows[0].activityState).toBe('known')
         expect(result.current.rows[0].activity).toMatchObject({ actorName: 'Malar Natarajan', action: 'VIEWED' })
     })
 
-    // OTTER-726: the column went blank on every row after the global 15-minute refetch failed.
-    // TanStack keeps the last good data through a failed refetch and only moves the status to
-    // error, so activity availability has to follow the data and not the status.
-    it('keeps the last known activity when a background refetch fails', async () => {
+    // OTTER-726: TanStack keeps the last good data through a failed refetch, so reading the data
+    // alone presented rows from before the failure as a statement about now.
+    it('drops the last known activity when a background refetch fails', async () => {
         const jobId = faker.string.uuid()
         const file = decryptedFile('security-scan-log.txt')
         const { result, client } = renderFiles(jobId, [file], [activityFor(file)])
 
-        await client
-            .fetchQuery({
-                queryKey: activityQueryKey(jobId),
-                queryFn: () => Promise.reject(new Error('refetch failed')),
-                retry: false,
-            })
-            .catch(() => undefined)
+        await failRefetch(client, jobId)
 
-        await waitFor(() => {
-            expect(client.getQueryState(activityQueryKey(jobId))?.status).toBe('error')
+        expect(result.current.rows[0].activityState).toBe('unavailable')
+        expect(result.current.rows[0].activity).toBeNull()
+    })
+
+    it('opts the activity poll in to the shared error reporter', () => {
+        const jobId = faker.string.uuid()
+        const { client } = renderFiles(jobId, [decryptedFile('logs.json')], [])
+
+        expect(client.getQueryCache().find({ queryKey: activityQueryKey(jobId) })?.meta).toEqual({
+            errorMessage: 'Failed to load file activity',
         })
-
-        expect(result.current.rows[0].isActivityKnown).toBe(true)
-        expect(result.current.rows[0].activity).toMatchObject({ actorName: 'Malar Natarajan' })
     })
 })

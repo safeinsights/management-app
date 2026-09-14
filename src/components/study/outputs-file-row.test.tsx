@@ -9,7 +9,7 @@ const buildRow = (overrides: Partial<OutputFileRowData> = {}): OutputFileRowData
     filePath: 'run.log',
     name: 'run.log',
     contents: new ArrayBuffer(4),
-    isActivityKnown: true,
+    activityState: 'known',
     activity: null,
     ...overrides,
 })
@@ -98,6 +98,21 @@ describe('OutputsFileRow last activity', () => {
     it('renders real text when nothing has happened yet', () => {
         renderRow(buildRow())
         expect(screen.getByText('No activity yet')).toBeInTheDocument()
+    })
+
+    it('says the activity is unavailable rather than claiming there was none', () => {
+        renderRow(buildRow({ activityState: 'unavailable', activity: buildActivity() }))
+
+        expect(screen.getByText('Unavailable')).toBeInTheDocument()
+        expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
+        expect(screen.queryByText(/Jessica Walters/)).not.toBeInTheDocument()
+    })
+
+    it('claims nothing while the first request is in flight', () => {
+        renderRow(buildRow({ activityState: 'pending' }))
+
+        expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
+        expect(screen.queryByText('Unavailable')).not.toBeInTheDocument()
     })
 
     it('renders actor, action and timestamp for a view', () => {
