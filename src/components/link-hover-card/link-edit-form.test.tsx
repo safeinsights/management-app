@@ -1,6 +1,6 @@
 import { renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
 import { LinkEditForm } from './link-edit-form'
-import { INVALID_URL_MESSAGE } from './copy'
+import { EMPTY_TEXT_MESSAGE, INVALID_URL_MESSAGE } from './copy'
 
 function renderForm(onSave = vi.fn(), onCancel = vi.fn()) {
     renderWithProviders(
@@ -77,15 +77,32 @@ describe('LinkEditForm', () => {
         expect(screen.queryByText(INVALID_URL_MESSAGE)).toBeNull()
     })
 
-    // An empty text field is not an error state; the caller leaves the existing link text alone.
-    it('reports an empty text field rather than blocking the save', async () => {
+    // Saving empty text used to pass and then silently keep the old text.
+    it('refuses to save an empty text field', async () => {
         const user = userEvent.setup()
         const form = renderForm()
 
         await user.clear(form.text)
         await user.click(form.save)
 
-        expect(form.onSave).toHaveBeenCalledWith({ text: '', url: 'https://example.com/prior' })
+        expect(form.onSave).not.toHaveBeenCalled()
+        expect(await screen.findByText(EMPTY_TEXT_MESSAGE)).toBeInTheDocument()
+    })
+
+    it('trims what it saves, and refuses text that is only spaces', async () => {
+        const user = userEvent.setup()
+        const form = renderForm()
+
+        await user.clear(form.text)
+        await user.type(form.text, '   ')
+        await user.click(form.save)
+        expect(form.onSave).not.toHaveBeenCalled()
+
+        await user.clear(form.text)
+        await user.type(form.text, '  newer writeup  ')
+        await user.click(form.save)
+
+        expect(form.onSave).toHaveBeenCalledWith({ text: 'newer writeup', url: 'https://example.com/prior' })
     })
 
     it('submits on Enter and cancels on the Cancel button', async () => {

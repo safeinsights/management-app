@@ -19,3 +19,4 @@ export const UNAVAILABLE_LINK_BODY = 'You may not have access to this page, or i
 export const LINK_TEXT_FIELD_LABEL = 'Text'
 export const LINK_URL_FIELD_LABEL = 'Link'
 export const INVALID_URL_MESSAGE = 'Enter a valid URL starting with http:// or https://'
+export const EMPTY_TEXT_MESSAGE = 'Enter the text to display'

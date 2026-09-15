@@ -75,6 +75,15 @@ describe('matchInternalRoute', () => {
         expect(matchInternalRoute('/')).toBeNull()
     })
 
+    // A plain object lookup answers `constructor` with Object.prototype's, which reads as a page
+    // with no title.
+    it('returns null for a path that names an inherited property', () => {
+        expect(matchInternalRoute('/openstax-lab/constructor')).toBeNull()
+        expect(matchInternalRoute('/openstax-lab/toString')).toBeNull()
+        expect(matchInternalRoute('/openstax-lab/hasOwnProperty')).toBeNull()
+        expect(matchInternalRoute('/constructor')).toBeNull()
+    })
+
     it('refuses a path that is not a plain absolute path', () => {
         expect(matchInternalRoute('dashboard')).toBeNull()
         expect(matchInternalRoute('//evil.example.com')).toBeNull()

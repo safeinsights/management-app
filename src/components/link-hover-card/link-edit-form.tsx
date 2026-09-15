@@ -1,15 +1,21 @@
 'use client'
 
-import { useState, type KeyboardEvent } from 'react'
+import { type KeyboardEvent } from 'react'
 import { Button, Group, Stack, TextInput } from '@mantine/core'
-import { InputError } from '@/components/errors'
+import { useForm, zodResolver, z } from '@/common'
 import { isValidUrl } from '@/components/editable-text/config'
-import { INVALID_URL_MESSAGE, LINK_TEXT_FIELD_LABEL, LINK_URL_FIELD_LABEL } from './copy'
+import { EMPTY_TEXT_MESSAGE, INVALID_URL_MESSAGE, LINK_TEXT_FIELD_LABEL, LINK_URL_FIELD_LABEL } from './copy'
 
-export interface LinkEditValues {
-    text: string
-    url: string
-}
+// Refined on the trimmed value rather than trimmed in the schema: the resolver only validates, so
+// `transformValues` is what decides the values the save receives.
+const linkEditSchema = z.object({
+    text: z.string().refine((value) => value.trim().length > 0, EMPTY_TEXT_MESSAGE),
+    url: z.string().refine((value) => isValidUrl(value.trim()), INVALID_URL_MESSAGE),
+})
+
+export type LinkEditValues = z.infer<typeof linkEditSchema>
+
+const trimValues = ({ text, url }: LinkEditValues): LinkEditValues => ({ text: text.trim(), url: url.trim() })
 
 function useLinkEditForm({
     initialText,
@@ -20,26 +26,24 @@ function useLinkEditForm({
     initialUrl: string
     onSave: (values: LinkEditValues) => void
 }) {
-    const [text, setText] = useState(initialText)
-    const [url, setUrl] = useState(initialUrl)
-    const [error, setError] = useState<string | null>(null)
+    const form = useForm<LinkEditValues>({
+        initialValues: { text: initialText, url: initialUrl },
+        validate: zodResolver(linkEditSchema),
+        transformValues: trimValues,
+    })
 
-    const changeUrl = (value: string) => {
-        setUrl(value)
-        setError(null)
+    // Mantine hands the submit event along as a second argument; the caller only wants values.
+    const handleSubmit = form.onSubmit((values) => onSave(values))
+    const submit = () => handleSubmit()
+
+    // The card sits inside the field it edits, so there is no form element to submit into.
+    const submitOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter') return
+        event.preventDefault()
+        submit()
     }
 
-    const submit = () => {
-        const trimmedUrl = url.trim()
-        if (!isValidUrl(trimmedUrl)) {
-            setError(INVALID_URL_MESSAGE)
-            return
-        }
-
-        onSave({ text: text.trim(), url: trimmedUrl })
-    }
-
-    return { text, setText, url, changeUrl, error, submit }
+    return { form, submit, submitOnEnter }
 }
 
 interface LinkEditFormProps {
@@ -51,38 +55,29 @@ interface LinkEditFormProps {
 }
 
 export function LinkEditForm({ initialText, initialUrl, textInputRef, onCancel, onSave }: LinkEditFormProps) {
-    const form = useLinkEditForm({ initialText, initialUrl, onSave })
-
-    const submitOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key !== 'Enter') return
-        event.preventDefault()
-        form.submit()
-    }
-
-    const errorMessage = form.error ? <InputError error={form.error} /> : undefined
+    const { form, submit, submitOnEnter } = useLinkEditForm({ initialText, initialUrl, onSave })
 
     return (
         <Stack gap="sm">
             <TextInput
                 ref={textInputRef}
                 label={LINK_TEXT_FIELD_LABEL}
-                value={form.text}
-                onChange={(event) => form.setText(event.currentTarget.value)}
+                key={form.key('text')}
+                {...form.getInputProps('text')}
                 onKeyDown={submitOnEnter}
                 data-autofocus
             />
             <TextInput
                 label={LINK_URL_FIELD_LABEL}
-                value={form.url}
-                onChange={(event) => form.changeUrl(event.currentTarget.value)}
+                key={form.key('url')}
+                {...form.getInputProps('url')}
                 onKeyDown={submitOnEnter}
-                error={errorMessage}
             />
             <Group gap="md" justify="flex-end">
                 <Button variant="subtle" color="navy" size="compact-sm" onClick={onCancel}>
                     Cancel
                 </Button>
-                <Button color="navy" size="compact-sm" onClick={form.submit}>
+                <Button color="navy" size="compact-sm" onClick={submit}>
                     Save
                 </Button>
             </Group>

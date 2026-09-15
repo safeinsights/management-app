@@ -2,12 +2,8 @@
 
 import { Action, z } from '@/server/actions/action'
 import { toRecord } from '@/lib/permissions'
-import {
-    matchInternalRoute,
-    type InternalRouteMatch,
-    type PageAccess,
-    type ResolvedInternalLink,
-} from '@/lib/routes/match'
+import { type PageAccess } from '@/lib/routes/access'
+import { matchInternalRoute, type InternalRouteMatch, type ResolvedInternalLink } from '@/lib/routes/match'
 import { displayOrgName, UNTITLED_STUDY_TITLE } from '@/lib/string'
 import { getLabOrg, isOrgAdmin, type UserSession } from '@/lib/types'
 

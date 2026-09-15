@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import type { LexicalEditor } from 'lexical'
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
@@ -24,15 +25,9 @@ const MIDDLE_BUTTON = 1
 
 const closestAnchor = (target: EventTarget | null) => (target instanceof Element ? target.closest('a') : null)
 
-/**
- * Reading a proposal, a click on link text opens the card rather than following the link. Holding a
- * modifier, or clicking the middle button, still opens the destination straight away.
- */
-export function LinkHoverCardReadOnlyPlugin() {
-    const [editor] = useLexicalComposerContext()
+function useReadOnlyLinkCard(editor: LexicalEditor) {
     const [link, setLink] = useState<LinkCardTarget | null>(null)
     const triggerRef = useRef<HTMLAnchorElement | null>(null)
-    const dropdownId = useId()
 
     const close = useCallback(() => {
         setLink(null)
@@ -117,21 +112,33 @@ export function LinkHoverCardReadOnlyPlugin() {
         keydown: handleKeyDown,
     })
 
-    useLinkCardTriggerAria(editor, link?.nodeKey ?? null, dropdownId)
-    useEscapeOnCard(link !== null, closeAndReturnFocus)
+    return { link, close, closeAndReturnFocus }
+}
+
+/**
+ * Reading a proposal, a click on link text opens the card rather than following the link. Holding a
+ * modifier, or clicking the middle button, still opens the destination straight away.
+ */
+export function LinkHoverCardReadOnlyPlugin() {
+    const [editor] = useLexicalComposerContext()
+    const card = useReadOnlyLinkCard(editor)
+    const dropdownId = useId()
+
+    useLinkCardTriggerAria(editor, card.link?.nodeKey ?? null, dropdownId)
+    useEscapeOnCard(card.link !== null, card.closeAndReturnFocus)
 
     return (
         <AnchoredLinkCard
             editor={editor}
-            nodeKey={link?.nodeKey ?? null}
-            opened={link !== null}
+            nodeKey={card.link?.nodeKey ?? null}
+            opened={card.link !== null}
             trapFocus={false}
             withinPortal
             dropdownId={dropdownId}
             ariaLabel={LINK_CARD_DIALOG_LABEL}
-            onDismiss={close}
+            onDismiss={card.close}
         >
-            <ReadOnlyCardContent link={link} />
+            <ReadOnlyCardContent link={card.link} />
         </AnchoredLinkCard>
     )
 }

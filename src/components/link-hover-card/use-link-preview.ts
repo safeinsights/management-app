@@ -24,8 +24,11 @@ export function useLinkPreview(href: string): LinkPreview {
 
     if (pathname === null) return { kind: 'external', href }
     if (query.isPending) return { kind: 'loading', href }
-    if (query.isError || !query.data || query.data.kind === 'unavailable') return { kind: 'unavailable', href }
-    if (query.data.kind === 'unknown') return { kind: 'external', href }
+    // A request that failed is not a refusal. `unavailable` states something about the reader's
+    // access, so it is reserved for what the server actually answered; the URL is the honest
+    // fallback for everything else.
+    if (query.isError || !query.data || query.data.kind === 'unknown') return { kind: 'external', href }
+    if (query.data.kind === 'unavailable') return { kind: 'unavailable', href }
 
     return { kind: 'internal', href, title: query.data.title, category: query.data.category }
 }
