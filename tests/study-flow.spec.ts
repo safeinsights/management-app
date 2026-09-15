@@ -928,6 +928,25 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
+        // OTTER-764: a change-requested proposal steps back to the read-only Step 1 record and
+        // forward again, like every other post-submission state. The footer offers the step back
+        // rather than an exit, so no control here leads to the dashboard.
+        await expect(page.getByTestId('cta-back-to-my-studies')).toHaveCount(0)
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/edit(\?.*)?$/)
+        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expectLockedSetupField(page, 'Study title', studyTitle)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+
+        const forwardToProposal = page.getByRole('button', { name: 'Next step' })
+        await expect(forwardToProposal).toBeEnabled()
+        await forwardToProposal.click()
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+
         await page.getByRole('link', { name: /^Edit proposal$/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
