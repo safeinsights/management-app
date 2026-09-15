@@ -44,7 +44,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Submit proposal')
         expect(screen.getByRole('link', { name: /^next step$/i })).toHaveAttribute(
             'href',
             Routes.studyCode({ orgSlug: org.slug, studyId: study.id }),

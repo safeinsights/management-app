@@ -10,6 +10,7 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -527,8 +528,34 @@ describe('ProposalSubmitted', () => {
         })
     })
 
-    describe('section heading iteration label', () => {
-        it('displays "Initial request" on first submission', () => {
+    // OTTER-762: the step card reads the same on every post-submission status, and the round
+    // counter that used to live in the heading is carried by the banner title instead.
+    describe('section header', () => {
+        const statuses = [
+            ['PENDING-REVIEW', { status: 'PENDING-REVIEW' as const, approvedAt: null }],
+            ['APPROVED', { status: 'APPROVED' as const }],
+            ['CHANGE-REQUESTED', { status: 'CHANGE-REQUESTED' as const }],
+            ['REJECTED', { status: 'REJECTED' as const }],
+        ] as const
+
+        it.each(statuses)('reuses the shared step header with "STEP 2 / Submit proposal" when %s', (_, overrides) => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={{ ...study, ...overrides }}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+            expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
+        })
+
+        it('does not repeat the study title as body text in the header', () => {
             renderWithProviders(
                 <ProposalSubmitted
                     nav={NAV}
@@ -540,10 +567,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).queryByText(study.title!)).not.toBeInTheDocument()
+            expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
-        it('displays "Initial request 2.0" after the first resubmission', () => {
+        it('no longer numbers the heading by resubmission round', () => {
             renderWithProviders(
                 <ProposalSubmitted
                     nav={NAV}
@@ -555,22 +584,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 2.0')
-        })
-
-        it('displays "Initial request 3.0" after the second resubmission', () => {
-            renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={3}
-                />,
-            )
-
-            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 3.0')
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).queryByText(/Initial request/)).not.toBeInTheDocument()
+            expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
         })
     })
 

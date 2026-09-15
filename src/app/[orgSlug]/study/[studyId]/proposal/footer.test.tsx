@@ -18,7 +18,7 @@ import {
 } from '@/tests/unit.helpers'
 import { ProposalProvider, useProposal, type ProposalDraftData } from '@/contexts/proposal'
 import { Routes } from '@/lib/routes'
-import { ProposalFooter } from './footer'
+import { DraftProposalFooter } from './footer'
 import { type ProposalFormValues } from './schema'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
@@ -51,7 +51,7 @@ const TitleInputProbe = () => {
 const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle, studyTitle?: string | null) =>
     renderWithProviders(
         <ProposalProvider studyId={STUDY_ID} draftData={draftData}>
-            <ProposalFooter
+            <DraftProposalFooter
                 researcherName="Researcher"
                 researcherId="researcher-1"
                 studyTitle={studyTitle}
@@ -62,7 +62,7 @@ const renderFooter = (draftData: ProposalDraftData = fullyValidExceptTitle, stud
 
 const submitButton = () => screen.getByRole('button', { name: 'Submit proposal' })
 
-describe('ProposalFooter submit button (OTTER-691)', () => {
+describe('DraftProposalFooter submit button (OTTER-691)', () => {
     it('is enabled with a blank title, which Step 1 now owns', () => {
         renderFooter()
         expect(submitButton()).toBeEnabled()
@@ -136,7 +136,7 @@ describe('ProposalFooter submit button (OTTER-691)', () => {
     })
 })
 
-describe('ProposalFooter reviewer preview title (OTTER-690)', () => {
+describe('DraftProposalFooter reviewer preview title (OTTER-690)', () => {
     it('renders the persisted title rather than the form value', async () => {
         const user = userEvent.setup()
         renderFooter({ ...fullyValidExceptTitle, title: 'stale form copy' }, 'Persisted Step 1 title')
@@ -151,13 +151,17 @@ describe('ProposalFooter reviewer preview title (OTTER-690)', () => {
 
 // Yjs autosave is inactive in single-user mode, so Previous must flush the form to the study row
 // before leaving or Step 2 progress is lost (OTTER-572/573).
-describe('ProposalFooter save-on-navigate (OTTER-573)', () => {
+describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
     // piUserId must reference a real user row or the flush trips the foreign key.
     const renderFooterForStudy = (studyId: string, piUserId: string) =>
         renderWithProviders(
             <ProposalProvider studyId={studyId} draftData={{ ...fullyValidExceptTitle, piUserId }}>
                 <TitleInputProbe />
-                <ProposalFooter researcherName="Researcher" researcherId="researcher-1" orgName="Test Data Partner" />
+                <DraftProposalFooter
+                    researcherName="Researcher"
+                    researcherId="researcher-1"
+                    orgName="Test Data Partner"
+                />
             </ProposalProvider>,
         )
 
