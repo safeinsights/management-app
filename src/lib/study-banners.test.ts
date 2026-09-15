@@ -128,13 +128,12 @@ describe('researcherOutputsFeedbackBanner', () => {
         })
     })
 
-    it('shares the errored title with the errored share, and nothing else', () => {
+    it('parts from the errored share on the body, which names the withheld outputs', () => {
         const withheld = researcherOutputsFeedbackBanner({ runErrored: true }, { dataPartner: DATA_PARTNER })
         const { unlocked: shared } = researcherSharedOutputsBanner('outputs-errored-shared', {
             dataPartner: DATA_PARTNER,
         })
 
-        expect(withheld.title).toBe(shared.title)
         expect(withheld.body).not.toBe(shared.body)
         expect(withheld.body).toContain('The outputs are not available for this study')
     })

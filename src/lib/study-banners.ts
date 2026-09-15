@@ -18,6 +18,9 @@ export type BannerParams = {
 const AWAITING_PROPOSAL_REVIEW =
     'An email notification will be sent as your proposal progresses through the review. Reviews typically take 7 to 10 days.'
 
+// Shared by both errored-run banners
+const RESOLVE_CODE_ERROR_TITLE = 'Resolve the code error to proceed'
+
 const awaitingCodeReview = (dataPartner: string) =>
     `Your code and an AI summary of its behavior will be shared with ${dataPartner}. An email notification will be sent as your code progresses through the review. Reviews typically take 7 to 10 days.`
 
@@ -122,7 +125,7 @@ export function researcherSharedOutputsBanner(
                 },
                 unlocked: {
                     variant: STATUS_ALERT_VARIANT.action,
-                    title: 'Resolve the code error to proceed',
+                    title: RESOLVE_CODE_ERROR_TITLE,
                     body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
                 },
             }
@@ -137,7 +140,7 @@ export function researcherOutputsFeedbackBanner(
     if (runErrored) {
         return {
             variant: STATUS_ALERT_VARIANT.action,
-            title: 'Resolve the code error to proceed',
+            title: RESOLVE_CODE_ERROR_TITLE,
             body: `${dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
         }
     }
