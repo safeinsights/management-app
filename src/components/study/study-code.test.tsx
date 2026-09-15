@@ -138,8 +138,7 @@ const renderIDE = async (
  * waiting for the save, rather than each one happening to assert on something slow enough.
  */
 const setMainFileTo = async (user: ReturnType<typeof userEvent.setup>, fileName: string) => {
-    const label = new RegExp(`set ${fileName.replace(/\./g, '\\.')} as main file`, 'i')
-    await user.click(screen.getByRole('radio', { name: label }))
+    await user.click(screen.getByRole('radio', { name: `Set ${fileName} as main file` }))
     await waitForPendingMutations()
 }
 
