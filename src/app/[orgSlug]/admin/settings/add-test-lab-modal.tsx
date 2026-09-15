@@ -22,19 +22,38 @@ const useTestLabPicker = (labs: EligibleLab[]) => {
         return needle ? labs.filter((lab) => lab.name.toLowerCase().includes(needle)) : labs
     }, [labs, search])
 
+    const selectedLabs = useMemo(() => {
+        const chosen = new Set(selectedIds)
+        return labs.filter((lab) => chosen.has(lab.id))
+    }, [labs, selectedIds])
+
     return {
         search,
         setSearch,
         matches,
         selectedIds,
         setSelectedIds,
-        selectedLabs: labs.filter((lab) => selectedIds.includes(lab.id)),
+        selectedLabs,
         isConfirming,
-        setIsConfirming,
+        goToConfirm: () => setIsConfirming(true),
+        goBack: () => setIsConfirming(false),
     }
 }
 
 type Picker = ReturnType<typeof useTestLabPicker>
+
+// Nothing to add and nothing matched read the same to a reader mid-search; they are not.
+function NoMatches({ isVisible, isSearching }: { isVisible: boolean; isSearching: boolean }) {
+    const message = isSearching ? 'No research labs match that search.' : 'No research labs available to add.'
+
+    if (!isVisible) return null
+
+    return (
+        <Text fz="sm" c="dimmed" ta="center" p="md">
+            {message}
+        </Text>
+    )
+}
 
 type PickerStepProps = { isVisible: boolean; picker: Picker; isLoading: boolean; onCancel: () => void }
 
@@ -50,12 +69,8 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
                 aria-label="Search research labs"
                 leftSection={<MagnifyingGlassIcon size={16} />}
             />
-            {isLoading && <LoadingMessage message="Loading research labs" />}
-            {!isLoading && !picker.matches.length && (
-                <Text fz="sm" c="dimmed" ta="center" p="md">
-                    No research labs available to add.
-                </Text>
-            )}
+            <LoadingMessage isVisible={isLoading} message="Loading research labs" />
+            <NoMatches isVisible={!isLoading && !picker.matches.length} isSearching={Boolean(picker.search.trim())} />
             <ScrollArea.Autosize mah={260}>
                 <Checkbox.Group value={picker.selectedIds} onChange={picker.setSelectedIds}>
                     {picker.matches.map((lab) => (
@@ -70,7 +85,7 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
                 <Button variant="subtle" onClick={onCancel}>
                     Cancel
                 </Button>
-                <Button onClick={() => picker.setIsConfirming(true)} disabled={!picker.selectedIds.length}>
+                <Button onClick={picker.goToConfirm} disabled={!picker.selectedIds.length}>
                     Add
                 </Button>
             </Group>
@@ -104,7 +119,7 @@ function ConfirmStep({ isVisible, picker, isSubmitting, error, onConfirm }: Conf
             </Stack>
             {Boolean(error) && <ErrorAlert error={error} title="Failed to add test labs" />}
             <Group justify="flex-end">
-                <Button variant="subtle" onClick={() => picker.setIsConfirming(false)} disabled={isSubmitting}>
+                <Button variant="subtle" onClick={picker.goBack} disabled={isSubmitting}>
                     Back
                 </Button>
                 <Button onClick={() => onConfirm(picker.selectedIds)} loading={isSubmitting}>

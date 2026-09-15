@@ -108,6 +108,22 @@ describe('fetchUserStudyAgreementsAction', () => {
         expect(rows[0]?.ackedAt).toBeInstanceOf(Date)
     })
 
+    // A test study needs no agreement, but one published against it anyway still binds, so the
+    // study qualifies for this page twice over and must still appear once.
+    it('lists a test study that also carries an acknowledged agreement exactly once', async () => {
+        const reader = await insertReader('enclave')
+        const { study } = await insertStudyForReader(reader, 'Test study with a signed agreement')
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+        const version = await publishAsSiAdmin({ type: 'SLA', studyId: study.id }, '2026-06-17')
+        reader.restoreSession()
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+
+        const rows = actionResult(await fetchUserStudyAgreementsAction({ sort: STUDY_SORT }))
+
+        expect(rows.filter((row) => row.studyId === study.id)).toHaveLength(1)
+        expect(rows[0]).toMatchObject({ signedAt: '2026-06-17', versionId: version.id })
+    })
+
     it('keeps one row per study, carrying the latest version the user acknowledged', async () => {
         const reader = await insertReader('enclave')
         const { study } = await insertStudyForReader(reader)

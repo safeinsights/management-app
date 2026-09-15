@@ -96,7 +96,7 @@ export function CodeEvaluationSection({ form, enabled, isTestStudy }: CodeEvalua
         pushCriterion(key, value)
     }
 
-    const criterionRows = codeReviewCriteria({ isTestStudy }).map((descriptor) => (
+    const criterionRows = codeReviewCriteria(isTestStudy).map((descriptor) => (
         <CriterionRow
             key={descriptor.key}
             descriptor={descriptor}

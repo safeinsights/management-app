@@ -212,12 +212,7 @@ describe('orgSlugsForUser', () => {
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org: lab })
-        await insertTestStudyOnly({
-            org: enclave,
-            submittedByOrg: lab,
-            researcherId: user.id,
-            withStudyAgreement: false,
-        })
+        await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
 
         expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([enclave.slug, lab.slug].sort())
     })
@@ -226,7 +221,7 @@ describe('orgSlugsForUser', () => {
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org: lab })
-        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, withStudyAgreement: false })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab })
         await db
             .updateTable('study')
             .set({ reviewerId: user.id, piUserId: user.id })

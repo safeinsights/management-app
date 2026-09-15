@@ -83,13 +83,8 @@ describe('DELETE /api/qa/studies/[studyId]', () => {
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org: lab, email: qaEmail() })
-        // No agreement: a published one still blocks QA deletion on the study FK.
-        const { study } = await insertTestStudyOnly({
-            org: enclave,
-            submittedByOrg: lab,
-            researcherId: user.id,
-            withStudyAgreement: false,
-        })
+        // Keeps its agreement: deleting a study has to take its legal documents with it.
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
         await authenticate({ isAdmin: true, adminOf: enclave })
 
         const response = await deleteStudy(study.id)
@@ -102,12 +97,7 @@ describe('DELETE /api/qa/studies/[studyId]', () => {
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org: lab, email: qaEmail() })
-        const { study } = await insertTestStudyOnly({
-            org: enclave,
-            submittedByOrg: lab,
-            researcherId: user.id,
-            withStudyAgreement: false,
-        })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
         const mocks = await authenticate({ isAdmin: true, adminOf: enclave })
         await db.insertInto('orgUser').values({ orgId: lab.id, userId: mocks.user.id, isAdmin: true }).execute()
 

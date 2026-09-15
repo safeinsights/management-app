@@ -10,8 +10,9 @@ export type CodeReviewCriterion = {
 
 const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore ${legalDocumentCollectionLabels.SLA} do not exist for this study.`
 
-// Resolved here rather than drilled as a flag: the rows already know their own conditions.
-export const codeReviewCriteria = ({ isTestStudy }: { isTestStudy: boolean }): readonly CodeReviewCriterion[] => [
+// A function, not a const: only the reviewer's own study says whether the agreements criterion
+// needs qualifying.
+export const codeReviewCriteria = (isTestStudy: boolean): readonly CodeReviewCriterion[] => [
     { key: 'proposalAlignment', label: 'Code aligns with approved research proposal' },
     {
         key: 'agreementCompliance',

@@ -23,10 +23,19 @@ export async function up(db: Kysely<any>): Promise<void> {
         .alterTable('study')
         .addColumn('is_test_study', 'boolean', (col) => col.notNull().defaultTo(false))
         .execute()
+
+    // The personal legal page looks up a member's test studies across both party columns, which
+    // rules out either single-column index. Partial because test studies stay a small minority.
+    await sql`
+        CREATE INDEX study_test_study_parties_indx
+        ON study (org_id, submitted_by_org_id)
+        WHERE is_test_study AND deleted_at IS NULL
+    `.execute(db)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function down(db: Kysely<any>): Promise<void> {
+    await sql`DROP INDEX study_test_study_parties_indx`.execute(db)
     await db.schema.alterTable('study').dropColumn('is_test_study').execute()
     await db.schema.dropTable('org_test_lab').execute()
 }

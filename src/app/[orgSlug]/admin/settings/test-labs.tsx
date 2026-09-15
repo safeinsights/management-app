@@ -6,14 +6,17 @@ import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
-import { ErrorPanel } from '@/components/panel'
-import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType } from '@/lib/types'
-import { AddTestLabModal } from './add-test-lab-modal'
+import { AddTestLabModal, type EligibleLab } from './add-test-lab-modal'
+import { QueryStateBody } from './query-state-body'
 import { designateTestLabsAction, fetchEligibleTestLabsAction, fetchOrgTestLabsAction } from './test-labs.actions'
 import { TestLabRowView, TestLabsView } from './test-labs-view'
 
 type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]
+
+// Module-level, so a render that has no data yet does not mint a new array identity each time.
+const NO_LABS: TestLab[] = []
+const NO_ELIGIBLE: EligibleLab[] = []
 
 const TestLabsTable: React.FC<{ testLabs: TestLab[] }> = ({ testLabs }) => {
     if (!testLabs.length) {
@@ -75,24 +78,15 @@ export const TestLabs: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     return (
         <>
             <TestLabsView onAdd={openModal}>
-                {designated.isLoading && <LoadingMessage message="Loading test labs" />}
-
-                {designated.isError && (
-                    <ErrorPanel
-                        title={`Failed to load test labs: ${designated.error?.message || 'Unknown error'}`}
-                        onContinue={designated.refetch}
-                    >
-                        Retry
-                    </ErrorPanel>
-                )}
-
-                {!designated.isLoading && !designated.isError && <TestLabsTable testLabs={designated.data || []} />}
+                <QueryStateBody query={designated} loadingMessage="Loading test labs" errorLabel="test labs">
+                    <TestLabsTable testLabs={designated.data ?? NO_LABS} />
+                </QueryStateBody>
             </TestLabsView>
 
             <AddTestLabModal
                 isOpen={isModalOpen}
                 onClose={closeModal}
-                labs={eligible.data || []}
+                labs={eligible.data ?? NO_ELIGIBLE}
                 isLoading={eligible.isLoading}
                 isSubmitting={designate.isPending}
                 error={designate.error}

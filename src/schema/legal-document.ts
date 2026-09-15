@@ -192,9 +192,27 @@ export type StudyAgreementStatus =
     | { state: 'pending'; versionId: string }
     | { state: 'acknowledged' }
 
-// One place to ask "does this stop work on the study". Undefined counts as blocked: while the
-// status is in flight nothing should act as though the gate has cleared.
-export const blocksStudyWork = (status?: StudyAgreementStatus) => !status || status.state === 'none'
+// One place to ask "does this stop work on the study". Undefined counts as blocked: in flight or
+// unreadable, nothing should act as though the gate has cleared. Exhaustive so a sixth state has
+// to state its own answer rather than defaulting to "carry on".
+export const blocksStudyWork = (status?: StudyAgreementStatus) => {
+    if (!status) return true
+
+    switch (status.state) {
+        case 'none':
+            return true
+        // `pending` blocks through the modal, which names the document and records the consent.
+        case 'pending':
+        case 'exempt':
+        case 'notAParty':
+        case 'acknowledged':
+            return false
+        default: {
+            const unhandled: never = status
+            return unhandled
+        }
+    }
+}
 
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),

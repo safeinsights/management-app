@@ -2,24 +2,14 @@
 
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import type { OrgType } from '@/database/types'
 import { Action } from '@/server/actions/action'
+import { requireDataPartner } from '@/server/actions/org-context'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { ActionFailure } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { designateTestLabs, labsEligibleAsTestLabs, orgTestLabs } from '@/server/db/test-lab'
 
 const orgSlugSchema = z.object({ orgSlug: z.string() })
-
-// Only a data partner designates test labs; a lab org reaching this has nothing to answer. An
-// unknown slug leaves both fields undefined while typed as set, and ('manage','all') passes the
-// ability, so an SI admin would otherwise reach the handler with an undefined orgId.
-function requireDataPartner(ctx: {
-    orgId?: string
-    orgType?: OrgType
-}): asserts ctx is { orgId: string; orgType: 'enclave' } {
-    if (!ctx.orgId || ctx.orgType !== 'enclave') throw new ActionFailure({ org: 'is not a data partner' })
-}
 
 export const fetchOrgTestLabsAction = new Action('fetchOrgTestLabsAction')
     .params(orgSlugSchema)

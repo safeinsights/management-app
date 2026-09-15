@@ -1,47 +1,43 @@
 import { type DBExecutor } from '@/database'
 import { ActionFailure } from '@/lib/errors'
+import { type StudyAgreementStatus } from '@/schema/legal-document'
 import { type UserSession } from '@/lib/types'
-import { userAcknowledgedVersion, studyAgreementState } from './db/legal-document'
+import { studyAgreementState } from './db/legal-document'
 
-export const STUDY_AGREEMENT_REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
-export const STUDY_AGREEMENT_MISSING_MESSAGE = 'has not been signed yet for this study'
+const REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
+const MISSING_MESSAGE = 'has not been signed yet for this study'
 
-// orgUser, not session.orgs: stale Clerk claims would hide the modal while the guard still refused.
-export const isPartyToStudyAgreement = async (
+// One resolver for the client gate and the server guards, so the modal and the refusal cannot
+// disagree. Undefined only when the study does not exist; callers decide what that means.
+export const studyAgreementStatusFor = async (
     db: DBExecutor,
-    { dataPartnerId, researchLabId, userId }: { dataPartnerId: string; researchLabId: string; userId: string },
-) =>
-    Boolean(
-        await db
-            .selectFrom('orgUser')
-            .select('id')
-            .where('userId', '=', userId)
-            .where('orgId', 'in', [dataPartnerId, researchLabId])
-            .executeTakeFirst(),
-    )
+    { studyId, userId }: { studyId: string; userId: string },
+): Promise<StudyAgreementStatus | undefined> => {
+    const study = await studyAgreementState(db, { studyId, userId })
+    if (!study) return undefined
 
-// The blocking modal is client-side, so the acts the agreement binds are guarded here too. A test
-// study is exempt from needing an agreement, never from honouring one published against it anyway.
+    // An SI admin holds `manage all` but signs nothing, so neither a missing nor an unacknowledged
+    // agreement is theirs to be blocked on.
+    if (!study.isParty) return { state: 'notAParty' }
+
+    // A test study is exempt from needing an agreement, never from honouring one published anyway.
+    if (!study.versionId) return study.isTestStudy ? { state: 'exempt' } : { state: 'none' }
+
+    if (study.hasAcknowledged) return { state: 'acknowledged' }
+
+    return { state: 'pending', versionId: study.versionId }
+}
+
+// The blocking modal is client-side, so the acts the agreement binds are guarded here too.
 export const requireStudyAgreementAcknowledged = async (
     db: DBExecutor,
     { studyId, userId }: { studyId: string; userId: string },
 ) => {
-    const study = await studyAgreementState(db, studyId)
-    if (!study) throw new ActionFailure({ study: 'was not found' })
+    const status = await studyAgreementStatusFor(db, { studyId, userId })
 
-    // An SI admin holds `manage all` but signs nothing, so neither a missing nor an unacknowledged
-    // agreement is theirs to be blocked on.
-    if (!(await isPartyToStudyAgreement(db, { ...study, userId }))) return
-
-    if (!study.versionId) {
-        if (study.isTestStudy) return
-
-        throw new ActionFailure({ studyAgreement: STUDY_AGREEMENT_MISSING_MESSAGE })
-    }
-
-    if (!(await userAcknowledgedVersion(db, { versionId: study.versionId, userId }))) {
-        throw new ActionFailure({ studyAgreement: STUDY_AGREEMENT_REQUIRED_MESSAGE })
-    }
+    if (!status) throw new ActionFailure({ study: 'was not found' })
+    if (status.state === 'none') throw new ActionFailure({ studyAgreement: MISSING_MESSAGE })
+    if (status.state === 'pending') throw new ActionFailure({ studyAgreement: REQUIRED_MESSAGE })
 }
 
 // studyId comes from the caller: submitOutputsDecisionAction has only the job id to derive it from.

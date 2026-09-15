@@ -7,7 +7,7 @@ import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
-import { studyAgreementState, writeStudyAgreementVersion } from '@/server/db/legal-document'
+import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
@@ -442,6 +442,7 @@ export const insertTestStudyOnly = async ({
     researcherId,
     title = 'study without job',
     status = 'APPROVED',
+    isTestStudy = false,
     // False for a test about agreements themselves — those files publish and acknowledge their own.
     withStudyAgreement = true,
 }: {
@@ -450,6 +451,7 @@ export const insertTestStudyOnly = async ({
     researcherId?: string
     title?: string
     status?: StudyStatus
+    isTestStudy?: boolean
     withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
@@ -469,6 +471,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status,
+            isTestStudy,
             submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
@@ -1201,7 +1204,6 @@ export const insertTestStudyAgreement = async ({
         signedAt: '2026-01-01',
         versionNumber,
         published,
-        fileName: 'agreement.pdf',
     })
 }
 
@@ -1209,9 +1211,24 @@ export const insertTestStudyAgreement = async ({
 // the default fixture is the one that bypasses the gate. Callable again after a test mints another
 // session user, since the unique constraint absorbs the acks already written.
 export const seedAcknowledgedStudyAgreement = async (studyId: string) => {
-    const study = await studyAgreementState(db, studyId)
+    const study = await db
+        .selectFrom('study')
+        .leftJoin('legalDocument', (join) =>
+            join.onRef('legalDocument.studyId', '=', 'study.id').on('legalDocument.type', '=', 'SLA'),
+        )
+        .leftJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .select([
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+            'legalDocumentVersion.id as versionId',
+        ])
+        .where('study.id', '=', studyId)
+        .orderBy('legalDocumentVersion.versionNumber', (ob) => ob.desc().nullsLast())
+        .executeTakeFirst()
     if (!study) throw new Error(`seedAcknowledgedStudyAgreement: no study ${studyId}`)
 
+    // Reuses the study's agreement when it already has one, so a test that mints a second session
+    // user can call this again to acknowledge on their behalf.
     const versionId = study.versionId ?? (await insertTestStudyAgreement({ studyId })).id
 
     const parties = await db

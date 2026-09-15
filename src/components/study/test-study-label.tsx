@@ -21,3 +21,7 @@ export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
         />
     )
 }
+
+// A test study has no agreement, so it never carries a date. Shared by the two tables that list one.
+export const testStudyDateCell = (row: { isTestStudy: boolean }) =>
+    row.isTestStudy ? <TestStudyLabel isVisible /> : null

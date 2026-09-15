@@ -116,6 +116,9 @@ type StudyOverrides = {
     rejectedAt?: Date | null
     // Inert since OTTER-727 hid the agreements gate; kept so seeded rows stay realistic.
     agreementsAcked?: boolean
+    // APPROVED studies carry an acknowledged Study Agreement by default: without one the gate
+    // refuses every code submission and review decision. False only for specs about the gate.
+    withStudyAgreement?: boolean
     // Only local dev seeding overrides these, to spread studies across org pairs so pickers
     // have something to narrow.
     enclaveSlug?: string
@@ -163,7 +166,44 @@ async function insertStudy(overrides: StudyOverrides) {
         .returning(['id', 'orgId', 'submittedByOrgId', 'researcherId'])
         .executeTakeFirstOrThrow()
 
+    if (status === 'APPROVED' && overrides.withStudyAgreement !== false) {
+        await seedAcknowledgedStudyAgreement(study.id)
+    }
+
     return { study, enclave, lab, researcherId, reviewerId }
+}
+
+// Everyone in either party org, not just the two role users: a member who owes the acknowledgement
+// meets the blocking modal on every route of the study.
+async function seedAcknowledgedStudyAgreement(studyId: string) {
+    const version = await writeStudyAgreementVersion(db, {
+        studyId,
+        publishedBy: await resolveUserId('admin'),
+        signedAt: '2026-01-01',
+    })
+
+    const parties = await db
+        .selectFrom('orgUser')
+        .select('userId')
+        .distinct()
+        .where('orgId', 'in', (eb) =>
+            eb
+                .selectFrom('study')
+                .select('study.orgId')
+                .where('study.id', '=', studyId)
+                .union(
+                    eb.selectFrom('study').select('study.submittedByOrgId as orgId').where('study.id', '=', studyId),
+                ),
+        )
+        .execute()
+
+    if (!parties.length) return
+
+    await db
+        .insertInto('legalDocumentAcknowledgement')
+        .values(parties.map(({ userId }) => ({ legalDocumentVersionId: version.id, userId })))
+        .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
+        .execute()
 }
 
 // In prod a deferred background task writes this; without a seeded row the reviewer screen is
@@ -240,7 +280,13 @@ export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
 // Study-scoped, unlike the Terms of Service, so publishing one inside a spec cannot reach another
 // worker's user.
 export async function seedApprovedWithPublishedStudyAgreement(title: string): Promise<SeedResult> {
-    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+    // Unacknowledged on purpose: this is the one seed whose study must still meet the modal.
+    const { study } = await insertStudy({
+        title,
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        withStudyAgreement: false,
+    })
 
     // No object uploaded: presigning does not need one and the spec never follows the link.
     await writeStudyAgreementVersion(db, {

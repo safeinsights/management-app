@@ -17,6 +17,7 @@ import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CodeEvaluationSection } from './code-evaluation-section'
 import { CODE_DECISION_MODAL_CONTENT, DecisionConfirmationModal } from './decision-confirmation-modal'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
@@ -144,6 +145,11 @@ function EditableBody({
     if (!isVisible) return null
     return (
         <Stack gap="xl">
+            <StudyAgreementPreparingNotice
+                studyId={job.studyId}
+                isVisible
+                consequence="You cannot submit a review decision yet."
+            />
             <CodeEvaluationSection form={evaluationForm} enabled isTestStudy={isTestStudy} />
             <CodeReviewFeedbackSection
                 feedback={feedback}

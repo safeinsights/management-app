@@ -24,7 +24,8 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
 
     // Read here rather than inside useIDEFiles: the IDE hook has no other reason to know about
     // legal documents, and the notice beside the button already carries the explanation.
-    const isBlockedByAgreement = blocksStudyWork(useStudyAgreementStatus(studyId))
+    const { status: agreementStatus } = useStudyAgreementStatus(studyId)
+    const isBlockedByAgreement = blocksStudyWork(agreementStatus)
 
     const handleConfirmSubmit = () => {
         closeConfirm()
@@ -34,7 +35,7 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
     const footer = (
         <Stack mt="xxl" w="100%">
             <StudyAgreementPreparingNotice studyId={studyId} isVisible consequence="You cannot submit code yet." />
-            <Group justify="space-between" w="100%">
+            <Group justify="space-between">
                 <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
                     Previous
                 </ButtonLink>

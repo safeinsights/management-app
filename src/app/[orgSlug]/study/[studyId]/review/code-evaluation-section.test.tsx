@@ -50,7 +50,7 @@ describe('CodeEvaluationSection', () => {
         )
         expect(screen.getByText('Evaluation criteria')).toBeInTheDocument()
 
-        for (const descriptor of codeReviewCriteria({ isTestStudy: false })) {
+        for (const descriptor of codeReviewCriteria(false)) {
             expect(screen.getByTestId(`criteria-row-${descriptor.key}`)).toHaveTextContent(descriptor.label)
         }
     })
@@ -87,7 +87,7 @@ describe('CodeEvaluationSection', () => {
     it('names every criterion radiogroup after its visible criterion text', () => {
         renderSection()
 
-        for (const descriptor of codeReviewCriteria({ isTestStudy: false })) {
+        for (const descriptor of codeReviewCriteria(false)) {
             expect(screen.getByRole('radiogroup', { name: descriptor.label })).toBeInTheDocument()
         }
     })

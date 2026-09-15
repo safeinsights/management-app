@@ -9,6 +9,7 @@ import {
     insertTestOrg,
     insertTestStudyAgreement,
     insertTestStudyJobData,
+    insertTestStudyOnly,
     insertTestUser,
     mockSessionWithTestData,
     resetLegalDocuments,
@@ -27,23 +28,15 @@ const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus,
         org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
     })
 
-    const study = await db
-        .insertInto('study')
-        .values({
-            orgId: dataPartner.id,
-            submittedByOrgId: researchLab.id,
-            containerLocation: 'test-container',
-            title: 'A study',
-            researcherId: researcher.id,
-            piName: 'test',
-            status,
-            isTestStudy,
-            dataSources: ['all'],
-            outputMimeType: 'application/zip',
-            language: 'R',
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
+    // These files publish and acknowledge their own agreements, so the fixture writes none.
+    const { study } = await insertTestStudyOnly({
+        org: dataPartner,
+        submittedByOrg: researchLab,
+        researcherId: researcher.id,
+        status,
+        isTestStudy,
+        withStudyAgreement: false,
+    })
 
     return { study, dataPartner, researchLab }
 }

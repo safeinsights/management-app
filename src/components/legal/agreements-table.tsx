@@ -20,27 +20,40 @@ type AgreementRow = {
 
 type AgreementSort<Column extends string> = { columnAccessor: Column; direction: 'asc' | 'desc' }
 
-// signedAt is a bare calendar day; ackedAt reads as a UTC day, matching the global document panel.
-// On mixed bases an ack can show as a day earlier than the document it acknowledges.
-//
 // `exemptionFor` lets a caller put something in a date cell for a row that will never carry one;
 // the caller owns what that means, so this module stays free of any one document type's rules.
-export const agreementDateColumns = <T extends AgreementRow>(
-    exemptionFor?: (row: T) => ReactNode,
-): DataTableColumn<T>[] => [
-    {
-        accessor: 'signedAt',
-        title: 'Effective on',
-        sortable: true,
-        render: (row) => <>{exemptionFor?.(row) ?? formatDayString(row.signedAt)}</>,
-    },
-    {
-        accessor: 'ackedAt',
-        title: 'Acknowledged on',
-        sortable: true,
-        render: (row) => <>{exemptionFor?.(row) ?? formatInstantAsUtcDay(row.ackedAt)}</>,
-    },
-    { accessor: 'versionId', title: 'View', render: (row) => <LegalDocumentPdfLink versionId={row.versionId} /> },
+type Exemption<T> = (row: T) => ReactNode
+
+// signedAt is a bare calendar day; ackedAt reads as a UTC day, matching the global document panel.
+// On mixed bases an ack can show as a day earlier than the document it acknowledges.
+export const signedAtColumn = <T extends Pick<AgreementRow, 'signedAt'>>(
+    exemptionFor?: Exemption<T>,
+): DataTableColumn<T> => ({
+    accessor: 'signedAt',
+    title: 'Effective on',
+    sortable: true,
+    render: (row) => <>{exemptionFor?.(row) ?? formatDayString(row.signedAt)}</>,
+})
+
+export const ackedAtColumn = <T extends Pick<AgreementRow, 'ackedAt'>>(
+    exemptionFor?: Exemption<T>,
+): DataTableColumn<T> => ({
+    accessor: 'ackedAt',
+    title: 'Acknowledged on',
+    sortable: true,
+    render: (row) => <>{exemptionFor?.(row) ?? formatInstantAsUtcDay(row.ackedAt)}</>,
+})
+
+export const versionColumn = <T extends Pick<AgreementRow, 'versionId'>>(): DataTableColumn<T> => ({
+    accessor: 'versionId',
+    title: 'View',
+    render: (row) => <LegalDocumentPdfLink versionId={row.versionId} />,
+})
+
+export const agreementDateColumns = <T extends AgreementRow>(exemptionFor?: Exemption<T>): DataTableColumn<T>[] => [
+    signedAtColumn(exemptionFor),
+    ackedAtColumn(exemptionFor),
+    versionColumn(),
 ]
 
 type Props<T, Column extends string> = {
