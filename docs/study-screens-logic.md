@@ -152,8 +152,9 @@ raw jobs.
 | 13  | fallback                                                                            | `study-overview`          |
 
 Researcher precedence note (OTTER-695, OTTER-696, OTTER-697, OTTER-688): the three outputs-decision
-rules sit above `outputs-awaiting-review` because a recorded `FILES-*` decision still leaves a clean
-run looking undecided, so #4 would otherwise claim every decided run. They
+rules are grouped above `outputs-awaiting-review` for readability, not for precedence.
+`isAwaitingOutputsReviewOutcome` excludes every decided run in its own predicate (OTTER-785), so #4 is
+disjoint from the three and its position below them decides no screen. They
 split the decision across run outcome × decision: #1 is an errored run whose outputs were **shared**
 (the researcher decrypts to diagnose), #2 is an errored or clean run whose outputs were **withheld**,
 #3 is a clean run whose outputs were **shared**. #1 and #3 render **one component**,
@@ -168,7 +169,7 @@ waiting on the reviewer. It renders the STEP 4 "Verify outputs" card with
 `RUN-COMPLETE` row (OTTER-785).
 
 The three predicates are **mutually disjoint** (see `isOutputsSharedOutcome`), so their order relative
-to each other carries no meaning, only their position above `outputs-awaiting-review` does. That matters for a
+to each other carries no meaning either. Disjointness still matters for a
 job carrying BOTH `FILES-*` rows, which `submitOutputsDecisionAction` refuses but the QA status route
 and the legacy approve/reject actions can write: `isOutputsSharedOutcome` excludes `resultsRejected`
 so #2 keeps it, agreeing with the pill, which reads Rejected (`DISPLAY_STATUS_PRIORITY` ranks

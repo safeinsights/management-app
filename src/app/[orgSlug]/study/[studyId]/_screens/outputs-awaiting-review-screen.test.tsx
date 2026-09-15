@@ -126,11 +126,12 @@ describe('OutputsAwaitingReviewScreen', () => {
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()
     })
 
-    it('shows a not-found alert when the study has no submitted job', async () => {
+    it('refuses to render for a study with no job, which has no outputs to await', async () => {
         const { org, study } = await setupStudyAction({ orgSlug: 'test-lab', orgType: 'lab', createJob: false })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
         await renderScreen(study, org.slug)
 
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
+        expect(screen.getByText('Outputs not found')).toBeInTheDocument()
     })
 })
