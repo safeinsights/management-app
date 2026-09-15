@@ -231,7 +231,7 @@ describe('runErrored', () => {
     const runErrored = (statuses: string[]) =>
         projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).runErrored
 
-    // Narrower than resultsErrored: a packaging JOB-ERRORED before a good run is not a failed run.
+    // The pair is QA-only, see StudyState.runErrored; this pins the predicate, not a reachable state.
     it('separates a failed run from a packaging error that a RUN-COMPLETE followed', () => {
         expect(runErrored(['JOB-ERRORED'])).toBe(true)
         expect(runErrored(['JOB-ERRORED', 'RUN-COMPLETE'])).toBe(false)
@@ -271,7 +271,7 @@ describe('codeDecisionForScreen', () => {
     })
 
     it('returns null for anything the table did not route here, so the route 404s', () => {
-        expect(codeDecisionForScreen('study-results', { codeDecision: 'CODE-APPROVED' })).toBeNull()
+        expect(codeDecisionForScreen('outputs-awaiting-review', { codeDecision: 'CODE-APPROVED' })).toBeNull()
         expect(codeDecisionForScreen('outputs-pending', { codeDecision: 'CODE-APPROVED' })).toBeNull()
         // No live decision (mid-resubmission): code-feedback has nothing to display.
         expect(codeDecisionForScreen('code-feedback', { codeDecision: null })).toBeNull()

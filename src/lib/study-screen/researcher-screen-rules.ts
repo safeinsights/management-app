@@ -1,6 +1,6 @@
 import type { ScreenRuleEntry } from './screen-rules'
 import {
-    awaitingFilesDecisionOnError,
+    isAwaitingOutputsReviewOutcome,
     isErroredOutputsSharedOutcome,
     isFeedbackOnlyOutcome,
     isOutputsSharedOutcome,
@@ -11,16 +11,17 @@ import {
 // The live contract is the researcher table in docs/study-screens-logic.md — extend from there.
 
 export const RESEARCHER_SCREEN_RULES = [
-    // These three claim every FILES-* decision and must out-rank study-results, which would
-    // otherwise take them once FILES-APPROVED clears awaitingFilesDecisionOnError. They are
-    // mutually disjoint, so their order among themselves carries no meaning.
+    // These three claim every FILES-* decision. isAwaitingOutputsReviewOutcome excludes decided runs
+    // in its own predicate, so #4 no longer competes for them and this group's position carries no
+    // meaning; they are mutually disjoint apart from an errored job holding both FILES-* rows.
     ['outputs-errored-shared', { when: isErroredOutputsSharedOutcome }],
     ['outputs-feedback', { when: isFeedbackOnlyOutcome }],
     ['outputs-shared', { when: isOutputsSharedOutcome }],
 
-    // A bare JOB-ERRORED is excluded until a reviewer records a FILES-* decision, so the error is
-    // never disclosed before triage (OTTER-598).
-    ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
+    // A clean completed run the reviewer has not decided on: the researcher waits on the outputs step
+    // (OTTER-785). A bare JOB-ERRORED is excluded until a reviewer records a FILES-* decision, so the
+    // error is never disclosed before triage (OTTER-598); it falls through to outputs-pending.
+    ['outputs-awaiting-review', { when: isAwaitingOutputsReviewOutcome }],
 
     // Code approved: the outputs step ("code processing") from the moment of approval, not only once
     // the enclave reports a stage (OTTER-673, spec: "Code approved" always has a Next step). The gap

@@ -58,9 +58,9 @@ describe('resolveStepNav — spec pattern invariants', () => {
         ['code-approved', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED' })],
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-CHANGES-REQUESTED' })],
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-REJECTED' })],
-        ['study-results', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })],
+        ['outputs-awaiting-review', state({ status: 'APPROVED', isDraft: false, hasResults: true })],
         ['outputs-shared', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })],
-        ['study-results', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true })],
+        ['outputs-shared', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true })],
     ]
 
     it.each(everyScreen)('%s carries exactly one solid action', (screen, s) => {
@@ -83,13 +83,13 @@ describe('resolveStepNav — spec pattern invariants', () => {
             'code-approved',
             'code-feedback',
             'code-under-review',
+            'outputs-awaiting-review',
             'outputs-errored-shared',
             'outputs-feedback',
             'outputs-pending',
             'outputs-shared',
             'proposal-feedback',
             'study-overview',
-            'study-results',
         ])
     })
 })
@@ -255,24 +255,24 @@ describe('resolveStepNav — outputs phase', () => {
     })
 
     it('anchors "Previous step" to the approved-code step', () => {
-        const nav = resolveStepNav('study-results', state({ ...withResults, resultsApproved: true }), ctx)
+        const nav = resolveStepNav('outputs-shared', state({ ...withResults, resultsApproved: true }), ctx)
         expect(nav.back?.href).toBe(`${base}/view/code`)
     })
 
     it('outputs shared → exit is primary, "Edit code" is the optional further iteration', () => {
-        const nav = resolveStepNav('study-results', state({ ...withResults, resultsApproved: true }), ctx)
+        const nav = resolveStepNav('outputs-shared', state({ ...withResults, resultsApproved: true }), ctx)
         expect(nav.secondary).toMatchObject({ label: 'Edit code', variant: 'outline' })
         expect(nav.forward).toMatchObject({ label: 'Back to my studies', variant: 'solid' })
     })
 
     it('feedback only → "Edit code" is promoted to the primary action', () => {
-        const nav = resolveStepNav('study-results', state({ ...withResults, resultsRejected: true }), ctx)
+        const nav = resolveStepNav('outputs-shared', state({ ...withResults, resultsRejected: true }), ctx)
         expect(nav.secondary).toBeUndefined()
         expect(nav.forward).toMatchObject({ label: 'Edit code', variant: 'solid' })
     })
 
     it('results not resubmittable → plain exit', () => {
-        const nav = resolveStepNav('study-results', state({ ...withResults }), ctx)
+        const nav = resolveStepNav('outputs-shared', state({ ...withResults }), ctx)
         expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
     })
 })
