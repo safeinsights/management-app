@@ -16,12 +16,12 @@ const bannerCopy = (runErrored: boolean) =>
         ? {
               title: 'Outputs not ready, awaiting review',
               message:
-                  'Code processing has finished and is with the data partner for review. We will let you know when your outputs are ready or if anything needs your attention.',
+                  'Code processing has finished and is with the data partner for review. An email notification will be sent when your outputs are ready or if anything needs your attention.',
           }
         : {
               title: 'Outputs not ready, code processing started',
               message:
-                  'Your code is running in the secure enclave. This can take a while, depending on how complex it is. We will let you know when your outputs are ready or if anything goes wrong.',
+                  'Your code is running in the secure enclave. This can take a while, depending on how complex it is. An email notification will be sent when your outputs are ready or if anything goes wrong.',
           }
 
 const ProcessingBanner = ({ runErrored, approvedAt }: { runErrored: boolean; approvedAt: Date | string | null }) => {

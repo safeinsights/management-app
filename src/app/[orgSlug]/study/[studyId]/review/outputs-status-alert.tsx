@@ -53,13 +53,8 @@ const STAGE_COPY = {
     },
     'JOB-PACKAGING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code packaging started ${when}`,
-        body: (
-            <>
-                Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
-                SafeInsights via <SlackDPSupportLink />
-            </>
-        ),
+        title: (when) => `Outputs not ready, code preparation started ${when}`,
+        body: 'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact SafeInsights.',
     },
     'JOB-READY': {
         variant: STATUS_ALERT_VARIANT.informative,
@@ -73,7 +68,7 @@ const STAGE_COPY = {
     },
     'JOB-RUNNING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code processing started ${when}`,
+        title: (when) => `Outputs not ready, code started running ${when}`,
         body: 'The code started running in the secure enclave. If it stays in this status for over 1 hour, contact your organization admin.',
     },
 } satisfies Record<string, StageCopy>
