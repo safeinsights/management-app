@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
     researcherCodeDecisionBanner,
     researcherCodeSubmittedBanner,
+    researcherOutputsFeedbackBanner,
     researcherProposalBanner,
+    researcherSharedOutputsBanner,
     reviewerCodeDecisionBanner,
     reviewerCodeNeedsReviewBanner,
     reviewerOutputsDecisionBanner,
@@ -72,6 +74,68 @@ describe('researcherCodeDecisionBanner', () => {
         const { body } = researcherCodeDecisionBanner('CODE-REJECTED', { dataPartner: DATA_PARTNER })
         expect(body).toContain('No further code submissions will be accepted for this study')
         expect(body).toContain('contact SafeInsights')
+    })
+})
+
+describe('researcherSharedOutputsBanner', () => {
+    it('gates a clean share behind the key, then concludes it', () => {
+        const { locked, unlocked } = researcherSharedOutputsBanner('outputs-shared', { dataPartner: DATA_PARTNER })
+
+        expect(locked).toEqual({
+            variant: 'action',
+            title: 'Decrypt to view your outputs',
+            body: `${DATA_PARTNER} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
+        })
+        expect(unlocked).toEqual({
+            variant: 'success',
+            title: 'Outputs and feedback available',
+            body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+        })
+    })
+
+    it('keeps an errored share on the action variant after decryption', () => {
+        const { locked, unlocked } = researcherSharedOutputsBanner('outputs-errored-shared', {
+            dataPartner: DATA_PARTNER,
+        })
+
+        expect(locked).toEqual({
+            variant: 'action',
+            title: 'Decrypt outputs to view code error',
+            body: `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+        })
+        expect(unlocked).toEqual({
+            variant: 'action',
+            title: 'Resolve the code error to proceed',
+            body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
+        })
+    })
+})
+
+describe('researcherOutputsFeedbackBanner', () => {
+    it('names the failed run when the outputs were withheld after an error', () => {
+        expect(researcherOutputsFeedbackBanner({ runErrored: true }, { dataPartner: DATA_PARTNER })).toEqual({
+            variant: 'action',
+            title: 'Resolve the code error to proceed',
+            body: `${DATA_PARTNER} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+        })
+    })
+
+    it('reads as plain feedback when the run itself completed', () => {
+        expect(researcherOutputsFeedbackBanner({ runErrored: false }, { dataPartner: DATA_PARTNER })).toEqual({
+            variant: 'action',
+            title: 'Feedback on outputs available',
+            body: `${DATA_PARTNER} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+        })
+    })
+
+    it('parts from the errored share on the body, which names the withheld outputs', () => {
+        const withheld = researcherOutputsFeedbackBanner({ runErrored: true }, { dataPartner: DATA_PARTNER })
+        const { unlocked: shared } = researcherSharedOutputsBanner('outputs-errored-shared', {
+            dataPartner: DATA_PARTNER,
+        })
+
+        expect(withheld.body).not.toBe(shared.body)
+        expect(withheld.body).toContain('The outputs are not available for this study')
     })
 })
 

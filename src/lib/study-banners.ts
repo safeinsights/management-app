@@ -1,6 +1,7 @@
 import { STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
+import type { SharedOutputsScreenId } from '@/lib/study-screen'
 
 export type BannerCopy = {
     variant: StatusAlertVariant
@@ -16,6 +17,9 @@ export type BannerParams = {
 
 const AWAITING_PROPOSAL_REVIEW =
     'An email notification will be sent as your proposal progresses through the review. Reviews typically take 7 to 10 days.'
+
+// Shared by both errored-run banners
+const RESOLVE_CODE_ERROR_TITLE = 'Resolve the code error to proceed'
 
 const awaitingCodeReview = (dataPartner: string) =>
     `Your code and an AI summary of its behavior will be shared with ${dataPartner}. An email notification will be sent as your code progresses through the review. Reviews typically take 7 to 10 days.`
@@ -85,6 +89,65 @@ export function researcherCodeDecisionBanner(status: CodeDecisionStatus, { dataP
                 title: 'Code declined',
                 body: `${dataPartner} has determined this code does not meet the requirements to proceed. Please review their feedback below. No further code submissions will be accepted for this study, but you may submit a new study proposal. If you believe this decision was made in error, contact SafeInsights.`,
             }
+    }
+}
+
+export type PhasedBannerCopy = {
+    locked: BannerCopy
+    unlocked: BannerCopy
+}
+
+export function researcherSharedOutputsBanner(
+    screen: SharedOutputsScreenId,
+    { dataPartner }: BannerParams,
+): PhasedBannerCopy {
+    switch (screen) {
+        case 'outputs-shared':
+            return {
+                locked: {
+                    variant: STATUS_ALERT_VARIANT.action,
+                    title: 'Decrypt to view your outputs',
+                    body: `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
+                },
+                unlocked: {
+                    variant: STATUS_ALERT_VARIANT.success,
+                    title: 'Outputs and feedback available',
+                    body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+                },
+            }
+        // OTTER-781: the run still has to be fixed, so decrypting concludes nothing — action, not success.
+        case 'outputs-errored-shared':
+            return {
+                locked: {
+                    variant: STATUS_ALERT_VARIANT.action,
+                    title: 'Decrypt outputs to view code error',
+                    body: `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+                },
+                unlocked: {
+                    variant: STATUS_ALERT_VARIANT.action,
+                    title: RESOLVE_CODE_ERROR_TITLE,
+                    body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
+                },
+            }
+    }
+}
+
+// Outputs withheld (OTTER-695/697): feedback shared without the outputs themselves.
+export function researcherOutputsFeedbackBanner(
+    { runErrored }: { runErrored: boolean },
+    { dataPartner }: BannerParams,
+): BannerCopy {
+    if (runErrored) {
+        return {
+            variant: STATUS_ALERT_VARIANT.action,
+            title: RESOLVE_CODE_ERROR_TITLE,
+            body: `${dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+        }
+    }
+    return {
+        variant: STATUS_ALERT_VARIANT.action,
+        title: 'Feedback on outputs available',
+        body: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
     }
 }
 
