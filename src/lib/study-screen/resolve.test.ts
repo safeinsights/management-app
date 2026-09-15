@@ -20,6 +20,24 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-pending')
     })
+    // A packaging error that a good run followed keeps the researcher on outputs-pending: the
+    // untriaged JOB-ERRORED is what the reviewer still holds, so the pairing with the reviewer
+    // table (awaitingFilesDecisionOnError) decides both sides.
+    it('errored-then-completed run, no files decision → outputs-pending, same as a bare error', () => {
+        expect(
+            resolveScreen(
+                'researcher',
+                state({
+                    hasResults: true,
+                    resultsErrored: true,
+                    runErrored: false,
+                    resultsDisplayStatus: 'RUN-COMPLETE',
+                    codeDecision: 'CODE-APPROVED',
+                    isExecuting: true,
+                }),
+            ).screen,
+        ).toBe('outputs-pending')
+    })
     it('OTTER-697: feedback-only decision on an errored run → outputs-feedback', () => {
         expect(
             resolveScreen(

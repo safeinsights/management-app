@@ -151,6 +151,24 @@ export function researcherOutputsFeedbackBanner(
     }
 }
 
+// The outputs step from code approval onward. processingFinished also covers a packaging error still
+// awaiting triage: the error itself stays undisclosed (OTTER-598), but the copy must not claim the
+// code is still running.
+export function researcherOutputsPendingBanner({ processingFinished }: { processingFinished: boolean }): BannerCopy {
+    if (processingFinished) {
+        return {
+            variant: STATUS_ALERT_VARIANT.informative,
+            title: 'Outputs not ready, awaiting review',
+            body: 'Code processing has finished and is with the data partner for review. An email notification will be sent when your outputs are ready or if anything needs your attention.',
+        }
+    }
+    return {
+        variant: STATUS_ALERT_VARIANT.informative,
+        title: 'Outputs not ready, code processing started',
+        body: 'Your code is running in the secure enclave. This can take a while, depending on how complex it is. An email notification will be sent when your outputs are ready or if anything goes wrong.',
+    }
+}
+
 // OTTER-785: the run finished cleanly and the outputs sit with the data partner, who has recorded no
 // files decision yet. statusAlertTitle appends the completion date at the call site.
 export function researcherOutputsAwaitingReviewBanner({ dataPartner }: BannerParams): BannerCopy {

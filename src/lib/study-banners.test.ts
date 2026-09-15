@@ -4,6 +4,7 @@ import {
     researcherCodeSubmittedBanner,
     researcherOutputsAwaitingReviewBanner,
     researcherOutputsFeedbackBanner,
+    researcherOutputsPendingBanner,
     researcherProposalBanner,
     researcherSharedOutputsBanner,
     reviewerCodeDecisionBanner,
@@ -123,6 +124,28 @@ describe('researcherOutputsAwaitingReviewBanner', () => {
 
     it('carries no date, which statusAlertTitle appends at the call site', () => {
         expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER }).title).not.toContain('•')
+    })
+})
+
+describe('researcherOutputsPendingBanner', () => {
+    it('keeps the run silent while the enclave still has it', () => {
+        expect(researcherOutputsPendingBanner({ processingFinished: false })).toEqual({
+            variant: 'informative',
+            title: 'Outputs not ready, code processing started',
+            body: 'Your code is running in the secure enclave. This can take a while, depending on how complex it is. An email notification will be sent when your outputs are ready or if anything goes wrong.',
+        })
+    })
+
+    // Covers a finished run and an untriaged packaging error alike, neither of which is still running.
+    it('hands a finished run to the data partner without naming an error', () => {
+        const copy = researcherOutputsPendingBanner({ processingFinished: true })
+
+        expect(copy).toEqual({
+            variant: 'informative',
+            title: 'Outputs not ready, awaiting review',
+            body: 'Code processing has finished and is with the data partner for review. An email notification will be sent when your outputs are ready or if anything needs your attention.',
+        })
+        expect(copy.body).not.toMatch(/error|fail/i)
     })
 })
 

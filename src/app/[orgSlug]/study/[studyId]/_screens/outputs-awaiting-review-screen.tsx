@@ -1,21 +1,15 @@
 import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
+import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { displayOrgName } from '@/lib/string'
-import { researcherOutputsAwaitingReviewBanner, type BannerCopy } from '@/lib/study-banners'
+import { researcherOutputsAwaitingReviewBanner } from '@/lib/study-banners'
 import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { isAwaitingOutputsReviewOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
-
-const AwaitingReviewBanner = ({ copy, completedAt }: { copy: BannerCopy; completedAt: Date | string | null }) => (
-    <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, completedAt)}>
-        {copy.body}
-    </StatusAlert>
-)
 
 export async function OutputsAwaitingReviewScreen({
     study,
@@ -41,7 +35,7 @@ export async function OutputsAwaitingReviewScreen({
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    banner={<AwaitingReviewBanner copy={copy} completedAt={completedAt} />}
+                    banner={<DatedStatusBanner copy={copy} at={completedAt} />}
                 />
                 <StepNavigation nav={nav} />
             </Stack>
