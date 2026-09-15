@@ -1,11 +1,13 @@
 import { renderHook, act, type Mock } from '@/tests/unit.helpers'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
+import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
+import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import posthog from 'posthog-js'
-import { SIGN_OUT_TIMEOUT_MS, useAlreadySignedIn } from './use-already-signed-in'
+import { useAlreadySignedIn } from './use-already-signed-in'
 
 const mockSignedInUser = (email: string | null = 'ada@example.com') =>
     (useUser as Mock).mockReturnValue({
@@ -28,6 +30,7 @@ const refusedArrival = (target = '%2Fopenstax%2Fdashboard') =>
 describe('useAlreadySignedIn', () => {
     beforeEach(() => {
         memoryRouter.setCurrentUrl('/account/signin')
+        ;(notifications.show as Mock).mockClear()
     })
 
     // Only the timeout test below runs on fake timers; this is a no-op for the rest.
@@ -279,5 +282,10 @@ describe('useAlreadySignedIn', () => {
 
         expect(result.current.status).toBe('signed-out')
         expect(result.current.isSwitching).toBe(false)
+        // The sentence is written for the user, so it must not carry an `Error:` prefix from
+        // errorToString. Anchored because reportError may append a Sentry reference.
+        const [toast] = (notifications.show as Mock).mock.calls[0]
+        expect(toast.title).toBe('Failed to sign out while switching accounts')
+        expect(toast.message).toMatch(/^Signing out took too long\. Your connection may be down\./)
     })
 })

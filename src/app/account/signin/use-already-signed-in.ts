@@ -5,10 +5,12 @@ import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
 import { reportError } from '@/components/errors'
+import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { DOWNLOAD_PREFIX } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
+import { TimeoutError, withTimeout } from '@/lib/with-timeout'
 import posthog from 'posthog-js'
 
 export type AlreadySignedInStatus = 'loading' | 'redirecting' | 'signed-in' | 'signed-out'
@@ -64,20 +66,13 @@ function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
     return searchParams.get(BOUNCE_PARAM) === BOUNCE_VALUE
 }
 
-// Offline, Clerk's signOut settles neither way, which left switchAccount's catch and finally
-// unreachable and the panel stuck on its spinner (OTTER-745). race also consumes a signOut that
-// rejects after the timer won, so a late failure cannot escape as an unhandled rejection.
-export const SIGN_OUT_TIMEOUT_MS = 5_000
+const SIGN_OUT_TIMEOUT_MESSAGE = 'Signing out took too long. Your connection may be down.'
 
-function signOutOrTimeout(signOut: () => Promise<unknown>) {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const expiry = new Promise<never>((_, reject) => {
-        timer = setTimeout(
-            () => reject(new Error('Signing out took too long. Your connection may be down.')),
-            SIGN_OUT_TIMEOUT_MS,
-        )
-    })
-    return Promise.race([signOut(), expiry]).finally(() => clearTimeout(timer))
+// reportError renders an Error through String(), which glues the constructor name onto the message.
+// The timeout text is a sentence written for the user, so it reports as text; anything else keeps
+// the Error so Sentry gets the stack.
+function displayableSignOutError(error: unknown) {
+    return error instanceof TimeoutError ? error.message : error
 }
 
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
@@ -148,12 +143,14 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         setIsSwitching(true)
         try {
             posthog.reset()
-            await signOutOrTimeout(signOut)
+            // Offline, signOut settles neither way, which left this catch and finally unreachable
+            // and the panel stuck on its spinner (OTTER-745).
+            await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
         } catch (error) {
             // The button awaits nothing, so a rejection escaping here would land as an unhandled
             // rejection, and a session the server has already dropped is where Clerk is most likely
             // to reject. Reaching the form is what the user asked for; the finally below does that.
-            reportError(error, 'Failed to sign out while switching accounts')
+            reportError(displayableSignOutError(error), 'Failed to sign out while switching accounts')
         } finally {
             setIsSwitching(false)
             setStatus('signed-out')
