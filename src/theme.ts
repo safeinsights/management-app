@@ -3,9 +3,12 @@ import {
     type ButtonVariant,
     createTheme,
     CSSVariablesResolver,
+    defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
+    Input,
     MantineColorsTuple,
+    type VariantColorsResolver,
 } from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
@@ -44,7 +47,9 @@ const red: MantineColorsTuple = [
     '#FF0505',
     '#E60000',
     '#C70000',
+    '#A83028',
     '#7E241E',
+    '#FBECEB',
 ]
 const green: MantineColorsTuple = [
     '#E8F8EB',
@@ -58,6 +63,7 @@ const green: MantineColorsTuple = [
     '#37AF4F',
     '#2F9844',
     '#2B8A3E',
+    '#285831',
 ]
 const yellow: MantineColorsTuple = [
     '#FFF9E5',
@@ -133,14 +139,42 @@ declare module '@mantine/core' {
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
     }
+
+    export interface ButtonProps {
+        variant?: ButtonVariant | 'error'
+    }
+}
+
+const variantColorResolver: VariantColorsResolver = (input) => {
+    if (input.variant === 'error') {
+        return {
+            background: 'var(--mantine-color-error-filled)',
+            hover: 'var(--mantine-color-error)',
+            color: 'var(--mantine-color-white)',
+            border: 'none',
+        }
+    }
+    return defaultVariantColorsResolver(input)
 }
 
 // Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
 // itself, so each needs brand/Light supplied explicitly.
 const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'light']
 
+// Mantine's own disabled rule reads these two variables, so overriding them on the button element
+// repaints the disabled state without touching disabled inputs, checkboxes or radios. They have to
+// travel as custom properties: `vars` reaches the DOM as an inline style, and an inline style cannot
+// carry the :disabled pseudo-class a `styles` callback would need.
+const DISABLED_VARS: Record<string, string> = {
+    '--mantine-color-disabled': grey[1],
+    '--mantine-color-disabled-color': charcoal[6],
+}
+
 export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
-    root: LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {},
+    root: {
+        ...DISABLED_VARS,
+        ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
+    },
 })
 
 export const theme = createTheme({
@@ -149,6 +183,7 @@ export const theme = createTheme({
         fontFamily: 'Open Sans',
         fontWeight: '700',
     },
+    variantColorResolver,
     colors: {
         navy,
         charcoal,
@@ -165,6 +200,12 @@ export const theme = createTheme({
                 color: charcoal[9],
             },
         },
+        // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
+        // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
+        // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
+        InputWrapper: Input.Wrapper.extend({
+            styles: { required: { color: red[11] } },
+        }),
         Table: {
             styles: () => ({
                 th: {
@@ -177,15 +218,6 @@ export const theme = createTheme({
                 color: 'navy',
             },
             vars: buttonVars,
-            styles: () => ({
-                root: {
-                    '&:disabled, &[data-disabled]': {
-                        backgroundColor: grey[1],
-                        color: charcoal[6],
-                        borderColor: 'transparent',
-                    },
-                },
-            }),
         },
     },
     primaryShade: 5,
@@ -200,6 +232,8 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
     variables: {
         '--mantine-color-placeholder': theme.colors.grey[7],
         '--mantine-color-dimmed': theme.colors.gray[7],
+        '--mantine-color-error': theme.colors.red[11],
+        '--mantine-color-error-filled': theme.colors.red[10],
     },
     dark: {},
     light: {},

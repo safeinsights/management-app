@@ -5,6 +5,7 @@ import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/q
 import { sessionFromClerk } from '@/server/clerk'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
 
@@ -54,6 +55,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                 }}
             >
                 <EditResubmitForm
+                    header={<StudyPageHeader study={study} />}
                     orgName={displayOrgName(enclaveOrg?.name ?? '')}
                     members={memberOptions}
                     researcherName={study.createdBy}

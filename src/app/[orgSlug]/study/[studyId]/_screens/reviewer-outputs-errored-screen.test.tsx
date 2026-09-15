@@ -14,11 +14,14 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
+import { NO_ERROR_LOG_TEXT } from '@/lib/job-error-details'
 import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
+import { Routes } from '@/lib/routes'
+import { screenNavProps } from './render-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
@@ -39,7 +42,18 @@ const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
 }
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsErroredScreen({ study, raw, orgSlug }))
+    renderWithProviders(
+        await ReviewerOutputsErroredScreen({
+            study,
+            raw,
+            orgSlug,
+            ...screenNavProps('reviewer', 'reviewer-outputs-errored', raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: Routes.dashboard,
+            }),
+        }),
+    )
 
 const unlock = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
@@ -66,7 +80,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const { org, study, raw } = await setupErrored()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
@@ -77,6 +91,19 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent('Code errored')
+    })
+
+    // OTTER-769: with a readable log the banner is the design's single sentence, and nothing about
+    // the stage that failed, which the log itself explains.
+    it('asks for the key in one sentence when the log can be decrypted', async () => {
+        const { org, study, raw } = await setupWithArtifact()
+        await renderScreen({ study, raw }, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
+        expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
+        expect(alert).not.toHaveTextContent(NO_ERROR_LOG_TEXT)
+        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
     })
 
     it('hides the outputs table, decision section and submit until a key validates', async () => {
@@ -351,7 +378,18 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug: org.slug }))
+        renderWithProviders(
+            await ReviewerOutputsAvailableScreen({
+                study,
+                raw,
+                orgSlug: org.slug,
+                ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
+                    orgSlug: org.slug,
+                    studyId: study.id,
+                    dashboardHref: Routes.dashboard,
+                }),
+            }),
+        )
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
@@ -463,19 +501,21 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 
     it('records a view against the file when its name is clicked', async () => {
         const { job } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        await waitFor(() => expect(screen.getByText('No activity yet')).toBeInTheDocument())
 
         fireEvent.click(screen.getByRole('button', { name: 'run.log' }))
 
-        await waitFor(async () => {
-            const rows = await db
-                .selectFrom('studyJobFileActivity')
-                .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
-                .where('studyJobFile.studyJobId', '=', job.id)
-                .selectAll('studyJobFileActivity')
-                .execute()
-            expect(rows).toHaveLength(1)
-            expect(rows[0].action).toBe('VIEWED')
-            expect(rows[0].filePath).toBe('run.log')
-        })
+        // The cell is refetched when the recording settles, so the row is already there after this.
+        await waitFor(() => expect(screen.queryByText('No activity yet')).toBeNull())
+
+        const rows = await db
+            .selectFrom('studyJobFileActivity')
+            .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
+            .where('studyJobFile.studyJobId', '=', job.id)
+            .selectAll('studyJobFileActivity')
+            .execute()
+        expect(rows).toHaveLength(1)
+        expect(rows[0].action).toBe('VIEWED')
+        expect(rows[0].filePath).toBe('run.log')
     })
 })

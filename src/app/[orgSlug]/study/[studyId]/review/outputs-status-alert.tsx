@@ -8,6 +8,7 @@ import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import { useTimer } from '@/components/timer'
 import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
+import { plural } from '@/lib/string'
 
 const DAY_MINUTES = 24 * 60
 
@@ -17,9 +18,9 @@ export function formatElapsed(startedAtMs: number, nowMs: number): string {
     const totalMinutes = elapsedMinutes(startedAtMs, nowMs)
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
-    const minutesPart = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+    const minutesPart = plural(minutes, 'minute')
     if (hours === 0) return minutesPart
-    const hoursPart = `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+    const hoursPart = plural(hours, 'hour')
     return minutes === 0 ? hoursPart : `${hoursPart} and ${minutesPart}`
 }
 
@@ -38,6 +39,18 @@ const SlackDPSupportLink = () => (
 type StageCopy = { variant: StatusAlertVariant; title: (when: string) => string; body: ReactNode }
 
 const STAGE_COPY = {
+    // Approval is the first stage the reviewer sees: the containerizer reports JOB-PACKAGING later, so
+    // /review lands here in the gap (OTTER-673, "Code approved" always steps forward).
+    'CODE-APPROVED': {
+        variant: STATUS_ALERT_VARIANT.informative,
+        title: (when) => `Outputs not ready, code approved ${when}`,
+        body: (
+            <>
+                Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
+                SafeInsights via <SlackDPSupportLink />
+            </>
+        ),
+    },
     'JOB-PACKAGING': {
         variant: STATUS_ALERT_VARIANT.informative,
         title: (when) => `Outputs not ready, code packaging started ${when}`,

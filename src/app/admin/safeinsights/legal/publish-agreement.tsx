@@ -3,9 +3,8 @@
 import { useMutation, useQueryClient, useState, type FC } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
-import { uploadFiles } from '@/hooks/upload'
 import { actionResult } from '@/lib/utils'
-import type { LegalDocumentTypeValue } from '@/schema/legal-document'
+import type { LegalDocumentType } from '@/database/types'
 import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
@@ -14,14 +13,13 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
 import { formatDayString } from '@/lib/dates'
-import { ReadOnlyField } from './read-only-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 
-type DraftScope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
+type DraftScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 type PublishVariables = { scope: DraftScope; signedAt: string; file: File }
 
-// Publish runs last, so a failed upload leaves a replaceable draft rather than a live agreement
-// with no file behind it.
+// Publish runs last, so a failed draft save leaves nothing published rather than a fileless agreement.
 const usePublishAgreement = ({
     invalidateKeys,
     onComplete,
@@ -33,10 +31,7 @@ const usePublishAgreement = ({
 
     return useMutation({
         mutationFn: async ({ scope, signedAt, file }: PublishVariables) => {
-            const { version, upload } = actionResult(
-                await createLegalDocumentDraftAction({ ...scope, fileName: file.name }),
-            )
-            await uploadFiles([[file, upload]])
+            const { version } = actionResult(await createLegalDocumentDraftAction({ ...scope, file }))
             return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
         },
         onError: reportMutationError('Could not publish the agreement'),

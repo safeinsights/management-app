@@ -1,12 +1,13 @@
 'use client'
 
 import { type FC } from 'react'
-import { Alert, Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretRightIcon, CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
+import { Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { ArrowSquareOutIcon, CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
-import { ButtonLink, LinkWithIcon } from '@/components/links'
+import { LinkWithIcon } from '@/components/links'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -15,6 +16,9 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { useExpandable } from '@/hooks/use-expandable'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { researcherCodeSubmittedBanner } from '@/lib/study-banners'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { StudyCodeToggle } from './study-code-collapse'
 
 type CodeFileList = LatestJobForStudy['files']
@@ -24,40 +28,37 @@ interface CodePostSubmissionViewProps {
     study: SelectedStudy
     job: LatestJobForStudy
     reviewingOrgName: string
-    dashboardHref?: Route
-    returnTo?: 'org'
+    nav: StepNav
+    /** 1 = first submission, >=2 = resubmission round. */
     submissionVersion?: number
     feedbackEntries?: CodeReviewFeedbackEntry[]
     isUnderReview?: boolean
 }
 
-const getCodeSubmittedDate = (job: LatestJobForStudy): string | null => {
-    const row = job.statusChanges.find((s) => s.status === 'CODE-SUBMITTED')
-    return row ? dayjs(row.createdAt).format('MMM DD, YYYY') : null
+type UnderReviewBannerProps = {
+    isVisible: boolean
+    reviewingOrgName: string
+    submissionVersion: number
+    submittedAt: Date | string | null
 }
 
-const SubmittedTimestamp: FC<{ label: string; date: string | null }> = ({ label, date }) => {
-    if (!date) return null
-    return (
-        <Text fz={12} c="charcoal.7" data-testid="code-submitted-timestamp">
-            {label} {date}
-        </Text>
-    )
-}
-
-const UnderReviewBanner: FC<{ isVisible: boolean; reviewingOrgName: string; isResubmission: boolean }> = ({
+const UnderReviewBanner: FC<UnderReviewBannerProps> = ({
     isVisible,
     reviewingOrgName,
-    isResubmission,
+    submissionVersion,
+    submittedAt,
 }) => {
     if (!isVisible) return null
-    const verb = isResubmission ? 'has been resubmitted to' : 'has been submitted to'
+
+    const copy = researcherCodeSubmittedBanner({
+        dataPartner: displayOrgName(reviewingOrgName),
+        version: submissionVersion,
+    })
+
     return (
-        <Alert color="yellow" mt="md" bg="#FFF9E5" data-testid="code-under-review-banner">
-            Your study code {verb} {displayOrgName(reviewingOrgName)}. They will have access to your study code and an
-            AI-generated summary of its behavior. Please allow 7-10 business days for review. You’ll receive email
-            notifications about updates.
-        </Alert>
+        <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, submittedAt)}>
+            {copy.body}
+        </StatusAlert>
     )
 }
 
@@ -164,8 +165,7 @@ export function CodePostSubmissionView({
     study,
     job,
     reviewingOrgName,
-    dashboardHref,
-    returnTo,
+    nav,
     submissionVersion = 1,
     feedbackEntries = [],
     isUnderReview = true,
@@ -174,18 +174,15 @@ export function CodePostSubmissionView({
 
     const isResubmission = submissionVersion > 1
     const sectionTitle = isResubmission ? `Study code v${submissionVersion}.0` : 'Study code'
-    const timestampLabel = isResubmission ? 'Resubmitted on' : 'Submitted on'
-    const submittedOn = getCodeSubmittedDate(job)
+    const submittedAt = latestCodeSubmittedAt(job)
 
-    const dashboard = dashboardHref ?? Routes.dashboard
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
-    const previousHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
 
     const codeFiles = filterAndOrderCodeFiles(job.files)
 
     return (
         <Stack p="xl" gap="xxl">
-            <StudyPageHeader>Study proposal</StudyPageHeader>
+            <StudyPageHeader study={study} />
 
             <Stack gap="xxl">
                 <Paper p="xxl">
@@ -195,17 +192,12 @@ export function CodePostSubmissionView({
                     <Title fz={20} order={2} c="charcoal.9" pb={4}>
                         {sectionTitle}
                     </Title>
-                    <Group justify="space-between" align="center">
-                        <Text c="charcoal.9" maw="60ch" style={{ wordBreak: 'break-word' }}>
-                            Title: {study.title}
-                        </Text>
-                        <SubmittedTimestamp label={timestampLabel} date={submittedOn} />
-                    </Group>
                     <Divider my="md" />
                     <UnderReviewBanner
                         isVisible={isUnderReview}
                         reviewingOrgName={reviewingOrgName}
-                        isResubmission={isResubmission}
+                        submissionVersion={submissionVersion}
+                        submittedAt={submittedAt}
                     />
                     <ExpandToggle isVisible={!isResubmission && !expanded} onClick={toggle} />
                     <StudyCodeToggle isVisible={isResubmission} expanded={expanded} onClick={toggle} mt="md" />
@@ -223,14 +215,7 @@ export function CodePostSubmissionView({
 
                 <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />
 
-                <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Back
-                    </ButtonLink>
-                    <ButtonLink href={dashboard} size="md">
-                        Go to dashboard
-                    </ButtonLink>
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

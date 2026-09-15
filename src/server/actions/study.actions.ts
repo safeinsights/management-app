@@ -4,7 +4,7 @@ import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
-import type { StudyReviewCommentKind, StudyStatus } from '@/database/types'
+import type { StudyStatus } from '@/database/types'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { assertDecisionFeedback } from './decision-feedback'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
@@ -20,6 +20,7 @@ import {
     latestJobForStudy,
     latestJobForStudyOrNull,
     type LatestJobForStudy,
+    fetchUserFullName,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
@@ -592,11 +593,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         const claimedStudy = await claimInitialProposalReviewStudy({ db, studyId, userId })
         await insertReviewerProposalComment({ db, studyId, userId, decision, body: json })
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         // The next round starts fresh from its own -v{N+1} name.
         await db
@@ -607,13 +604,13 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
             purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
-            return { submitterFullName: submitter.fullName }
+            return { submitterFullName }
         }
 
         if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
             purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
-            return { submitterFullName: submitter.fullName }
+            return { submitterFullName }
         }
 
         await db
@@ -630,7 +627,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
 
         onStudyNeedsClarification({ studyId, userId })
         purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
-        return { submitterFullName: submitter.fullName }
+        return { submitterFullName }
     })
 
 export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
@@ -732,11 +729,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             throw err
         }
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
@@ -776,15 +769,13 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
 
-        return { submitterFullName: submitter.fullName }
+        return { submitterFullName }
     })
 
-// Shared by the code and outputs feedback actions so shape, version labels and ordering cannot drift.
-async function loadReviewFeedbackThread(
-    db: DBExecutor,
-    studyId: string,
-    reviewKind: Extract<StudyReviewCommentKind, 'CODE' | 'RESULTS'>,
-) {
+// The code-phase thread: reviewer decisions interleaved with the researcher's resubmission notes.
+// The outputs phase deliberately carries neither the notes nor this version scheme (OTTER-766), so
+// it reads its decisions through getOutputsDecisionFeedbackAction instead.
+async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
     // Versioned by the study-wide round so a same-job resubmit keeps the same label. Lateral join
     // because a same-job resubmit appends several CODE-SUBMITTED rows and a direct join would duplicate.
     const codeJobs = await db
@@ -837,7 +828,7 @@ async function loadReviewFeedbackThread(
             'author.fullName as authorName',
         ])
         .where('studyReviewComment.studyId', '=', studyId)
-        .where('studyReviewComment.reviewKind', '=', reviewKind)
+        .where('studyReviewComment.reviewKind', '=', 'CODE')
         .where('studyReviewComment.entryType', '=', 'DECISION')
         .execute()
 
@@ -886,19 +877,12 @@ export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackActi
     .params(z.object({ studyId: z.string().uuid() }))
     .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'CODE'))
+    .handler(async ({ params: { studyId }, db }) => loadCodeReviewFeedbackThread(db, studyId))
 
 export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeedbackAction>[number]
 
-// Distinct from getOutputsDecisionFeedbackAction, which returns decisions alone for the reviewer.
-export const getOutputsFeedbackThreadAction = new Action('getOutputsFeedbackThreadAction')
-    .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(studyViewMiddleware)
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, db }) => loadReviewFeedbackThread(db, studyId, 'RESULTS'))
-
-export type OutputsFeedbackThreadEntry = ActionSuccessType<typeof getOutputsFeedbackThreadAction>[number]
-
+// The whole outputs thread, for the reviewer's post-review page and for all three researcher
+// outputs screens: reviewer decisions alone, with no code-phase resubmission notes (OTTER-766).
 export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
     .middleware(studyViewMiddleware)
@@ -920,6 +904,9 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
             .where('studyReviewComment.reviewKind', '=', 'RESULTS')
             .where('studyReviewComment.entryType', '=', 'DECISION')
             .orderBy('studyReviewComment.createdAt', 'desc')
+            // Two decisions can land in the same millisecond, and an unstable order would let them
+            // swap places between renders.
+            .orderBy('studyReviewComment.id', 'desc')
             .execute()
 
         // Outputs decisions carry no criteria, unlike code reviews.

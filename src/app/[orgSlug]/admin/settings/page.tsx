@@ -7,6 +7,7 @@ import { OrgSettingsView } from './org-settings-view'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { displayOrgName } from '@/lib/string'
 
 export default async function AdminSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await params
@@ -19,6 +20,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
 
     return (
         <OrgSettingsView
+            orgName={displayOrgName(org.name)}
             orgSettings={<OrganizationSettingsManager org={org} />}
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={<CodeEnvs />}

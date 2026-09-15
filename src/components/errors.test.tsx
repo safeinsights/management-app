@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { renderWithProviders, staleActionError, userEvent } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import React from 'react'
 
-import { reportError, ErrorAlert, AccessDeniedAlert, AlertNotFound } from './errors'
-import { isClerkApiError, isServerActionError, errorToString } from '@/lib/errors'
+import { reportError, ErrorAlert, AccessDeniedAlert, AlertNotFound, STALE_DEPLOYMENT_NOTIFICATION_ID } from './errors'
+import { isClerkApiError, isServerActionError, errorToString, STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
 
 describe('isClerkApiError', () => {
     it('returns true for a valid Clerk API error object', () => {
@@ -136,6 +136,44 @@ describe('reportError', () => {
         expect(notificationsShowSpy).toHaveBeenLastCalledWith(
             expect.objectContaining({ message: expect.stringContaining(`Reference: ${eventId}`) }),
         )
+    })
+
+    // OTTER-726: an action id the current build cannot resolve reached the reviewer as framework
+    // text, and each retry added another notification that never closed.
+    describe('a stale action id after a deployment', () => {
+        it('offers a reload instead of the framework text, whatever the caller titled it', () => {
+            reportError(staleActionError(), 'Failed to submit your decision')
+
+            expect(notificationsShowSpy).toHaveBeenCalledTimes(1)
+            const arg = notificationsShowSpy.mock.calls[0][0]
+            expect(arg.title).toBe(STALE_DEPLOYMENT_TITLE)
+            expect(arg.id).toBe(STALE_DEPLOYMENT_NOTIFICATION_ID)
+            // Nothing on the page fixes this, so the reader keeps the notice until they act on it.
+            expect(arg.autoClose).toBe(false)
+        })
+
+        it('reuses one notification id, so retrying does not stack notices', () => {
+            reportError(staleActionError())
+            reportError(staleActionError())
+
+            const ids = notificationsShowSpy.mock.calls.map(([arg]) => arg.id)
+            expect(ids).toEqual([STALE_DEPLOYMENT_NOTIFICATION_ID, STALE_DEPLOYMENT_NOTIFICATION_ID])
+        })
+
+        it('renders a reload control the reader can press', async () => {
+            const reload = vi.fn()
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: { ...window.location, reload },
+            })
+
+            reportError(staleActionError())
+            const { message } = notificationsShowSpy.mock.calls[0][0]
+            renderWithProviders(<>{message}</>)
+
+            await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
+            expect(reload).toHaveBeenCalled()
+        })
     })
 })
 

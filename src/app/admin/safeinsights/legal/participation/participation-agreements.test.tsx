@@ -6,6 +6,7 @@ import {
     insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
+    testUploadFile,
     userEvent,
 } from '@/tests/unit.helpers'
 import {
@@ -20,7 +21,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go to vi.fn, not mockResolvedValue: mockReset would wipe a value set after.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -29,7 +30,7 @@ const seedDataPartner = () => insertTestOrg({ slug: faker.string.alpha(10), type
 const seedSignedDopa = async (signedAt: string) => {
     const org = await seedDataPartner()
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
     return org
@@ -118,7 +119,7 @@ describe('ParticipationAgreements', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
     })
 
-    it('names the org, date and file in the confirmation, and promises no acknowledgement', async () => {
+    it('names the org, date and file in the confirmation, and promises re-acknowledgement', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await seedSignedDopa('2026-07-27')
 
@@ -140,7 +141,9 @@ describe('ParticipationAgreements', () => {
         expect(within(dialog).getByText('Aug 03, 2026')).toBeDefined()
         expect(within(dialog).getByText('signed-dopa.pdf')).toBeDefined()
         expect(within(dialog).getByText(/becomes the current Data Organization Participation Agreement/)).toBeDefined()
-        expect(within(dialog).queryByText(/acknowledge/i)).toBeNull()
+        expect(
+            within(dialog).getByText(/prompt all users to whom this document applies to re-acknowledge/i),
+        ).toBeDefined()
     })
 
     it('opens the version history for an org that has published one', async () => {
@@ -167,7 +170,11 @@ describe('ParticipationAgreements', () => {
         const dataPartner = await seedSignedDopa('2026-07-27')
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { version } = actionResult(
-            await createLegalDocumentDraftAction({ type: 'ROPA', orgId: researchLab.id, fileName: 'ropa.pdf' }),
+            await createLegalDocumentDraftAction({
+                type: 'ROPA',
+                orgId: researchLab.id,
+                file: testUploadFile('ropa.pdf'),
+            }),
         )
         actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-07-27' }))
 

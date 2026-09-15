@@ -51,3 +51,11 @@ export const CsvFile: Story = () => (
 export const Loading: Story = () => (
     <PreviewStory file={{ name: 'analysis.R', contents: null }} label="Preview (loading)" />
 )
+
+const wideCsv = `tasks_task_id,tasked_type,number,first_completed_at,last_completed_at,group_type,created_at,updated_at
+614101454928577280,Exercise,1,2023-01-09 14:05:21.267016,2023-01-09 14:05:21.267016,core,2023-01-09 14:05:21.267016,2023-01-09 14:05:21.267016
+`
+
+export const WideCsvFile: Story = () => (
+    <PreviewStory file={{ name: 'tutor_results.csv', contents: wideCsv }} label="Preview tutor_results.csv" />
+)

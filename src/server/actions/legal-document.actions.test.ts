@@ -1,7 +1,8 @@
 import { sql } from 'kysely'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
-import { createSignedUploadUrlForKey, signedUrlForFile } from '@/server/aws'
+import { MAX_LEGAL_DOCUMENT_BYTES } from '@/schema/legal-document'
+import { signedUrlForFile, storeS3File } from '@/server/aws'
 import {
     actionResult,
     faker,
@@ -10,14 +11,17 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
     resetLegalDocuments,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     fetchLegalDocumentAcknowledgementsAction,
+    fetchLegalDocumentContentAction,
     fetchLegalDocumentVersionsAction,
     fetchNextPendingLegalAcknowledgementAction,
-    fetchPublicLegalDocumentsAction,
+    fetchGlobalLegalDocumentsAction,
+    fetchParticipationAgreementFromInviteIdAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 
@@ -27,7 +31,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -42,11 +46,13 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 beforeEach(resetLegalDocuments)
 
 const createDraft = async (fileName = 'terms.md') =>
-    actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName }))
+    actionResult(await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) }))
 
 const createOrgAgreementDraft = async (type: 'ROPA' | 'DOPA', fileName = 'agreement.pdf') => {
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: type === 'ROPA' ? 'lab' : 'enclave' })
-    const draft = actionResult(await createLegalDocumentDraftAction({ type, orgId: org.id, fileName }))
+    const draft = actionResult(
+        await createLegalDocumentDraftAction({ type, orgId: org.id, file: testUploadFile(fileName) }),
+    )
     return { ...draft, org }
 }
 
@@ -66,7 +72,11 @@ describe('createLegalDocumentDraftAction', () => {
         expect(version.versionNumber).toBeNull()
         expect(version.filePath).toBe(`legal/TOS/${legalDocument.id}/${version.id}`)
         expect(version.fileName).toBe('terms.md')
-        expect(vi.mocked(createSignedUploadUrlForKey)).toHaveBeenCalledWith(version.filePath)
+        expect(vi.mocked(storeS3File)).toHaveBeenCalledWith(
+            { legalDocumentType: 'TOS' },
+            expect.anything(),
+            version.filePath,
+        )
     })
 
     it('reuses the existing document rather than creating a second one for the same scope', async () => {
@@ -106,7 +116,11 @@ describe('createLegalDocumentDraftAction', () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertTestOrg({ slug: faker.string.alpha(10) })
 
-        const result = await createLegalDocumentDraftAction({ type: 'TOS', orgId: org.id, fileName: 'terms.md' })
+        const result = await createLegalDocumentDraftAction({
+            type: 'TOS',
+            orgId: org.id,
+            file: testUploadFile('terms.md'),
+        })
 
         expect(result).toHaveProperty('error')
     })
@@ -114,7 +128,32 @@ describe('createLegalDocumentDraftAction', () => {
     it('rejects an org-scoped agreement with no organization', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        const result = await createLegalDocumentDraftAction({ type: 'ROPA', fileName: 'ropa.pdf' })
+        const result = await createLegalDocumentDraftAction({ type: 'ROPA', file: testUploadFile('ropa.pdf') })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('rejects a file over the size cap', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const tooBig = new File([new Uint8Array(MAX_LEGAL_DOCUMENT_BYTES + 1)], 'terms.md')
+
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: tooBig })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('rejects an empty file', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: new File([], 'terms.md') })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('rejects a file with no name', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: new File(['# terms'], '   ') })
 
         expect(result).toHaveProperty('error')
     })
@@ -132,7 +171,7 @@ describe('createLegalDocumentDraftAction', () => {
     it('denies a user who is not an SI admin', async () => {
         await mockSessionWithTestData()
 
-        const result = await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' })
+        const result = await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('terms.md') })
 
         expect(result).toHaveProperty('error')
     })
@@ -240,6 +279,36 @@ describe('fetchLegalDocumentVersionsAction', () => {
     })
 })
 
+describe('fetchLegalDocumentContentAction', () => {
+    it('returns the markdown stored for the version', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createDraft()
+
+        const result = actionResult(await fetchLegalDocumentContentAction({ versionId: version.id }))
+
+        expect(result.content).toBe(`content of ${version.filePath}`)
+    })
+
+    it('refuses a pdf version', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('ROPA')
+
+        const result = await fetchLegalDocumentContentAction({ versionId: version.id })
+
+        expect(result).toHaveProperty('error')
+    })
+
+    it('denies a user who is not an SI admin', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createDraft()
+
+        await mockSessionWithTestData()
+        const result = await fetchLegalDocumentContentAction({ versionId: version.id })
+
+        expect(result).toHaveProperty('error')
+    })
+})
+
 describe('acknowledgeLegalDocumentAction', () => {
     it('records an acknowledgement of a published version', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
@@ -284,7 +353,7 @@ describe('acknowledgeLegalDocumentAction', () => {
         const slug = faker.string.alpha(10)
         const org = await insertTestOrg({ slug, type: 'enclave' })
         const { version } = actionResult(
-            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }),
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
         )
         const published = await publish(version.id, '2026-07-27')
 
@@ -304,6 +373,24 @@ describe('acknowledgeLegalDocumentAction', () => {
     it('refuses a user outside the org an agreement binds', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { version } = await createOrgAgreementDraft('DOPA')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData()
+        const result = await acknowledgeLegalDocumentAction({ versionId: published.id })
+
+        expect(result).toHaveProperty('error')
+        const acks = await db
+            .selectFrom('legalDocumentAcknowledgement')
+            .selectAll('legalDocumentAcknowledgement')
+            .where('legalDocumentVersionId', '=', published.id)
+            .execute()
+        expect(acks).toHaveLength(0)
+    })
+
+    // ropa = non-global but enforced
+    it('refuses a user outside the org a ropa binds, though ropa is an enforced type', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('ROPA')
         const published = await publish(version.id, '2026-07-27')
 
         await mockSessionWithTestData()
@@ -346,10 +433,14 @@ describe('acknowledgeLegalDocumentAction', () => {
 })
 
 const publishTos = async (fileName = 'terms.md') =>
-    await publish(actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName })).version.id)
+    await publish(
+        actionResult(await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) })).version.id,
+    )
 
 const publishPn = async (fileName = 'privacy.md') =>
-    await publish(actionResult(await createLegalDocumentDraftAction({ type: 'PN', fileName })).version.id)
+    await publish(
+        actionResult(await createLegalDocumentDraftAction({ type: 'PN', file: testUploadFile(fileName) })).version.id,
+    )
 
 describe('fetchNextPendingLegalAcknowledgementAction', () => {
     it('reports nothing when no document has been published', async () => {
@@ -367,7 +458,12 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
         expect(pending!.type).toBe('TOS')
         expect(pending!.versionId).toBe(tos.id)
-        expect(pending!.content).toContain(tos.filePath)
+        // A markdown tos inlines content, not a signed-url link.
+        if (pending?.format !== 'markdown') throw new Error('expected a markdown body')
+        expect(pending.content).toContain(tos.filePath)
+        // Global tos/pn bind no org, so nothing to name.
+        expect(pending.orgName).toBeNull()
+        // Never acknowledged, so the modal must say "is now available" rather than "has been updated".
         expect(pending!.isUpdate).toBe(false)
     })
 
@@ -397,7 +493,7 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
     it('ignores a draft, which obliges nobody', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        await createLegalDocumentDraftAction({ type: 'TOS', fileName: 'terms.md' })
+        await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('terms.md') })
 
         await mockSessionWithTestData()
 
@@ -415,19 +511,80 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
         expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('PN')
     })
+
+    it('surfaces an org-scoped ropa to a member of the org it binds', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'lab' })
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+
+        expect(pending!.type).toBe('ROPA')
+        expect(pending!.versionId).toBe(published.id)
+        expect(pending!.orgName).toBe(org.name)
+        // A ropa is a pdf: a signed-url link, not inlined.
+        if (pending?.format !== 'pdf') throw new Error('expected a pdf body')
+        expect(pending.url).toBeTruthy()
+    })
+
+    // dopa is newly enforced, so its org's members must be asked too.
+    it('surfaces an org-scoped dopa to a member of the org it binds', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('DOPA')
+        const published = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave' })
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+
+        expect(pending!.type).toBe('DOPA')
+        expect(pending!.versionId).toBe(published.id)
+        expect(pending!.orgName).toBe(org.name)
+        if (pending?.format !== 'pdf') throw new Error('expected a pdf body')
+        expect(pending.url).toBeTruthy()
+    })
+
+    // A ropa binds only its org; an outsider owes it nothing, so the gate must not ask.
+    it('does not surface an org-scoped agreement to a user outside its org', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = await createOrgAgreementDraft('ROPA')
+        await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData()
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
+    })
+
+    // Global tos/pn precede org-scoped ones, so a member owing both gets tos first, ropa only after.
+    it('asks for global tos before an org-scoped ropa the member also owes', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const tos = await publishTos()
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        const ropa = await publish(version.id, '2026-07-27')
+
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'lab' })
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('TOS')
+
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        expect(pending!.type).toBe('ROPA')
+        expect(pending!.versionId).toBe(ropa.id)
+    })
 })
 
-describe('fetchPublicLegalDocumentsAction', () => {
+describe('fetchGlobalLegalDocumentsAction', () => {
     it('returns the current published documents without a session', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await publishTos()
         const current = await publishTos('terms-v2.md')
 
         mockClerkSession(null)
-        const documents = actionResult(await fetchPublicLegalDocumentsAction())
+        const documents = actionResult(await fetchGlobalLegalDocumentsAction())
 
         expect(documents.map((document) => document.versionId)).toEqual([current.id])
-        expect(documents[0]!.content).toContain(current.filePath)
+        // tos/pn are markdown, so the global set inlines content, not a link.
+        const document = documents[0]!
+        if (document.format !== 'markdown') throw new Error('expected a markdown body')
+        expect(document.content).toContain(current.filePath)
     })
 })
 
@@ -611,5 +768,89 @@ describe('fetchLegalDocumentAcknowledgementsAction', () => {
         const result = await fetchLegalDocumentAcknowledgementsAction({ type: 'TOS' })
 
         expect(result).toHaveProperty('error')
+    })
+})
+
+// Read by the signup form before the invitee has an account, so no session is required: it resolves
+// the participation agreement (ropa for a lab, dopa for an enclave) the invite's org owes.
+describe('fetchParticipationAgreementFromInviteIdAction', () => {
+    const createInvite = async (orgId: string, invitedByUserId: string, claimedByUserId: string | null = null) =>
+        await db
+            .insertInto('pendingUser')
+            .values({
+                orgId,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isAdmin: false,
+                invitedByUserId,
+                claimedByUserId,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+    it("resolves a lab org's published ropa as a pdf link", async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        const published = await publish(version.id, '2026-07-27')
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toEqual({
+            versionId: published.id,
+            type: 'ROPA',
+            url: 'https://mock-signed-url.example.com/file',
+        })
+    })
+
+    // The type follows the org, never the caller: an enclave org owes a dopa.
+    it("resolves an enclave org's published dopa", async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('DOPA')
+        const published = await publish(version.id, '2026-07-27')
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toEqual({
+            versionId: published.id,
+            type: 'DOPA',
+            url: 'https://mock-signed-url.example.com/file',
+        })
+    })
+
+    // Nothing published yet is an ordinary state; the form falls back to a placeholder, so the action
+    // reports null rather than failing.
+    it('returns null when the org has no published participation agreement', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toBeNull()
+    })
+
+    // A draft was shown to no one, so the signup form must not surface it as something to agree to.
+    it('ignores an unpublished draft', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { org } = await createOrgAgreementDraft('ROPA')
+        const invite = await createInvite(org.id, user.id)
+
+        const result = actionResult(await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id }))
+
+        expect(result).toBeNull()
+    })
+
+    // A claimed invite is spent: the account exists, so the signup form no longer reads this. A used
+    // link must stop disclosing the org's agreement, the same way getOrgInfoForInviteAction goes dark.
+    it('discloses nothing for an already-claimed invite', async () => {
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
+        const { version, org } = await createOrgAgreementDraft('ROPA')
+        await publish(version.id, '2026-07-27')
+        const invite = await createInvite(org.id, user.id, user.id)
+
+        const result = await fetchParticipationAgreementFromInviteIdAction({ inviteId: invite.id })
+
+        expect(result).toBeNull()
     })
 })

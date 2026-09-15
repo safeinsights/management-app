@@ -6,8 +6,9 @@ import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { CharacterCounter } from '@/components/character-counter'
-import { fieldCounterId, fieldDescribedBy, fieldErrorId } from '@/components/form-field'
+import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
+import { usePublishOutputsReviewFeedbackProvider } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 
@@ -140,13 +141,6 @@ const FeedbackCounter: FC<{ characterCount: number }> = ({ characterCount }) => 
     />
 )
 
-// Polite, not assertive: the over-limit message fires on every keystroke past the cap.
-const FeedbackError: FC<{ error: string | undefined }> = ({ error }) => (
-    <Box id={fieldErrorId(FEEDBACK_INPUT_ID)} aria-live="polite">
-        <InputError error={error} />
-    </Box>
-)
-
 export type OutputsDecisionSectionProps = {
     jobId: string
     studyId: string
@@ -174,6 +168,9 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     canShareOutputs = true,
 }) => {
     const websocketProvider = useYjsWebsocket()
+    // Shared with the decision hook, which broadcasts the submission on this document, and with the
+    // listener that closes the review in the other tabs.
+    const publishProvider = usePublishOutputsReviewFeedbackProvider()
 
     return (
         <Paper p="xxl" data-testid="outputs-decision-section">
@@ -191,6 +188,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     inputId={FEEDBACK_INPUT_ID}
                     studyId={studyId}
                     websocketProvider={websocketProvider}
+                    onProviderReady={publishProvider}
                     contentStyle={contentStyle}
                     onChange={onFeedbackChange}
                     error={feedbackError}
@@ -202,9 +200,10 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
+                    // Takes the slot the save indicator vacates, not a row below the counter.
+                    footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}
                     footerRight={<FeedbackCounter characterCount={characterCount} />}
                 />
-                <FeedbackError error={feedbackError} />
                 <DecisionRadioGroup
                     value={selected}
                     onChange={onSelect}

@@ -177,6 +177,8 @@ export type CollaborativeEditorProps = {
     ariaRequired?: boolean
     /** Fires only when focus leaves the whole editor, toolbar included. */
     onBlur?: () => void
+    /** See EditorProps.isSaveStatusVisible. */
+    isSaveStatusVisible?: boolean
     contentHeight?: number
     isResizable?: boolean
     /** Siblings must share the provider: two with the same name collide in providerMap. */
@@ -232,6 +234,7 @@ export function CollaborativeEditor({
     contentHeight,
     isResizable,
     onProviderReady,
+    isSaveStatusVisible = true,
 }: CollaborativeEditorProps) {
     const { user } = useUser()
     const { getToken } = useAuth()
@@ -358,7 +361,7 @@ export function CollaborativeEditor({
                 </EditorSurface>
                 <Stack gap={4} mt={4}>
                     <EditorFooter left={footerLeft} right={footerRight}>
-                        <SaveStatus provider={activeProvider} isVisible={!error} />
+                        <SaveStatus provider={activeProvider} isVisible={isSaveStatusVisible && !error} />
                     </EditorFooter>
                     <ActiveEditorsList providerRef={providerRef} currentUserId={userId} />
                 </Stack>

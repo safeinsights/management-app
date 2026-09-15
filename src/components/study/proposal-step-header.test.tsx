@@ -23,35 +23,9 @@ describe('ProposalStepHeader', () => {
         expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
     })
 
-    it('omits the title line when no studyTitle is passed', () => {
+    it('never renders a study title line', () => {
         renderWithProviders(<ProposalStepHeader stepLabel="STEP 1" heading="Set up study" />)
 
         expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
-    })
-
-    it('still renders the title line when a studyTitle is passed', () => {
-        renderWithProviders(<ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" studyTitle="My study" />)
-
-        expect(screen.getByText('Title: My study')).toBeInTheDocument()
-    })
-
-    it('renders an empty title line for a blank studyTitle, as before', () => {
-        renderWithProviders(<ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" studyTitle="" />)
-
-        expect(screen.getByText(/^Title:/)).toBeInTheDocument()
-    })
-
-    it('renders the timestamp beside the title', () => {
-        renderWithProviders(
-            <ProposalStepHeader
-                stepLabel="STEP 3"
-                heading="Review outputs"
-                studyTitle="My study"
-                timestampDate="2026-08-12"
-                timestampLabel="Submitted on"
-            />,
-        )
-
-        expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Aug 12, 2026')
     })
 })

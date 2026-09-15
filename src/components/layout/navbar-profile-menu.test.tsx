@@ -1,4 +1,5 @@
 import { mockClerkSession, mockPathname, renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 import { AppShell } from '@mantine/core'
 import { screen } from '@testing-library/react'
@@ -74,5 +75,47 @@ describe('NavbarProfileMenu SI Admin submenu', () => {
         await userEvent.click(screen.getByRole('menuitem', { name: 'SI Admin' }))
 
         expect(screen.getByRole('link', { name: 'Legal' })).toBeVisible()
+    })
+})
+
+describe('NavbarProfileMenu legal entry', () => {
+    it('shows the personal Legal entry for a non-SI-admin user', () => {
+        mockClerkSession({ clerkUserId: 'c8', userId: 'u8', orgSlug: 'dp', orgType: 'enclave' })
+        renderMenu()
+
+        expect(screen.getByRole('menuitem', { name: 'Legal', hidden: true })).toBeDefined()
+    })
+
+    it('navigates to the legal page when clicked', async () => {
+        mockPathname('/dashboard')
+        mockClerkSession({ clerkUserId: 'c9', userId: 'u9', orgSlug: 'rl', orgType: 'lab' })
+        renderMenu()
+
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Legal', hidden: true }))
+
+        expect(memoryRouter.asPath).toBe(Routes.legal)
+    })
+
+    // A pinned route, like every other profile-menu destination, so the menu must not collapse on
+    // arrival. Queried without `hidden`, which would also match the collapsed state.
+    it('leaves the menu open on the legal page', () => {
+        mockPathname(Routes.legal)
+        mockClerkSession({ clerkUserId: 'c11', userId: 'u11', orgSlug: 'dp', orgType: 'enclave' })
+        renderMenu()
+
+        expect(screen.getByRole('menuitem', { name: 'Legal' })).toBeVisible()
+    })
+
+    // The SI-admin submenu has its own 'Legal', so the two must stay distinguishable: the personal
+    // one is a button, the SI-admin one a link.
+    it('keeps the personal entry separate from the SI Admin submenu entry', () => {
+        mockPathname(Routes.adminSafeinsights)
+        mockClerkSession({ clerkUserId: 'c10', userId: 'u10', orgSlug: 'si', orgType: 'enclave', isSiAdmin: true })
+        renderMenu()
+
+        expect(screen.getByRole('menuitem', { name: 'Legal', hidden: true })).toBeDefined()
+        expect(screen.getByRole('link', { name: 'Legal', hidden: true }).getAttribute('href')).toBe(
+            Routes.adminSafeinsightsLegal,
+        )
     })
 })

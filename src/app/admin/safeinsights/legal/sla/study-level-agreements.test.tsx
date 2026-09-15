@@ -8,6 +8,7 @@ import {
     insertTestUser,
     mockSessionWithTestData,
     renderWithProviders,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -21,7 +22,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         ...actual,
         // Implementations go to vi.fn, not mockResolvedValue: mockReset would wipe a value set after.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -55,7 +56,11 @@ const seedSignedSla = async ({ signedAt, title }: { signedAt: string; title: str
     const seeded = await seedApprovedStudy(title)
 
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'SLA', studyId: seeded.study.id, fileName: 'sla.pdf' }),
+        await createLegalDocumentDraftAction({
+            type: 'SLA',
+            studyId: seeded.study.id,
+            file: testUploadFile('sla.pdf'),
+        }),
     )
     actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 
@@ -139,7 +144,7 @@ describe('StudyLevelAgreements', () => {
         expect(within(confirmation).queryByText(/acknowledge/i)).toBeNull()
     })
 
-    it('keeps the confirmation up and the form locked while publishing', async () => {
+    it('locks the form while publishing and closes the confirmation once published', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const title = `SLA study ${faker.string.alpha(6)}`
         await seedSignedSla({ signedAt: '2026-07-27', title })
@@ -161,6 +166,8 @@ describe('StudyLevelAgreements', () => {
 
         expect(within(confirmation).getByText('Publish this file?')).toBeDefined()
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled())
+
+        await waitFor(() => expect(screen.queryByText('Publish this file?')).toBeNull())
     })
 
     it('collects the study, date and file on one screen, with Publish held until all three are given', async () => {

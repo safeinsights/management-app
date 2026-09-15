@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AccessDeniedError, ActionFailure, isClerkApiError, isActionError, errorToString } from './errors'
+import { staleActionError } from '@/tests/unit.helpers'
+import {
+    AccessDeniedError,
+    ActionFailure,
+    isClerkApiError,
+    isActionError,
+    isStaleDeploymentError,
+    errorToString,
+    STALE_DEPLOYMENT_MESSAGE,
+} from './errors'
 
 describe('AccessDeniedError', () => {
     it('should be an instance of Error', () => {
@@ -129,5 +138,22 @@ describe('errorToString', () => {
     it('returns undefined for objects that do not match any condition', () => {
         const nonMatching = { some: 'object' }
         expect(errorToString(nonMatching)).toBe('Unknown error occurred')
+    })
+})
+
+describe('isStaleDeploymentError', () => {
+    it('recognizes the framework error a stale tab receives', () => {
+        expect(isStaleDeploymentError(staleActionError())).toBe(true)
+    })
+
+    it('leaves every other failure alone', () => {
+        expect(isStaleDeploymentError(new Error('Network request failed'))).toBe(false)
+        expect(isStaleDeploymentError(new ActionFailure({ study: 'is already decided' }))).toBe(false)
+        expect(isStaleDeploymentError('UnrecognizedActionError')).toBe(false)
+        expect(isStaleDeploymentError(null)).toBe(false)
+    })
+
+    it('replaces the framework text with copy the reader can act on', () => {
+        expect(errorToString(staleActionError())).toBe(STALE_DEPLOYMENT_MESSAGE)
     })
 })

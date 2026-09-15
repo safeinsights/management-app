@@ -1,14 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Alert, Button, Group, Stack, Text } from '@mantine/core'
+import { Alert, Button, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@/common'
-import type { Route } from 'next'
-import { useRouter } from 'next/navigation'
-import { CaretLeftIcon } from '@phosphor-icons/react'
 
-import { ReviewConfirmationModal } from '@/components/modals/review-confirmation-modal'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -16,10 +13,12 @@ import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-s
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import type { Decision } from '@/lib/review-decision'
+import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
 import { CodeEvaluationSection } from './code-evaluation-section'
+import { CODE_DECISION_MODAL_CONTENT, DecisionConfirmationModal } from './decision-confirmation-modal'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
 import { CODE_REVIEW_CRITERIA_KEYS } from '@/hooks/use-code-review-evaluation-map'
@@ -30,16 +29,13 @@ type Props = {
     study: SelectedStudy
     job: LatestJobForStudy
     latestJobStatus: StudyJobStatus | null
-    previousHref: Route
+    nav: StepNav
 }
 
 // Driven by the job status alone: gating on study.status showed "Code review is closed" for
 // legitimate resubmissions, which leave the study at APPROVED.
-const isCodeReviewEditable = ({ latestJobStatus }: EditableSnapshot): boolean =>
+const isCodeReviewEditable = ({ latestJobStatus }: Pick<EditableSnapshot, 'latestJobStatus'>): boolean =>
     latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
-
-const CONFIRM_BODY =
-    'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.'
 
 const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeReviewCriteria =>
     CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)
@@ -49,17 +45,14 @@ function useCodeReview({
     studyId,
     jobId,
     tabSessionId,
-    previousHref,
 }: {
     orgSlug: string
     studyId: string
     jobId: string
     tabSessionId: string
-    previousHref: Route
 }) {
     const feedback = useReviewFeedback()
     const decision = useReviewDecision()
-    const router = useRouter()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     // Without a validator an unanswered row only disabled Submit, with no sign of which one
@@ -91,10 +84,6 @@ function useCodeReview({
 
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
-    const handleBack = () => {
-        router.push(previousHref)
-    }
-
     const handleSubmit = () => {
         if (!hasDecision) return
         openConfirm()
@@ -115,7 +104,6 @@ function useCodeReview({
         decision,
         evaluationForm,
         canSubmit,
-        handleBack,
         handleSubmit,
         confirmOpen,
         closeConfirm,
@@ -133,7 +121,7 @@ type EditableBodyProps = {
     labName: string
     canSubmit: boolean
     isPending: boolean
-    onBack: () => void
+    nav: StepNav
     onSubmit: () => void
     onDecisionChange: (next: Decision) => void
 }
@@ -147,7 +135,7 @@ function EditableBody({
     labName,
     canSubmit,
     isPending,
-    onBack,
+    nav,
     onSubmit,
     onDecisionChange,
 }: EditableBodyProps) {
@@ -165,42 +153,43 @@ function EditableBody({
                 decisionError={decision.error}
                 labName={labName}
             />
-            <Group justify="space-between">
-                <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
-                    Back
-                </Button>
-                <Button disabled={!canSubmit || isPending} onClick={onSubmit} data-testid="code-review-submit">
-                    Submit review
-                </Button>
-            </Group>
+            <StepNavigation
+                nav={nav}
+                formAction={
+                    <Button
+                        size="md"
+                        disabled={!canSubmit || isPending}
+                        onClick={onSubmit}
+                        data-testid="code-review-submit"
+                    >
+                        Submit decision
+                    </Button>
+                }
+            />
         </Stack>
     )
 }
 
 type NonEditableBodyProps = {
     isVisible: boolean
-    onBack: () => void
+    nav: StepNav
 }
 
 // For a study that no longer qualifies as "code needs review". Writes are already blocked
 // server-side; this just hides the editor and submit controls.
-function NonEditableBody({ isVisible, onBack }: NonEditableBodyProps) {
+function NonEditableBody({ isVisible, nav }: NonEditableBodyProps) {
     if (!isVisible) return null
     return (
         <Stack gap="xl">
             <Alert color="blue" title="Code review is closed" data-testid="code-review-closed-alert">
                 A decision has already been submitted for this study code. No further edits are allowed at this point.
             </Alert>
-            <Group justify="flex-start">
-                <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={onBack}>
-                    Back
-                </Button>
-            </Group>
+            <StepNavigation nav={nav} />
         </Stack>
     )
 }
 
-export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previousHref }: Props) {
+export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: Props) {
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const {
@@ -208,15 +197,14 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
         decision,
         evaluationForm,
         canSubmit,
-        handleBack,
         handleSubmit,
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
         isPending,
-    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, previousHref })
+    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId })
 
-    const initiallyEditable = isCodeReviewEditable({ status: study.status, latestJobStatus })
+    const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
 
     return (
@@ -244,23 +232,22 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, previou
                     labName={labName}
                     canSubmit={canSubmit}
                     isPending={isPending}
-                    onBack={handleBack}
+                    nav={nav}
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
                 />
-                <NonEditableBody isVisible={!initiallyEditable} onBack={handleBack} />
+                <NonEditableBody isVisible={!initiallyEditable} nav={nav} />
             </CodeReviewFeedbackProviderShare>
 
-            <ReviewConfirmationModal
+            <DecisionConfirmationModal
+                decision={decision.selected}
+                labName={labName}
+                content={CODE_DECISION_MODAL_CONTENT}
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
                 isPending={isPending}
-                title="Confirm review submission?"
-                confirmLabel="Yes, submit review"
-            >
-                <Text size="md">{CONFIRM_BODY}</Text>
-            </ReviewConfirmationModal>
+            />
         </StudyKickOutProvider>
     )
 }

@@ -5,25 +5,19 @@ import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
-import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
-import { StudyDocumentType } from '@/lib/types'
+import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
-import {
-    codeBuildRepositoryUrl,
-    deleteFolderContents,
-    createSignedUploadUrl,
-    storeS3File,
-    triggerScanForStudyJob,
-} from '@/server/aws'
+import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { codeSubmissionVersion, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
+import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server/storage'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -55,6 +49,12 @@ const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: strin
     await purgeProposalYjsDocsBeforeAt(database, args)
 })
 
+// Runs after the response, so the rows these objects belonged to are committed as deleted. Doing it
+// in the transaction would let a rollback restore a row over a missing object (OTTER-775 review).
+const sweepDiscardedScanLogs = deferred(async (paths: ReadonlyArray<string>) => {
+    await deleteDiscardedScanLogObjects(paths)
+})
+
 function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
     if (SIMULATE_CODE_BUILD) {
         simulateJobScan(studyJobId)
@@ -75,6 +75,9 @@ async function attachCodeToRoundJob(
 ) {
     const job = await getOrCreateCurrentRoundJob(db, studyId)
     const studyJobId = job.id
+    // Objects whose rows this function deleted. The caller sweeps them once the transaction has
+    // committed, so a rollback can never restore a row over a deleted object (OTTER-775 review).
+    let discardedScanLogPaths: string[] = []
 
     if (!job.created) {
         await db
@@ -86,6 +89,7 @@ async function attachCodeToRoundJob(
         // Otherwise generateAndStoreStudyReview short-circuits and keeps the stale
         // summary for the resubmitted code (SHRMP-263).
         await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
+        discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
     await db
@@ -110,9 +114,7 @@ async function attachCodeToRoundJob(
             .executeTakeFirstOrThrow()
     }
 
-    const urlForCodeUpload = await createSignedUploadUrl(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
-
-    return { studyJobId, urlForCodeUpload }
+    return { studyJobId, discardedScanLogPaths }
 }
 
 // Once per submission round, not per job: a change-requested resubmit stays on the same job,
@@ -184,20 +186,12 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        return {
-            studyId,
-            urlForAgreementUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-            ),
-            urlForIrbUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-            ),
-            urlForDescriptionUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-            ),
-        }
+        return { studyId }
     })
 
+// Deliberately permissive on title: this schema also serves the CHANGE-REQUESTED resubmit
+// autosave, and a study predating OTTER-690 can hold an over-cap title, so a cap in `.params()`
+// would fail every autosave. The handler applies the cap where the status makes it meaningful.
 const onUpdateDraftStudyActionArgsSchema = z.object({
     studyId: z.string(),
     studyInfo: draftStudyApiSchema,
@@ -207,9 +201,9 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .params(onUpdateDraftStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, submittedByOrgId }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, status, submittedByOrgId }) => {
         // The row filter below repeats CASL's lab scope so a caller holding a broader grant
-        // (`manage all`) is hard-rejected rather than handed signed upload URLs.
+        // (`manage all`) is hard-rejected rather than allowed to update the study.
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
@@ -264,18 +258,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
 
-        return {
-            studyId,
-            urlForAgreementUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-            ),
-            urlForIrbUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-            ),
-            urlForDescriptionUpload: await createSignedUploadUrl(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-            ),
-        }
+        return { studyId }
     })
 
 const onSubmitDraftStudyActionArgsSchema = z.object({
@@ -306,19 +289,16 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
         }
 
-        const { studyJobId, urlForCodeUpload } = await attachCodeToRoundJob(
+        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
             mainCodeFileName,
             codeFileNames,
         )
+        sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        return {
-            studyId,
-            studyJobId,
-            urlForCodeUpload,
-        }
+        return { studyId, studyJobId }
     })
 
 const finalizeStudySubmissionInfoSchema = z
@@ -382,6 +362,9 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
 
         const submittedAt = new Date()
+        // The field snapshot and the status flip ride one conditional UPDATE on purpose: as two
+        // statements, concurrent submitters could each write fields before either flips status,
+        // leaving the winner's row holding the loser's stale snapshot.
         const claimed = await db
             .updateTable('study')
             .set({ ...snapshotFields, status: 'PENDING-REVIEW', submittedAt, lastUpdatedAt: submittedAt })
@@ -402,11 +385,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .where('name', 'like', `proposal-${studyId}-%`)
             .execute()
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         const reviewerOrg = await db
             .selectFrom('study')
@@ -439,7 +418,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         return {
             studyId,
-            submitterFullName: submitter.fullName,
+            submitterFullName,
             orgName: reviewerOrg.orgName,
         }
     })
@@ -450,6 +429,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
+            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .innerJoin('user', 'user.id', 'study.researcherId')
             .select([
                 'study.id',
@@ -471,6 +451,8 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.datasets',
                 'org.slug as orgSlug',
                 'org.name as orgName',
+                'submittingOrg.slug as submittedByOrgSlug',
+                'submittingOrg.name as submittingLabName',
                 'user.fullName as researcherName',
             ])
             .where('study.id', '=', studyId)
@@ -528,13 +510,14 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await attachCodeToRoundJob(
+        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
             sanitizedMainFileName,
             additionalFileNames,
         )
+        sweepDiscardedScanLogs(discardedScanLogPaths)
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) {
@@ -793,13 +776,14 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         const sanitizedMainFileName = sanitizeFileName(mainFileName)
         const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await attachCodeToRoundJob(
+        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
             db,
             studyId,
             orgSlug,
             sanitizedMainFileName,
             additionalFileNames,
         )
+        sweepDiscardedScanLogs(discardedScanLogPaths)
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!CODER_DISABLED) coderFilesPath += `/${studyId}`

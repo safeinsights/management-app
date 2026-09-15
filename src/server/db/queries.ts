@@ -8,6 +8,7 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -156,13 +157,31 @@ export async function latestRecordedJobFailureReason(studyJobId: string): Promis
 }
 
 // Counted across ALL jobs: a per-job count would reset to v1 after a results decision opens a fresh
-// job, hiding prior rounds' feedback (OTTER-556/558).
+// job, hiding prior rounds' feedback (OTTER-556/558). CODE-REJECTED is omitted because reject is
+// terminal; if it becomes resubmittable, count it here and in canResearcherResubmitCode (OTTER-638).
 export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
     const row = await db
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
         .where('jobStatusChange.status', 'in', ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'])
+        .select((eb) => eb.fn.countAll().as('count'))
+        .executeTakeFirst()
+    return Number(row?.count ?? 0) + 1
+}
+
+// Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
+// first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
+// rather than FILES-* rows, because rejectStudyJobFilesAction writes the status with no comment and
+// counting it would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
+// Count and insert are separate, and the unique constraint backing them is per job, so a caller that
+// writes the counted round must lock the study row first (see submitOutputsDecisionAction).
+export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+    const row = await db
+        .selectFrom('studyReviewComment')
+        .where('studyId', '=', studyId)
+        .where('reviewKind', '=', 'RESULTS')
+        .where('entryType', '=', 'DECISION')
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
     return Number(row?.count ?? 0) + 1
@@ -309,6 +328,13 @@ export const getUserById = async (userId: string) => {
 // the mongo $in conditions fail CLOSED. Throwing would distinguish "no such org" from "not yours".
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
+
+// The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
+// actions were asking for it the same way.
+export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
+    const user = await db.selectFrom('user').select('fullName').where('id', '=', userId).executeTakeFirstOrThrow()
+    return user.fullName
+}
 
 export const getOrgNameFromId = async (orgId: string) => {
     const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()
@@ -659,7 +685,18 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
     }
 }
 
-export async function getStudyReviewForJob(studyJobId: string): Promise<StudyReviewWithMeta | null> {
+// The round rule needs the job's submission history, so the job is the argument rather than a bare
+// id: passing both let a caller pair one job's id with another's statuses (OTTER-775). The id key
+// differs by query — getStudyJobInfo aliases it to studyJobId — so either spelling is accepted.
+export type JobForRound = {
+    createdAt: Date | string
+    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
+} & ({ id: string } | { studyJobId: string })
+
+const jobRowId = (job: JobForRound) => ('id' in job ? job.id : job.studyJobId)
+
+export async function getStudyReviewForJob(job: JobForRound): Promise<StudyReviewWithMeta | null> {
+    const studyJobId = jobRowId(job)
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
@@ -681,5 +718,31 @@ export async function getStudyReviewForJob(studyJobId: string): Promise<StudyRev
         .limit(1)
         .executeTakeFirst()
 
-    return row ?? null
+    if (!row) return null
+
+    return reviewForCurrentRound(row, latestCodeSubmittedAt(job))
+}
+
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
+
+// The summary and the scan always travel together — both server renders of the code section and the
+// poll that keeps it current need the pair — so they are fetched as one thing.
+export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
+    return { review, scan }
+}
+
+// The poll's variant. A scan that has already reported is immutable for the round, so once the
+// client holds one it only needs the summary — and re-reading the scan meant fetching and parsing
+// the same S3 object every 5s for the length of a generation (OTTER-775 review). `scan` comes back
+// null to mean "unchanged, keep yours", never the client's own copy echoed back as confirmed.
+export async function jobAnalysisUpdateForJob(
+    job: JobForRound,
+    { scanSettled }: { scanSettled: boolean },
+): Promise<{ review: StudyReviewWithMeta | null; scan: JobScanResult | null }> {
+    const [review, scan] = await Promise.all([
+        getStudyReviewForJob(job),
+        scanSettled ? Promise.resolve(null) : jobScanResultForJob(jobRowId(job)),
+    ])
+    return { review, scan }
 }

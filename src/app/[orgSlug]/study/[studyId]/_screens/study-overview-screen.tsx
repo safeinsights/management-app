@@ -7,7 +7,7 @@ import type { ScreenComponentProps } from './types'
 export function StudyOverviewScreen({ study }: ScreenComponentProps) {
     return (
         <Stack p="xl" gap="xxl">
-            <StudyPageHeader>Study Details</StudyPageHeader>
+            <StudyPageHeader study={study} />
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">

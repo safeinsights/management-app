@@ -136,6 +136,17 @@ beforeEach(() => {
     collabWriter.current = null
 })
 
+// The same Step 2 field as the proposal page, on the surface a change-requested study is revised
+// on, so the two must not drift apart (OTTER-769).
+describe('EditInitialRequestSection field hints', () => {
+    it('describes the PI field with the card wording', async () => {
+        await renderSection()
+
+        expect(screen.getByText('Select the Principal Investigator for this study.')).toBeInTheDocument()
+        expect(screen.queryByText(/from your lab/)).not.toBeInTheDocument()
+    })
+})
+
 // OTTER-748: these three share the proposal-fields Yjs document, so unlike the rich-text editors
 // on this page they cannot report a save from inside the control. The page has to render one
 // indicator each, keyed to the right field.

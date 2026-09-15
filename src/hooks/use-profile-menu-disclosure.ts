@@ -8,6 +8,7 @@ import { useEffect, useCallback } from 'react'
 const PINNED_ROUTES: string[] = [
     Routes.researcherProfile,
     Routes.userKey,
+    Routes.legal,
     Routes.adminSafeinsights,
     Routes.adminSafeinsightsLegal,
 ]

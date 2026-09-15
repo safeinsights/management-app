@@ -2,35 +2,35 @@ import { AlertNotFound } from '@/components/errors'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
-import { Routes } from '@/lib/routes'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
 import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
-// OTTER-524: names the stage that failed and says plainly when no error log exists.
-const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => {
-    const body = `${details.explanation} ${details.logSentence}`
-    return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
-            {body}
-        </StatusAlert>
-    )
-}
+// OTTER-524 names the stage that failed and says plainly when no error log exists. OTTER-769
+// replaces both with a single sentence once a key can open the log.
+const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => (
+    <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
+        {details.bannerText}
+    </StatusAlert>
+)
 
 export async function ReviewerOutputsErroredScreen({
     study,
     raw,
     orgSlug,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug'>) {
+    phasedNav,
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'phasedNav'>) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
     // The same predicate the routing rules use, so routing and rendering cannot disagree.
-    if (!awaitingFilesDecisionOnError(projectStudyState(raw))) {
+    const state = projectStudyState(raw)
+    if (!awaitingFilesDecisionOnError(state)) {
         return <AlertNotFound title="No error found" message="This study has not encountered an error." />
     }
 
@@ -46,12 +46,12 @@ export async function ReviewerOutputsErroredScreen({
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title ?? ''}
             job={job}
             labName={labName}
+            header={<StudyPageHeader study={study} />}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
-            previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
+            nav={phasedNav}
             // A failed run producing nothing is routine, so the round must still be closable.
             // Deliberately not set on the outputs-available screen (OTTER-524).
             allowDecisionWithoutArtifacts

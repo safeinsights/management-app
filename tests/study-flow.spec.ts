@@ -6,6 +6,7 @@ import {
     fillLexicalField,
     insertLexicalLink,
     goto,
+    openContextWithSavedRole,
     withRole,
     type Page,
 } from './e2e.helpers'
@@ -57,6 +58,16 @@ async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = 
     const radioButton = page.getByRole('radio', { name: 'R', exact: true })
     await radioButton.waitFor({ state: 'visible' })
     await radioButton.click()
+}
+
+// OTTER-764 accessibility: a locked field is not a field that vanished. It keeps its name and its
+// value in the accessibility tree as a disabled group, so "no longer editable" has to be asserted
+// against the control, never against the label.
+async function expectLockedSetupField(page: Page, label: string, value: string | RegExp) {
+    const field = page.getByRole('group', { name: label, exact: true })
+    await expect(field).toHaveAttribute('aria-disabled', 'true')
+    await expect(field).toHaveAttribute('tabindex', '-1')
+    await expect(field.getByText(value, { exact: true })).toBeVisible()
 }
 
 // Save & continue now opens a confirmation modal before navigating, because the Data Partner and
@@ -131,13 +142,10 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
     await expect(confirmDialog.getByText('Submit your proposal?')).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Submit proposal' }).click()
 
-    await expect(page.getByText(/successfully submitted/i)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
 
-    // Button component={Link} renders as an anchor.
-    await page
-        .getByRole('link', { name: /Go to dashboard/i })
-        .first()
-        .click()
+    // The Data Partner holds the next move, so the exit is the solid action (OTTER-673).
+    await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -154,7 +162,14 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await clickViewLink(page, studyRow)
 
     await page.waitForURL(/\/submitted(\?.*)?$/)
-    await page.getByRole('link', { name: /Proceed to step 3/i }).click()
+
+    // OTTER-673: the approved proposal steps back to the read-only Step 1 record and forward again
+    // before "Next step" opens Step 3.
+    await page.getByRole('link', { name: /Previous step/i }).click()
+    await page.waitForURL(/\/edit(\?.*)?$/)
+    await page.getByRole('button', { name: 'Next step' }).click()
+    await page.waitForURL(/\/submitted(\?.*)?$/)
+    await page.getByRole('link', { name: /^Next step$/i }).click()
     await page.waitForURL(/\/code$/)
     // Render signal, not just a URL signal: the callers below immediately reach for controls
     // inside the card. Role-scoped because the footer button shares the label.
@@ -202,7 +217,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     // Code submission redirects to CodePostSubmissionView; wait on its banner (it
     // only appears after the mutation completes), not a URL change.
-    await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
 
     return mainFileName
 }
@@ -261,17 +276,17 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
         .getByRole('radio', { name: /^Approve$/i })
         .check()
 
-    const submitReview = page.getByRole('button', { name: /^Submit review$/i })
+    const submitReview = page.getByRole('button', { name: /^Submit decision$/i })
     await expect(submitReview).toBeEnabled()
     await submitReview.click()
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await dialog.getByRole('button', { name: /^Approve proposal$/i }).click()
     await expect(dialog).toBeHidden()
 
-    await expect(page.getByText(/Approved on/)).toBeVisible()
-    await page.getByTestId('go-to-dashboard').click()
+    await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
+    await page.getByTestId('cta-back-to-my-studies').click()
     await page.waitForURL('**/dashboard')
 }
 
@@ -308,13 +323,13 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByTestId('code-review-submit').click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+    await expect(dialog.getByText('Approve code?')).toBeVisible()
+    await dialog.getByRole('button', { name: /^Approve code$/i }).click()
     await expect(dialog).toBeHidden()
 
     // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
     // lands on the outputs-pending "Review outputs" screen rather than the approval confirmation.
-    await expect(page.getByTestId('status-alert')).toBeVisible()
-    await expect(page.getByText(/Outputs not ready/)).toBeVisible()
+    await expect(page.getByTestId('status-alert')).toContainText('Outputs not ready')
     await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('**/dashboard')
 }
@@ -560,7 +575,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         // and a valid click proceeds without the first-visit confirmation modal.
         await page.getByRole('button', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
         const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
@@ -594,8 +609,10 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
         await expect(page.getByText(/^STEP 1$/)).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
-        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expectLockedSetupField(page, 'Study title', studyTitle)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Save and continue' })).toHaveCount(0)
 
@@ -603,7 +620,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByText(/successfully submitted/i)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
     })
 })
 
@@ -633,12 +650,16 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         await page.waitForURL(/\/edit(\?.*)?$/)
 
         // Revisiting Step 1 keeps the title editable and shows it as saved, while the Data
-        // Partner and language are now settled and render as text.
-        await expect(page.getByLabel(/Study title/)).toHaveValue(studyTitle)
+        // Partner and language are now settled and locked.
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
         await expect(page.getByRole('radio', { name: 'R', exact: true })).toHaveCount(0)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        // The title is still a control in this state, so it is not one of the locked groups.
+        await expect(page.getByRole('group', { name: 'Study title', exact: true })).toHaveCount(0)
 
-        // Discarding is only offered before the row exists, so the revisit footer has no left action.
+        // Step 1 has no left action in any state; deleting a draft lives on the dashboard.
         await expect(page.getByRole('button', { name: 'Discard study' })).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
 
@@ -686,7 +707,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
         await goto(page, RESEARCHER_DASHBOARD)
         await viewStudyDetails(page, studyTitle)
         await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
-        await expect(page.getByTestId('code-under-review-banner')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
     })
 })
 
@@ -724,6 +745,55 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
     })
 })
 
+// OTTER-726: one decision closes the round for every reviewer. Both contexts are the same reviewer,
+// which is the case that matters, because the guard is tab identity rather than user identity. The
+// second reviewer's own submit is the trigger here: the e2e stack runs no editor service, so the
+// live event cannot carry, and the status backstop is what answers. The event path is covered in
+// use-submission-redirect-listener.test.ts.
+test('A second reviewer who submits after the decision is closed out of the round', async ({
+    browser,
+    studyFeatures,
+}) => {
+    const studyTitle = studyFeatures.uniqueTitle('peer-outputs')
+    const { jobId } = await seedCodeApprovedJobReady(studyTitle)
+    uploadResults(jobId!)
+
+    const deciding = await openContextWithSavedRole(browser, 'reviewer')
+    const peer = await openContextWithSavedRole(browser, 'reviewer')
+
+    try {
+        await reviewerDecryptsAvailableOutputs(deciding.page, studyTitle)
+        await reviewerDecryptsAvailableOutputs(peer.page, studyTitle)
+
+        // Drafted before the decision lands, so the peer is mid-review rather than arriving late.
+        await fillLexicalField(peer.page, 'Decision feedback', 'Second reviewer still drafting.')
+
+        await reviewerSharesOutputs(deciding.page, 'Reviewed the outputs, nothing sensitive present.')
+
+        await peerSubmitAfterDecisionClosesTheRound(peer.page)
+    } finally {
+        await deciding.context.close()
+        await peer.context.close()
+    }
+})
+
+// The server refuses the second decision. The client reconciles against the job rather than
+// reporting a failure the reviewer could retry, so the review closes instead.
+async function peerSubmitAfterDecisionClosesTheRound(page: Page): Promise<void> {
+    await page.getByTestId('outputs-decision-share-outputs').check()
+
+    await page.getByTestId('outputs-submit-decision').click()
+
+    const modal = page.getByRole('dialog', { name: 'Submit your decision?' })
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Submit decision' }).click()
+
+    await expect(page.getByText(/A decision has been submitted for this output/)).toBeVisible()
+    // "Try again" would be untrue here: no retry can reopen a decided round.
+    await expect(page.getByText('Decision could not be submitted')).toBeHidden()
+    await expect(page.getByTestId('outputs-decision-section')).toBeHidden()
+}
+
 // Owns the errored-outputs surface end to end (OTTER-667 + OTTER-675): decrypt, the
 // validation gate, the confirmation modal, and the researcher's view of the shared logs.
 test('Error log review', async ({ browser, studyFeatures }) => {
@@ -753,7 +823,9 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await clickViewLink(page, studyRow)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        await expect(page.getByText(studyTitle)).toBeVisible()
+        // The page heading is the study title; "Review proposal" is the section header.
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
@@ -762,17 +834,17 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await page
             .getByTestId('review-decision-section')
-            .getByRole('radio', { name: /^Reject$/i })
+            .getByRole('radio', { name: /^Decline and end study$/i })
             .check()
 
-        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Reject initial request$/i }).click()
+        await dialog.getByRole('button', { name: /^Decline and end study$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
-        await page.getByTestId('go-to-dashboard').click()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
 
         const rejectedRow = page.getByRole('row').filter({ hasText: studyTitle })
@@ -790,28 +862,29 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await studyRow.getByRole('link', { name: 'View' }).first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
 
-        // Rejected proposals get a single "Go to dashboard" CTA — no Step-3 progression.
-        await expect(page.getByRole('button', { name: /Proceed to Step 3/i })).not.toBeVisible()
-        await expect(page.getByRole('link', { name: /Go to dashboard/i })).toBeVisible()
+        // A declined proposal is terminal: the exit is the only solid action, no Step-3 progression.
+        await expect(page.getByRole('link', { name: /^Next step$/i })).not.toBeVisible()
+        await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()
 
         // OTTER-764: a submitted proposal steps back to Step 1 as a read-only record, and forward
-        // again from there. Every field is text by now, so the title has no input to carry a value.
+        // again from there. Every field is a locked group by now, so none of them holds a control.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
         await expect(page.getByText('STEP 1')).toBeVisible()
-        await expect(page.getByText(studyTitle).first()).toBeVisible()
-        await expect(page.getByLabel(/Study title/)).toHaveCount(0)
+        await expectLockedSetupField(page, 'Study title', studyTitle)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
         const nextStep = page.getByRole('button', { name: 'Next step' })
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByRole('heading', { name: 'Study proposal' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
     })
 })
 
@@ -836,18 +909,17 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         await page
             .getByTestId('review-decision-section')
-            .getByRole('radio', { name: /Needs clarification/i })
+            .getByRole('radio', { name: /Request revision/i })
             .check()
 
-        await page.getByRole('button', { name: /^Submit review$/i }).click()
+        await page.getByRole('button', { name: /^Submit decision$/i }).click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Clarification requested on/)).toBeVisible()
-        await expect(page.getByTestId('decision-banner-clarification')).toBeVisible()
-        await page.getByTestId('go-to-dashboard').click()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
 
@@ -859,14 +931,13 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
         await page.waitForURL(/\/submitted(\?.*)?$/)
-        await expect(page.getByTestId('status-banner-CHANGE-REQUESTED')).toBeVisible()
-        await expect(page.getByText(/Clarification requested on/)).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
-        await page.getByRole('link', { name: /Edit and resubmit/i }).click()
+        await page.getByRole('link', { name: /^Edit proposal$/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
-        await expect(page.getByRole('heading', { name: /Edit Initial Request/i, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
 
         // The form must load the previously-saved proposal values for editing, not
         // empty placeholders. These mirror the content seeded by seedProposalPendingReview.
@@ -896,8 +967,8 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         // Resubmission returns the proposal to PENDING-REVIEW: the editable
         // ProposalReviewView re-opens with a fresh decision section.
         await goto(page, `/openstax/study/${studyId}/review`)
-        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
-        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
     })
 })
 
@@ -912,6 +983,14 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
     await withRole(browser, 'reviewer', async (page) => {
         await openCodeReviewEditor(page, studyTitle)
 
+        // OTTER-673: the code step walks back to the decided proposal, which steps forward again.
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/review\/proposal$/)
+        await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
+        await page.getByRole('link', { name: /^Next step$/i }).click()
+        await page.waitForURL(/\/review\/code$/)
+        await expect(page.getByTestId('code-review-section')).toBeVisible()
+
         await fillCodeCriteria(page, 'no')
         // "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable), standard confirm modal.
         await page.getByTestId('code-review-decision-needs-clarification').click()
@@ -923,11 +1002,12 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.getByTestId('code-review-submit').click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toBeVisible()
-        await dialog.getByRole('button', { name: /^Yes, submit review$/i }).click()
+        await expect(dialog.getByText('Request revision?')).toBeVisible()
+        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
         await expect(dialog).toBeHidden()
 
-        await expect(page.getByText(/Change requested on/)).toBeVisible()
-        await page.getByTestId('go-to-dashboard').click()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+        await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
 
@@ -938,8 +1018,8 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await expect(studyRow).toBeVisible()
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
-        await expect(page.getByTestId('decision-banner-code-change-requested')).toBeVisible()
-        await expect(page.getByTestId('cta-edit-and-resubmit')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
+        await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
@@ -949,10 +1029,13 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
         await expect(resubmitButton).toBeEnabled()
         await resubmitButton.click()
-        await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
+        await page
+            .getByRole('dialog')
+            .getByRole('button', { name: /^Resubmit code$/i })
+            .click()
 
         await page.waitForURL('**/view')
     })
@@ -983,10 +1066,13 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await expect(page.getByText(/All changes saved/i)).toBeVisible()
         await expect(page.getByText(/Study is not editable or you do not have access/i)).toBeHidden()
 
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit study code$/i })
+        const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
         await expect(resubmitButton).toBeEnabled()
         await resubmitButton.click()
-        await page.getByRole('button', { name: /^Yes, resubmit study code$/i }).click()
+        await page
+            .getByRole('dialog')
+            .getByRole('button', { name: /^Resubmit code$/i })
+            .click()
 
         await page.waitForURL('**/view')
     })
@@ -1003,8 +1089,7 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'reviewer', async (page) => {
         await goto(page, `/openstax/study/${studyId}/review`)
 
-        await expect(page.getByText(/Rejected on/)).toBeVisible()
-        await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
+        await expect(page.getByTestId('status-alert')).toContainText('Code declined')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -1014,10 +1099,10 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
         await expect(studyRow).toBeVisible()
         await studyRow.getByRole('link', { name: 'View' }).first().click()
 
-        // CODE-REJECTED is terminal: rejected banner + "Go to dashboard" only (no resubmit CTA).
-        await expect(page.getByTestId('decision-banner-code-rejected')).toBeVisible()
-        await expect(page.getByTestId('cta-go-to-dashboard')).toBeVisible()
-        await expect(page.getByTestId('cta-edit-and-resubmit')).not.toBeVisible()
+        // CODE-REJECTED is terminal: rejected banner + the elevated exit only (no resubmit CTA).
+        await expect(page.getByTestId('status-alert')).toContainText('Code declined')
+        await expect(page.getByTestId('cta-back-to-my-studies')).toBeVisible()
+        await expect(page.getByTestId('cta-edit-code')).not.toBeVisible()
     })
 })
 
@@ -1032,18 +1117,19 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
         await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
-        // "Review initial request" is both the h1 and a section h4 — pin to h1.
-        await expect(page.getByRole('heading', { name: /Review initial request/i, level: 1 })).toBeVisible()
+        // The page heading is the study title; "Review proposal" is the section header.
+        await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
 
         await expect(page.getByText('Research question(s)', { exact: true })).toBeVisible()
         await expect(page.getByText('Project summary', { exact: true })).toBeVisible()
         await expect(page.getByText('Impact', { exact: true })).toBeVisible()
         await expect(page.getByText('Principal Investigator', { exact: true })).toBeVisible()
 
-        await expect(page.getByRole('button', { name: /^Submit review$/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
         const decisionSection = page.getByTestId('review-decision-section')
         await expect(decisionSection.getByRole('radio', { name: /^Approve$/i })).toBeVisible()
-        await expect(decisionSection.getByRole('radio', { name: /^Reject$/i })).toBeVisible()
+        await expect(decisionSection.getByRole('radio', { name: /^Decline and end study$/i })).toBeVisible()
     })
 })
 

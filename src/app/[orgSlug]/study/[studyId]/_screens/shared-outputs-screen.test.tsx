@@ -2,25 +2,45 @@ import {
     actionResult,
     describe,
     expect,
+    fireEvent,
     insertTestStudyJobData,
     it,
     type Mock,
     mockSessionWithTestData,
+    readTestSupportFile,
     renderWithProviders,
     requireRawState,
     screen,
+    waitFor,
 } from '@/tests/unit.helpers'
+// vi from vitest itself: vi.mock is hoisted above the imports, so it must come from the module the
+// hoister rewrites, not a re-export.
+import { vi } from 'vitest'
+import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { notFound, useParams } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
 import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
 import { displayOrgName } from '@/lib/string'
-import type { RawStudyState, ScreenId } from '@/lib/study-screen'
+import { researcherSharedOutputsBanner } from '@/lib/study-banners'
+import type { RawStudyState, SharedOutputsScreenId } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { SharedOutputsScreen } from './shared-outputs-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
+
+// Same seam the panel test uses: decrypting for real needs the wrapped-key fetch to return a
+// fixture artifact, since the DB seed has no researcher-wrapped keys.
+vi.mock('@/server/actions/study-job.actions', () => ({
+    fetchEncryptedJobFilesAction: vi.fn(() => []),
+}))
+
+vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
+    fetchJobFileActivityAction: vi.fn(() => []),
+    recordJobFileActivityAction: vi.fn(() => ({})),
+}))
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
@@ -32,19 +52,19 @@ const DASHBOARD_HREF = '/dashboard'
 /**
  * One component now serves both share screens, so the wiring below is asserted once per variant
  * rather than in two mirror-image files (PR #1003 review). Each variant carries only what actually
- * differs: the run status that routes to it, its locked-banner copy, its feedback text, and the
- * adjacent outcomes that must NOT reach it.
+ * differs: the run status that routes to it, its feedback text, and the adjacent outcomes that must
+ * NOT reach it. Copy itself is pinned in study-banners.test.ts.
  */
 type Variant = {
-    screen: Extract<ScreenId, 'outputs-shared' | 'outputs-errored-shared'>
+    screen: SharedOutputsScreenId
     label: string
     /** The run status that, with FILES-APPROVED, routes to this screen. */
     runStatus: StudyJobStatus
-    lockedTitle: string
-    lockedBody: (dataPartner: string) => string
     feedbackBody: string
     /** Adjacent outcomes that must fall through to the not-found guard. */
     guardedAgainst: [string, StudyJobStatus[]][]
+    /** The post-decryption nav the rule table gives this screen. */
+    nav: { editCodeVariant: 'outline' | 'filled'; backToMyStudies: boolean }
 }
 
 const VARIANTS: Variant[] = [
@@ -52,9 +72,6 @@ const VARIANTS: Variant[] = [
         screen: 'outputs-shared',
         label: 'clean run, outputs shared (OTTER-688)',
         runStatus: 'RUN-COMPLETE',
-        lockedTitle: 'Decrypt to view your outputs',
-        lockedBody: (dataPartner) =>
-            `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
         feedbackBody: 'Reviewed and approved. The results meet the study criteria.',
         guardedAgainst: [
             ['a completed run still awaiting the reviewer files decision', ['RUN-COMPLETE']],
@@ -64,22 +81,27 @@ const VARIANTS: Variant[] = [
             // conservative feedback-only screen keeps it, agreeing with the pill, which reads Rejected.
             ['a job carrying both files decisions', ['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED']],
         ],
+        nav: { editCodeVariant: 'outline', backToMyStudies: true },
     },
     {
         screen: 'outputs-errored-shared',
         label: 'errored run, outputs shared (OTTER-696)',
         runStatus: 'JOB-ERRORED',
-        lockedTitle: 'Decrypt outputs to view code error',
-        lockedBody: (dataPartner) =>
-            `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
         feedbackBody: 'The run failed on the join; the logs are in the outputs.',
         guardedAgainst: [
             ['an errored run still awaiting the reviewer files decision', ['JOB-ERRORED']],
             ['a clean approved run, which has its own outputs-shared screen', ['RUN-COMPLETE', 'FILES-APPROVED']],
             ['an errored run decided feedback-only', ['JOB-ERRORED', 'FILES-REJECTED']],
         ],
+        // The errored share is not a conclusion: Edit code is the forward action, so no exit is offered.
+        nav: { editCodeVariant: 'filled', backToMyStudies: false },
     },
 ]
+
+const copyFor = (screen: SharedOutputsScreenId, dataPartner: string) =>
+    researcherSharedOutputsBanner(screen, { dataPartner })
+
+const siblingOf = (variant: Variant) => VARIANTS.find((v) => v.screen !== variant.screen)!
 
 const renderScreen = async (
     variant: Variant,
@@ -93,11 +115,24 @@ const renderScreen = async (
             descriptor: { screen: variant.screen },
             study,
             raw,
-            orgSlug,
-            dashboardHref: DASHBOARD_HREF,
-            returnTo,
+            ...screenNavProps('researcher', variant.screen, raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+                returnTo,
+            }),
         }),
     )
+
+const decrypt = async () => {
+    await screen.findByRole('button', { name: 'View' })
+    // By name: the feedback section on this screen contributes a second textbox.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Security key' }), {
+        target: { value: await readTestSupportFile('private_key.pem') },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+}
 
 // The run status plus FILES-APPROVED and a RESULTS decision comment — the state that routes here.
 const setupShared = async (variant: Variant, { withNote = false }: { withNote?: boolean } = {}) => {
@@ -150,6 +185,16 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
             .execute()
     }
 
+    // The wrapped-key fetch must answer before the first render: an empty answer latches
+    // SecurityKeyForm's no-wrapped-key notice (OTTER-688), which has no View button. Assigned per
+    // setup so the mock's value cannot leak between tests.
+    const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
+    const artifact = await seedEncryptedArtifact(job.id, {
+        fileType: 'ENCRYPTED-RESULT',
+        files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+    })
+    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -175,8 +220,11 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
             descriptor: { screen: 'study-overview' },
             study,
             raw,
-            orgSlug: org.slug,
-            dashboardHref: DASHBOARD_HREF,
+            ...screenNavProps('researcher', 'study-overview', raw, {
+                orgSlug: org.slug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+            }),
         })
 
         expect(notFound).toHaveBeenCalled()
@@ -184,37 +232,55 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
 })
 
 describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
-    // The two-phase behaviour — banner swap, live-region identity, key form removal, outputs table,
-    // post-decryption nav — is the panel's contract and is covered in shared-outputs-panel.test.tsx.
-    // What is this screen's own job is the wiring: THIS study's title, partner, decision date and
-    // routing predicate.
-    it('wires the page header and the study title through to the section header', async () => {
+    // The two-phase behaviour — live-region identity, key form removal, outputs table — is the
+    // panel's contract. This file owns the wiring: this study's copy, partner, decision date,
+    // routing predicate, and which unlocked banner each screen actually hands the panel.
+    it('wires the page header without repeating its title in the section header', async () => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         const header = screen.getByTestId('proposal-section-header')
         expect(header).toHaveTextContent('STEP 4')
         expect(header).toHaveTextContent('Verify outputs')
-        expect(header).toHaveTextContent(study.title!)
+        expect(header).not.toHaveTextContent(study.title!)
     })
 
     it('renders the pre-decryption action banner with this screen’s copy and the partner name', async () => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
+        const { locked } = copyFor(variant.screen, displayOrgName(org.name))
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveAttribute('data-variant', 'action')
-        expect(alert).toHaveTextContent(variant.lockedTitle)
-        expect(alert).toHaveTextContent(variant.lockedBody(displayOrgName(org.name)))
+        expect(alert).toHaveAttribute('data-variant', locked.variant)
+        expect(alert).toHaveTextContent(locked.title)
+        expect(alert).toHaveTextContent(locked.body)
     })
 
     it('does not render the sibling screen’s banner title', async () => {
-        const sibling = VARIANTS.find((v) => v.screen !== variant.screen)!
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.lockedTitle)
+        const sibling = copyFor(siblingOf(variant).screen, displayOrgName(org.name))
+        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.locked.title)
+        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlocked.title)
+    })
+
+    it('renders the post-decryption banner with this screen’s copy and variant', async () => {
+        const { org, study, raw } = await setupShared(variant)
+        await renderScreen(variant, study, raw, org.slug)
+        await decrypt()
+
+        const dataPartner = displayOrgName(org.name)
+        const { locked, unlocked } = copyFor(variant.screen, dataPartner)
+        const sibling = copyFor(siblingOf(variant).screen, dataPartner)
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveAttribute('data-variant', unlocked.variant)
+        expect(alert).toHaveTextContent(unlocked.title)
+        expect(alert).toHaveTextContent(unlocked.body)
+        expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
+        expect(alert).not.toHaveTextContent(locked.title)
+        expect(alert).not.toHaveTextContent(sibling.unlocked.title)
     })
 
     it('dates the banner from the FILES-APPROVED decision — not the run, code approval, or today', async () => {
@@ -241,21 +307,22 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, undated, org.slug)
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(variant.lockedTitle)
+        expect(alert).toHaveTextContent(copyFor(variant.screen, displayOrgName(org.name)).locked.title)
         expect(alert).not.toHaveTextContent('•')
     })
 
-    it("renders the reused feedback-and-notes section with this study's outputs feedback", async () => {
+    // OTTER-766: the note belongs to the code step, so it stays on the code screens.
+    it("renders the reused feedback-and-notes section with this study's outputs feedback alone", async () => {
         const { org, user, study, raw } = await setupShared(variant, { withNote: true })
         await renderScreen(variant, study, raw, org.slug)
 
         const section = screen.getByTestId('feedback-and-notes-section')
         expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
         expect(section).toHaveTextContent(variant.feedbackBody)
-        expect(section).toHaveTextContent('Resubmission note (v1.0)')
-        expect(section).toHaveTextContent('Adjusted the aggregation query.')
+        expect(section).not.toHaveTextContent('Resubmission note')
+        expect(section).not.toHaveTextContent('Adjusted the aggregation query.')
         expect(section).toHaveTextContent(user.fullName)
-        expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+        expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
     })
 
     it("shows only this study's feedback, not another study's", async () => {
@@ -315,6 +382,23 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
             'href',
             `/${org.slug}/study/${study.id}/view/code`,
         )
+    })
+
+    it("resolves this screen's post-decryption nav from the step-nav table", async () => {
+        const { org, study, raw } = await setupShared(variant)
+        await renderScreen(variant, study, raw, org.slug)
+        await decrypt()
+
+        expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
+        expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('data-variant', 'subtle')
+        const edit = screen.getByTestId('cta-edit-code')
+        expect(edit).toHaveAttribute('href', `/${org.slug}/study/${study.id}/resubmit`)
+        expect(edit).toHaveAttribute('data-variant', variant.nav.editCodeVariant)
+        if (variant.nav.backToMyStudies) {
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('data-variant', 'filled')
+        } else {
+            expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
+        }
     })
 
     it('passes returnTo through to the Previous step link', async () => {

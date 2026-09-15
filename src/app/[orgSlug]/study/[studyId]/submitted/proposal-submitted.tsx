@@ -1,22 +1,20 @@
 'use client'
 
-import type { FC } from 'react'
-import { Alert, Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
+import { Stack } from '@mantine/core'
 import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
-import { ProposalHeader } from '../../request/page-header'
-import { Routes } from '@/lib/routes'
-import { Link } from '@/components/links'
+import { StudyPageHeader } from '@/components/study/study-page-header'
+import type { StepNav } from '@/lib/study-screen'
 import { effectiveProposalStatus } from '@/lib/review-decision'
-import { researcherCodeStepHref } from '@/lib/studies'
-import { STATUS_BANNER_BG } from '@/lib/status-banner-colors'
+import { decisionTimestampForProposalHeader } from '@/lib/studies'
+import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -25,7 +23,8 @@ interface ProposalSubmittedProps {
     entries: ProposalFeedbackEntry[]
     studyVersion: number
     feedbackError?: boolean
-    returnTo?: 'org'
+    // Resolved by the route from the researcher nav table (OTTER-673).
+    nav: StepNav
 }
 
 function proposalHeading(studyVersion: number): string {
@@ -33,130 +32,22 @@ function proposalHeading(studyVersion: number): string {
     return `Initial request ${studyVersion}.0`
 }
 
-type ProposalBannerConfig = {
-    color: string
-    bg?: string
-    message: (orgName: string) => string
-    statusBadge?: string
-}
-
-const PROPOSAL_BANNERS: Partial<Record<StudyStatus, ProposalBannerConfig>> = {
-    'PENDING-REVIEW': {
-        color: 'yellow',
-        message: (orgName) =>
-            `Your initial request has been successfully submitted to ${displayOrgName(orgName)}. They will review it and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process. Please allow an estimated 7 to 10 days for a complete review.`,
-    },
-    APPROVED: {
-        color: 'green',
-        bg: STATUS_BANNER_BG.approved,
-        statusBadge: 'Approved on',
-        message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
-    },
-    REJECTED: {
-        color: 'red',
-        bg: STATUS_BANNER_BG.rejected,
-        statusBadge: 'Rejected on',
-        message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed your initial request and is unable to support it at this time. Please review their feedback below for more details.`,
-    },
-    'CHANGE-REQUESTED': {
-        color: 'purple',
-        bg: STATUS_BANNER_BG.changesRequestedResearcher,
-        statusBadge: 'Clarification requested on',
-        message: (orgName) =>
-            `${displayOrgName(orgName)} has reviewed your initial request and has requested clarifications. Please review their feedback below. You can revise and resubmit your request to address their questions.`,
-    },
-}
-
 function StatusBanner({
-    orgName,
+    copy,
     study,
-    studyVersion,
+    entries,
 }: {
-    orgName: string
-    study: Pick<SelectedStudy, 'status' | 'approvedAt' | 'rejectedAt'>
-    studyVersion: number
+    copy: BannerCopy
+    study: Submitted<SelectedStudy>
+    entries: ProposalFeedbackEntry[]
 }) {
-    const proposalStatus = effectiveProposalStatus(study)
-    const config = PROPOSAL_BANNERS[proposalStatus]
-    if (!config) return null
-
-    const isResubmission = proposalStatus === 'PENDING-REVIEW' && studyVersion > 1
-    const message = isResubmission
-        ? `Your revised initial request has been resubmitted to ${displayOrgName(orgName)}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`
-        : config.message(orgName)
+    const decidedAt = decisionTimestampForProposalHeader(study, entries)
 
     return (
-        <Alert color={config.color} bg={config.bg} mb="md" data-testid={`status-banner-${proposalStatus}`}>
-            {message}
-        </Alert>
+        <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
+            {copy.body}
+        </StatusAlert>
     )
-}
-
-const ProposalNavigation: FC<{ orgSlug: string; study: SelectedStudy; returnTo?: 'org' }> = ({
-    orgSlug,
-    study,
-    returnTo,
-}) => {
-    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
-    const editAndResubmitHref = Routes.studyEditAndResubmit({ orgSlug, studyId: study.id })
-    // Step 1, which serves the submitted study as a read-only record (OTTER-764). returnTo rides
-    // along so the round trip back here lands on the same page the researcher came from, exit
-    // included, rather than silently switching to the personal dashboard.
-    const setupHref = Routes.studyEdit({ orgSlug, studyId: study.id, returnTo })
-    const proposalStatus = effectiveProposalStatus(study)
-
-    const proceedHref = researcherCodeStepHref(study, { orgSlug, returnTo })
-
-    switch (proposalStatus) {
-        case 'CHANGE-REQUESTED':
-            return (
-                <Group justify="space-between">
-                    <Button
-                        component={Link}
-                        href={dashboardHref}
-                        variant="subtle"
-                        size="md"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Back
-                    </Button>
-                    <Button component={Link} href={editAndResubmitHref} size="md">
-                        Edit and resubmit
-                    </Button>
-                </Group>
-            )
-        case 'APPROVED':
-            return (
-                <Group justify="space-between">
-                    <Button
-                        component={Link}
-                        href={dashboardHref}
-                        variant="subtle"
-                        size="md"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Back
-                    </Button>
-                    <Button component={Link} href={proceedHref} size="md">
-                        Proceed to step 3
-                    </Button>
-                </Group>
-            )
-        default:
-            // No forward action exists from here, so the researcher gets a step back to the read-only
-            // Step 1 record alongside the exit (OTTER-764). The two branches above keep their own
-            // designed navigation.
-            return (
-                <Group justify="space-between">
-                    <PreviousStepLink previousHref={setupHref} size="md" />
-                    <Button component={Link} href={dashboardHref} size="md">
-                        Go to dashboard
-                    </Button>
-                </Group>
-            )
-    }
 }
 
 const STATUSES_EXPECTING_FEEDBACK: StudyStatus[] = ['APPROVED', 'REJECTED', 'CHANGE-REQUESTED']
@@ -179,19 +70,21 @@ export function ProposalSubmitted({
     entries,
     studyVersion,
     feedbackError,
-    returnTo,
+    nav,
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
-    const bannerConfig = PROPOSAL_BANNERS[proposalStatus]
-    const statusBadge = bannerConfig?.statusBadge ?? (studyVersion > 1 ? 'Resubmitted on' : undefined)
+    const bannerCopy = researcherProposalBanner(proposalStatus, {
+        dataPartner: displayOrgName(orgName),
+        version: studyVersion,
+    })
 
     // The header cannot tell an element that renders nothing from one that does, so ARCHIVED (no
     // banner copy) must pass nothing at all.
-    const banner = bannerConfig ? <StatusBanner orgName={orgName} study={study} studyVersion={studyVersion} /> : null
+    const banner = bannerCopy ? <StatusBanner copy={bannerCopy} study={study} entries={entries} /> : null
 
     return (
         <Stack p="xl" gap="xl">
-            <ProposalHeader title="Study proposal" />
+            <StudyPageHeader study={study} />
             <Stack gap="xxl">
                 <ProposalRequest
                     study={study}
@@ -199,13 +92,11 @@ export function ProposalSubmitted({
                     stepLabel="STEP 2"
                     heading={proposalHeading(studyVersion)}
                     banner={banner}
-                    statusBadge={statusBadge}
-                    entries={entries}
                     initialExpanded={false}
                 />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
-                <ProposalNavigation orgSlug={orgSlug} study={study} returnTo={returnTo} />
+                <StepNavigation nav={nav} />
             </Stack>
         </Stack>
     )

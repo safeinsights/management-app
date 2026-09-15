@@ -3,12 +3,8 @@
 import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentFormats,
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type LegalDocumentTypeValue,
-} from '@/schema/legal-document'
+import type { LegalDocumentType } from '@/database/types'
+import { legalDocumentFormats, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -16,7 +12,7 @@ import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { formatInstant, formatDayString } from '@/lib/dates'
 import { PreviewDocument } from './preview-document'
 
-type Scope = { type: LegalDocumentTypeValue; orgId?: string; studyId?: string }
+type Scope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
 type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -25,7 +21,7 @@ type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAc
 const hasSignatory = (scope: Scope) => Boolean(scope.orgId || scope.studyId)
 
 // Rendered in place rather than linked: a signed URL to a .md gives the reader raw source.
-const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ versionId, url, label }) => {
+const PreviewLink: FC<{ versionId: string; label: string }> = ({ versionId, label }) => {
     const [isOpen, { open, close }] = useDisclosure(false)
 
     return (
@@ -34,20 +30,18 @@ const PreviewLink: FC<{ versionId: string; url: string; label: string }> = ({ ve
                 View
             </Anchor>
             <AppModal isOpen={isOpen} onClose={close} title={label} zIndex={400}>
-                <PreviewDocument versionId={versionId} url={url} label={label} />
+                <PreviewDocument versionId={versionId} label={label} />
             </AppModal>
         </>
     )
 }
 
-const documentColumnFor = (type: LegalDocumentTypeValue): DataTableColumn<Version> => {
+const documentColumnFor = (type: LegalDocumentType): DataTableColumn<Version> => {
     if (legalDocumentFormats[type] === 'markdown') {
         return {
-            accessor: 'downloadUrl',
+            accessor: 'id',
             title: 'Document',
-            render: (version) => (
-                <PreviewLink versionId={version.id} url={version.downloadUrl} label={legalDocumentTypeLabels[type]} />
-            ),
+            render: (version) => <PreviewLink versionId={version.id} label={legalDocumentTypeLabels[type]} />,
         }
     }
 

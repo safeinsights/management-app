@@ -5,33 +5,58 @@ import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs'
-import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
-import { TermsCheckbox } from '@/components/legal/terms-checkbox'
+import {
+    Alert,
+    Button,
+    Flex,
+    Paper,
+    PasswordInput,
+    Text,
+    TextInput,
+    Title,
+    useMantineTheme,
+    Stack,
+} from '@mantine/core'
+import {
+    AcknowledgementCheckbox,
+    globalDocAgreementLabel,
+    participationAgreementLabel,
+    TosPnPreview,
+} from '@/components/legal/signup-acknowledgement/acknowledgement-checkbox'
 import { useRouter } from 'next/navigation'
-import { FC, useState } from 'react'
+import { FC, useMemo, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchPublicLegalDocumentsAction } from '@/server/actions/legal-document.actions'
+import {
+    fetchGlobalLegalDocumentsAction,
+    fetchParticipationAgreementFromInviteIdAction,
+} from '@/server/actions/legal-document.actions'
 import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 
-const formSchema = z
-    .object({
-        firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        password: (() => {
-            let schema = z.string().max(64)
-            PASSWORD_REQUIREMENTS.forEach((req) => {
-                schema = schema.regex(req.re, req.message)
-            })
-            return schema
-        })(),
-        confirmPassword: z.string(),
-        // In the form so leaving it unchecked raises a visible error rather than only disabling
-        // the button (OTTER-647). Stripped before the action.
-        termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
-    })
-    .superRefine(({ confirmPassword, password }, ctx) => {
+const baseSchema = z.object({
+    firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
+    lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
+    password: (() => {
+        let schema = z.string().max(64)
+        PASSWORD_REQUIREMENTS.forEach((req) => {
+            schema = schema.regex(req.re, req.message)
+        })
+        return schema
+    })(),
+    confirmPassword: z.string(),
+    // In the form so leaving one unchecked raises a visible error rather than only disabling the
+    // button (OTTER-647). Stripped before the action.
+    termsAccepted: z.boolean(),
+    participationAccepted: z.boolean(),
+})
+
+type FormValues = z.infer<typeof baseSchema>
+
+// The participation tick is only owed when the invite's org has published an agreement: with none,
+// AcknowledgementCheckbox renders nothing, so requiring it would be unsatisfiable.
+const formSchemaFor = (isParticipationRequired: boolean) =>
+    baseSchema.superRefine(({ password, confirmPassword, termsAccepted, participationAccepted }, ctx) => {
         if (confirmPassword !== password) {
             ctx.addIssue({
                 code: 'custom',
@@ -39,17 +64,23 @@ const formSchema = z
                 path: ['confirmPassword'],
             })
         }
+        if (!termsAccepted) {
+            ctx.addIssue({ code: 'custom', message: 'You must accept the terms to continue', path: ['termsAccepted'] })
+        }
+        if (isParticipationRequired && !participationAccepted) {
+            ctx.addIssue({
+                code: 'custom',
+                message: 'You must accept the participation agreement to continue',
+                path: ['participationAccepted'],
+            })
+        }
     })
 
-type FormValues = z.infer<typeof formSchema>
-
-// Held until the documents load: the checkbox falls back to placeholder copy when they are
-// missing, and a tick against that is evidence of nothing.
-const LegalDocumentsUnavailable: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+const LegalDocumentsError: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Alert color="red" title="Could not load the Terms of Service and Privacy Notice">
+        <Alert color="red" title="There was an error loading the document">
             Reload the page to try again. Your invitation is still valid.
         </Alert>
     )
@@ -66,8 +97,33 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const theme = useMantineTheme()
     const router = useRouter()
 
-    const form = useForm({
-        validate: zodResolver(formSchema),
+    // Public: the form must show these before an account exists.
+    const {
+        data: tosPn = [],
+        isPending: isLoadingTosPn,
+        isError: tosPnError,
+    } = useQuery({
+        queryKey: legalDocumentQueryKeys.globalDocuments(),
+        queryFn: () => fetchGlobalLegalDocumentsAction(),
+    })
+
+    // Semi-public: the org's own ropa/dopa, gated by the invite's org. Null until one is published.
+    const {
+        data: participationAgreement = null,
+        isPending: isPendingParticipationAgreement,
+        isError: participationAgreementError,
+    } = useQuery({
+        queryKey: legalDocumentQueryKeys.participationAgreementForInvite(inviteId),
+        queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
+    })
+
+    // Fail closed: only a loaded, error-free null means there is genuinely nothing to acknowledge.
+    const isParticipationRequired =
+        isPendingParticipationAgreement || participationAgreementError || participationAgreement !== null
+    const schema = useMemo(() => formSchemaFor(isParticipationRequired), [isParticipationRequired])
+
+    const form = useForm<FormValues>({
+        validate: zodResolver(schema),
         validateInputOnBlur: true,
         validateInputOnChange: ['password'],
         initialValues: {
@@ -75,31 +131,30 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
             lastName: '',
             password: '',
             confirmPassword: '',
-            termsAccepted: false as true,
+            termsAccepted: false,
+            participationAccepted: false,
         },
     })
 
     const [passwordTouched, setPasswordTouched] = useState(false)
     const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
 
-    // Public: the form must show these before an account exists.
-    const {
-        data: legalDocuments = [],
-        isPending: isLoadingLegalDocuments,
-        isError: legalDocumentsUnavailable,
-    } = useQuery({
-        queryKey: legalDocumentQueryKeys.publicDocuments(),
-        queryFn: () => fetchPublicLegalDocumentsAction(),
-    })
-
-    const canSubmit = form.isValid() && !isLoadingLegalDocuments && !legalDocumentsUnavailable
+    const canSubmit =
+        form.isValid() &&
+        !isLoadingTosPn &&
+        !tosPnError &&
+        !isPendingParticipationAgreement &&
+        !participationAgreementError
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         mutationFn: ({ firstName, lastName, password }: FormValues) =>
             onCreateAccountAction({
                 inviteId,
                 form: { firstName, lastName, password },
-                acknowledgedVersionIds: legalDocuments.map((document) => document.versionId),
+                // The participation agreement is absent until the org publishes one
+                acknowledgedVersionIds: [...tosPn, ...(participationAgreement ? [participationAgreement] : [])].map(
+                    (document) => document.versionId,
+                ),
             }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
@@ -234,15 +289,25 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         </Alert>
                     )}
 
-                    <LegalDocumentsUnavailable isVisible={legalDocumentsUnavailable} />
-
-                    <TermsCheckbox
-                        documents={legalDocuments}
-                        checked={form.values.termsAccepted}
-                        onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
-                        onBlur={() => form.validateField('termsAccepted')}
-                        error={form.errors.termsAccepted}
-                    />
+                    <Stack>
+                        <LegalDocumentsError isVisible={tosPnError} />
+                        <TosPnPreview documents={tosPn} />
+                        <AcknowledgementCheckbox
+                            label={globalDocAgreementLabel(tosPn)}
+                            checked={form.values.termsAccepted}
+                            onChange={(checked) => form.setFieldValue('termsAccepted', checked)}
+                            onBlur={() => form.validateField('termsAccepted')}
+                            error={form.errors.termsAccepted}
+                        />
+                        <LegalDocumentsError isVisible={participationAgreementError} />
+                        <AcknowledgementCheckbox
+                            label={participationAgreementLabel(participationAgreement)}
+                            checked={form.values.participationAccepted}
+                            onChange={(checked) => form.setFieldValue('participationAccepted', checked)}
+                            onBlur={() => form.validateField('participationAccepted')}
+                            error={form.errors.participationAccepted}
+                        />
+                    </Stack>
 
                     <Flex mt="sm">
                         <Button

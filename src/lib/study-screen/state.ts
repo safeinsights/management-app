@@ -8,6 +8,7 @@ import {
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
 import { draftHasStep2Progress } from '@/lib/studies'
+import type { ResearcherScreenId, ScreenId } from './screens'
 import type { RawJob, RawStudyState, StudyState } from './state.types'
 
 const has = (job: RawJob | undefined, statuses: readonly StudyJobStatus[]): boolean =>
@@ -70,6 +71,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const resultsApproved = jobStatuses.has('FILES-APPROVED')
     const resultsRejected = jobStatuses.has('FILES-REJECTED')
     const resultsErrored = jobStatuses.has('JOB-ERRORED')
+    const runErrored = resultsErrored && !jobStatuses.has('RUN-COMPLETE')
     const resultsDisplayStatus = RESULTS_PRIORITY.find((r) => r && jobStatuses.has(r)) ?? null
 
     // Status changes are append-only, so a finished job keeps its JOB-RUNNING row; gating on
@@ -110,6 +112,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsApproved,
         resultsRejected,
         resultsErrored,
+        runErrored,
         resultsDisplayStatus,
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
@@ -128,10 +131,25 @@ export const awaitingFilesDecisionOnError = (
 // Shared by the rule table and the screen's render guard so the two cannot drift (OTTER-695/697).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected
 
-// Narrower than resultsErrored: the scanner and containerizer also write JOB-ERRORED, so a
-// packaging error before a good run leaves both that and RUN-COMPLETE on the job (OTTER-697).
-export const runErrored = (statusChanges: RawJob['statusChanges']): boolean =>
-    statusChanges.some((c) => c.status === 'JOB-ERRORED') && !statusChanges.some((c) => c.status === 'RUN-COMPLETE')
+// The two screens CodeDecisionScreen serves, and the decision each of them displays. The rule table
+// already chose between the pair, so this reads that answer back instead of re-deriving it at the
+// call site, where a second derivation would be free to disagree with the page that resolved
+// (OTTER-673).
+//
+// Execution needs no case of its own: 'outputs-pending' outranks 'code-approved' for an executing
+// study, and /view/code does not consider that screen, so 'code-approved' matches on the approval
+// alone. null for any other screen, so the route 404s rather than invent a decision the table never
+// made.
+export type CodeDecisionScreenId = Extract<ResearcherScreenId, 'code-approved' | 'code-feedback'>
+
+export const codeDecisionForScreen = (
+    screen: ScreenId,
+    s: Pick<StudyState, 'codeDecision'>,
+): { screen: CodeDecisionScreenId; status: CodeDecisionStatus } | null => {
+    if (screen === 'code-approved') return { screen, status: 'CODE-APPROVED' }
+    if (screen === 'code-feedback' && s.codeDecision !== null) return { screen, status: s.codeDecision }
+    return null
+}
 
 // Shared by the rule table and the screen's render guard so routing and rendering cannot
 // disagree (OTTER-696).

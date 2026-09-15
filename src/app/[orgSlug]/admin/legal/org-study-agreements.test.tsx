@@ -7,6 +7,7 @@ import {
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
+    testUploadFile,
 } from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
@@ -21,7 +22,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
         // Implementations, not mockResolvedValue: mockReset restores these but wipes a value set
         // afterwards.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -41,9 +42,9 @@ const seedDataPartnerWithStudy = async (title: string) => {
 const publishAgreement = async (studyId: string, signedAt: string) => {
     await mockSessionWithTestData({ isSiAdmin: true })
     const { version } = actionResult(
-        await createLegalDocumentDraftAction({ type: 'SLA', studyId, fileName: 'agreement.pdf' }),
+        await createLegalDocumentDraftAction({ type: 'SLA', studyId, file: testUploadFile('agreement.pdf') }),
     )
-    actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
+    return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
 const rowTitles = () =>
@@ -76,17 +77,14 @@ describe('OrgStudyAgreements', () => {
     it('links to the PDF and shows the signed date once an agreement is published', async () => {
         const title = `Signed ${faker.string.alpha(6)}`
         const { study, dataPartner } = await seedDataPartnerWithStudy(title)
-        await publishAgreement(study.id, '2026-06-17')
+        const version = await publishAgreement(study.id, '2026-06-17')
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
 
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
 
         const row = await rowFor(title)
         expect(within(row).getByText('Jun 17, 2026')).toBeDefined()
-        expect(within(row).getByRole('link', { name: /PDF/ })).toHaveProperty(
-            'href',
-            'https://mock-signed-url.example.com/file',
-        )
+        expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
     it('heads the counterparty column From for a Data Partner and To for a Research Lab', async () => {

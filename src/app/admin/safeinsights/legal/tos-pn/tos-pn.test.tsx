@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, within } from '@testing-library/react'
-import { actionResult, mockSessionWithTestData, renderWithProviders, resetLegalDocuments } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    mockSessionWithTestData,
+    renderWithProviders,
+    resetLegalDocuments,
+    testUploadFile,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchLegalDocumentVersionsAction,
@@ -14,26 +20,27 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
-// One stub serves both fetches the UI makes: the upload POST and PreviewDocument's GET.
-beforeEach(async () => {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn(async () => ({ ok: true, status: 200, text: async () => '# Terms of Service' }) as unknown as Response),
-    )
-    await resetLegalDocuments()
-})
+// Mocking `@/server/aws` does not reach storage's own import of it.
+vi.mock('@/server/storage', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/storage')>()),
+    fetchFileContents: vi.fn(async () => new Blob(['# Terms of Service'])),
+}))
+
+beforeEach(resetLegalDocuments)
 
 const seedPublishedTos = async (fileName: string) => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 
 const seedDraftTos = (fileName: string) =>
-    createLegalDocumentDraftAction({ type: 'TOS', fileName }).then((r) => actionResult(r).version)
+    createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) }).then((r) => actionResult(r).version)
 
 describe('TosPnPanel', () => {
     it('shows no published version and an empty history before anything is uploaded', async () => {

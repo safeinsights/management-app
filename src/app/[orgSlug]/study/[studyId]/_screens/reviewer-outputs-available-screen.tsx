@@ -2,7 +2,7 @@ import { AlertNotFound } from '@/components/errors'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
-import { Routes } from '@/lib/routes'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
@@ -24,7 +24,8 @@ export async function ReviewerOutputsAvailableScreen({
     study,
     raw,
     orgSlug,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug'>) {
+    phasedNav,
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'phasedNav'>) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -48,12 +49,12 @@ export async function ReviewerOutputsAvailableScreen({
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title ?? ''}
             job={job}
             labName={labName}
+            header={<StudyPageHeader study={study} />}
             lockedBanner={<AvailableBanner availableAt={availableAt} labName={labName} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
-            previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
+            nav={phasedNav}
         />
     )
 }

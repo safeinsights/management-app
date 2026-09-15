@@ -11,6 +11,9 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import type { PhasedBannerCopy } from '@/lib/study-banners'
+import type { PhasedStepNav } from '@/lib/study-screen'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { SharedOutputsPanel } from './shared-outputs-panel'
@@ -28,22 +31,43 @@ const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
 
 const LOCKED_HEADING = 'Decrypt outputs to view code error'
-const UNLOCKED_HEADING = 'Outputs and feedback available'
+const UNLOCKED_HEADING = 'Resolve the code error to proceed'
 const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
 const UNLOCKED_BODY =
-    "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit."
+    'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.'
 
 const LOCKED_TITLE = `${LOCKED_HEADING} • Aug 05, 2026`
 const UNLOCKED_TITLE = `${UNLOCKED_HEADING} • Aug 05, 2026`
 
-const BANNER = {
-    locked: { title: LOCKED_HEADING, body: LOCKED_BODY },
-    unlocked: { title: UNLOCKED_HEADING, body: UNLOCKED_BODY },
+const BANNER: PhasedBannerCopy = {
+    locked: { variant: STATUS_ALERT_VARIANT.action, title: LOCKED_HEADING, body: LOCKED_BODY },
+    unlocked: { variant: STATUS_ALERT_VARIANT.action, title: UNLOCKED_HEADING, body: UNLOCKED_BODY },
 }
 
 const PREVIOUS_HREF = '/test-lab/study/abc/view/code' as Route
 const EDIT_CODE_HREF = '/test-lab/study/abc/resubmit' as Route
 const DASHBOARD_HREF = '/dashboard' as Route
+
+// The terminal-positive shape (spec state 5); the errored share passes Edit code solid instead.
+const PREVIOUS = {
+    label: 'Previous step',
+    href: PREVIOUS_HREF,
+    variant: 'subtle',
+    testId: 'cta-previous-step',
+} as const
+const NAV: PhasedStepNav = {
+    locked: { back: PREVIOUS },
+    unlocked: {
+        back: PREVIOUS,
+        secondary: { label: 'Edit code', href: EDIT_CODE_HREF, variant: 'outline', testId: 'cta-edit-code' },
+        forward: {
+            label: 'Back to my studies',
+            href: DASHBOARD_HREF,
+            variant: 'solid',
+            testId: 'cta-back-to-my-studies',
+        },
+    },
+}
 
 // Counting mounts is the only way to prove the banner swap did not remount it; a remount
 // silently resets each entry's expand/collapse state.
@@ -62,17 +86,14 @@ describe('SharedOutputsPanel', () => {
     // A real row still has to exist for the seeded artifact to hang off.
     let job: { id: string }
 
-    const renderPanel = () =>
+    const renderPanel = (banner = BANNER) =>
         renderWithProviders(
             <SharedOutputsPanel
-                studyTitle="Diabetes readmission rates"
                 decidedAt={DECIDED_AT}
-                banner={BANNER}
+                banner={banner}
                 job={job}
                 feedbackSection={<FeedbackProbe />}
-                previousHref={PREVIOUS_HREF}
-                editCodeHref={EDIT_CODE_HREF}
-                dashboardHref={DASHBOARD_HREF}
+                nav={NAV}
             />,
         )
 
@@ -102,12 +123,12 @@ describe('SharedOutputsPanel', () => {
     })
 
     describe('before decryption', () => {
-        it('renders the STEP 4 "Verify outputs" section header with the study title', () => {
+        it('renders the STEP 4 "Verify outputs" section header without a study title', () => {
             renderPanel()
             const header = screen.getByTestId('proposal-section-header')
             expect(header).toHaveTextContent('STEP 4')
             expect(header).toHaveTextContent('Verify outputs')
-            expect(header).toHaveTextContent('Diabetes readmission rates')
+            expect(header).not.toHaveTextContent('Diabetes readmission rates')
         })
 
         it('renders the action banner with the exact copy, data partner and decision date', () => {
@@ -121,14 +142,11 @@ describe('SharedOutputsPanel', () => {
         it('degrades to an undated banner when no decision timestamp is available', () => {
             renderWithProviders(
                 <SharedOutputsPanel
-                    studyTitle="Diabetes readmission rates"
                     decidedAt={null}
                     banner={BANNER}
                     job={job}
                     feedbackSection={<FeedbackProbe />}
-                    previousHref={PREVIOUS_HREF}
-                    editCodeHref={EDIT_CODE_HREF}
-                    dashboardHref={DASHBOARD_HREF}
+                    nav={NAV}
                 />,
             )
             const alert = screen.getByTestId('status-alert')
@@ -161,6 +179,7 @@ describe('SharedOutputsPanel', () => {
 
         it('offers only Previous step — Edit code and Back to my studies are absent', () => {
             renderPanel()
+            expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
             const previous = screen.getByRole('link', { name: /previous step/i })
             expect(previous).toHaveAttribute('href', PREVIOUS_HREF)
             expect(previous).toHaveAttribute('data-variant', 'subtle')
@@ -170,14 +189,26 @@ describe('SharedOutputsPanel', () => {
     })
 
     describe('after decryption', () => {
-        it('swaps the action banner for the success banner with the exact copy and the same date', async () => {
+        it('swaps to the unlocked copy and variant with the same decision date', async () => {
             renderPanel()
+            await decrypt()
+            const alert = screen.getByTestId('status-alert')
+            expect(alert).toHaveAttribute('data-variant', 'action')
+            expect(alert).toHaveTextContent(UNLOCKED_TITLE)
+            expect(alert).toHaveTextContent(UNLOCKED_BODY)
+            expect(alert).not.toHaveTextContent('Decrypt outputs to view code error')
+        })
+
+        it('renders a success unlocked banner when that is the copy it is given', async () => {
+            renderPanel({
+                ...BANNER,
+                unlocked: { ...BANNER.unlocked, variant: STATUS_ALERT_VARIANT.success },
+            })
             await decrypt()
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'success')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
             expect(alert).toHaveTextContent(UNLOCKED_BODY)
-            expect(alert).not.toHaveTextContent('Decrypt outputs to view code error')
         })
 
         it('announces the swap in the SAME polite live region rather than remounting it', async () => {
@@ -221,7 +252,7 @@ describe('SharedOutputsPanel', () => {
             expect(screen.getByText('summary.csv')).toBeInTheDocument()
         })
 
-        it('adds Edit code (outline) and Back to my studies (filled), both enabled, keeping Previous step', async () => {
+        it('renders the given nav in full once decrypted, keeping Previous step', async () => {
             renderPanel()
             await decrypt()
 

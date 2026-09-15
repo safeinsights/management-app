@@ -6,31 +6,36 @@ import { notifications } from '@mantine/notifications'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 
 import { Routes } from '@/lib/routes'
+import { showOrReplaceNotification } from '@/components/errors'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { OUTPUTS_DECIDED_NOTIFICATION_ID } from '@/lib/outputs-review'
+
+// The three decision rounds carry an identical payload and differ only in which round closed, so
+// they share one member rather than three copies of the same four fields.
+const DECISION_EVENT_TYPES = ['proposal-review-submitted', 'code-review-submitted', 'outputs-review-submitted'] as const
+
+export type DecisionEventType = (typeof DECISION_EVENT_TYPES)[number]
+
+const isDecisionEventType = (value: unknown): value is DecisionEventType =>
+    DECISION_EVENT_TYPES.includes(value as DecisionEventType)
+
+// What the peer's decision closed, per round. Together, so a copy change can be read at a glance.
+const DECISION_SUBJECT: Record<DecisionEventType, string> = {
+    'proposal-review-submitted': 'this study proposal',
+    'code-review-submitted': 'this study code',
+    'outputs-review-submitted': 'this output',
+}
+
+type SubmissionEventBase = {
+    studyId: string
+    submittedByTabId: string
+    submittedByClerkId: string
+    submittedByName: string
+}
 
 export type SubmissionEvent =
-    | {
-          type: 'proposal-submitted'
-          studyId: string
-          submittedByTabId: string
-          submittedByClerkId: string
-          submittedByName: string
-          orgName: string
-      }
-    | {
-          type: 'proposal-review-submitted'
-          studyId: string
-          submittedByTabId: string
-          submittedByClerkId: string
-          submittedByName: string
-      }
-    | {
-          type: 'code-review-submitted'
-          studyId: string
-          submittedByTabId: string
-          submittedByClerkId: string
-          submittedByName: string
-      }
+    | ({ type: 'proposal-submitted'; orgName: string } & SubmissionEventBase)
+    | ({ type: DecisionEventType } & SubmissionEventBase)
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 
@@ -45,33 +50,17 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     ) {
         return null
     }
+    const base: SubmissionEventBase = {
+        studyId: obj.studyId,
+        submittedByTabId: obj.submittedByTabId,
+        submittedByClerkId: obj.submittedByClerkId,
+        submittedByName: obj.submittedByName,
+    }
     if (obj.type === 'proposal-submitted' && isString(obj.orgName)) {
-        return {
-            type: 'proposal-submitted',
-            studyId: obj.studyId,
-            submittedByTabId: obj.submittedByTabId,
-            submittedByClerkId: obj.submittedByClerkId,
-            submittedByName: obj.submittedByName,
-            orgName: obj.orgName,
-        }
+        return { type: 'proposal-submitted', ...base, orgName: obj.orgName }
     }
-    if (obj.type === 'proposal-review-submitted') {
-        return {
-            type: 'proposal-review-submitted',
-            studyId: obj.studyId,
-            submittedByTabId: obj.submittedByTabId,
-            submittedByClerkId: obj.submittedByClerkId,
-            submittedByName: obj.submittedByName,
-        }
-    }
-    if (obj.type === 'code-review-submitted') {
-        return {
-            type: 'code-review-submitted',
-            studyId: obj.studyId,
-            submittedByTabId: obj.submittedByTabId,
-            submittedByClerkId: obj.submittedByClerkId,
-            submittedByName: obj.submittedByName,
-        }
+    if (isDecisionEventType(obj.type)) {
+        return { type: obj.type, ...base }
     }
     return null
 }
@@ -126,24 +115,19 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                 return
             }
 
-            if (event.type === 'code-review-submitted') {
-                notifications.show({
-                    color: 'blue',
-                    title: 'Decision submitted',
-                    message: `${event.submittedByName} has proceeded to submit a decision on this study code. No further edits are allowed at this point.`,
-                    autoClose: NOTIFICATION_DISPLAY_MS,
-                })
-                router.push(Routes.studyReview({ orgSlug, studyId }))
-                return
-            }
-
-            notifications.show({
+            showOrReplaceNotification({
+                // Only the outputs round shares an id, with the status backstop that may reach the
+                // same conclusion a moment later through this tab's own failed submit.
+                id: event.type === 'outputs-review-submitted' ? OUTPUTS_DECIDED_NOTIFICATION_ID : undefined,
                 color: 'blue',
                 title: 'Decision submitted',
-                message: `${event.submittedByName} has proceeded to submit a decision on this study proposal. No further edits are allowed at this point.`,
+                message: `${event.submittedByName} has proceeded to submit a decision on ${DECISION_SUBJECT[event.type]}. No further edits are allowed at this point.`,
                 autoClose: NOTIFICATION_DISPLAY_MS,
             })
             router.push(Routes.studyReview({ orgSlug, studyId }))
+            // An open review screen and the decided screen that replaces it can answer the same URL,
+            // where the push alone is a no-op that leaves the open form mounted.
+            router.refresh()
         }
 
         const onStateless = (data: { payload: unknown }) => {

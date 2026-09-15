@@ -5,11 +5,10 @@ import { loadProposalSubmittedData } from '../submitted/load-proposal-submitted'
 import type { ScreenComponentProps } from './types'
 
 // Renders the same ProposalSubmitted page as /submitted so the two stay identical.
-export async function ProposalFeedbackScreen({ study, orgSlug }: ScreenComponentProps) {
+export async function ProposalFeedbackScreen({ study, orgSlug, nav }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) notFound()
 
     const { orgName, entries, studyVersion, feedbackError } = await loadProposalSubmittedData(study)
-
     return (
         <ProposalSubmitted
             orgSlug={orgSlug}
@@ -18,6 +17,7 @@ export async function ProposalFeedbackScreen({ study, orgSlug }: ScreenComponent
             entries={entries}
             studyVersion={studyVersion}
             feedbackError={feedbackError}
+            nav={nav}
         />
     )
 }

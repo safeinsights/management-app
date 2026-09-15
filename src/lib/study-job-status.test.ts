@@ -5,6 +5,7 @@ import {
     latestCodeChangeIsSubmission,
     latestStatusAt,
     latestSubmittedJobHasLiveCodeDecision,
+    reviewForCurrentRound,
 } from './study-job-status'
 
 const changes = (...statuses: StudyJobStatus[]) => statuses.map((status) => ({ status }))
@@ -194,5 +195,37 @@ describe('latestStatusAt', () => {
                 'RUN-COMPLETE',
             ),
         ).toBe('2026-07-21T09:00:00Z')
+    })
+})
+
+describe('reviewForCurrentRound', () => {
+    const submittedAt = new Date('2026-07-21T10:00:00Z')
+    const at = (iso: string) => new Date(iso)
+
+    it('keeps a report written after the round opened', () => {
+        const review = { createdAt: at('2026-07-21T10:00:20Z'), summaryFailedAt: null }
+        expect(reviewForCurrentRound(review, submittedAt)).toBe(review)
+    })
+
+    it("drops the previous round's report, which the job id alone cannot distinguish", () => {
+        const review = { createdAt: at('2026-07-20T09:00:00Z'), summaryFailedAt: null }
+        expect(reviewForCurrentRound(review, submittedAt)).toBeNull()
+    })
+
+    // persistFailure writes as the submission lands, so the row can beat the status row by a hair.
+    it('keeps a failure row that lands just before the submission it belongs to', () => {
+        const review = { createdAt: at('2026-07-21T09:59:59Z'), summaryFailedAt: at('2026-07-21T09:59:59Z') }
+        expect(reviewForCurrentRound(review, submittedAt)).toBe(review)
+    })
+
+    // persistFailure upserts, so trusting failure rows at any age let a previous round's failure
+    // show as a permanent error over this round's code.
+    it('drops a failure row left over from the previous round', () => {
+        const review = { createdAt: at('2026-07-20T09:00:00Z'), summaryFailedAt: at('2026-07-20T09:00:00Z') }
+        expect(reviewForCurrentRound(review, submittedAt)).toBeNull()
+    })
+
+    it('returns null when there is no row at all', () => {
+        expect(reviewForCurrentRound(null, submittedAt)).toBeNull()
     })
 })

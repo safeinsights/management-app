@@ -58,6 +58,18 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
     return mocks
 }
 
+// Signs in as an admin of an org that already exists, so the caller's rights can be pointed at a
+// specific study's org rather than the throwaway one mockSessionWithTestData creates.
+async function authenticateAsOrgAdminOf(org: { id: string }) {
+    const mocks = await mockSessionWithTestData({ isSiAdmin: false, isAdmin: true })
+    if (!mocks.auth) throw new Error('expected a mocked clerk auth')
+    await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+    const { userId, sessionClaims } = mocks.auth()
+    ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
+    ;(await headers()).set('Authorization', 'Bearer fake-clerk-session-token')
+    return mocks
+}
+
 // Enclave org because insertTestUser only creates user_public_key rows for those, and its reviewers
 // are who an uploaded artifact is encrypted for.
 async function insertQaStudy() {
@@ -282,6 +294,49 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(row.status).toBe('DRAFT')
     })
 
+    // The QA tooling runs as an org admin; a study is data of both its enclave and its lab.
+    it('lets an admin of the study org set its status', async () => {
+        const { org, study } = await insertQaStudy()
+        await authenticateAsOrgAdminOf(org)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(200)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('APPROVED')
+    })
+
+    it('rejects an admin of a different org', async () => {
+        const { study } = await insertQaStudy()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await authenticateAsOrgAdminOf(other)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(403)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('DRAFT')
+    })
+
+    it('rejects an admin of only the enclave when the lab is a different org', async () => {
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: lab, email: qaEmail() })
+        const { study } = await insertTestStudyOnly({
+            org: enclave,
+            submittedByOrg: lab,
+            researcherId: user.id,
+            status: 'DRAFT',
+        })
+        await authenticateAsOrgAdminOf(enclave)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(403)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('DRAFT')
+    })
+
     it('rejects a caller who is not an SI admin', async () => {
         await authenticateAsSiAdmin({ isSiAdmin: false })
         const { study } = await insertQaStudy()
@@ -291,6 +346,33 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(response.status).toBe(403)
         const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(row.status).toBe('DRAFT')
+    })
+
+    // An unauthorized caller must be turned away before the server reads their upload, so an
+    // invalid body answers 403 rather than 400.
+    it('refuses an unauthorized caller before reading the body', async () => {
+        await authenticateAsSiAdmin({ isSiAdmin: false })
+        const { study } = await insertQaStudy()
+
+        const response = await patchStatus(study.id, formWith({}))
+
+        expect(response.status).toBe(403)
+    })
+
+    it('audits a refused request against the caller', async () => {
+        const { user: caller } = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const { study } = await insertQaStudy()
+
+        await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        const rows = await db
+            .selectFrom('audit')
+            .select(['eventType', 'recordType', 'userId', 'metadata'])
+            .where('recordId', '=', study.id)
+            .execute()
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({ eventType: 'UPDATED', recordType: 'STUDY', userId: caller.id })
+        expect(rows[0].metadata).toMatchObject({ outcome: 'refused' })
     })
 
     it('audits the change against the acting admin', async () => {

@@ -1,13 +1,12 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { Stack } from '@mantine/core'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
-import { StudyPageHeader } from '@/components/study/study-page-header'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
@@ -18,6 +17,7 @@ import { EditResubmitFooter } from './footer'
 const RESUBMIT_EDITABLE_STATUSES = ['CHANGE-REQUESTED'] as const
 
 interface EditResubmitFormProps {
+    header: ReactNode
     orgName: string
     members: MemberOption[]
     researcherName: string
@@ -29,6 +29,7 @@ interface EditResubmitFormProps {
 }
 
 export const EditResubmitForm: FC<EditResubmitFormProps> = ({
+    header,
     orgName,
     members,
     researcherName,
@@ -57,7 +58,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             redirectTarget="studySubmitted"
         >
             <Stack gap="xxl">
-                <StudyPageHeader>Edit Initial Request</StudyPageHeader>
+                {header}
 
                 <EditInitialRequestSection
                     orgName={orgName}

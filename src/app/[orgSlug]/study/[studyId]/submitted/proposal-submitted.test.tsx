@@ -14,7 +14,18 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
+import type { StepNav } from '@/lib/study-screen'
 import { ProposalSubmitted } from './proposal-submitted'
+
+const NAV: StepNav = {
+    forward: {
+        label: 'Back to my studies',
+        href: Routes.dashboard,
+        variant: 'solid',
+        testId: 'cta-back-to-my-studies',
+    },
+}
 
 const ORG_SLUG = 'test-org'
 const ORG_NAME = 'Test Data Partner'
@@ -64,8 +75,8 @@ describe('ProposalSubmitted', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: study.id })
     })
 
-    describe('timestamp and decision label', () => {
-        it('displays "Approved on {date}" when status is APPROVED', () => {
+    describe('banner title dates', () => {
+        it('puts the approval date in the banner title', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
@@ -75,6 +86,7 @@ describe('ProposalSubmitted', () => {
             const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -83,10 +95,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
+            )
         })
 
-        it('displays "Clarification requested on {date}" when status is CHANGE-REQUESTED', () => {
+        it('puts the revision-request date in the banner title', () => {
             const clarificationStudy = {
                 ...study,
                 status: 'CHANGE-REQUESTED' as const,
@@ -97,6 +111,7 @@ describe('ProposalSubmitted', () => {
             ]
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={clarificationStudy}
                     orgName={ORG_NAME}
@@ -105,12 +120,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
-                'Clarification requested on Apr 18, 2026',
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Revision requested ${STATUS_ALERT_SEPARATOR} Apr 18, 2026`,
             )
         })
 
-        it('displays "Rejected on {date}" when status is REJECTED', () => {
+        it('puts the decline date in the banner title', () => {
             const rejectedStudy = {
                 ...study,
                 status: 'REJECTED' as const,
@@ -120,6 +135,7 @@ describe('ProposalSubmitted', () => {
             const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={rejectedStudy}
                     orgName={ORG_NAME}
@@ -128,10 +144,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal declined ${STATUS_ALERT_SEPARATOR} May 01, 2026`,
+            )
         })
 
-        it('displays "Submitted on {date}" when status is PENDING-REVIEW', () => {
+        it('puts the submission date in the banner title', () => {
             const pendingStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
@@ -140,6 +158,7 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={pendingStudy}
                     orgName={ORG_NAME}
@@ -148,10 +167,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Submitted on Apr 16, 2025')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal submitted to ${ORG_NAME} ${STATUS_ALERT_SEPARATOR} Apr 16, 2025`,
+            )
         })
 
-        it('displays "Approved on {date}" when status is PENDING-REVIEW but proposal was approved', () => {
+        it('uses the approval date when status is PENDING-REVIEW but the proposal was approved', () => {
             const codeUnderReviewStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
@@ -160,6 +181,7 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={codeUnderReviewStudy}
                     orgName={ORG_NAME}
@@ -168,10 +190,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
+            )
         })
 
-        it('displays "Resubmitted on {date}" when status is PENDING-REVIEW after a resubmission', () => {
+        it('puts the resubmission date and version in the banner title', () => {
             const pendingStudy = {
                 ...study,
                 status: 'PENDING-REVIEW' as const,
@@ -180,6 +204,7 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={pendingStudy}
                     orgName={ORG_NAME}
@@ -188,7 +213,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Resubmitted on Apr 16, 2025')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal v2.0 resubmitted to ${ORG_NAME} ${STATUS_ALERT_SEPARATOR} Apr 16, 2025`,
+            )
         })
 
         it('formats the date as MMM DD, YYYY', () => {
@@ -200,6 +227,7 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -208,10 +236,12 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Dec 01, 2025')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved ${STATUS_ALERT_SEPARATOR} Dec 01, 2025`,
+            )
         })
 
-        it('renders the timestamp above the divider', () => {
+        it('renders the banner after the divider', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
@@ -220,6 +250,7 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -228,17 +259,18 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const timestamp = screen.getByTestId('proposal-timestamp')
             const divider = screen.getByTestId('proposal-header-divider')
-            expect(timestamp.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            const banner = screen.getByTestId('status-alert')
+            expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
     })
 
     describe('decision banner', () => {
-        it('renders a green banner with approved copy when status is APPROVED', () => {
+        it('renders the success banner when status is APPROVED', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -247,16 +279,16 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-APPROVED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'success')
+            expect(banner).toHaveTextContent('Proposal approved')
         })
 
-        it('renders a blue banner with clarification copy when status is CHANGE-REQUESTED', () => {
+        it('renders the action banner when status is CHANGE-REQUESTED', () => {
             const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={clarificationStudy}
                     orgName={ORG_NAME}
@@ -265,16 +297,16 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-CHANGE-REQUESTED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed your initial request and has requested clarifications. Please review their feedback below. You can revise and resubmit your request to address their questions.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'action')
+            expect(banner).toHaveTextContent('Revision requested')
         })
 
-        it('renders a red banner with rejected copy when status is REJECTED', () => {
+        it('renders the decline banner when status is REJECTED', () => {
             const rejectedStudy = { ...study, status: 'REJECTED' as const }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={rejectedStudy}
                     orgName={ORG_NAME}
@@ -283,16 +315,16 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-REJECTED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed your initial request and is unable to support it at this time. Please review their feedback below for more details.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('Proposal declined')
         })
 
-        it('renders the banner below the divider', () => {
+        it('places the banner below the divider', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -302,7 +334,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const divider = screen.getByTestId('proposal-header-divider')
-            const banner = screen.getByTestId('status-banner-APPROVED')
+            const banner = screen.getByTestId('status-alert')
             expect(divider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
@@ -310,6 +342,7 @@ describe('ProposalSubmitted', () => {
             const archivedStudy = { ...study, status: 'ARCHIVED' as const, approvedAt: null, rejectedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={archivedStudy}
                     orgName={ORG_NAME}
@@ -325,6 +358,7 @@ describe('ProposalSubmitted', () => {
             const approvedStudy = { ...study, status: 'APPROVED' as const }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={approvedStudy}
                     orgName={ORG_NAME}
@@ -333,16 +367,15 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            expect(screen.getByTestId('status-banner-APPROVED')).toBeInTheDocument()
-            expect(screen.queryByTestId('status-banner-REJECTED')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('status-banner-CHANGE-REQUESTED')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
+            expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
+            expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'success')
         })
 
-        it('renders resubmission copy when status is PENDING-REVIEW after a resubmission', () => {
+        it('renders the informative banner when status is PENDING-REVIEW after a resubmission', () => {
             const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={pendingStudy}
                     orgName={ORG_NAME}
@@ -351,10 +384,9 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-PENDING-REVIEW')
-            expect(banner).toHaveTextContent(
-                `Your revised initial request has been resubmitted to ${ORG_NAME}. They will review your changes and respond with feedback or a decision. You'll receive email notifications as your request progresses through the review process.`,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent(`Proposal v2.0 resubmitted to ${ORG_NAME}`)
         })
 
         it('renders approved banner when status is PENDING-REVIEW but proposal was previously approved', () => {
@@ -365,6 +397,7 @@ describe('ProposalSubmitted', () => {
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={codeUnderReviewStudy}
                     orgName={ORG_NAME}
@@ -373,18 +406,23 @@ describe('ProposalSubmitted', () => {
                 />,
             )
 
-            const banner = screen.getByTestId('status-banner-APPROVED')
-            expect(banner).toHaveTextContent(
-                `${ORG_NAME} has reviewed and approved your initial request. Review their feedback below, then proceed to provide your code.`,
-            )
-            expect(screen.queryByTestId('status-banner-PENDING-REVIEW')).not.toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'success')
+            expect(banner).toHaveTextContent('Proposal approved')
         })
     })
 
     describe('view full proposal dropdown', () => {
         it('is collapsed to the snippet by default on page load', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
@@ -395,7 +433,14 @@ describe('ProposalSubmitted', () => {
         it('expands to display the study proposal when clicked', async () => {
             const user = userEvent.setup()
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             await user.click(screen.getByTestId('proposal-toggle-snippet'))
@@ -403,13 +448,21 @@ describe('ProposalSubmitted', () => {
             expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
             expect(screen.getByTestId('proposal-body')).toBeVisible()
             expect(screen.queryByTestId('proposal-snippet')).not.toBeInTheDocument()
-            expect(screen.getByText(`Title: ${study.title}`)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
         it('displays study proposal content as read-only with no editable fields', async () => {
             const user = userEvent.setup()
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             await user.click(screen.getByTestId('proposal-toggle-snippet'))
@@ -421,186 +474,70 @@ describe('ProposalSubmitted', () => {
     })
 
     describe('navigation', () => {
-        it('shows a "Back" button linking to dashboard when status is APPROVED', () => {
-            const approvedStudy = { ...study, status: 'APPROVED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={approvedStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const backLink = screen.getByRole('link', { name: /back/i })
-            expect(backLink).toHaveAttribute('href', '/dashboard')
-        })
-
-        it('shows a "Proceed to step 3" button linking to the code step when status is APPROVED', () => {
-            const approvedStudy = { ...study, status: 'APPROVED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={approvedStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
-            expect(proceedLink).toHaveAttribute('href', Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }))
-        })
-
-        it('shows a "Back" button linking to dashboard when status is CHANGE-REQUESTED', () => {
-            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={clarificationStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const backLink = screen.getByRole('link', { name: /back/i })
-            expect(backLink).toHaveAttribute('href', '/dashboard')
-        })
-
-        it('shows an "Edit and resubmit" button linking to edit and resubmit page when status is CHANGE-REQUESTED', () => {
-            const clarificationStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={clarificationStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const editLink = screen.getByRole('link', { name: /edit and resubmit/i })
-            expect(editLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/edit-and-resubmit`)
-        })
-
-        it('shows a "Go to dashboard" button linking to dashboard when status is REJECTED', () => {
-            const rejectedStudy = { ...study, status: 'REJECTED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={rejectedStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const dashboardLink = screen.getByRole('link', { name: /go to dashboard/i })
-            expect(dashboardLink).toHaveAttribute('href', '/dashboard')
-        })
-
-        // OTTER-764: the states whose only action was the exit now also step back to the read-only
-        // Step 1 record, which is the researcher's way into it.
-        it('shows a "Previous step" link to Step 1 when status is PENDING-REVIEW', () => {
-            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={pendingStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const previousLink = screen.getByRole('link', { name: /previous step/i })
-            expect(previousLink).toHaveAttribute('href', Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id }))
-            expect(screen.getByRole('link', { name: /go to dashboard/i })).toBeInTheDocument()
-        })
-
-        // Step 1 is a leaf the researcher steps back to and forward from, so the org-scoped entry
-        // has to ride along or the round trip strands them on the personal dashboard.
-        it('keeps an org-scoped entry on the "Previous step" link', () => {
-            const pendingStudy = { ...study, status: 'PENDING-REVIEW' as const, approvedAt: null }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={pendingStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                    returnTo="org"
-                />,
-            )
-
-            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-                'href',
-                Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id, returnTo: 'org' }),
-            )
-        })
-
-        it('shows a "Previous step" link to Step 1 when status is REJECTED', () => {
-            const rejectedStudy = { ...study, status: 'REJECTED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={rejectedStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-                'href',
-                Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id }),
-            )
-        })
-
-        // The two branches with a designed forward action keep the navigation they already had.
-        it('offers no "Previous step" link when a forward action exists', () => {
-            const changeRequestedStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
-            renderWithProviders(
-                <ProposalSubmitted
-                    orgSlug={ORG_SLUG}
-                    study={changeRequestedStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            expect(screen.queryByRole('link', { name: /previous step/i })).not.toBeInTheDocument()
-        })
-
-        it('shows "Proceed to step 3" when status is PENDING-REVIEW but proposal was approved', () => {
-            const codeUnderReviewStudy = {
-                ...study,
-                status: 'PENDING-REVIEW' as const,
-                approvedAt: new Date('2026-04-20T10:00:00Z'),
+        // Which buttons a status earns is the nav table's business (nav.test.ts); the page only
+        // renders what the route hands it.
+        it('renders the nav it is handed as links', () => {
+            const nav: StepNav = {
+                back: {
+                    label: 'Previous step',
+                    href: Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id, returnTo: 'org' }),
+                    variant: 'subtle',
+                    testId: 'cta-previous-step',
+                },
+                forward: {
+                    label: 'Next step',
+                    href: Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }),
+                    variant: 'solid',
+                    testId: 'cta-next-step',
+                },
             }
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={nav}
                     orgSlug={ORG_SLUG}
-                    study={codeUnderReviewStudy}
+                    study={study}
                     orgName={ORG_NAME}
                     entries={[]}
                     studyVersion={1}
                 />,
             )
 
-            const proceedLink = screen.getByRole('link', { name: /proceed to step 3/i })
-            expect(proceedLink).toHaveAttribute('href', Routes.studyCode({ orgSlug: ORG_SLUG, studyId: study.id }))
-            expect(screen.queryByRole('link', { name: /go to dashboard/i })).not.toBeInTheDocument()
+            const previous = screen.getByRole('link', { name: 'Previous step' })
+            expect(previous).toHaveAttribute('href', nav.back!.href)
+            expect(previous).toHaveAttribute('data-variant', 'subtle')
+            const next = screen.getByRole('link', { name: 'Next step' })
+            expect(next).toHaveAttribute('href', nav.forward!.href)
+            expect(next).toHaveAttribute('data-variant', 'filled')
+        })
+
+        it('omits slots the nav leaves empty', () => {
+            renderWithProviders(
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
+            )
+
+            expect(screen.getByRole('link', { name: 'Back to my studies' })).toHaveAttribute('href', Routes.dashboard)
+            expect(screen.queryByRole('link', { name: 'Previous step' })).not.toBeInTheDocument()
         })
     })
 
     describe('section heading iteration label', () => {
         it('displays "Initial request" on first submission', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={1} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={1}
+                />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
@@ -608,7 +545,14 @@ describe('ProposalSubmitted', () => {
 
         it('displays "Initial request 2.0" after the first resubmission', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={2} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={2}
+                />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 2.0')
@@ -616,7 +560,14 @@ describe('ProposalSubmitted', () => {
 
         it('displays "Initial request 3.0" after the second resubmission', () => {
             renderWithProviders(
-                <ProposalSubmitted orgSlug={ORG_SLUG} study={study} orgName={ORG_NAME} entries={[]} studyVersion={3} />,
+                <ProposalSubmitted
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    orgName={ORG_NAME}
+                    entries={[]}
+                    studyVersion={3}
+                />,
             )
 
             expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request 3.0')
@@ -649,6 +600,7 @@ describe('ProposalSubmitted', () => {
         it('displays entries from most recent to oldest', () => {
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -670,6 +622,7 @@ describe('ProposalSubmitted', () => {
             })
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -684,6 +637,7 @@ describe('ProposalSubmitted', () => {
         it('titles entries with their stored version', () => {
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -699,6 +653,7 @@ describe('ProposalSubmitted', () => {
         it('displays the reviewer name on reviewer feedback entries', () => {
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -713,6 +668,7 @@ describe('ProposalSubmitted', () => {
         it('displays the researcher name on resubmission note entries', () => {
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -727,6 +683,7 @@ describe('ProposalSubmitted', () => {
         it('displays the date the reviewer submitted their decision', () => {
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -741,6 +698,7 @@ describe('ProposalSubmitted', () => {
         it('displays the date the researcher submitted proposal changes', () => {
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}
@@ -757,6 +715,7 @@ describe('ProposalSubmitted', () => {
             try {
                 renderWithProviders(
                     <ProposalSubmitted
+                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         orgName={ORG_NAME}
@@ -776,6 +735,7 @@ describe('ProposalSubmitted', () => {
             try {
                 renderWithProviders(
                     <ProposalSubmitted
+                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         orgName={ORG_NAME}
@@ -795,6 +755,7 @@ describe('ProposalSubmitted', () => {
             try {
                 renderWithProviders(
                     <ProposalSubmitted
+                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         orgName={ORG_NAME}
@@ -823,6 +784,7 @@ describe('ProposalSubmitted', () => {
 
             renderWithProviders(
                 <ProposalSubmitted
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={study}
                     orgName={ORG_NAME}

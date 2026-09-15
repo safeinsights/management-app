@@ -15,7 +15,7 @@ import {
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import { PdfDropzone } from '../pdf-dropzone'
 import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
-import { ReadOnlyField } from '../read-only-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 import { SignedOnInput } from '../signed-on-input'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
@@ -97,10 +97,10 @@ const VersionNote: FC<{ versionNumber: number | null | undefined }> = ({ version
     )
 }
 
-// Says nothing about acknowledgement: only tos/pn are in enforcedLegalDocumentTypes; org-scoped
-// enforcement is SHRMP-302.
 const publishConsequence = (documentLabel: string, orgName: string) =>
-    `This becomes the current ${documentLabel} on record for ${orgName}. Earlier versions stay in the record. This cannot be undone.`
+    `This becomes the current ${documentLabel} on record for ${orgName}.
+Earlier versions stay in the record. Publication will prompt all users to whom this
+document applies to re-acknowledge. This cannot be undone.`
 
 export const UploadParticipationAgreementForm: FC<{
     type: ParticipationAgreementType

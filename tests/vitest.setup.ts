@@ -47,12 +47,21 @@ mockState.setRunWithLocalStorage((cb) => {
     localStorageContext.run({ db: undefined as never }, cb)
 })
 
-// Deferred side effects must land before a test continues — e.g. a deferred CODE-SCANNED insert
+// Deferred side effects must land before a test continues, e.g. a deferred CODE-SCANNED insert
 // must commit before the next status change, or the time-ordered v7 ids invert.
+// A draining callback can queue more, so drain until empty. Relies on the mock pushing synchronously.
 export async function flushDeferred() {
-    const toRun = mockState.pendingDeferredCallbacks.slice()
-    mockState.pendingDeferredCallbacks.length = 0
-    await Promise.allSettled(toRun)
+    let pass = 0
+    for (; pass < 20 && mockState.pendingDeferredCallbacks.length; pass++) {
+        const toRun = mockState.pendingDeferredCallbacks.slice()
+        mockState.pendingDeferredCallbacks.length = 0
+        await Promise.allSettled(toRun)
+    }
+    if (mockState.pendingDeferredCallbacks.length) {
+        throw new Error(
+            `Deferred callbacks still queued after ${pass} drain passes; one of them re-queues without settling.`,
+        )
+    }
 }
 
 // Vitest hoists vi.mock above imports, so factory-referenced values must come from vi.hoisted.
@@ -69,6 +78,12 @@ vi.mock('next/navigation', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mockRouter = require('next-router-mock')
     const useRouter = mockRouter.useRouter
+    // next-router-mock models the pages router, so it has no app-router refresh(). Production code
+    // pairs push() with refresh() wherever the destination resolves to the same URL, and without
+    // this those paths throw inside the component under test.
+    if (typeof mockRouter.memoryRouter.refresh !== 'function') {
+        mockRouter.memoryRouter.refresh = vi.fn()
+    }
 
     return {
         ...mockRouter,
@@ -111,6 +126,8 @@ vi.mock('@mantine/notifications', () => ({
     notifications: {
         show: vi.fn(),
         hide: vi.fn(),
+        // Paired with `show` by showOrReplaceNotification, so a spied run has to answer it too.
+        update: vi.fn(),
     },
     showNotification: vi.fn(),
     Notifications: () => null,
@@ -188,6 +205,7 @@ vi.mock('@hocuspocus/provider', async () => {
         isSynced = false
         unsyncedChanges = 0
         configuration: { name?: string } = {}
+        _observers = new Map<string, Set<(...args: unknown[]) => void>>()
         attach = vi.fn()
         detach = vi.fn()
         destroy = vi.fn()
@@ -195,7 +213,6 @@ vi.mock('@hocuspocus/provider', async () => {
         connect = vi.fn()
         send = vi.fn()
         sendStateless = vi.fn()
-        _observers = new Map<string, Set<(...args: unknown[]) => void>>()
         on(event: string, fn: (...args: unknown[]) => void) {
             if (!this._observers.has(event)) this._observers.set(event, new Set())
             this._observers.get(event)!.add(fn)
@@ -209,6 +226,18 @@ vi.mock('@hocuspocus/provider', async () => {
         // inert provider as before.
         __emit(event: string, ...args: unknown[]) {
             this._observers.get(event)?.forEach((fn) => fn(...args))
+        }
+        // One autosave round trip. The sync has to land before the edit, or the status hook reads
+        // the settle as the initial document load rather than a save.
+        __simulateSave() {
+            if (!this.isSynced) {
+                this.isSynced = true
+                this.__emit('synced')
+            }
+            this.unsyncedChanges = 1
+            this.__emit('unsyncedChanges')
+            this.unsyncedChanges = 0
+            this.__emit('unsyncedChanges')
         }
         constructor(opts?: { document?: InstanceType<typeof Y.Doc>; name?: string }) {
             this.document = opts?.document ?? new Y.Doc()
@@ -263,22 +292,58 @@ beforeEach(async () => {
     })
 })
 
-afterEach(async () => {
-    mockState.headers.clear()
-    await Promise.allSettled(mockState.pendingDeferredCallbacks)
-    mockState.pendingDeferredCallbacks.length = 0
-    await testTransaction.rollback()
-    await fs.promises.rm(tmpDir, { recursive: true })
-    delete process.env.UPLOAD_TMP_DIRECTORY
+// Runs even when the teardown check or the rollback throws, so the next test cannot inherit a
+// stale client, provider or temp directory. The filesystem call goes last, likeliest to fail.
+const resetTestEnvironment = async () => {
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
-    // Unmount before clearing the clients, or a surviving refetchInterval observer carries
-    // in-flight state into the next test.
-    cleanup()
+    // `__instances` is module-scoped, so a helper asking for "this test's provider" would otherwise
+    // get the newest in the file. Guarded: a file may swap in its own fake that has none.
+    const { HocuspocusProvider } = await import('@hocuspocus/provider')
+    const providerCtor = HocuspocusProvider as unknown as { __instances?: unknown[] }
+    if (providerCtor.__instances) providerCtor.__instances.length = 0
+    // Already unmounted in afterEach, so the observers are gone; this clears the data behind them.
     const { resetTestQueryClients } = await import('@/tests/unit.helpers')
     resetTestQueryClients()
+    delete process.env.UPLOAD_TMP_DIRECTORY
+    await fs.promises.rm(tmpDir, { recursive: true })
+}
+
+afterEach(async () => {
+    mockState.headers.clear()
+
+    try {
+        try {
+            // Unmount first, so nothing can start a mutation between the check and the rollback.
+            cleanup()
+            const { pendingTestMutationCount } = await import('@/tests/unit.helpers')
+            const pending = pendingTestMutationCount()
+            if (pending) {
+                // Failing beats warning: an escaped write would let the test pass. Mechanism in PR #1034.
+                throw new Error(`${pending} mutation(s) still pending at teardown; await the outcome in the test.`)
+            }
+            await flushDeferred()
+        } finally {
+            // The check can throw; the transaction still has to go, or its rows outlive the test.
+            await testTransaction.rollback()
+            // Between here and the next test's start() there is no transaction to nest into, so a
+            // straggling write autocommits and a straggling db.transaction() commits for real.
+            // Re-arming makes both a savepoint inside a transaction the next rollback discards.
+            testTransaction.start()
+        }
+    } finally {
+        await resetTestEnvironment()
+    }
 })
 
 afterAll(async () => {
-    await testTransaction.close()
+    try {
+        // close() ends the connections without a ROLLBACK, so the drain has to finish first.
+        // afterEach already settled the mutations, leaving only deferred work; the extra turn is
+        // best effort for dispatched promises, not a barrier.
+        await flushDeferred()
+        await new Promise((resolve) => setImmediate(resolve))
+    } finally {
+        await testTransaction.close()
+    }
 })

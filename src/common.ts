@@ -23,6 +23,9 @@ export function useForm<
     return mantineUseForm<Values, TransformValues>({
         validateInputOnBlur: true,
         ...input,
+        // Deliberately after the spread, the one exception to "caller options win": the caller's
+        // enhancer is wrapped rather than trusted, so it cannot drop the server-error onBlur
+        // guard below (OTTER-647).
         enhanceGetInputProps: (payload) => {
             const callerProps = input.enhanceGetInputProps?.(payload) || {}
             const onBlur = 'onBlur' in callerProps ? callerProps.onBlur : payload.inputProps.onBlur

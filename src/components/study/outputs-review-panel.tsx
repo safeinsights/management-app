@@ -1,18 +1,21 @@
 'use client'
 
-import { FC, ReactNode } from 'react'
-import type { Route } from 'next'
-import { Box, Button, Group, Stack } from '@mantine/core'
+import { FC, ReactNode, useState } from 'react'
+import { Box, Button, Stack } from '@mantine/core'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
+import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
-import { StudyPageHeader } from '@/components/study/study-page-header'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import { useOutputsDecision } from '@/hooks/use-outputs-decision'
+import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
+import { hasOutputsDecision, isOutputsReviewEditable, OUTPUTS_DECIDED_NOTICE } from '@/lib/outputs-review'
+import type { PhasedStepNav, StepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 
@@ -22,14 +25,17 @@ const NO_FILES: JobFileInfo[] = []
 type OutputsReviewPanelProps = {
     orgSlug: string
     studyId: string
-    studyTitle: string
     job: NonNullable<LatestJobForStudy>
     labName: string
+    /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
+    header: ReactNode
     /** Shown while the outputs are still encrypted (OTTER-667 / OTTER-668 copy). */
     lockedBanner: ReactNode
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
-    previousHref: Route
+    /** Locked keeps only "Previous step": the key form's View button is the forward action until
+     * decryption, after which "Submit decision" is. */
+    nav: PhasedStepNav
     /** Only the errored screen sets this: for a completed run, no artifacts means delivery
      * went wrong, so the key step must not be skipped (OTTER-524). */
     allowDecisionWithoutArtifacts?: boolean
@@ -40,15 +46,18 @@ type OutputsReviewPanelProps = {
 export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     orgSlug,
     studyId,
-    studyTitle,
     job,
     labName,
+    header,
     lockedBanner,
     unlockedBanner,
-    previousHref,
+    nav,
     allowDecisionWithoutArtifacts = false,
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+    // Identifies this tab to the peers, so the same reviewer's other tabs are still closed out.
+    const [tabSessionId] = useState(() => crypto.randomUUID())
+    const isRoundOpen = !hasOutputsDecision((job.statusChanges ?? []).map((change) => change.status))
 
     // Read from the job's own files, never from an empty fetchEncryptedJobFiles result, which
     // also returns [] with no registered key and would let decryption be skipped (OTTER-675).
@@ -64,48 +73,63 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     // guard cannot quietly turn "has a key step" into a sharing permission.
     const canShareOutputs = requiresKey
 
+    // Both wrappers sit above the locked/unlocked split, so a reviewer who has not yet entered
+    // their security key is closed out of a decided round as well.
     return (
-        <Box bg="grey.10">
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
-                <ProposalStepHeader
-                    stepLabel="STEP 3"
-                    heading="Review outputs"
-                    studyTitle={studyTitle}
-                    banner={banner}
-                />
-                <LockedPhase isVisible={isLocked} job={job} previousHref={previousHref} onDecrypted={onDecrypted} />
-                <UnlockedPhase
-                    decryptedFiles={reviewableFiles}
-                    canShareOutputs={canShareOutputs}
+        <StudyKickOutProvider
+            studyId={studyId}
+            studyJobId={job.id}
+            orgSlug={orgSlug}
+            editableStatuses={[]}
+            isEditable={isOutputsReviewEditable}
+            redirectTarget="studyReview"
+            notice={OUTPUTS_DECIDED_NOTICE}
+            enabled={isRoundOpen}
+        >
+            <OutputsReviewFeedbackProviderShare>
+                <OutputsReviewSubmissionListener
                     orgSlug={orgSlug}
                     studyId={studyId}
-                    job={job}
-                    labName={labName}
-                    previousHref={previousHref}
+                    tabSessionId={tabSessionId}
+                    enabled={isRoundOpen}
                 />
-            </Stack>
-        </Box>
+                <Box bg="grey.10">
+                    <Stack px="xl" gap="xxl" py="xl">
+                        {header}
+                        <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
+                        <LockedPhase isVisible={isLocked} job={job} nav={nav.locked} onDecrypted={onDecrypted} />
+                        <UnlockedPhase
+                            decryptedFiles={reviewableFiles}
+                            canShareOutputs={canShareOutputs}
+                            orgSlug={orgSlug}
+                            studyId={studyId}
+                            job={job}
+                            labName={labName}
+                            nav={nav.unlocked}
+                            tabSessionId={tabSessionId}
+                        />
+                    </Stack>
+                </Box>
+            </OutputsReviewFeedbackProviderShare>
+        </StudyKickOutProvider>
     )
 }
 
 type LockedPhaseProps = {
     isVisible: boolean
     job: NonNullable<LatestJobForStudy>
-    previousHref: Route
+    nav: StepNav
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, previousHref, onDecrypted }) => {
+const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, nav, onDecrypted }) => {
     if (!isVisible) return null
     return (
         <>
             {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
                 keys, so the researcher key set would come back empty. */}
             <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
-            <Group>
-                <PreviousStepLink previousHref={previousHref} />
-            </Group>
+            <StepNavigation nav={nav} />
         </>
     )
 }
@@ -119,7 +143,8 @@ type UnlockedPhaseProps = {
     studyId: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    previousHref: Route
+    nav: StepNav
+    tabSessionId: string
 }
 
 // Split from the panel so mounting the collaborative editor and its websocket waits until
@@ -131,7 +156,8 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     studyId,
     job,
     labName,
-    previousHref,
+    nav,
+    tabSessionId,
 }) => {
     if (decryptedFiles === null) return null
     return (
@@ -142,7 +168,8 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
             studyId={studyId}
             job={job}
             labName={labName}
-            previousHref={previousHref}
+            nav={nav}
+            tabSessionId={tabSessionId}
         />
     )
 }
@@ -166,9 +193,17 @@ const ReviewBody: FC<ReviewBodyProps> = ({
     studyId,
     job,
     labName,
-    previousHref,
+    nav,
+    tabSessionId,
 }) => {
-    const decision = useOutputsDecision({ orgSlug, studyId, jobId: job.id, labName, decryptedFiles })
+    const decision = useOutputsDecision({
+        orgSlug,
+        studyId,
+        jobId: job.id,
+        labName,
+        decryptedFiles,
+        tabSessionId,
+    })
 
     return (
         <>
@@ -185,18 +220,21 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 decisionError={decision.decisionError}
                 canShareOutputs={canShareOutputs}
             />
-            <Group justify="space-between">
-                <PreviousStepLink previousHref={previousHref} />
-                {/* Enabled from the start: pressing it is how the user learns what is still
-                    missing, rather than facing a dead button with no explanation. */}
-                <Button
-                    onClick={decision.attemptSubmit}
-                    disabled={decision.isSubmitting}
-                    data-testid="outputs-submit-decision"
-                >
-                    Submit decision
-                </Button>
-            </Group>
+            {/* Enabled from the start: pressing it is how the user learns what is still missing,
+                rather than facing a dead button with no explanation. */}
+            <StepNavigation
+                nav={nav}
+                formAction={
+                    <Button
+                        size="md"
+                        onClick={decision.attemptSubmit}
+                        disabled={decision.isSubmitting}
+                        data-testid="outputs-submit-decision"
+                    >
+                        Submit decision
+                    </Button>
+                }
+            />
             <SubmitOutputsDecisionModal
                 decision={decision.confirming}
                 labName={labName}

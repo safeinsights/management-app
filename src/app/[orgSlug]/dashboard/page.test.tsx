@@ -1,7 +1,7 @@
 import { Org } from '@/schema/org'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { pageHeaderEyebrow, renderWithProviders } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 import { faker } from '@faker-js/faker'
@@ -58,6 +58,10 @@ beforeEach(() => {
     } as unknown as UseUserReturn)
 })
 
+// The route org, not the viewer's: this session belongs to test-org while the page is asked for
+// another org's dashboard (OTTER-619).
+const routeOrg: Org = { ...mockOrg, id: faker.string.uuid(), slug: 'other-org', name: 'Mars University Lab' }
+
 describe('Org Dashboard', () => {
     it('renders the welcome text', async () => {
         vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
@@ -70,5 +74,19 @@ describe('Org Dashboard', () => {
         renderWithProviders(await OrgDashboardPage(props))
 
         expect(screen.getByText(/Welcome to the/i)).toBeDefined()
+    })
+
+    it('heads the page with the route org above "Dashboard", once', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
+        vi.mocked(getOrgFromSlugAction).mockResolvedValue(routeOrg)
+
+        renderWithProviders(await OrgDashboardPage({ params: Promise.resolve({ orgSlug: routeOrg.slug }) }))
+
+        const heading = screen.getByRole('heading', { level: 1, name: 'Dashboard' })
+
+        expect(heading).toBeInTheDocument()
+        // "Lab" is stripped by displayOrgName, so the eyebrow is the display form of the name.
+        expect(pageHeaderEyebrow()).toBe('Mars University')
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 })
