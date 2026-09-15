@@ -271,7 +271,7 @@ describe('codeDecisionForScreen', () => {
     })
 
     it('returns null for anything the table did not route here, so the route 404s', () => {
-        expect(codeDecisionForScreen('study-results', { codeDecision: 'CODE-APPROVED' })).toBeNull()
+        expect(codeDecisionForScreen('outputs-awaiting-review', { codeDecision: 'CODE-APPROVED' })).toBeNull()
         expect(codeDecisionForScreen('outputs-pending', { codeDecision: 'CODE-APPROVED' })).toBeNull()
         // No live decision (mid-resubmission): code-feedback has nothing to display.
         expect(codeDecisionForScreen('code-feedback', { codeDecision: null })).toBeNull()

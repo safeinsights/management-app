@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     researcherCodeDecisionBanner,
     researcherCodeSubmittedBanner,
+    researcherOutputsAwaitingReviewBanner,
     researcherOutputsFeedbackBanner,
     researcherProposalBanner,
     researcherSharedOutputsBanner,
@@ -108,6 +109,20 @@ describe('researcherSharedOutputsBanner', () => {
             title: 'Resolve the code error to proceed',
             body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
         })
+    })
+})
+
+describe('researcherOutputsAwaitingReviewBanner', () => {
+    it('names the data partner in both the title and the body, and stays informative', () => {
+        expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER })).toEqual({
+            variant: 'informative',
+            title: `Code run complete, outputs under review by ${DATA_PARTNER}`,
+            body: `${DATA_PARTNER} reviews the outputs before releasing them to you. A notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
+        })
+    })
+
+    it('carries no date, which statusAlertTitle appends at the call site', () => {
+        expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER }).title).not.toContain('•')
     })
 })
 

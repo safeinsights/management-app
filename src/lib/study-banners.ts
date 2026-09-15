@@ -151,6 +151,16 @@ export function researcherOutputsFeedbackBanner(
     }
 }
 
+// OTTER-785: the run finished cleanly and the outputs sit with the data partner, who has recorded no
+// files decision yet. statusAlertTitle appends the completion date at the call site.
+export function researcherOutputsAwaitingReviewBanner({ dataPartner }: BannerParams): BannerCopy {
+    return {
+        variant: STATUS_ALERT_VARIANT.informative,
+        title: `Code run complete, outputs under review by ${dataPartner}`,
+        body: `${dataPartner} reviews the outputs before releasing them to you. A notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
+    }
+}
+
 export type ReviewerBannerParams = {
     researchLab: string
     reviewerName?: string | null
