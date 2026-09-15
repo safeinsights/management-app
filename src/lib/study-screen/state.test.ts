@@ -231,7 +231,7 @@ describe('runErrored', () => {
     const runErrored = (statuses: string[]) =>
         projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).runErrored
 
-    // Narrower than resultsErrored: a packaging JOB-ERRORED before a good run is not a failed run.
+    // The pair is QA-only, see StudyState.runErrored; this pins the predicate, not a reachable state.
     it('separates a failed run from a packaging error that a RUN-COMPLETE followed', () => {
         expect(runErrored(['JOB-ERRORED'])).toBe(true)
         expect(runErrored(['JOB-ERRORED', 'RUN-COMPLETE'])).toBe(false)

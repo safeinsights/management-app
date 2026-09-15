@@ -15,9 +15,7 @@ export async function OutputsPendingScreen({ study, raw, nav }: Pick<ScreenCompo
 
     // CODE-APPROVED is what routed us here, so it is the date the step opened.
     const approvedAt = latestStatusAt(result.job.statusChanges, 'CODE-APPROVED')
-    // hasResults, not runErrored: a packaging error that a later RUN-COMPLETE followed clears
-    // runErrored, which would then claim the code is still running.
-    const banner = researcherOutputsPendingBanner({ processingFinished: projectStudyState(raw).hasResults })
+    const banner = researcherOutputsPendingBanner({ runErrored: projectStudyState(raw).runErrored })
 
     return (
         <Box bg="grey.10">

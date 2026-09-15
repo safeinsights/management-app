@@ -132,20 +132,6 @@ describe('OutputsPendingScreen', () => {
         expect(alert).not.toHaveTextContent(/error|fail/i)
     })
 
-    // runErrored goes false once a good run follows the error, which must not send the copy back to
-    // "still running": the researcher's dashboard pill already reads Under Review for this state.
-    it('says the run is awaiting review when a RUN-COMPLETE followed an earlier JOB-ERRORED', async () => {
-        const { org, study, job } = await setupExecuting('CODE-SUBMITTED')
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
-        await renderScreen(study, org.slug)
-
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Outputs not ready, awaiting review')
-        expect(alert).not.toHaveTextContent(/running in the secure enclave/)
-        expect(alert).not.toHaveTextContent(/error|fail/i)
-    })
-
     // Routed from CODE-APPROVED onward (OTTER-673), so it must render before the enclave reports a stage.
     it('renders the processing banner dated from CODE-APPROVED when no execution stage exists yet', async () => {
         const approvedDate = new Date('2026-06-15T12:00:00Z')

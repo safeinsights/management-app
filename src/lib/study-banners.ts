@@ -151,11 +151,11 @@ export function researcherOutputsFeedbackBanner(
     }
 }
 
-// The outputs step from code approval onward. processingFinished also covers a packaging error still
-// awaiting triage: the error itself stays undisclosed (OTTER-598), but the copy must not claim the
-// code is still running.
-export function researcherOutputsPendingBanner({ processingFinished }: { processingFinished: boolean }): BannerCopy {
-    if (processingFinished) {
+// The outputs step from code approval onward, including a failed run the reviewer has yet to triage.
+// The error itself stays undisclosed until then (OTTER-598), but the copy must not claim the code is
+// still running.
+export function researcherOutputsPendingBanner({ runErrored }: { runErrored: boolean }): BannerCopy {
+    if (runErrored) {
         return {
             variant: STATUS_ALERT_VARIANT.informative,
             title: 'Outputs not ready, awaiting review',
