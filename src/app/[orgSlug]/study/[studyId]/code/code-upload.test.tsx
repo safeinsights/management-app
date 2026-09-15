@@ -15,6 +15,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    waitForPendingQueries,
     within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
@@ -67,10 +68,14 @@ const renderPage = async (orgSlug = 'openstax') => {
  * signal, so this retries the click rather than clicking once and hoping the query has landed.
  */
 const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
-    await waitFor(async () => {
-        await user.click(screen.getByRole('button', { name: /submit code for review/i }))
-        expect(screen.getByRole('dialog')).toBeInTheDocument()
-    })
+    // canSubmit depends on several reads with no UI signal of their own, so wait for the rows to
+    // render and then for every query to settle. Retrying the click instead spends the budget on
+    // repeated userEvent work, which is what made this fail on a loaded CI runner and never here.
+    await screen.findAllByRole('radio')
+    await waitForPendingQueries()
+
+    await user.click(screen.getByRole('button', { name: /submit code for review/i }))
+    await screen.findByRole('dialog')
 }
 
 const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
