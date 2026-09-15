@@ -5,6 +5,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    testEmail,
     userEvent,
     waitFor,
     type Mock,
@@ -66,6 +67,31 @@ describe('RequestMFA', () => {
         // The banner is deferred until the user is keyed (OTTER-639), so the flag must survive the
         // key detour.
         expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBe(invitingOrg.name)
+    })
+
+    // OTTER-788. The linking screen carries no redirect_url of its own, because safeRedirectUrl
+    // rejects a double-encoded value and the key page would silently drop the step.
+    it('sends an invite addressed to another email through the linking screen', async () => {
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser({ invitedEmail: testEmail() })
+        router.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
+
+        await submitTotpCode(mockSecondFactor())
+
+        await waitFor(async () => {
+            const membership = await db
+                .selectFrom('orgUser')
+                .select('id')
+                .where('userId', '=', user.id)
+                .where('orgId', '=', invitingOrg.id)
+                .executeTakeFirst()
+            expect(membership).toBeDefined()
+        })
+
+        await waitFor(() =>
+            expect(router.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent(`/account/invitation/${invite.id}/link-email`)}`,
+            ),
+        )
     })
 
     // Without the actionResult wrapper a spent invite would look like a successful join.
