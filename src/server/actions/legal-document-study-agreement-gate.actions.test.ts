@@ -9,6 +9,7 @@ import {
     insertTestOrg,
     insertTestStudyAgreement,
     insertTestStudyJobData,
+    insertTestStudyOnly,
     insertTestUser,
     mockSessionWithTestData,
     resetLegalDocuments,
@@ -20,29 +21,22 @@ import { submitCodeReviewDecisionAction } from './study.actions'
 beforeEach(resetLegalDocuments)
 
 // Separate orgs for the two sides, so a swapped join in the audience check cannot pass.
-const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus } = {}) => {
+const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus, isTestStudy = false } = {}) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const { user: researcher } = await insertTestUser({
         org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
     })
 
-    const study = await db
-        .insertInto('study')
-        .values({
-            orgId: dataPartner.id,
-            submittedByOrgId: researchLab.id,
-            containerLocation: 'test-container',
-            title: 'A study',
-            researcherId: researcher.id,
-            piName: 'test',
-            status,
-            dataSources: ['all'],
-            outputMimeType: 'application/zip',
-            language: 'R',
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
+    // These files publish and acknowledge their own agreements, so the fixture writes none.
+    const { study } = await insertTestStudyOnly({
+        org: dataPartner,
+        submittedByOrg: researchLab,
+        researcherId: researcher.id,
+        status,
+        isTestStudy,
+        withStudyAgreement: false,
+    })
 
     return { study, dataPartner, researchLab }
 }
@@ -53,6 +47,13 @@ describe('fetchStudyAgreementStatusAction', () => {
         await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
 
         expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
+    })
+
+    it('reports exempt for a test study, so the notice does not block a lab that owes nothing', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+        await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'exempt' })
     })
 
     it('reports none for a draft, so nobody is blocked by an abandoned upload', async () => {
@@ -133,9 +134,33 @@ describe('fetchStudyAgreementStatusAction', () => {
 })
 
 describe('requireStudyAgreementAcknowledged', () => {
-    it('allows a study with no published agreement, so approval is not gated on SI admin paperwork', async () => {
+    it('refuses a party when no agreement has been published', async () => {
         const { study, researchLab } = await insertStudyWithDistinctOrgs()
         const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        await expect(requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id })).rejects.toThrow()
+    })
+
+    it('allows a test study with no agreement', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+        const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        await expect(
+            requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id }),
+        ).resolves.toBeUndefined()
+    })
+
+    it('refuses a test study whose agreement is published and unacknowledged', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+        await insertTestStudyAgreement({ studyId: study.id })
+        const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        await expect(requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id })).rejects.toThrow()
+    })
+
+    it('allows an SI admin when no agreement has been published, since they sign nothing', async () => {
+        const { study } = await insertStudyWithDistinctOrgs()
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
 
         await expect(
             requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id }),
@@ -187,6 +212,7 @@ describe('submitCodeReviewDecisionAction with an unacknowledged agreement', () =
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
+            withStudyAgreement: false,
         })
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
         return { user, org, study }

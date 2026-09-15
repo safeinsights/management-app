@@ -1,7 +1,14 @@
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
 import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
-import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
+import {
+    type Browser,
+    type BrowserContext,
+    type BrowserType,
+    type Locator,
+    type Page,
+    test as baseTest,
+} from '@playwright/test'
 import fs from 'fs'
 import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
@@ -185,10 +192,13 @@ export const visitAsRole = async (page: Page, url: string) => {
 
 // pressSequentially, not page.keyboard.type: the latter goes wherever focus happens to be, so if the
 // editor loses focus the keystrokes land on the page — and a space activates whatever button has it.
-export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
-    const field = page.locator(`[aria-label="${ariaLabel}"]`)
+export async function typeIntoLexical(field: Locator, text: string) {
     await field.click()
     await field.pressSequentially(text)
+}
+
+export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
+    await typeIntoLexical(page.locator(`[aria-label="${ariaLabel}"]`), text)
 }
 
 // Types `text` into a rich-text field and hyperlinks all of it through the editor
@@ -196,9 +206,7 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
 // one Lexical instance (and one toolbar) per rich-text field.
 export async function insertLexicalLink(page: Page, ariaLabel: string, text: string, url: string) {
     const editor = page.locator(`.collaborative-editor-container:has([aria-label="${ariaLabel}"])`)
-    const field = editor.locator(`[aria-label="${ariaLabel}"]`)
-    await field.click()
-    await field.pressSequentially(text)
+    await typeIntoLexical(editor.locator(`[aria-label="${ariaLabel}"]`), text)
     await page.keyboard.press('ControlOrMeta+a')
 
     await editor.getByLabel('Link').click()

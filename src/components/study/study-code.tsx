@@ -7,6 +7,9 @@ import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
+import { blocksStudyWork } from '@/schema/legal-document'
+import { useStudyAgreementStatus } from '@/components/legal/require-study-agreement'
 import { StudyCodePanel } from './study-code-panel'
 
 interface StudyCodeProps {
@@ -19,27 +22,39 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
     const ide = useIDEFiles({ studyId, onSubmitSuccess })
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
+    // Read here rather than inside useIDEFiles: the IDE hook has no other reason to know about
+    // legal documents, and the notice beside the button already carries the explanation.
+    const { status: agreementStatus } = useStudyAgreementStatus(studyId)
+    const isBlockedByAgreement = blocksStudyWork(agreementStatus)
+
     const handleConfirmSubmit = () => {
         closeConfirm()
         ide.submitDirectly()
     }
 
     const footer = (
-        <Group mt="xxl" justify="space-between" w="100%">
-            <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
-                Previous
-            </ButtonLink>
-            <Stack align="flex-end" gap="xs">
-                {ide.submitDisabledReason && (
-                    <Text size="sm" c="dimmed">
-                        {ide.submitDisabledReason}
-                    </Text>
-                )}
-                <Button disabled={!ide.canSubmit} loading={ide.isDirectSubmitting} onClick={openConfirm}>
-                    Submit code
-                </Button>
-            </Stack>
-        </Group>
+        <Stack mt="xxl" w="100%">
+            <StudyAgreementPreparingNotice studyId={studyId} isVisible consequence="You cannot submit code yet." />
+            <Group justify="space-between">
+                <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
+                    Previous
+                </ButtonLink>
+                <Stack align="flex-end" gap="xs">
+                    {ide.submitDisabledReason && (
+                        <Text size="sm" c="dimmed">
+                            {ide.submitDisabledReason}
+                        </Text>
+                    )}
+                    <Button
+                        disabled={!ide.canSubmit || isBlockedByAgreement}
+                        loading={ide.isDirectSubmitting}
+                        onClick={openConfirm}
+                    >
+                        Submit code
+                    </Button>
+                </Stack>
+            </Group>
+        </Stack>
     )
 
     return (

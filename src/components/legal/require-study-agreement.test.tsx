@@ -6,6 +6,7 @@ import {
     faker,
     insertTestOrg,
     insertTestStudyAgreement,
+    insertTestStudyOnly,
     insertTestUser,
     mockSessionWithTestData,
     renderWithProviders,
@@ -25,22 +26,14 @@ const arrangeStudyForCurrentUser = async ({ status = 'APPROVED' as StudyStatus }
         org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
     })
 
-    const study = await db
-        .insertInto('study')
-        .values({
-            orgId: dataPartner.id,
-            submittedByOrgId: researchLab.id,
-            containerLocation: 'test-container',
-            title: 'A study',
-            researcherId: researcher.id,
-            piName: 'test',
-            status,
-            dataSources: ['all'],
-            outputMimeType: 'application/zip',
-            language: 'R',
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
+    // This file publishes its own agreements, so the fixture writes none.
+    const { study } = await insertTestStudyOnly({
+        org: dataPartner,
+        submittedByOrg: researchLab,
+        researcherId: researcher.id,
+        status,
+        withStudyAgreement: false,
+    })
 
     const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
     return { study, user }

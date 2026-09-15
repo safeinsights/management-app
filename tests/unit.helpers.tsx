@@ -345,6 +345,7 @@ export const insertTestStudyJobData = async ({
     impact,
     additionalNotes,
     datasets,
+    withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
@@ -358,6 +359,7 @@ export const insertTestStudyJobData = async ({
     projectSummary?: Json | null
     impact?: Json | null
     additionalNotes?: Json | null
+    withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -407,6 +409,8 @@ export const insertTestStudyJobData = async ({
         .returning('id')
         .executeTakeFirstOrThrow()
 
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
     const latestJobWithStatus = await latestJobForStudy(study.id)
 
     return {
@@ -438,12 +442,17 @@ export const insertTestStudyOnly = async ({
     researcherId,
     title = 'study without job',
     status = 'APPROVED',
+    isTestStudy = false,
+    // False for a test about agreements themselves — those files publish and acknowledge their own.
+    withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
     researcherId?: string
     title?: string
     status?: StudyStatus
+    isTestStudy?: boolean
+    withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -462,6 +471,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status,
+            isTestStudy,
             submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
@@ -469,6 +479,9 @@ export const insertTestStudyOnly = async ({
         })
         .returningAll()
         .executeTakeFirstOrThrow()
+
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
     return { org, study }
 }
 
@@ -1191,8 +1204,47 @@ export const insertTestStudyAgreement = async ({
         signedAt: '2026-01-01',
         versionNumber,
         published,
-        fileName: 'agreement.pdf',
     })
+}
+
+// A real agreement plus its acknowledgements, rather than marking fixtures test studies: otherwise
+// the default fixture is the one that bypasses the gate. Callable again after a test mints another
+// session user, since the unique constraint absorbs the acks already written.
+export const seedAcknowledgedStudyAgreement = async (studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .leftJoin('legalDocument', (join) =>
+            join.onRef('legalDocument.studyId', '=', 'study.id').on('legalDocument.type', '=', 'SLA'),
+        )
+        .leftJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .select([
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+            'legalDocumentVersion.id as versionId',
+        ])
+        .where('study.id', '=', studyId)
+        .orderBy('legalDocumentVersion.versionNumber', (ob) => ob.desc().nullsLast())
+        .executeTakeFirst()
+    if (!study) throw new Error(`seedAcknowledgedStudyAgreement: no study ${studyId}`)
+
+    // Reuses the study's agreement when it already has one, so a test that mints a second session
+    // user can call this again to acknowledge on their behalf.
+    const versionId = study.versionId ?? (await insertTestStudyAgreement({ studyId })).id
+
+    const parties = await db
+        .selectFrom('orgUser')
+        .select('userId')
+        .distinct()
+        .where('orgId', 'in', [study.dataPartnerId, study.researchLabId])
+        .execute()
+
+    if (!parties.length) return
+
+    await db
+        .insertInto('legalDocumentAcknowledgement')
+        .values(parties.map(({ userId }) => ({ legalDocumentVersionId: versionId, userId })))
+        .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
+        .execute()
 }
 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }

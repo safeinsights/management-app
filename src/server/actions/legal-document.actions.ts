@@ -2,7 +2,7 @@
 
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentType, OrgType } from '@/database/types'
+import type { LegalDocumentType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
@@ -36,8 +36,6 @@ import { storeS3File } from '../aws'
 import {
     findLegalDocument,
     findOrCreateLegalDocument,
-    userAcknowledgedVersion,
-    latestPublishedStudyAgreement,
     orgParticipationAgreement,
     orgStudyAgreements,
     userParticipationAgreements,
@@ -47,7 +45,8 @@ import {
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { urlForLegalDocumentVersion } from '../legal-document'
-import { isPartyToStudyAgreement } from '../study-agreement'
+import { studyAgreementStatusFor } from '../study-agreement'
+import { requireResolvedOrg } from './org-context'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
@@ -653,6 +652,8 @@ export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudies
             ])
             .where('study.status', '=', 'APPROVED')
             .where('study.deletedAt', 'is', null)
+            // A test study needs no agreement, so leaving it here would queue work that never ends.
+            .where('study.isTestStudy', '=', false)
             // Keyed on a PUBLISHED version, not the document row: that row is written before the
             // file is uploaded, so an abandoned upload would hide the study from both screens.
             .where((eb) =>
@@ -685,28 +686,9 @@ export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementSt
     .middleware(scopeFromStudyId)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
-        const agreement = await latestPublishedStudyAgreement(db, studyId)
-        if (!agreement) return { state: 'none' }
-
-        if (!(await isPartyToStudyAgreement(db, { ...agreement, userId: session.user.id }))) {
-            return { state: 'notAParty' }
-        }
-
-        if (await userAcknowledgedVersion(db, { versionId: agreement.versionId, userId: session.user.id })) {
-            return { state: 'acknowledged' }
-        }
-
-        return { state: 'pending', versionId: agreement.versionId }
+        // An unknown study reads as notAParty, so a probe learns nothing it could not guess.
+        return (await studyAgreementStatusFor(db, { studyId, userId: session.user.id })) ?? { state: 'notAParty' }
     })
-
-// An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin
-// would reach the handler and index a Record with undefined. TypeScript cannot see it.
-function requireResolvedOrg(ctx: {
-    orgId?: string
-    orgType?: OrgType
-}): asserts ctx is { orgId: string; orgType: OrgType } {
-    if (!ctx.orgId || !ctx.orgType) throw new ActionFailure({ org: 'was not found' })
-}
 
 export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
     .params(orgStudyAgreementParams)

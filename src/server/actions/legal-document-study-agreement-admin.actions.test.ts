@@ -35,7 +35,8 @@ const insertStudyWithDistinctOrgs = async ({
     status = 'APPROVED' as StudyStatus,
     title = 'A study',
     dataPartnerName,
-}: { status?: StudyStatus; title?: string; dataPartnerName?: string } = {}) => {
+    isTestStudy = false,
+}: { status?: StudyStatus; title?: string; dataPartnerName?: string; isTestStudy?: boolean } = {}) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave', name: dataPartnerName })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const { user: researcher } = await insertTestUser({
@@ -52,6 +53,7 @@ const insertStudyWithDistinctOrgs = async ({
             researcherId: researcher.id,
             piName: 'test',
             status,
+            isTestStudy,
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
@@ -85,6 +87,15 @@ describe('fetchStudiesAwaitingStudyAgreementAction', () => {
         expect(row?.dataPartnerName).toBe(dataPartner.name)
         expect(row?.researchLabId).toBe(researchLab.id)
         expect(row?.researchLabName).toBe(researchLab.name)
+    })
+
+    it('leaves out a test study', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { study } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+
+        const candidates = actionResult(await fetchStudiesAwaitingStudyAgreementAction())
+
+        expect(candidates.some((candidate) => candidate.studyId === study.id)).toBe(false)
     })
 
     it('drops a study once it has an agreement, so the same one cannot be uploaded twice', async () => {

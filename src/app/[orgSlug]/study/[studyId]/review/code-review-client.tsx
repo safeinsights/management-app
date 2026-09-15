@@ -17,6 +17,7 @@ import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CodeEvaluationSection } from './code-evaluation-section'
 import { CODE_DECISION_MODAL_CONTENT, DecisionConfirmationModal } from './decision-confirmation-modal'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
@@ -122,6 +123,7 @@ type EditableBodyProps = {
     canSubmit: boolean
     isPending: boolean
     nav: StepNav
+    isTestStudy: boolean
     onSubmit: () => void
     onDecisionChange: (next: Decision) => void
 }
@@ -136,13 +138,19 @@ function EditableBody({
     canSubmit,
     isPending,
     nav,
+    isTestStudy,
     onSubmit,
     onDecisionChange,
 }: EditableBodyProps) {
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <CodeEvaluationSection form={evaluationForm} enabled />
+            <StudyAgreementPreparingNotice
+                studyId={job.studyId}
+                isVisible
+                consequence="You cannot submit a review decision yet."
+            />
+            <CodeEvaluationSection form={evaluationForm} enabled isTestStudy={isTestStudy} />
             <CodeReviewFeedbackSection
                 feedback={feedback}
                 studyId={job.studyId}
@@ -233,6 +241,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     canSubmit={canSubmit}
                     isPending={isPending}
                     nav={nav}
+                    isTestStudy={study.isTestStudy}
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
                 />

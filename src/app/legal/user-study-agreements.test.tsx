@@ -36,6 +36,7 @@ const seedAcknowledgedAgreement = async (title: string, signedAt: string) => {
         submittedByOrg: researchLab,
         title,
         status: 'APPROVED',
+        withStudyAgreement: false,
     })
 
     await mockSessionWithTestData({ isSiAdmin: true })
@@ -86,6 +87,48 @@ describe('UserStudyAgreements', () => {
         expect(within(row).getByText('Jun 17, 2026')).toBeDefined()
         expect(within(row).getByText('Jun 20, 2026')).toBeDefined()
         expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
+    })
+
+    it("lists a test study of the user's org as exempt, with no document to open", async () => {
+        const title = `Test ${faker.string.alpha(6)}`
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyOnly({
+            org: { id: org.id, slug: org.slug, type: 'enclave' },
+            submittedByOrg: researchLab,
+            title,
+            status: 'APPROVED',
+            withStudyAgreement: false,
+        })
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        // Both date columns, since neither an effective nor an acknowledged date can exist.
+        expect(within(row).getAllByText('Test study')).toHaveLength(2)
+        expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
+    })
+
+    it('leaves a test study of an org the user does not belong to out', async () => {
+        const title = `Foreign ${faker.string.alpha(6)}`
+        const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyOnly({
+            org: dataPartner,
+            submittedByOrg: researchLab,
+            title,
+            status: 'APPROVED',
+            withStudyAgreement: false,
+        })
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+        await mockSessionWithTestData({ orgType: 'enclave' })
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        await waitFor(() =>
+            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
+        )
     })
 
     it('renders the empty state for a user who has acknowledged nothing', async () => {

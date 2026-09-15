@@ -113,6 +113,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.additionalNotes',
             'study.status',
             'study.title',
+            'study.isTestStudy',
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',

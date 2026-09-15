@@ -1,9 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { Anchor, Box, Group, Text } from '@mantine/core'
 import { isHttpUrl } from '@/schema/url'
+import { SettingsCard, SettingsCardRow } from './settings-card'
 
 // Presentational only: the body and per-row action node are injected so these render without a
 // QueryClient (e.g. Ladle).
@@ -51,7 +51,7 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
     const linkedUrls = urls.filter((u): u is DataSourceUrlView & { url: string } => Boolean(u.url))
 
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+        <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Box style={{ minWidth: 0, flex: 1 }}>
                     <Group gap="sm" wrap="nowrap">
@@ -73,7 +73,7 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
                     {actions}
                 </Group>
             </Group>
-        </Box>
+        </SettingsCardRow>
     )
 }
 
@@ -84,19 +84,8 @@ export type DataSourcesViewProps = {
 
 export function DataSourcesView({ onAdd, children }: DataSourcesViewProps) {
     return (
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={3} size="lg">
-                        Data Sources
-                    </Title>
-                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={onAdd}>
-                        Add Data Source
-                    </Button>
-                </Group>
-                <Divider c="dimmed" />
-                {children}
-            </Stack>
-        </Paper>
+        <SettingsCard title="Data Sources" addLabel="Add Data Source" onAdd={onAdd}>
+            {children}
+        </SettingsCard>
     )
 }

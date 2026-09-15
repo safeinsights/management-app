@@ -67,14 +67,12 @@ export const writeStudyAgreementVersion = async (
         signedAt,
         versionNumber = 1,
         published = true,
-        fileName = 'study-agreement.pdf',
     }: {
         studyId: string
         publishedBy: string
         signedAt: string
         versionNumber?: number
         published?: boolean
-        fileName?: string
     },
 ) => {
     const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId })
@@ -86,7 +84,7 @@ export const writeStudyAgreementVersion = async (
             id: versionId,
             legalDocumentId,
             versionNumber: published ? versionNumber : null,
-            fileName,
+            fileName: 'study-agreement.pdf',
             format: 'pdf',
             filePath: pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId }),
             publishedAt: published ? new Date() : null,
@@ -97,22 +95,57 @@ export const writeStudyAgreementVersion = async (
         .executeTakeFirstOrThrow()
 }
 
-// Undefined until an SI admin publishes one, the ordinary state for a freshly approved study.
-export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =>
+// Everything the gate reads, in one round trip: the exemption, the latest published agreement,
+// whether this reader is a party, and whether they have acknowledged it. Undefined only when the
+// study does not exist.
+//
+// isParty comes from orgUser rather than session.orgs: stale Clerk claims would hide the modal
+// while the server guard still refused.
+export const studyAgreementState = (db: DBExecutor, { studyId, userId }: { studyId: string; userId: string }) =>
     db
-        .selectFrom('legalDocument')
-        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
-        .innerJoin('study', 'study.id', 'legalDocument.studyId')
-        .select([
-            'legalDocumentVersion.id as versionId',
-            'study.orgId as dataPartnerId',
-            'study.submittedByOrgId as researchLabId',
+        .selectFrom('study')
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('legalDocument')
+                    .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+                    .select('legalDocumentVersion.id as versionId')
+                    .whereRef('legalDocument.studyId', '=', 'study.id')
+                    .where('legalDocument.type', '=', 'SLA')
+                    .where('legalDocumentVersion.publishedAt', 'is not', null)
+                    .orderBy('legalDocumentVersion.versionNumber', 'desc')
+                    .limit(1)
+                    .as('agreement'),
+            (join) => join.onTrue(),
+        )
+        .select((eb) => [
+            'study.isTestStudy',
+            'agreement.versionId',
+            eb
+                .exists(
+                    eb
+                        .selectFrom('orgUser')
+                        .select('orgUser.id')
+                        .where('orgUser.userId', '=', userId)
+                        .where((inner) =>
+                            inner.or([
+                                inner('orgUser.orgId', '=', eb.ref('study.orgId')),
+                                inner('orgUser.orgId', '=', eb.ref('study.submittedByOrgId')),
+                            ]),
+                        ),
+                )
+                .as('isParty'),
+            eb
+                .exists(
+                    eb
+                        .selectFrom('legalDocumentAcknowledgement')
+                        .select('legalDocumentAcknowledgement.id')
+                        .where('legalDocumentAcknowledgement.userId', '=', userId)
+                        .whereRef('legalDocumentAcknowledgement.legalDocumentVersionId', '=', 'agreement.versionId'),
+                )
+                .as('hasAcknowledged'),
         ])
-        .where('legalDocument.type', '=', 'SLA')
-        .where('legalDocument.studyId', '=', studyId)
-        .where('legalDocumentVersion.publishedAt', 'is not', null)
-        .orderBy('legalDocumentVersion.versionNumber', 'desc')
-        .limit(1)
+        .where('study.id', '=', studyId)
         .executeTakeFirst()
 
 // Nulls sink in both directions, so an unsigned agreement never leads the table.
@@ -212,25 +245,66 @@ export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: strin
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .executeTakeFirst()
 
+// Spread into both union arms, so a column added to one cannot silently miss the other.
+const studyAgreementRowFields = [
+    'study.id as studyId',
+    'study.title as studyTitle',
+    'study.isTestStudy as isTestStudy',
+    'researchLab.name as fromName',
+    'dataPartner.name as toName',
+] as const
+
 // Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
+//
+// Study-first with the user's own acknowledgement joined on, so a test study that also carries a
+// signed agreement appears once, with its real dates, rather than twice.
 export const userStudyAgreements = (
     db: DBExecutor,
     { userId, sort }: { userId: string; sort: UserStudyAgreementSort },
 ) => {
-    const acknowledged = latestAcknowledgedVersions(db, { userId, type: 'SLA' })
-        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+    // A subquery rather than a fetched list: it may be empty without the `in` erroring.
+    const usersOrgs = db.selectFrom('orgUser').select('orgId').where('userId', '=', userId)
+
+    const rows = db
+        .selectFrom('study')
         .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
         .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
-        .select([
-            'study.id as studyId',
-            'study.title as studyTitle',
-            'researchLab.name as fromName',
-            'dataPartner.name as toName',
-            ...acknowledgedVersionFields,
-        ])
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('legalDocument')
+                    .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+                    .innerJoin(
+                        'legalDocumentAcknowledgement',
+                        'legalDocumentAcknowledgement.legalDocumentVersionId',
+                        'legalDocumentVersion.id',
+                    )
+                    .select([...acknowledgedVersionFields])
+                    .whereRef('legalDocument.studyId', '=', 'study.id')
+                    .where('legalDocument.type', '=', 'SLA')
+                    .where('legalDocumentAcknowledgement.userId', '=', userId)
+                    .orderBy('legalDocumentVersion.versionNumber', 'desc')
+                    .limit(1)
+                    .as('agreement'),
+            (join) => join.onTrue(),
+        )
+        .select([...studyAgreementRowFields, 'agreement.versionId', 'agreement.signedAt', 'agreement.ackedAt'])
+        // Two ways a study belongs here. The acknowledged side carries no status filter on purpose:
+        // what you signed stays listed even once the study is withdrawn.
+        .where((eb) =>
+            eb.or([
+                eb('agreement.versionId', 'is not', null),
+                eb.and([
+                    eb('study.isTestStudy', '=', true),
+                    eb('study.status', '=', 'APPROVED'),
+                    eb('study.deletedAt', 'is', null),
+                    eb.or([eb('study.orgId', 'in', usersOrgs), eb('study.submittedByOrgId', 'in', usersOrgs)]),
+                ]),
+            ]),
+        )
 
     return db
-        .selectFrom(acknowledged.as('agreement'))
+        .selectFrom(rows.as('agreement'))
         .selectAll('agreement')
         .orderBy(userStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
         .orderBy(userStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
@@ -292,6 +366,7 @@ export const orgStudyAgreements = (
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'counterparty.name as counterpartyName',
+                'study.isTestStudy as isTestStudy',
                 'agreement.versionId',
                 'agreement.signedAt',
             ])
