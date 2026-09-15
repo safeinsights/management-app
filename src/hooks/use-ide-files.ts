@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
@@ -9,6 +9,7 @@ import { downloadBlob } from '@/lib/download-blob'
 import type { SaveStatusValue } from '@/components/save-status'
 import { NO_CHANGES_MESSAGE } from '@/components/study/submit-code-error'
 import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
+import { showToast } from '@/components/toast-notifications'
 import { useUploadQueue } from './use-upload-queue'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
@@ -147,17 +148,18 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     )
 
     /**
-     * OTTER-693: which files still carry the Template badge. initializeWorkspaceCodeFiles backdates
-     * a starter file's mtime behind the baseline job, so an untouched template sits at or before
-     * that timestamp and an edited one has moved past it.
+     * OTTER-693: the badge marks the pre-loaded Main.{x} and nothing else, which is why this is the
+     * one derived template name rather than every starter file. copyStarterCodeIntoWorkspace
+     * backdates its mtime behind the baseline job, so an untouched template sits at or before that
+     * timestamp and an edited or re-uploaded one has moved past it.
      */
     const templateFileNames = useMemo(() => {
-        const starterNames = new Set((starterCodeInfo?.starterFiles ?? []).map((f) => f.name))
-        if (starterNames.size === 0 || !lastJob) return []
+        const templateName = starterCodeInfo?.templateFileName
+        if (!templateName || !lastJob) return []
 
         const baselineAt = new Date(lastJob.createdAt).getTime()
         return workspace.files
-            .filter((f) => starterNames.has(f.name) && new Date(f.mtime).getTime() <= baselineAt)
+            .filter((f) => f.name === templateName && new Date(f.mtime).getTime() <= baselineAt)
             .map((f) => f.name)
     }, [starterCodeInfo, lastJob, workspace.files])
 
@@ -176,21 +178,28 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         return null
     })()
 
+    // Where the star sat before the current optimistic move, so a rejected save can put it back.
+    const previousMainFileRef = useRef<string | null>(null)
+
     const setMainFileMutation = useMutation({
         mutationFn: (fileName: string) => setMainCodeFileAction({ studyId, fileName }),
         onSuccess: () => setLastSavedAt(new Date()),
-        onError: reportMutationError('Failed to save your main file selection'),
+        onError: (error) => {
+            setMainFileOverride(previousMainFileRef.current)
+            reportMutationError('Failed to save your main file selection')(error)
+        },
     })
 
     const setMainFile = useCallback(
         (fileName: string) => {
             // Optimistic: the star moves on click and the save follows, so the radio never lags a
             // round trip behind the pointer.
+            previousMainFileRef.current = mainFileOverride
             setMainFileOverride(fileName)
             setUserEditedFiles(true)
             setMainFileMutation.mutate(fileName)
         },
-        [setMainFileMutation],
+        [mainFileOverride, setMainFileMutation],
     )
 
     const invalidateFiles = useCallback(() => {
@@ -261,16 +270,23 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // OTTER-693 reports each file's outcome separately, so one bad file no longer abandons the batch.
     const uploadMutation = useMutation({
         mutationFn: async (filesToUpload: File[]) => {
+            let uploaded = 0
             for (const file of filesToUpload) {
                 const result = await uploadWorkspaceFileAction({ studyId, file })
                 if ('error' in result) {
                     showUploadFailed(file.name, UPLOAD_RETRY_MESSAGE)
                     continue
                 }
+                uploaded++
                 showUploadSucceeded(file.name)
             }
+            return uploaded
         },
-        onSuccess: () => setLastSavedAt(new Date()),
+        // Per-file failures no longer reject, so the count is the only thing that says whether
+        // anything was actually kept. onError still fires for transport-level failures.
+        onSuccess: (uploaded) => {
+            if (uploaded > 0) setLastSavedAt(new Date())
+        },
         onSettled: () => {
             invalidateFiles()
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
@@ -317,12 +333,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
 
-            notifications.show({
-                title: SUBMIT_SUCCESS_TITLE,
-                message: '',
-                color: 'green',
-                'data-toast-kind': 'success',
-            })
+            showToast('success', SUBMIT_SUCCESS_TITLE, '')
 
             if (onSubmitSuccess) {
                 onSubmitSuccess()
@@ -335,12 +346,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             // raw error: the wording can promise the work is safe because uploads, deletions and
             // the main-file choice all persist as they happen — only the submission failed.
             captureException(error)
-            notifications.show({
-                title: SUBMIT_ERROR_TITLE,
-                message: SUBMIT_ERROR_MESSAGE,
-                color: 'red',
-                'data-toast-kind': 'error',
-            })
+            showToast('error', SUBMIT_ERROR_TITLE, SUBMIT_ERROR_MESSAGE)
             onSubmitError?.()
         },
     })

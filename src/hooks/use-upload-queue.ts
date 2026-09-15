@@ -38,24 +38,25 @@ export function useUploadQueue({ existingNames, startUpload }: UseUploadQueueOpt
         [existingNames, startUpload],
     )
 
+    // Side effects stay out of the setDuplicates updater: React invokes updaters twice in
+    // StrictMode, which uploaded the file twice and burned two "Keep both" names per click.
     const resolveDuplicate = useCallback(
         (resolution: DuplicateResolution) => {
-            setDuplicates(([head, ...rest]) => {
-                if (!head) return rest
+            const [head, ...rest] = duplicates
+            if (!head) return
 
-                if (resolution === 'replace') {
-                    // Uploading under the same name overwrites in place, which is what Replace means.
-                    startUpload([head])
-                } else if (resolution === 'keepBoth') {
-                    const name = nextAvailableFileName(head.name, takenNames())
-                    assignedNames.current = [...assignedNames.current, name]
-                    startUpload([renameFile(head, name)])
-                }
+            if (resolution === 'replace') {
+                // Uploading under the same name overwrites in place, which is what Replace means.
+                startUpload([head])
+            } else if (resolution === 'keepBoth') {
+                const name = nextAvailableFileName(head.name, takenNames())
+                assignedNames.current = [...assignedNames.current, name]
+                startUpload([renameFile(head, name)])
+            }
 
-                return rest
-            })
+            setDuplicates(rest)
         },
-        [startUpload, takenNames],
+        [duplicates, startUpload, takenNames],
     )
 
     /** The collision currently being asked about, or null when there is nothing to ask. */

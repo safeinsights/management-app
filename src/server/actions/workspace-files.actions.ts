@@ -7,6 +7,12 @@ import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload } from '@/server/db/mutations'
+import {
+    ACCEPTED_FILE_FORMATS_TEXT,
+    hasAcceptedExtension,
+    MAX_UPLOAD_FILE_BYTES,
+    MAX_UPLOAD_FILE_TEXT,
+} from '@/lib/types'
 
 async function getStudyFilesPath(studyId: string) {
     let coderFilesPath = await getConfigValue('CODER_FILES')
@@ -17,7 +23,17 @@ async function getStudyFilesPath(studyId: string) {
 }
 
 export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string(), file: z.instanceof(File) }))
+    // Both are card rules, so they belong where every caller passes rather than only in the
+    // dropzone — the action otherwise accepts anything under next.config's 6 MB body cap.
+    .params(
+        z.object({
+            studyId: z.string(),
+            file: z
+                .instanceof(File)
+                .refine((f) => f.size <= MAX_UPLOAD_FILE_BYTES, MAX_UPLOAD_FILE_TEXT)
+                .refine((f) => hasAcceptedExtension(f.name), ACCEPTED_FILE_FORMATS_TEXT),
+        }),
+    )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId, file }, session }) => {
@@ -107,10 +123,21 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName } }) => {
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
         const filePath = path.join(coderFilesPath, sanitized)
+
+        // Server-side so both files tables get the rule: /code disables the button, /resubmit's
+        // table does not, and deleting it would leave main_code_file_name naming nothing.
+        const study = await db
+            .selectFrom('study')
+            .select('mainCodeFileName')
+            .where('id', '=', studyId)
+            .executeTakeFirst()
+        if (study?.mainCodeFileName === sanitized) {
+            throw new Error('Main file cannot be deleted. Set another file as main first.')
+        }
 
         try {
             await fs.unlink(filePath)

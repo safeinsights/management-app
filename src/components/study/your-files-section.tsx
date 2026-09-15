@@ -13,7 +13,6 @@ import { SubmitCodeError } from './submit-code-error'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { isFilesReviewState } from './study-code-files'
 import { LaunchIdeControl } from './launch-ide-control'
-import { UploadFilesButton } from './upload-files-button'
 import { YourFilesTable } from './your-files-table'
 
 const SECTION_TITLE = 'Code files'
@@ -52,8 +51,7 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
 
     return (
         <Stack gap="md">
-            {/* Wraps the table so a drop, the Upload button and the "Already have code?" link all
-                take one path. */}
+            {/* Wraps the table so a drop and the "Already have code?" link take one path. */}
             <FileDropOverlay
                 onDrop={ide.uploadFiles}
                 disabled={ide.isUploading}
@@ -117,23 +115,18 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
                     <Title order={3} fz="lg" c="charcoal.9">
                         {SECTION_TITLE}
                     </Title>
-                    <Group gap="sm" wrap="nowrap" align="flex-start">
-                        <UploadFilesButton
-                            isVisible={isReviewState && isEditable}
-                            openRef={openRef}
-                            disabled={ide.isUploading}
-                        />
-                        <LaunchIdeControl
-                            // isReviewState keeps exactly one Launch IDE on screen; see the
-                            // pre-load note above.
-                            isVisible={isEditable && showLaunchIde && isReviewState}
-                            isClaimed={ide.isIdeClaimed}
-                            canLaunch={ide.canEditInIde}
-                            ideOwnerName={ide.ideOwnerName}
-                            isLaunching={ide.isLaunching}
-                            onLaunch={ide.launchWorkspace}
-                        />
-                    </Group>
+                    {/* Launch IDE alone: per the design the card header has no upload control, and
+                        uploading is reached through "Already have code?" or a drop onto the table. */}
+                    <LaunchIdeControl
+                        // isReviewState keeps exactly one Launch IDE on screen; see the pre-load
+                        // note above.
+                        isVisible={isEditable && showLaunchIde && isReviewState}
+                        isClaimed={ide.isIdeClaimed}
+                        canLaunch={ide.canEditInIde}
+                        ideOwnerName={ide.ideOwnerName}
+                        isLaunching={ide.isLaunching}
+                        onLaunch={ide.launchWorkspace}
+                    />
                 </Group>
                 <Divider my={SECTION_GAP} color="charcoal.1" data-testid="your-files-divider" />
                 <FilesBody

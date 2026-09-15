@@ -8,21 +8,11 @@ import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import {
     ACCEPTED_FILE_TYPES,
     ACCEPTED_FILE_FORMATS_TEXT,
+    hasAcceptedExtension,
     MAX_UPLOAD_FILE_BYTES,
     MAX_UPLOAD_FILE_TEXT,
 } from '@/lib/types'
 import { showUploadFailed } from './upload-notifications'
-
-const ACCEPTED_EXTENSIONS = new Set(
-    Object.values(ACCEPTED_FILE_TYPES)
-        .flat()
-        .map((ext) => ext.toLowerCase()),
-)
-
-function hasAcceptedExtension(fileName: string) {
-    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
-    return ACCEPTED_EXTENSIONS.has(ext)
-}
 
 function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null

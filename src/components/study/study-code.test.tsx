@@ -19,6 +19,7 @@ import {
     within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import { StrictMode } from 'react'
 import { StudyCode } from './study-code'
 import { notifications } from '@mantine/notifications'
 import type { Route } from 'next'
@@ -28,6 +29,8 @@ import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/
 import { s3Available } from '@/tests/s3.helpers'
 import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -91,7 +94,11 @@ const DATA_PARTNER = 'Test Data Partner'
 const renderIDE = async (
     studyOrgSlug = 'openstax-lab',
     files?: Record<string, string>,
-    { dataPartnerName = DATA_PARTNER, isFirstVisit = false }: { dataPartnerName?: string; isFirstVisit?: boolean } = {},
+    {
+        dataPartnerName = DATA_PARTNER,
+        isFirstVisit = false,
+        strictMode = false,
+    }: { dataPartnerName?: string; isFirstVisit?: boolean; strictMode?: boolean } = {},
 ) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
@@ -102,14 +109,15 @@ const renderIDE = async (
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(
+    const page = (
         <StudyCode
             studyId={study.id}
             dataPartnerName={dataPartnerName}
             isFirstVisit={isFirstVisit}
             previousHref={previousHref}
-        />,
+        />
     )
+    renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
     return { study, previousHref, dataPartnerName }
 }
@@ -258,7 +266,7 @@ describe('StudyCode component', () => {
         ])
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Code submitted.' }),
+            expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
         )
     })
 
@@ -761,6 +769,16 @@ describe('StudyCode component', () => {
             expect(within(card).getAllByRole('button', { name: /launch ide/i })).toHaveLength(1)
         })
 
+        // The design gives the header Launch IDE and nothing else once files exist; uploading is
+        // reached through "Already have code?" or a drop onto the table.
+        it("is the header's only control, with no Upload files button beside it", async () => {
+            await renderWithOwner('none')
+
+            const card = screen.getByTestId('your-files-section')
+            expect(within(card).queryByRole('button', { name: /^upload files$/i })).not.toBeInTheDocument()
+            expect(within(card).getByRole('button', { name: 'Upload your existing files' })).toBeInTheDocument()
+        })
+
         it('is enabled with the locking warning while nobody has claimed it', async () => {
             await renderWithOwner('none')
 
@@ -831,6 +849,7 @@ describe('StudyCode component', () => {
                         title: 'Code could not be submitted.',
                         message: 'Your work is saved. Try again.',
                         color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -1084,6 +1103,28 @@ describe('StudyCode component', () => {
             expect(await workspaceNames(study.id)).toEqual(['main.R'])
         })
 
+        it('leaves the save indicator idle when every upload fails', async () => {
+            const { study } = await renderWithFiles()
+
+            // A real server-side failure rather than a mocked one: writing over a directory throws
+            // EISDIR, and the listing skips directories so this does not read as a duplicate name.
+            const { CODER_DISABLED } = await import('@/server/config')
+            const root = process.env.CODER_FILES as string
+            await fs.mkdir(path.join(CODER_DISABLED ? root : path.join(root, study.id), 'extra.R'), {
+                recursive: true,
+            })
+
+            await userEvent.setup().upload(fileInput(), codeFile('extra.R'))
+
+            await waitFor(() => {
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({ title: 'extra.R failed to upload.' }),
+                )
+            })
+            // Nothing landed, so the page must not claim otherwise.
+            expect(screen.queryByText('All changes saved')).not.toBeInTheDocument()
+        })
+
         it('categorises its toasts so later logic can key on the kind, not the colour', async () => {
             await renderWithFiles()
 
@@ -1139,6 +1180,22 @@ describe('StudyCode component', () => {
                 })
                 // Same name, new contents: no second file appears.
                 expect(await workspaceNames(study.id)).toEqual(['main.R'])
+            })
+
+            // The bug this pins is invisible outside StrictMode: side effects inside a setState
+            // updater run twice, which took two names and uploaded both.
+            it('assigns a single Keep both name under StrictMode', async () => {
+                const { study } = await renderIDE('openstax-lab', { 'main.R': 'print(1)' }, { strictMode: true })
+                await waitFor(() => expect(screen.getByTestId('already-have-code')).toBeInTheDocument())
+
+                const user = userEvent.setup()
+                await user.upload(fileInput(), codeFile('main.R', 'print("new")'))
+                await screen.findByText('Replace existing file?')
+                await user.click(screen.getByRole('button', { name: 'Keep both' }))
+
+                await waitFor(async () => {
+                    expect(await workspaceNames(study.id)).toEqual(['main (1).R', 'main.R'])
+                })
             })
 
             it('suffixes the arriving file on Keep both, leaving the original alone', async () => {
@@ -1378,11 +1435,12 @@ describe('StudyCode component', () => {
 
     describe('template badge (OTTER-693)', () => {
         /**
-         * `pristine` decides whether the starter file still counts as the untouched template: the
-         * badge keys off the file's mtime sitting at or before the baseline job, which is how
-         * initializeWorkspaceCodeFiles backdates a freshly copied starter file.
+         * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
+         * renames the first starter file after the code env's language, and the badge matches that
+         * derived name. `pristine` decides whether it still counts as untouched — the badge keys off
+         * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
          */
-        const renderWithTemplate = async ({ pristine }: { pristine: boolean }) => {
+        const renderWithTemplate = async ({ pristine, isMain = false }: { pristine: boolean; isMain?: boolean }) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -1393,9 +1451,13 @@ describe('StudyCode component', () => {
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
-                'main.R': 'print("starter")',
+                'Main.R': 'print("starter")',
                 'mine.R': 'print("mine")',
             })
+            // What the pre-load persists, set before render because the page reads it on mount.
+            if (isMain) {
+                await db.updateTable('study').set({ mainCodeFileName: 'Main.R' }).where('id', '=', study.id).execute()
+            }
 
             renderWithProviders(
                 <StudyCode
@@ -1409,12 +1471,23 @@ describe('StudyCode component', () => {
             return { study }
         }
 
+        // The card's "star pre-selected by default": the pre-load writes study.mainCodeFileName, so
+        // the researcher lands on a starred template without touching anything.
+        it('renders the template starred when the pre-load has set it as main', async () => {
+            await renderWithTemplate({ pristine: true, isMain: true })
+
+            await waitFor(() => {
+                expect(screen.getByRole('radio', { name: 'Main.R is the main file' })).toBeInTheDocument()
+            })
+            expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
+        })
+
         it('badges the untouched starter file, and only that file', async () => {
             await renderWithTemplate({ pristine: true })
 
             await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
             expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View main.R' }).closest('tr')
+            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
             expect(templateRow).toHaveTextContent('Template')
         })
 
@@ -1567,7 +1640,7 @@ describe('StudyCode component', () => {
             ])
 
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'green', title: 'Code submitted.' }),
+                expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
             )
         })
     })

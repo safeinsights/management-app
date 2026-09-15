@@ -182,9 +182,12 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     // main file must be picked explicitly when multiple files are present.
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
+    // `radio`, not `button`: this page's table is a radiogroup. The resubmit helper below still
+    // says `button` because /resubmit renders the older table — see OTTER-693 follow-up on
+    // unifying the two.
     await expect(async () => {
-        await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
-        await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+        await page.getByRole('radio', { name: `Set ${mainFileName} as main file` }).click()
+        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file` })).toBeVisible()
     }).toPass()
 
     const submitButton = page.getByRole('button', { name: /Submit code/i })

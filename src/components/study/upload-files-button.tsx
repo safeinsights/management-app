@@ -5,13 +5,9 @@ import { UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 interface UploadFilesButtonProps {
     openRef: RefObject<(() => void) | null>
     disabled?: boolean
-    /** Defaults to visible so /resubmit's panel, which always shows it, needs no change. */
-    isVisible?: boolean
 }
 
-export function UploadFilesButton({ openRef, disabled, isVisible = true }: UploadFilesButtonProps) {
-    if (!isVisible) return null
-
+export function UploadFilesButton({ openRef, disabled }: UploadFilesButtonProps) {
     return (
         <Button
             variant="outline"
