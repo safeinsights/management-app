@@ -214,7 +214,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
-    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
+    // OTTER-693 renamed the modal's CTA from "Yes, submit study code" to "Submit code". Scoped to
+    // the dialog and exact: unscoped it would also match the "Submit code for review" button behind
+    // it, since Playwright matches the accessible name as a substring by default.
+    const confirmDialog = page.getByRole('dialog', { name: 'Submit code for review?' })
+    const confirmButton = confirmDialog.getByRole('button', { name: 'Submit code', exact: true })
     await expect(confirmButton).toBeVisible()
     await confirmButton.click()
 
