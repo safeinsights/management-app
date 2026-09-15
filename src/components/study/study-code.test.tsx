@@ -680,6 +680,8 @@ describe('StudyCode component', () => {
             await waitFor(async () => {
                 expect(await ideOwnerId(study.id)).not.toBeNull()
             })
+            // The launch only enters flight once the claim lands, so settle after asserting it.
+            await waitForPendingMutations()
         })
 
         it('does not claim the IDE when the launch fails', async () => {
@@ -1466,6 +1468,8 @@ describe('StudyCode component', () => {
                     .execute()
                 expect(rows).toEqual([{ fileName: 'helper.R', action: 'EDITED_IN_IDE' }])
             })
+            // The pencil launches the workspace after recording the edit; let that land.
+            await waitForPendingMutations()
         })
     })
 
