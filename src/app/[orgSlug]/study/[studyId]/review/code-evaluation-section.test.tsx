@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { within } from '@testing-library/react'
 import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 
@@ -16,7 +17,7 @@ const initialDraft: CodeReviewCriteriaDraft = {
     privacyProtection: null,
 }
 
-const renderSection = () => {
+const renderSection = ({ isTestStudy = false }: { isTestStudy?: boolean } = {}) => {
     const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
     const Harness = () => {
         const form = useForm<FormShape>({ initialValues: { criteria: initialDraft } })
@@ -25,7 +26,7 @@ const renderSection = () => {
         }, [form])
         return (
             <CodeReviewFeedbackProviderShare>
-                <CodeEvaluationSection form={form} enabled />
+                <CodeEvaluationSection form={form} enabled isTestStudy={isTestStudy} />
             </CodeReviewFeedbackProviderShare>
         )
     }
@@ -52,6 +53,20 @@ describe('CodeEvaluationSection', () => {
         for (const descriptor of CODE_REVIEW_CRITERIA) {
             expect(screen.getByTestId(`criteria-row-${descriptor.key}`)).toHaveTextContent(descriptor.label)
         }
+    })
+
+    it('explains the agreements criterion only when the study is a test study', async () => {
+        renderSection({ isTestStudy: true })
+
+        const row = screen.getByTestId('criteria-row-agreementCompliance')
+        expect(within(row).getByLabelText(/This is a test study/i)).toBeInTheDocument()
+    })
+
+    it('leaves the agreements criterion as plain text for an ordinary study', () => {
+        renderSection()
+
+        const row = screen.getByTestId('criteria-row-agreementCompliance')
+        expect(within(row).queryByLabelText(/This is a test study/i)).toBeNull()
     })
 
     it('updates the form value when a radio is selected', async () => {

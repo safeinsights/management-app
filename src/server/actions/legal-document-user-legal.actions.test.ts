@@ -66,11 +66,13 @@ describe('fetchUserStudyAgreementsAction', () => {
     // Distinct orgs on each side, so a swapped From/To join cannot pass.
     const insertStudyForReader = async (reader: Reader, title = 'A study') => {
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        // This file drives acknowledgement itself, so the fixture must not pre-ack anything.
         const { study } = await insertTestStudyOnly({
             org: reader.org,
             submittedByOrg: researchLab,
             title,
             status: 'APPROVED',
+            withStudyAgreement: false,
         })
         return { study, researchLab }
     }

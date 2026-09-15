@@ -12,9 +12,17 @@ export type OrgSettingsViewProps = {
     apiKeys: ReactNode
     codeEnvs: ReactNode
     dataSources: ReactNode
+    testLabs: ReactNode
 }
 
-export function OrgSettingsView({ orgName, orgSettings, apiKeys, codeEnvs, dataSources }: OrgSettingsViewProps) {
+export function OrgSettingsView({
+    orgName,
+    orgSettings,
+    apiKeys,
+    codeEnvs,
+    dataSources,
+    testLabs,
+}: OrgSettingsViewProps) {
     return (
         <Stack p="md">
             <PageHeader eyebrow={orgName} title="Settings" />
@@ -22,6 +30,7 @@ export function OrgSettingsView({ orgName, orgSettings, apiKeys, codeEnvs, dataS
             {apiKeys}
             {codeEnvs}
             {dataSources}
+            {testLabs}
         </Stack>
     )
 }

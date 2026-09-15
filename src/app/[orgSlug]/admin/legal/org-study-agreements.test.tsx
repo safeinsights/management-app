@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import {
     actionResult,
+    db,
     faker,
     insertTestOrg,
     insertTestStudyOnly,
@@ -34,7 +35,13 @@ const insertPartyOrgs = async () => ({
 
 const seedDataPartnerWithStudy = async (title: string) => {
     const { dataPartner, researchLab } = await insertPartyOrgs()
-    const { study } = await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title })
+    // This file is about the signed/unsigned split, so it publishes agreements itself.
+    const { study } = await insertTestStudyOnly({
+        org: dataPartner,
+        submittedByOrg: researchLab,
+        title,
+        withStudyAgreement: false,
+    })
 
     return { study, dataPartner, researchLab }
 }
@@ -72,6 +79,19 @@ describe('OrgStudyAgreements', () => {
         expect(within(row).getByText(researchLab.name)).toBeDefined()
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
         expect(within(row).getAllByText('—')).toHaveLength(2)
+    })
+
+    it('marks a test study exempt instead of showing an effective date', async () => {
+        const title = `Test ${faker.string.alpha(6)}`
+        const { study, dataPartner } = await seedDataPartnerWithStudy(title)
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByText('Test study')).toBeDefined()
+        expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
     })
 
     it('links to the PDF and shows the signed date once an agreement is published', async () => {

@@ -3,7 +3,7 @@
 import { type ReactNode } from 'react'
 import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { WarningCircleIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { useWidgetBlur } from '@/components/form-field'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -13,6 +13,7 @@ import {
     type CodeReviewCriteriaKey,
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
+import { InfoTooltip } from '@/components/tooltip'
 import { CODE_REVIEW_CRITERIA, type CodeReviewCriterion } from './code-review-criteria'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -24,17 +25,44 @@ const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = 
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
     enabled: boolean
+    isTestStudy: boolean
+}
+
+// The lo-fi hangs this off the word "agreements"; a trailing icon carries the same note without
+// splitting the label string.
+function CriterionLabel({
+    id,
+    descriptor,
+    isTestStudy,
+}: {
+    id: string
+    descriptor: CodeReviewCriterion
+    isTestStudy: boolean
+}) {
+    const note = isTestStudy ? descriptor.testStudyNote : undefined
+
+    return (
+        <Text id={id} fz={14} w={320}>
+            {descriptor.label}
+            {note && (
+                <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+                    <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
+                </InfoTooltip>
+            )}
+        </Text>
+    )
 }
 
 type CriterionRowProps = {
     descriptor: CodeReviewCriterion
     value: CodeReviewCriteriaDraftValue
     error: ReactNode
+    isTestStudy: boolean
     onChange: (value: CodeReviewCriteriaDraftValue) => void
     onBlur: () => void
 }
 
-function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionRowProps) {
+function CriterionRow({ descriptor, value, error, isTestStudy, onChange, onBlur }: CriterionRowProps) {
     const handleChange = (raw: string) => {
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
@@ -47,9 +75,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
 
     return (
         <Group gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${descriptor.key}`}>
-            <Text id={labelId} fz={14} w={320}>
-                {descriptor.label}
-            </Text>
+            <CriterionLabel id={labelId} descriptor={descriptor} isTestStudy={isTestStudy} />
             {/* Guarded blur: the radios are siblings, so an unguarded handler would error while
                 the user is still tabbing across the row (OTTER-647). */}
             <Radio.Group
@@ -68,7 +94,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
     )
 }
 
-export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionProps) {
+export function CodeEvaluationSection({ form, enabled, isTestStudy }: CodeEvaluationSectionProps) {
     const provider = useCodeReviewFeedbackProvider()
     const { pushCriterion } = useCodeReviewEvaluationMap({ form, provider, enabled })
 
@@ -85,6 +111,7 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
             descriptor={descriptor}
             value={criteriaValues[descriptor.key]}
             error={form.errors[`criteria.${descriptor.key}`]}
+            isTestStudy={isTestStudy}
             onChange={handleChange(descriptor.key)}
             onBlur={() => form.validateField(`criteria.${descriptor.key}`)}
         />

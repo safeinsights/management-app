@@ -37,6 +37,7 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
     await sleep({ 1: 'seconds' })
@@ -167,6 +168,12 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
+        // Stamped once here rather than read from the pair later, so designating a lab cannot
+        // retroactively exempt a study that already carries a signed agreement.
+        // TODO Chris: confirm against the hi-fis whether a test study still goes through proposal
+        // review. Built on the assumption that it does.
+        const isTestStudy = await isDesignatedTestLab(db, { dataPartnerId: orgId, researchLabId: submittedByOrgId })
+
         await db
             .insertInto('study')
             .values({
@@ -182,6 +189,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 researcherId: userId,
                 submittedByOrgId,
                 containerLocation,
+                isTestStudy,
                 status: 'DRAFT',
             })
             .returning('id')
@@ -442,6 +450,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.irbDocPath',
                 'study.agreementDocPath',
                 'study.status',
+                'study.isTestStudy',
                 'study.researcherId',
                 'study.orgId',
                 'study.submittedByOrgId',

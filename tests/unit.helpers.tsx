@@ -7,7 +7,7 @@ import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
-import { writeStudyAgreementVersion } from '@/server/db/legal-document'
+import { latestPublishedStudyAgreement, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
@@ -345,6 +345,7 @@ export const insertTestStudyJobData = async ({
     impact,
     additionalNotes,
     datasets,
+    withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
@@ -358,6 +359,7 @@ export const insertTestStudyJobData = async ({
     projectSummary?: Json | null
     impact?: Json | null
     additionalNotes?: Json | null
+    withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -407,6 +409,8 @@ export const insertTestStudyJobData = async ({
         .returning('id')
         .executeTakeFirstOrThrow()
 
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
     const latestJobWithStatus = await latestJobForStudy(study.id)
 
     return {
@@ -438,12 +442,14 @@ export const insertTestStudyOnly = async ({
     researcherId,
     title = 'study without job',
     status = 'APPROVED',
+    withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
     researcherId?: string
     title?: string
     status?: StudyStatus
+    withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -469,6 +475,9 @@ export const insertTestStudyOnly = async ({
         })
         .returningAll()
         .executeTakeFirstOrThrow()
+
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
     return { org, study }
 }
 
@@ -1193,6 +1202,49 @@ export const insertTestStudyAgreement = async ({
         published,
         fileName: 'agreement.pdf',
     })
+}
+
+// Study fixtures reach code submission, which the study agreement gate now blocks without one.
+// A real agreement plus the parties' acknowledgements, rather than marking fixtures test studies:
+// otherwise the default fixture is the one that bypasses the gate.
+export const seedAcknowledgedStudyAgreement = async (studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId', 'submittedByOrgId'])
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
+
+    // Reuses an existing version and acks only who still owes it, so a test that mints another
+    // session user can call this again rather than track versions itself.
+    const existing = await latestPublishedStudyAgreement(db, studyId)
+    const versionId = existing?.versionId ?? (await insertTestStudyAgreement({ studyId })).id
+
+    const owing = await db
+        .selectFrom('orgUser')
+        .select('userId')
+        .distinct()
+        .where('orgId', 'in', [study.orgId, study.submittedByOrgId])
+        .where((eb) =>
+            eb.not(
+                eb.exists(
+                    eb
+                        .selectFrom('legalDocumentAcknowledgement')
+                        .select('legalDocumentAcknowledgement.id')
+                        .where('legalDocumentAcknowledgement.legalDocumentVersionId', '=', versionId)
+                        .whereRef('legalDocumentAcknowledgement.userId', '=', 'orgUser.userId'),
+                ),
+            ),
+        )
+        .execute()
+
+    if (owing.length) {
+        await db
+            .insertInto('legalDocumentAcknowledgement')
+            .values(owing.map(({ userId }) => ({ legalDocumentVersionId: versionId, userId })))
+            .execute()
+    }
+
+    return versionId
 }
 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }

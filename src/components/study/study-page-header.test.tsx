@@ -26,6 +26,18 @@ describe('StudyPageHeader', () => {
         expect(screen.getByText('genius')).toBeInTheDocument()
     })
 
+    it('marks a test study beside the title', () => {
+        renderWithProviders(<StudyPageHeader study={{ ...study, isTestStudy: true }} />)
+
+        expect(screen.getByText('Test study')).toBeInTheDocument()
+    })
+
+    it('says nothing for an ordinary study', () => {
+        renderWithProviders(<StudyPageHeader study={study} />)
+
+        expect(screen.queryByText('Test study')).toBeNull()
+    })
+
     // Role independence cannot be shown here: this reads only the study it is handed. The two
     // personas are driven through their real routes in study-header-personas.test.tsx.
 

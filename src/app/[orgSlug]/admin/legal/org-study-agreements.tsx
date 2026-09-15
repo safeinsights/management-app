@@ -12,7 +12,7 @@ import {
     type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
-import { AgreementsPanel } from '@/components/legal/agreements-table'
+import { AgreementDayCell, AgreementsPanel } from '@/components/legal/agreements-table'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
 import type { DataTableColumn } from 'mantine-datatable'
@@ -32,7 +32,9 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
         accessor: 'signedAt',
         title: 'Effective on',
         sortable: true,
-        render: (agreement) => formatDayString(agreement.signedAt),
+        render: (agreement) => (
+            <AgreementDayCell isTestStudy={agreement.isTestStudy} day={formatDayString(agreement.signedAt)} />
+        ),
     },
     {
         accessor: 'versionId',

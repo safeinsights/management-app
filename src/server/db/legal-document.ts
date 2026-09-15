@@ -115,6 +115,15 @@ export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =
         .limit(1)
         .executeTakeFirst()
 
+// The two signatory orgs plus the exemption, for the case where no agreement row exists to read
+// them from.
+export const studyAgreementParties = (db: DBExecutor, studyId: string) =>
+    db
+        .selectFrom('study')
+        .select(['study.orgId as dataPartnerId', 'study.submittedByOrgId as researchLabId', 'study.isTestStudy'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
+
 // Nulls sink in both directions, so an unsigned agreement never leads the table.
 const orderedBy = (direction: 'asc' | 'desc') => (ob: OrderByItemBuilder) =>
     (direction === 'asc' ? ob.asc() : ob.desc()).nullsLast()
@@ -213,24 +222,70 @@ export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: strin
         .executeTakeFirst()
 
 // Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
-export const userStudyAgreements = (
+// Two arms: agreements this user acknowledged, plus test studies of orgs they belong to, which have
+// no agreement to acknowledge and so could never reach the first arm.
+export const userStudyAgreements = async (
     db: DBExecutor,
     { userId, sort }: { userId: string; sort: UserStudyAgreementSort },
 ) => {
-    const acknowledged = latestAcknowledgedVersions(db, { userId, type: 'SLA' })
-        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+    const memberships = await db.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
+    const orgIds = memberships.map((row) => row.orgId)
+
+    const rows = db
+        .selectFrom('study')
         .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
         .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('legalDocument')
+                    .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+                    .innerJoin(
+                        'legalDocumentAcknowledgement',
+                        'legalDocumentAcknowledgement.legalDocumentVersionId',
+                        'legalDocumentVersion.id',
+                    )
+                    .select([
+                        'legalDocumentVersion.id as versionId',
+                        'legalDocumentVersion.signedAt as signedAt',
+                        'legalDocumentAcknowledgement.ackedAt as ackedAt',
+                    ])
+                    .whereRef('legalDocument.studyId', '=', 'study.id')
+                    .where('legalDocument.type', '=', 'SLA')
+                    .where('legalDocumentAcknowledgement.userId', '=', userId)
+                    .orderBy('legalDocumentVersion.versionNumber', 'desc')
+                    .limit(1)
+                    .as('agreement'),
+            (join) => join.onTrue(),
+        )
         .select([
             'study.id as studyId',
             'study.title as studyTitle',
+            'study.isTestStudy as isTestStudy',
             'researchLab.name as fromName',
             'dataPartner.name as toName',
-            ...acknowledgedVersionFields,
+            'agreement.versionId',
+            'agreement.signedAt',
+            'agreement.ackedAt',
         ])
+        .where('study.deletedAt', 'is', null)
+        .where((eb) => {
+            const acknowledged = eb('agreement.versionId', 'is not', null)
+            // Checking emptiness first: `in` against an empty list is a Postgres error.
+            if (!orgIds.length) return acknowledged
 
-    return db
-        .selectFrom(acknowledged.as('agreement'))
+            return eb.or([
+                acknowledged,
+                eb.and([
+                    eb('study.isTestStudy', '=', true),
+                    eb('study.status', '=', 'APPROVED'),
+                    eb.or([eb('study.orgId', 'in', orgIds), eb('study.submittedByOrgId', 'in', orgIds)]),
+                ]),
+            ])
+        })
+
+    return await db
+        .selectFrom(rows.as('agreement'))
         .selectAll('agreement')
         .orderBy(userStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
         .orderBy(userStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
@@ -292,6 +347,7 @@ export const orgStudyAgreements = (
                 'study.id as studyId',
                 'study.title as studyTitle',
                 'counterparty.name as counterpartyName',
+                'study.isTestStudy as isTestStudy',
                 'agreement.versionId',
                 'agreement.signedAt',
             ])

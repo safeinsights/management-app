@@ -20,7 +20,7 @@ import { submitCodeReviewDecisionAction } from './study.actions'
 beforeEach(resetLegalDocuments)
 
 // Separate orgs for the two sides, so a swapped join in the audience check cannot pass.
-const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus } = {}) => {
+const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus, isTestStudy = false } = {}) => {
     const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const { user: researcher } = await insertTestUser({
@@ -37,6 +37,7 @@ const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus 
             researcherId: researcher.id,
             piName: 'test',
             status,
+            isTestStudy,
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
@@ -53,6 +54,13 @@ describe('fetchStudyAgreementStatusAction', () => {
         await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
 
         expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
+    })
+
+    it('reports exempt for a test study, so the notice does not block a lab that owes nothing', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+        await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'exempt' })
     })
 
     it('reports none for a draft, so nobody is blocked by an abandoned upload', async () => {
@@ -133,9 +141,34 @@ describe('fetchStudyAgreementStatusAction', () => {
 })
 
 describe('requireStudyAgreementAcknowledged', () => {
-    it('allows a study with no published agreement, so approval is not gated on SI admin paperwork', async () => {
+    it('refuses a party when no agreement has been published', async () => {
         const { study, researchLab } = await insertStudyWithDistinctOrgs()
         const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        await expect(requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id })).rejects.toThrow()
+    })
+
+    it('allows a test study with no agreement', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+        const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        await expect(
+            requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id }),
+        ).resolves.toBeUndefined()
+    })
+
+    // The exemption covers needing an agreement, not honouring one published anyway.
+    it('refuses a test study whose agreement is published and unacknowledged', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
+        await insertTestStudyAgreement({ studyId: study.id })
+        const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+
+        await expect(requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id })).rejects.toThrow()
+    })
+
+    it('allows an SI admin when no agreement has been published, since they sign nothing', async () => {
+        const { study } = await insertStudyWithDistinctOrgs()
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
 
         await expect(
             requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id }),
@@ -187,6 +220,7 @@ describe('submitCodeReviewDecisionAction with an unacknowledged agreement', () =
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
+            withStudyAgreement: false,
         })
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
         return { user, org, study }

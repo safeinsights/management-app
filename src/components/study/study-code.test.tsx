@@ -323,6 +323,56 @@ describe('StudyCode component', () => {
         })
     })
 
+    describe('study agreement gate', () => {
+        const renderForAgreementState = async ({
+            withStudyAgreement,
+            isTestStudy = false,
+        }: {
+            withStudyAgreement: boolean
+            isTestStudy?: boolean
+        }) => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['test/path/to/main.R'] })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id, withStudyAgreement })
+            if (isTestStudy) {
+                await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+            }
+
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("starter")', 'helper.R': 'print("helper")' })
+
+            const previousHref = `/test-org/study/${study.id}/agreements` as Route
+            renderWithProviders(<StudyCode studyId={study.id} previousHref={previousHref} />)
+
+            return { study }
+        }
+
+        const selectMainFile = async () => {
+            await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
+            await userEvent.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+        }
+
+        it('blocks submitting and says why when no agreement has been published', async () => {
+            await renderForAgreementState({ withStudyAgreement: false })
+            await selectMainFile()
+
+            await waitFor(() => {
+                expect(screen.getByText(/Study Agreement is being prepared/i)).toBeInTheDocument()
+                expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
+            })
+        })
+
+        it('leaves a test study free to submit, with no notice', async () => {
+            await renderForAgreementState({ withStudyAgreement: false, isTestStudy: true })
+            await selectMainFile()
+
+            await waitFor(() => expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled())
+            expect(screen.queryByText(/Study Agreement is being prepared/i)).toBeNull()
+        })
+    })
+
     describe('session timeout regression', () => {
         it.skipIf(!s3Available)('submits successfully after unmount and fresh remount with same studyId', async () => {
             const orgSlug = 'openstax-lab'

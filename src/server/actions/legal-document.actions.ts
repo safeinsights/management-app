@@ -38,6 +38,7 @@ import {
     findOrCreateLegalDocument,
     userAcknowledgedVersion,
     latestPublishedStudyAgreement,
+    studyAgreementParties,
     orgParticipationAgreement,
     orgStudyAgreements,
     userParticipationAgreements,
@@ -653,6 +654,8 @@ export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudies
             ])
             .where('study.status', '=', 'APPROVED')
             .where('study.deletedAt', 'is', null)
+            // A test study needs no agreement, so leaving it here would queue work that never ends.
+            .where('study.isTestStudy', '=', false)
             // Keyed on a PUBLISHED version, not the document row: that row is written before the
             // file is uploaded, so an abandoned upload would hide the study from both screens.
             .where((eb) =>
@@ -686,7 +689,15 @@ export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementSt
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
         const agreement = await latestPublishedStudyAgreement(db, studyId)
-        if (!agreement) return { state: 'none' }
+
+        if (!agreement) {
+            const study = await studyAgreementParties(db, studyId)
+            if (!study || !(await isPartyToStudyAgreement(db, { ...study, userId: session.user.id }))) {
+                return { state: 'notAParty' }
+            }
+
+            return study.isTestStudy ? { state: 'exempt' } : { state: 'none' }
+        }
 
         if (!(await isPartyToStudyAgreement(db, { ...agreement, userId: session.user.id }))) {
             return { state: 'notAParty' }

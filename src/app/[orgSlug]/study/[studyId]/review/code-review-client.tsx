@@ -122,6 +122,7 @@ type EditableBodyProps = {
     canSubmit: boolean
     isPending: boolean
     nav: StepNav
+    isTestStudy: boolean
     onSubmit: () => void
     onDecisionChange: (next: Decision) => void
 }
@@ -136,13 +137,14 @@ function EditableBody({
     canSubmit,
     isPending,
     nav,
+    isTestStudy,
     onSubmit,
     onDecisionChange,
 }: EditableBodyProps) {
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <CodeEvaluationSection form={evaluationForm} enabled />
+            <CodeEvaluationSection form={evaluationForm} enabled isTestStudy={isTestStudy} />
             <CodeReviewFeedbackSection
                 feedback={feedback}
                 studyId={job.studyId}
@@ -233,6 +235,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     canSubmit={canSubmit}
                     isPending={isPending}
                     nav={nav}
+                    isTestStudy={study.isTestStudy}
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
                 />

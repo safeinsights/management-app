@@ -212,7 +212,12 @@ describe('orgSlugsForUser', () => {
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org: lab })
-        await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
+        await insertTestStudyOnly({
+            org: enclave,
+            submittedByOrg: lab,
+            researcherId: user.id,
+            withStudyAgreement: false,
+        })
 
         expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([enclave.slug, lab.slug].sort())
     })
@@ -221,7 +226,7 @@ describe('orgSlugsForUser', () => {
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org: lab })
-        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, withStudyAgreement: false })
         await db
             .updateTable('study')
             .set({ reviewerId: user.id, piUserId: user.id })
@@ -449,6 +454,7 @@ describe('deleteUserById FK coverage', () => {
     const HANDLED: Record<string, string> = {
         'job_status_change.user_id': 'deleted',
         'legal_document_acknowledgement.user_id': 'deleted',
+        'org_test_lab.created_by_user_id': 'detached — the designation belongs to the data partner',
         'org_user.user_id': 'deleted',
         'study.researcher_id': 'owned studies are deleted outright',
         'study.pi_user_id': 'detached — the study can belong to a real researcher',
