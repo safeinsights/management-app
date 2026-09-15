@@ -54,6 +54,18 @@ const clickResubmit = async () => {
     await user.click(screen.getByRole('button', { name: 'Resubmit proposal' }))
 }
 
+describe('EditResubmitForm proposal card (OTTER-762)', () => {
+    it('renders the shared Step 2 card re-titled Edit proposal, with no study title', () => {
+        renderForm(filledDraft)
+
+        const header = screen.getByTestId('proposal-section-header')
+        expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+        expect(within(header).getByRole('heading', { level: 2, name: 'Edit proposal' })).toBeInTheDocument()
+        expect(screen.queryByLabelText(/study title/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('A study title')).not.toBeInTheDocument()
+    })
+})
+
 describe('EditResubmitForm resubmit-click validation (OTTER-762)', () => {
     it('flags every empty required field at once, the note included, with the card wording', async () => {
         renderForm(emptyDraft)

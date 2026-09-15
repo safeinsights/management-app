@@ -17,7 +17,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
-import { SUBMIT_FAILURE_TITLE, SUBMIT_FAILURE_UNSAVED_MESSAGE } from '@/contexts/proposal/hooks/use-submit-proposal'
+import { SUBMIT_FAILURE_TITLE, SUBMIT_FAILURE_UNSAVED_MESSAGE } from '@/contexts/proposal/hooks/submission-toasts'
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'

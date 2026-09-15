@@ -191,13 +191,7 @@ describe('ProposalTextFieldEntry focus on an empty field', () => {
             initialErrors: { [field.id]: REQUIRED_ERROR },
         })
         return (
-            <ProposalTextFieldEntry
-                field={field}
-                form={form}
-                studyId={faker.string.uuid()}
-                websocketProvider={null}
-                liveCharacterLimit
-            />
+            <ProposalTextFieldEntry field={field} form={form} studyId={faker.string.uuid()} websocketProvider={null} />
         )
     }
 

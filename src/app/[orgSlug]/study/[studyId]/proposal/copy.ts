@@ -7,5 +7,27 @@ export const proposalIntroText = (orgName: string) =>
 export const datasetsDescription = (orgName: string) =>
     `Select the datasets available through ${orgName} for this study.`
 
-export const confirmSubmitBody = (orgName: string) =>
+const confirmSubmitBody = (orgName: string) =>
     `Your proposal will be sent to ${orgName} for review. You will not be able to make changes once submitted.`
+
+export interface ConfirmModalCopy {
+    title: string
+    body: string
+    confirmLabel: string
+    confirmLoadingLabel: string
+}
+
+// The two pages' modals share the body and differ only in the verb.
+export const submitModalCopy = (orgName: string): ConfirmModalCopy => ({
+    title: 'Submit your proposal?',
+    body: confirmSubmitBody(orgName),
+    confirmLabel: 'Submit proposal',
+    confirmLoadingLabel: 'Submitting',
+})
+
+export const resubmitModalCopy = (orgName: string): ConfirmModalCopy => ({
+    title: 'Resubmit your proposal?',
+    body: confirmSubmitBody(orgName),
+    confirmLabel: 'Resubmit proposal',
+    confirmLoadingLabel: 'Resubmitting',
+})

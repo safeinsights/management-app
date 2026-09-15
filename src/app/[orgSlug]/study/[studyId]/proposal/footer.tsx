@@ -1,22 +1,12 @@
 'use client'
 
 import { FC } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
-import { AppModal } from '@/components/modals/app-modal'
-import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
-import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
-import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
-import { Routes } from '@/lib/routes'
-import { hasLexicalContent } from '@/lib/lexical'
-import { ReviewerPreview } from './reviewer-preview'
-import { useProposalSubmitAttempt } from './use-proposal-submit-attempt'
-import { SUBMIT_BUTTON_ID } from './field-ids'
-import { confirmSubmitBody } from './copy'
+import { ProposalFooter } from './proposal-footer'
+import { invalidProposalFieldIds } from './use-proposal-submit-attempt'
+import { submitModalCopy } from './copy'
 
-interface ProposalFooterProps {
+interface DraftProposalFooterProps {
     researcherName: string
     researcherId: string
     enclaveOrgSlug?: string
@@ -24,97 +14,30 @@ interface ProposalFooterProps {
     orgName: string
 }
 
-export const ProposalFooter: FC<ProposalFooterProps> = ({
+// Step 2's footer: the shared ProposalFooter wired to the draft proposal context.
+export const DraftProposalFooter: FC<DraftProposalFooterProps> = ({
     researcherName,
     researcherId,
     enclaveOrgSlug,
     studyTitle,
     orgName,
 }) => {
-    const router = useRouter()
-    const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, form, submitProposal, isSubmitting } = useProposal()
-    // titleMode 'omit': this form's title is only a seed for the preview, so sending it back
-    // would let a stale value overwrite the one Step 1 persisted.
-    const { saveDraft, isSaving } = useSaveProposalDraft(studyId, form, { titleMode: 'omit' })
-    const [reviewerOpen, { open: openReviewer, close: closeReviewer }] = useDisclosure(false)
-    const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt(form, isSubmitting)
-
-    const isBusy = isSubmitting || isSaving
-    // Lexical fields store JSON even when empty, so extract the text to detect real content.
-    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
-    const hasContent =
-        hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
-
-    const handlePrevious = async () => {
-        // Yjs autosave is inactive in single-user mode, so this is the only write path.
-        const saved = await saveDraft()
-        if (!saved) return
-        router.push(Routes.studyEdit({ orgSlug, studyId }))
-    }
-
-    const handleOpenReviewer = async () => {
-        // The server only serves PI profiles the persisted study row names, so an unsaved
-        // piUserId would render as "Profile not available".
-        const saved = await saveDraft()
-        if (!saved) return
-        openReviewer()
-    }
+    const validate = () => invalidProposalFieldIds(form)
 
     return (
-        <>
-            <Group mt="xs" justify="space-between" align="flex-start" w="100%">
-                <Button
-                    type="button"
-                    variant="subtle"
-                    size="md"
-                    leftSection={<CaretLeftIcon />}
-                    disabled={isBusy}
-                    loading={isSaving}
-                    onClick={handlePrevious}
-                >
-                    Previous step
-                </Button>
-                <Group align="flex-start">
-                    <Button variant="outline" size="md" disabled={!hasContent || isBusy} onClick={handleOpenReviewer}>
-                        View as reviewer
-                    </Button>
-                    {/* Never disabled on validity: clicking it is what surfaces the errors
-                        (OTTER-691). */}
-                    <Button
-                        id={SUBMIT_BUTTON_ID}
-                        size="md"
-                        variant="filled"
-                        disabled={isBusy}
-                        loading={isSubmitting}
-                        onClick={attemptSubmit}
-                    >
-                        Submit proposal
-                    </Button>
-                </Group>
-            </Group>
-
-            <SubmitConfirmationModal
-                isOpen={isConfirmOpen}
-                onClose={closeConfirm}
-                onConfirm={submitProposal}
-                isSubmitting={isSubmitting}
-                title="Submit your proposal?"
-                body={confirmSubmitBody(orgName)}
-                confirmLabel="Submit proposal"
-                confirmLoadingLabel="Submitting"
-            />
-
-            <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">
-                <ReviewerPreview
-                    studyId={studyId}
-                    studyTitle={studyTitle}
-                    values={form.values}
-                    researcherName={researcherName}
-                    researcherId={researcherId}
-                    enclaveOrgSlug={enclaveOrgSlug}
-                />
-            </AppModal>
-        </>
+        <ProposalFooter
+            studyId={studyId}
+            form={form}
+            researcherName={researcherName}
+            researcherId={researcherId}
+            enclaveOrgSlug={enclaveOrgSlug}
+            studyTitle={studyTitle}
+            submitLabel="Submit proposal"
+            modalCopy={submitModalCopy(orgName)}
+            onSubmit={submitProposal}
+            isSubmitting={isSubmitting}
+            validate={validate}
+        />
     )
 }

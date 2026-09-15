@@ -37,7 +37,7 @@ import {
     SUBMIT_FAILURE_TITLE,
     SUBMIT_FAILURE_UNSAVED_MESSAGE,
     SUBMIT_SUCCESS_TITLE,
-} from '@/contexts/proposal/hooks/use-submit-proposal'
+} from '@/contexts/proposal/hooks/submission-toasts'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useResubmitProposal } from './use-resubmit-proposal'
 

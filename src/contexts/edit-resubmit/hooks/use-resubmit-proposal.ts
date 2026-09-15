@@ -2,24 +2,17 @@ import { useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
-import { captureException } from '@sentry/nextjs'
 import { useMutation } from '@/common'
 import { resubmitProposalAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { type ResubmitNoteValue } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from '@/contexts/proposal/hooks/build-study-info'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
-import {
-    SUBMIT_FAILURE_MESSAGE,
-    SUBMIT_FAILURE_TITLE,
-    SUBMIT_FAILURE_UNSAVED_MESSAGE,
-    SUBMIT_SUCCESS_TITLE,
-} from '@/contexts/proposal/hooks/use-submit-proposal'
+import { reportSubmissionFailure, SUBMIT_SUCCESS_TITLE } from '@/contexts/proposal/hooks/submission-toasts'
 
 interface UseResubmitProposalOptions {
     studyId: string
@@ -74,22 +67,7 @@ export function useResubmitProposal({
             yjsForm.provider?.sendStateless(JSON.stringify(event))
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: async (error) => {
-            // Not reportError: that appends a Sentry reference id to the message, and this copy is
-            // specified exactly.
-            captureException(error)
-
-            // Awaited before the toast because a failed resubmit writes nothing and single-user
-            // mode has no Yjs autosave behind it, so these flushes decide which message is truthful.
-            const [fieldsSaved, noteSaved] = await Promise.all([saveDraft(), flushNote()])
-            notifications.show({
-                color: 'red',
-                title: SUBMIT_FAILURE_TITLE,
-                message: fieldsSaved && noteSaved ? SUBMIT_FAILURE_MESSAGE : SUBMIT_FAILURE_UNSAVED_MESSAGE,
-            })
-
-            document.getElementById(SUBMIT_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        },
+        onError: (error) => reportSubmissionFailure(error, [saveDraft(), flushNote()]),
     })
 
     const resubmit = useCallback(() => {

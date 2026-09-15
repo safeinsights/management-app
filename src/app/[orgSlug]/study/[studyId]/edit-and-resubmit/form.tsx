@@ -9,7 +9,10 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
-import { EditInitialRequestSection, type MemberOption } from './edit-initial-request-section'
+import {
+    ProposalFieldsSection,
+    type MemberOption,
+} from '@/app/[orgSlug]/study/[studyId]/proposal/proposal-fields-section'
 import { EditResubmitFooter } from './footer'
 
 // Co-editable by the whole lab; once any member resubmits the study leaves CHANGE-REQUESTED and
@@ -45,7 +48,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     studyTitle,
     isDraftCreator = false,
 }) => {
-    const { studyId, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
+    const { studyId, form, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
         useEditResubmit()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
@@ -66,7 +69,12 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             <Stack gap="xxl">
                 {header}
 
-                <EditInitialRequestSection
+                <ProposalFieldsSection
+                    studyId={studyId}
+                    form={form}
+                    yjsForm={yjsForm}
+                    websocketProvider={websocketProvider}
+                    heading="Edit proposal"
                     orgName={orgName}
                     members={members}
                     researcherName={researcherName}

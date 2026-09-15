@@ -12,11 +12,11 @@ import {
     waitFor,
     within,
 } from '@/tests/unit.helpers'
-import { EditResubmitProvider, useEditResubmit } from '@/contexts/edit-resubmit'
-import { DRAFT_REQUIRED_ERRORS, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { ProposalProvider, useProposal } from '@/contexts/proposal'
 import { fieldTestId } from '@/components/form-field'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
-import { EditInitialRequestSection } from './edit-initial-request-section'
+import { DRAFT_REQUIRED_ERRORS, type ProposalFormValues } from './schema'
+import { ProposalFieldsSection } from './proposal-fields-section'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 const ORG_NAME = 'Rice University'
@@ -61,39 +61,49 @@ const fieldsProvider = () => {
     return provider
 }
 
-type Page = Pick<ReturnType<typeof useEditResubmit>, 'form' | 'yjsForm'>
+type Page = Pick<ReturnType<typeof useProposal>, 'form' | 'yjsForm'>
 
 const page: { current: Page | null } = { current: null }
 
+type SectionProps = Parameters<typeof ProposalFieldsSection>[0]
+type PageProps = Partial<Omit<SectionProps, 'studyId' | 'form' | 'yjsForm' | 'websocketProvider'>>
+
 /**
- * Hands the test the page's own form and collaborative writer, the ones its controls push through.
+ * Renders the section the way a page does, handing it the provider's form and collaboration
+ * handles, and hands the test the same form and collaborative writer its controls push through.
  *
  * Both remaining fields are Mantine Comboboxes, whose options never render in happy-dom (it lacks
  * the layout APIs Mantine measures with, as participation-agreements.test.tsx also records) and
  * whose selected-value pills carry `aria-hidden` remove buttons, so there is no gesture available
  * for either one and edits go through the writer.
  */
-const PageProbe = () => {
-    const { form, yjsForm } = useEditResubmit()
+const SectionOnPage = (props: PageProps) => {
+    const { studyId, form, yjsForm, websocketProvider } = useProposal()
 
     useEffect(() => {
         page.current = { form, yjsForm }
     }, [form, yjsForm])
 
-    return null
+    return (
+        <ProposalFieldsSection
+            studyId={studyId}
+            form={form}
+            yjsForm={yjsForm}
+            websocketProvider={websocketProvider}
+            heading="Edit proposal"
+            orgName={ORG_NAME}
+            members={[PI, OTHER_PI]}
+            researcherName="Ada Lovelace"
+            {...props}
+        />
+    )
 }
 
-const renderSection = async (props: Partial<Parameters<typeof EditInitialRequestSection>[0]> = {}) => {
+const renderSection = async (props: PageProps = {}) => {
     renderWithProviders(
-        <EditResubmitProvider studyId={STUDY_ID} draftData={draftData}>
-            <PageProbe />
-            <EditInitialRequestSection
-                orgName={ORG_NAME}
-                members={[PI, OTHER_PI]}
-                researcherName="Ada Lovelace"
-                {...props}
-            />
-        </EditResubmitProvider>,
+        <ProposalProvider studyId={STUDY_ID} draftData={draftData}>
+            <SectionOnPage {...props} />
+        </ProposalProvider>,
     )
 
     const provider = fieldsProvider()
@@ -140,11 +150,11 @@ beforeEach(() => {
     page.current = null
 })
 
-// The same Step 2 card as the proposal page, on the surface a change-requested study is revised
-// on, so the two must not drift apart (OTTER-691, OTTER-762).
-describe('EditInitialRequestSection section header and body copy (OTTER-762)', () => {
-    it('reuses the shared section header with the Step 2 eyebrow and the Edit proposal heading', async () => {
-        await renderSection()
+// One card serves Step 2 and the Edit proposal page, so the two cannot drift apart (OTTER-691,
+// OTTER-762).
+describe('ProposalFieldsSection section header and body copy (OTTER-762)', () => {
+    it('reuses the shared section header with the Step 2 eyebrow and the heading it is given', async () => {
+        await renderSection({ heading: 'Edit proposal' })
 
         const header = screen.getByTestId('proposal-section-header')
         expect(within(header).getByText('STEP 2')).toBeInTheDocument()
@@ -172,7 +182,7 @@ describe('EditInitialRequestSection section header and body copy (OTTER-762)', (
     })
 })
 
-describe('EditInitialRequestSection datasets field (OTTER-762)', () => {
+describe('ProposalFieldsSection datasets field (OTTER-762)', () => {
     it('renders the new description with the Data Partner interpolated', async () => {
         await renderSection()
 
@@ -183,7 +193,7 @@ describe('EditInitialRequestSection datasets field (OTTER-762)', () => {
     })
 })
 
-describe('EditInitialRequestSection researcher field (OTTER-762)', () => {
+describe('ProposalFieldsSection researcher field (OTTER-762)', () => {
     it('shows the researcher name as static text, not an input', async () => {
         await renderSection()
 
@@ -219,7 +229,7 @@ describe('EditInitialRequestSection researcher field (OTTER-762)', () => {
     })
 })
 
-describe('EditInitialRequestSection field hints (OTTER-769)', () => {
+describe('ProposalFieldsSection field hints (OTTER-769)', () => {
     it('describes the PI field with the card wording', async () => {
         await renderSection()
 
@@ -237,7 +247,7 @@ describe('EditInitialRequestSection field hints (OTTER-769)', () => {
 // indicator and a call site pointing at another field's status, but two call sites with their keys
 // exchanged still render one indicator per case, so the placement assertion is what separates
 // correct wiring from a swap. The field key doubles as the `inputId` of its control.
-describe('EditInitialRequestSection autosave indicators (OTTER-748)', () => {
+describe('ProposalFieldsSection autosave indicators (OTTER-748)', () => {
     it.each([['datasets'], ['piName']] as const)(
         'renders the saved indicator under %s, and only there',
         async (key) => {
@@ -305,7 +315,7 @@ describe('EditInitialRequestSection autosave indicators (OTTER-748)', () => {
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
         expect(screen.getByTestId('autosave-announcer')).toBeEmptyDOMElement()
 
-        // Editing clears the error until the next blur or Resubmit (OTTER-762).
+        // Editing clears the error until the next blur or Submit (OTTER-691).
         act(() => page.current!.form.setFieldValue('datasets', ['dataset-1']))
 
         expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.datasets)).not.toBeInTheDocument()
@@ -314,7 +324,7 @@ describe('EditInitialRequestSection autosave indicators (OTTER-748)', () => {
     })
 })
 
-describe('EditInitialRequestSection autosave announcements (OTTER-675)', () => {
+describe('ProposalFieldsSection autosave announcements (OTTER-675)', () => {
     // One provider behind both fields, so two live regions would read "All changes saved" twice
     // for one save. The editors below own separate providers and keep their own regions, which is
     // why this counts the announcer's testid rather than every region on screen.

@@ -2,90 +2,119 @@
 
 import { FC } from 'react'
 import { Anchor, Box, Group, Paper, Select, Stack, Text } from '@mantine/core'
+import { type UseFormReturnType } from '@mantine/form'
+import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from '@/components/save-status'
 import { useCollabFieldsSaveStatus } from '@/hooks/use-collab-fields-save-status'
+import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { ExternalLinks } from '@/lib/routes'
-import { useEditResubmit } from '@/contexts/edit-resubmit'
-import { editableTextFields } from '@/app/[orgSlug]/study/[studyId]/proposal/field-config'
-import { DATASETS_FIELD_ID, PI_SELECT_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
-import { datasetsDescription, proposalIntroText } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
-import { ProposalTextFieldEntry } from '@/app/[orgSlug]/study/[studyId]/proposal/collaborative-proposal-text-field'
-import { ResearcherField } from '@/app/[orgSlug]/study/[studyId]/proposal/researcher-field'
+import { ResearcherField } from './researcher-field'
+import { DATASETS_FIELD_ID, PI_SELECT_ID } from './field-ids'
+import { editableTextFields } from './field-config'
+import { ProposalTextFieldEntry } from './collaborative-proposal-text-field'
+import { datasetsDescription, proposalIntroText } from './copy'
+import { type ProposalFormValues } from './schema'
 
 export interface MemberOption {
     value: string
     label: string
 }
 
-interface EditInitialRequestSectionProps {
+interface ProposalFieldsSectionProps {
+    studyId: string
+    form: UseFormReturnType<ProposalFormValues>
+    yjsForm: ReturnType<typeof useYjsFormMap>
+    websocketProvider: HocuspocusProviderWebsocket | null
+    /** "Study proposal" on Step 2, "Edit proposal" on the revision page; the card is otherwise the same. */
+    heading: string
     orgName: string
     members: MemberOption[]
     researcherName: string
     enclaveOrgSlug?: string
-    /** Whether the viewer is the researcher who created the study. Gates the Researcher row's guidance. */
+    /** Whether the viewer is the researcher who created the draft. Gates the Researcher row's guidance. */
     isDraftCreator?: boolean
 }
 
-export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
+// One card for Step 2 and Edit proposal (OTTER-691, OTTER-762). It takes the page's form and
+// collaboration handles as props rather than reading either page's context, so the two cannot
+// drift apart again.
+export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
+    studyId,
+    form,
+    yjsForm,
+    websocketProvider,
+    heading,
     orgName,
     members,
     researcherName,
     enclaveOrgSlug,
     isDraftCreator = false,
 }) => {
-    const { studyId, form, yjsForm, websocketProvider } = useEditResubmit()
-
-    // Both write into the one proposal-fields Yjs doc, unlike the rich-text editors below, which
-    // each own a document and report their own status from inside the editor (OTTER-748).
+    // Datasets and PI write into the one proposal-fields Yjs doc, unlike the rich-text editors,
+    // which each own a document and report their own status from inside the editor (OTTER-748).
     const saveStatusFor = useCollabFieldsSaveStatus(yjsForm)
     const datasetsSaveStatus = saveStatusFor('datasets', form.errors.datasets)
     const piSaveStatus = saveStatusFor('piName', form.errors.piName)
 
     // One provider behind both, so a live region on each would have a screen reader read
     // "All changes saved" twice per save cycle. They stay visual and announce from here
-    // once (OTTER-675); the editors below keep their own regions.
+    // once (OTTER-675); the editors keep their own regions.
     const fieldsAnnouncedStatus = announcedSaveStatus([datasetsSaveStatus, piSaveStatus])
 
     const intro = proposalIntroText(orgName)
     const datasetsHelp = datasetsDescription(orgName)
 
+    const handleDatasetsChange = (datasets: string[]) => {
+        form.setFieldValue('datasets', datasets)
+        yjsForm.pushField('datasets', datasets)
+    }
+
+    // Cannot spread getInputProps('piName'): the Select's value is the piUserId while piName holds
+    // the label, so the two are set together.
+    const handlePIChange = (id: string | null) => {
+        const piUserId = id ?? ''
+        const piName = members.find((member) => member.value === id)?.label ?? ''
+        form.setFieldValue('piUserId', piUserId)
+        form.setFieldValue('piName', piName)
+        yjsForm.pushPI(piUserId, piName)
+    }
+
     return (
-        <Stack gap="xxl" data-testid="edit-initial-request-section">
+        <Stack gap="xxl">
             <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
-            {/* The same card as Step 2 (OTTER-691), re-titled for the revision round. No study
-                title anywhere in it: Step 1 owns the title and the card forbids repeating it as
-                body text (OTTER-762). */}
-            <ProposalStepHeader stepLabel="STEP 2" heading="Edit proposal">
+            {/* No study title anywhere in the card: Step 1 owns it (OTTER-690) and the card forbids
+                repeating it as body text. Literal 24 rather than gap="lg": this app's Mantine `lg`
+                is 20px while the design token is 24px. */}
+            <ProposalStepHeader stepLabel="STEP 2" heading={heading}>
                 <Stack gap={24}>
                     <Text>{intro}</Text>
 
-                    {/* No Study title field: this page no longer edits study.title (OTTER-762). */}
                     <FormField
                         inputId={DATASETS_FIELD_ID}
                         label="Dataset(s) of interest"
                         required
                         description={datasetsHelp}
-                        error={form.errors.datasets as string | undefined}
+                        error={form.errors.datasets}
                     >
                         <Group align="center" gap="xxl">
-                            {/* 60% of the card's inner content width, as on Step 2 (Figma 445-24404). */}
+                            {/* 60% of the card's inner content width; the Paper's padding is
+                                already excluded. */}
                             <Box w="60%">
                                 <DatasetMultiSelect
                                     id={DATASETS_FIELD_ID}
                                     value={form.values.datasets}
-                                    onChange={(val) => {
-                                        form.setFieldValue('datasets', val)
-                                        yjsForm.pushField('datasets', val)
-                                    }}
+                                    onChange={handleDatasetsChange}
                                     onBlur={() => form.validateField('datasets')}
                                     error={form.errors.datasets}
                                     suppressOwnError
                                     required
                                     orgSlug={enclaveOrgSlug}
+                                    // The card removes placeholder text from every input.
+                                    placeholder=""
                                 />
                             </Box>
                             <Anchor
@@ -114,8 +143,6 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                     form={form}
                     studyId={studyId}
                     websocketProvider={websocketProvider}
-                    placeholder={field.placeholder}
-                    liveCharacterLimit
                 />
             ))}
 
@@ -126,25 +153,17 @@ export const EditInitialRequestSection: FC<EditInitialRequestSectionProps> = ({
                         label="Principal Investigator"
                         required
                         description="Select the Principal Investigator for this study."
-                        error={form.errors.piName as string | undefined}
+                        error={form.errors.piName}
                     >
                         <Box w="30%">
-                            {/* Cannot spread getInputProps('piName'): this Select's value is the
-                                piUserId while piName holds the label. */}
                             <Select
                                 id={PI_SELECT_ID}
                                 aria-label="Principal Investigator"
-                                placeholder="Choose a PI"
+                                placeholder=""
                                 searchable
                                 data={members}
                                 value={form.values.piUserId || null}
-                                onChange={(id) => {
-                                    const piUserId = id ?? ''
-                                    const piName = members.find((m) => m.value === id)?.label ?? ''
-                                    form.setFieldValue('piUserId', piUserId)
-                                    form.setFieldValue('piName', piName)
-                                    yjsForm.pushPI(piUserId, piName)
-                                }}
+                                onChange={handlePIChange}
                                 onBlur={() => form.validateField('piName')}
                                 {...nativeFieldProps(form.errors.piName, { required: true, description: true })}
                             />
