@@ -6,7 +6,9 @@ import {
     type UserStudyAgreementSort,
 } from '@/schema/legal-document'
 import type { LegalDocumentType, OrgType } from '@/database/types'
+import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { sql, type ExpressionBuilder, type OrderByItemBuilder, type ReferenceExpression } from 'kysely'
+import { v7 as uuidv7 } from 'uuid'
 
 // The scope a reader is entitled to, by document.
 // - Global tos/pn (both scope columns null)
@@ -53,6 +55,65 @@ export const findOrCreateLegalDocument = async (db: DBExecutor, scope: DocumentS
 
     return inserted ?? (await documentInScope(db, scope).executeTakeFirstOrThrow())
 }
+
+// Seeds and fixtures only: the real path is publishLegalDocumentVersionAction, which needs an SI
+// admin session. The draft_or_published constraint wants published_at, published_by and
+// version_number set or absent together.
+export const writeStudyAgreementVersion = async (
+    db: DBExecutor,
+    {
+        studyId,
+        publishedBy,
+        signedAt,
+        versionNumber = 1,
+        published = true,
+        fileName = 'study-agreement.pdf',
+    }: {
+        studyId: string
+        publishedBy: string
+        signedAt: string
+        versionNumber?: number
+        published?: boolean
+        fileName?: string
+    },
+) => {
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type: 'SLA', studyId })
+    const versionId = uuidv7()
+
+    return await db
+        .insertInto('legalDocumentVersion')
+        .values({
+            id: versionId,
+            legalDocumentId,
+            versionNumber: published ? versionNumber : null,
+            fileName,
+            format: 'pdf',
+            filePath: pathForLegalDocumentVersion({ type: 'SLA', legalDocumentId, versionId }),
+            publishedAt: published ? new Date() : null,
+            publishedBy: published ? publishedBy : null,
+            signedAt,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
+// Undefined until an SI admin publishes one, the ordinary state for a freshly approved study.
+export const latestPublishedStudyAgreement = (db: DBExecutor, studyId: string) =>
+    db
+        .selectFrom('legalDocument')
+        .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .innerJoin('study', 'study.id', 'legalDocument.studyId')
+        .select([
+            'legalDocumentVersion.id as versionId',
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+        ])
+        .where('legalDocument.type', '=', 'SLA')
+        .where('legalDocument.studyId', '=', studyId)
+        .where('legalDocumentVersion.publishedAt', 'is not', null)
+        .orderBy('legalDocumentVersion.versionNumber', 'desc')
+        .limit(1)
+        .executeTakeFirst()
 
 // Nulls sink in both directions, so an unsigned agreement never leads the table.
 const orderedBy = (direction: 'asc' | 'desc') => (ob: OrderByItemBuilder) =>

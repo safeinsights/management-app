@@ -175,6 +175,20 @@ export const legalDocumentVersionParams = z.object({
     versionId: z.string().uuid(),
 })
 
+export const studyAgreementStatusSchema = z.object({
+    // As above: scopeFromStudyId queries on this before the handler runs.
+    studyId: z.string().uuid(),
+})
+
+// One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
+// `notAParty` is separate from `none` so the notice does not tell an SI admin that the agreement
+// they just published is still being prepared.
+export type StudyAgreementStatus =
+    | { state: 'none' }
+    | { state: 'notAParty' }
+    | { state: 'pending'; versionId: string }
+    | { state: 'acknowledged' }
+
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })
@@ -254,8 +268,10 @@ export const legalDocumentQueryKeys = {
         ['legalDocumentAcknowledgements', type, sort.columnAccessor, sort.direction] as const,
     participationAgreements: (type: ParticipationAgreementType) => ['participationAgreements', type] as const,
     participationSignatories: (type: ParticipationAgreementType) => ['participationSignatories', type] as const,
-    studyLevelAgreements: () => ['studyLevelAgreements'] as const,
-    studiesAwaitingSla: () => ['studiesAwaitingSla'] as const,
+    studyAgreements: () => ['studyAgreements'] as const,
+    studiesAwaitingStudyAgreement: () => ['studiesAwaitingStudyAgreement'] as const,
+    // Shared by the layout's gate and the proposal step's notice, so one request answers both.
+    studyAgreement: (studyId: string) => ['studyAgreement', studyId] as const,
     orgStudyAgreements: (orgSlug: string, sort: OrgStudyAgreementSort) =>
         ['orgStudyAgreements', orgSlug, sort.columnAccessor, sort.direction] as const,
     orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,

@@ -51,7 +51,10 @@ async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = 
 
     const orgSelect = page.getByTestId('org-select')
     await expect(orgSelect).toBeEnabled()
-    await orgSelect.click()
+    // The Select is keyed on the form field, so a re-initialisation detaches the node mid-click.
+    await expect(async () => {
+        await orgSelect.click()
+    }).toPass()
     await page.getByRole('option', { name: orgNameRegex }).click()
 
     // Language radios appear after an org is chosen.
@@ -263,7 +266,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
     await expect(feedbackEditor).toBeVisible()
     await feedbackEditor.click()
-    await page.keyboard.type('Approving this initial request — feasibility and impact look reasonable.')
+    await feedbackEditor.pressSequentially('Approving this initial request — feasibility and impact look reasonable.')
 
     await page
         .getByTestId('review-decision-section')
@@ -312,7 +315,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
     await expect(feedbackEditor).toBeVisible()
     await feedbackEditor.click()
-    await page.keyboard.type('Approving submitted code — looks good to run.')
+    await feedbackEditor.pressSequentially('Approving submitted code — looks good to run.')
 
     await page.getByTestId('code-review-submit').click()
     const dialog = page.getByRole('dialog')
@@ -824,7 +827,9 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
         await feedbackEditor.click()
-        await page.keyboard.type('Rejecting this initial request — scope is not aligned with available data.')
+        await feedbackEditor.pressSequentially(
+            'Rejecting this initial request — scope is not aligned with available data.',
+        )
 
         await page
             .getByTestId('review-decision-section')
@@ -899,7 +904,9 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
         await feedbackEditor.click()
-        await page.keyboard.type('Please clarify the dataset scope and the analysis plan before we can approve.')
+        await feedbackEditor.pressSequentially(
+            'Please clarify the dataset scope and the analysis plan before we can approve.',
+        )
 
         await page
             .getByTestId('review-decision-section')
@@ -991,7 +998,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
         await expect(feedbackEditor).toBeVisible()
         await feedbackEditor.click()
-        await page.keyboard.type('Requesting revisions to submitted code — please address criteria.')
+        await feedbackEditor.pressSequentially('Requesting revisions to submitted code — please address criteria.')
 
         await page.getByTestId('code-review-submit').click()
         const dialog = page.getByRole('dialog')

@@ -29,6 +29,7 @@ import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested 
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -162,10 +163,12 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('review', 'Study')
+    .middleware(requireStudyAgreement(({ studyJob }) => studyJob.studyId))
     .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
         const userId = session.user.id
         const studyId = studyJob.studyId
         const studyJobId = studyJob.studyJobId
+
         const jobStatuses = studyJob.statusChanges.map((change) => change.status)
 
         // UI routing decides which screen renders, but an authorized direct caller could otherwise

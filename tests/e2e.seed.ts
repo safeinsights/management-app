@@ -7,7 +7,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
-import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
@@ -234,6 +234,21 @@ export async function seedProposalPendingReview(title: string): Promise<SeedResu
 
 export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+    return { studyId: study.id }
+}
+
+// Study-scoped, unlike the Terms of Service, so publishing one inside a spec cannot reach another
+// worker's user.
+export async function seedApprovedWithPublishedStudyAgreement(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+
+    // No object uploaded: presigning does not need one and the spec never follows the link.
+    await writeStudyAgreementVersion(db, {
+        studyId: study.id,
+        publishedBy: await resolveUserId('admin'),
+        signedAt: '2026-01-01',
+    })
+
     return { studyId: study.id }
 }
 
