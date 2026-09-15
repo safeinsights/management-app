@@ -5,18 +5,14 @@ import { Anchor, Box, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { Dropzone, type FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
-import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
-
-const ACCEPTED_EXTENSIONS = new Set(
-    Object.values(ACCEPTED_FILE_TYPES)
-        .flat()
-        .map((ext) => ext.toLowerCase()),
-)
-
-function hasAcceptedExtension(fileName: string) {
-    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
-    return ACCEPTED_EXTENSIONS.has(ext)
-}
+import {
+    ACCEPTED_FILE_TYPES,
+    ACCEPTED_FILE_FORMATS_TEXT,
+    hasAcceptedExtension,
+    MAX_UPLOAD_FILE_BYTES,
+    MAX_UPLOAD_FILE_TEXT,
+} from '@/lib/types'
+import { showUploadFailed } from './upload-notifications'
 
 function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
@@ -105,16 +101,21 @@ export function FileDropOverlay({
     }
 
     const handleDrop = (files: FileWithPath[]) => {
-        const accepted = files.filter((f) => hasAcceptedExtension(f.name))
-        const rejected = files.filter((f) => !hasAcceptedExtension(f.name))
+        const wrongType = files.filter((f) => !hasAcceptedExtension(f.name))
+        const tooBig = files.filter((f) => hasAcceptedExtension(f.name) && f.size > MAX_UPLOAD_FILE_BYTES)
+        const accepted = files.filter((f) => hasAcceptedExtension(f.name) && f.size <= MAX_UPLOAD_FILE_BYTES)
 
-        if (rejected.length > 0) {
+        if (wrongType.length > 0) {
             notifications.show({
                 color: 'red',
                 title: 'Unsupported file type',
-                message: `${rejected.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
+                message: `${wrongType.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
             })
         }
+
+        // One toast per file rather than a combined one: OTTER-693 names the file in the title, so
+        // a batch where only some files are oversized still says which.
+        tooBig.forEach((file) => showUploadFailed(file.name, MAX_UPLOAD_FILE_TEXT))
 
         if (accepted.length > 0) {
             onDrop(accepted)

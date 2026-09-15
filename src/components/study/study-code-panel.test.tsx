@@ -1,5 +1,5 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, vi } from '@/tests/unit.helpers'
-import type { StudyCodeIDE } from './study-code-panel'
+import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { StudyCodePanel } from './study-code-panel'
 
 const sampleFiles = [
@@ -10,8 +10,11 @@ const sampleFiles = [
 function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
     return {
         launchWorkspace: vi.fn(),
+        abandonLaunch: vi.fn(),
         isLaunching: false,
         launchError: null,
+        launchErrorEventId: null,
+        clearLaunchError: vi.fn(),
         launchStatus: undefined,
         launchLastUpdatedAt: null,
         launchBuildLog: '',
@@ -26,10 +29,19 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
         setMainFile: vi.fn(),
         removeFile: vi.fn(),
         viewFile: vi.fn(),
+        downloadFile: vi.fn(),
+        canEditInIde: true,
+        isIdeClaimed: false,
+        ideOwnerName: null,
+        templateFileNames: [],
+        editFileInIde: vi.fn(),
         viewingFile: null,
         closeFileViewer: vi.fn(),
         uploadFiles: vi.fn(),
+        pendingDuplicate: null,
+        resolveDuplicate: vi.fn(),
         isUploading: false,
+        saveStatus: 'idle' as const,
         isDeleting: false,
         canSubmit: false,
         submitDisabledReason: null,
@@ -42,6 +54,8 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
     }
 }
 
+// Sole consumer since OTTER-693 moved the Submit code page onto ProposalStepHeader: the /resubmit
+// editor. These are also the only guard on the files body and action buttons the two screens share.
 describe('StudyCodePanel', () => {
     it('never renders a study title line', () => {
         const ide = createMockIde()

@@ -171,6 +171,9 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await page.getByRole('link', { name: /^Next step$/i }).click()
     await page.waitForURL(/\/code$/)
+    // Render signal, not just a URL signal: the callers below immediately reach for controls
+    // inside the card. Role-scoped because the footer button shares the label.
+    await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
 }
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
@@ -189,14 +192,20 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
-    await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    // By the view button, not the cell: this table makes the file name the control that opens the
+    // preview, so the cell's accessible name is "View {file}". The resubmit helper below still
+    // asserts on cells because /resubmit renders the older table.
+    await expect(page.getByRole('button', { name: `View ${mainFileName}` })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
 
     // main file must be picked explicitly when multiple files are present.
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
+    // `radio`, not `button`: this page's table is a radiogroup. The resubmit helper below still
+    // says `button` because /resubmit renders the older table — see OTTER-693 follow-up on
+    // unifying the two.
     await expect(async () => {
-        await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
-        await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+        await page.getByRole('radio', { name: `Set ${mainFileName} as main file` }).click()
+        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file` })).toBeVisible()
     }).toPass()
 
     const submitButton = page.getByRole('button', { name: /Submit code/i })
@@ -205,7 +214,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
-    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
+    // OTTER-693 renamed the modal's CTA from "Yes, submit study code" to "Submit code". Scoped to
+    // the dialog and exact: unscoped it would also match the "Submit code for review" button behind
+    // it, since Playwright matches the accessible name as a substring by default.
+    const confirmDialog = page.getByRole('dialog', { name: 'Submit code for review?' })
+    const confirmButton = confirmDialog.getByRole('button', { name: 'Submit code', exact: true })
     await expect(confirmButton).toBeVisible()
     await confirmButton.click()
 

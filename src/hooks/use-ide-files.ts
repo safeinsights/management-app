@@ -1,22 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
+import { captureException } from '@sentry/nextjs'
+import { downloadBlob } from '@/lib/download-blob'
+import type { SaveStatusValue } from '@/components/save-status'
+import { NO_CHANGES_MESSAGE } from '@/components/study/submit-code-error'
+import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
+import { showToast } from '@/components/toast-notifications'
+import { useUploadQueue } from './use-upload-queue'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import {
     uploadWorkspaceFileAction,
     deleteWorkspaceFileAction,
     readWorkspaceFileAction,
+    recordWorkspaceFileEditAction,
+    getMainCodeFileAction,
+    setMainCodeFileAction,
 } from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-request'
-import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
+import {
+    getIdeOwnerAction,
+    getLastSubmissionInfoAction,
+    getStarterCodeInfoAction,
+} from '@/server/actions/workspaces.actions'
+
+/** The Figma toast's wording for a request that failed rather than a file that was too big. */
+const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
+
+const SUBMIT_SUCCESS_TITLE = 'Code submitted.'
+const SUBMIT_ERROR_TITLE = 'Code could not be submitted.'
+const SUBMIT_ERROR_MESSAGE = 'Your work is saved. Try again.'
 
 interface UseIDEFilesOptions {
     studyId: string
     onSubmitSuccess?: () => void
+    /** Lets the page close its confirmation and bring the submit button back into view. */
+    onSubmitError?: () => void
 }
 
 type LastJobInfo = {
@@ -49,7 +72,7 @@ function hasChangedSinceLastJob(
     return false
 }
 
-export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
+export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
     const router = useRouter()
 
@@ -58,17 +81,26 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     // OTTER-558: `filesChanged` cannot drive the resubmit footer's Cancel toggle, because it
     // compares mtimes and is already true on load.
     const [userEditedFiles, setUserEditedFiles] = useState(false)
+    // Null until something has actually been persisted, so the save indicator starts idle rather
+    // than claiming a page nobody has touched is saved.
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
     const onLaunchSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
         queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+        // A launch is also what claims the IDE, so the owner has to be re-read or the launcher's
+        // own pencil keeps rendering as if the study were still unclaimed.
+        queryClient.invalidateQueries({ queryKey: ['ide-owner', studyId] })
     }, [queryClient, studyId])
 
     const {
         launchWorkspace,
+        abandonLaunch,
         isLaunching: isLaunchingWorkspace,
         isCreatingWorkspace,
         error: launchError,
+        errorEventId: launchErrorEventId,
+        clearError: clearLaunchError,
         status: launchStatus,
         lastUpdatedAt: launchLastUpdatedAt,
         buildLog: launchBuildLog,
@@ -87,37 +119,88 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         queryFn: () => getStarterCodeInfoAction({ studyId }),
     })
 
+    const { data: ideOwner } = useQuery({
+        queryKey: ['ide-owner', studyId],
+        queryFn: () => getIdeOwnerAction({ studyId }),
+    })
+
+    const { data: savedMainFile } = useQuery({
+        queryKey: ['main-code-file', studyId],
+        queryFn: () => getMainCodeFileAction({ studyId }),
+    })
+
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
     const previousMainFile = lastJob?.mainFileName ?? null
+    const persistedMainFile = savedMainFile?.mainCodeFileName ?? null
     const mainFile = useMemo(() => {
+        // This session's click first, then the saved choice, and only then the conveniences: a
+        // deliberate selection must outrank auto-picking the sole file.
         if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
+        if (persistedMainFile && fileNames.includes(persistedMainFile)) return persistedMainFile
         if (fileNames.length === 1) return fileNames[0]
         if (previousMainFile && fileNames.includes(previousMainFile)) return previousMainFile
         return ''
-    }, [mainFileOverride, previousMainFile, fileNames])
+    }, [mainFileOverride, persistedMainFile, previousMainFile, fileNames])
 
     const filesChanged = useMemo(
         () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
         [workspace.files, mainFile, lastJob],
     )
 
+    /**
+     * OTTER-693: the badge marks the pre-loaded Main.{x} and nothing else, which is why this is the
+     * one derived template name rather than every starter file. copyStarterCodeIntoWorkspace
+     * backdates its mtime behind the baseline job, so an untouched template sits at or before that
+     * timestamp and an edited or re-uploaded one has moved past it.
+     */
+    const templateFileNames = useMemo(() => {
+        const templateName = starterCodeInfo?.templateFileName
+        if (!templateName || !lastJob) return []
+
+        const baselineAt = new Date(lastJob.createdAt).getTime()
+        return workspace.files
+            .filter((f) => f.name === templateName && new Date(f.mtime).getTime() <= baselineAt)
+            .map((f) => f.name)
+    }, [starterCodeInfo, lastJob, workspace.files])
+
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
-    // OTTER-647: the main file is required but is a star toggle with no field to blur, so the
-    // reason is named beside the disabled button instead of through useField.
+    /**
+     * Shown only after a blocked click. OTTER-647: the main file has no field to blur, being a star,
+     * so its reason is named here rather than through useField.
+     */
     const submitDisabledReason = (() => {
-        if (fileNames.length === 0) return null
+        if (fileNames.length === 0) return NO_CHANGES_MESSAGE
         if (mainFile === '') return 'Select a main file to submit'
-        if (!filesChanged) return 'Modify a file or upload new ones before submitting'
+        if (!filesChanged) return NO_CHANGES_MESSAGE
         return null
     })()
 
-    const setMainFile = useCallback((fileName: string) => {
-        setMainFileOverride(fileName)
-        setUserEditedFiles(true)
-    }, [])
+    // Where the star sat before the current optimistic move, so a rejected save can put it back.
+    const previousMainFileRef = useRef<string | null>(null)
+
+    const setMainFileMutation = useMutation({
+        mutationFn: (fileName: string) => setMainCodeFileAction({ studyId, fileName }),
+        onSuccess: () => setLastSavedAt(new Date()),
+        onError: (error) => {
+            setMainFileOverride(previousMainFileRef.current)
+            reportMutationError('Failed to save your main file selection')(error)
+        },
+    })
+
+    const setMainFile = useCallback(
+        (fileName: string) => {
+            // Optimistic: the star moves on click and the save follows, so the radio never lags a
+            // round trip behind the pointer.
+            previousMainFileRef.current = mainFileOverride
+            setMainFileOverride(fileName)
+            setUserEditedFiles(true)
+            setMainFileMutation.mutate(fileName)
+        },
+        [mainFileOverride, setMainFileMutation],
+    )
 
     const invalidateFiles = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
@@ -130,7 +213,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
             }
         },
-        onSuccess: () => invalidateFiles(),
+        onSuccess: () => {
+            invalidateFiles()
+            setLastSavedAt(new Date())
+        },
         onError: reportMutationError('Failed to delete file'),
     })
 
@@ -157,14 +243,49 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
 
     const closeFileViewer = useCallback(() => setViewingFile(null), [])
 
+    // Recorded before launching so Last activity reflects the pencil even if the launch then fails.
+    const editFileInIde = useCallback(
+        async (fileName: string) => {
+            await recordWorkspaceFileEditAction({ studyId, fileName })
+            queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+            launchWorkspace()
+        },
+        [studyId, queryClient, launchWorkspace],
+    )
+
+    // Reuses the same read as the viewer rather than a download route: workspace files live on disk
+    // under the study's coder path, not in S3, so there is nothing to link to (OTTER-693).
+    const downloadFile = useCallback(
+        async (fileName: string) => {
+            const result = await readWorkspaceFileAction({ studyId, fileName })
+            if ('error' in result) {
+                reportMutationError('Failed to download file')(result.error)
+                return
+            }
+            downloadBlob(result.fileName, new Blob([result.contents]))
+        },
+        [studyId],
+    )
+
+    // OTTER-693 reports each file's outcome separately, so one bad file no longer abandons the batch.
     const uploadMutation = useMutation({
         mutationFn: async (filesToUpload: File[]) => {
+            let uploaded = 0
             for (const file of filesToUpload) {
                 const result = await uploadWorkspaceFileAction({ studyId, file })
                 if ('error' in result) {
-                    throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
+                    showUploadFailed(file.name, UPLOAD_RETRY_MESSAGE)
+                    continue
                 }
+                uploaded++
+                showUploadSucceeded(file.name)
             }
+            return uploaded
+        },
+        // Per-file failures no longer reject, so the count is the only thing that says whether
+        // anything was actually kept. onError still fires for transport-level failures.
+        onSuccess: (uploaded) => {
+            if (uploaded > 0) setLastSavedAt(new Date())
         },
         onSettled: () => {
             invalidateFiles()
@@ -173,13 +294,25 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         onError: reportMutationError('Failed to upload files'),
     })
 
-    const uploadFiles = useCallback(
+    const startUpload = useCallback(
         (filesToUpload: File[]) => {
             setUserEditedFiles(true)
             uploadMutation.mutate(filesToUpload)
         },
         [uploadMutation],
     )
+
+    const { uploadFiles, pendingDuplicate, resolveDuplicate } = useUploadQueue({
+        existingNames: fileNames,
+        startUpload,
+    })
+
+    /**
+     * Everything this page can change — uploading, deleting, picking the main file — persists on
+     * the spot, so the indicator reports on all three rather than on a form.
+     */
+    const isSavingChanges = uploadMutation.isPending || deleteMutation.isPending || setMainFileMutation.isPending
+    const saveStatus: SaveStatusValue = isSavingChanges ? 'saving' : lastSavedAt ? 'saved' : 'idle'
 
     const submitMutation = useMutation({
         mutationFn: async () => {
@@ -200,12 +333,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
 
-            notifications.show({
-                title: 'Study Code Submitted',
-                message:
-                    'Your code has been successfully submitted to the Data Partner. Check your dashboard for status updates.',
-                color: 'green',
-            })
+            showToast('success', SUBMIT_SUCCESS_TITLE, '')
 
             if (onSubmitSuccess) {
                 onSubmitSuccess()
@@ -213,7 +341,14 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
                 router.push(Routes.dashboard)
             }
         },
-        onError: reportMutationError('Unable to submit study'),
+        onError: (error: unknown) => {
+            // Captured for Sentry, but shown with the design's fixed reassurance rather than the
+            // raw error: the wording can promise the work is safe because uploads, deletions and
+            // the main-file choice all persist as they happen — only the submission failed.
+            captureException(error)
+            showToast('error', SUBMIT_ERROR_TITLE, SUBMIT_ERROR_MESSAGE)
+            onSubmitError?.()
+        },
     })
 
     const submitDirectly = useCallback(() => {
@@ -231,7 +366,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
     return {
         launchWorkspace,
         isLaunching,
+        abandonLaunch,
         launchError,
+        launchErrorEventId,
+        clearLaunchError,
         launchStatus,
         launchLastUpdatedAt,
         launchBuildLog,
@@ -248,10 +386,23 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         setMainFile,
         removeFile,
         viewFile,
+        downloadFile,
+        editFileInIde,
         viewingFile,
         closeFileViewer,
+
+        // Unclaimed reads as editable: the card enables the IDE controls for everyone until the
+        // first launch takes them. Undefined while the query is in flight, hence the `!== false`.
+        canEditInIde: ideOwner?.isClaimed !== true || ideOwner.isOwnedByViewer,
+        // Distinct from canEditInIde, which is also true when nobody has claimed it: the Launch IDE
+        // button needs the two apart to pick its solid-vs-outline variant.
+        isIdeClaimed: ideOwner?.isClaimed === true,
+        ideOwnerName: ideOwner?.ownerName ?? null,
         uploadFiles,
+        pendingDuplicate,
+        resolveDuplicate,
         isUploading: uploadMutation.isPending,
+        saveStatus,
         isDeleting: deleteMutation.isPending,
 
         canSubmit,
@@ -263,5 +414,13 @@ export function useIDEFiles({ studyId, onSubmitSuccess }: UseIDEFilesOptions) {
         userEditedFiles,
 
         starterFiles: starterCodeInfo?.starterFiles ?? [],
+        templateFileNames,
     }
 }
+
+/**
+ * Lives here rather than beside any one consumer: the study-code card and the files block it
+ * renders both take the whole hook return, and importing the type from either of them would
+ * close a cycle between the two.
+ */
+export type StudyCodeIDE = ReturnType<typeof useIDEFiles>
