@@ -4,6 +4,7 @@ import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
@@ -18,8 +19,38 @@ interface EditStudyCodeFooterProps {
     filesEdited: boolean
 }
 
-const SAVE_AND_EXIT_TOOLTIP =
-    "Progress saved! Note: On exiting the edit mode, your changes won't be visible until you hit Resubmit study code."
+const UNSAVED_EDITS_TOOLTIP =
+    "Progress saved! Note: On leaving the edit mode, your changes won't be visible until you hit Resubmit code for review."
+
+type PreviousStepButtonProps = {
+    hasChanges: boolean
+    isBusy: boolean
+    isSaving: boolean
+    onClick: () => void
+}
+
+// The tooltip only earns its place when there is something to save on the way out.
+const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, isSaving, onClick }) => {
+    const button = (
+        <Button
+            type="button"
+            variant="subtle"
+            size="md"
+            leftSection={<CaretLeftIcon />}
+            disabled={isBusy}
+            loading={isSaving}
+            onClick={onClick}
+        >
+            Previous step
+        </Button>
+    )
+    if (!hasChanges) return button
+    return (
+        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow multiline w={320}>
+            {button}
+        </InfoTooltip>
+    )
+}
 
 export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     mainFileName,
@@ -34,20 +65,19 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
     const isBusy = isSaving || isSubmitting
+    // Back to the screen that offered "Edit code"; /view resolves to it whatever the state.
     const exitTarget = Routes.studyView({ orgSlug, studyId })
     // OTTER-558: the note form is seeded from a persisted draft, so isDirty (not a length check)
     // is what distinguishes a real session edit.
     const hasChanges = noteForm.isDirty('resubmissionNote') || filesEdited
 
-    const handleCancel = () => {
+    // Pending edits are flushed on the way out so stepping back never loses work.
+    const handlePrevious = async () => {
         if (isBusy) return
-        router.push(exitTarget)
-    }
-
-    const handleSaveAndExit = async () => {
-        if (isBusy) return
-        const saved = await saveDraft()
-        if (!saved) return
+        if (hasChanges) {
+            const saved = await saveDraft()
+            if (!saved) return
+        }
         router.push(exitTarget)
     }
 
@@ -57,24 +87,17 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         resubmit({ mainFileName, fileNames })
     }
 
-    const exitButton = hasChanges ? (
-        <InfoTooltip label={SAVE_AND_EXIT_TOOLTIP} withArrow multiline w={320}>
-            <Button variant="outline" size="md" disabled={isBusy} loading={isSaving} onClick={handleSaveAndExit}>
-                Save and exit
-            </Button>
-        </InfoTooltip>
-    ) : (
-        <Button variant="subtle" size="md" disabled={isBusy} onClick={handleCancel}>
-            Cancel
-        </Button>
-    )
-
     return (
         <>
-            <Group justify="flex-end" align="flex-start" mt="xs">
-                {exitButton}
+            <Group justify="space-between" align="flex-start" mt="xs">
+                <PreviousStepButton
+                    hasChanges={hasChanges}
+                    isBusy={isBusy}
+                    isSaving={isSaving}
+                    onClick={handlePrevious}
+                />
                 <Button size="md" disabled={!canResubmit} loading={isSubmitting} onClick={openConfirm}>
-                    Resubmit study code
+                    Resubmit code for review
                 </Button>
             </Group>
 
@@ -83,9 +106,9 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                 onClose={closeConfirm}
                 onConfirm={handleConfirmResubmit}
                 isSubmitting={isSubmitting}
-                title="Confirm study code resubmission?"
+                title="Resubmit code for review?"
                 body="Please confirm you are ready to resubmit your study code. Further edits are not permitted once submitted."
-                confirmLabel="Yes, resubmit study code"
+                confirmLabel="Resubmit code"
             />
         </>
     )

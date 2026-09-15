@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
+import { reportMutationError } from '@/components/errors'
 import { resubmitProposalAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
@@ -50,13 +50,7 @@ export function useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessi
             yjsForm.provider?.sendStateless(JSON.stringify(event))
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: (error) => {
-            notifications.show({
-                title: 'Failed to resubmit proposal',
-                message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-                color: 'red',
-            })
-        },
+        onError: reportMutationError('Failed to resubmit proposal'),
     })
 
     const resubmit = useCallback(() => {

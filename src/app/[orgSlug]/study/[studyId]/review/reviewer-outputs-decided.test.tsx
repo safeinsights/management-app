@@ -18,6 +18,7 @@ import type { RawStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { seedJobFileRow } from '@/tests/artifact.helpers'
+import { projectStudyState, resolveScreenNav } from '@/lib/study-screen'
 import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 
 const setupDecided = async ({
@@ -42,7 +43,17 @@ const setupDecided = async ({
 }
 
 const renderView = async (study: SelectedStudy, raw: RawStudyState, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsDecided({ study, raw, orgSlug }))
+    renderWithProviders(
+        await ReviewerOutputsDecided({
+            study,
+            raw,
+            nav: resolveScreenNav('reviewer', 'reviewer-outputs-decided', projectStudyState(raw), {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: Routes.dashboard,
+            }),
+        }),
+    )
 
 describe('ReviewerOutputsDecided', () => {
     it('renders the shared page and section headers', async () => {
@@ -164,6 +175,35 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
     })
 
+    // OTTER-766: the note belongs to the code step, and the outputs version is its own sequence.
+    it('omits the code resubmission note and keeps the first outputs decision at v1.0', async () => {
+        const { org, user, study, job, raw } = await setupDecided()
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson('fixed the aggregation')), resubmissionRound: 2 })
+            .where('id', '=', job.id)
+            .execute()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: JSON.parse(lexicalJson('outputs look good')),
+                round: 1,
+            })
+            .execute()
+
+        await renderView(study, raw, org.slug)
+
+        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+        expect(screen.queryByText(/fixed the aggregation/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/resubmission note/i)).not.toBeInTheDocument()
+    })
+
     it('displays the author name and date for a feedback entry', async () => {
         const { org, user, study, job, raw } = await setupDecided()
         await db
@@ -185,6 +225,7 @@ describe('ReviewerOutputsDecided', () => {
         const entry = screen.getByTestId('feedback-entries')
         expect(entry).toHaveTextContent(user.fullName)
         expect(entry).toHaveTextContent(dayjs().format('MMM DD, YYYY'))
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`Outputs and feedback shared by ${user.fullName}`)
     })
 
     it('renders a divider between multiple feedback entries', async () => {
@@ -218,6 +259,15 @@ describe('ReviewerOutputsDecided', () => {
         await renderView(study, raw, org.slug)
 
         expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+    })
+
+    it('leaves the banner unattributed when there is no decision comment', async () => {
+        const { org, study, raw } = await setupDecided()
+        await renderView(study, raw, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs and feedback shared')
+        expect(alert).not.toHaveTextContent(/shared by /)
     })
 
     it('hides the Feedback and notes section when there are no entries', async () => {

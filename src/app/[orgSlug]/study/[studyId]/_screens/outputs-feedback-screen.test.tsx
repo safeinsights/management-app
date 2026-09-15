@@ -24,11 +24,13 @@ import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { OutputsFeedbackScreen } from './outputs-feedback-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const ERRORED_AT = new Date('2026-07-15T12:00:00Z')
+const FIRST_DECIDED_AT = new Date('2026-07-20T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
 const DATA_PARTNER = 'Riverside University'
@@ -47,7 +49,19 @@ const renderScreen = async (
     raw: RawStudyState,
     orgSlug: string,
     returnTo?: 'org',
-) => renderWithProviders(await OutputsFeedbackScreen({ study, raw, orgSlug, dashboardHref: DASHBOARD_HREF, returnTo }))
+) =>
+    renderWithProviders(
+        await OutputsFeedbackScreen({
+            study,
+            raw,
+            ...screenNavProps('researcher', 'outputs-feedback', raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+                returnTo,
+            }),
+        }),
+    )
 
 const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
@@ -155,6 +169,83 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
     return { org, user, study, raw, job, dataPartner, commentId: comment.id }
+}
+
+// Two outputs decisions across two jobs, with a code resubmission note between them: the shape the
+// card reported, where the code round had climbed to 2 before the first outputs decision was made.
+const setupTwoOutputsRounds = async () => {
+    const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+    const { study: dbStudy, job: firstJob } = await insertTestStudyJobData({
+        org,
+        researcherId: user.id,
+        jobStatus: 'CODE-SUBMITTED',
+    })
+
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            { studyJobId: firstJob.id, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
+            { studyJobId: firstJob.id, status: 'CODE-SUBMITTED', userId: user.id },
+            { studyJobId: firstJob.id, status: 'CODE-APPROVED', userId: user.id, createdAt: APPROVED_AT },
+            { studyJobId: firstJob.id, status: 'RUN-COMPLETE' },
+            { studyJobId: firstJob.id, status: 'FILES-REJECTED', userId: user.id, createdAt: FIRST_DECIDED_AT },
+        ])
+        .execute()
+    const firstComment = await db
+        .insertInto('studyReviewComment')
+        .values({
+            studyId: dbStudy.id,
+            studyJobId: firstJob.id,
+            authorId: user.id,
+            reviewKind: 'RESULTS',
+            entryType: 'DECISION',
+            decision: 'NEEDS-CLARIFICATION',
+            body: JSON.parse(lexicalJson('First round: remove the row-level output.')),
+            round: 1,
+            createdAt: FIRST_DECIDED_AT,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    // Created second, so its v7 id sorts above the first and latestJob picks it.
+    const secondJob = await db
+        .insertInto('studyJob')
+        .values({
+            studyId: dbStudy.id,
+            resubmissionNote: JSON.parse(lexicalJson('Aggregated the counts as asked.')),
+            resubmissionRound: 3,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            { studyJobId: secondJob.id, status: 'CODE-SUBMITTED', userId: user.id, createdAt: SUBMITTED_AT },
+            { studyJobId: secondJob.id, status: 'CODE-APPROVED', userId: user.id },
+            { studyJobId: secondJob.id, status: 'RUN-COMPLETE' },
+            { studyJobId: secondJob.id, status: 'FILES-REJECTED', userId: user.id, createdAt: DECIDED_AT },
+        ])
+        .execute()
+    const secondComment = await db
+        .insertInto('studyReviewComment')
+        .values({
+            studyId: dbStudy.id,
+            studyJobId: secondJob.id,
+            authorId: user.id,
+            reviewKind: 'RESULTS',
+            entryType: 'DECISION',
+            decision: 'NEEDS-CLARIFICATION',
+            body: JSON.parse(lexicalJson('Second round: the totals still disclose a cell count.')),
+            round: 2,
+            createdAt: DECIDED_AT,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+    const raw = await requireRawState(dbStudy.id)
+    ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+    return { org, user, study, raw, firstCommentId: firstComment.id, secondCommentId: secondComment.id }
 }
 
 describe('OutputsFeedbackScreen', () => {
@@ -303,17 +394,18 @@ describe('OutputsFeedbackScreen', () => {
     })
 
     describe('feedback and notes (clean run)', () => {
-        it("renders this study's outputs feedback", async () => {
+        // OTTER-766: the note belongs to the code step, so it stays on the code screens.
+        it("renders this study's outputs feedback and no resubmission note", async () => {
             const { org, user, study, raw } = await setupFeedbackOnly({ withNote: true })
             await renderScreen(study, raw, org.slug)
 
             const section = screen.getByTestId('feedback-and-notes-section')
             expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
             expect(section).toHaveTextContent('Remove the row-level output before resharing.')
-            expect(section).toHaveTextContent('Resubmission note (v1.0)')
-            expect(section).toHaveTextContent('Adjusted the aggregation query.')
+            expect(section).not.toHaveTextContent('Resubmission note')
+            expect(section).not.toHaveTextContent('Adjusted the aggregation query.')
             expect(section).toHaveTextContent(user.fullName)
-            expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+            expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
         })
 
         it("shows only this study's feedback, not another study's", async () => {
@@ -366,7 +458,7 @@ describe('OutputsFeedbackScreen', () => {
     })
 
     describe('feedback and notes (errored run)', () => {
-        it("renders this study's outputs feedback and resubmission note", async () => {
+        it("renders this study's outputs feedback and no resubmission note", async () => {
             const { org, user, study, raw } = await setupErroredFeedbackOnly({ withNote: true })
             await renderScreen(study, raw, org.slug)
 
@@ -374,22 +466,41 @@ describe('OutputsFeedbackScreen', () => {
             expect(section).toHaveTextContent('Feedback and notes')
             expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
             expect(section).toHaveTextContent('The run timed out before the aggregation completed.')
-            expect(section).toHaveTextContent('Resubmission note (v1.0)')
-            expect(section).toHaveTextContent('Raised the timeout to 60s.')
+            expect(section).not.toHaveTextContent('Resubmission note')
+            expect(section).not.toHaveTextContent('Raised the timeout to 60s.')
             expect(section).toHaveTextContent(user.fullName)
             expect(section).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
-            expect(section).toHaveTextContent(dayjs(SUBMITTED_AT).format('MMM DD, YYYY'))
+            expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
+        })
+    })
+
+    // The card's own replication: two code rounds and two outputs rounds on one study.
+    describe('feedback and notes across two outputs rounds (OTTER-766)', () => {
+        it('numbers the outputs feedback v1.0 and v2.0, ignoring the code rounds', async () => {
+            const { org, study, raw } = await setupTwoOutputsRounds()
+            await renderScreen(study, raw, org.slug)
+
+            const section = screen.getByTestId('feedback-and-notes-section')
+            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
+            expect(section).toHaveTextContent('First round: remove the row-level output.')
+            expect(section).toHaveTextContent('Reviewer feedback (v2.0)')
+            expect(section).toHaveTextContent('Second round: the totals still disclose a cell count.')
+            expect(section).not.toHaveTextContent('Resubmission note')
+            expect(section).not.toHaveTextContent('Aggregated the counts as asked.')
             expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
         })
 
-        it('expands the latest entry and lets a prior entry toggle open', async () => {
-            const { org, study, raw, job, commentId } = await setupErroredFeedbackOnly({ withNote: true })
+        it('expands the latest entry and lets the prior round toggle open', async () => {
+            const { org, study, raw, firstCommentId, secondCommentId } = await setupTwoOutputsRounds()
             const spy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
             try {
                 await renderScreen(study, raw, org.slug)
 
-                expect(screen.getByTestId(`feedback-toggle-${commentId}`)).toHaveAttribute('aria-expanded', 'true')
-                const prior = screen.getByTestId(`feedback-toggle-job-note-${job.id}`)
+                expect(screen.getByTestId(`feedback-toggle-${secondCommentId}`)).toHaveAttribute(
+                    'aria-expanded',
+                    'true',
+                )
+                const prior = screen.getByTestId(`feedback-toggle-${firstCommentId}`)
                 expect(prior).toHaveAttribute('aria-expanded', 'false')
                 await userEvent.click(prior)
                 expect(prior).toHaveAttribute('aria-expanded', 'true')

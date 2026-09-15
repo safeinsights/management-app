@@ -17,7 +17,7 @@ const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 const JOB_ID = '22222222-2222-4222-8222-222222222222'
 const ORG_SLUG = 'mars-university-lab'
 
-// The real screen builds this with resolveStepNav; a story only needs a representative shape.
+// The real screen is handed this by the dispatcher (resolveScreenNav); a story only needs a representative shape.
 const NAV: StepNav = {
     back: {
         label: 'Previous step',

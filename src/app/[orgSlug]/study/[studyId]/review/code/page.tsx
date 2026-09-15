@@ -21,6 +21,6 @@ export default async function StudyReviewCodePage(props: { params: Promise<{ org
         raw,
         study,
         orgSlug,
-        dashboardHref: Routes.orgDashboard({ orgSlug }),
+        dashboardHref: Routes.dashboard,
     })
 }

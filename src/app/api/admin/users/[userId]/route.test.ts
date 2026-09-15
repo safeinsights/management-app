@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, type Mock } from 'vitest'
-import { db, insertTestOrg, insertTestUser, mockSessionWithTestData, faker, qaEmail } from '@/tests/unit.helpers'
+import {
+    db,
+    insertTestOrg,
+    insertTestUser,
+    insertTestStudyOnly,
+    mockSessionWithTestData,
+    faker,
+    qaEmail,
+} from '@/tests/unit.helpers'
 import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 
@@ -109,8 +117,94 @@ describe('DELETE /api/admin/users/[userId]', () => {
         expect(stillThere).toBeDefined()
     })
 
-    // SI-admin auth is the ONLY guard on this route, so these two cases are load-bearing.
-    it('rejects a caller who is not an SI admin', async () => {
+    // Authentication plus org-admin authorization is the ONLY guard on this route, and it deletes
+    // real accounts, so these cases are load-bearing.
+    it("lets an admin of the target's only org delete a real account", async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+        const { user } = await insertTestUser({ org, email: `real-${faker.string.alpha(10)}@example.com` })
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(200)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeUndefined()
+    })
+
+    it('rejects an org admin deleting a real account from another org', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const own = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await db.insertInto('orgUser').values({ orgId: own.id, userId: mocks.user.id, isAdmin: true }).execute()
+        const { user } = await insertTestUser({ org: other, email: `real-${faker.string.alpha(10)}@example.com` })
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(403)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeDefined()
+    })
+
+    it('rejects an org admin deleting an account that also belongs to another org', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const own = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await db.insertInto('orgUser').values({ orgId: own.id, userId: mocks.user.id, isAdmin: true }).execute()
+        const { user } = await insertTestUser({ org: own, email: `real-${faker.string.alpha(10)}@example.com` })
+        await db.insertInto('orgUser').values({ orgId: other.id, userId: user.id, isAdmin: false }).execute()
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(403)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeDefined()
+    })
+
+    it('lets an admin of every org the account belongs to delete it', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const first = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const second = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        for (const org of [first, second]) {
+            await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+        }
+        const { user } = await insertTestUser({ org: first, email: `real-${faker.string.alpha(10)}@example.com` })
+        await db.insertInto('orgUser').values({ orgId: second.id, userId: user.id, isAdmin: false }).execute()
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(200)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeUndefined()
+    })
+
+    // Deleting the account deletes its studies, and a study's files live under the enclave org,
+    // not the lab the researcher belongs to. Membership alone would let a lab admin erase them.
+    it('rejects a lab admin deleting a researcher whose study lives in another enclave', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await db.insertInto('orgUser').values({ orgId: lab.id, userId: mocks.user.id, isAdmin: true }).execute()
+        const { user } = await insertTestUser({ org: lab, email: `real-${faker.string.alpha(10)}@example.com` })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
+
+        const response = await deleteUser(user.id)
+
+        expect(response.status).toBe(403)
+        expect(await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()).toBeDefined()
+        expect(await db.selectFrom('study').select('id').where('id', '=', study.id).executeTakeFirst()).toBeDefined()
+    })
+
+    // findUser resolves by email and runs before authorization, so any invited member can ask
+    // about any address. The refusal must not tell them which orgs the account is in.
+    it('does not reveal the target account orgs in a refusal', async () => {
+        await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: `real-${faker.string.alpha(10)}@example.com` })
+
+        const response = await deleteUser(user.email!)
+
+        expect(response.status).toBe(403)
+        expect((await response.json()).error).not.toContain(org.slug)
+    })
+
+    it('rejects a caller who is neither an SI admin nor an org admin', async () => {
         await authenticateAsSiAdmin({ isSiAdmin: false })
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: `real-${faker.string.alpha(10)}@example.com` })
@@ -158,5 +252,18 @@ describe('DELETE /api/admin/users/[userId]', () => {
         expect(attempted.metadata).toMatchObject({ via: 'admin-api' })
         const succeeded = await auditRowFor(user.id, 'succeeded')
         expect(succeeded.metadata).toMatchObject({ via: 'admin-api' })
+    })
+
+    // Every invited member can reach this handler, so a refused attempt is worth a record too.
+    it('audits a refused deletion against the caller', async () => {
+        const { user: caller } = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: `real-${faker.string.alpha(10)}@example.com` })
+
+        await deleteUser(user.id)
+
+        const refused = await auditRowFor(user.id, 'refused')
+        expect(refused).toMatchObject({ eventType: 'DELETED', recordType: 'USER', userId: caller.id })
+        expect(refused.metadata).toMatchObject({ via: 'admin-api', email: user.email })
     })
 })

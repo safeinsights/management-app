@@ -7,7 +7,7 @@ import { getProposalFeedbackForStudyAction } from '@/server/actions/study.action
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
 
-export async function ReviewerProposalFeedbackScreen({ study, orgSlug }: ScreenComponentProps) {
+export async function ReviewerProposalFeedbackScreen({ study, orgSlug, nav }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
@@ -27,6 +27,7 @@ export async function ReviewerProposalFeedbackScreen({ study, orgSlug }: ScreenC
             entries={safeEntries}
             fallback={fallback}
             reviewVersion={reviewVersion}
+            nav={nav}
         />
     )
 }

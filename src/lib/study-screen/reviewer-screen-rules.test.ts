@@ -46,12 +46,20 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('live code decision → reviewer-code-feedback (not active review)', () => {
-        for (const d of ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const) {
+    it('live negative code decision → reviewer-code-feedback (not active review)', () => {
+        for (const d of ['CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const) {
             expect(screen(st({ status: 'APPROVED', hasSubmittedCode: true, codeDecision: d }))).toBe(
                 'reviewer-code-feedback',
             )
         }
+    })
+
+    // The approved-code screen is only reached by walking back (/review/code): /review moves on to
+    // the outputs step from the moment of approval (OTTER-673).
+    it('code approved, enclave not started yet → reviewer-outputs-pending', () => {
+        expect(screen(st({ status: 'APPROVED', hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' }))).toBe(
+            'reviewer-outputs-pending',
+        )
     })
 
     it('code approved and executing in the enclave, no results → reviewer-outputs-pending', () => {
@@ -219,7 +227,7 @@ describe('resolveScreen(reviewer)', () => {
                 st({
                     status: 'APPROVED',
                     hasSubmittedCode: true,
-                    codeDecision: 'CODE-APPROVED',
+                    codeDecision: 'CODE-CHANGES-REQUESTED',
                     reviewerAgreementsAcked: false,
                 }),
             ),

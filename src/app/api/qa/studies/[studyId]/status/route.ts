@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/database'
-import { requireQaAdmin, findQaStudy } from '@/server/qa-cleanup'
+import { requireQaAuth, requireAdminOfOrgs, findQaStudy } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
 import { setQaStudyState, QA_FILE_KEYS, type QaFileKey } from '@/server/qa-study-state'
-import { qaErrorResponse } from '../../../responses'
+import { qaErrorResponse, qaRefusedResponse } from '../../../responses'
 import { auditQaOperation } from '../../../audit'
 
 const STUDY_STATUSES = ['APPROVED', 'ARCHIVED', 'CHANGE-REQUESTED', 'DRAFT', 'PENDING-REVIEW', 'REJECTED'] as const
@@ -67,25 +67,36 @@ async function parseRequest(req: Request) {
 // Files arrive as plaintext under the `result` and `log` keys and are encrypted for the reviewing
 // org before storage.
 export const PATCH = async (req: Request, { params }: { params: Promise<{ studyId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
 
     const { studyId } = await params
     try {
-        const update = await parseRequest(req)
-        // Resolved first so a bad body or a non-QA study leaves no attempt row.
+        // Resolved and authorized before the body is read: an unauthorized caller must not be
+        // able to make the server consume an upload. A non-QA study leaves no attempt row.
         const study = await findQaStudy(db, studyId)
+        const entry = {
+            actorUserId: auth.user.id,
+            eventType: 'UPDATED',
+            recordType: 'STUDY',
+            recordId: study.studyId,
+            metadata: { orgSlugs: study.orgSlugs },
+        } as const
+
+        const authorized = await requireAdminOfOrgs(db, auth, study.orgSlugs)
+        if (!authorized.ok) {
+            return await qaRefusedResponse(entry, authorized)
+        }
+
+        const update = await parseRequest(req)
 
         const result = await auditQaOperation(
             {
-                actorUserId: auth.user.id,
-                eventType: 'UPDATED',
-                recordType: 'STUDY',
-                recordId: study.studyId,
+                ...entry,
                 metadata: {
-                    orgSlug: study.orgSlug,
+                    ...entry.metadata,
                     requested: {
                         studyStatus: update.studyStatus,
                         jobStatus: update.jobStatus,

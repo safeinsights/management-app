@@ -13,6 +13,7 @@ import {
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { Routes } from '@/lib/routes'
+import type { StepNav } from '@/lib/study-screen'
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { PostFeedbackView } from '../post-feedback-view'
 import StudyReviewCodePage from './page'
@@ -38,6 +39,8 @@ const callPage = async (orgSlug: string, studyId: string) =>
         params: Promise.resolve({ orgSlug, studyId }),
     })) as React.ReactElement<Record<string, unknown>>
 
+const navOf = (page: React.ReactElement<Record<string, unknown>>) => page.props.nav as StepNav
+
 const seedResultsStudy = async (orgSlug: string) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'enclave' })
     const { study } = await insertTestStudyJobData({
@@ -59,10 +62,10 @@ describe('StudyReviewCodePage', () => {
 
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
-        expect(page?.props.previousHref).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
+        expect(navOf(page).back?.href).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('post-feedback-previous')).toBeInTheDocument()
+        expect(screen.getByTestId('cta-previous-step')).toHaveTextContent('Previous step')
     })
 
     // OTTER-687: the outputs screen has no route of its own, so forward is bare /review.
@@ -71,11 +74,11 @@ describe('StudyReviewCodePage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        expect(page?.props.nextStepHref).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
+        expect(navOf(page).forward?.href).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
 
         renderWithProviders(page!)
         expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
-        expect(screen.queryByTestId('go-to-dashboard')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     it('forwards to /review once the enclave is running the job', async () => {
@@ -91,12 +94,12 @@ describe('StudyReviewCodePage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        expect(page?.props.nextStepHref).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
+        expect(navOf(page).forward?.href).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
     })
 
-    // Before packaging, /review resolves to this same screen, so a forward link would point at
-    // the page it sits on.
-    it('offers no step forward while /review still resolves to the code step', async () => {
+    // /review serves the outputs step from the moment of approval (OTTER-673), so "Next step" is
+    // offered before the enclave reports a stage rather than pointing at the page it sits on.
+    it('offers "Next step" as soon as the code is approved, before packaging starts', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -108,11 +111,11 @@ describe('StudyReviewCodePage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        expect(page?.props.nextStepHref).toBeUndefined()
+        expect(navOf(page).forward?.href).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id }))
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('go-to-dashboard')).toBeInTheDocument()
-        expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
+        expect(screen.getByTestId('cta-next-step')).toHaveAttribute('data-variant', 'filled')
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     it('renders code-feedback with the Previous link for a decided-code study without results yet', async () => {
@@ -130,7 +133,9 @@ describe('StudyReviewCodePage', () => {
 
         expect(page?.type).toBe(PostFeedbackView)
         expect(page?.props.kind).toBe('CODE')
-        expect(page?.props.previousHref).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
+        expect(navOf(page).back?.href).toBe(Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id }))
+        // Waiting on the researcher: nothing is ahead, so the exit takes the solid slot.
+        expect(navOf(page).forward?.label).toBe('Back to my studies')
     })
 
     it('404s when the study has not reached the code stage (no forward jumps)', async () => {
