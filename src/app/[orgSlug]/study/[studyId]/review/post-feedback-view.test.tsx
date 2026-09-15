@@ -377,14 +377,30 @@ describe('PostFeedbackView', () => {
                 createdAt: overrides.createdAt ?? new Date('2026-04-16T10:00:00Z'),
             }) as CodeReviewFeedbackEntry
 
-        it('renders the STEP 3 label and "Review study code" heading', () => {
+        it('renders the STEP 2 label and "Review code" heading', () => {
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
             renderWithProviders(
                 <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
             )
 
-            expect(screen.getByText('STEP 3')).toBeInTheDocument()
-            expect(screen.getByText('Review study code')).toBeInTheDocument()
+            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
+        })
+
+        it('renders the versioned heading on a resubmission (reviewVersion > 1)', () => {
+            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
+            renderWithProviders(
+                <PostFeedbackView
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={entries}
+                    kind="CODE"
+                    reviewVersion={2}
+                />,
+            )
+
+            expect(screen.getByRole('heading', { name: 'Review code v2.0', level: 2 })).toBeInTheDocument()
         })
 
         it('renders the informative banner with code-approved copy', () => {
@@ -436,15 +452,6 @@ describe('PostFeedbackView', () => {
             )
 
             expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Apr 18, 2026`)
-        })
-
-        it('uses "Review study code" crumb (not "Review initial request") for kind=CODE', () => {
-            const entries = [buildCodeEntry()]
-            renderWithProviders(
-                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
-            )
-
-            expect(screen.queryByText('Review initial request')).not.toBeInTheDocument()
         })
 
         it('collapses the full Submitted code section until the "View full study code" toggle is clicked', async () => {
@@ -533,7 +540,7 @@ describe('PostFeedbackView', () => {
                     />,
                 )
 
-                expect(screen.getByText('Review study code')).toBeInTheDocument()
+                expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
                 // No decision comment, so the title carries the date but no reviewer attribution.
                 expect(screen.getByTestId('status-alert')).toHaveTextContent(
                     `Code approved ${STATUS_ALERT_SEPARATOR} Apr 21, 2026`,
@@ -549,7 +556,7 @@ describe('PostFeedbackView', () => {
                     <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={[]} kind="CODE" />,
                 )
 
-                expect(screen.queryByText('Review study code')).not.toBeInTheDocument()
+                expect(screen.queryByRole('heading', { name: 'Review code', level: 2 })).not.toBeInTheDocument()
             })
         })
     })

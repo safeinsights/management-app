@@ -5,6 +5,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { codeReviewHeading } from '@/lib/code-review'
 import { proposalReviewHeading } from '@/lib/proposal-review'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { reviewerCodeDecisionBanner, reviewerProposalDecisionBanner } from '@/lib/study-banners'
@@ -33,17 +34,13 @@ type PostFeedbackViewProps = {
     }
     // Resolved by the screen from the reviewer nav table (OTTER-673).
     nav: StepNav
-    /**
-     * Current proposal-review iteration, sourced from `currentReviewVersion`. Drives the
-     * versioned PROPOSAL heading ("Review proposal v{N}.0") so this page matches the editable review
-     * page. Only meaningful for `kind="PROPOSAL"`; the CODE heading is static.
-     */
+    // Drives the versioned heading so this page matches the editable review page.
     reviewVersion?: number
 }
 
 const STEP_LABEL_BY_KIND: Record<PostFeedbackKind, string> = {
     PROPOSAL: 'STEP 1',
-    CODE: 'STEP 3',
+    CODE: 'STEP 2',
 }
 
 type DecisionBannerProps = {
@@ -118,8 +115,7 @@ export function PostFeedbackView({
             decidedAt={timestampDate}
         />
     )
-    // CODE keeps its static heading; PROPOSAL versions per iteration to match the editable page.
-    const heading = isCode ? 'Review study code' : proposalReviewHeading(reviewVersion)
+    const heading = isCode ? codeReviewHeading(reviewVersion) : proposalReviewHeading(reviewVersion)
 
     return (
         <Box bg="grey.10">

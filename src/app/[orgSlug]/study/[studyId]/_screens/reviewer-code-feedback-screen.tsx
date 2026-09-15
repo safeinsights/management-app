@@ -21,6 +21,9 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
     const analysis = job ? await jobAnalysisForJob(job) : null
     const entries = await getCodeReviewFeedbackAction({ studyId: study.id })
     const safeEntries = isActionError(entries) ? [] : entries
+    // The job's round, not codeSubmissionVersion: that query counts the CODE-CHANGES-REQUESTED
+    // just written, which would label this page as the next iteration.
+    const reviewVersion = job?.resubmissionRound ?? 1
     if (safeEntries.length > 0) {
         return (
             <PostFeedbackView
@@ -30,6 +33,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
                 kind="CODE"
                 job={job}
                 analysis={analysis}
+                reviewVersion={reviewVersion}
                 nav={nav}
             />
         )
@@ -53,6 +57,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
             job={job}
             analysis={analysis}
             fallback={fallback}
+            reviewVersion={reviewVersion}
             nav={nav}
         />
     )

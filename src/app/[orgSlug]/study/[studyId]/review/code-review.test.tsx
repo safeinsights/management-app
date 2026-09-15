@@ -63,11 +63,11 @@ describe('CodeReview', () => {
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         })
 
-        it('renders the STEP 3 sub-label and the section heading', async () => {
+        it('renders the STEP 2 sub-label and the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByText('STEP 3')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
+            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
         })
 
         it('does not render the study title in the section header', async () => {
@@ -156,7 +156,15 @@ describe('CodeReview', () => {
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
         it('switches the banner title to the revised wording', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                    reviewVersion: 2,
+                }),
+            )
 
             const banner = screen.getByTestId('status-alert')
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
@@ -165,14 +173,30 @@ describe('CodeReview', () => {
         })
 
         it('reflects the resubmission version in the section heading', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                    reviewVersion: 2,
+                }),
+            )
 
-            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 2 })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Review study code', level: 2 })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review code v2.0', level: 2 })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review code', level: 2 })).not.toBeInTheDocument()
         })
 
         it('renders a Feedback and notes section showing both prior and current entries', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                    reviewVersion: 2,
+                }),
+            )
 
             const section = screen.getByTestId('feedback-and-notes-section')
             expect(section).toBeInTheDocument()
@@ -183,7 +207,15 @@ describe('CodeReview', () => {
         })
 
         it('positions the Feedback and notes section above the code evaluation form', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                    reviewVersion: 2,
+                }),
+            )
 
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
@@ -207,7 +239,15 @@ describe('CodeReview', () => {
                 })
                 .execute()
 
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                    reviewVersion: 2,
+                }),
+            )
 
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveAttribute('aria-expanded', 'false')
