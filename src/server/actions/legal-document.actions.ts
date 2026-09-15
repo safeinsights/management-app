@@ -37,8 +37,7 @@ import {
     findLegalDocument,
     findOrCreateLegalDocument,
     userAcknowledgedVersion,
-    latestPublishedStudyAgreement,
-    studyAgreementParties,
+    studyAgreementState,
     orgParticipationAgreement,
     orgStudyAgreements,
     userParticipationAgreements,
@@ -688,26 +687,19 @@ export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementSt
     .middleware(scopeFromStudyId)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
-        const agreement = await latestPublishedStudyAgreement(db, studyId)
+        const study = await studyAgreementState(db, studyId)
 
-        if (!agreement) {
-            const study = await studyAgreementParties(db, studyId)
-            if (!study || !(await isPartyToStudyAgreement(db, { ...study, userId: session.user.id }))) {
-                return { state: 'notAParty' }
-            }
-
-            return study.isTestStudy ? { state: 'exempt' } : { state: 'none' }
-        }
-
-        if (!(await isPartyToStudyAgreement(db, { ...agreement, userId: session.user.id }))) {
+        if (!study || !(await isPartyToStudyAgreement(db, { ...study, userId: session.user.id }))) {
             return { state: 'notAParty' }
         }
 
-        if (await userAcknowledgedVersion(db, { versionId: agreement.versionId, userId: session.user.id })) {
+        if (!study.versionId) return study.isTestStudy ? { state: 'exempt' } : { state: 'none' }
+
+        if (await userAcknowledgedVersion(db, { versionId: study.versionId, userId: session.user.id })) {
             return { state: 'acknowledged' }
         }
 
-        return { state: 'pending', versionId: agreement.versionId }
+        return { state: 'pending', versionId: study.versionId }
     })
 
 // An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin

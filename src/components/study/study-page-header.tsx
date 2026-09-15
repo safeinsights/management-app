@@ -10,7 +10,7 @@ export type StudyHeaderStudy = {
     title: string | null
     submittingLabName: string | null
     submittedByOrgSlug: string
-    isTestStudy?: boolean
+    isTestStudy: boolean
 }
 
 export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
@@ -18,7 +18,7 @@ export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
     const title = (
         <Group gap="sm" align="center">
             {study.title ?? UNTITLED_STUDY_TITLE}
-            <TestStudyLabel isVisible={Boolean(study.isTestStudy)} />
+            <TestStudyLabel isVisible={study.isTestStudy} />
         </Group>
     )
 

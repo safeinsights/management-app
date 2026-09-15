@@ -45,6 +45,7 @@ const header = (
             title: 'Reading comprehension cohort analysis',
             submittingLabName: 'Mars University Lab',
             submittedByOrgSlug: ORG_SLUG,
+            isTestStudy: false,
         }}
     />
 )

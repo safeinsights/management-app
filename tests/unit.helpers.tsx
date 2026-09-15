@@ -7,7 +7,7 @@ import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
-import { latestPublishedStudyAgreement, writeStudyAgreementVersion } from '@/server/db/legal-document'
+import { studyAgreementState, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { theme } from '@/theme'
@@ -442,6 +442,7 @@ export const insertTestStudyOnly = async ({
     researcherId,
     title = 'study without job',
     status = 'APPROVED',
+    // False for a test about agreements themselves — those files publish and acknowledge their own.
     withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
@@ -1206,45 +1207,28 @@ export const insertTestStudyAgreement = async ({
 
 // Study fixtures reach code submission, which the study agreement gate now blocks without one.
 // A real agreement plus the parties' acknowledgements, rather than marking fixtures test studies:
-// otherwise the default fixture is the one that bypasses the gate.
+// otherwise the default fixture is the one that bypasses the gate. Safe to call again once a test
+// has minted another session user — the unique constraint absorbs the acks already written.
 export const seedAcknowledgedStudyAgreement = async (studyId: string) => {
-    const study = await db
-        .selectFrom('study')
-        .select(['orgId', 'submittedByOrgId'])
-        .where('id', '=', studyId)
-        .executeTakeFirstOrThrow()
+    const study = await studyAgreementState(db, studyId)
+    if (!study) throw new Error(`seedAcknowledgedStudyAgreement: no study ${studyId}`)
 
-    // Reuses an existing version and acks only who still owes it, so a test that mints another
-    // session user can call this again rather than track versions itself.
-    const existing = await latestPublishedStudyAgreement(db, studyId)
-    const versionId = existing?.versionId ?? (await insertTestStudyAgreement({ studyId })).id
+    const versionId = study.versionId ?? (await insertTestStudyAgreement({ studyId })).id
 
-    const owing = await db
+    const parties = await db
         .selectFrom('orgUser')
         .select('userId')
         .distinct()
-        .where('orgId', 'in', [study.orgId, study.submittedByOrgId])
-        .where((eb) =>
-            eb.not(
-                eb.exists(
-                    eb
-                        .selectFrom('legalDocumentAcknowledgement')
-                        .select('legalDocumentAcknowledgement.id')
-                        .where('legalDocumentAcknowledgement.legalDocumentVersionId', '=', versionId)
-                        .whereRef('legalDocumentAcknowledgement.userId', '=', 'orgUser.userId'),
-                ),
-            ),
-        )
+        .where('orgId', 'in', [study.dataPartnerId, study.researchLabId])
         .execute()
 
-    if (owing.length) {
-        await db
-            .insertInto('legalDocumentAcknowledgement')
-            .values(owing.map(({ userId }) => ({ legalDocumentVersionId: versionId, userId })))
-            .execute()
-    }
+    if (!parties.length) return
 
-    return versionId
+    await db
+        .insertInto('legalDocumentAcknowledgement')
+        .values(parties.map(({ userId }) => ({ legalDocumentVersionId: versionId, userId })))
+        .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
+        .execute()
 }
 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }

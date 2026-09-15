@@ -168,8 +168,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
-        // Stamped once here rather than read from the pair later, so designating a lab cannot
-        // retroactively exempt a study that already carries a signed agreement.
+        // Stamped, not derived, because the designation is a point-in-time fact: it applies to
+        // studies created from then on, and existing ones keep owing an agreement. Deriving it
+        // would silently extend a new designation backwards. Sole writer of the column.
         // TODO Chris: confirm against the hi-fis whether a test study still goes through proposal
         // review. Built on the assumption that it does.
         const isTestStudy = await isDesignatedTestLab(db, { dataPartnerId: orgId, researchLabId: submittedByOrgId })

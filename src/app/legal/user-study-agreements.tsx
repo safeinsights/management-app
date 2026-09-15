@@ -11,6 +11,7 @@ import {
 import { fetchUserStudyAgreementsAction } from '@/server/actions/legal-document.actions'
 import type { DataTableColumn } from 'mantine-datatable'
 import { agreementDateColumns, AgreementsPanel } from '@/components/legal/agreements-table'
+import { TestStudyLabel } from '@/components/study/test-study-label'
 
 type StudyAgreement = ActionSuccessType<typeof fetchUserStudyAgreementsAction>[number]
 
@@ -20,7 +21,7 @@ const columns: DataTableColumn<StudyAgreement>[] = [
     { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
     { accessor: 'fromName', title: 'From' },
     { accessor: 'toName', title: 'To' },
-    ...agreementDateColumns<StudyAgreement>(),
+    ...agreementDateColumns<StudyAgreement>((row) => (row.isTestStudy ? <TestStudyLabel isVisible /> : null)),
 ]
 
 const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt', 'ackedAt'] as const

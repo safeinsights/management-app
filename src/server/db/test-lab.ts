@@ -16,13 +16,7 @@ export const orgTestLabs = (db: DBExecutor, dataPartnerId: string) =>
     db
         .selectFrom('orgTestLab')
         .innerJoin('org as researchLab', 'researchLab.id', 'orgTestLab.researchLabId')
-        .select([
-            'orgTestLab.id',
-            'orgTestLab.createdAt',
-            'researchLab.id as researchLabId',
-            'researchLab.name as researchLabName',
-            'researchLab.slug as researchLabSlug',
-        ])
+        .select(['orgTestLab.id', 'researchLab.id as researchLabId', 'researchLab.name as researchLabName'])
         .where('orgTestLab.dataPartnerId', '=', dataPartnerId)
         .orderBy('researchLab.name')
         .execute()
@@ -32,7 +26,7 @@ export const orgTestLabs = (db: DBExecutor, dataPartnerId: string) =>
 export const labsEligibleAsTestLabs = (db: DBExecutor, dataPartnerId: string) =>
     db
         .selectFrom('org')
-        .select(['org.id', 'org.name', 'org.slug'])
+        .select(['org.id', 'org.name'])
         .where('org.type', '=', 'lab')
         .where((eb) =>
             eb.not(
@@ -60,12 +54,9 @@ export const designateTestLabs = async (
         createdByUserId,
     }: { dataPartnerId: string; researchLabIds: string[]; createdByUserId: string },
 ) => {
-    if (!researchLabIds.length) return []
-
-    return await db
+    await db
         .insertInto('orgTestLab')
         .values(researchLabIds.map((researchLabId) => ({ dataPartnerId, researchLabId, createdByUserId })))
         .onConflict((oc) => oc.constraint('org_test_lab_pair_unique').doNothing())
-        .returning('id')
         .execute()
 }

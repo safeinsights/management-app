@@ -6,41 +6,39 @@ import { LegalPanel } from '@/components/legal/legal-panel'
 import type { ActionResponse } from '@/lib/errors'
 import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
-import { TestStudyLabel } from '@/components/study/test-study-label'
 import { Stack, Text } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useState, type ReactNode } from 'react'
 
+// ackedAt is nullable because a study row can stand in for an agreement that was never signed;
+// participation rows always carry one.
 type AgreementRow = {
     signedAt: string | null
     ackedAt: Date | null
     versionId: string | null
-    isTestStudy?: boolean
 }
 
 type AgreementSort<Column extends string> = { columnAccessor: Column; direction: 'asc' | 'desc' }
 
-// A test study has no agreement, so the date columns carry the exemption rather than a blank dash.
-export const AgreementDayCell: FC<{ isTestStudy?: boolean; day: string }> = ({ isTestStudy, day }) => {
-    if (isTestStudy) return <TestStudyLabel isVisible />
-
-    return <>{day}</>
-}
-
 // signedAt is a bare calendar day; ackedAt reads as a UTC day, matching the global document panel.
 // On mixed bases an ack can show as a day earlier than the document it acknowledges.
-export const agreementDateColumns = <T extends AgreementRow>(): DataTableColumn<T>[] => [
+//
+// `exemptionFor` lets a caller put something in a date cell for a row that will never carry one;
+// the caller owns what that means, so this module stays free of any one document type's rules.
+export const agreementDateColumns = <T extends AgreementRow>(
+    exemptionFor?: (row: T) => ReactNode,
+): DataTableColumn<T>[] => [
     {
         accessor: 'signedAt',
         title: 'Effective on',
         sortable: true,
-        render: (row) => <AgreementDayCell isTestStudy={row.isTestStudy} day={formatDayString(row.signedAt)} />,
+        render: (row) => <>{exemptionFor?.(row) ?? formatDayString(row.signedAt)}</>,
     },
     {
         accessor: 'ackedAt',
         title: 'Acknowledged on',
         sortable: true,
-        render: (row) => <AgreementDayCell isTestStudy={row.isTestStudy} day={formatInstantAsUtcDay(row.ackedAt)} />,
+        render: (row) => <>{exemptionFor?.(row) ?? formatInstantAsUtcDay(row.ackedAt)}</>,
     },
     { accessor: 'versionId', title: 'View', render: (row) => <LegalDocumentPdfLink versionId={row.versionId} /> },
 ]

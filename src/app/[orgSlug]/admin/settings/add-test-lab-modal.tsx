@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Alert, Button, Checkbox, Group, ScrollArea, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Button, Checkbox, Group, ScrollArea, Stack, Text, TextInput, Title } from '@mantine/core'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modals/app-modal'
 import { LoadingMessage } from '@/components/loading'
+import { ErrorAlert } from '@/components/errors'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 
 const PERMANENCE = `Adding a Research Lab as a Test Lab affects future studies only: ${legalDocumentCollectionLabels.SLA} will not be required for studies created from then on. Existing studies still require ${legalDocumentCollectionLabels.SLA}, and a Test Lab cannot be removed.`
@@ -29,26 +30,11 @@ const useTestLabPicker = (labs: EligibleLab[]) => {
         setSelectedIds,
         selectedLabs: labs.filter((lab) => selectedIds.includes(lab.id)),
         isConfirming,
-        startConfirming: () => setIsConfirming(true),
-        stopConfirming: () => setIsConfirming(false),
+        setIsConfirming,
     }
 }
 
 type Picker = ReturnType<typeof useTestLabPicker>
-
-function LabOption({ lab }: { lab: EligibleLab }) {
-    return <Checkbox value={lab.id} label={lab.name} py={6} />
-}
-
-function EmptyLabList({ isVisible }: { isVisible: boolean }) {
-    if (!isVisible) return null
-
-    return (
-        <Text fz="sm" c="dimmed" ta="center" p="md">
-            No research labs available to add.
-        </Text>
-    )
-}
 
 type PickerStepProps = { isVisible: boolean; picker: Picker; isLoading: boolean; onCancel: () => void }
 
@@ -65,11 +51,15 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
                 leftSection={<MagnifyingGlassIcon size={16} />}
             />
             {isLoading && <LoadingMessage message="Loading research labs" />}
-            <EmptyLabList isVisible={!isLoading && !picker.matches.length} />
+            {!isLoading && !picker.matches.length && (
+                <Text fz="sm" c="dimmed" ta="center" p="md">
+                    No research labs available to add.
+                </Text>
+            )}
             <ScrollArea.Autosize mah={260}>
                 <Checkbox.Group value={picker.selectedIds} onChange={picker.setSelectedIds}>
                     {picker.matches.map((lab) => (
-                        <LabOption key={lab.id} lab={lab} />
+                        <Checkbox key={lab.id} value={lab.id} label={lab.name} py={6} />
                     ))}
                 </Checkbox.Group>
             </ScrollArea.Autosize>
@@ -80,7 +70,7 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
                 <Button variant="subtle" onClick={onCancel}>
                     Cancel
                 </Button>
-                <Button onClick={picker.startConfirming} disabled={!picker.selectedIds.length}>
+                <Button onClick={() => picker.setIsConfirming(true)} disabled={!picker.selectedIds.length}>
                     Add
                 </Button>
             </Group>
@@ -92,7 +82,7 @@ type ConfirmStepProps = {
     isVisible: boolean
     picker: Picker
     isSubmitting: boolean
-    error: string | null
+    error: unknown
     onConfirm: (researchLabIds: string[]) => void
 }
 
@@ -112,9 +102,9 @@ function ConfirmStep({ isVisible, picker, isSubmitting, error, onConfirm }: Conf
                     </Text>
                 ))}
             </Stack>
-            {error && <Alert color="red">{error}</Alert>}
+            {Boolean(error) && <ErrorAlert error={error} title="Failed to add test labs" />}
             <Group justify="flex-end">
-                <Button variant="subtle" onClick={picker.stopConfirming} disabled={isSubmitting}>
+                <Button variant="subtle" onClick={() => picker.setIsConfirming(false)} disabled={isSubmitting}>
                     Back
                 </Button>
                 <Button onClick={() => onConfirm(picker.selectedIds)} loading={isSubmitting}>
@@ -152,7 +142,7 @@ type Props = {
     labs: EligibleLab[]
     isLoading: boolean
     isSubmitting: boolean
-    error: string | null
+    error: unknown
     onConfirm: (researchLabIds: string[]) => void
 }
 

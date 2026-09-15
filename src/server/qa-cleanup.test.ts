@@ -454,7 +454,6 @@ describe('deleteUserById FK coverage', () => {
     const HANDLED: Record<string, string> = {
         'job_status_change.user_id': 'deleted',
         'legal_document_acknowledgement.user_id': 'deleted',
-        'org_test_lab.created_by_user_id': 'detached — the designation belongs to the data partner',
         'org_user.user_id': 'deleted',
         'study.researcher_id': 'owned studies are deleted outright',
         'study.pi_user_id': 'detached — the study can belong to a real researcher',

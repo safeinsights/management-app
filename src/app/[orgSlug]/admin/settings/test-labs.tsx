@@ -4,7 +4,6 @@ import { Stack, Text } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
-import { errorToString } from '@/lib/errors'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
@@ -34,13 +33,16 @@ const TestLabsTable: React.FC<{ testLabs: TestLab[] }> = ({ testLabs }) => {
     )
 }
 
-const useTestLabs = (orgSlug: string) => {
+const useTestLabs = (orgSlug: string, isVisible: boolean) => {
     const queryClient = useQueryClient()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
 
+    // A lab org renders nothing, and the action refuses one by design; without this the query
+    // still fires and retries.
     const designated = useQuery({
         queryKey: ['orgTestLabs', orgSlug],
         queryFn: async () => await fetchOrgTestLabsAction({ orgSlug }),
+        enabled: isVisible,
     })
 
     // Only while the modal is open: the full lab catalog is of no use to the section itself.
@@ -66,7 +68,7 @@ const useTestLabs = (orgSlug: string) => {
 
 export const TestLabs: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { designated, eligible, designate, isModalOpen, openModal, closeModal } = useTestLabs(orgSlug)
+    const { designated, eligible, designate, isModalOpen, openModal, closeModal } = useTestLabs(orgSlug, isVisible)
 
     if (!isVisible) return null
 
@@ -93,7 +95,7 @@ export const TestLabs: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
                 labs={eligible.data || []}
                 isLoading={eligible.isLoading}
                 isSubmitting={designate.isPending}
-                error={designate.error ? errorToString(designate.error) : null}
+                error={designate.error}
                 onConfirm={designate.mutate}
             />
         </>

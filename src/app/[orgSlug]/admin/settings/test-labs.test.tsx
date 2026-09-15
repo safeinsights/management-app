@@ -62,7 +62,9 @@ describe('TestLabs', () => {
         const dialog = screen.getByRole('dialog')
         await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
 
-        await waitFor(() => expect(within(dialog).getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument())
+        await waitFor(() =>
+            expect(within(dialog).getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument(),
+        )
         await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
 
         // The modal closes in the mutation's onSuccess, so this waits for it to settle rather than
@@ -91,7 +93,9 @@ describe('TestLabs', () => {
 
         const dialog = screen.getByRole('dialog')
         await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-        await waitFor(() => expect(within(dialog).getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument())
+        await waitFor(() =>
+            expect(within(dialog).getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument(),
+        )
         await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 

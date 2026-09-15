@@ -6,7 +6,7 @@ import { useForm, type UseFormReturnType } from '@mantine/form'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { type CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
 import { CodeEvaluationSection } from './code-evaluation-section'
-import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
+import { codeReviewCriteria } from './code-review-criteria'
 
 type FormShape = { criteria: CodeReviewCriteriaDraft }
 
@@ -50,7 +50,7 @@ describe('CodeEvaluationSection', () => {
         )
         expect(screen.getByText('Evaluation criteria')).toBeInTheDocument()
 
-        for (const descriptor of CODE_REVIEW_CRITERIA) {
+        for (const descriptor of codeReviewCriteria({ isTestStudy: false })) {
             expect(screen.getByTestId(`criteria-row-${descriptor.key}`)).toHaveTextContent(descriptor.label)
         }
     })
@@ -87,7 +87,7 @@ describe('CodeEvaluationSection', () => {
     it('names every criterion radiogroup after its visible criterion text', () => {
         renderSection()
 
-        for (const descriptor of CODE_REVIEW_CRITERIA) {
+        for (const descriptor of codeReviewCriteria({ isTestStudy: false })) {
             expect(screen.getByRole('radiogroup', { name: descriptor.label })).toBeInTheDocument()
         }
     })

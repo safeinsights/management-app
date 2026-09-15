@@ -192,6 +192,10 @@ export type StudyAgreementStatus =
     | { state: 'pending'; versionId: string }
     | { state: 'acknowledged' }
 
+// One place to ask "does this stop work on the study". Undefined counts as blocked: while the
+// status is in flight nothing should act as though the gate has cleared.
+export const blocksStudyWork = (status?: StudyAgreementStatus) => !status || status.state === 'none'
+
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
 })

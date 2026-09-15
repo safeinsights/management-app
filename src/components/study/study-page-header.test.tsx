@@ -5,6 +5,7 @@ const study = {
     title: 'Impact of highlighting on student learning outcomes',
     submittingLabName: 'Genius Lab',
     submittedByOrgSlug: 'genius',
+    isTestStudy: false,
 }
 
 describe('StudyPageHeader', () => {

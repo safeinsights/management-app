@@ -7,17 +7,18 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema
         .createTable('org_test_lab')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`v7uuid()`))
-        .addColumn('data_partner_id', 'uuid', (col) => col.notNull().references('org.id'))
-        .addColumn('research_lab_id', 'uuid', (col) => col.notNull().references('org.id'))
-        // Null where a seed wrote the designation rather than a signed-in admin.
-        .addColumn('created_by_user_id', 'uuid', (col) => col.references('user.id'))
+        // Cascade: a designation has no meaning once either org is gone.
+        .addColumn('data_partner_id', 'uuid', (col) => col.notNull().references('org.id').onDelete('cascade'))
+        .addColumn('research_lab_id', 'uuid', (col) => col.notNull().references('org.id').onDelete('cascade'))
+        // The designation is the data partner's, not this admin's, so it outlives their account.
+        .addColumn('created_by_user_id', 'uuid', (col) => col.references('user.id').onDelete('set null'))
         .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .addUniqueConstraint('org_test_lab_pair_unique', ['data_partner_id', 'research_lab_id'])
         .addCheckConstraint('org_test_lab_distinct_orgs', sql`data_partner_id <> research_lab_id`)
         .execute()
 
-    // Stamped when the study is created, never derived from the pair: designating a lab must not
-    // retroactively exempt a study that already carries a signed agreement.
+    // Stamped at creation, never derived: a designation applies to future studies only, so the
+    // answer depends on when the study was made rather than on the pair as it stands today.
     await db.schema
         .alterTable('study')
         .addColumn('is_test_study', 'boolean', (col) => col.notNull().defaultTo(false))

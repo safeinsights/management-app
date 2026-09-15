@@ -35,7 +35,6 @@ const insertPartyOrgs = async () => ({
 
 const seedDataPartnerWithStudy = async (title: string) => {
     const { dataPartner, researchLab } = await insertPartyOrgs()
-    // This file is about the signed/unsigned split, so it publishes agreements itself.
     const { study } = await insertTestStudyOnly({
         org: dataPartner,
         submittedByOrg: researchLab,

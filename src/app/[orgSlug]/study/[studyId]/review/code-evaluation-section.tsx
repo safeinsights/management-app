@@ -14,7 +14,7 @@ import {
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
 import { InfoTooltip } from '@/components/tooltip'
-import { CODE_REVIEW_CRITERIA, type CodeReviewCriterion } from './code-review-criteria'
+import { codeReviewCriteria, type CodeReviewCriterion } from './code-review-criteria'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
     { value: 'yes', label: 'Yes' },
@@ -30,16 +30,8 @@ type CodeEvaluationSectionProps = {
 
 // The lo-fi hangs this off the word "agreements"; a trailing icon carries the same note without
 // splitting the label string.
-function CriterionLabel({
-    id,
-    descriptor,
-    isTestStudy,
-}: {
-    id: string
-    descriptor: CodeReviewCriterion
-    isTestStudy: boolean
-}) {
-    const note = isTestStudy ? descriptor.testStudyNote : undefined
+function CriterionLabel({ id, descriptor }: { id: string; descriptor: CodeReviewCriterion }) {
+    const { note } = descriptor
 
     return (
         <Text id={id} fz={14} w={320}>
@@ -57,12 +49,11 @@ type CriterionRowProps = {
     descriptor: CodeReviewCriterion
     value: CodeReviewCriteriaDraftValue
     error: ReactNode
-    isTestStudy: boolean
     onChange: (value: CodeReviewCriteriaDraftValue) => void
     onBlur: () => void
 }
 
-function CriterionRow({ descriptor, value, error, isTestStudy, onChange, onBlur }: CriterionRowProps) {
+function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionRowProps) {
     const handleChange = (raw: string) => {
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
@@ -75,7 +66,7 @@ function CriterionRow({ descriptor, value, error, isTestStudy, onChange, onBlur 
 
     return (
         <Group gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${descriptor.key}`}>
-            <CriterionLabel id={labelId} descriptor={descriptor} isTestStudy={isTestStudy} />
+            <CriterionLabel id={labelId} descriptor={descriptor} />
             {/* Guarded blur: the radios are siblings, so an unguarded handler would error while
                 the user is still tabbing across the row (OTTER-647). */}
             <Radio.Group
@@ -105,13 +96,12 @@ export function CodeEvaluationSection({ form, enabled, isTestStudy }: CodeEvalua
         pushCriterion(key, value)
     }
 
-    const criterionRows = CODE_REVIEW_CRITERIA.map((descriptor) => (
+    const criterionRows = codeReviewCriteria({ isTestStudy }).map((descriptor) => (
         <CriterionRow
             key={descriptor.key}
             descriptor={descriptor}
             value={criteriaValues[descriptor.key]}
             error={form.errors[`criteria.${descriptor.key}`]}
-            isTestStudy={isTestStudy}
             onChange={handleChange(descriptor.key)}
             onBlur={() => form.validateField(`criteria.${descriptor.key}`)}
         />

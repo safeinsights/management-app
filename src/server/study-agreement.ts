@@ -1,7 +1,7 @@
 import { type DBExecutor } from '@/database'
 import { ActionFailure } from '@/lib/errors'
 import { type UserSession } from '@/lib/types'
-import { userAcknowledgedVersion, latestPublishedStudyAgreement, studyAgreementParties } from './db/legal-document'
+import { userAcknowledgedVersion, studyAgreementState } from './db/legal-document'
 
 export const STUDY_AGREEMENT_REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
 export const STUDY_AGREEMENT_MISSING_MESSAGE = 'has not been signed yet for this study'
@@ -26,22 +26,20 @@ export const requireStudyAgreementAcknowledged = async (
     db: DBExecutor,
     { studyId, userId }: { studyId: string; userId: string },
 ) => {
-    const agreement = await latestPublishedStudyAgreement(db, studyId)
+    const study = await studyAgreementState(db, studyId)
+    if (!study) throw new ActionFailure({ study: 'was not found' })
 
-    if (!agreement) {
-        const study = await studyAgreementParties(db, studyId)
-        if (!study || study.isTestStudy) return
+    // An SI admin holds `manage all` but signs nothing, so neither a missing nor an unacknowledged
+    // agreement is theirs to be blocked on.
+    if (!(await isPartyToStudyAgreement(db, { ...study, userId }))) return
 
-        // Same exemption the pending branch gives a non-party: an SI admin holds `manage all` but
-        // signs nothing, so a missing agreement is not theirs to be blocked on.
-        if (!(await isPartyToStudyAgreement(db, { ...study, userId }))) return
+    if (!study.versionId) {
+        if (study.isTestStudy) return
 
         throw new ActionFailure({ studyAgreement: STUDY_AGREEMENT_MISSING_MESSAGE })
     }
 
-    if (!(await isPartyToStudyAgreement(db, { ...agreement, userId }))) return
-
-    if (!(await userAcknowledgedVersion(db, { versionId: agreement.versionId, userId }))) {
+    if (!(await userAcknowledgedVersion(db, { versionId: study.versionId, userId }))) {
         throw new ActionFailure({ studyAgreement: STUDY_AGREEMENT_REQUIRED_MESSAGE })
     }
 }

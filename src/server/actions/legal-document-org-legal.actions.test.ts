@@ -40,7 +40,6 @@ const insertStudyWithDistinctOrgs = async ({
     title = 'A study',
 }: { status?: StudyStatus; title?: string } = {}) => {
     const { dataPartner, researchLab } = await insertPartyOrgs()
-    // This file publishes agreements itself, so the fixture must not carry one.
     const { study } = await insertTestStudyOnly({
         org: dataPartner,
         submittedByOrg: researchLab,
