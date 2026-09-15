@@ -6,16 +6,18 @@ import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, useMutation, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import {
-    proposalFormSchema,
+    draftProposalFormSchema,
     initialProposalValues,
+    PROPOSAL_PAGE_COLLAB_KEYS,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useProposalCollaboration } from '@/hooks/use-proposal-collaboration'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
+import { definedDraftFields } from '@/contexts/proposal'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
 import {
-    resubmitNoteSchema,
+    proposalResubmitNoteSchema,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
     initialResubmitNoteValue,
@@ -58,22 +60,28 @@ interface EditResubmitProviderProps {
 }
 
 export function EditResubmitProvider({ children, studyId, draftData, initialNote = '' }: EditResubmitProviderProps) {
+    // The same resolver as Step 2: this page no longer renders the title either (OTTER-762), and
+    // the card wording for the required fields lives in that schema. No validateInputOnChange: an
+    // error must clear while editing and stay gone until the next blur or Resubmit, but
+    // re-validating per keystroke would put it straight back (OTTER-691).
     const form = useForm<ProposalFormValues>({
-        validate: zodResolver(proposalFormSchema),
-        initialValues: { ...initialProposalValues, ...draftData },
-        validateInputOnChange: true,
+        validate: zodResolver(draftProposalFormSchema),
+        initialValues: { ...initialProposalValues, ...definedDraftFields(draftData) },
     })
 
     // Legacy plain-text drafts are normalized up front so dirty-tracking and submit see one shape.
     const normalizedInitialNote = resubmissionNoteToLexicalJson(initialNote)
 
     const noteForm = useForm<ResubmitNoteValue>({
-        validate: zodResolver(resubmitNoteSchema),
+        validate: zodResolver(proposalResubmitNoteSchema),
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: normalizedInitialNote },
-        validateInputOnChange: true,
     })
 
-    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({
+        studyId,
+        form,
+        collabKeys: PROPOSAL_PAGE_COLLAB_KEYS,
+    })
 
     // Refs track a single in-flight save so a flurry of keystrokes collapses into one call
     // (OTTER-521, OTTER-558).
@@ -154,7 +162,14 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     // false on failure so Back can block.
     const flushNote = useCallback(() => flushNoteSave(pendingNoteRef.current), [flushNoteSave])
 
-    const { resubmit, isSubmitting } = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
+    const { resubmit, isSubmitting } = useResubmitProposal({
+        studyId,
+        form,
+        noteForm,
+        yjsForm,
+        tabSessionId,
+        flushNote,
+    })
 
     const value = useMemo(
         () => ({

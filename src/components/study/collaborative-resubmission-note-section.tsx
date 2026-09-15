@@ -12,8 +12,12 @@ import { Editor } from '@/components/editable-text/editor'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
 import {
+    NOTE_MAX_ERROR,
+    RESUBMISSION_NOTE_FIELD_ID,
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteCharacterCount,
+    resubmissionNoteIsBlank,
+    resubmissionNoteIsOverLimit,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -28,9 +32,6 @@ const contentStyle = {
     fontSize: '1rem',
     lineHeight: 1.6,
 } as const
-
-const PLACEHOLDER_TEXT =
-    'Ex. Summarize the modifications made to your initial request, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission.'
 
 interface CollaborativeResubmissionNoteSectionProps {
     studyId: string
@@ -71,12 +72,21 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
-    const onNoteChange = (json: string) => noteForm.setFieldValue('resubmissionNote', json)
+    // Only the over-limit half of the rule is live; the required half belongs to blur and Resubmit,
+    // so clearing the box does not flash an error mid-edit (OTTER-762).
+    const onNoteChange = (json: string) => {
+        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
+        // is not an edit, and letting it through would clear the required error Resubmit has just
+        // raised on the field it then focuses.
+        if (resubmissionNoteIsBlank(json) && resubmissionNoteIsBlank(value)) return
+        noteForm.setFieldValue(RESUBMISSION_NOTE_FIELD_ID, json)
+        if (resubmissionNoteIsOverLimit(json)) noteForm.setFieldError(RESUBMISSION_NOTE_FIELD_ID, NOTE_MAX_ERROR)
+    }
 
     // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
     const footerLeft = (
         <>
-            <FieldErrorBox fieldId="resubmissionNote" error={error} isLive />
+            <FieldErrorBox fieldId={RESUBMISSION_NOTE_FIELD_ID} error={error} isLive />
             <SingleUserSaveStatus isVisible={singleUserEditing} hasError={!!error} autosaveStatus={autosaveStatus} />
         </>
     )
@@ -86,27 +96,27 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
             <Stack gap="md">
                 <Box>
                     <Title order={3} size="h4" c="charcoal.9">
-                        Resubmission Note
+                        Resubmission note
                         <RequiredIndicator isVisible />
                     </Title>
                     <Divider my="md" />
                     <Text size="sm" c="charcoal.7" mb="md">
                         {`Summarize the changes you’ve made based on the feedback from ${orgName}, or include any notes or questions.`}
                     </Text>
+                    {/* No placeholder: the card removes the input's placeholder text (OTTER-762). */}
                     <Editor
                         id={proposalResubmissionNoteDocNameForVersion(studyId, noteVersion)}
-                        inputId="resubmissionNote"
+                        inputId={RESUBMISSION_NOTE_FIELD_ID}
                         studyId={studyId}
                         initialValue={editorInitialValue}
                         websocketProvider={websocketProvider}
                         contentStyle={contentStyle}
-                        placeholder={PLACEHOLDER_TEXT}
-                        ariaLabel="Resubmission Note"
+                        ariaLabel="Resubmission note"
                         onChange={onNoteChange}
-                        onBlur={() => noteForm.validateField('resubmissionNote')}
+                        onBlur={() => noteForm.validateField(RESUBMISSION_NOTE_FIELD_ID)}
                         error={error}
                         ariaRequired
-                        ariaDescribedBy={fieldDescribedBy('resubmissionNote', {
+                        ariaDescribedBy={fieldDescribedBy(RESUBMISSION_NOTE_FIELD_ID, {
                             hasError: !!error,
                             hasDescription: false,
                             hasCounter: true,
@@ -114,7 +124,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         footerLeft={footerLeft}
                         footerRight={
                             <CharacterCounter
-                                id={fieldCounterId('resubmissionNote')}
+                                id={fieldCounterId(RESUBMISSION_NOTE_FIELD_ID)}
                                 count={characterCount}
                                 maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS}
                             />

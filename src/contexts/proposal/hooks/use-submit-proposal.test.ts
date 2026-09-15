@@ -34,8 +34,8 @@ import {
     SUBMIT_FAILURE_TITLE,
     SUBMIT_FAILURE_UNSAVED_MESSAGE,
     SUBMIT_SUCCESS_TITLE,
-    useSubmitProposal,
-} from './use-submit-proposal'
+} from './submission-toasts'
+import { useSubmitProposal } from './use-submit-proposal'
 
 const buildValidProposalValues = (piUserId: string): ProposalFormValues => ({
     title: 'Collaboration Title',

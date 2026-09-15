@@ -3,25 +3,17 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { captureException } from '@sentry/nextjs'
 import { useMutation } from '@/common'
 import { finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from './build-study-info'
 import { useSaveProposalDraft } from './use-save-proposal-draft'
-
-export const SUBMIT_SUCCESS_TITLE = 'Proposal submitted'
-export const SUBMIT_FAILURE_TITLE = 'Proposal could not be submitted'
-export const SUBMIT_FAILURE_MESSAGE = 'Your work is saved. Try again.'
-// Replaces SUBMIT_FAILURE_MESSAGE when the recovery save also fails: this path must never claim
-// the user's work is safe when it is not.
-export const SUBMIT_FAILURE_UNSAVED_MESSAGE = 'We could not save your work. Keep this tab open and try again.'
+import { reportSubmissionFailure, SUBMIT_SUCCESS_TITLE } from './submission-toasts'
 
 interface UseSubmitProposalOptions {
     studyId: string
@@ -72,22 +64,7 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
             yjsForm.provider?.sendStateless(payload)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
-        onError: async (error) => {
-            // Not reportError: that appends a Sentry reference id to the message, and this copy is
-            // specified exactly.
-            captureException(error)
-
-            // Awaited before the toast because a failed submit writes nothing and single-user mode
-            // has no Yjs autosave behind it, so this flush decides which message is truthful.
-            const saved = await saveDraft()
-            notifications.show({
-                color: 'red',
-                title: SUBMIT_FAILURE_TITLE,
-                message: saved ? SUBMIT_FAILURE_MESSAGE : SUBMIT_FAILURE_UNSAVED_MESSAGE,
-            })
-
-            document.getElementById(SUBMIT_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        },
+        onError: (error) => reportSubmissionFailure(error, [saveDraft()]),
     })
 
     const submitProposal = useCallback(() => {
