@@ -10,10 +10,11 @@ interface CodeUploadPageProps {
     orgSlug: string
     studyId: string
     dataPartnerName: string
+    isFirstVisit: boolean
     previousHref: Route
 }
 
-export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, previousHref }: CodeUploadPageProps) {
+export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, isFirstVisit, previousHref }: CodeUploadPageProps) {
     const router = useRouter()
 
     const onSubmitSuccess = useCallback(() => {
@@ -24,6 +25,7 @@ export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, previousHref
         <StudyCode
             studyId={studyId}
             dataPartnerName={dataPartnerName}
+            isFirstVisit={isFirstVisit}
             previousHref={previousHref}
             onSubmitSuccess={onSubmitSuccess}
         />

@@ -7,6 +7,8 @@ import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
+import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
+import { sessionFromClerk } from '@/server/clerk'
 
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -23,6 +25,12 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
+    // Read on the server so the FAQ renders in its final state on first paint rather than popping
+    // open after hydration. getDraftStudyAction has already authorised the view; this only ever
+    // reads the caller's own history.
+    const session = await sessionFromClerk()
+    const isFirstVisit = session ? !(await hasViewedSubmitCodeFaq(session.user.id)) : false
+
     return (
         <Stack p="xl" gap="xl">
             <CodeUploadPage
@@ -31,6 +39,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 // study.orgId is the enclave org, so orgName is the Data Partner the code will run
                 // against — not the submitting lab. Same source /resubmit reads.
                 dataPartnerName={displayOrgName(result.orgName)}
+                isFirstVisit={isFirstVisit}
                 previousHref={
                     result.status === 'APPROVED'
                         ? Routes.studySubmitted({ orgSlug, studyId })

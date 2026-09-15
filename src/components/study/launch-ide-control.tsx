@@ -45,12 +45,8 @@ type LaunchIdeControlProps = {
 }
 
 /**
- * The Code files card's Launch IDE button (OTTER-693 row 7), with the three states the card
- * defines: solid while the IDE is unclaimed, outline once the viewer holds it, disabled when
- * somebody else does.
- *
  * Separate from launch-ide-button.tsx, which /resubmit still renders and whose label flips to
- * "Edit files in IDE" — the card wants one label here and the variant to carry the meaning.
+ * "Edit files in IDE" — OTTER-693 wants one label here and the variant to carry the meaning.
  */
 export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     isVisible = true,

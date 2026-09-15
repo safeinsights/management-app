@@ -24,9 +24,6 @@ type IdeLaunchProgressModalProps = {
 }
 
 /**
- * The launch progress modal (OTTER-693 row 7). Closes on its own: the card ties it to the launch
- * being in flight, so the caller drops `isOpen` when the workspace is ready and the new tab opens.
- *
  * Reuses LAUNCH_STEPS, whose estimates are keyed off markers in the build and agent logs, so the
  * bar and the countdown track real provisioning rather than a fixed timer.
  */

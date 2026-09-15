@@ -33,9 +33,6 @@ type FilesBodyProps = {
 const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showLaunchIde, submitError, openRef }) => {
     if (ide.isLoadingFiles) return <Skeleton height={240} radius="md" />
 
-    // Starter files only reach the workspace on the first IDE launch, so a study nobody has
-    // launched or uploaded to has an empty table and the empty view still owns that state. The
-    // design shows the template row before any launch — see the note on this component.
     if (ide.showEmptyState) {
         return (
             <StudyCodeEmptyView
@@ -55,9 +52,8 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
 
     return (
         <Stack gap="md">
-            {/* The overlay is what the header's Upload button actually opens, via openRef, as well
-                as taking drops onto the table. Row 8 moves the entry point into "Already have
-                code?", at which point this ref crosses fewer components. */}
+            {/* Wraps the table so a drop, the Upload button and the "Already have code?" link all
+                take one path. */}
             <FileDropOverlay
                 onDrop={ide.uploadFiles}
                 disabled={ide.isUploading}
@@ -74,9 +70,6 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
                     ideOwnerName={ide.ideOwnerName}
                     onSelectMain={ide.setMainFile}
                     onView={ide.viewFile}
-                    // Records the edit against this file, then opens the study's workspace — the
-                    // same target as Launch IDE, and what claims the IDE for whoever got there
-                    // first.
                     onEdit={ide.editFileInIde}
                     onDownload={ide.downloadFile}
                     onDelete={ide.removeFile}
@@ -99,13 +92,12 @@ type YourFilesSectionProps = {
 }
 
 /**
- * The Code files card (OTTER-693 row 6). Deliberately standalone so the view-only code screens and
- * /resubmit can adopt it without inheriting the Submit code page's chrome — it takes the IDE hook,
- * the Data Partner's name and an editability flag, and nothing else.
+ * The Code files card. Standalone so the view-only code screens and /resubmit can adopt it without
+ * inheriting the Submit code page's chrome.
  *
- * One gap against the card remains: the Data Partner's template appears only once someone launches
- * the IDE, which is when starter files are copied in. The design shows it on first page load, so
- * pre-loading it earlier is still outstanding.
+ * OTTER-693 gap: starter files only reach the workspace on the first IDE launch, so the template
+ * row the design shows on first page load is missing until someone launches. Until that pre-load
+ * lands, the empty view keeps its own launch affordance and this card gates on review state.
  */
 export const YourFilesSection: FC<YourFilesSectionProps> = ({
     ide,
@@ -114,8 +106,7 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
     isEditable = true,
     showLaunchIde = true,
 }) => {
-    // Shared with the drop overlay inside the empty view, so the Upload button and the dropzone it
-    // opens have to stay under one component.
+    // The dropzone and everything that opens it have to sit under one component.
     const openRef = useRef<() => void>(null)
     const isReviewState = isFilesReviewState(ide)
 
@@ -133,10 +124,8 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
                             disabled={ide.isUploading}
                         />
                         <LaunchIdeControl
-                            // The card ties display to editability alone, because its design has no
-                            // empty state — the template row is always there. Until that pre-load
-                            // lands, the empty view still owns the launch affordance, so gating on
-                            // review state is what keeps exactly one Launch IDE on screen.
+                            // isReviewState keeps exactly one Launch IDE on screen; see the
+                            // pre-load note above.
                             isVisible={isEditable && showLaunchIde && isReviewState}
                             isClaimed={ide.isIdeClaimed}
                             canLaunch={ide.canEditInIde}
@@ -175,6 +164,7 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
                 isOpen={Boolean(ide.launchError)}
                 onClose={ide.clearLaunchError}
                 onRetry={ide.launchWorkspace}
+                supportRef={ide.launchErrorEventId}
             />
         </>
     )

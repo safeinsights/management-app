@@ -18,9 +18,8 @@ type AlreadyHaveCodeSectionProps = {
 }
 
 /**
- * The upload entry point at the foot of the Code files card (OTTER-693 row 8). The link drives the
- * same dropzone the table sits inside, so a picked file and a dropped one take one path — including
- * the size check and the duplicate prompt.
+ * The link drives the same dropzone the table sits inside, so a picked file and a dropped one take
+ * one path — including the size check and the duplicate prompt.
  */
 export const AlreadyHaveCodeSection: FC<AlreadyHaveCodeSectionProps> = ({ isVisible = true, openRef }) => {
     if (!isVisible) return null

@@ -1,4 +1,6 @@
+import { sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -6,7 +8,6 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -515,6 +516,29 @@ export async function latestActivityPerJobFile(jobId: string): Promise<JobFileAc
         .orderBy('studyJobFileActivity.createdAt', 'desc')
         .orderBy('studyJobFileActivity.id', 'desc')
         .execute()
+}
+
+/**
+ * OTTER-693: whether this researcher has already been shown the Submit code page's FAQ.
+ *
+ * Filters in the same order as the last-login read, so it rides audit_last_login_idx
+ * (record_type, event_type, record_id) and only the handful of rows that survives is checked
+ * against the metadata subject.
+ */
+export async function hasViewedSubmitCodeFaq(userId: string): Promise<boolean> {
+    const row = await Action.db
+        .selectFrom('audit')
+        // recordId rather than userId: the same value here, but recordId is the event's subject and
+        // it is the indexed column.
+        .select('audit.id')
+        .where('audit.recordType', '=', 'USER')
+        .where('audit.eventType', '=', 'VIEWED')
+        .where('audit.recordId', '=', userId)
+        .where(sql<string>`audit.metadata->>'subject'`, '=', SUBMIT_CODE_FAQ_SUBJECT)
+        .limit(1)
+        .executeTakeFirst()
+
+    return row !== undefined
 }
 
 // The workspace-file counterpart of latestActivityPerJobFile: same DISTINCT ON collapse, keyed on

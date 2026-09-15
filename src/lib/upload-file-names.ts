@@ -1,10 +1,6 @@
 /**
- * "Keep both" naming for an upload that collides with a file already in the workspace
- * (OTTER-693): `main.R` becomes `main (1).R`, and if that is taken too, `main (2).R`.
- *
- * The suffix goes before the extension so the file stays openable, and already-suffixed names are
- * counted as taken — uploading `main.R` twice must not have the second attempt land back on
- * `main (1).R` and quietly overwrite the first. The original is never renamed; only the arrival is.
+ * "Keep both" naming for a colliding upload (OTTER-693): `main.R` becomes `main (1).R`. The suffix
+ * goes before the extension so the file stays openable.
  */
 export function nextAvailableFileName(fileName: string, existingNames: Iterable<string>): string {
     const taken = new Set(existingNames)

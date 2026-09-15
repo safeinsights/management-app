@@ -91,7 +91,7 @@ const DATA_PARTNER = 'Test Data Partner'
 const renderIDE = async (
     studyOrgSlug = 'openstax-lab',
     files?: Record<string, string>,
-    { dataPartnerName = DATA_PARTNER }: { dataPartnerName?: string } = {},
+    { dataPartnerName = DATA_PARTNER, isFirstVisit = false }: { dataPartnerName?: string; isFirstVisit?: boolean } = {},
 ) => {
     const { study } = await setupStudy(studyOrgSlug)
     if (files) {
@@ -102,7 +102,14 @@ const renderIDE = async (
     }
     const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
-    renderWithProviders(<StudyCode studyId={study.id} dataPartnerName={dataPartnerName} previousHref={previousHref} />)
+    renderWithProviders(
+        <StudyCode
+            studyId={study.id}
+            dataPartnerName={dataPartnerName}
+            isFirstVisit={isFirstVisit}
+            previousHref={previousHref}
+        />,
+    )
 
     return { study, previousHref, dataPartnerName }
 }
@@ -110,10 +117,9 @@ const renderIDE = async (
 const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
 
 /**
- * The submit button is never disabled now (OTTER-693 row 10): validation runs on click, so the
- * button's state no longer says whether a submit will go through. `canSubmit` waits on the last-job
- * query, which has no UI signal, so this retries the click until the confirmation opens rather than
- * clicking once and hoping the query has landed.
+ * The submit button is never disabled: validation runs on click, so its state no longer says
+ * whether a submit will go through. `canSubmit` waits on the last-job query, which has no UI
+ * signal, so this retries the click rather than clicking once and hoping the query has landed.
  */
 const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
     await waitFor(async () => {
@@ -353,13 +359,10 @@ describe('StudyCode component', () => {
             await renderIDE()
             const header = await screen.findByTestId('proposal-section-header')
 
-            // The 24px spacing either side of this rule is the card's "spacing lg / divider /
-            // spacing lg". It is not assertable here — Mantine compiles `my={24}` to
-            // `calc(1.5rem * var(--mantine-scale))` and jsdom loads no stylesheet, so a
-            // toHaveStyle check would pin a Mantine internal rather than measure 24px. The
-            // spacing is owned by ProposalStepHeader and covered by its own test; what this
-            // asserts is that the reused header is what draws the rule, and that the card has
-            // content below it rather than being an empty stub.
+            // The card's "spacing lg / divider / spacing lg" is not assertable here: Mantine
+            // compiles `my={24}` to a calc() and jsdom loads no stylesheet, so any style check
+            // would pin a Mantine internal rather than measure 24px. ProposalStepHeader owns that
+            // spacing and its own test covers it; this asserts the rule is drawn at all.
             expect(within(header).getByTestId('proposal-header-divider')).toBeInTheDocument()
         })
     })
@@ -427,10 +430,38 @@ describe('StudyCode component', () => {
             expect(faqControl()).toBeInTheDocument()
         })
 
-        it('starts collapsed', async () => {
+        it('opens expanded on a first visit', async () => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+
+            expect(faqControl()).toHaveAttribute('aria-expanded', 'true')
+        })
+
+        it('opens collapsed on a return visit', async () => {
             await renderIDE()
 
             expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
+        })
+
+        it('records the visit on mount, without waiting for the reader to touch it', async () => {
+            const { study } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+
+            await waitFor(async () => {
+                const rows = await db
+                    .selectFrom('audit')
+                    .select('id')
+                    .where('recordType', '=', 'USER')
+                    .where('eventType', '=', 'VIEWED')
+                    .execute()
+                expect(rows).toHaveLength(1)
+            })
+            expect(study).toBeDefined()
+        })
+
+        it('records nothing on a return visit', async () => {
+            await renderIDE()
+
+            const rows = await db.selectFrom('audit').select('id').where('eventType', '=', 'VIEWED').execute()
+            expect(rows).toHaveLength(0)
         })
 
         it('toggles on click, in both directions', async () => {
@@ -487,7 +518,6 @@ describe('StudyCode component', () => {
             expect(section).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Code files' })).toBeInTheDocument()
             expect(within(section).getByTestId('your-files-divider')).toBeInTheDocument()
-            // The whole point of row 6: the files no longer live inside the STEP 3 card.
             expect(screen.getByTestId('proposal-section-header')).not.toContainElement(section)
         })
 
@@ -562,7 +592,6 @@ describe('StudyCode component', () => {
                 'spare.R will be permanently removed from your study and cannot be recovered.',
             )
 
-            // Cancelling leaves the file alone.
             await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
             expect(screen.getByText('spare.R')).toBeInTheDocument()
         })
@@ -607,8 +636,7 @@ describe('StudyCode component', () => {
             await waitFor(() => expect(screen.getByText('spare.R')).toBeInTheDocument())
             await userEvent.setup().click(screen.getByRole('button', { name: 'Edit main.R in IDE' }))
 
-            // The pencil launches the workspace, and launching is what takes ownership — so the
-            // pencil claims it just as the Launch IDE button does.
+            // The pencil launches the workspace, which is what takes ownership.
             await waitFor(async () => {
                 expect(await ideOwnerId(study.id)).not.toBeNull()
             })
@@ -637,7 +665,12 @@ describe('StudyCode component', () => {
             await writeWorkspaceFiles(root, study.id, FILES)
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
 
             await waitFor(() => {
@@ -649,7 +682,6 @@ describe('StudyCode component', () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-            // A second researcher on the same study got there first.
             const owner = await db
                 .insertInto('user')
                 .values({ clerkId: 'clerk-ide-owner', firstName: 'Ada', lastName: 'Lovelace' })
@@ -663,7 +695,12 @@ describe('StudyCode component', () => {
             await writeWorkspaceFiles(root, study.id, FILES)
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
 
             await waitFor(() => {
@@ -706,7 +743,12 @@ describe('StudyCode component', () => {
             await writeWorkspaceFiles(root, study.id, FILES)
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
             return { study, user, ownerName }
@@ -732,7 +774,6 @@ describe('StudyCode component', () => {
             await waitFor(() => {
                 expect(screen.queryByText('Launching locks the IDE to you for this study.')).not.toBeInTheDocument()
             })
-            // Still the owner's to use, so it stays clickable.
             expect(launchButton()).toBeEnabled()
         })
 
@@ -794,9 +835,7 @@ describe('StudyCode component', () => {
                 )
             })
 
-            // The confirmation gives way so the button underneath is reachable again...
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-            // ...and nothing was submitted, while the files and the main-file choice remain.
             expect(await codeSubmittedCount(study.id)).toBe(0)
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
         })
@@ -840,7 +879,12 @@ describe('StudyCode component', () => {
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("starter")' })
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
             await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
 
@@ -934,7 +978,12 @@ describe('StudyCode component', () => {
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'print(1)', 'helper.R': 'print(2)' })
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
 
             // The selection outlives the page, which is what the star being saved buys.
@@ -1110,9 +1159,8 @@ describe('StudyCode component', () => {
     describe('IDE launch progress modal (OTTER-693)', () => {
         const FILES = { 'main.R': 'print(1)' }
 
-        // Keeps the launch in flight the way a real one is: the workspace provisions but is not
-        // ready yet, so no url arrives and the modal stays up. Every promise still settles, which
-        // a never-resolving one did not — it hung every test that ran after these.
+        // The workspace provisions but is not ready, so no url arrives and the modal stays up. Every
+        // promise must still settle: a never-resolving one hangs every test that runs after these.
         const stillProvisioning = () =>
             vi
                 .mocked(getCoderWorkspaceLaunchStatus)
@@ -1174,13 +1222,40 @@ describe('StudyCode component', () => {
             const heading = await screen.findByText('IDE failed to launch')
             const dialog = heading.closest('[role="dialog"]') as HTMLElement
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
-            expect(dialog).toHaveTextContent(/If the issue persists, contact SafeInsights support with Ref:/)
+            // The real Sentry event id, not the design's placeholder: reportError mints one for
+            // this same failure and the researcher quotes it to support.
+            expect(dialog).toHaveTextContent(
+                /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
+            )
 
             // Try again re-attempts rather than only dismissing. Awaited because the retry goes
             // through the launch mutation rather than firing on the click itself.
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+        })
+
+        // The mutation path above lands the id in the same React batch. A build Coder reports as
+        // failed reaches reportError from an effect instead, so the modal paints once without a ref
+        // — that frame must read as a whole sentence rather than exposing a blank or a placeholder.
+        it('fills the Ref once a failed build is polled', async () => {
+            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
+                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
+                >,
+            )
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            await userEvent.setup().click(screen.getByRole('button', { name: /launch ide/i }))
+
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            await waitFor(() =>
+                expect(dialog).toHaveTextContent(
+                    /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
+                ),
+            )
         })
 
         it('closes without retrying when dismissed', async () => {
@@ -1220,7 +1295,12 @@ describe('StudyCode component', () => {
             await recordActivity(study.id, 'helper.R', 'EDITED_IN_IDE', user.id, new Date('2026-07-21T16:10:00Z'))
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
 
             await waitFor(() => {
@@ -1242,7 +1322,12 @@ describe('StudyCode component', () => {
             await recordActivity(study.id, 'main.R', 'EDITED_IN_IDE', user.id, new Date('2026-07-21T16:10:00Z'))
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
 
             // The column reports the latest action, not a history.
@@ -1313,7 +1398,12 @@ describe('StudyCode component', () => {
             })
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={'/test' as Route} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={'/test' as Route}
+                />,
             )
             await waitFor(() => expect(screen.getByText('mine.R')).toBeInTheDocument())
             return { study }
@@ -1323,7 +1413,6 @@ describe('StudyCode component', () => {
             await renderWithTemplate({ pristine: true })
 
             await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            // One badge, on the Data Partner's file rather than the researcher's own upload.
             expect(screen.getAllByText('Template')).toHaveLength(1)
             const templateRow = screen.getByRole('button', { name: 'View main.R' }).closest('tr')
             expect(templateRow).toHaveTextContent('Template')
@@ -1367,7 +1456,12 @@ describe('StudyCode component', () => {
             }
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
             )
             return { study }
         }
@@ -1429,7 +1523,12 @@ describe('StudyCode component', () => {
             const previousHref = `/test-org/study/${study.id}/agreements` as Route
 
             const { unmount } = renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
             )
 
             await waitFor(() => {
@@ -1439,7 +1538,12 @@ describe('StudyCode component', () => {
             unmount()
 
             renderWithProviders(
-                <StudyCode studyId={study.id} dataPartnerName={DATA_PARTNER} previousHref={previousHref} />,
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
             )
 
             await waitFor(() => {

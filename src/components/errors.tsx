@@ -8,6 +8,7 @@ import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
+// Returns the Sentry event id so a caller can quote the same reference the toast shows.
 export const reportError = (error: unknown, title = 'An error occurred') => {
     const eventId = captureException(error)
     notifications.show({
@@ -15,6 +16,7 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
         title,
         message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
     })
+    return eventId
 }
 
 type FormErrorHandler = {

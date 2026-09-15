@@ -2,9 +2,9 @@ import { useQuery } from '@/common'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 
 /**
- * The most recent thing done to a file, or null when nothing has been recorded — which is what the
- * Last activity column shows as "No activity yet". Only uploads and IDE-edit clicks are recorded,
- * so a starter file copied in by a launch has none until someone touches it (OTTER-693).
+ * Null when nothing has been recorded, which the Last activity column shows as "No activity yet".
+ * Only uploads and IDE-edit clicks are recorded, so a starter file a launch copied in has none
+ * until someone touches it (OTTER-693).
  */
 export type WorkspaceFileActivitySummary = {
     actorName: string

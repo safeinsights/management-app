@@ -60,10 +60,9 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
     })
 
 /**
- * OTTER-693: persists the star. Saved on click rather than at submit so the choice survives a
- * reload, and so the page's autosave indicator is telling the truth when it says everything is
- * saved. The name is not validated against the workspace here — a file can be deleted after being
- * chosen, and the page falls back when the saved name is no longer present.
+ * OTTER-693: persists the star on click rather than at submit, so the choice survives a reload.
+ * The name is not validated against the workspace — a file can be deleted after being chosen, and
+ * the page falls back when the saved name is no longer present.
  */
 export const setMainCodeFileAction = new Action('setMainCodeFileAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))

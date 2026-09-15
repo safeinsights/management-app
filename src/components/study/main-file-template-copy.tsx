@@ -2,11 +2,8 @@ import type { FC } from 'react'
 import { Text } from '@mantine/core'
 
 /**
- * Shared by the FAQ's "What is the main file template?" answer and the Template badge's hover card,
- * which the card gives identical copy. One definition so a revision to either lands on both.
- *
- * A fragment rather than its own Text: the caller owns the size, since the FAQ and the hover card
- * set it differently.
+ * Shared by the FAQ answer and the Template badge's hover card, which OTTER-693 gives identical
+ * copy. A fragment rather than its own Text: the two callers set the size differently.
  */
 export const MainFileTemplateCopy: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) => (
     <>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FC, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
 import { Accordion, Group, Stack, Text } from '@mantine/core'
 import {
     CaretRightIcon,
@@ -14,6 +14,8 @@ import {
     QuestionIcon,
     StarIcon,
 } from '@phosphor-icons/react/dist/ssr'
+import { useMutation } from '@/common'
+import { markSubmitCodeFaqSeenAction } from '@/server/actions/submit-code-faq.actions'
 import { MainFileTemplateCopy } from './main-file-template-copy'
 
 const FAQ_ITEM_VALUE = 'submit-code-faq'
@@ -106,12 +108,31 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
 )
 
 /**
- * Collapsed on load, which is the card's ELSE branch. Its IF branch — expanded on a researcher's
- * very first Submit code page — is on hold pending a decision on whether that detection is worth
- * having at all; when it lands it is an initial value for `openValue` and nothing else here moves.
+ * Records that the researcher has now been shown the FAQ, so their next visit gets it collapsed.
+ * Fires on mount rather than on interaction, so someone who scrolls straight past still meets it
+ * only once. The ref keeps a re-render from writing a second audit row.
  */
-export const SubmitCodeFaq: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) => {
-    const [openValue, setOpenValue] = useState<string | null>(null)
+function useMarkFaqSeen(isFirstVisit: boolean) {
+    const { mutate } = useMutation({ mutationFn: () => markSubmitCodeFaqSeenAction() })
+    const hasMarked = useRef(false)
+
+    useEffect(() => {
+        if (!isFirstVisit || hasMarked.current) return
+
+        hasMarked.current = true
+        mutate()
+    }, [isFirstVisit, mutate])
+}
+
+type SubmitCodeFaqProps = {
+    dataPartnerName: string
+    /** True only on a researcher's very first Submit code page, across any study. */
+    isFirstVisit: boolean
+}
+
+export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirstVisit }) => {
+    const [openValue, setOpenValue] = useState<string | null>(isFirstVisit ? FAQ_ITEM_VALUE : null)
+    useMarkFaqSeen(isFirstVisit)
 
     const entries = faqEntries(dataPartnerName)
     // caretRight collapsed, caretUp expanded, per the card. Mantine's own rotation turns a chevron

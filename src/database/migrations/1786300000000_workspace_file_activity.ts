@@ -1,13 +1,11 @@
 import { type Kysely, sql } from 'kysely'
 
 /**
- * OTTER-693: per-file activity for the researcher's "Last activity" column on the Submit code page.
+ * OTTER-693: per-file activity for the "Last activity" column on the Submit code page.
  *
- * Deliberately a sibling of study_job_file_activity (OTTER-675) rather than an extension of it.
- * Same shape and same "latest per file" read, but a different subject: that table logs who looked
- * at a submitted archive (VIEWED/DOWNLOADED), this one logs who changed a work-in-progress
- * workspace file (UPLOADED/EDITED_IN_IDE). The vocabularies do not overlap, and workspace files
- * have no study_job_file row to hang off — they are paths on disk, keyed by study and name.
+ * A sibling of study_job_file_activity (OTTER-675), not an extension: that table logs who read a
+ * submitted archive, this one who changed a workspace file, and the vocabularies do not overlap.
+ * Workspace files also have no study_job_file row to hang off — they are paths on disk.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.createType('workspace_file_action').asEnum(['UPLOADED', 'EDITED_IN_IDE']).execute()

@@ -80,8 +80,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // OTTER-558: `filesChanged` cannot drive the resubmit footer's Cancel toggle, because it
     // compares mtimes and is already true on load.
     const [userEditedFiles, setUserEditedFiles] = useState(false)
-    // OTTER-693 row 9: null until something has actually been persisted, so the indicator starts
-    // idle rather than claiming a page nobody has touched is saved.
+    // Null until something has actually been persisted, so the save indicator starts idle rather
+    // than claiming a page nobody has touched is saved.
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
     const onLaunchSuccess = useCallback(() => {
@@ -98,6 +98,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         isLaunching: isLaunchingWorkspace,
         isCreatingWorkspace,
         error: launchError,
+        errorEventId: launchErrorEventId,
         clearError: clearLaunchError,
         status: launchStatus,
         lastUpdatedAt: launchLastUpdatedAt,
@@ -146,12 +147,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     )
 
     /**
-     * OTTER-693: which files still carry the Data Partner's Template badge. A starter file is copied
-     * in with its mtime deliberately backdated behind the baseline job (see
-     * initializeWorkspaceCodeFiles), so an untouched template sits at or before that timestamp and
-     * an edited or re-uploaded one has moved past it — the same signal `filesChanged` reads.
-     *
-     * Plural because starterCodeFileNames is, though orgs configure one in practice.
+     * OTTER-693: which files still carry the Template badge. initializeWorkspaceCodeFiles backdates
+     * a starter file's mtime behind the baseline job, so an untouched template sits at or before
+     * that timestamp and an edited one has moved past it.
      */
     const templateFileNames = useMemo(() => {
         const starterNames = new Set((starterCodeInfo?.starterFiles ?? []).map((f) => f.name))
@@ -168,13 +166,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
 
     /**
-     * Why a submit attempt would be refused, or null when it would go through. OTTER-693 row 10
-     * shows this only after a blocked click, and supplies the wording for the no-changes case —
-     * which covers both "nothing uploaded" and "nothing touched since the baseline", since neither
-     * is a change the Data Partner could review.
-     *
-     * OTTER-647: the main file has no field to blur, being a star, so its reason is named here
-     * rather than through useField.
+     * Shown only after a blocked click. OTTER-647: the main file has no field to blur, being a star,
+     * so its reason is named here rather than through useField.
      */
     const submitDisabledReason = (() => {
         if (fileNames.length === 0) return NO_CHANGES_MESSAGE
@@ -241,11 +234,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
 
     const closeFileViewer = useCallback(() => setViewingFile(null), [])
 
-    /**
-     * The pencil: records the intent to edit this file, then opens the workspace. Recorded before
-     * launching so the Last activity column reflects the click even if the launch then fails —
-     * the card defines the event as the click, and we cannot see inside the IDE either way.
-     */
+    // Recorded before launching so Last activity reflects the pencil even if the launch then fails.
     const editFileInIde = useCallback(
         async (fileName: string) => {
             await recordWorkspaceFileEditAction({ studyId, fileName })
@@ -269,10 +258,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         [studyId],
     )
 
-    /**
-     * OTTER-693 reports each file's outcome separately, so one bad file no longer abandons the rest
-     * of the batch: every file is attempted and gets its own toast.
-     */
+    // OTTER-693 reports each file's outcome separately, so one bad file no longer abandons the batch.
     const uploadMutation = useMutation({
         mutationFn: async (filesToUpload: File[]) => {
             for (const file of filesToUpload) {
@@ -306,8 +292,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     })
 
     /**
-     * OTTER-693 row 9. Everything this page can change — uploading, deleting, picking the main
-     * file — persists on the spot, so the indicator reports on all three rather than on a form.
+     * Everything this page can change — uploading, deleting, picking the main file — persists on
+     * the spot, so the indicator reports on all three rather than on a form.
      */
     const isSavingChanges = uploadMutation.isPending || deleteMutation.isPending || setMainFileMutation.isPending
     const saveStatus: SaveStatusValue = isSavingChanges ? 'saving' : lastSavedAt ? 'saved' : 'idle'
@@ -376,6 +362,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         isLaunching,
         abandonLaunch,
         launchError,
+        launchErrorEventId,
         clearLaunchError,
         launchStatus,
         launchLastUpdatedAt,

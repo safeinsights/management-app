@@ -17,6 +17,7 @@ export type AuditEventType =
     | 'REJECTED'
     | 'RESET_PASSWORD'
     | 'UPDATED'
+    | 'VIEWED'
 
 export type AuditRecordType = 'CODE_ENV' | 'STUDY' | 'USER'
 

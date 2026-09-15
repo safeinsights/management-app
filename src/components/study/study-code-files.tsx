@@ -103,5 +103,5 @@ export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, showLaunc
     )
 }
 
-// The Submit code page's own arrangement moved to your-files-section.tsx in OTTER-693 row 6. What
-// stays here is what /resubmit still renders through StudyCodePanel.
+// The Submit code page moved to your-files-section.tsx; what stays here is what /resubmit still
+// renders through StudyCodePanel.

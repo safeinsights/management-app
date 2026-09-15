@@ -4,7 +4,7 @@ import { ActionFailure } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { notifications } from '@mantine/notifications'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 
 const LAUNCH_FAILED_MESSAGE = 'Failed to launch IDE'
@@ -53,6 +53,8 @@ interface UseWorkspaceLauncherReturn {
     isLaunching: boolean
     isCreatingWorkspace: boolean
     error: Error | null
+    /** Sentry event id for `error`, quoted to support as the failure modal's Ref. */
+    errorEventId: string | null
     clearError: () => void
     status: WorkspaceLaunchStatus | undefined
     lastUpdatedAt: Date | null
@@ -65,9 +67,11 @@ const STATUS_QUERY_KEY = 'workspace-build-status'
 export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const queryClient = useQueryClient()
 
+    const [errorEventId, setErrorEventId] = useState<string | null>(null)
+
     const ensure = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
-        onError: (err) => reportError(err, LAUNCH_FAILED_MESSAGE),
+        onError: (err) => setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null),
     })
 
     const buildStatus = useWorkspaceBuildStatus({ studyId, enabled: ensure.isSuccess })
@@ -96,7 +100,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     useEffect(() => {
         if (buildStatus.error && reportedErrorRef.current !== buildStatus.error) {
             reportedErrorRef.current = buildStatus.error
-            reportError(buildStatus.error, LAUNCH_FAILED_MESSAGE)
+            setErrorEventId(reportError(buildStatus.error, LAUNCH_FAILED_MESSAGE) || null)
         }
     }, [buildStatus.error])
 
@@ -104,7 +108,8 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     useEffect(() => {
         if (buildStatus.failed && !reportedFailureRef.current) {
             reportedFailureRef.current = true
-            reportError(new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE), LAUNCH_FAILED_MESSAGE)
+            const err = new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE)
+            setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null)
         }
     }, [buildStatus.failed, buildStatus.reason])
 
@@ -113,6 +118,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         handledUrlRef.current = null
         reportedErrorRef.current = null
         reportedFailureRef.current = false
+        setErrorEventId(null)
         queryClient.removeQueries({ queryKey: [STATUS_QUERY_KEY, studyId] })
     }, [ensure, queryClient, studyId])
 
@@ -146,6 +152,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         isLaunching,
         isCreatingWorkspace: ensure.isPending,
         error: toLaunchError(ensure.error || buildStatus.error || statusFailure || null),
+        errorEventId,
         clearError,
         status: buildStatus.status,
         lastUpdatedAt: buildStatus.lastUpdatedAt,

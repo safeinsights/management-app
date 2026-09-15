@@ -23,6 +23,7 @@ const CARD_SECTION_GAP = 24
 interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
+    isFirstVisit: boolean
     previousHref: Route
     onSubmitSuccess?: () => void
 }
@@ -50,8 +51,6 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
         <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
             Previous step
         </ButtonLink>
-        {/* The card puts the autosave state to the left of the submit button, so the researcher
-            sees their work is kept at the moment they decide to hand it over. */}
         <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
             <SaveStatusIndicator status={ide.saveStatus} />
             {/* Never disabled, per the card: validation happens on click so the reason can be
@@ -64,7 +63,13 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubm
     </Group>
 )
 
-export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSuccess }: StudyCodeProps) => {
+export const StudyCode = ({
+    studyId,
+    dataPartnerName,
+    isFirstVisit,
+    previousHref,
+    onSubmitSuccess,
+}: StudyCodeProps) => {
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [submitError, setSubmitError] = useState<string | null>(null)
     const footerRef = useRef<HTMLDivElement>(null)
@@ -93,10 +98,8 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
     }
 
     /**
-     * The confirmation deliberately stays open: the card wants both of its buttons dead and a
-     * loading state showing until the submission resolves, which is what stops a second click
-     * becoming a second submission. Success navigates away; failure closes it via
-     * handleSubmitError.
+     * The confirmation deliberately stays open with both buttons dead until the submission
+     * resolves, which is what stops a second click becoming a second submission.
      */
     const handleConfirmSubmit = () => {
         if (ide.isDirectSubmitting) return
@@ -106,15 +109,12 @@ export const StudyCode = ({ studyId, dataPartnerName, previousHref, onSubmitSucc
     return (
         <>
             <Stack gap="xxl">
-                {/* ProposalStepHeader supplies the card, the eyebrow, the heading and the 24px
-                    divider, which is OTTER-693's "reuse the section header component" requirement.
-                    No studyTitle: the card forbids repeating the title as body text here, and
-                    StudyCode no longer receives one so it cannot drift back. The rule draws only
-                    when something follows it inside the card, which the intro and FAQ below do. */}
+                {/* No studyTitle: the card forbids repeating the title as body text here. The
+                    header's rule only draws when something follows it, which the children below do. */}
                 <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
                     <Stack gap={CARD_SECTION_GAP}>
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
-                        <SubmitCodeFaq dataPartnerName={dataPartnerName} />
+                        <SubmitCodeFaq dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} />
                     </Stack>
                 </ProposalStepHeader>
 

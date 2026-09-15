@@ -54,6 +54,7 @@ const renderPage = async (orgSlug = 'openstax') => {
             orgSlug={orgSlug}
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
+            isFirstVisit={false}
             previousHref={'/test' as Route}
         />,
     )
@@ -61,10 +62,9 @@ const renderPage = async (orgSlug = 'openstax') => {
 }
 
 /**
- * The submit button is never disabled now (OTTER-693 row 10): validation runs on click, so the
- * button's state no longer says whether a submit will go through. `canSubmit` waits on the last-job
- * query, which has no UI signal, so this retries the click until the confirmation opens rather than
- * clicking once and hoping the query has landed.
+ * The submit button is never disabled: validation runs on click, so its state no longer says
+ * whether a submit will go through. `canSubmit` waits on the last-job query, which has no UI
+ * signal, so this retries the click rather than clicking once and hoping the query has landed.
  */
 const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
     await waitFor(async () => {
@@ -146,6 +146,7 @@ describe('CodeUploadPage', () => {
                 orgSlug="openstax"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )
@@ -193,6 +194,7 @@ describe('CodeUploadPage', () => {
                 orgSlug={orgSlug}
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )
@@ -226,6 +228,7 @@ describe('CodeUploadPage', () => {
                 orgSlug="openstax"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
                 previousHref={'/test' as Route}
             />,
         )

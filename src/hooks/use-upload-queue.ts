@@ -10,9 +10,8 @@ interface UseUploadQueueOptions {
 }
 
 /**
- * OTTER-693: an upload whose name already exists has to be asked about before it lands, since
- * replacing is destructive. Files that do not collide go straight up, so a mixed batch is not held
- * hostage by one question, and collisions are asked about one at a time.
+ * OTTER-693: a colliding name is asked about before it lands, since replacing is destructive.
+ * Files that do not collide go straight up, so one question does not hold a mixed batch hostage.
  */
 export function useUploadQueue({ existingNames, startUpload }: UseUploadQueueOptions) {
     const [duplicates, setDuplicates] = useState<File[]>([])

@@ -13,6 +13,7 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
         abandonLaunch: vi.fn(),
         isLaunching: false,
         launchError: null,
+        launchErrorEventId: null,
         clearLaunchError: vi.fn(),
         launchStatus: undefined,
         launchLastUpdatedAt: null,

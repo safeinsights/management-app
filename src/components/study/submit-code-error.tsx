@@ -24,9 +24,6 @@ const ErrorContent: FC<{ message: string | null }> = ({ message }) => {
 }
 
 /**
- * The blocked-submission message (OTTER-693 row 10). Sits under the files table rather than beside
- * the button, which is where the design puts it — next to the thing the researcher has to change.
- *
  * The region is mounted even when empty, and never conditionally rendered: a live region is only
  * announced when content it already owns changes, and `aria-describedby` on the button has to
  * resolve to something for the error to stay discoverable on tabbing back.

@@ -1,13 +1,9 @@
 import { type Kysely } from 'kysely'
 
 /**
- * OTTER-693: a study's IDE workspace locks to the first researcher who launches it, whether from
- * the Launch IDE button or the pencil in the code files table. Everyone else on the study then
- * sees both controls disabled, named after the owner.
- *
- * Nullable because unclaimed is the starting state and the one the card keys "enabled for every
- * researcher" off. Claimed once and never reassigned by the app — the card sends anyone who needs
- * it moved to support.
+ * OTTER-693: a study's IDE locks to the first researcher who launches it; everyone else on the
+ * study then sees the controls disabled, named after the owner. Nullable because unclaimed is the
+ * starting state. Claimed once and never reassigned by the app — the card routes those to support.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema

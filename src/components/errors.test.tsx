@@ -126,6 +126,17 @@ describe('reportError', () => {
             message: expect.stringMatching(new RegExp(`${errorString}\\nReference: [a-f0-9]{32}`)),
         })
     })
+
+    // The IDE failure modal quotes this id as its support Ref, so it has to be the one the
+    // researcher can also read off the toast.
+    it('returns the same event id it renders in the notification', () => {
+        const eventId = reportError(new Error('Returned id'))
+
+        expect(eventId).toMatch(/^[a-f0-9]{32}$/)
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({ message: expect.stringContaining(`Reference: ${eventId}`) }),
+        )
+    })
 })
 
 describe('ErrorAlert Component', () => {
