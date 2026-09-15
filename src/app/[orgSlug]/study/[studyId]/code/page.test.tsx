@@ -8,6 +8,7 @@ import {
     screen,
     setTestStudyStatus,
     waitFor,
+    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
@@ -26,7 +27,10 @@ const renderRoute = async (orgSlug: string, studyId: string) => {
     const page = await StudyCodeUploadRoute({
         params: Promise.resolve({ orgSlug, studyId }),
     })
-    return renderWithProviders(page!)
+    const rendered = renderWithProviders(page!)
+    // The FAQ records a first visit on mount, and teardown fails on a write still in flight.
+    await waitForPendingMutations()
+    return rendered
 }
 
 describe('StudyCodeUploadRoute', () => {

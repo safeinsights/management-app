@@ -16,6 +16,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    waitForPendingMutations,
     within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
@@ -187,6 +188,9 @@ describe('StudyCode component', () => {
         expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
         await userEvent.setup().click(screen.getByRole('button', { name: /submit code for review/i }))
         expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
+
+        // The star moves optimistically; the save behind it still has to settle.
+        await waitForPendingMutations()
     })
 
     it('selects the main file when a star is clicked', async () => {
@@ -442,6 +446,8 @@ describe('StudyCode component', () => {
             await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
 
             expect(faqControl()).toHaveAttribute('aria-expanded', 'true')
+            // Mounting expanded is what records the visit; let that write land before teardown.
+            await waitForPendingMutations()
         })
 
         it('opens collapsed on a return visit', async () => {

@@ -7,7 +7,9 @@ import { type Kysely, sql } from 'kysely'
  * than adding another event type.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
-    await sql`ALTER TYPE audit_event_type ADD VALUE 'VIEWED'`.execute(db)
+    // IF NOT EXISTS because this migration was renumbered off a timestamp main had taken, and
+    // kysely keys applied migrations by filename — a database that ran the old name re-runs this.
+    await sql`ALTER TYPE audit_event_type ADD VALUE IF NOT EXISTS 'VIEWED'`.execute(db)
 }
 
 // Postgres does not support removing enum values, so down is a no-op.
