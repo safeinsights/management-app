@@ -48,9 +48,9 @@ export function useLinkInviteEmail(inviteId: string) {
 
     // Clerk protects adding an address behind reverification on a window shorter than the key
     // detour that can precede this screen, so the challenge has to be able to interrupt the call.
-    const addEmailAddress = useReverification((owner: UserResource, email: string) =>
+    const addEmailAddress: AddEmailAddress = useReverification((owner: UserResource, email: string) =>
         owner.createEmailAddress({ email }),
-    ) as AddEmailAddress
+    )
 
     const [status, setStatus] = useState<LinkInviteEmailStatus>('loading')
     const [failureMessage, setFailureMessage] = useState<string | null>(null)
