@@ -80,8 +80,8 @@ describe('TestLabs', () => {
         expect(rows.map((row) => row.researchLabId)).toEqual([lab.id])
     })
 
-    // The picker's state lives above AppModal, so a successful add used to leave it on the
-    // confirmation step with the last selection still made.
+    // A successful add closes from the mutation rather than through Cancel, so the step and
+    // selection used to survive into the next open.
     it('reopens on the picker, not the confirmation, after a successful add', async () => {
         await renderForDataPartner()
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })

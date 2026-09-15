@@ -157,7 +157,6 @@ describe('requireStudyAgreementAcknowledged', () => {
         ).resolves.toBeUndefined()
     })
 
-    // The exemption covers needing an agreement, not honouring one published anyway.
     it('refuses a test study whose agreement is published and unacknowledged', async () => {
         const { study, researchLab } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
         await insertTestStudyAgreement({ studyId: study.id })

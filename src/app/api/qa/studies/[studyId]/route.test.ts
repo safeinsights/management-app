@@ -102,7 +102,6 @@ describe('DELETE /api/qa/studies/[studyId]', () => {
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org: lab, email: qaEmail() })
-        // No agreement: a published one still blocks QA deletion on the study FK.
         const { study } = await insertTestStudyOnly({
             org: enclave,
             submittedByOrg: lab,

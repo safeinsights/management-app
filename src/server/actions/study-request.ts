@@ -168,9 +168,8 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
         const studyId = uuidv7()
         const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
-        // Stamped, not derived, because the designation is a point-in-time fact: it applies to
-        // studies created from then on, and existing ones keep owing an agreement. Deriving it
-        // would silently extend a new designation backwards. Sole writer of the column.
+        // Sole writer of the column. Stamped, not derived: a designation applies to studies made
+        // from then on, so deriving it would extend a new one backwards over existing studies.
         // TODO Chris: confirm against the hi-fis whether a test study still goes through proposal
         // review. Built on the assumption that it does.
         const isTestStudy = await isDesignatedTestLab(db, { dataPartnerId: orgId, researchLabId: submittedByOrgId })

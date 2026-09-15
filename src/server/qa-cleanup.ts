@@ -313,12 +313,6 @@ export async function deleteUserCompletely(
         // fully-signed-up account has these — which is why the QA signup suite's teardown
         // was the thing that found them missing here.
         await trx.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', userId).execute()
-        // The designation is the data partner's, not this admin's, so it outlives the account.
-        await trx
-            .updateTable('orgTestLab')
-            .set({ createdByUserId: null })
-            .where('createdByUserId', '=', userId)
-            .execute()
         await trx.deleteFrom('orgUser').where('userId', '=', userId).execute()
         await trx.deleteFrom('userPublicKey').where('userId', '=', userId).execute()
         // researcher_profile (and its researcher_position rows) cascade from user.

@@ -58,8 +58,7 @@ describe('stamping is_test_study at study creation', () => {
         expect((await createDraft(other.slug, lab.slug)).isTestStudy).toBe(false)
     })
 
-    // Frozen, so a designation cannot retroactively exempt a study that may already carry a
-    // signed agreement.
+    // A designation applies to future studies only.
     it('leaves a study created before the designation unstamped', async () => {
         const { enclave, lab } = await insertParties()
         const before = await createDraft(enclave.slug, lab.slug)

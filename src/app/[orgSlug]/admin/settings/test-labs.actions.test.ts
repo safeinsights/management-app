@@ -42,8 +42,6 @@ describe('designateTestLabsAction', () => {
         expect(rows).toHaveLength(2)
     })
 
-    // Otherwise a caller could name an enclave and exempt its own studies from the agreements it is
-    // counterparty to.
     it('refuses an org that is not a research lab', async () => {
         const { dataPartner } = await asDataPartnerAdmin()
         const otherEnclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })

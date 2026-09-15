@@ -1205,10 +1205,9 @@ export const insertTestStudyAgreement = async ({
     })
 }
 
-// Study fixtures reach code submission, which the study agreement gate now blocks without one.
-// A real agreement plus the parties' acknowledgements, rather than marking fixtures test studies:
-// otherwise the default fixture is the one that bypasses the gate. Safe to call again once a test
-// has minted another session user — the unique constraint absorbs the acks already written.
+// A real agreement plus its acknowledgements, rather than marking fixtures test studies: otherwise
+// the default fixture is the one that bypasses the gate. Callable again after a test mints another
+// session user, since the unique constraint absorbs the acks already written.
 export const seedAcknowledgedStudyAgreement = async (studyId: string) => {
     const study = await studyAgreementState(db, studyId)
     if (!study) throw new Error(`seedAcknowledgedStudyAgreement: no study ${studyId}`)

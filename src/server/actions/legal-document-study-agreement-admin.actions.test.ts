@@ -89,7 +89,6 @@ describe('fetchStudiesAwaitingStudyAgreementAction', () => {
         expect(row?.researchLabName).toBe(researchLab.name)
     })
 
-    // Otherwise the queue fills with work that never ends: a test study never gets an agreement.
     it('leaves out a test study', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs({ isTestStudy: true })
