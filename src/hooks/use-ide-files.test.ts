@@ -192,6 +192,8 @@ describe('useIDEFiles mainFile (OTTER-729)', () => {
 
         act(() => result.current.setMainFile('main.r'))
         expect(result.current.mainFile).toBe('main.r')
+        // setMainFile saves the choice behind the optimistic flip.
+        await waitForPendingMutations()
     })
 })
 

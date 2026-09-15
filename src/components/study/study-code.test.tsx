@@ -45,6 +45,15 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
+// This page runs against Coder in production, and CODER_DISABLED short-circuits ensureWorkspaceAction
+// before it reaches createUserAndWorkspace — which would leave the mocks below unreachable. CI sets
+// CI=true, so without this the launch tests silently exercise the dev shim instead. Same approach as
+// workspaces.actions.test.ts.
+vi.mock('@/server/config', async () => ({
+    ...(await vi.importActual<typeof import('@/server/config')>('@/server/config')),
+    CODER_DISABLED: false,
+}))
+
 // Same treatment as @/server/aws above: an external service with no instance in the unit env. Left
 // unmocked, every launch throws on a refused connection, and since the launch action claims the
 // study's IDE in the same transaction, the claim would roll back with it.
@@ -123,6 +132,17 @@ const renderIDE = async (
     return { study, previousHref, dataPartnerName }
 }
 
+/**
+ * The main-file star saves optimistically, so a bare click leaves a write in flight and the
+ * teardown check in vitest.setup.ts fails the test. Going through here keeps every call site
+ * waiting for the save, rather than each one happening to assert on something slow enough.
+ */
+const setMainFileTo = async (user: ReturnType<typeof userEvent.setup>, fileName: string) => {
+    const label = new RegExp(`set ${fileName.replace(/\./g, '\\.')} as main file`, 'i')
+    await user.click(screen.getByRole('radio', { name: label }))
+    await waitForPendingMutations()
+}
+
 const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
 
 /**
@@ -191,6 +211,9 @@ describe('StudyCode component', () => {
 
         // The star moves optimistically; the save behind it still has to settle.
         await waitForPendingMutations()
+
+        // The star moves optimistically; the save behind it still has to settle.
+        await waitForPendingMutations()
     })
 
     it('selects the main file when a star is clicked', async () => {
@@ -204,8 +227,7 @@ describe('StudyCode component', () => {
             expect(screen.getByText('helper.r')).toBeInTheDocument()
         })
 
-        const helperStar = screen.getByRole('radio', { name: /set helper\.r as main file/i })
-        await user.click(helperStar)
+        await setMainFileTo(user, 'helper.r')
         await waitFor(() => {
             expect(screen.getByRole('radio', { name: /helper\.r is the main file/i })).toHaveAttribute(
                 'aria-checked',
@@ -254,7 +276,7 @@ describe('StudyCode component', () => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
         })
 
-        await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+        await setMainFileTo(user, 'main.R')
 
         await openSubmitConfirmation(user)
         const dialog = screen.getByRole('dialog')
@@ -308,7 +330,7 @@ describe('StudyCode component', () => {
         })
 
         // main.R is the main file, so spare.R is the one the card permits deleting.
-        await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+        await setMainFileTo(user, 'main.R')
         await user.click(screen.getByRole('button', { name: /delete spare\.R/i }))
         await user.click(screen.getByRole('button', { name: 'Delete file' }))
 
@@ -554,7 +576,7 @@ describe('StudyCode component', () => {
             const user = userEvent.setup()
             await renderFiles()
 
-            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await setMainFileTo(user, 'main.R')
             await waitFor(() => {
                 expect(screen.getByRole('radio', { name: /main\.R is the main file/i })).toBeChecked()
             })
@@ -585,7 +607,7 @@ describe('StudyCode component', () => {
             const user = userEvent.setup()
             await renderFiles()
 
-            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await setMainFileTo(user, 'main.R')
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: 'Delete main.R' })).toBeDisabled()
@@ -597,7 +619,7 @@ describe('StudyCode component', () => {
             const user = userEvent.setup()
             await renderFiles()
 
-            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await setMainFileTo(user, 'main.R')
             await user.click(screen.getByRole('button', { name: 'Delete spare.R' }))
 
             const dialog = screen.getByRole('dialog')
@@ -665,7 +687,11 @@ describe('StudyCode component', () => {
 
             // The claim shares the launch action's transaction on purpose: a study that locked
             // itself to a failed launch could only be freed by support.
-            await waitFor(() => expect(screen.getByRole('button', { name: 'Edit main.R in IDE' })).toBeEnabled())
+            // Wait on the failure surfacing, not on the button re-enabling: the pencil is briefly
+            // enabled again before the launch mutation even starts, so the claim would be read
+            // before the rollback it is meant to prove.
+            await screen.findByText('IDE failed to launch')
+            await waitForPendingMutations()
             expect(await ideOwnerId(study.id)).toBeNull()
         })
 
@@ -956,7 +982,7 @@ describe('StudyCode component', () => {
             await user.click(submitButton())
             expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
 
-            await user.click(screen.getByRole('radio', { name: /set a\.R as main file/i }))
+            await setMainFileTo(user, 'a.R')
             await openSubmitConfirmation(user)
 
             expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
@@ -986,7 +1012,7 @@ describe('StudyCode component', () => {
             const { study } = await renderTwoFiles()
             expect(await savedMainFile(study.id)).toBeNull()
 
-            await userEvent.setup().click(screen.getByRole('radio', { name: /set helper\.R as main file/i }))
+            await setMainFileTo(userEvent.setup(), 'helper.R')
 
             await waitFor(async () => {
                 expect(await savedMainFile(study.id)).toBe('helper.R')
@@ -1023,7 +1049,7 @@ describe('StudyCode component', () => {
             // Nothing has been changed yet, so the page must not claim to have saved anything.
             expect(screen.queryByText('All changes saved')).not.toBeInTheDocument()
 
-            await userEvent.setup().click(screen.getByRole('radio', { name: /set helper\.R as main file/i }))
+            await setMainFileTo(userEvent.setup(), 'helper.R')
 
             await waitFor(() => {
                 expect(screen.getByText('All changes saved')).toBeInTheDocument()
@@ -1032,7 +1058,7 @@ describe('StudyCode component', () => {
 
         it('puts the indicator beside the submit button', async () => {
             await renderTwoFiles()
-            await userEvent.setup().click(screen.getByRole('radio', { name: /set helper\.R as main file/i }))
+            await setMainFileTo(userEvent.setup(), 'helper.R')
 
             // "Saving…" shares this testid, so waiting for the element alone would assert against
             // the in-flight state whenever the save has not landed yet.
@@ -1581,7 +1607,7 @@ describe('StudyCode component', () => {
                 expect(screen.getByText('helper.R')).toBeInTheDocument()
             })
 
-            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await setMainFileTo(user, 'main.R')
 
             // Readiness is no longer visible on the button, so it is proven by submitting.
             await openSubmitConfirmation(user)
@@ -1630,7 +1656,7 @@ describe('StudyCode component', () => {
             })
 
             const user = userEvent.setup()
-            await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
+            await setMainFileTo(user, 'main.R')
 
             await openSubmitConfirmation(user)
             const dialog = screen.getByRole('dialog')

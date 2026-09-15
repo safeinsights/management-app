@@ -192,8 +192,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
-    await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    // By the view button, not the cell: this table makes the file name the control that opens the
+    // preview, so the cell's accessible name is "View {file}". The resubmit helper below still
+    // asserts on cells because /resubmit renders the older table.
+    await expect(page.getByRole('button', { name: `View ${mainFileName}` })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
 
     // main file must be picked explicitly when multiple files are present.
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
