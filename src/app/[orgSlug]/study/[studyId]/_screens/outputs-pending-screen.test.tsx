@@ -18,6 +18,7 @@ import type { StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { OutputsPendingScreen } from './outputs-pending-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 const DASHBOARD_HREF: Route = '/dashboard'
@@ -27,10 +28,13 @@ const renderScreen = async (
     orgSlug: string,
     dashboardHref = DASHBOARD_HREF,
     returnTo?: 'org',
-) =>
-    renderWithProviders(
-        await OutputsPendingScreen({ study, raw: await requireRawState(study.id), orgSlug, dashboardHref, returnTo }),
+) => {
+    const raw = await requireRawState(study.id)
+    const ctx = { orgSlug, studyId: study.id, dashboardHref, returnTo }
+    return renderWithProviders(
+        await OutputsPendingScreen({ study, raw, ...screenNavProps('researcher', 'outputs-pending', raw, ctx) }),
     )
+}
 
 // Every execution stage follows a CODE-APPROVED row in practice, and the banner is dated from it.
 const setupExecuting = async (jobStatus: StudyJobStatus, { approved = true }: { approved?: boolean } = {}) => {

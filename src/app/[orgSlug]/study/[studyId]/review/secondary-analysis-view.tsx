@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
-import type { Route } from 'next'
-import { Box, Group, Stack } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import type { StudyJobStatus } from '@/database/types'
-import { ButtonLink } from '@/components/links'
-import { PreviousStepLink } from '@/components/study/previous-step-link'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StepNavigation } from '@/components/study/step-navigation'
+import type { StepNav } from '@/lib/study-screen'
 import { OutputsStatusAlert } from './outputs-status-alert'
 
 export type SecondaryAnalysisViewProps = {
@@ -12,17 +11,10 @@ export type SecondaryAnalysisViewProps = {
     header: ReactNode
     stageStatus: StudyJobStatus
     stageStartedAt: string | Date
-    previousHref: Route
-    dashboardHref: Route
+    nav: StepNav
 }
 
-export function SecondaryAnalysisView({
-    header,
-    stageStatus,
-    stageStartedAt,
-    previousHref,
-    dashboardHref,
-}: SecondaryAnalysisViewProps) {
+export function SecondaryAnalysisView({ header, stageStatus, stageStartedAt, nav }: SecondaryAnalysisViewProps) {
     return (
         <Box bg="grey.10">
             <Stack px="xl" gap="xxl" py="xl">
@@ -32,12 +24,7 @@ export function SecondaryAnalysisView({
                     heading="Review outputs"
                     banner={<OutputsStatusAlert stageStatus={stageStatus} startedAt={stageStartedAt} />}
                 />
-                <Group justify="space-between">
-                    <PreviousStepLink previousHref={previousHref} />
-                    <ButtonLink href={dashboardHref} size="md">
-                        Back to my studies
-                    </ButtonLink>
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Box>
     )

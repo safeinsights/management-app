@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { QaCleanupNotFoundError, QaForbiddenError } from '@/server/qa-cleanup'
 import { QaConflictError, QaInvalidRequestError } from '@/server/qa-provision'
+import { auditQaInvocation, type QaAuditEntry } from './audit'
+
+type QaDenial = { status: number; message: string }
+
+/**
+ * Any signed-in user can reach the authorization step, so a refusal is worth a row of its
+ * own: the trail then shows who tried to reach what, not only what went through.
+ */
+export async function qaRefusedResponse(entry: Omit<QaAuditEntry, 'outcome'>, denial: QaDenial) {
+    await auditQaInvocation({ ...entry, outcome: 'refused' })
+    return NextResponse.json({ error: denial.message }, { status: denial.status })
+}
 
 // Anything unmapped rethrows so a genuine fault surfaces as a 500 rather than a misleading 4xx.
 export function qaErrorResponse(error: unknown): NextResponse {

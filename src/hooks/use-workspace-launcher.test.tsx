@@ -99,7 +99,13 @@ describe('useWorkspaceLauncher', () => {
 
     describe('launchWorkspace', () => {
         it('should set isLaunching true while the ensure mutation is in flight', async () => {
-            ensureMock.mockImplementation(() => new Promise(() => {}))
+            let finishEnsure!: (value: unknown) => void
+            ensureMock.mockImplementation(
+                () =>
+                    new Promise((resolve) => {
+                        finishEnsure = resolve
+                    }),
+            )
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -109,6 +115,11 @@ describe('useWorkspaceLauncher', () => {
 
             await waitFor(() => expect(result.current.isLaunching).toBe(true))
             expect(result.current.isCreatingWorkspace).toBe(true)
+
+            // Released rather than left parked: a mutation still pending at teardown can commit
+            // past the test transaction's rollback.
+            act(() => finishEnsure({ success: true, workspace: { id: 'workspace-456' } }))
+            await waitFor(() => expect(result.current.isCreatingWorkspace).toBe(false))
         })
 
         it('should stay launching while the workspace is still provisioning', async () => {

@@ -28,6 +28,7 @@ import type { RawStudyState, SharedOutputsScreenId } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { SharedOutputsScreen } from './shared-outputs-screen'
+import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 // Same seam the panel test uses: decrypting for real needs the wrapped-key fetch to return a
@@ -114,9 +115,12 @@ const renderScreen = async (
             descriptor: { screen: variant.screen },
             study,
             raw,
-            orgSlug,
-            dashboardHref: DASHBOARD_HREF,
-            returnTo,
+            ...screenNavProps('researcher', variant.screen, raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+                returnTo,
+            }),
         }),
     )
 
@@ -216,8 +220,11 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
             descriptor: { screen: 'study-overview' },
             study,
             raw,
-            orgSlug: org.slug,
-            dashboardHref: DASHBOARD_HREF,
+            ...screenNavProps('researcher', 'study-overview', raw, {
+                orgSlug: org.slug,
+                studyId: study.id,
+                dashboardHref: DASHBOARD_HREF,
+            }),
         })
 
         expect(notFound).toHaveBeenCalled()
@@ -304,17 +311,18 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         expect(alert).not.toHaveTextContent('•')
     })
 
-    it("renders the reused feedback-and-notes section with this study's outputs feedback", async () => {
+    // OTTER-766: the note belongs to the code step, so it stays on the code screens.
+    it("renders the reused feedback-and-notes section with this study's outputs feedback alone", async () => {
         const { org, user, study, raw } = await setupShared(variant, { withNote: true })
         await renderScreen(variant, study, raw, org.slug)
 
         const section = screen.getByTestId('feedback-and-notes-section')
         expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
         expect(section).toHaveTextContent(variant.feedbackBody)
-        expect(section).toHaveTextContent('Resubmission note (v1.0)')
-        expect(section).toHaveTextContent('Adjusted the aggregation query.')
+        expect(section).not.toHaveTextContent('Resubmission note')
+        expect(section).not.toHaveTextContent('Adjusted the aggregation query.')
         expect(section).toHaveTextContent(user.fullName)
-        expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+        expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
     })
 
     it("shows only this study's feedback, not another study's", async () => {

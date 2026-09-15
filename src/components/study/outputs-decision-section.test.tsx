@@ -13,6 +13,7 @@ import {
     within,
 } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { SAVED_LABEL } from '@/components/save-status'
@@ -41,7 +42,9 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
         <MantineProvider theme={theme}>
             <YjsWebsocketProvider singleUserEditing>
                 <ModalsProvider>
-                    <OutputsDecisionSection {...props} />
+                    <OutputsReviewFeedbackProviderShare>
+                        <OutputsDecisionSection {...props} />
+                    </OutputsReviewFeedbackProviderShare>
                 </ModalsProvider>
             </YjsWebsocketProvider>
         </MantineProvider>,
@@ -67,7 +70,9 @@ const renderCollaborativeSection = () => {
         <MantineProvider theme={theme}>
             <YjsWebsocketProvider>
                 <ModalsProvider>
-                    <OutputsDecisionSection {...props} feedbackError={feedbackError} />
+                    <OutputsReviewFeedbackProviderShare>
+                        <OutputsDecisionSection {...props} feedbackError={feedbackError} />
+                    </OutputsReviewFeedbackProviderShare>
                 </ModalsProvider>
             </YjsWebsocketProvider>
         </MantineProvider>

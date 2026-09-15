@@ -7,8 +7,6 @@ import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
-    projectStudyState,
-    resolvePhasedStepNav,
     type ScreenId,
     type SharedOutputsScreenId,
     type StudyState,
@@ -42,10 +40,8 @@ export async function SharedOutputsScreen({
     descriptor,
     study,
     raw,
-    orgSlug,
-    dashboardHref,
-    returnTo,
-}: Pick<ScreenComponentProps, 'descriptor' | 'study' | 'raw' | 'orgSlug' | 'dashboardHref' | 'returnTo'>) {
+    phasedNav,
+}: Pick<ScreenComponentProps, 'descriptor' | 'study' | 'raw' | 'phasedNav'>) {
     // A screen id routed here without a SHARE_SCREENS entry is a registry bug, not a data state, so it
     // 404s rather than passing an undefined predicate to the guard. Narrowing the prop itself does not
     // compile: SCREEN_COMPONENTS is Record<ScreenId, ScreenComponent> and strictFunctionTypes rejects
@@ -63,12 +59,6 @@ export async function SharedOutputsScreen({
     if (!('job' in result)) return result
 
     const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
-    const nav = resolvePhasedStepNav(descriptor.screen, projectStudyState(raw), {
-        orgSlug,
-        studyId: study.id,
-        dashboardHref,
-        returnTo,
-    })
 
     const banner = researcherSharedOutputsBanner(descriptor.screen, { dataPartner })
 
@@ -83,7 +73,7 @@ export async function SharedOutputsScreen({
                     feedbackSection={
                         <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                     }
-                    nav={nav}
+                    nav={phasedNav}
                 />
             </Stack>
         </Box>

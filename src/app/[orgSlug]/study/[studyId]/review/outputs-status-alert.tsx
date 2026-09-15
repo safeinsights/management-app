@@ -39,6 +39,18 @@ const SlackDPSupportLink = () => (
 type StageCopy = { variant: StatusAlertVariant; title: (when: string) => string; body: ReactNode }
 
 const STAGE_COPY = {
+    // Approval is the first stage the reviewer sees: the containerizer reports JOB-PACKAGING later, so
+    // /review lands here in the gap (OTTER-673, "Code approved" always steps forward).
+    'CODE-APPROVED': {
+        variant: STATUS_ALERT_VARIANT.informative,
+        title: (when) => `Outputs not ready, code approved ${when}`,
+        body: (
+            <>
+                Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
+                SafeInsights via <SlackDPSupportLink />
+            </>
+        ),
+    },
     'JOB-PACKAGING': {
         variant: STATUS_ALERT_VARIANT.informative,
         title: (when) => `Outputs not ready, code packaging started ${when}`,
