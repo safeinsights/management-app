@@ -14,6 +14,8 @@ import { getClaimedInviteAction } from '../create-account.action'
 
 export type LinkInviteEmailStatus = 'loading' | 'sending' | 'awaiting-code' | 'verifying' | 'unavailable' | 'failed'
 
+type AddEmailAddress = (owner: UserResource, email: string) => Promise<EmailAddressResource>
+
 const matchingAddress = (user: UserResource, email: string) =>
     user.emailAddresses.find((address) => address.emailAddress.toLowerCase() === email.toLowerCase())
 
@@ -26,6 +28,20 @@ const linkedMessage = (accountEmail: string | undefined) =>
         ? `You’ve successfully linked your SafeInsights accounts under ${accountEmail}.`
         : 'You’ve successfully linked your SafeInsights accounts.'
 
+// Reuses an address Clerk kept from an abandoned attempt, so a second visit does not collide with
+// the caller's own pending entry. Returns rather than setting state, so both callers can await it
+// before touching React (the effect below may not update state synchronously).
+async function prepareAddress(
+    user: UserResource,
+    email: string,
+    existing: EmailAddressResource | undefined,
+    addEmailAddress: AddEmailAddress,
+) {
+    const address = existing ?? (await addEmailAddress(user, email))
+    await address.prepareVerification({ strategy: 'email_code' })
+    return address
+}
+
 export function useLinkInviteEmail(inviteId: string) {
     const router = useRouter()
     const { user } = useUser()
@@ -34,7 +50,7 @@ export function useLinkInviteEmail(inviteId: string) {
     // detour that can precede this screen, so the challenge has to be able to interrupt the call.
     const addEmailAddress = useReverification((owner: UserResource, email: string) =>
         owner.createEmailAddress({ email }),
-    )
+    ) as AddEmailAddress
 
     const [status, setStatus] = useState<LinkInviteEmailStatus>('loading')
     const [failureMessage, setFailureMessage] = useState<string | null>(null)
@@ -60,32 +76,17 @@ export function useLinkInviteEmail(inviteId: string) {
         if (invite) router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
     }, [invite, router])
 
-    const sendCode = useCallback(
-        async (existing?: EmailAddressResource) => {
-            if (!invite || !user) return
-            setStatus('sending')
-            setFailureMessage(null)
-            try {
-                const address = existing ?? (await addEmailAddress(user, invite.email))
-                pendingAddress.current = address
-                await address.prepareVerification({ strategy: 'email_code' })
-                setStatus('awaiting-code')
-            } catch (error) {
-                // Clerk refuses an address that already belongs to somebody else. Nothing the
-                // person can do about it, and the membership they just accepted still stands.
-                if (isClerkApiError(error) && extractClerkCodeAndMessage(error).code === 'form_identifier_exists') {
-                    setStatus('unavailable')
-                    return
-                }
-                setFailureMessage(errorToString(error))
-                setStatus('failed')
-            }
-        },
-        [invite, user, addEmailAddress],
-    )
+    const reportFailure = useCallback((error: unknown) => {
+        // Clerk refuses an address that already belongs to somebody else. Nothing the person can do
+        // about it, and the membership they just accepted still stands.
+        if (isClerkApiError(error) && extractClerkCodeAndMessage(error).code === 'form_identifier_exists') {
+            setStatus('unavailable')
+            return
+        }
+        setFailureMessage(errorToString(error))
+        setStatus('failed')
+    }, [])
 
-    // Reuses an address Clerk kept from an abandoned attempt, so a second visit does not collide
-    // with the caller's own pending entry.
     useEffect(() => {
         if (!invite || !user || hasStarted.current) return
         hasStarted.current = true
@@ -95,8 +96,34 @@ export function useLinkInviteEmail(inviteId: string) {
             router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
             return
         }
-        void sendCode(existing)
-    }, [invite, user, router, sendCode])
+
+        const start = async () => {
+            try {
+                pendingAddress.current = await prepareAddress(user, invite.email, existing, addEmailAddress)
+                setStatus('awaiting-code')
+            } catch (error) {
+                reportFailure(error)
+            }
+        }
+        start().catch(() => {})
+    }, [invite, user, router, addEmailAddress, reportFailure])
+
+    const resendCode = useCallback(async () => {
+        if (!invite || !user) return
+        setFailureMessage(null)
+        setStatus('sending')
+        try {
+            pendingAddress.current = await prepareAddress(
+                user,
+                invite.email,
+                pendingAddress.current ?? undefined,
+                addEmailAddress,
+            )
+            setStatus('awaiting-code')
+        } catch (error) {
+            reportFailure(error)
+        }
+    }, [invite, user, addEmailAddress, reportFailure])
 
     const verify = useCallback(
         async ({ code }: { code: string }) => {
@@ -142,7 +169,7 @@ export function useLinkInviteEmail(inviteId: string) {
         failureMessage,
         form,
         verify,
-        resendCode: () => sendCode(pendingAddress.current ?? undefined),
+        resendCode,
         skip,
         continueToOrg: leave,
     }
