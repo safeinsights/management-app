@@ -301,7 +301,7 @@ export async function seedApprovedWithPublishedStudyAgreement(title: string): Pr
 // Local dev seeding only: the admin's Data Partner > Research Lab > study picker stays empty
 // until studies exist across more than one org pair.
 export async function seedStudyFor(
-    overrides: Pick<StudyOverrides, 'title' | 'status' | 'enclaveSlug' | 'labSlug'>,
+    overrides: Pick<StudyOverrides, 'title' | 'status' | 'enclaveSlug' | 'labSlug' | 'withStudyAgreement'>,
 ): Promise<SeedResult> {
     const status = overrides.status ?? 'APPROVED'
     const { study } = await insertStudy({

@@ -28,7 +28,15 @@ const main = async () => {
     const labSlug = process.argv[3] ?? DEFAULT_LAB
 
     const title = `Study Agreement gate ${Date.now()}`
-    const { studyId } = await seedStudyFor({ title, status: 'APPROVED', enclaveSlug, labSlug })
+    // withStudyAgreement: false because an APPROVED study otherwise gets a version 1 that every
+    // party has already acknowledged, which both collides with the write below and hides the modal.
+    const { studyId } = await seedStudyFor({
+        title,
+        status: 'APPROVED',
+        enclaveSlug,
+        labSlug,
+        withStudyAgreement: false,
+    })
 
     const { filePath } = await writeStudyAgreementVersion(db, {
         studyId,
