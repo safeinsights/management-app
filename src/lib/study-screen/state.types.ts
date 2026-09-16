@@ -53,9 +53,9 @@ export type StudyState = {
     resultsApproved: boolean
     resultsRejected: boolean
     resultsErrored: boolean
-    // Narrower than resultsErrored only in principle: false once a RUN-COMPLETE joins the error on one
-    // job, which no production path reaches (canResearcherResubmitCode blocks the resubmission, and a
-    // FILES-* decision opens a new job instead). Only the QA status route and seeds build that pair.
+    // Narrower than resultsErrored: false once a RUN-COMPLETE joins the error on one job. Rare but
+    // reachable, since the results callback and PUT /api/job/[jobId] both accept JOB-ERRORED followed
+    // by RUN-COMPLETE on the same job, and no round-closing status blocks either one.
     runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
     submissionRound: number
