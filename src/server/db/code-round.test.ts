@@ -40,9 +40,9 @@ describe('codeRoundForJob', () => {
         expect(await codeRoundForJob(job.id)).toBe(await codeSubmissionVersion(study.id))
     })
 
-    // Statuses written in one transaction share a createdAt (OTTER-552), so a change request can
-    // tie with the resubmit it triggered. Comparing timestamps drops it and reads the job as a
-    // round behind.
+    // createdAt defaults to now(), which is fixed for a whole transaction, so a change request ties
+    // exactly with the resubmit it triggered whenever one transaction writes both. Comparing
+    // timestamps drops it and reads the job as a round behind.
     it('counts a change request that ties with the resubmit on createdAt', async () => {
         const { study, job } = await insertTestStudyJobData({})
         const tied = minutesAgo(10)
@@ -70,6 +70,28 @@ describe('codeRoundForJob', () => {
         expect(await codeRoundForJob(firstJob.id)).toBe(1)
         expect(await codeRoundForJob(secondJob.id)).toBe(2)
         expect(await codeRoundForJob(secondJob.id)).toBe(await codeSubmissionVersion(study.id))
+    })
+
+    // The mirror of the boundary above: a decision on a job opened later belongs to a later round,
+    // and counting it would raise this job's round after the fact, putting the rows stored against
+    // it out of reach of every reader.
+    it('is not raised by a decision on a job opened after it', async () => {
+        const { study, job: firstJob } = await insertTestStudyJobData({})
+        await addStatus(firstJob.id, 'CODE-SUBMITTED', minutesAgo(40))
+        await addStatus(firstJob.id, 'CODE-CHANGES-REQUESTED', minutesAgo(35))
+        await addStatus(firstJob.id, 'CODE-SUBMITTED', minutesAgo(30))
+        await addStatus(firstJob.id, 'FILES-APPROVED', minutesAgo(25))
+
+        const secondJob = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await addStatus(secondJob.id, 'CODE-SUBMITTED', minutesAgo(20))
+        await addStatus(secondJob.id, 'CODE-CHANGES-REQUESTED', minutesAgo(10))
+
+        expect(await codeRoundForJob(firstJob.id)).toBe(2)
+        expect(await codeRoundForJob(secondJob.id)).toBe(3)
     })
 
     it('falls back to the study-wide version for a job with no submission yet', async () => {

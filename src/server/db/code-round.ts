@@ -7,37 +7,46 @@ import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 // result that describes the code still on the job: a scan or a summary landing in that window
 // belongs to the round that produced it (OTTER-779).
 //
-// Counted rather than compared against the latest submission's timestamp, because statuses written
-// in one transaction tie on createdAt and a change request that ties with the resubmit it triggered
-// would drop out of that comparison (OTTER-552). Submissions and change requests strictly alternate
-// on a job (markCodeSubmitted enforces it), so its Nth submission follows N-1 of its own change
-// requests, and every closer on the study's other jobs predates this job entirely.
+// Counted rather than compared against the latest submission's timestamp: createdAt defaults to
+// now(), which Postgres holds fixed for a whole transaction, so a change request and the resubmit
+// it triggered carry byte-identical timestamps whenever one transaction writes both, and the change
+// request drops out of that comparison. Submissions and change requests strictly alternate on a job
+// (markCodeSubmitted enforces it), so its Nth submission follows N-1 of its own change requests.
 export async function codeRoundForJob(studyJobId: string, executor: DBExecutor = db): Promise<number> {
-    const { studyId } = await executor
-        .selectFrom('studyJob')
-        .select('studyId')
-        .where('id', '=', studyJobId)
-        .executeTakeFirstOrThrow(throwNotFound(`study job ${studyJobId}`))
-
-    // Counted across the study's jobs, not this one: a results decision opens a fresh job, and the
-    // round has to keep climbing across that boundary (OTTER-556/558).
+    // One query rather than a lookup and an aggregate, because the review screen derives the round
+    // on every render. `sibling` widens the rows to every job of the study; grouping on the job
+    // makes a missing id an empty result instead of a row of zeroes.
     const counts = await executor
-        .selectFrom('jobStatusChange')
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .selectFrom('studyJob as job')
+        .innerJoin('studyJob as sibling', 'sibling.studyId', 'job.studyId')
+        .leftJoin('jobStatusChange as change', 'change.studyJobId', 'sibling.id')
         .select((eb) => [
             eb.fn
-                .count<number>('jobStatusChange.id')
-                .filterWhere('jobStatusChange.studyJobId', '!=', studyJobId)
-                .filterWhere('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
+                .count<number>('change.id')
+                .filterWhere('change.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
+                // Jobs that precede this one only. A results decision opens a fresh job and the
+                // round has to keep climbing across that boundary (OTTER-556/558), but a decision
+                // on a later job belongs to a later round: counting it would raise this job's round
+                // after the fact and put its own stored rows out of reach.
+                .filterWhere(
+                    eb.or([
+                        eb('sibling.createdAt', '<', eb.ref('job.createdAt')),
+                        eb.and([
+                            eb('sibling.createdAt', '=', eb.ref('job.createdAt')),
+                            eb('sibling.id', '<', eb.ref('job.id')),
+                        ]),
+                    ]),
+                )
                 .as('closedElsewhere'),
             eb.fn
-                .count<number>('jobStatusChange.id')
-                .filterWhere('jobStatusChange.studyJobId', '=', studyJobId)
-                .filterWhere('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+                .count<number>('change.id')
+                .filterWhere('sibling.id', '=', eb.ref('job.id'))
+                .filterWhere('change.status', '=', 'CODE-SUBMITTED')
                 .as('submissions'),
         ])
-        .where('studyJob.studyId', '=', studyId)
-        .executeTakeFirstOrThrow()
+        .where('job.id', '=', studyJobId)
+        .groupBy('job.id')
+        .executeTakeFirstOrThrow(throwNotFound(`study job ${studyJobId}`))
 
     // A job still waiting for its first submission carries no code of its own, so it reads as the
     // round the study is about to submit, matching codeSubmissionVersion.
