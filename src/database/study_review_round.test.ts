@@ -51,6 +51,18 @@ describe('study_review_round migration', () => {
         expect(await roundOf(review)).toBe(1)
     })
 
+    // The runtime rule holds the job on its submitted round until the resubmit lands, so a summary
+    // written while the change request waits belongs to the round the reviewer read. Numbering it
+    // into the next one would leave it on a round the job never reads.
+    it('leaves a summary written while a change request waits on the first round', async () => {
+        const { study, job } = await insertResubmittedJob()
+        const review = await insertReview(job.id, minutesAgo(15))
+
+        await backfillStudyReviewRound(db as unknown as Kysely<unknown>, study.id)
+
+        expect(await roundOf(review)).toBe(1)
+    })
+
     it('counts the rounds of its own study only', async () => {
         const { study, job } = await insertTestStudyJobData({})
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))

@@ -4,6 +4,16 @@ import { type Kysely, sql } from 'kysely'
 // round's summary to be destroyed to make room and let a run that finished late land in the wrong
 // round. Uniqueness moves to (study_job_id, round), following OTTER-638's study_review_comment.
 
+// Numbered by the same rule as codeRoundForJob, reconstructed at the row's own createdAt: closers
+// on jobs that precede this one, plus this job's submissions up to that moment. Counting every
+// closer instead would advance the round at the change request, which the runtime rule does not do
+// until the resubmit lands, and a row written in that window would be filed under a round its job
+// never reads (OTTER-779).
+//
+// A run that finished after the next round had opened still gets numbered into that next round,
+// because write time is all a historical row carries. That is what the single row per job already
+// showed, so the display of those rows does not get worse here.
+//
 // status is cast to text because CODE-CHANGES-REQUESTED is added to the enum by an earlier
 // migration in this same transaction, which makes comparing as the enum an "unsafe use of new
 // value of enum type".
@@ -21,9 +31,15 @@ export async function backfillStudyReviewRound(db: Kysely<unknown>, studyId?: st
             FROM job_status_change closer
             JOIN study_job sibling ON sibling.id = closer.study_job_id
             WHERE sibling.study_id = owner.study_id
+              AND (sibling.created_at, sibling.id) < (owner.created_at, owner.id)
               AND closer.status::text IN ('CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED')
-              AND closer.created_at < sr.created_at
-        )
+        ) + greatest(0, (
+            SELECT count(*)
+            FROM job_status_change submission
+            WHERE submission.study_job_id = sr.study_job_id
+              AND submission.status::text = 'CODE-SUBMITTED'
+              AND submission.created_at <= sr.created_at
+        ) - 1)
         FROM study_job owner
         WHERE owner.id = sr.study_job_id
         ${scope}
