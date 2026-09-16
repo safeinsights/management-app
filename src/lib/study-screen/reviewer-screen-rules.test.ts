@@ -75,7 +75,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-pending')
     })
 
-    it('job errored, no files decision → reviewer-outputs-errored (not study-results)', () => {
+    it('job errored, no files decision → reviewer-outputs-errored (not outputs-awaiting-review)', () => {
         expect(
             screen(
                 st({
@@ -89,7 +89,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-errored')
     })
 
-    it('run complete, no files decision → reviewer-outputs-available (not study-results)', () => {
+    it('run complete, no files decision → reviewer-outputs-available (not outputs-awaiting-review)', () => {
         expect(
             screen(
                 st({

@@ -14,7 +14,9 @@ export type ResearcherScreenId =
     // The clean-run counterpart. Named for the reviewer's decision, not for availability:
     // 'reviewer-outputs-available' already means a completed run still awaiting one.
     | 'outputs-shared'
-    | 'study-results'
+    // A clean run the data partner has not decided on yet: the researcher waits on the outputs step
+    // with a banner naming the partner (OTTER-785).
+    | 'outputs-awaiting-review'
     | 'study-overview'
 
 // The two screens SharedOutputsScreen serves, told apart by routing predicate and banner copy —

@@ -53,8 +53,9 @@ export type StudyState = {
     resultsApproved: boolean
     resultsRejected: boolean
     resultsErrored: boolean
-    // Narrower than resultsErrored: the scanner and containerizer also write JOB-ERRORED, so a
-    // packaging error before a good run leaves both that and RUN-COMPLETE on the job (OTTER-697).
+    // Narrower than resultsErrored only in principle: false once a RUN-COMPLETE joins the error on one
+    // job, which no production path reaches (canResearcherResubmitCode blocks the resubmission, and a
+    // FILES-* decision opens a new job instead). Only the QA status route and seeds build that pair.
     runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
     submissionRound: number

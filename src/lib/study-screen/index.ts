@@ -8,6 +8,7 @@ export {
     isErroredOutputsSharedOutcome,
     codeDecisionForScreen,
     isOutputsSharedOutcome,
+    isAwaitingOutputsReviewOutcome,
 } from './state'
 export type { CodeDecisionScreenId } from './state'
 export {
