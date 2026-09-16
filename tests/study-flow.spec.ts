@@ -193,19 +193,18 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     const mainFileName = mainCodeFile.split('/').pop()!
     // By the view button, not the cell: this table makes the file name the control that opens the
-    // preview, so the cell's accessible name is "View {file}". The resubmit helper below still
-    // asserts on cells because /resubmit renders the older table.
-    await expect(page.getByRole('button', { name: `View ${mainFileName}` })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
+    // preview, so the cell's accessible name is "View {file}".
+    // `exact` throughout this file for anything naming a file: Playwright matches accessible names
+    // case-insensitively by default, so `View main.r` also matches the pre-loaded `View Main.R`.
+    await expect(page.getByRole('button', { name: `View ${mainFileName}`, exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
 
     // main file must be picked explicitly when multiple files are present.
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
-    // `radio`, not `button`: this page's table is a radiogroup. The resubmit helper below still
-    // says `button` because /resubmit renders the older table — see OTTER-693 follow-up on
-    // unifying the two.
+    // `radio`, not `button`: this table is a radiogroup.
     await expect(async () => {
-        await page.getByRole('radio', { name: `Set ${mainFileName} as main file` }).click()
-        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file` })).toBeVisible()
+        await page.getByRole('radio', { name: `Set ${mainFileName} as main file`, exact: true }).click()
+        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file`, exact: true })).toBeVisible()
     }).toPass()
 
     const submitButton = page.getByRole('button', { name: /Submit code/i })
@@ -247,14 +246,15 @@ async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
             await replacePrompt.getByRole('button', { name: 'Replace' }).click()
         }
         await expect(replacePrompt).toBeHidden()
-        await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
     }).toPass()
 
     // /resubmit now renders the same table as /code, so the file name is the view button and the
     // star is a radio — the same selectors the upload helper above uses.
-    await expect(page.getByRole('button', { name: 'View main.r' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'main.r is the main file' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View main.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
+    // Without `exact` this passes against `Main.R is the main file`, asserting the wrong file.
+    await expect(page.getByRole('radio', { name: 'main.r is the main file', exact: true })).toBeVisible()
 }
 
 // ============================================================================
