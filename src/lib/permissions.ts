@@ -72,8 +72,8 @@ export function defineAbilityFor(session: UserSession) {
 
     permit('view', 'OrgConfig', { orgId: { $in: usersAdminOrgIds } })
 
-    permit('view', 'TestLab', { orgId: { $in: usersAdminOrgIds } })
-    permit('designate', 'TestLab', { orgId: { $in: usersAdminOrgIds } })
+    permit('view', 'TestLab', { orgType: 'enclave', orgId: { $in: usersAdminOrgIds } })
+    permit('designate', 'TestLab', { orgType: 'enclave', orgId: { $in: usersAdminOrgIds } })
 
     // Unsubmitted drafts stay private to the submitting Research Lab, which keeps access via the
     // submittedByOrgId rules below (OTTER-596).

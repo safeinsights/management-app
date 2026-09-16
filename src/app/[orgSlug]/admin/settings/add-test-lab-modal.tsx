@@ -117,7 +117,7 @@ function ConfirmStep({ isVisible, picker, isSubmitting, error, onConfirm }: Conf
                     </Text>
                 ))}
             </Stack>
-            {Boolean(error) && <ErrorAlert error={error} title="Failed to add test labs" />}
+            <ErrorAlert error={error} title="Failed to add test labs" />
             <Group justify="flex-end">
                 <Button variant="subtle" onClick={picker.goBack} disabled={isSubmitting}>
                     Back

@@ -147,7 +147,6 @@ function EditableBody({
         <Stack gap="xl">
             <StudyAgreementPreparingNotice
                 studyId={job.studyId}
-                isVisible
                 consequence="You cannot submit a review decision yet."
             />
             <CodeEvaluationSection form={evaluationForm} enabled isTestStudy={isTestStudy} />

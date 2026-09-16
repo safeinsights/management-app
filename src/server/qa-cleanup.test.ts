@@ -442,6 +442,60 @@ describe('deleteUserById', () => {
  * be handled by the database (CASCADE/SET NULL) or appear below. Adding a relation without
  * doing one of those fails here, at the point of the change, instead of on QA weeks later.
  */
+// Postgres removes these without help, so a delete list does not need to name them.
+const DB_ENFORCED = new Set(['CASCADE', 'SET NULL', 'SET DEFAULT'])
+
+// References a delete has to clear itself: every FK to the given table's id that the database does
+// not already handle on its own.
+const referencesNeedingHandling = async (table: 'user' | 'study') => {
+    const { rows } = await sql<{ reference: string; deleteRule: string }>`
+        SELECT tc.table_name || '.' || kcu.column_name AS reference,
+               rc.delete_rule AS "deleteRule"
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_name = ccu.constraint_name
+        JOIN information_schema.referential_constraints rc
+          ON tc.constraint_name = rc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_name = ${table}
+          AND ccu.column_name = 'id'
+    `.execute(db)
+
+    // Guards the query itself: an information_schema shape change that returned nothing would
+    // otherwise make these tests pass while checking nothing at all.
+    expect(rows.length).toBeGreaterThan(0)
+
+    return rows.filter((row) => !DB_ENFORCED.has(row.deleteRule)).map((row) => row.reference)
+}
+
+/**
+ * deleteStudyRows carries the same hazard one table over: nothing in the legal_document chain
+ * cascades off study_id, so every study with a published agreement 500'd the QA delete until the
+ * chain was cleared by hand. The next table to reference a study fails here instead.
+ */
+describe('deleteStudyRows FK coverage', () => {
+    const HANDLED: Record<string, string> = {
+        'study_job.study_id': 'deleted, along with its job_status_change and study_job_file rows',
+        'yjs_document.study_id': 'deleted',
+        'legal_document.study_id': 'deleted, along with its versions and acknowledgements',
+    }
+
+    it('handles every foreign key that references study.id', async () => {
+        const unhandled = (await referencesNeedingHandling('study')).filter((reference) => !(reference in HANDLED))
+
+        expect(unhandled).toEqual([])
+    })
+
+    it('lists no reference that no longer needs handling', async () => {
+        const needsHandling = new Set(await referencesNeedingHandling('study'))
+        const stale = Object.keys(HANDLED).filter((reference) => !needsHandling.has(reference))
+
+        expect(stale).toEqual([])
+    })
+})
+
 describe('deleteUserById FK coverage', () => {
     // Each entry is a reference deleteUserById clears itself, with how it does so. Keeping the
     // reason here (rather than a bare name list) makes the intended handling reviewable when a
@@ -458,41 +512,13 @@ describe('deleteUserById FK coverage', () => {
         'user_public_key.user_id': 'deleted',
     }
 
-    // Postgres removes these without help, so the delete list does not need to name them.
-    const DB_ENFORCED = new Set(['CASCADE', 'SET NULL', 'SET DEFAULT'])
-
     // Known gap, deliberately listed so this test states the truth rather than being tuned to
     // pass: publishing is an SI admin action, so a QA account that published a legal document
     // is still undeletable. Out of scope here — remove this entry when it is fixed.
     const KNOWN_UNHANDLED = new Set(['legal_document_version.published_by'])
 
-    // References the delete has to clear itself: every FK to user.id the database does not
-    // already handle on its own.
-    const referencesNeedingHandling = async () => {
-        const { rows } = await sql<{ reference: string; deleteRule: string }>`
-            SELECT tc.table_name || '.' || kcu.column_name AS reference,
-                   rc.delete_rule AS "deleteRule"
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-              ON tc.constraint_name = kcu.constraint_name
-            JOIN information_schema.constraint_column_usage ccu
-              ON tc.constraint_name = ccu.constraint_name
-            JOIN information_schema.referential_constraints rc
-              ON tc.constraint_name = rc.constraint_name
-            WHERE tc.constraint_type = 'FOREIGN KEY'
-              AND ccu.table_name = 'user'
-              AND ccu.column_name = 'id'
-        `.execute(db)
-
-        // Guards the query itself: an information_schema shape change that returned nothing would
-        // otherwise make these tests pass while checking nothing at all.
-        expect(rows.length).toBeGreaterThan(0)
-
-        return rows.filter((row) => !DB_ENFORCED.has(row.deleteRule)).map((row) => row.reference)
-    }
-
     it('handles every foreign key that references user.id', async () => {
-        const unhandled = (await referencesNeedingHandling()).filter(
+        const unhandled = (await referencesNeedingHandling('user')).filter(
             (reference) => !(reference in HANDLED) && !KNOWN_UNHANDLED.has(reference),
         )
 
@@ -503,7 +529,7 @@ describe('deleteUserById FK coverage', () => {
     // dropped, or gains a cascade, should be removed rather than left as dead weight that
     // silently excuses a future table of the same name.
     it('lists no reference that no longer needs handling', async () => {
-        const needsHandling = new Set(await referencesNeedingHandling())
+        const needsHandling = new Set(await referencesNeedingHandling('user'))
         const stale = [...Object.keys(HANDLED), ...KNOWN_UNHANDLED].filter((reference) => !needsHandling.has(reference))
 
         expect(stale).toEqual([])

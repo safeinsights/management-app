@@ -170,8 +170,6 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
 
         // Sole writer of the column. Stamped, not derived: a designation applies to studies made
         // from then on, so deriving it would extend a new one backwards over existing studies.
-        // TODO Chris: confirm against the hi-fis whether a test study still goes through proposal
-        // review. Built on the assumption that it does.
         const isTestStudy = await isDesignatedTestLab(db, { dataPartnerId: orgId, researchLabId: submittedByOrgId })
 
         await db

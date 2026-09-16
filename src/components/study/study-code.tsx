@@ -34,7 +34,7 @@ export const StudyCode = ({ studyId, previousHref, onSubmitSuccess }: StudyCodeP
 
     const footer = (
         <Stack mt="xxl" w="100%">
-            <StudyAgreementPreparingNotice studyId={studyId} isVisible consequence="You cannot submit code yet." />
+            <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code yet." />
             <Group justify="space-between">
                 <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
                     Previous

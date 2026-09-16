@@ -167,6 +167,41 @@ describe('Request Study Actions', () => {
         expect(study?.status).toEqual('PENDING-REVIEW')
     })
 
+    // A test study is exempt from the agreement, not from review: the Data Partner still approves
+    // the proposal, which is the flow the test lab exists to exercise.
+    it('stamps a study from a test lab and still sends it to proposal review', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-lab-review' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await db.insertInto('orgTestLab').values({ dataPartnerId: enclave.id, researchLabId: lab.id }).execute()
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const { studyId } = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: { title: 'Test lab study', piName: 'Test PI', language: 'R' as const },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+
+        actionResult(
+            await onSubmitDraftStudyAction({
+                studyId,
+                mainCodeFileName: 'main.R',
+                codeFileNames: ['helpers.R'],
+            }),
+        )
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        const study = await db
+            .selectFrom('study')
+            .select(['isTestStudy', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+
+        expect(study.isTestStudy).toBe(true)
+        expect(study.status).toEqual('PENDING-REVIEW')
+    })
+
     it('submission flow works with Python language', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })

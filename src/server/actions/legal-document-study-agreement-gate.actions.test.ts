@@ -17,6 +17,8 @@ import {
 import { requireStudyAgreementAcknowledged } from '@/server/study-agreement'
 import { acknowledgeLegalDocumentAction, fetchStudyAgreementStatusAction } from './legal-document.actions'
 import { submitCodeReviewDecisionAction } from './study.actions'
+import { resubmitStudyCodeAction, submitStudyCodeAction } from './study-request'
+import { submitOutputsDecisionAction } from './study-job.actions'
 
 beforeEach(resetLegalDocuments)
 
@@ -242,5 +244,60 @@ describe('submitCodeReviewDecisionAction with an unacknowledged agreement', () =
 
         const result = await decide(study.id, org.slug)
         expect(() => actionResult(result)).not.toThrow()
+    })
+})
+
+// One refusal per remaining gated act. The states are covered above, so these only have to prove
+// the middleware is still on the chain: delete a line and one of them goes green-to-red.
+describe('every act the gate names runs the middleware', () => {
+    const arrange = async (orgType: 'lab' | 'enclave') => {
+        const { user, org } = await mockSessionWithTestData({ orgType })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+            withStudyAgreement: false,
+        })
+        await insertTestStudyAgreement({ studyId: study.id })
+        return { study, job, org }
+    }
+
+    it('refuses submitStudyCodeAction', async () => {
+        const { study } = await arrange('lab')
+
+        const result = await submitStudyCodeAction({
+            studyId: study.id,
+            mainFileName: 'main.R',
+            fileNames: ['main.R'],
+        })
+
+        expect(() => actionResult(result)).toThrow(/must be acknowledged/)
+    })
+
+    it('refuses resubmitStudyCodeAction', async () => {
+        const { study } = await arrange('lab')
+
+        const result = await resubmitStudyCodeAction({
+            studyId: study.id,
+            mainFileName: 'main.R',
+            fileNames: ['main.R'],
+            resubmissionNote: buildFeedback(10),
+        })
+
+        expect(() => actionResult(result)).toThrow(/must be acknowledged/)
+    })
+
+    it('refuses submitOutputsDecisionAction', async () => {
+        const { job, org } = await arrange('enclave')
+
+        const result = await submitOutputsDecisionAction({
+            orgSlug: org.slug,
+            studyJobId: job.id,
+            decision: 'share-feedback-only',
+            feedback: buildFeedback(60),
+            sharedFiles: [],
+        })
+
+        expect(() => actionResult(result)).toThrow(/must be acknowledged/)
     })
 })

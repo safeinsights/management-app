@@ -14,7 +14,7 @@ const MESSAGE = `The required Research Lab and Data Partner signatories have not
 
 type Props = {
     studyId: string
-    isVisible: boolean
+    isVisible?: boolean
     /** What the wait blocks for this reader. The reviewer call sites are not submitting code. */
     consequence?: string
 }
@@ -23,7 +23,7 @@ const UNREADABLE = `We could not check this study's ${legalDocumentTypeLabels.SL
 
 // Warning rather than info: an approved study with no agreement is now stalled, not merely waiting.
 // A test study is exempt, and reads as `exempt` rather than `none`.
-export const StudyAgreementPreparingNotice: FC<Props> = ({ studyId, isVisible, consequence }) => {
+export const StudyAgreementPreparingNotice: FC<Props> = ({ studyId, isVisible = true, consequence }) => {
     const { status, isUnreadable } = useStudyAgreementStatus(studyId)
     const waiting = consequence ? `${consequence} ${MESSAGE}` : MESSAGE
     const body = isUnreadable ? UNREADABLE : waiting
