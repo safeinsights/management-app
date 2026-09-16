@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import { db, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
+import type { StudyJobStatus } from '@/database/types'
 import { generateAndStoreStudyReview, PLACEHOLDER } from './runner'
 import { generateAnalysis } from './agent'
 import { fetchFileContents } from '@/server/storage'
@@ -36,6 +37,35 @@ const stubReport: AnalysisReport = {
     complianceCheck: { isCompliant: true, findings: [] },
 }
 
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
+
+const addStatus = (studyJobId: string, status: StudyJobStatus, createdAt: Date) =>
+    db.insertInto('jobStatusChange').values({ studyJobId, status, createdAt }).execute()
+
+const insertMainCode = (studyJobId: string) =>
+    db
+        .insertInto('studyJobFile')
+        .values({ studyJobId, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
+        .execute()
+
+// Submitted, changes requested, submitted again: the job now carries round 2's code.
+const resubmit = async (studyJobId: string) => {
+    await addStatus(studyJobId, 'CODE-CHANGES-REQUESTED', minutesAgo(20))
+    await addStatus(studyJobId, 'CODE-SUBMITTED', minutesAgo(10))
+}
+
+const storedReviews = (studyJobId: string) =>
+    db
+        .selectFrom('studyReview')
+        .select((eb) => [
+            'round',
+            'summaryFailedAt',
+            eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
+        ])
+        .where('studyJobId', '=', studyJobId)
+        .orderBy('round')
+        .execute()
+
 describe('generateAndStoreStudyReview', () => {
     beforeEach(async () => {
         generateAnalysisMock.mockResolvedValue({ report: stubReport, messages: [] })
@@ -59,17 +89,9 @@ describe('generateAndStoreStudyReview', () => {
             additionalNotes: lexicalJson('Notes text'),
         })
 
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'main.r',
-                path: 'studies/main.r',
-                fileType: 'MAIN-CODE',
-            })
-            .execute()
+        await insertMainCode(job.id)
 
-        await generateAndStoreStudyReview(job.id)
+        await generateAndStoreStudyReview(job.id, 1)
 
         expect(generateAnalysisMock).toHaveBeenCalledOnce()
         expect(generateDataSourcesContextStringMock).toHaveBeenCalledOnce()
@@ -90,21 +112,15 @@ describe('generateAndStoreStudyReview', () => {
         expect(content.referenceDocs.brcDocs).toBe(PLACEHOLDER)
         expect(content.referenceDocs.otherDocs).toBe(PLACEHOLDER)
 
-        const stored = await db
-            .selectFrom('studyReview')
-            .select('studyJobId')
-            .where('studyJobId', '=', job.id)
-            .executeTakeFirst()
-        expect(stored?.studyJobId).toBe(job.id)
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].round).toBe(1)
     })
 
     it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org, language: 'R' })
-        await db
-            .insertInto('studyJobFile')
-            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
-            .execute()
+        await insertMainCode(job.id)
         await db
             .insertInto('agentContext')
             .values([
@@ -113,14 +129,14 @@ describe('generateAndStoreStudyReview', () => {
             ])
             .execute()
 
-        await generateAndStoreStudyReview(job.id)
+        await generateAndStoreStudyReview(job.id, 1)
 
         const [config] = generateAnalysisMock.mock.calls[0] as [{ additionalContext: string }]
         expect(config.additionalContext).toContain('How SafeInsights works')
         expect(config.additionalContext).toContain('R language guidance')
     })
 
-    it('skips when a study review already exists for the job', async () => {
+    it('skips when a study review already exists for the round', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
         await db
@@ -128,16 +144,129 @@ describe('generateAndStoreStudyReview', () => {
             .values({ studyJobId: job.id, report: JSON.stringify(stubReport) })
             .execute()
 
-        await generateAndStoreStudyReview(job.id)
+        await generateAndStoreStudyReview(job.id, 1)
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
+    })
+
+    // The previous round's summary used to be deleted to make room for this one, which is what
+    // made a late write from that round indistinguishable from the current one (OTTER-779).
+    it('generates for a new round even though the previous round already has a summary', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, round: 1, report: JSON.stringify(stubReport) })
+            .execute()
+        await resubmit(job.id)
+
+        generateAnalysisMock.mockResolvedValue({
+            report: { ...stubReport, codeExplanation: 'the resubmitted code' },
+            messages: [],
+        })
+
+        await generateAndStoreStudyReview(job.id, 2)
+
+        expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        const stored = await storedReviews(job.id)
+        expect(stored.map((row) => row.round)).toEqual([1, 2])
+        expect(stored[0].report?.codeExplanation).toBe('explanation')
+        expect(stored[1].report?.codeExplanation).toBe('the resubmitted code')
+    })
+
+    it('does not run generation for a round that is already superseded', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
+        await resubmit(job.id)
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        expect(generateAnalysisMock).not.toHaveBeenCalled()
+        expect(await storedReviews(job.id)).toEqual([])
+    })
+
+    // The race the card reports: the run was current when it started and analysed the old code.
+    it('discards a report when the resubmit lands mid-run', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
+
+        generateAnalysisMock.mockImplementationOnce(async () => {
+            await resubmit(job.id)
+            return { report: stubReport, messages: [] }
+        })
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        expect(await storedReviews(job.id)).toEqual([])
+    })
+
+    // The inverted order, which the card calls the worse one: a stale failure used to overwrite a
+    // good report and show as a permanent error on code that was analysed successfully.
+    it('keeps the current round intact when a superseded run fails', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
+
+        generateAnalysisMock.mockImplementationOnce(async () => {
+            await resubmit(job.id)
+            await db
+                .insertInto('studyReview')
+                .values({ studyJobId: job.id, round: 2, report: JSON.stringify(stubReport) })
+                .execute()
+            throw new Error('model exploded')
+        })
+
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
+
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].round).toBe(2)
+        expect(stored[0].summaryFailedAt).toBeNull()
+        expect(stored[0].report).not.toBeNull()
+    })
+
+    // Two runs of ONE round can overlap too, and the failing one can be the older.
+    it('does not let a late failure replace a report from the same round', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
+
+        let failFirstRun = (_error: Error) => {}
+        generateAnalysisMock.mockImplementationOnce(
+            () =>
+                new Promise((_resolve, reject) => {
+                    failFirstRun = reject
+                }),
+        )
+        generateAnalysisMock.mockResolvedValueOnce({ report: stubReport, messages: [] })
+
+        const firstRun = generateAndStoreStudyReview(job.id, 1)
+        await vi.waitFor(() => expect(generateAnalysisMock).toHaveBeenCalledTimes(1))
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        failFirstRun(new Error('model exploded'))
+        await expect(firstRun).rejects.toThrow('model exploded')
+
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].summaryFailedAt).toBeNull()
+        expect(stored[0].report).not.toBeNull()
     })
 
     it('does not call the agent when no code files are attached to the job', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
 
-        await generateAndStoreStudyReview(job.id)
+        await generateAndStoreStudyReview(job.id, 1)
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
     })
@@ -147,35 +276,30 @@ describe('generateAndStoreStudyReview', () => {
         generateAnalysisMock.mockRejectedValue(boom)
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
-        await db
-            .insertInto('studyJobFile')
-            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
-            .execute()
+        await insertMainCode(job.id)
 
-        await expect(generateAndStoreStudyReview(job.id)).rejects.toThrow('model exploded')
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
 
         const stored = await db
             .selectFrom('studyReview')
-            .select(['report', 'summaryFailedAt'])
+            .select(['report', 'round', 'summaryFailedAt'])
             .where('studyJobId', '=', job.id)
             .executeTakeFirst()
         expect(stored?.report).toBeNull()
+        expect(stored?.round).toBe(1)
         expect(stored?.summaryFailedAt).toBeInstanceOf(Date)
     })
 
     it('re-runs generation when only a failed row exists (retry path)', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
-        await db
-            .insertInto('studyJobFile')
-            .values({ studyJobId: job.id, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
-            .execute()
+        await insertMainCode(job.id)
         await db
             .insertInto('studyReview')
             .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
             .execute()
 
-        await generateAndStoreStudyReview(job.id)
+        await generateAndStoreStudyReview(job.id, 1)
 
         expect(generateAnalysisMock).toHaveBeenCalledOnce()
         const stored = await db
@@ -192,7 +316,7 @@ describe('generateAndStoreStudyReview', () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
 
-        await generateAndStoreStudyReview(job.id)
+        await generateAndStoreStudyReview(job.id, 1)
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
 

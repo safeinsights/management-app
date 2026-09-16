@@ -10,6 +10,7 @@ import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -86,9 +87,8 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
-        // Otherwise generateAndStoreStudyReview short-circuits and keeps the stale
-        // summary for the resubmitted code (SHRMP-263).
-        await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
+        // The summary is kept: it is scoped to its own round, so the next one lands beside it
+        // rather than on top of it (OTTER-779). The scan log has no round of its own.
         discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
@@ -406,8 +406,12 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         if (latestJob) {
             await markCodeSubmitted(db, { studyJobId: latestJob.id, userId })
+            // Read after the CODE-SUBMITTED row and inside its transaction, so it names the round
+            // this code belongs to. A result that arrives after the next round opens is discarded
+            // against it rather than shown as current (OTTER-779).
+            const round = await codeRoundForJob(latestJob.id, db)
             triggerCodeScan(latestJob.id, orgSlug, studyId)
-            onStudyReviewRequested({ studyJobId: latestJob.id })
+            onStudyReviewRequested({ studyJobId: latestJob.id, round })
         }
 
         onStudyCreated({ userId, studyId })
@@ -534,6 +538,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         }
 
         await markCodeSubmitted(db, { studyJobId, userId })
+        const round = await codeRoundForJob(studyJobId, db)
 
         await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
 
@@ -543,7 +548,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
             onStudyCreated({ userId, studyId })
         }
 
-        onStudyReviewRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId, round })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
@@ -802,6 +807,9 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         // Lets the reviewer's feedback panel label note and decision with the same version
         // (OTTER-638).
         const resubmissionRound = await codeSubmissionVersion(studyId, db)
+        // The same number for every real history, but derived from the job the result will be
+        // written against, so a summary or a scan is never filed under a round the job is not on.
+        const round = await codeRoundForJob(studyJobId, db)
 
         await db
             .updateTable('studyJob')
@@ -816,7 +824,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .execute()
 
         onStudyCodeSubmitted({ userId, studyId })
-        onStudyReviewRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId, round })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

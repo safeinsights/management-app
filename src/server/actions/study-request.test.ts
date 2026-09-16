@@ -1452,7 +1452,7 @@ describe('Request Study Actions', () => {
             expect(newJob.resubmissionNote).not.toBeNull()
         })
 
-        it('clears the stale AI review so a fresh one is generated for the resubmitted code (SHRMP-263)', async () => {
+        it('generates a fresh AI review for the resubmitted code and keeps the previous round (OTTER-779)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -1460,6 +1460,8 @@ describe('Request Study Actions', () => {
                 studyStatus: 'APPROVED',
                 jobStatus: 'CODE-CHANGES-REQUESTED',
             })
+            // The round the change request was asked about, so the resubmit opens round 2.
+            await insertStatus(job.id, 'CODE-SUBMITTED')
             const staleExplanation = 'Summary of the previously submitted code'
             await db
                 .insertInto('studyReview')
@@ -1492,6 +1494,16 @@ describe('Request Study Actions', () => {
 
             const review = await getStudyReviewForJob(await latestJobForStudy(study.id))
             expect(review?.report?.codeExplanation).not.toBe(staleExplanation)
+
+            // The previous round keeps its own row rather than being destroyed to make room, which
+            // is what lets a late write be told from the current one.
+            const rounds = await db
+                .selectFrom('studyReview')
+                .select('round')
+                .where('studyJobId', '=', job.id)
+                .orderBy('round')
+                .execute()
+            expect(rounds.map((row) => row.round)).toEqual([1, 2])
         })
 
         it('rejects an empty note', async () => {

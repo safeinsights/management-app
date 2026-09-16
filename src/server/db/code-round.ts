@@ -4,37 +4,44 @@ import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 // The round of the code currently attached to a job, which is the round of its latest submission.
 // codeSubmissionVersion moves on the moment a reviewer requests changes, which is too early for a
-// result that describes the code still on the job: a scan or summary landing in that window belongs
-// to the round that produced it (OTTER-779).
+// result that describes the code still on the job: a scan or a summary landing in that window
+// belongs to the round that produced it (OTTER-779).
+//
+// Counted rather than compared against the latest submission's timestamp, because statuses written
+// in one transaction tie on createdAt and a change request that ties with the resubmit it triggered
+// would drop out of that comparison (OTTER-552). Submissions and change requests strictly alternate
+// on a job (markCodeSubmitted enforces it), so its Nth submission follows N-1 of its own change
+// requests, and every closer on the study's other jobs predates this job entirely.
 export async function codeRoundForJob(studyJobId: string, executor: DBExecutor = db): Promise<number> {
-    const job = await executor
+    const { studyId } = await executor
         .selectFrom('studyJob')
-        .select((eb) => [
-            'studyJob.studyId',
-            eb
-                .selectFrom('jobStatusChange')
-                .select(({ fn }) => fn.max('jobStatusChange.createdAt').as('at'))
-                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
-                .as('submittedAt'),
-        ])
-        .where('studyJob.id', '=', studyJobId)
+        .select('studyId')
+        .where('id', '=', studyJobId)
         .executeTakeFirstOrThrow(throwNotFound(`study job ${studyJobId}`))
 
     // Counted across the study's jobs, not this one: a results decision opens a fresh job, and the
     // round has to keep climbing across that boundary (OTTER-556/558).
-    const closers = await executor
+    const counts = await executor
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-        .select((eb) => eb.fn.countAll().as('count'))
-        .where('studyJob.studyId', '=', job.studyId)
-        .where('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
-        // A job awaiting its first submission has no boundary of its own, so every closer so far
-        // counts and the answer matches codeSubmissionVersion.
-        .where('jobStatusChange.createdAt', '<', job.submittedAt ?? new Date())
-        .executeTakeFirst()
+        .select((eb) => [
+            eb.fn
+                .count<number>('jobStatusChange.id')
+                .filterWhere('jobStatusChange.studyJobId', '!=', studyJobId)
+                .filterWhere('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
+                .as('closedElsewhere'),
+            eb.fn
+                .count<number>('jobStatusChange.id')
+                .filterWhere('jobStatusChange.studyJobId', '=', studyJobId)
+                .filterWhere('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+                .as('submissions'),
+        ])
+        .where('studyJob.studyId', '=', studyId)
+        .executeTakeFirstOrThrow()
 
-    return Number(closers?.count ?? 0) + 1
+    // A job still waiting for its first submission carries no code of its own, so it reads as the
+    // round the study is about to submit, matching codeSubmissionVersion.
+    return 1 + Number(counts.closedElsewhere) + Math.max(0, Number(counts.submissions) - 1)
 }
 
 export async function isCurrentCodeRound(

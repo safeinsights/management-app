@@ -4,6 +4,7 @@ import { extractTextFromLexical } from '@/lib/lexical'
 import { generateAnalysis } from './agent'
 import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
+import { isCurrentCodeRound } from '@/server/db/code-round'
 import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
 import { getAgentContextString } from '@/lib/agent-context'
@@ -114,35 +115,43 @@ async function assembleReviewContent(
     return { content, agentContext }
 }
 
-export async function generateAndStoreStudyReview(studyJobId: string): Promise<void> {
-    logger.info(`Generating study review`, { studyJobId })
+export async function generateAndStoreStudyReview(studyJobId: string, round: number): Promise<void> {
+    logger.info(`Generating study review`, { studyJobId, round })
+
+    // Generation takes minutes, so the code it was started for can already have been replaced.
+    // Checked again before each write, since the resubmit can also land mid-run (OTTER-779).
+    if (!(await isCurrentCodeRound(studyJobId, round))) {
+        logger.info(`Study review round is no longer current, skipping`, { studyJobId, round })
+        return
+    }
 
     const existing = await db
         .selectFrom('studyReview')
         .select(['id', 'summaryFailedAt'])
         .where('studyJobId', '=', studyJobId)
+        .where('round', '=', round)
         .executeTakeFirst()
-    // A prior failure row is not terminal; only a successful row short-circuits.
+    // A prior failure row for this round is not terminal; only a successful row short-circuits.
     if (existing && existing.summaryFailedAt == null) {
-        logger.info(`Study review already exists, skipping`, { studyJobId })
+        logger.info(`Study review already exists, skipping`, { studyJobId, round })
         return
     }
 
     try {
-        await runStudyReview(studyJobId)
+        await runStudyReview(studyJobId, round)
     } catch (error) {
         // Lets the reviewer-side poll tell "failed" from "still generating"; re-thrown so the
         // deferred wrapper still flushes to Sentry.
-        await persistFailure(studyJobId)
+        await persistFailure(studyJobId, round)
         throw error
     }
 }
 
-async function runStudyReview(studyJobId: string): Promise<void> {
+async function runStudyReview(studyJobId: string, round: number): Promise<void> {
     const apiKey = await getConfigValue('CLAUDE_API_KEY', false)
     if (!apiKey) {
-        logger.warn('CLAUDE_API_KEY not configured — writing disabled-review placeholder', { studyJobId })
-        await persistReport(studyJobId, DISABLED_REPORT)
+        logger.warn('CLAUDE_API_KEY not configured, writing disabled-review placeholder', { studyJobId })
+        await persistReport(studyJobId, round, DISABLED_REPORT)
         return
     }
 
@@ -153,25 +162,46 @@ async function runStudyReview(studyJobId: string): Promise<void> {
     // TODO(chat): persist `messages` alongside `report` once chat follow-up lands.
     const { report } = await generateAnalysis({ apiKey, additionalContext: agentContext }, content)
 
-    await persistReport(studyJobId, report)
-    logger.info(`Study review generated and stored`, { studyJobId })
+    await persistReport(studyJobId, round, report)
+    logger.info(`Study review generated and stored`, { studyJobId, round })
 }
 
-async function persistReport(studyJobId: string, report: AnalysisReport): Promise<void> {
+// A run that outlived its round describes code nobody is reviewing any more, so its result is
+// dropped rather than stored (OTTER-779).
+async function roundWasSuperseded(studyJobId: string, round: number): Promise<boolean> {
+    if (await isCurrentCodeRound(studyJobId, round)) return false
+    logger.warn(`Discarding a study review for a superseded round`, { studyJobId, round })
+    return true
+}
+
+async function persistReport(studyJobId: string, round: number, report: AnalysisReport): Promise<void> {
+    if (await roundWasSuperseded(studyJobId, round)) return
+
     // A retry may have left a cleared failure row; overwrite it with the result.
     await db
         .insertInto('studyReview')
-        .values({ studyJobId, report: JSON.stringify(report), summaryFailedAt: null })
+        .values({ studyJobId, round, report: JSON.stringify(report), summaryFailedAt: null })
         .onConflict((oc) =>
-            oc.column('studyJobId').doUpdateSet({ report: JSON.stringify(report), summaryFailedAt: null }),
+            oc
+                .columns(['studyJobId', 'round'])
+                .doUpdateSet({ report: JSON.stringify(report), summaryFailedAt: null }),
         )
         .execute()
 }
 
-async function persistFailure(studyJobId: string): Promise<void> {
+async function persistFailure(studyJobId: string, round: number): Promise<void> {
+    if (await roundWasSuperseded(studyJobId, round)) return
+
     await db
         .insertInto('studyReview')
-        .values({ studyJobId, report: null, summaryFailedAt: new Date() })
-        .onConflict((oc) => oc.column('studyJobId').doUpdateSet({ report: null, summaryFailedAt: new Date() }))
+        .values({ studyJobId, round, report: null, summaryFailedAt: new Date() })
+        .onConflict((oc) =>
+            oc
+                .columns(['studyJobId', 'round'])
+                .doUpdateSet({ report: null, summaryFailedAt: new Date() })
+                // Two runs of one round can overlap, and the failing one may be the older. A report
+                // the reviewer is already reading is never replaced by a failure.
+                .where('studyReview.summaryFailedAt', 'is not', null),
+        )
         .execute()
 }

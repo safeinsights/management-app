@@ -40,6 +40,20 @@ describe('codeRoundForJob', () => {
         expect(await codeRoundForJob(job.id)).toBe(await codeSubmissionVersion(study.id))
     })
 
+    // Statuses written in one transaction share a createdAt (OTTER-552), so a change request can
+    // tie with the resubmit it triggered. Comparing timestamps drops it and reads the job as a
+    // round behind.
+    it('counts a change request that ties with the resubmit on createdAt', async () => {
+        const { study, job } = await insertTestStudyJobData({})
+        const tied = minutesAgo(10)
+        await addStatus(job.id, 'CODE-SUBMITTED', tied)
+        await addStatus(job.id, 'CODE-CHANGES-REQUESTED', tied)
+        await addStatus(job.id, 'CODE-SUBMITTED', tied)
+
+        expect(await codeRoundForJob(job.id)).toBe(2)
+        expect(await codeRoundForJob(job.id)).toBe(await codeSubmissionVersion(study.id))
+    })
+
     // A results decision opens a fresh job; the round must not reset to 1 there (OTTER-556/558).
     it('keeps climbing across a results-decision job boundary', async () => {
         const { study, job: firstJob } = await insertTestStudyJobData({})
