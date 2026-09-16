@@ -71,7 +71,7 @@ export const StudyCode = ({
     onSubmitSuccess,
 }: StudyCodeProps) => {
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
-    const [submitError, setSubmitError] = useState<string | null>(null)
+    const [submitAttempted, setSubmitAttempted] = useState(false)
     const footerRef = useRef<HTMLDivElement>(null)
 
     /**
@@ -86,14 +86,15 @@ export const StudyCode = ({
 
     const ide = useIDEFiles({ studyId, onSubmitSuccess, onSubmitError: handleSubmitError })
 
+    // Derived rather than snapshotted at click time, so the message tracks the same data the button
+    // does: fix the problem and it goes, break it again and it comes back.
+    const submitError = submitAttempted ? ide.submitDisabledReason : null
+
     // The card's rule: the button always clicks, and a blocked attempt says why.
     const handleSubmitClick = () => {
-        if (ide.submitDisabledReason) {
-            setSubmitError(ide.submitDisabledReason)
-            return
-        }
+        setSubmitAttempted(true)
+        if (ide.submitDisabledReason) return
 
-        setSubmitError(null)
         openConfirm()
     }
 

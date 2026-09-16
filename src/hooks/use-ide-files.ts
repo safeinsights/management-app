@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
-import { notifications } from '@mantine/notifications'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
@@ -165,11 +164,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
 
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileNames.length === 0 && !workspace.isLoading && !userEditedFiles
-    const canSubmit = mainFile !== '' && fileNames.length > 0 && filesChanged
-
     /**
-     * Shown only after a blocked click. OTTER-647: the main file has no field to blur, being a star,
-     * so its reason is named here rather than through useField.
+     * Why a submit would be refused, or null when it would go through. OTTER-647: the main file has
+     * no field to blur, being a star, so its reason is named here rather than through useField.
      */
     const submitDisabledReason = (() => {
         if (fileNames.length === 0) return NO_CHANGES_MESSAGE
@@ -177,6 +174,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         if (!filesChanged) return NO_CHANGES_MESSAGE
         return null
     })()
+
+    // Derived, so the button state and the message it explains cannot drift apart.
+    const canSubmit = submitDisabledReason === null
 
     // Where the star sat before the current optimistic move, so a rejected save can put it back.
     const previousMainFileRef = useRef<string | null>(null)
@@ -351,17 +351,12 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         },
     })
 
+    // No client-side guard: the confirmation only opens when submitDisabledReason is null, and the
+    // modal blocks any further interaction until it is answered. If the workspace changed underneath
+    // anyway, submitStudyCodeAction rejects an empty list or a main file that is not in it.
     const submitDirectly = useCallback(() => {
-        if (!canSubmit) {
-            notifications.show({
-                color: 'red',
-                title: 'Cannot proceed',
-                message: 'Please add files and select a main file first.',
-            })
-            return
-        }
         submitMutation.mutate()
-    }, [canSubmit, submitMutation])
+    }, [submitMutation])
 
     return {
         launchWorkspace,

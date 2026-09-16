@@ -980,7 +980,9 @@ describe('StudyCode component', () => {
             expect(region).toHaveTextContent(/select a main file to submit/i)
         })
 
-        it('clears the message once the problem is fixed and the submit goes through', async () => {
+        // The message is derived from the same reason the button is, so fixing the problem clears it
+        // on the spot. Asserting only after a second click could not tell that from a stale snapshot.
+        it('clears the message as soon as the problem is fixed, without another click', async () => {
             const user = userEvent.setup()
             await renderIDE('openstax-lab', { 'a.R': 'print(1)', 'b.R': 'print(2)' })
             await waitFor(() => expect(screen.getByText('b.R')).toBeInTheDocument())
@@ -989,9 +991,10 @@ describe('StudyCode component', () => {
             expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
 
             await setMainFileTo(user, 'a.R')
-            await openSubmitConfirmation(user)
 
-            expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
+            await waitFor(() => {
+                expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
+            })
         })
     })
 
