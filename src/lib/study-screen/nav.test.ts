@@ -58,13 +58,31 @@ describe('resolveStepNav — spec pattern invariants', () => {
         ['code-approved', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED' })],
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-CHANGES-REQUESTED' })],
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-REJECTED' })],
+        ['outputs-pending', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED' })],
         ['outputs-awaiting-review', state({ status: 'APPROVED', isDraft: false, hasResults: true })],
         ['outputs-shared', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })],
         ['outputs-feedback', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true })],
+        [
+            'outputs-errored-shared',
+            state({
+                status: 'APPROVED',
+                isDraft: false,
+                hasResults: true,
+                resultsApproved: true,
+                resultsErrored: true,
+            }),
+        ],
     ]
 
     it.each(everyScreen)('%s carries exactly one solid action', (screen, s) => {
         expect(solids(resolveStepNav(screen, s, ctx))).toBe(1)
+    })
+
+    // Rows are hand-written, and this table is the only place the invariant is pinned, so a screen
+    // missing from it loses the check silently.
+    it('exercises the invariant on every researcher screen', () => {
+        const covered = [...new Set(everyScreen.map(([screen]) => screen))].sort()
+        expect(covered).toEqual(Object.keys(RESEARCHER_STEP_NAV).sort())
     })
 
     it('"Previous step" is always the quietest treatment', () => {
