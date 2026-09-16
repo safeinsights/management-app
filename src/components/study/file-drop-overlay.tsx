@@ -3,7 +3,6 @@
 import { useRef, useState, type ReactNode, type DragEvent, type RefObject } from 'react'
 import { Anchor, Box, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { Dropzone, type FileWithPath } from '@mantine/dropzone'
-import { notifications } from '@mantine/notifications'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import {
     ACCEPTED_FILE_TYPES,
@@ -13,6 +12,7 @@ import {
     MAX_UPLOAD_FILE_TEXT,
 } from '@/lib/types'
 import { showUploadFailed } from './upload-notifications'
+import { showToast } from '@/components/toast-notifications'
 
 function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
@@ -106,11 +106,11 @@ export function FileDropOverlay({
         const accepted = files.filter((f) => hasAcceptedExtension(f.name) && f.size <= MAX_UPLOAD_FILE_BYTES)
 
         if (wrongType.length > 0) {
-            notifications.show({
-                color: 'red',
-                title: 'Unsupported file type',
-                message: `${wrongType.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
-            })
+            showToast(
+                'error',
+                'Unsupported file type',
+                `${wrongType.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
+            )
         }
 
         // One toast per file rather than a combined one: OTTER-693 names the file in the title, so

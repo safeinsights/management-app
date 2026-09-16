@@ -1099,6 +1099,18 @@ describe('StudyCode component', () => {
             return result.files.map((f) => f.name).sort()
         }
 
+        /**
+         * Makes an upload of `fileName` fail for real rather than by mocking: writing over a
+         * directory throws EISDIR, and the listing skips directories so the name does not read as a
+         * duplicate either.
+         */
+        const blockUploadOf = async (studyId: string, fileName: string) => {
+            const { CODER_DISABLED } = await import('@/server/config')
+            const root = process.env.CODER_FILES as string
+            const dir = CODER_DISABLED ? root : path.join(root, studyId)
+            await fs.mkdir(path.join(dir, fileName), { recursive: true })
+        }
+
         it('renders the section with its copy and the upload link', async () => {
             await renderWithFiles()
 
@@ -1147,13 +1159,7 @@ describe('StudyCode component', () => {
         it('leaves the save indicator idle when every upload fails', async () => {
             const { study } = await renderWithFiles()
 
-            // A real server-side failure rather than a mocked one: writing over a directory throws
-            // EISDIR, and the listing skips directories so this does not read as a duplicate name.
-            const { CODER_DISABLED } = await import('@/server/config')
-            const root = process.env.CODER_FILES as string
-            await fs.mkdir(path.join(CODER_DISABLED ? root : path.join(root, study.id), 'extra.R'), {
-                recursive: true,
-            })
+            await blockUploadOf(study.id, 'extra.R')
 
             await userEvent.setup().upload(fileInput(), codeFile('extra.R'))
 
@@ -1164,6 +1170,26 @@ describe('StudyCode component', () => {
             })
             // Nothing landed, so the page must not claim otherwise.
             expect(screen.queryByText('All changes saved')).not.toBeInTheDocument()
+        })
+
+        // The card's rule is that one bad file does not abandon the batch. Every other upload test
+        // uploads a single file, so reverting the loop's `continue` to a `throw` would not be caught.
+        it('uploads the rest of the batch when an earlier file fails', async () => {
+            const { study } = await renderWithFiles()
+            await blockUploadOf(study.id, 'bad.R')
+
+            await userEvent.setup().upload(fileInput(), [codeFile('bad.R'), codeFile('good.R')])
+
+            await waitFor(async () => {
+                expect(await workspaceNames(study.id)).toContain('good.R')
+            })
+            // Each file reports its own outcome, which is what later work keys off.
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'bad.R failed to upload.', 'data-toast-kind': 'error' }),
+            )
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'good.R is uploaded.', 'data-toast-kind': 'success' }),
+            )
         })
 
         it('categorises its toasts so later logic can key on the kind, not the colour', async () => {
@@ -1186,6 +1212,20 @@ describe('StudyCode component', () => {
                 await screen.findByText('Replace existing file?')
                 return rendered
             }
+
+            // The collision is asked about one file at a time; the rest of the batch must not wait
+            // on the answer. Single-file uploads elsewhere never exercise the fresh/colliding split.
+            it('uploads the non-colliding file while asking about the colliding one', async () => {
+                const { study } = await renderWithFiles()
+
+                await userEvent.setup().upload(fileInput(), [codeFile('main.R', 'print("new")'), codeFile('fresh.R')])
+
+                await waitFor(async () => {
+                    expect(await workspaceNames(study.id)).toContain('fresh.R')
+                })
+                const heading = await screen.findByText('Replace existing file?')
+                expect(heading.closest('[role="dialog"]')).toHaveTextContent('A file named main.R already exists')
+            })
 
             it('asks before overwriting, naming the file', async () => {
                 await uploadColliding()
