@@ -90,8 +90,14 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
-        // The summary is kept: it is scoped to its own round, so the next one lands beside it
-        // rather than on top of it (OTTER-779). The scan log has no round of its own.
+        // Earlier rounds keep their summaries, which is what the round column is for. This round's
+        // goes, because a replacement the reviewer has not yet decided on opens no new round: its
+        // summary would otherwise describe deleted code and short-circuit the regeneration that
+        // follows (SHRMP-263, OTTER-779).
+        if (await roundIsAlreadySubmitted(db, studyJobId)) {
+            const round = await codeRoundForJob(studyJobId, db)
+            await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).where('round', '=', round).execute()
+        }
         discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
@@ -120,9 +126,11 @@ async function attachCodeToRoundJob(
     return { studyJobId, discardedScanLogPaths }
 }
 
-// Once per submission round, not per job: a change-requested resubmit stays on the same job,
-// so the round is already submitted iff submitted-count > change-requested-count.
-async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
+// Once per submission round, not per job: a change-requested resubmit stays on the same job, and
+// submissions and change requests alternate on it, so the round this job is on has been submitted
+// iff submitted-count > change-requested-count. A further upload while that holds replaces the
+// round's code without opening a new round.
+async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
     const counts = await db
         .selectFrom('jobStatusChange')
         .select((eb) => [
@@ -132,8 +140,11 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
         .where('studyJobId', '=', studyJobId)
         .executeTakeFirstOrThrow()
 
-    const currentRoundAlreadySubmitted = Number(counts.submitted) > Number(counts.requested)
-    if (currentRoundAlreadySubmitted) return
+    return Number(counts.submitted) > Number(counts.requested)
+}
+
+async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
+    if (await roundIsAlreadySubmitted(db, studyJobId)) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 

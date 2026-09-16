@@ -1078,6 +1078,14 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
                 .then((r) => Number(r.n))
 
+        const summariesFor = (studyJobId: string) =>
+            db
+                .selectFrom('studyReview')
+                .select(['round', 'report'])
+                .where('studyJobId', '=', studyJobId)
+                .orderBy('round')
+                .execute()
+
         const submitCode = (studyId: string, root: string, files: Record<string, string>, mainFileName: string) =>
             writeWorkspaceFiles(root, studyId, files).then(() =>
                 actionResult(submitStudyCodeAction({ studyId, mainFileName, fileNames: Object.keys(files) })),
@@ -1132,6 +1140,71 @@ describe('Request Study Actions', () => {
             ])
             expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
             expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        // The summary is keyed by (job, round), and a replacement before the reviewer has decided
+        // opens no new round, so the row left behind would stand as the summary of code that no
+        // longer exists and would stop a new one being generated (SHRMP-263, OTTER-779).
+        it('drops the round summary when files are replaced before review', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-summary-replaced')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'v1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify({ codeExplanation: 'describes v1' }) })
+                .where('studyJobId', '=', job.id)
+                .execute()
+
+            await submitCode(study.id, root, { 'main.R': 'v2' }, 'main.R')
+
+            expect(await summariesFor(job.id)).toEqual([])
+        })
+
+        it('keeps the earlier round summary when a change request opens the next round', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-summary-kept')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify({ codeExplanation: 'describes round 1' }) })
+                .where('studyJobId', '=', job.id)
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: 'addressed the feedback and updated the code',
+                }),
+            )
+
+            expect(await summariesFor(job.id)).toEqual([{ round: 1, report: { codeExplanation: 'describes round 1' } }])
         })
 
         it('resubmitting after change-requested REUSES the round job (same job, second submission)', async () => {
