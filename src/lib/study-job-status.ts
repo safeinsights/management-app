@@ -74,6 +74,14 @@ export const ROUND_CLOSING_JOB_STATUSES = [
     'FILES-REJECTED',
 ] as const satisfies readonly StudyJobStatus[]
 
+// Closes a submission round rather than the job: a change request reopens the same job for new code.
+// CODE-REJECTED is omitted because reject is terminal (see codeSubmissionVersion).
+export const CODE_ROUND_CLOSING_JOB_STATUSES = [
+    'CODE-CHANGES-REQUESTED',
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+] as const satisfies readonly StudyJobStatus[]
+
 // Counted rather than read off the latest status: statuses written in one transaction tie on
 // createdAt, and v7 ids are not monotonic within a millisecond (OTTER-552).
 export const latestSubmittedJobHasLiveCodeDecision = (

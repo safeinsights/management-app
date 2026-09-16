@@ -6,7 +6,7 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
+import { CODE_ROUND_CLOSING_JOB_STATUSES, latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
@@ -163,7 +163,7 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
-        .where('jobStatusChange.status', 'in', ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'])
+        .where('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
     return Number(row?.count ?? 0) + 1
