@@ -53,8 +53,9 @@ export type StudyState = {
     resultsApproved: boolean
     resultsRejected: boolean
     resultsErrored: boolean
-    // Narrower than resultsErrored: the scanner and containerizer also write JOB-ERRORED, so a
-    // packaging error before a good run leaves both that and RUN-COMPLETE on the job (OTTER-697).
+    // Narrower than resultsErrored: false once a RUN-COMPLETE joins the error on one job. Rare but
+    // reachable, since the results callback and PUT /api/job/[jobId] both accept JOB-ERRORED followed
+    // by RUN-COMPLETE on the same job, and no round-closing status blocks either one.
     runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
     submissionRound: number

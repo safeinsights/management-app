@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { captureException } from '@sentry/nextjs'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
@@ -16,7 +17,9 @@ import {
 import type { StudyJobFileAction } from '@/database/types'
 import type { JobFileActivity } from '@/server/db/queries'
 
-const activityQueryKey = (jobId: string) => ['job-file-activity', jobId]
+// Keyed on the org too: a dual-role user moving between the two sides of one study must not be
+// served the other side's rows from cache (OTTER-783).
+const activityQueryKey = (jobId: string, orgSlug: string) => ['job-file-activity', jobId, orgSlug]
 
 const rowKey = (file: JobFileInfo) => `${file.sourceId}:${file.path}`
 
@@ -33,13 +36,14 @@ type UseOutputsFilesOptions = {
 }
 
 export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOptions) {
+    const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [viewing, setViewing] = useState<OutputFileRowData | null>(null)
     const [isPreparingZip, setIsPreparingZip] = useState(false)
 
     const { data: activity, isError: hasActivityFailed } = useQuery({
-        queryKey: activityQueryKey(jobId),
-        queryFn: () => fetchJobFileActivityAction({ jobId }),
+        queryKey: activityQueryKey(jobId, orgSlug),
+        queryFn: () => fetchJobFileActivityAction({ jobId, orgSlug }),
         // Opts this poll in to the shared reporter, so a reviewer learns that the column is stale
         // rather than reading the last good rows as current (OTTER-726).
         meta: { errorMessage: 'Failed to load file activity' },
@@ -52,6 +56,7 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
             actionResult(
                 await recordJobFileActivityAction({
                     jobId,
+                    orgSlug,
                     files: variables.files.map((file) => ({
                         studyJobFileId: file.studyJobFileId,
                         filePath: file.filePath,
@@ -64,7 +69,7 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         onError: (error) => captureException(error),
         // Refetch rather than optimistically patch: the row shows the actor's name and the
         // server's timestamp, neither of which the client can produce accurately.
-        onSettled: () => queryClient.invalidateQueries({ queryKey: activityQueryKey(jobId) }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: activityQueryKey(jobId, orgSlug) }),
     })
 
     const rows = useMemo<OutputFileRowData[]>(() => {

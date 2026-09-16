@@ -26,6 +26,10 @@ export default async function StudyEditAndResubmitRoute(props: {
     const isLabMember = Object.values(session.orgs).some((o) => o.id === study.submittedByOrgId)
     if (!isLabMember) return notFound()
 
+    // Resolved server-side: the browser only knows the viewer's Clerk id, not the database user
+    // id researcherId records.
+    const isDraftCreator = session.user.id === study.researcherId
+
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
     if ('error' in entriesResult) return notFound()
     const entries = entriesResult
@@ -64,6 +68,8 @@ export default async function StudyEditAndResubmitRoute(props: {
                     feedbackEntries={entries}
                     noteVersion={noteVersion}
                     initialNote={initialNote}
+                    studyTitle={study.title}
+                    isDraftCreator={isDraftCreator}
                 />
             </EditResubmitProvider>
         </Stack>

@@ -78,8 +78,9 @@ export const DRAFT_REQUIRED_ERRORS = {
     piName: 'Select a Principal Investigator before continuing.',
 } as const
 
-// On a DRAFT the title lives on Step 1 (OTTER-690); requiring an unrendered field would block
-// submit with nothing to clear (OTTER-647).
+// Neither the Step 2 page (OTTER-690) nor the Edit proposal page (OTTER-762) renders the title,
+// Step 1 owns it; requiring an unrendered field would block submit with nothing to clear
+// (OTTER-647).
 export const draftProposalFormSchema = proposalFieldsSchema
     .omit({ title: true })
     .extend({
@@ -109,6 +110,11 @@ export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piUserId', 'piName'] as const
 
 export type CollabFieldKey = (typeof COLLAB_FIELD_KEYS)[number]
+
+// The keys the proposal pages co-edit. `title` is excluded because neither page renders it, so a
+// stale value pulled in from the shared Yjs map could reach the study row unseen (OTTER-690,
+// OTTER-762).
+export const PROPOSAL_PAGE_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
 
 export const initialProposalValues: ProposalFormValues = {
     title: '',

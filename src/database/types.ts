@@ -304,6 +304,7 @@ export interface StudyJobFileActivity {
     createdAt: Generated<Timestamp>
     filePath: string
     id: Generated<string>
+    orgId: string
     studyJobFileId: string
     userId: string
 }

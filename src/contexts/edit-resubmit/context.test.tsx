@@ -2,6 +2,7 @@ import { type Mock, describe, expect, it, vi } from 'vitest'
 import { useParams } from 'next/navigation'
 import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
+import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { EditResubmitProvider, useEditResubmit } from './context'
 import { resubmitProposalAction, saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
 
@@ -156,37 +157,51 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         expect(screen.getByLabelText('Resubmission note')).toHaveValue(draft)
     })
 
-    // OTTER-690: unlike the DRAFT page, this flow still renders an editable collaborative title, so
-    // reusing the DRAFT resolver here would let a titleless resubmission reach submit.
-    describe('title ownership (OTTER-690)', () => {
-        const renderTitleProbe = (title: string) => {
+    // OTTER-762: the title field left this page, so requiring it would block Resubmit against a
+    // field that is not on the page (OTTER-647).
+    describe('title ownership (OTTER-762)', () => {
+        const renderValidityProbe = (draftData: Partial<ProposalFormValues>) => {
             ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
 
             renderWithProviders(
-                <EditResubmitProvider studyId={STUDY_ID} draftData={{ title }}>
-                    <TitleValidityProbe />
+                <EditResubmitProvider studyId={STUDY_ID} draftData={draftData}>
+                    <ValidityProbe />
                 </EditResubmitProvider>,
             )
         }
 
-        it('still reports a blank title as invalid', () => {
-            renderTitleProbe('')
-            expect(screen.getByTestId('title-valid')).toHaveTextContent('false')
+        it('no longer reports a blank title as invalid', () => {
+            renderValidityProbe({ title: '' })
+            expect(screen.getByTestId('title-valid')).toHaveTextContent('true')
         })
 
-        it('accepts a real title', () => {
-            renderTitleProbe('A resubmitted study')
-            expect(screen.getByTestId('title-valid')).toHaveTextContent('true')
+        it('still requires the fields the page does render, with the card wording', () => {
+            renderValidityProbe({ datasets: [] })
+            expect(screen.getByTestId('datasets-valid')).toHaveTextContent('false')
+        })
+
+        // A persisted NULL reaches the provider as `undefined`, which wins in an object spread and
+        // would blank the matching initial value.
+        it('falls back to the initial values when the draft carries undefined fields', () => {
+            renderValidityProbe({ datasets: undefined, piName: undefined })
+            expect(screen.getByTestId('datasets-valid')).toHaveTextContent('false')
+            expect(screen.getByTestId('datasets-value')).toHaveTextContent('[]')
         })
     })
 })
 
 // `isValid` rather than `validate`: validate writes the error state, which re-renders the probe,
 // which validates again.
-function TitleValidityProbe() {
+function ValidityProbe() {
     const { form } = useEditResubmit()
 
-    return <span data-testid="title-valid">{String(form.isValid('title'))}</span>
+    return (
+        <>
+            <span data-testid="title-valid">{String(form.isValid('title'))}</span>
+            <span data-testid="datasets-valid">{String(form.isValid('datasets'))}</span>
+            <span data-testid="datasets-value">{JSON.stringify(form.values.datasets)}</span>
+        </>
+    )
 }
 
 // Forces the mock shape to match the real module.

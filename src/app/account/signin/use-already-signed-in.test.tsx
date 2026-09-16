@@ -1,7 +1,9 @@
 import { renderHook, act, type Mock } from '@/tests/unit.helpers'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
+import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
+import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import posthog from 'posthog-js'
@@ -28,6 +30,12 @@ const refusedArrival = (target = '%2Fopenstax%2Fdashboard') =>
 describe('useAlreadySignedIn', () => {
     beforeEach(() => {
         memoryRouter.setCurrentUrl('/account/signin')
+        ;(notifications.show as Mock).mockClear()
+    })
+
+    // Only the timeout test below runs on fake timers; this is a no-op for the rest.
+    afterEach(() => {
+        vi.useRealTimers()
     })
 
     it('reports loading until Clerk has loaded', () => {
@@ -250,5 +258,34 @@ describe('useAlreadySignedIn', () => {
 
         expect(result.current.status).toBe('signed-out')
         expect(result.current.isSwitching).toBe(false)
+    })
+
+    // OTTER-745: rejecting and never settling are different failures, and only the first was
+    // covered. Offline this left the user on a spinner with no way off the panel.
+    it('switchAccount reveals the form even when signOut never settles', async () => {
+        vi.useFakeTimers()
+        const signOut = vi.fn().mockReturnValue(new Promise<void>(() => {}))
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        mockSignedInUser()
+
+        const { result } = renderHook(() => useAlreadySignedIn())
+        let switching: Promise<void> | undefined
+        act(() => {
+            switching = result.current.switchAccount()
+        })
+        expect(result.current.isSwitching).toBe(true)
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(SIGN_OUT_TIMEOUT_MS)
+            await switching
+        })
+
+        expect(result.current.status).toBe('signed-out')
+        expect(result.current.isSwitching).toBe(false)
+        // The sentence is written for the user, so it must not carry an `Error:` prefix from
+        // errorToString. Anchored because reportError may append a Sentry reference.
+        const [toast] = (notifications.show as Mock).mock.calls[0]
+        expect(toast.title).toBe('Failed to sign out while switching accounts')
+        expect(toast.message).toMatch(/^Signing out took too long\. Your connection may be down\./)
     })
 })
