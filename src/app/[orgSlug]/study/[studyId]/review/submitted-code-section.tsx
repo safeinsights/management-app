@@ -1,8 +1,13 @@
-import { Anchor, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
+import { Button, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
+import type { Ref } from 'react'
 import { Routes } from '@/lib/routes'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import {
+    FULL_STUDY_CODE_TOGGLE_LABELS,
+    StudyCodeToggle,
+} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
@@ -11,20 +16,20 @@ function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
         <Group justify="space-between" align="center" wrap="nowrap" data-testid="submitted-code-header">
             <Title order={3} fz={18} fw={700}>
-                Submitted code
+                Submission details
             </Title>
-            <Anchor
+            <Button
+                component="a"
                 href={proposalHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                variant="outline"
                 size="sm"
-                display="inline-flex"
-                style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}
+                rightSection={<ArrowSquareOut size={14} />}
                 data-testid="view-approved-initial-request"
             >
-                View approved initial request
-                <ArrowSquareOut size={14} />
-            </Anchor>
+                View approved proposal
+            </Button>
         </Group>
     )
 }
@@ -56,12 +61,35 @@ type SubmittedCodeSectionProps = {
     job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
     analysis: JobAnalysis
     codeInitiallyExpanded?: boolean
-    /**
-     * When set, the parent owns whole-section expand/collapse (post-decision reviewer page). The
-     * code viewer then always shows its files and its toggle becomes the section's "Hide full
-     * study code" closer, calling this to collapse the entire card.
-     */
+    // When the parent owns expand/collapse, datasets and the scan log stay mounted and this hides
+    // only the AI summary and code files.
+    detailsExpanded?: boolean
+    // When set, the parent owns expand/collapse. The code viewer then always shows its files and
+    // its toggle becomes the section's "Hide full submission details" closer.
     onCollapse?: () => void
+    onExpand?: () => void
+    expandToggleRef?: Ref<HTMLButtonElement>
+}
+
+function SubmissionDetailsExpandToggle({
+    isVisible,
+    onClick,
+    toggleRef,
+}: {
+    isVisible: boolean
+    onClick?: () => void
+    toggleRef?: Ref<HTMLButtonElement>
+}) {
+    if (!isVisible || !onClick) return null
+    return (
+        <StudyCodeToggle
+            ref={toggleRef}
+            isVisible
+            expanded={false}
+            onClick={onClick}
+            labels={FULL_STUDY_CODE_TOGGLE_LABELS}
+        />
+    )
 }
 
 // Data fetching lives in the parent (CodeReview) so this component
@@ -73,12 +101,19 @@ export function SubmittedCodeSection({
     job,
     analysis,
     codeInitiallyExpanded = true,
+    detailsExpanded = true,
     onCollapse,
+    onExpand,
+    expandToggleRef,
 }: SubmittedCodeSectionProps) {
     const datasetNames = study.orgDataSources.map((ds) => ds.name)
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const codeFiles = filterAndOrderCodeFiles(job.files)
     const submittedAt = latestCodeSubmittedAt(job)
+    const showExpandToggle = Boolean(onExpand) && !detailsExpanded
+    const expandToggle = (
+        <SubmissionDetailsExpandToggle isVisible={showExpandToggle} onClick={onExpand} toggleRef={expandToggleRef} />
+    )
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
@@ -87,16 +122,23 @@ export function SubmittedCodeSection({
                 <Divider />
                 <DatasetPills names={datasetNames} />
                 <Divider />
-                <Stack gap="xxl">
-                    <JobAnalysisPanels studyJobId={job.id} initialAnalysis={analysis} submittedAt={submittedAt} />
-                    <Divider />
-                    <StudyCodeViewer
-                        studyJobId={job.id}
-                        files={codeFiles}
-                        initialExpanded={codeInitiallyExpanded}
-                        onCollapse={onCollapse}
-                    />
-                </Stack>
+                <JobAnalysisPanels
+                    studyJobId={job.id}
+                    initialAnalysis={analysis}
+                    submittedAt={submittedAt}
+                    detailsExpanded={detailsExpanded}
+                    expandToggle={expandToggle}
+                >
+                    <Stack gap="xxl">
+                        <Divider />
+                        <StudyCodeViewer
+                            studyJobId={job.id}
+                            files={codeFiles}
+                            initialExpanded={codeInitiallyExpanded}
+                            onCollapse={onCollapse}
+                        />
+                    </Stack>
+                </JobAnalysisPanels>
             </Stack>
         </Paper>
     )

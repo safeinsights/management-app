@@ -21,6 +21,16 @@ type CodeReviewProps = {
     reviewVersion?: number
 }
 
+type PriorRoundFeedbackProps = {
+    isVisible: boolean
+    entries: CodeReviewFeedbackEntry[]
+}
+
+function PriorRoundFeedback({ isVisible, entries }: PriorRoundFeedbackProps) {
+    if (!isVisible) return null
+    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
+}
+
 type CodeReviewStatusBannerProps = {
     labName: string
     version: number
@@ -66,8 +76,9 @@ export async function CodeReview({ orgSlug, study, entries, nav, reviewVersion =
                         <CodeReviewStatusBanner labName={labName} version={reviewVersion} submittedAt={submittedAt} />
                     }
                     initiallyExpanded={!isResubmission}
-                />
-                {isResubmission && <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />}
+                >
+                    <PriorRoundFeedback isVisible={isResubmission} entries={entries} />
+                </CollapsibleSubmittedCodeSection>
                 <CodeReviewClient
                     orgSlug={orgSlug}
                     study={study}

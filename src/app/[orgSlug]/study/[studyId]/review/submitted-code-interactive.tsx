@@ -5,19 +5,20 @@ import {
     Alert,
     Anchor,
     Button,
+    Collapse,
+    Divider,
     Group,
     Loader,
     Menu,
-    Paper,
     Skeleton,
     Stack,
     Text,
     Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRightIcon, DownloadSimpleIcon, EyeIcon, WarningCircle } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, DownloadSimpleIcon, EyeIcon } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
@@ -33,7 +34,7 @@ import {
     getJobAnalysisAction,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { JobAnalysis, JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, JobScanResult, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
@@ -65,7 +66,7 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
+const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 2
 
 // Panda's preflight zeroes list-style globally, so restore markers explicitly.
 const MARKDOWN_LIST_COMPONENTS: Components = {
@@ -201,7 +202,7 @@ function AiSummaryPending() {
         <Group gap="xs" data-testid="ai-summary-pending">
             <Loader size="sm" />
             <Text c="dimmed" size="sm">
-                AI Summary is loading
+                Generating summary
             </Text>
         </Group>
     )
@@ -299,7 +300,15 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
 
     return (
         <Stack gap="lg" data-testid="ai-summary">
-            <Text fw={700}>AI Summary: Analysis of all files</Text>
+            <Stack gap={4}>
+                <Text fw={700} fz={16}>
+                    AI Summary of submitted code files
+                </Text>
+                <Text size="xs" c="dimmed">
+                    AI-generated summary, which may contain errors. Review the submitted code before making your
+                    decision.
+                </Text>
+            </Stack>
             {renderBody()}
         </Stack>
     )
@@ -314,6 +323,29 @@ export type JobAnalysisPanelsProps = {
     summaryTimeoutMs?: number
     scanTimeoutMs?: number
     pollIntervalMs?: number
+    detailsExpanded?: boolean
+    // Sibling of the details Collapse so a closed panel does not leave flex-gap above the toggle.
+    expandToggle?: ReactNode
+    children?: ReactNode
+}
+
+function JobAnalysisExtendedDetails({
+    isVisible,
+    expandToggle,
+    children,
+}: {
+    isVisible: boolean
+    expandToggle?: ReactNode
+    children: ReactNode
+}) {
+    return (
+        <Stack gap={0}>
+            {expandToggle}
+            <Collapse in={isVisible} keepMounted>
+                {children}
+            </Collapse>
+        </Stack>
+    )
 }
 
 // Owns the single poll both panels read from; each renders its own pending/timeout state off it.
@@ -324,6 +356,9 @@ export function JobAnalysisPanels({
     summaryTimeoutMs = AI_SUMMARY_TIMEOUT_MS,
     scanTimeoutMs = SCAN_TIMEOUT_MS,
     pollIntervalMs = ANALYSIS_POLL_INTERVAL_MS,
+    detailsExpanded = true,
+    expandToggle,
+    children,
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
     const scanTimeout = useElapsedSince(submittedAt, scanTimeoutMs)
@@ -335,26 +370,28 @@ export function JobAnalysisPanels({
     const scanGivenUp = scanTimeout.elapsed && isScanWaiting
 
     return (
-        <Group align="stretch" grow gap="xl" wrap="nowrap">
-            <Paper withBorder p="lg" radius={0}>
-                <AiSummaryCollapsible
-                    studyJobId={studyJobId}
-                    analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
-                    review={analysis.review}
-                    hasError={error != null}
-                    timedOut={summaryTimeout.elapsed}
-                    onRetryStarted={summaryTimeout.reset}
-                />
-            </Paper>
-            <Paper withBorder p="lg" radius={0}>
-                <SecurityScanLog
-                    studyJobId={studyJobId}
-                    scan={analysis.scan}
-                    givenUp={scanGivenUp}
-                    isUnreachable={error != null && isScanWaiting}
-                />
-            </Paper>
-        </Group>
+        <Stack gap="xl">
+            <SecurityScanLog
+                studyJobId={studyJobId}
+                scan={analysis.scan}
+                givenUp={scanGivenUp}
+                isUnreachable={error != null && isScanWaiting}
+            />
+            <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
+                <Stack gap="xl">
+                    <Divider />
+                    <AiSummaryCollapsible
+                        studyJobId={studyJobId}
+                        analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
+                        review={analysis.review}
+                        hasError={error != null}
+                        timedOut={summaryTimeout.elapsed}
+                        onRetryStarted={summaryTimeout.reset}
+                    />
+                    {children}
+                </Stack>
+            </JobAnalysisExtendedDetails>
+        </Stack>
     )
 }
 
@@ -458,6 +495,15 @@ function OverflowFilesMenu({
             </Menu.Target>
             <Menu.Dropdown data-testid="study-code-files-overflow-menu">{items}</Menu.Dropdown>
         </Menu>
+    )
+}
+
+function CodeFilesHeading({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+    return (
+        <Text fw={700} fz={16}>
+            Code files
+        </Text>
     )
 }
 
@@ -586,8 +632,8 @@ type StudyCodeViewerProps = {
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
-    // When set, the parent owns expand/collapse and the toggle becomes the closer for the whole
-    // section.
+    // When set, the parent owns expand/collapse and the toggle becomes the closer for the
+    // AI summary and code files.
     onCollapse?: () => void
 }
 
@@ -610,6 +656,7 @@ export function StudyCodeViewer({
     return (
         <Stack gap="lg" data-testid="study-code-viewer">
             <Stack gap="sm">
+                <CodeFilesHeading isVisible={expanded} />
                 <FileTabsRow
                     isVisible={expanded}
                     visible={visible}
@@ -653,10 +700,12 @@ const SCAN_LOG_UNAVAILABLE = 'Unable to load the security scan log.'
 
 const SCAN_LOG_LINK_PROPS = {
     size: 'sm',
-    fw: 600,
+    fw: 700,
     display: 'inline-flex',
     style: { alignItems: 'center', gap: 4, width: 'fit-content' },
 } as const
+
+const SCAN_LOG_ACTION_ICON_SIZE = 14
 
 // View opens the shared file viewer modal; Download goes straight to the signed S3 URL, so the
 // two paths stay independent — the log stays downloadable even when the in-app fetch fails.
@@ -667,7 +716,7 @@ function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisib
     const file = viewer.isOpen ? { name: SCAN_LOG_FILE_NAME, contents: viewer.contents } : null
 
     return (
-        <Group gap="lg">
+        <Group gap={4}>
             <Anchor
                 component="button"
                 type="button"
@@ -675,7 +724,7 @@ function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisib
                 data-testid="security-scan-log-view"
                 {...SCAN_LOG_LINK_PROPS}
             >
-                <EyeIcon size={16} />
+                <EyeIcon size={SCAN_LOG_ACTION_ICON_SIZE} />
                 View
             </Anchor>
             <Anchor
@@ -684,100 +733,44 @@ function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisib
                 data-testid="security-scan-log-download"
                 {...SCAN_LOG_LINK_PROPS}
             >
-                <DownloadSimpleIcon size={16} />
-                Download
+                <DownloadSimpleIcon size={SCAN_LOG_ACTION_ICON_SIZE} />
+                Download scan log
             </Anchor>
             <FilePreviewModal file={file} onClose={viewer.close} />
         </Group>
     )
 }
-type ScanStatusLabels = Record<ScanToolStatus, string>
-
-// "Needs review" is the card's own phrasing for the case where we cannot state an outcome with
-// confidence. Trivy reaches it two ways: it examined nothing (no analyzer for R, no lockfile to
-// read), or it produced no report at all. Neither is a finding and neither is a clean bill of
-// health. Pending UX sign-off on whether those two should read differently to a Data Partner.
-const TRIVY_LABELS: ScanStatusLabels = {
-    PASSED: 'No vulnerabilities found',
-    FAILED: 'Vulnerabilities found',
-    INDETERMINATE: 'Needs review',
-}
-
-// SonarQube has no third label: a failing gate and an unresolvable one both need the same human look.
-const SONARQUBE_LABELS: ScanStatusLabels = {
-    PASSED: 'Passed',
-    FAILED: 'Needs review',
-    INDETERMINATE: 'Needs review',
-}
-
-// A passed row carries no icon at all. The other two are visually distinct on purpose: red reads as
-// a reported problem, and an indeterminate result is not one. Amber reuses the "action needed"
-// pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
-// rather than introducing a new treatment. Provisional along with the labels above.
-const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
-    FAILED: 'var(--mantine-color-red-9)',
-    INDETERMINATE: 'var(--mantine-color-yellow-10)',
-}
 
 type ScanRowProps = {
     label: string
-    status: ScanToolStatus | null
-    labels: ScanStatusLabels
+    description: string
     testId: string
 }
 
-function ScanWarningIcon({ color }: { color?: string }) {
-    if (!color) return null
-    return <WarningCircle size={20} color={color} data-icon="warning" aria-hidden="true" />
-}
-
-// A tool's result: plain text when it passed, a warning icon plus the relevant phrasing when it did
-// not, and a neutral pending note while the scan has not reported (status null). Deliberately no
-// "pass" icon, and never a fabricated pass/fail when the status is unknown; we only flag what needs
-// a human (OTTER-649).
-function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; labels: ScanStatusLabels }) {
-    if (status === null) {
-        return (
-            <Text size="sm" c="dimmed">
-                Scan in progress…
-            </Text>
-        )
-    }
+function ScanRow({ label, description, testId }: ScanRowProps) {
     return (
-        <Group gap={4} wrap="nowrap" align="center">
-            <ScanWarningIcon color={SCAN_ICON_COLORS[status]} />
+        <Group gap="sm" align="center" data-testid={testId}>
             <Text size="sm" fw={600}>
-                {labels[status]}
+                {label}
+            </Text>
+            <Text size="xs" c="dimmed">
+                {description}
             </Text>
         </Group>
     )
 }
 
-function ScanRow({ label, status, labels, testId }: ScanRowProps) {
-    return (
-        <Group gap="xs" wrap="nowrap" align="center" data-testid={testId}>
-            <Text size="sm">{label}</Text>
-            <ScanRowValue status={status} labels={labels} />
-        </Group>
-    )
-}
-
-// The two labeled rows are always shown (the AC lists them as static elements).
-// Their values come from the parsed log; when no log has been read yet, each row
-// shows a pending note rather than a status.
-function ScanLogBody({ scan }: { scan: JobScanResult }) {
+function ScanLogBody() {
     return (
         <Stack gap="sm">
             <ScanRow
-                label="Trivy Filesystem Scan:"
-                status={scan.trivy}
-                labels={TRIVY_LABELS}
+                label="Trivy filesystem scan:"
+                description="Scans the code for exposed secrets."
                 testId="security-scan-trivy"
             />
             <ScanRow
-                label="SonarQube Quality Gate:"
-                status={scan.sonarqube}
-                labels={SONARQUBE_LABELS}
+                label="SonarQube quality gate:"
+                description="Scans Python code for risky patterns and security issues like hard-coded credentials or injection risks. R code is not currently scanned."
                 testId="security-scan-sonarqube"
             />
         </Stack>
@@ -815,14 +808,20 @@ function SecurityScanLog({ studyJobId, scan, givenUp, isUnreachable }: SecurityS
     const renderBody = () => {
         if (givenUp) return <ScanTimedOut />
         if (isUnreachable) return <ScanUnreachable />
-        return <ScanLogBody scan={scan} />
+        return <ScanLogBody />
     }
 
     return (
-        <Stack gap="lg" data-testid="security-scan-log">
-            <Text fw={700} fz={16}>
-                Security scan log
-            </Text>
+        <Stack gap="md" data-testid="security-scan-log">
+            <Stack gap={4}>
+                <Text fw={700} fz={16}>
+                    Security scan log
+                </Text>
+                <Text size="xs" c="dimmed">
+                    Automated scans check code for certain vulnerabilities. Scan coverage varies by programming language
+                    (R code is not scanned by Sonarqube). Not a substitute for independent review.
+                </Text>
+            </Stack>
             {renderBody()}
             <ScanLogActions studyJobId={studyJobId} isVisible={scan.logFile != null} />
         </Stack>

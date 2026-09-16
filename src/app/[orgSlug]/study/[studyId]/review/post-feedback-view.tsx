@@ -85,6 +85,17 @@ function ProposalSection({ isVisible, study, orgSlug, stepLabel, heading, banner
     )
 }
 
+type PostDecisionFeedbackProps = {
+    isVisible: boolean
+    entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
+    alwaysExpandLatest: boolean
+}
+
+function PostDecisionFeedback({ isVisible, entries, alwaysExpandLatest }: PostDecisionFeedbackProps) {
+    if (!isVisible) return null
+    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={alwaysExpandLatest} />
+}
+
 export function PostFeedbackView({
     orgSlug,
     study,
@@ -116,6 +127,7 @@ export function PostFeedbackView({
         />
     )
     const heading = isCode ? codeReviewHeading(reviewVersion) : proposalReviewHeading(reviewVersion)
+    const feedbackBeforeDetails = isCode && reviewVersion > 1
 
     return (
         <Box bg="grey.10">
@@ -130,7 +142,9 @@ export function PostFeedbackView({
                     stepLabel={stepLabel}
                     heading={heading}
                     banner={banner}
-                />
+                >
+                    <PostDecisionFeedback isVisible={feedbackBeforeDetails} entries={entries} alwaysExpandLatest />
+                </CollapsibleSubmittedCodeSection>
                 <ProposalSection
                     isVisible={!isCode}
                     study={study}
@@ -139,7 +153,11 @@ export function PostFeedbackView({
                     heading={heading}
                     banner={banner}
                 />
-                <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
+                <PostDecisionFeedback
+                    isVisible={!feedbackBeforeDetails}
+                    entries={entries}
+                    alwaysExpandLatest={isCode}
+                />
                 <StepNavigation nav={nav} />
             </Stack>
         </Box>

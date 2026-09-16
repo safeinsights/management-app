@@ -403,6 +403,41 @@ describe('PostFeedbackView', () => {
             expect(screen.getByRole('heading', { name: 'Review code v2.0', level: 2 })).toBeInTheDocument()
         })
 
+        it('places Feedback and notes between STEP 2 and Submission details on a resubmission', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
+            const { study: dbStudy } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+            if (!isSubmittedStudy(codeStudy)) throw new Error('test fixture must be a submitted study')
+            const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
+            const analysis = await jobAnalysisForJob(latestJob)
+            ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
+
+            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
+            renderWithProviders(
+                <PostFeedbackView
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={codeStudy}
+                    entries={entries}
+                    kind="CODE"
+                    job={latestJob}
+                    analysis={analysis}
+                    reviewVersion={2}
+                />,
+            )
+
+            const stepHeader = screen.getByTestId('proposal-section-header')
+            const feedback = screen.getByTestId('feedback-and-notes-section')
+            const submittedCode = screen.getByTestId('submitted-code-section')
+            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        })
+
         it('renders the informative banner with code-approved copy', () => {
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
             renderWithProviders(
@@ -454,7 +489,7 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Apr 18, 2026`)
         })
 
-        it('collapses the full Submitted code section until the "View full study code" toggle is clicked', async () => {
+        it('keeps datasets and the security scan log visible until the "View full submission details" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
@@ -502,26 +537,35 @@ describe('PostFeedbackView', () => {
                 />,
             )
 
-            expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
+            expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).toBeVisible()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
-            expect(opener).toHaveTextContent('View full study code')
+            expect(opener).toHaveTextContent('View full submission details')
+            expect(screen.getByTestId('submitted-code-section')).toContainElement(opener)
+            expect(
+                screen.getByTestId('security-scan-log').compareDocumentPosition(opener) &
+                    Node.DOCUMENT_POSITION_FOLLOWING,
+            ).toBeTruthy()
 
             const userClick = userEvent.setup()
             await userClick.click(opener)
 
-            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
-            expect(screen.getByTestId('ai-summary')).toBeVisible()
+            await waitFor(() => expect(screen.getByTestId('ai-summary')).toBeVisible())
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('security-scan-log')).toBeVisible()
             await waitFor(() => expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus())
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             const closer = screen.getByTestId('study-code-toggle-collapse')
-            expect(closer).toHaveTextContent('Hide full study code')
+            expect(closer).toHaveTextContent('Hide full submission details')
 
             await userClick.click(closer)
-            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
+            await waitFor(() => expect(screen.getByTestId('ai-summary')).not.toBeVisible())
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
+            expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.getByTestId('security-scan-log')).toBeVisible()
             await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 

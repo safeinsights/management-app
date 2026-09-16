@@ -130,15 +130,16 @@ describe('SubmittedCodeSection — Section header', () => {
         fixture = await setupBaseFixture()
     })
 
-    it('renders section title "Submitted code"', async () => {
+    it('renders section title "Submission details"', async () => {
         await renderSection(fixture)
-        expect(screen.getByRole('heading', { name: 'Submitted code', level: 3 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Submission details', level: 3 })).toBeInTheDocument()
     })
 
-    it('renders "View approved initial request" link that opens the approved-proposal feedback page in a new tab', async () => {
+    it('renders "View approved proposal" as an outlined button that opens the approved-proposal page in a new tab', async () => {
         await renderSection(fixture)
         const link = screen.getByTestId('view-approved-initial-request')
-        expect(link).toHaveTextContent('View approved initial request')
+        expect(link).toHaveTextContent('View approved proposal')
+        expect(link).toHaveAttribute('data-variant', 'outline')
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
         // OTTER-540: must point at the approved initial request, not the code review.
@@ -204,10 +205,11 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertStudyReview(fixture.job.id, SUMMARY_TEXT)
     })
 
-    it('renders section title "AI Summary: Analysis of all files" and the "Overview" subtitle', async () => {
+    it('renders section title "AI Summary of submitted code files" and the "Overview" subtitle', async () => {
         await renderSection(fixture)
-        expect(screen.getByText('AI Summary: Analysis of all files')).toBeInTheDocument()
+        expect(screen.getByText('AI Summary of submitted code files')).toBeInTheDocument()
         expect(screen.getByText('Overview')).toBeInTheDocument()
+        expect(screen.getByText(/AI-generated summary, which may contain errors/)).toBeInTheDocument()
     })
 
     it('renders the toggle with "View full AI summary" by default and shows a clamped snippet', async () => {
@@ -215,7 +217,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('View full AI summary')
         const body = screen.getByTestId('ai-summary-body')
         expect(body).toHaveTextContent(SUMMARY_TEXT)
-        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('3')
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
     })
 
     it('expands the body to full text and flips the toggle label when clicked', async () => {
@@ -236,14 +238,14 @@ describe('SubmittedCodeSection — AI summary', () => {
         await user.click(toggle)
         await user.click(toggle)
 
-        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('3')
+        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('2')
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
     it('shows the in-progress spinner while no review row exists yet (still generating)', async () => {
         const noReviewFixture = await setupBaseFixture()
         await renderSection(noReviewFixture)
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-toggle')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-empty')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -274,7 +276,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
 
@@ -304,7 +306,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
 
@@ -389,7 +391,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         // The scan settles, so only the elapsed backstop could stop the poll here.
         await screen.findByTestId('ai-summary-error')
-        await waitFor(() => expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities'))
+        await waitFor(() => expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument())
 
         await insertStudyReview(fixture.job.id, 'Late but real summary')
         const review = (await jobAnalysisForJob(fixture.job)).review
@@ -501,87 +503,58 @@ describe('SubmittedCodeSection — Security scan log', () => {
     it('renders both static tool labels in order', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy Filesystem Scan:')
-        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('SonarQube Quality Gate:')
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy filesystem scan:')
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Scans the code for exposed secrets.')
+        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('SonarQube quality gate:')
+        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent(
+            'Scans Python code for risky patterns and security issues like hard-coded credentials or injection risks. R code is not currently scanned.',
+        )
+        expect(screen.getByTestId('security-scan-log')).toHaveTextContent(
+            'Automated scans check code for certain vulnerabilities. Scan coverage varies by programming language (R code is not scanned by Sonarqube). Not a substitute for independent review.',
+        )
     })
 
-    it('shows Trivy "No vulnerabilities found" with no warning icon when it passed', async () => {
+    it('stacks the security scan log above the AI summary', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const row = screen.getByTestId('security-scan-trivy')
-        expect(row).toHaveTextContent('No vulnerabilities found')
-        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
+        const scan = screen.getByTestId('security-scan-log')
+        const ai = screen.getByTestId('ai-summary')
+        expect(scan.compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it('shows Trivy "Vulnerabilities found" with a red warning icon when it failed', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('FAILED', 'PASSED'))
-        const row = screen.getByTestId('security-scan-trivy')
-        expect(row).toHaveTextContent('Vulnerabilities found')
-        const icon = row.querySelector('[data-icon="warning"]')
-        expect(icon).not.toBeNull()
-        expect(icon?.outerHTML).toContain('red')
-    })
-
-    it('shows SonarQube "Passed" with no warning icon when it passed', async () => {
+    it('places View and Download scan log under the tool descriptions', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const row = screen.getByTestId('security-scan-sonarqube')
-        expect(row).toHaveTextContent('Passed')
-        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
-    })
-
-    it('shows SonarQube "Needs review" with a warning icon when it failed', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'FAILED'))
-        const row = screen.getByTestId('security-scan-sonarqube')
-        expect(row).toHaveTextContent('Needs review')
-        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
-    })
-
-    it('shows Trivy "Needs review" with a warning icon, and no finding, when the result is indeterminate', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        const row = screen.getByTestId('security-scan-trivy')
-        expect(row).toHaveTextContent('Needs review')
-        expect(row).not.toHaveTextContent('Vulnerabilities found')
-        expect(row).not.toHaveTextContent('No vulnerabilities found')
-        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
+        const sonar = screen.getByTestId('security-scan-sonarqube')
+        const view = screen.getByTestId('security-scan-log-view')
+        const download = screen.getByTestId('security-scan-log-download')
+        expect(sonar.compareDocumentPosition(view) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(view.compareDocumentPosition(download) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(download).toHaveTextContent('Download scan log')
     })
 
     it('still offers the log download when a tool result is indeterminate', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        expect(screen.getByTestId('security-scan-log-download')).toHaveTextContent('Download')
-    })
-
-    it('does not give the indeterminate row the red icon used for a finding', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        const icon = screen.getByTestId('security-scan-trivy').querySelector('[data-icon="warning"]')
-        expect(icon).not.toBeNull()
-        expect(icon?.outerHTML).not.toContain('red')
+        expect(screen.getByTestId('security-scan-log-download')).toHaveTextContent('Download scan log')
     })
 
     it('shows a download link to the plaintext scan log when a log file is present', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))
         const link = screen.getByTestId('security-scan-log-download')
-        expect(link).toHaveTextContent('Download')
+        expect(link).toHaveTextContent('Download scan log')
         expect(link).toHaveAttribute('href', `/dl/scan-log/${fixture.job.id}`)
     })
 
-    it('keeps both labeled rows in a pending state, with no icon or download, when no scan log exists yet', async () => {
+    it('keeps both labeled rows, with no View or Download, when no scan log exists yet', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanInProgress)
         const trivy = screen.getByTestId('security-scan-trivy')
         const sonar = screen.getByTestId('security-scan-sonarqube')
-        expect(trivy).toHaveTextContent('Trivy Filesystem Scan:')
-        expect(trivy).toHaveTextContent('Scan in progress')
-        expect(sonar).toHaveTextContent('SonarQube Quality Gate:')
-        expect(sonar).toHaveTextContent('Scan in progress')
-        expect(trivy.querySelector('[data-icon="warning"]')).toBeNull()
-        expect(sonar.querySelector('[data-icon="warning"]')).toBeNull()
+        expect(trivy).toHaveTextContent('Trivy filesystem scan:')
+        expect(trivy).toHaveTextContent('Scans the code for exposed secrets.')
+        expect(sonar).toHaveTextContent('SonarQube quality gate:')
         expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-scan-log-view')).not.toBeInTheDocument()
     })
@@ -611,7 +584,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
     })
 
-    it('replaces the pending rows with statuses once the scan reports, without a reload', async () => {
+    it('offers View and Download once the scan reports, without a reload', async () => {
         const fixture = await setupBaseFixture()
         // The component reads the scan through this action, so resolving it is what a completed
         // enclave run looks like from the browser's side.
@@ -627,13 +600,13 @@ describe('SubmittedCodeSection — Security scan log', () => {
                 pollIntervalMs={20}
             />,
         )
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Scan in progress…')
+        expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy filesystem scan:')
 
         await waitFor(() => {
-            expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Vulnerabilities found')
+            expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
         })
-        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('Passed')
-        expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
+        expect(screen.getByTestId('security-scan-log-view')).toBeInTheDocument()
     })
 
     // One poll feeds both panels, so it settles only once both results are in.
@@ -654,7 +627,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
             />,
         )
         await waitFor(() => {
-            expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
+            expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
         })
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
@@ -684,7 +657,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
             />,
         )
         await waitFor(() => {
-            expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
+            expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
         })
 
         const afterScan = vi.mocked(getJobAnalysisAction).mock.calls.length
@@ -708,7 +681,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(screen.queryByTestId('security-scan-trivy')).not.toBeInTheDocument()
     })
 
-    it('keeps showing reported statuses rather than the timeout message when the backstop elapses', async () => {
+    it('keeps showing the scan rows rather than the timeout message when the backstop elapses', async () => {
         const fixture = await setupBaseFixture()
         renderWithProviders(
             <JobAnalysisPanels
@@ -719,7 +692,8 @@ describe('SubmittedCodeSection — Security scan log', () => {
             />,
         )
 
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('No vulnerabilities found')
+        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy filesystem scan:')
+        expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
         expect(screen.queryByTestId('security-scan-timeout')).not.toBeInTheDocument()
     })
 })
@@ -733,6 +707,14 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         }
         return refreshFixtureJob(fixture)
     }
+
+    it('renders a "Code files" heading above the table tabs', async () => {
+        const fixture = await setupFilesFixture(['main.R'])
+        await renderSection(fixture)
+        const heading = screen.getByText('Code files')
+        const tabs = screen.getByTestId('study-code-file-tabs')
+        expect(heading.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
 
     it('renders files in a single horizontal row with no wrapping', async () => {
         const fixture = await setupFilesFixture(['main.R', 'extra.R'])
@@ -825,16 +807,16 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 
         const user = userEvent.setup()
         const toggle = screen.getByTestId('study-code-toggle')
-        expect(toggle).toHaveTextContent('Hide full study code')
+        expect(toggle).toHaveTextContent('Hide full submission details')
         await user.click(toggle)
 
         expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
         expect(screen.queryByTestId('study-code-body-loading')).not.toBeInTheDocument()
-        expect(toggle).toHaveTextContent('View full study code')
+        expect(toggle).toHaveTextContent('View full submission details')
 
         await user.click(toggle)
         await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
-        expect(toggle).toHaveTextContent('Hide full study code')
+        expect(toggle).toHaveTextContent('Hide full submission details')
     })
 
     it('hides the show/hide toggle when there are no code files', async () => {
@@ -859,7 +841,7 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
 
         const closer = screen.getByTestId('study-code-toggle-collapse')
-        expect(closer).toHaveTextContent('Hide full study code')
+        expect(closer).toHaveTextContent('Hide full submission details')
         expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
 
         await userEvent.setup().click(closer)
@@ -880,7 +862,7 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
             />,
         )
         const closer = await screen.findByTestId('study-code-toggle-collapse')
-        expect(closer).toHaveTextContent('Hide full study code')
+        expect(closer).toHaveTextContent('Hide full submission details')
 
         await userEvent.setup().click(closer)
         expect(onCollapse).toHaveBeenCalledTimes(1)
