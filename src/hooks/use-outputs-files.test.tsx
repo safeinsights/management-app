@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi, type Mock } from 'vitest'
 import {
     createTestQueryClient,
     describe,
@@ -10,9 +10,11 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import type { ReactNode } from 'react'
+import { useParams } from 'next/navigation'
 import type { JobFileActivity } from '@/server/db/queries'
 import type { JobFileInfo } from '@/lib/types'
 import { useOutputsFiles } from './use-outputs-files'
+import { fetchJobFileActivityAction } from '@/server/actions/study-job-file-activity.actions'
 
 // Mocking one of our own actions goes against the usual rule, and it is the only way to reach these
 // branches: a real action resolves or returns an error envelope, it never throws at the transport.
@@ -22,7 +24,9 @@ vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
     recordJobFileActivityAction: vi.fn(),
 }))
 
-const activityQueryKey = (jobId: string) => ['job-file-activity', jobId]
+const ORG_SLUG = 'memorial'
+
+const activityQueryKey = (jobId: string) => ['job-file-activity', jobId, ORG_SLUG]
 
 const decryptedFile = (path: string): JobFileInfo =>
     ({ sourceId: faker.string.uuid(), path, contents: new ArrayBuffer(8) }) as JobFileInfo
@@ -38,6 +42,7 @@ const activityFor = (file: JobFileInfo): JobFileActivity => ({
 // The client is returned so a test can put the query into states the action alone cannot produce.
 // createTestQueryClient sets refetchOnMount false, so seeded data is served without a request.
 const renderFiles = (jobId: string, decryptedFiles: JobFileInfo[], seed?: JobFileActivity[]) => {
+    ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG })
     const client = createTestQueryClient()
     if (seed) client.setQueryData(activityQueryKey(jobId), seed)
     const wrapper = ({ children }: { children: ReactNode }) => (
@@ -61,6 +66,14 @@ const failRefetch = async (client: ReturnType<typeof createTestQueryClient>, job
 }
 
 describe('useOutputsFiles activity display', () => {
+    // OTTER-783: the server scopes the column to one side of the study by this slug.
+    it('asks for the activity of the org in the URL', async () => {
+        const jobId = faker.string.uuid()
+        renderFiles(jobId, [decryptedFile('logs.json')])
+
+        await waitFor(() => expect(fetchJobFileActivityAction).toHaveBeenCalledWith({ jobId, orgSlug: ORG_SLUG }))
+    })
+
     it('asserts nothing about activity while the first request is in flight', () => {
         const file = decryptedFile('logs.json')
         const { result } = renderFiles(faker.string.uuid(), [file])
