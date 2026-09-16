@@ -231,7 +231,8 @@ describe('runErrored', () => {
     const runErrored = (statuses: string[]) =>
         projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).runErrored
 
-    // The pair is QA-only, see StudyState.runErrored; this pins the predicate, not a reachable state.
+    // Rare but reachable, see StudyState.runErrored: a logs-only delivery followed by one carrying
+    // results appends both rows to the same job.
     it('separates a failed run from a packaging error that a RUN-COMPLETE followed', () => {
         expect(runErrored(['JOB-ERRORED'])).toBe(true)
         expect(runErrored(['JOB-ERRORED', 'RUN-COMPLETE'])).toBe(false)
