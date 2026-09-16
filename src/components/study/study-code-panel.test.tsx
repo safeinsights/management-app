@@ -1,4 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen, userEvent, vi } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, userEvent, vi, within } from '@/tests/unit.helpers'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { StudyCodePanel } from './study-code-panel'
 
@@ -57,6 +57,20 @@ function createMockIde(overrides: Partial<StudyCodeIDE> = {}): StudyCodeIDE {
 // Sole consumer since OTTER-693 moved the Submit code page onto ProposalStepHeader: the /resubmit
 // editor. These are also the only guard on the files body and action buttons the two screens share.
 describe('StudyCodePanel', () => {
+    // uploadFiles parks a colliding name in state and waits for this modal; /resubmit renders the
+    // previous round's files, so a same-name upload is the common case rather than an edge one.
+    it('prompts to replace or keep both when an upload collides with an existing name', () => {
+        const ide = createMockIde({
+            pendingDuplicate: new File(['print(1)'], 'main.R', { type: 'text/plain' }),
+        })
+        renderWithProviders(<StudyCodePanel ide={ide} footer={null} />)
+
+        const dialog = screen.getByRole('dialog')
+        expect(dialog).toHaveTextContent('Replace existing file?')
+        expect(within(dialog).getByRole('button', { name: 'Replace' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Keep both' })).toBeInTheDocument()
+    })
+
     it('never renders a study title line', () => {
         const ide = createMockIde()
         renderWithProviders(<StudyCodePanel ide={ide} footer={null} />)

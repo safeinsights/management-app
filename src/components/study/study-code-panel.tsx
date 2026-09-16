@@ -3,6 +3,7 @@ import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { isFilesReviewState, StudyCodeFileActions, StudyCodeFilesBody } from './study-code-files'
+import { ReplaceFileModal } from './replace-file-modal'
 
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
@@ -62,6 +63,10 @@ export const StudyCodePanel = ({
             {footer}
 
             <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
+
+            {/* uploadFiles parks a colliding name until this resolves it, so without the modal a
+                same-name upload here would be silently dropped — the common case on a resubmission. */}
+            <ReplaceFileModal file={ide.pendingDuplicate} onResolve={ide.resolveDuplicate} />
         </>
     )
 }
