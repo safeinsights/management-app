@@ -23,7 +23,7 @@ const UnclaimedHelperText: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Text size="xs" c="charcoal.7" ta="right">
+        <Text size="xs" c="charcoal.7">
             <Text span inherit c="yellow.8" mr={4} display="inline-flex" style={{ verticalAlign: 'middle' }}>
                 <WarningIcon size={12} weight="fill" aria-hidden />
             </Text>
@@ -42,11 +42,14 @@ type LaunchIdeControlProps = {
     ideOwnerName: string | null
     isLaunching: boolean
     onLaunch: () => void
+    /** Right in a card header, left in the empty state's panel — the caller owns its own layout. */
+    align?: 'flex-start' | 'flex-end'
 }
 
 /**
- * Separate from launch-ide-button.tsx, which /resubmit still renders and whose label flips to
- * "Edit files in IDE" — OTTER-693 wants one label here and the variant to carry the meaning.
+ * The one Launch IDE control. One label with the variant carrying the meaning, per OTTER-693.
+ * Failures and progress are not shown here: they belong to IdeLaunchFailedModal and
+ * IdeLaunchProgressModal, which the card mounting this control also mounts.
  */
 export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     isVisible = true,
@@ -55,6 +58,7 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     ideOwnerName,
     isLaunching,
     onLaunch,
+    align = 'flex-end',
 }) => {
     if (!isVisible) return null
 
@@ -71,7 +75,7 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     )
 
     return (
-        <Stack gap={4} align="flex-end">
+        <Stack gap={4} align={align}>
             <HoverCard width={300} withArrow shadow="md" position="bottom-end">
                 {/* A disabled Mantine Button fires no pointer events, so the target has to be a
                     wrapper rather than the button, or the unavailable card never shows. */}

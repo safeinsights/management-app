@@ -1,15 +1,11 @@
 import type { FC, RefObject } from 'react'
 import { Group, Skeleton, Stack } from '@mantine/core'
-import { InfoTooltip } from '@/components/tooltip'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
-import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchIdeControl } from './launch-ide-control'
 import { LaunchProgress } from './launch-progress'
 import { StudyCodeEmptyView } from './study-code-empty-view'
 import { StudyCodeReviewView } from './study-code-review-view'
 import { UploadFilesButton } from './upload-files-button'
-
-const IDE_RETURN_HINT =
-    'After creating or editing files in the IDE, please return here to submit your code to the Data Partner.'
 
 type OpenRef = RefObject<(() => void) | null>
 
@@ -19,20 +15,16 @@ type OpenRef = RefObject<(() => void) | null>
  */
 export const isFilesReviewState = (ide: StudyCodeIDE) => !ide.isLoadingFiles && !ide.showEmptyState
 
-const LaunchIdeAction: FC<{ isVisible: boolean; ide: StudyCodeIDE }> = ({ isVisible, ide }) => {
-    if (!isVisible) return null
-
-    return (
-        <InfoTooltip label={IDE_RETURN_HINT} withArrow multiline w={320}>
-            <LaunchIdeButton
-                onClick={(event) => ide.launchWorkspace({ sameWindow: event.shiftKey })}
-                isLaunching={ide.isLaunching}
-                launchError={ide.launchError}
-                variant="outline"
-            />
-        </InfoTooltip>
-    )
-}
+const LaunchIdeAction: FC<{ isVisible: boolean; ide: StudyCodeIDE }> = ({ isVisible, ide }) => (
+    <LaunchIdeControl
+        isVisible={isVisible}
+        isClaimed={ide.isIdeClaimed}
+        canLaunch={ide.canEditInIde}
+        ideOwnerName={ide.ideOwnerName}
+        isLaunching={ide.isLaunching}
+        onLaunch={ide.launchWorkspace}
+    />
+)
 
 type StudyCodeFileActionsProps = {
     isVisible: boolean
@@ -55,11 +47,13 @@ export const StudyCodeFileActions: FC<StudyCodeFileActionsProps> = ({ isVisible,
 
 type StudyCodeFilesBodyProps = {
     ide: StudyCodeIDE
+    /** Named in the Template badge's hover card. */
+    dataPartnerName: string
     showLaunchIde: boolean
     openRef: OpenRef
 }
 
-export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, showLaunchIde, openRef }) => {
+export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, dataPartnerName, showLaunchIde, openRef }) => {
     if (ide.isLoadingFiles) return <Skeleton height={240} radius="md" />
 
     // The empty view draws its own launch progress and owns its own dropzone ref.
@@ -68,7 +62,6 @@ export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, showLaunc
             <StudyCodeEmptyView
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
-                launchError={ide.launchError}
                 launchLastUpdatedAt={ide.launchLastUpdatedAt}
                 launchBuildLog={ide.launchBuildLog}
                 launchAgentLog={ide.launchAgentLog}
@@ -76,6 +69,9 @@ export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, showLaunc
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
                 showLaunchIde={showLaunchIde}
+                isIdeClaimed={ide.isIdeClaimed}
+                canEditInIde={ide.canEditInIde}
+                ideOwnerName={ide.ideOwnerName}
             />
         )
     }
@@ -96,7 +92,12 @@ export const StudyCodeFilesBody: FC<StudyCodeFilesBodyProps> = ({ ide, showLaunc
                 setMainFile={ide.setMainFile}
                 removeFile={ide.removeFile}
                 viewFile={ide.viewFile}
-                jobCreatedAt={ide.jobCreatedAt}
+                editFileInIde={ide.editFileInIde}
+                downloadFile={ide.downloadFile}
+                dataPartnerName={dataPartnerName}
+                templateFileNames={ide.templateFileNames}
+                canEditInIde={ide.canEditInIde}
+                ideOwnerName={ide.ideOwnerName}
                 openRef={openRef}
             />
         </Stack>

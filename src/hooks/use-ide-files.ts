@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
@@ -10,6 +10,8 @@ import { NO_CHANGES_MESSAGE } from '@/components/study/submit-code-error'
 import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
 import { showToast } from '@/components/toast-notifications'
 import { useUploadQueue } from './use-upload-queue'
+import { useIdeOwnership } from './use-ide-ownership'
+import { useMainFile } from './use-main-file'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles, type WorkspaceFileInfo } from './use-workspace-files'
 import {
@@ -17,15 +19,9 @@ import {
     deleteWorkspaceFileAction,
     readWorkspaceFileAction,
     recordWorkspaceFileEditAction,
-    getMainCodeFileAction,
-    setMainCodeFileAction,
 } from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-request'
-import {
-    getIdeOwnerAction,
-    getLastSubmissionInfoAction,
-    getStarterCodeInfoAction,
-} from '@/server/actions/workspaces.actions'
+import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
 
 /** The Figma toast's wording for a request that failed rather than a file that was too big. */
 const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
@@ -75,7 +71,6 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const queryClient = useQueryClient()
     const router = useRouter()
 
-    const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
     const [viewingFile, setViewingFile] = useState<{ name: string; contents: ArrayBuffer } | null>(null)
     // OTTER-558: `filesChanged` cannot drive the resubmit footer's Cancel toggle, because it
     // compares mtimes and is already true on load.
@@ -84,13 +79,13 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // than claiming a page nobody has touched is saved.
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
+    const { canEditInIde, isIdeClaimed, ideOwnerName, refresh: refreshIdeOwnership } = useIdeOwnership(studyId)
+
     const onLaunchSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
         queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
-        // A launch is also what claims the IDE, so the owner has to be re-read or the launcher's
-        // own pencil keeps rendering as if the study were still unclaimed.
-        queryClient.invalidateQueries({ queryKey: ['ide-owner', studyId] })
-    }, [queryClient, studyId])
+        refreshIdeOwnership()
+    }, [queryClient, studyId, refreshIdeOwnership])
 
     const {
         launchWorkspace,
@@ -118,28 +113,16 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         queryFn: () => getStarterCodeInfoAction({ studyId }),
     })
 
-    const { data: ideOwner } = useQuery({
-        queryKey: ['ide-owner', studyId],
-        queryFn: () => getIdeOwnerAction({ studyId }),
-    })
-
-    const { data: savedMainFile } = useQuery({
-        queryKey: ['main-code-file', studyId],
-        queryFn: () => getMainCodeFileAction({ studyId }),
-    })
-
     const fileNames = useMemo(() => workspace.files.map((f) => f.name), [workspace.files])
     const previousMainFile = lastJob?.mainFileName ?? null
-    const persistedMainFile = savedMainFile?.mainCodeFileName ?? null
-    const mainFile = useMemo(() => {
-        // This session's click first, then the saved choice, and only then the conveniences: a
-        // deliberate selection must outrank auto-picking the sole file.
-        if (mainFileOverride && fileNames.includes(mainFileOverride)) return mainFileOverride
-        if (persistedMainFile && fileNames.includes(persistedMainFile)) return persistedMainFile
-        if (fileNames.length === 1) return fileNames[0]
-        if (previousMainFile && fileNames.includes(previousMainFile)) return previousMainFile
-        return ''
-    }, [mainFileOverride, persistedMainFile, previousMainFile, fileNames])
+
+    const onMainFileSaved = useCallback(() => setLastSavedAt(new Date()), [])
+    const {
+        mainFile,
+        selectMainFile,
+        forgetFile: forgetMainFile,
+        isSaving: isSavingMainFile,
+    } = useMainFile({ studyId, fileNames, previousMainFile, onSaved: onMainFileSaved })
 
     const filesChanged = useMemo(
         () => hasChangedSinceLastJob(workspace.files, mainFile, lastJob),
@@ -178,28 +161,12 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // Derived, so the button state and the message it explains cannot drift apart.
     const canSubmit = submitDisabledReason === null
 
-    // Where the star sat before the current optimistic move, so a rejected save can put it back.
-    const previousMainFileRef = useRef<string | null>(null)
-
-    const setMainFileMutation = useMutation({
-        mutationFn: (fileName: string) => setMainCodeFileAction({ studyId, fileName }),
-        onSuccess: () => setLastSavedAt(new Date()),
-        onError: (error) => {
-            setMainFileOverride(previousMainFileRef.current)
-            reportMutationError('Failed to save your main file selection')(error)
-        },
-    })
-
     const setMainFile = useCallback(
         (fileName: string) => {
-            // Optimistic: the star moves on click and the save follows, so the radio never lags a
-            // round trip behind the pointer.
-            previousMainFileRef.current = mainFileOverride
-            setMainFileOverride(fileName)
             setUserEditedFiles(true)
-            setMainFileMutation.mutate(fileName)
+            selectMainFile(fileName)
         },
-        [mainFileOverride, setMainFileMutation],
+        [selectMainFile],
     )
 
     const invalidateFiles = useCallback(() => {
@@ -222,11 +189,11 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
 
     const removeFile = useCallback(
         (fileName: string) => {
-            setMainFileOverride((prev) => (prev === fileName ? null : prev))
+            forgetMainFile(fileName)
             setUserEditedFiles(true)
             deleteMutation.mutate(fileName)
         },
-        [deleteMutation],
+        [deleteMutation, forgetMainFile],
     )
 
     const viewFile = useCallback(
@@ -246,7 +213,11 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // Recorded before launching so Last activity reflects the pencil even if the launch then fails.
     const editFileInIde = useCallback(
         async (fileName: string) => {
-            await recordWorkspaceFileEditAction({ studyId, fileName })
+            // Reported but not returned on: the launch should still go ahead, but a permission
+            // denial or a DB failure must not vanish along with the Last activity row.
+            const result = await recordWorkspaceFileEditAction({ studyId, fileName })
+            if (result && 'error' in result) reportMutationError('Failed to record file edit')(result.error)
+
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             launchWorkspace()
         },
@@ -311,7 +282,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
      * Everything this page can change — uploading, deleting, picking the main file — persists on
      * the spot, so the indicator reports on all three rather than on a form.
      */
-    const isSavingChanges = uploadMutation.isPending || deleteMutation.isPending || setMainFileMutation.isPending
+    const isSavingChanges = uploadMutation.isPending || deleteMutation.isPending || isSavingMainFile
     const saveStatus: SaveStatusValue = isSavingChanges ? 'saving' : lastSavedAt ? 'saved' : 'idle'
 
     const submitMutation = useMutation({
@@ -386,13 +357,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         viewingFile,
         closeFileViewer,
 
-        // Unclaimed reads as editable: the card enables the IDE controls for everyone until the
-        // first launch takes them. Undefined while the query is in flight, hence the `!== false`.
-        canEditInIde: ideOwner?.isClaimed !== true || ideOwner.isOwnedByViewer,
-        // Distinct from canEditInIde, which is also true when nobody has claimed it: the Launch IDE
-        // button needs the two apart to pick its solid-vs-outline variant.
-        isIdeClaimed: ideOwner?.isClaimed === true,
-        ideOwnerName: ideOwner?.ownerName ?? null,
+        canEditInIde,
+        isIdeClaimed,
+        ideOwnerName,
         uploadFiles,
         pendingDuplicate,
         resolveDuplicate,

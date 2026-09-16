@@ -247,12 +247,14 @@ async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
             await replacePrompt.getByRole('button', { name: 'Replace' }).click()
         }
         await expect(replacePrompt).toBeHidden()
-        await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
     }).toPass()
 
-    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'main.r is the main file' })).toBeVisible()
+    // /resubmit now renders the same table as /code, so the file name is the view button and the
+    // star is a radio — the same selectors the upload helper above uses.
+    await expect(page.getByRole('button', { name: 'View main.r' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'main.r is the main file' })).toBeVisible()
 }
 
 // ============================================================================

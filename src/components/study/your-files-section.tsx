@@ -37,7 +37,6 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
             <StudyCodeEmptyView
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
-                launchError={ide.launchError}
                 launchLastUpdatedAt={ide.launchLastUpdatedAt}
                 launchBuildLog={ide.launchBuildLog}
                 launchAgentLog={ide.launchAgentLog}
@@ -45,6 +44,9 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
                 isUploading={ide.isUploading}
                 starterFiles={ide.starterFiles}
                 showLaunchIde={showLaunchIde}
+                isIdeClaimed={ide.isIdeClaimed}
+                canEditInIde={ide.canEditInIde}
+                ideOwnerName={ide.ideOwnerName}
             />
         )
     }

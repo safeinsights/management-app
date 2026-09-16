@@ -4,9 +4,13 @@ import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-previ
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { isFilesReviewState, StudyCodeFileActions, StudyCodeFilesBody } from './study-code-files'
 import { ReplaceFileModal } from './replace-file-modal'
+import { IdeLaunchProgressModal } from './ide-launch-progress-modal'
+import { IdeLaunchFailedModal } from './ide-launch-failed-modal'
 
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
+    /** Named in the Template badge's hover card, the same source the resubmission note reads. */
+    dataPartnerName: string
     stepLabel?: string
     heading?: string
     footer: ReactNode
@@ -31,6 +35,7 @@ const PanelStepLabel: FC<{ stepLabel?: string }> = ({ stepLabel }) => {
  */
 export const StudyCodePanel = ({
     ide,
+    dataPartnerName,
     stepLabel,
     heading = 'Study code',
     footer,
@@ -57,7 +62,12 @@ export const StudyCodePanel = ({
                     </Group>
                 </Stack>
                 <Divider my="lg" />
-                <StudyCodeFilesBody ide={ide} showLaunchIde={showLaunchIde} openRef={openRef} />
+                <StudyCodeFilesBody
+                    ide={ide}
+                    dataPartnerName={dataPartnerName}
+                    showLaunchIde={showLaunchIde}
+                    openRef={openRef}
+                />
             </Paper>
 
             {footer}
@@ -67,6 +77,23 @@ export const StudyCodePanel = ({
             {/* uploadFiles parks a colliding name until this resolves it, so without the modal a
                 same-name upload here would be silently dropped — the common case on a resubmission. */}
             <ReplaceFileModal file={ide.pendingDuplicate} onResolve={ide.resolveDuplicate} />
+
+            {/* LaunchIdeControl shows neither progress nor failure itself, so the card that mounts
+                it owns both — otherwise a failed launch here would report nothing at all. */}
+            <IdeLaunchProgressModal
+                isOpen={ide.isLaunching}
+                onAbandon={ide.abandonLaunch}
+                dataPartnerName={dataPartnerName}
+                buildLog={ide.launchBuildLog}
+                agentLog={ide.launchAgentLog}
+            />
+
+            <IdeLaunchFailedModal
+                isOpen={Boolean(ide.launchError)}
+                onClose={ide.clearLaunchError}
+                onRetry={ide.launchWorkspace}
+                supportRef={ide.launchErrorEventId}
+            />
         </>
     )
 }
