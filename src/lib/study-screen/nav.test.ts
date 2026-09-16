@@ -60,7 +60,7 @@ describe('resolveStepNav — spec pattern invariants', () => {
         ['code-feedback', state({ status: 'APPROVED', isDraft: false, codeDecision: 'CODE-REJECTED' })],
         ['outputs-awaiting-review', state({ status: 'APPROVED', isDraft: false, hasResults: true })],
         ['outputs-shared', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsApproved: true })],
-        ['outputs-shared', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true })],
+        ['outputs-feedback', state({ status: 'APPROVED', isDraft: false, hasResults: true, resultsRejected: true })],
     ]
 
     it.each(everyScreen)('%s carries exactly one solid action', (screen, s) => {
