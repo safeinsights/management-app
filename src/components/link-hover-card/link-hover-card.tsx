@@ -191,6 +191,8 @@ function CopyLinkAction({ href, actionRef }: { href: string; actionRef?: Ref<HTM
         <CopyIcon size={ICON_SIZE} />
     )
 
+    const copyHref = () => clipboard.copy(href)
+
     return (
         <>
             <LinkCardAction
@@ -198,7 +200,7 @@ function CopyLinkAction({ href, actionRef }: { href: string; actionRef?: Ref<HTM
                 ariaLabel={LINK_CARD_LABELS.copy}
                 icon={icon}
                 actionRef={actionRef}
-                onClick={() => clipboard.copy(href)}
+                onClick={copyHref}
             />
             <CopyAnnouncement isCopied={clipboard.copied} />
         </>
