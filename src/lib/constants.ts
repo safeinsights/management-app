@@ -27,3 +27,7 @@ export const APP_SHELL = {
 export const NOTIFICATION_DISPLAY_MS = 8000
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
+
+// Clerk's signOut can hang instead of settling, which strands whatever awaits it. Shared so the
+// bound is one decision rather than a copy per call site (OTTER-745).
+export const SIGN_OUT_TIMEOUT_MS = 5_000

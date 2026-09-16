@@ -5,10 +5,12 @@ import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
 import { reportError } from '@/components/errors'
+import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { DOWNLOAD_PREFIX } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
+import { TimeoutError, withTimeout } from '@/lib/with-timeout'
 import posthog from 'posthog-js'
 
 export type AlreadySignedInStatus = 'loading' | 'redirecting' | 'signed-in' | 'signed-out'
@@ -62,6 +64,15 @@ function leaveForApp(target: Route) {
 // rather than after a wasted pass.
 function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
     return searchParams.get(BOUNCE_PARAM) === BOUNCE_VALUE
+}
+
+const SIGN_OUT_TIMEOUT_MESSAGE = 'Signing out took too long. Your connection may be down.'
+
+// reportError renders an Error through String(), which glues the constructor name onto the message.
+// The timeout text is a sentence written for the user, so it reports as text; anything else keeps
+// the Error so Sentry gets the stack.
+function displayableSignOutError(error: unknown) {
+    return error instanceof TimeoutError ? error.message : error
 }
 
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
@@ -125,21 +136,21 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
         leaveForApp(trustedRedirectTarget(searchParams) ?? Routes.dashboard)
     }, [searchParams])
 
-    // Two places write 'signed-out' after the latch, and they cover different cases: the downgrade above
-    // needs Clerk to have flipped isSignedIn, while this one runs even when signOut rejects or Clerk holds
-    // on to the session, because a user who asked to switch accounts should reach the form either way.
-    // What keeps them from diverging is that every post-latch write moves status the same direction:
-    // toward 'signed-out'. Nothing re-opens the prompt.
+    // Both post-latch writers move status the same direction, so nothing re-opens the prompt: the
+    // downgrade above waits for Clerk to flip isSignedIn, while this one reaches the form however
+    // the sign-out ends, timeout included.
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
         try {
             posthog.reset()
-            await signOut()
+            // Offline, signOut settles neither way, which left this catch and finally unreachable
+            // and the panel stuck on its spinner (OTTER-745).
+            await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
         } catch (error) {
             // The button awaits nothing, so a rejection escaping here would land as an unhandled
             // rejection, and a session the server has already dropped is where Clerk is most likely
             // to reject. Reaching the form is what the user asked for; the finally below does that.
-            reportError(error, 'Failed to sign out while switching accounts')
+            reportError(displayableSignOutError(error), 'Failed to sign out while switching accounts')
         } finally {
             setIsSwitching(false)
             setStatus('signed-out')
