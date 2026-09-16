@@ -250,8 +250,17 @@ describe('submitCodeReviewDecisionAction with an unacknowledged agreement', () =
 // One refusal per remaining gated act. The states are covered above, so these only have to prove
 // the middleware is still on the chain: delete a line and one of them goes green-to-red.
 describe('every act the gate names runs the middleware', () => {
-    const arrange = async (orgType: 'lab' | 'enclave') => {
+    // The code actions refuse in the middleware, before anything reads a job, so only the outputs
+    // decision pays for one.
+    const arrangeStudy = async (orgType: 'lab' | 'enclave') => {
         const { user, org } = await mockSessionWithTestData({ orgType })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id, withStudyAgreement: false })
+        await insertTestStudyAgreement({ studyId: study.id })
+        return { study, org }
+    }
+
+    const arrangeJob = async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
@@ -259,11 +268,11 @@ describe('every act the gate names runs the middleware', () => {
             withStudyAgreement: false,
         })
         await insertTestStudyAgreement({ studyId: study.id })
-        return { study, job, org }
+        return { job, org }
     }
 
     it('refuses submitStudyCodeAction', async () => {
-        const { study } = await arrange('lab')
+        const { study } = await arrangeStudy('lab')
 
         const result = await submitStudyCodeAction({
             studyId: study.id,
@@ -275,7 +284,7 @@ describe('every act the gate names runs the middleware', () => {
     })
 
     it('refuses resubmitStudyCodeAction', async () => {
-        const { study } = await arrange('lab')
+        const { study } = await arrangeStudy('lab')
 
         const result = await resubmitStudyCodeAction({
             studyId: study.id,
@@ -288,7 +297,7 @@ describe('every act the gate names runs the middleware', () => {
     })
 
     it('refuses submitOutputsDecisionAction', async () => {
-        const { job, org } = await arrange('enclave')
+        const { job, org } = await arrangeJob()
 
         const result = await submitOutputsDecisionAction({
             orgSlug: org.slug,
