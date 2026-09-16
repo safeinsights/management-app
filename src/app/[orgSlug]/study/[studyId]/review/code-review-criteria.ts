@@ -4,7 +4,6 @@ import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 export type CodeReviewCriterion = {
     key: CodeReviewCriteriaKey
     label: string
-    /** Rendered beside the label when the criterion needs qualifying for this study. */
     note?: string
 }
 

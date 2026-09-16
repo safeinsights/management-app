@@ -14,7 +14,6 @@ const MESSAGE = `The required Research Lab and Data Partner signatories have not
 
 type Props = {
     studyId: string
-    /** Set by the caller for the proposal states where an agreement is drawn up at all. */
     isVisible: boolean
     /** What the wait blocks for this reader. The reviewer call sites are not submitting code. */
     consequence?: string

@@ -6,7 +6,6 @@ import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-document.
 import { useState } from 'react'
 
 type Props = {
-    /** The version on screen, if any. Undefined while nothing is outstanding. */
     versionId?: string
     /** The query the acknowledgement settles, refetched once it is recorded. */
     invalidateKey: readonly unknown[]

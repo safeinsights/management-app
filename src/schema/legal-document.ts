@@ -25,7 +25,6 @@ export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = 
     ROPA: `${legalDocumentTypeLabels.ROPA}s`,
 }
 
-// List of documents whos acknowledgments are currently required.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
@@ -57,7 +56,6 @@ export type PendingLegalDocument = ResolvedLegalDocument & {
     orgName: string | null
 }
 
-// `satisfies` enforces parity with the DB enum.
 const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
 
 export const legalDocumentFormatSchema = z.enum(legalDocumentFormatValues)

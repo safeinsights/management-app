@@ -127,7 +127,6 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
     .handler(async ({ db, params: { type, orgId, studyId, file } }) => {
         const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
-        // For participation agreements: Make sure agreement type matches org's type
         if (orgId) {
             const org = await db.selectFrom('org').select('type').where('id', '=', orgId).executeTakeFirstOrThrow()
             const acceptableDocType = participationAgreementTypeForOrgType[org.type]
@@ -351,7 +350,6 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
         .execute()
 
-    // Narrow DB enum to T
     const isRequestedType = (type: LegalDocumentType): type is T =>
         (types as readonly LegalDocumentType[]).includes(type)
 
