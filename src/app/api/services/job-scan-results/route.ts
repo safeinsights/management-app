@@ -1,6 +1,8 @@
 import { db } from '@/database'
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
+import logger from '@/lib/logger'
+import { isCurrentCodeRound } from '@/server/db/code-round'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -10,6 +12,10 @@ const schema = z.object({
     jobId: z.string(),
     status: z.enum(['CODE-SUBMITTED', 'CODE-SCANNED', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
+    // OTTER-779. Optional on purpose: a build started before this shipped carries no round, and
+    // refusing it would drop a scan of the code on screen. A stale delivery always carries one,
+    // since the round is put in the payload by the trigger.
+    round: z.number().int().positive().optional(),
 })
 
 const LOG_FILE_TYPES: Partial<Record<string, { encrypted: FileType; plaintext: FileType }>> = {
@@ -35,6 +41,16 @@ export const POST = createWebhookHandler({
                 'org.slug as orgSlug',
             ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
+
+        // A scan of code that has since been replaced would otherwise be stored and shown as this
+        // round's verdict. Answered 200 all the same: the build did its work, and a retry would
+        // only deliver the same stale result again.
+        if (body.round !== undefined && !(await isCurrentCodeRound(job.jobId, body.round))) {
+            logger.warn(
+                `ignoring ${body.status} for job ${job.jobId}: round ${body.round} is no longer the round on the job`,
+            )
+            return
+        }
 
         const logFileTypes = LOG_FILE_TYPES[body.status]
         if (logFileTypes && body.plaintextLog) {

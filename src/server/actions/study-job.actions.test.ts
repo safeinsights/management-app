@@ -804,7 +804,7 @@ describe('Study Job Actions', () => {
 
         // A change-requested resubmit reuses the job, so the previous round's row is still there
         // under the same id (OTTER-779).
-        test("drops a review that belongs to the previous round", async () => {
+        test('drops a review that belongs to the previous round', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await insertReview(job.id, 'Summary of the code submitted last round', 1)

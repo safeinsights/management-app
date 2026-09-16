@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
@@ -228,6 +228,65 @@ test('ignores a CODE-SUBMITTED echo even after the round has been decided', asyn
 
     const rows = await getJobStatusRows(jobId)
     expect(rows.filter((r) => r.status === 'CODE-SUBMITTED').length).toBe(1)
+})
+
+// OTTER-779: the scanner takes a median of two minutes, so a resubmit can easily land while a scan
+// is running. Its verdict describes code the reviewer is no longer looking at.
+describe('a delivery that names a round', () => {
+    const jobFileTypes = async (jobId: string) =>
+        (await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()).map(
+            (row) => row.fileType,
+        )
+
+    // Submitted, changes requested, submitted again: the job is on round 2.
+    const resubmittedJob = async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+        const jobId = jobIds[0]
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
+                { studyJobId: jobId, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
+                { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
+            ])
+            .execute()
+        return jobId
+    }
+
+    test('is refused when its round is no longer the one on the job', async () => {
+        const jobId = await resubmittedJob()
+
+        const resp = await apiHandler.POST(
+            authedRequest({ jobId, status: 'CODE-SCANNED', round: 1, plaintextLog: 'Trivy scan: no issues.' }),
+        )
+
+        expect(resp.ok).toBe(true)
+        const rows = await getJobStatusRows(jobId)
+        expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(false)
+        expect(await jobFileTypes(jobId)).toEqual([])
+    })
+
+    test('is stored when its round is the one on the job', async () => {
+        const jobId = await resubmittedJob()
+
+        const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED', round: 2 }))
+
+        expect(resp.ok).toBe(true)
+        const rows = await getJobStatusRows(jobId)
+        expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(true)
+    })
+
+    // A build that started before this shipped reports without one, and its result is still wanted.
+    test('is stored when it names no round at all', async () => {
+        const jobId = await resubmittedJob()
+
+        const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
+
+        expect(resp.ok).toBe(true)
+        const rows = await getJobStatusRows(jobId)
+        expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(true)
+    })
 })
 
 test('idempotency: duplicate same-status calls do not create duplicate rows', async () => {

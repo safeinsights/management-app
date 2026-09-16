@@ -10,7 +10,7 @@ import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
-import { codeRoundForJob } from '@/server/db/code-round'
+import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -38,8 +38,11 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 
-const simulateJobScan = deferred(async (studyJobId: string) => {
+const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
+    // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
+    // as it does in production (OTTER-779).
+    if (!(await isCurrentCodeRound(studyJobId, round, database))) return
     await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
@@ -56,11 +59,11 @@ const sweepDiscardedScanLogs = deferred(async (paths: ReadonlyArray<string>) => 
     await deleteDiscardedScanLogObjects(paths)
 })
 
-function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
+function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string, round: number) {
     if (SIMULATE_CODE_BUILD) {
-        simulateJobScan(studyJobId)
+        simulateJobScan(studyJobId, round)
     } else {
-        triggerScanForStudyJob({ studyJobId, orgSlug, studyId }).catch((err) =>
+        triggerScanForStudyJob({ studyJobId, orgSlug, studyId, round }).catch((err) =>
             logger.error('Failed to trigger code scan', err, { studyJobId }),
         )
     }
@@ -410,7 +413,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             // this code belongs to. A result that arrives after the next round opens is discarded
             // against it rather than shown as current (OTTER-779).
             const round = await codeRoundForJob(latestJob.id, db)
-            triggerCodeScan(latestJob.id, orgSlug, studyId)
+            triggerCodeScan(latestJob.id, orgSlug, studyId, round)
             onStudyReviewRequested({ studyJobId: latestJob.id, round })
         }
 
@@ -553,7 +556,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
-        triggerCodeScan(studyJobId, orgSlug, studyId)
+        triggerCodeScan(studyJobId, orgSlug, studyId, round)
 
         return { studyJobId }
     })
@@ -829,7 +832,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
-        triggerCodeScan(studyJobId, orgSlug, studyId)
+        triggerCodeScan(studyJobId, orgSlug, studyId, round)
 
         return { studyJobId }
     })

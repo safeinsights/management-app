@@ -182,9 +182,7 @@ async function persistReport(studyJobId: string, round: number, report: Analysis
         .insertInto('studyReview')
         .values({ studyJobId, round, report: JSON.stringify(report), summaryFailedAt: null })
         .onConflict((oc) =>
-            oc
-                .columns(['studyJobId', 'round'])
-                .doUpdateSet({ report: JSON.stringify(report), summaryFailedAt: null }),
+            oc.columns(['studyJobId', 'round']).doUpdateSet({ report: JSON.stringify(report), summaryFailedAt: null }),
         )
         .execute()
 }

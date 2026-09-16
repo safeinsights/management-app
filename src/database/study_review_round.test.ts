@@ -1,5 +1,6 @@
 import { db, describe, expect, insertTestStudyJobData, it } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
+import type { Kysely } from 'kysely'
 import { backfillStudyReviewRound } from './migrations/1786900000000_study_review_round'
 
 const REPORT = { codeExplanation: 'Aggregates scores by school.' }
@@ -35,7 +36,7 @@ describe('study_review_round migration', () => {
         const { study, job } = await insertResubmittedJob()
         const review = await insertReview(job.id, minutesAgo(5))
 
-        await backfillStudyReviewRound(db, study.id)
+        await backfillStudyReviewRound(db as unknown as Kysely<unknown>, study.id)
 
         expect(await roundOf(review)).toBe(2)
     })
@@ -45,7 +46,7 @@ describe('study_review_round migration', () => {
         const { study, job } = await insertResubmittedJob()
         const review = await insertReview(job.id, minutesAgo(25))
 
-        await backfillStudyReviewRound(db, study.id)
+        await backfillStudyReviewRound(db as unknown as Kysely<unknown>, study.id)
 
         expect(await roundOf(review)).toBe(1)
     })
@@ -58,7 +59,7 @@ describe('study_review_round migration', () => {
         const { job: otherJob } = await insertTestStudyJobData({})
         await addStatus(otherJob.id, 'CODE-CHANGES-REQUESTED', minutesAgo(20))
 
-        await backfillStudyReviewRound(db, study.id)
+        await backfillStudyReviewRound(db as unknown as Kysely<unknown>, study.id)
 
         expect(await roundOf(review)).toBe(1)
     })

@@ -57,11 +57,7 @@ const resubmit = async (studyJobId: string) => {
 const storedReviews = (studyJobId: string) =>
     db
         .selectFrom('studyReview')
-        .select((eb) => [
-            'round',
-            'summaryFailedAt',
-            eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
-        ])
+        .select((eb) => ['round', 'summaryFailedAt', eb.ref('report').$castTo<AnalysisReport | null>().as('report')])
         .where('studyJobId', '=', studyJobId)
         .orderBy('round')
         .execute()
