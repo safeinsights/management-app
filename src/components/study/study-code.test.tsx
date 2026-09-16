@@ -1312,6 +1312,10 @@ describe('StudyCode component', () => {
             const rendered = await renderIDE('openstax-lab', FILES)
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
             await userEvent.setup().click(screen.getByRole('button', { name: /launch ide/i }))
+            // The launch mutation is in flight by the time the click resolves, and the modal stays
+            // up while the workspace provisions — so waiting here settles it without ending the
+            // state under test.
+            await waitForPendingMutations()
             return rendered
         }
 

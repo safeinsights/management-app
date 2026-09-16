@@ -236,6 +236,20 @@ async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
+    // OTTER-693 asks before overwriting a name the workspace already has, one file at a time — and a
+    // resubmission re-uploads the previous round's names, so this is the ordinary case here. Replace
+    // is what a resubmission means. Retried as a block because the prompt can arrive after the
+    // upload settles, and conditional for the same reason the upload-card check above is: whether
+    // the previous files are on disk depends on shared CODER_FILES state.
+    const replacePrompt = page.getByRole('dialog', { name: 'Replace existing file?' })
+    await expect(async () => {
+        if (await replacePrompt.isVisible()) {
+            await replacePrompt.getByRole('button', { name: 'Replace' }).click()
+        }
+        await expect(replacePrompt).toBeHidden()
+        await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    }).toPass()
+
     await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'main.r is the main file' })).toBeVisible()
