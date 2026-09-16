@@ -4,9 +4,6 @@ import { type StudyAgreementStatus } from '@/schema/legal-document'
 import { type UserSession } from '@/lib/types'
 import { studyAgreementState } from './db/legal-document'
 
-const REQUIRED_MESSAGE = 'must be acknowledged before you can continue with this study'
-const MISSING_MESSAGE = 'has not been signed yet for this study'
-
 // One resolver for the client gate and the server guards, so the modal and the refusal cannot
 // disagree. Undefined only when the study does not exist; callers decide what that means.
 export const studyAgreementStatusFor = async (
@@ -36,8 +33,9 @@ export const requireStudyAgreementAcknowledged = async (
     const status = await studyAgreementStatusFor(db, { studyId, userId })
 
     if (!status) throw new ActionFailure({ study: 'was not found' })
-    if (status.state === 'none') throw new ActionFailure({ studyAgreement: MISSING_MESSAGE })
-    if (status.state === 'pending') throw new ActionFailure({ studyAgreement: REQUIRED_MESSAGE })
+    if (status.state === 'none') throw new ActionFailure({ studyAgreement: 'has not been signed yet for this study' })
+    if (status.state === 'pending')
+        throw new ActionFailure({ studyAgreement: 'must be acknowledged before you can continue with this study' })
 }
 
 // studyId comes from the caller: submitOutputsDecisionAction has only the job id to derive it from.
