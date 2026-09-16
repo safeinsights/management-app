@@ -185,7 +185,7 @@ describe('generateAndStoreStudyReview', () => {
         expect(await storedReviews(job.id)).toEqual([])
     })
 
-    // The race the card reports: the run was current when it started and analysed the old code.
+    // The race the card reports: the run was current when it started and analyzed the old code.
     it('discards a report when the resubmit lands mid-run', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
@@ -203,7 +203,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     // The inverted order, which the card calls the worse one: a stale failure used to overwrite a
-    // good report and show as a permanent error on code that was analysed successfully.
+    // good report and show as a permanent error on code that was analyzed successfully.
     it('keeps the current round intact when a superseded run fails', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
