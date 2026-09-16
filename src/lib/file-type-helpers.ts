@@ -94,17 +94,3 @@ export function logLabel(fileType: FileType): string {
 export function isEncryptedArtifact(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || fileType === 'ENCRYPTED-RESULT'
 }
-
-export function isLegacyResultArtifact(fileType: FileType): boolean {
-    return isApprovedLogType(fileType) || isPlaintextLogType(fileType) || fileType === 'APPROVED-RESULT'
-}
-
-export function jobHasEncryptedArtifacts(files: { fileType: FileType }[]): boolean {
-    return files.some((f) => isEncryptedArtifact(f.fileType))
-}
-
-// The no-encrypted guard keeps a job carrying both on the encrypted path so nothing
-// decryptable is silently skipped.
-export function jobHasLegacyResults(files: { fileType: FileType }[]): boolean {
-    return !jobHasEncryptedArtifacts(files) && files.some((f) => isLegacyResultArtifact(f.fileType))
-}
