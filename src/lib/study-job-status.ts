@@ -82,8 +82,9 @@ export const CODE_ROUND_CLOSING_JOB_STATUSES = [
     'FILES-REJECTED',
 ] as const satisfies readonly StudyJobStatus[]
 
-// Counted rather than read off the latest status: statuses written in one transaction tie on
-// createdAt, and v7 ids are not monotonic within a millisecond (OTTER-552).
+// Counted rather than read off the latest status: createdAt defaults to now(), which Postgres holds
+// fixed for a whole transaction, so statuses written together tie exactly, and v7 ids are not
+// monotonic within a millisecond either.
 export const latestSubmittedJobHasLiveCodeDecision = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus }>,
 ): boolean => {
