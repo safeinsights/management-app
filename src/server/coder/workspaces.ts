@@ -29,13 +29,14 @@ import type {
 } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchLatestCodeEnvForStudyId } from '../db/queries'
+import { fetchLatestCodeEnvForStudyId, fetchLatestCodeEnvForStudyIdOrNull } from '../db/queries'
 import { latestStudyJobCreatedAt } from '../db/mutations'
-import { db } from '@/database'
+import { db, type DBExecutor } from '@/database'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
+import { templateFileNameFor } from '@/lib/languages'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -326,51 +327,89 @@ async function studyDirHasFiles(dir: string): Promise<boolean> {
     }
 }
 
+/**
+ * Copies the Data Partner's starter code into a study's workspace. Exported so the Submit code page
+ * can pre-load the template before anyone provisions a workspace (OTTER-693); the launch path calls
+ * it too, which is why the "only when empty" guard lives here rather than in either caller.
+ *
+ * Returns the template's name when it copied, and null when there was nothing to do.
+ */
+export const copyStarterCodeIntoWorkspace = async (
+    studyId: string,
+    executor: DBExecutor = db,
+): Promise<string | null> => {
+    const logCtx = `[coder-init study=${studyId}]`
+
+    const codeEnv = await fetchLatestCodeEnvForStudyIdOrNull(studyId)
+    if (!codeEnv) {
+        logger.info(`${logCtx} no code environment, nothing to copy`)
+        return null
+    }
+
+    const starterFiles = codeEnv.starterCodeFileNames ?? []
+    if (starterFiles.length === 0) return null
+
+    const coderBaseFilePath = await getConfigValue('CODER_FILES')
+    const studyDir = path.join(coderBaseFilePath, studyId)
+
+    // The card names the first starter file Main.{x} after the language; any others keep their own
+    // name and carry no badge.
+    const templateName = templateFileNameFor(codeEnv.language)
+    const targetNameFor = (fileName: string, index: number) => (index === 0 ? templateName : fileName)
+
+    // Backdated against the baseline studyJob, not wall-clock: provisioning can outlast a fixed
+    // window, leaving files newer than the baseline and flipping Submit on with no user edits.
+    const baselineCreatedAt = await latestStudyJobCreatedAt(executor, studyId)
+    const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
+
+    // Only copy when empty, so ready-polling repeats do not clobber user edits. Returning null on
+    // the skip path is what stops a caller resetting the researcher's main-file choice.
+    if (await studyDirHasFiles(studyDir)) {
+        logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
+        return null
+    }
+
+    logger.info(
+        `${logCtx} initializing into ${studyDir} from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
+            `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
+    )
+
+    for (const [index, fileName] of starterFiles.entries()) {
+        const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
+        const targetFilePath = path.join(studyDir, targetNameFor(fileName, index))
+
+        let fileData
+        try {
+            fileData = await fetchFileContents(filePath)
+        } catch (error) {
+            logger.error(`${logCtx} failed fetching starter file from s3://${filePath}:`, error)
+            throw error
+        }
+
+        try {
+            await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
+            await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+            await fs.utimes(targetFilePath, pastDate, pastDate)
+        } catch (error) {
+            logger.error(`${logCtx} failed writing starter file to ${targetFilePath}:`, error)
+            throw error
+        }
+        logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
+    }
+
+    return templateName
+}
+
 const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const logCtx = `[coder-init study=${studyId}]`
     const coderBaseFilePath = await getConfigValue('CODER_FILES')
     const studyDir = path.join(coderBaseFilePath, studyId)
 
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
-    const starterFiles = codeEnv.starterCodeFileNames ?? []
+    await copyStarterCodeIntoWorkspace(studyId)
 
-    // Backdated against the baseline studyJob, not wall-clock: provisioning can outlast a fixed
-    // window, leaving files newer than the baseline and flipping Submit on with no user edits.
+    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
-
-    // Only copy when empty, so ready-polling repeats do not clobber user edits.
-    if (await studyDirHasFiles(studyDir)) {
-        logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
-    } else {
-        logger.info(
-            `${logCtx} initializing into ${studyDir} from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
-                `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
-        )
-
-        for (const fileName of starterFiles) {
-            const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
-            const targetFilePath = path.join(studyDir, fileName)
-
-            let fileData
-            try {
-                fileData = await fetchFileContents(filePath)
-            } catch (error) {
-                logger.error(`${logCtx} failed fetching starter file from s3://${filePath}:`, error)
-                throw error
-            }
-
-            try {
-                await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
-                await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
-                await fs.utimes(targetFilePath, pastDate, pastDate)
-            } catch (error) {
-                logger.error(`${logCtx} failed writing starter file to ${targetFilePath}:`, error)
-                throw error
-            }
-            logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
-        }
-    }
 
     // Refreshed every launch so a relaunch picks up context changes even when starter code is untouched.
     await writeAgentContext({ targetDir: studyDir, language: codeEnv.language, orgId: codeEnv.orgId, pastDate, logCtx })
