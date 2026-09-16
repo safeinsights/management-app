@@ -522,12 +522,15 @@ export type JobFileActivity = {
     actorName: string
 }
 
-export async function latestActivityPerJobFile(jobId: string): Promise<JobFileActivity[]> {
+// Scoped to one side of the study: the Data Partner never sees the lab's activity and vice versa
+// (OTTER-783).
+export async function latestActivityPerJobFile(jobId: string, orgId: string): Promise<JobFileActivity[]> {
     return await Action.db
         .selectFrom('studyJobFileActivity')
         .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
         .innerJoin('user', 'user.id', 'studyJobFileActivity.userId')
         .where('studyJobFile.studyJobId', '=', jobId)
+        .where('studyJobFileActivity.orgId', '=', orgId)
         .select([
             'studyJobFileActivity.studyJobFileId',
             'studyJobFileActivity.filePath',
