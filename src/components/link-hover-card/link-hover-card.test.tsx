@@ -1,6 +1,12 @@
 import { renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
 import { LinkHoverCard } from './link-hover-card'
-import { LINK_CARD_LABELS, LINK_COPIED_ANNOUNCEMENT, UNAVAILABLE_LINK_BODY, UNAVAILABLE_LINK_TITLE } from './copy'
+import {
+    LINK_CARD_LABELS,
+    LINK_COPIED_ANNOUNCEMENT,
+    LOADING_LINK_TITLE,
+    UNAVAILABLE_LINK_BODY,
+    UNAVAILABLE_LINK_TITLE,
+} from './copy'
 import type { LinkPreview } from './link-preview'
 
 const URL = 'https://example.com/a/very/long/path'
@@ -13,6 +19,7 @@ const internal: LinkPreview = {
     category: 'OpenStax',
 }
 const unavailable: LinkPreview = { kind: 'unavailable', href: URL }
+const loading: LinkPreview = { kind: 'loading', href: URL }
 
 function renderCard(preview: LinkPreview, overrides: Partial<Parameters<typeof LinkHoverCard>[0]> = {}) {
     return renderWithProviders(
@@ -50,6 +57,22 @@ describe('LinkHoverCard', () => {
         expect(screen.getByText(UNAVAILABLE_LINK_BODY)).toBeInTheDocument()
         expect(screen.queryByRole('link')).toBeNull()
         expect(buttonNames()).toEqual([LINK_CARD_LABELS.copy, LINK_CARD_LABELS.edit, LINK_CARD_LABELS.remove])
+    })
+
+    it('offers no link and no open action while the destination is still resolving', () => {
+        renderCard(loading)
+
+        expect(screen.getByText(LOADING_LINK_TITLE)).toBeInTheDocument()
+        expect(screen.queryByText(URL)).toBeNull()
+        expect(screen.queryByRole('link')).toBeNull()
+        expect(buttonNames()).toEqual([LINK_CARD_LABELS.copy, LINK_CARD_LABELS.edit, LINK_CARD_LABELS.remove])
+    })
+
+    it('keeps a read-only card to copy alone while the destination is still resolving', () => {
+        renderCard(loading, { mode: 'readOnly', opensInNewTab: false })
+
+        expect(screen.queryByRole('link')).toBeNull()
+        expect(buttonNames()).toEqual([LINK_CARD_LABELS.copy])
     })
 
     it('offers all four actions while editing', () => {

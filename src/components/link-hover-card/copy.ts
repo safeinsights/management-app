@@ -13,6 +13,7 @@ export const LINK_COPIED_ANNOUNCEMENT = 'Link copied'
 export const LINK_CARD_DIALOG_LABEL = 'Link details'
 export const LINK_EDIT_DIALOG_LABEL = 'Edit link'
 
+export const LOADING_LINK_TITLE = 'Loading link details'
 export const UNAVAILABLE_LINK_TITLE = 'Unable to open link'
 export const UNAVAILABLE_LINK_BODY = 'You may not have access to this page, or it may have been deleted.'
 

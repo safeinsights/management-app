@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode, Ref } from 'react'
-import { ActionIcon, Anchor, Divider, Group, Stack, Text, Tooltip, VisuallyHidden } from '@mantine/core'
+import { ActionIcon, Anchor, Divider, Group, Skeleton, Stack, Text, Tooltip, VisuallyHidden } from '@mantine/core'
 import { useClipboard } from '@mantine/hooks'
 import {
     ArrowSquareOutIcon,
@@ -10,7 +10,13 @@ import {
     LinkBreakIcon,
     PencilSimpleIcon,
 } from '@phosphor-icons/react/dist/ssr'
-import { LINK_CARD_LABELS, LINK_COPIED_ANNOUNCEMENT, UNAVAILABLE_LINK_BODY, UNAVAILABLE_LINK_TITLE } from './copy'
+import {
+    LINK_CARD_LABELS,
+    LINK_COPIED_ANNOUNCEMENT,
+    LOADING_LINK_TITLE,
+    UNAVAILABLE_LINK_BODY,
+    UNAVAILABLE_LINK_TITLE,
+} from './copy'
 import { formatCategoryLine, type LinkPreview } from './link-preview'
 import classes from './link-hover-card.module.css'
 
@@ -29,14 +35,15 @@ interface LinkCardActionVisibility {
 
 /**
  * Read-only offers "open in a new tab" only for links not already stored to open there. The broken
- * state has no reachable destination, so neither mode offers a way to open it.
+ * state has no reachable destination, and a destination still resolving may turn out to be one,
+ * so neither mode offers a way to open either.
  */
 function linkCardActionVisibility(
     mode: LinkCardMode,
     preview: LinkPreview,
     opensInNewTab: boolean,
 ): LinkCardActionVisibility {
-    const canOpen = preview.kind !== 'unavailable'
+    const canOpen = preview.kind !== 'unavailable' && preview.kind !== 'loading'
 
     if (mode === 'readOnly') {
         return { openInNewTab: canOpen && !opensInNewTab, edit: false, remove: false }
@@ -96,6 +103,7 @@ export function LinkHoverCard({
 }
 
 function LinkHoverCardTitle({ preview }: { preview: LinkPreview }) {
+    if (preview.kind === 'loading') return <LoadingTitle />
     if (preview.kind === 'unavailable') return <UnavailableTitle />
     if (preview.kind === 'internal') return <InternalTitle preview={preview} />
 
@@ -137,6 +145,26 @@ function InternalTitle({ preview }: { preview: Extract<LinkPreview, { kind: 'int
             <Text fz={12} c="charcoal.7">
                 {formatCategoryLine(preview.category)}
             </Text>
+        </Stack>
+    )
+}
+
+/**
+ * Sized by the same two text lines the answer renders, so the card holds still when it lands. No
+ * link yet: the server has not said whether the reader may open this destination.
+ */
+function LoadingTitle() {
+    return (
+        <Stack gap={4}>
+            <Skeleton width="70%">
+                <Text fz={14} fw={600}>
+                    &nbsp;
+                </Text>
+            </Skeleton>
+            <Skeleton width="40%">
+                <Text fz={12}>&nbsp;</Text>
+            </Skeleton>
+            <VisuallyHidden>{LOADING_LINK_TITLE}</VisuallyHidden>
         </Stack>
     )
 }
