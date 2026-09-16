@@ -10,7 +10,7 @@ import {
     it,
 } from '@/tests/unit.helpers'
 import type { Kysely } from 'kysely'
-import { backfillActivityOrg } from './migrations/1786600000000_study_job_file_activity_org'
+import { backfillActivityOrg } from './migrations/1786700000000_study_job_file_activity_org'
 
 describe('study_job_file_activity_org migration', () => {
     it('attributes existing activity to the Data Partner for its members and to the lab for everyone else', async () => {
