@@ -13,9 +13,9 @@ const schema = z.object({
     status: z.enum(['CODE-SUBMITTED', 'CODE-SCANNED', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
     // OTTER-779. Optional on purpose: a build started before this shipped carries no round, and
-    // refusing it would drop a scan of the code on screen. A stale delivery always carries one,
-    // since the round is put in the payload by the trigger.
-    round: z.number().int().positive().optional(),
+    // refusing every one of those would drop a scan of the code on screen. Coerced because the
+    // round crosses a repository boundary, as a value the scanner merges into its own payload.
+    round: z.coerce.number().int().positive().optional(),
 })
 
 const LOG_FILE_TYPES: Partial<Record<string, { encrypted: FileType; plaintext: FileType }>> = {
@@ -45,9 +45,14 @@ export const POST = createWebhookHandler({
         // A scan of code that has since been replaced would otherwise be stored and shown as this
         // round's verdict. Answered 200 all the same: the build did its work, and a retry would
         // only deliver the same stale result again.
-        if (body.round !== undefined && !(await isCurrentCodeRound(job.jobId, body.round))) {
+        //
+        // A delivery that names no round is read as the first one, which is the only round a build
+        // predating this change can still be current for. That keeps the guard closed against a
+        // caller that omits the round, rather than leaving it permanently disabled for one.
+        const round = body.round ?? 1
+        if (!(await isCurrentCodeRound(job.jobId, round))) {
             logger.warn(
-                `ignoring ${body.status} for job ${job.jobId}: round ${body.round} is no longer the round on the job`,
+                `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
             )
             return
         }

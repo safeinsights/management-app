@@ -277,15 +277,46 @@ describe('a delivery that names a round', () => {
         expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(true)
     })
 
-    // A build that started before this shipped reports without one, and its result is still wanted.
-    test('is stored when it names no round at all', async () => {
+    // The round crosses a repository boundary, so it can come back as the string the scanner merged
+    // into its payload rather than as a number.
+    test('is stored when its round arrives as a string', async () => {
         const jobId = await resubmittedJob()
+
+        const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED', round: '2' }))
+
+        expect(resp.ok).toBe(true)
+        const rows = await getJobStatusRows(jobId)
+        expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(true)
+    })
+
+    // A build that started before this shipped reports without one, and its result is still wanted
+    // while the job has not moved past the round that build was started for.
+    test('is stored when it names no round and the job is still on its first', async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+        const jobId = jobIds[0]
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id })
+            .execute()
 
         const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
 
         expect(resp.ok).toBe(true)
         const rows = await getJobStatusRows(jobId)
         expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(true)
+    })
+
+    // On a job that has been resubmitted, a delivery carrying no round can only describe code that
+    // is gone: anything started for the current round carries one.
+    test('is refused when it names no round and the job has been resubmitted', async () => {
+        const jobId = await resubmittedJob()
+
+        const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
+
+        expect(resp.ok).toBe(true)
+        const rows = await getJobStatusRows(jobId)
+        expect(rows.some((r) => r.status === 'CODE-SCANNED')).toBe(false)
     })
 })
 
