@@ -1,5 +1,6 @@
-import type { ReviewDecision, StudyJobStatus } from '@/database/types'
+import type { FileType, ReviewDecision, StudyJobStatus } from '@/database/types'
 import { overCharacterLimitError } from '@/lib/field-limits'
+import { ENCRYPTED_LOG_TYPES } from '@/lib/file-type-helpers'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 export type OutputsDecision = 'share-outputs' | 'share-feedback-only'
@@ -67,6 +68,23 @@ export const OUTPUTS_DECISION_FAILURE = {
 } as const
 
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
+
+export type OutputFileOrder = { fileType: FileType; name: string }
+
+// Non-logs rank last, so the logs keep the top of the list.
+const logRank = (fileType: FileType): number => {
+    const index = ENCRYPTED_LOG_TYPES.indexOf(fileType)
+    return index === -1 ? ENCRYPTED_LOG_TYPES.length : index
+}
+
+/**
+ * Logs first, in ENCRYPTED_LOG_TYPES order, then the results by name. Nothing ordered the rows
+ * before this, so the list came back in physical database order and moved between rounds; the logs
+ * are context for the results rather than results themselves, so they stay above them (OTTER-758).
+ */
+export const compareOutputFiles = (a: OutputFileOrder, b: OutputFileOrder): number =>
+    logRank(a.fileType) - logRank(b.fileType) ||
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 
 export const OUTPUTS_DECISION_ERRORS = {
     feedbackEmpty: (labName: string) => `Enter your feedback for ${labName} before submitting.`,

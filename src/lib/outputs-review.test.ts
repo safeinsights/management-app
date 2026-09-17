@@ -1,11 +1,13 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
 import {
+    compareOutputFiles,
     isOutputsReviewEditable,
     OUTPUTS_DECISION_ERRORS,
     OUTPUTS_DECISIONS,
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     OUTPUTS_FILE_NAME_MAX_LENGTH,
     toOutputsReviewDecision,
+    type OutputFileOrder,
 } from './outputs-review'
 
 describe('outputs review decisions', () => {
@@ -64,5 +66,66 @@ describe('isOutputsReviewEditable', () => {
 
     it('treats an unknown job as editable, because closing a review needs positive evidence', () => {
         expect(isOutputsReviewEditable({ jobStatuses: [] })).toBe(true)
+    })
+})
+
+describe('compareOutputFiles', () => {
+    const result = (name: string): OutputFileOrder => ({ fileType: 'ENCRYPTED-RESULT', name })
+    const order = (files: OutputFileOrder[]) => [...files].sort(compareOutputFiles).map((file) => file.name)
+
+    it('sorts the results by name', () => {
+        expect(order([result('tutor_results.csv'), result('a_plot.png'), result('archive.zip')])).toEqual([
+            'a_plot.png',
+            'archive.zip',
+            'tutor_results.csv',
+        ])
+    })
+
+    it('ignores case, so an upper-case name does not jump the list', () => {
+        expect(order([result('beta.csv'), result('Alpha.csv'), result('Gamma.csv')])).toEqual([
+            'Alpha.csv',
+            'beta.csv',
+            'Gamma.csv',
+        ])
+    })
+
+    it('orders embedded numbers by value rather than by digit', () => {
+        expect(order([result('run10.csv'), result('run2.csv'), result('run1.csv')])).toEqual([
+            'run1.csv',
+            'run2.csv',
+            'run10.csv',
+        ])
+    })
+
+    it('keeps every log above the results whatever the names are', () => {
+        const files = [
+            result('a_first_by_name.csv'),
+            { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
+            result('b_second.csv'),
+        ]
+
+        expect(order(files)).toEqual(['security-scan-log.txt', 'a_first_by_name.csv', 'b_second.csv'])
+    })
+
+    it('puts the code run log above the security scan log, matching the design', () => {
+        const files = [
+            { fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG', name: 'packaging.txt' } as OutputFileOrder,
+            { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
+            { fileType: 'ENCRYPTED-CODE-RUN-LOG', name: 'code-run-log.txt' } as OutputFileOrder,
+        ]
+
+        expect(order(files)).toEqual(['code-run-log.txt', 'security-scan-log.txt', 'packaging.txt'])
+    })
+
+    it('gives the same order whatever order the files arrive in', () => {
+        const files = [
+            result('tutor_results.csv'),
+            { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
+            result('a_plot.png'),
+        ]
+        const expected = ['security-scan-log.txt', 'a_plot.png', 'tutor_results.csv']
+
+        expect(order(files)).toEqual(expected)
+        expect(order([...files].reverse())).toEqual(expected)
     })
 })

@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import type { ActivityState, OutputFileRowData } from '@/components/study/outputs-file-row'
 import { downloadBlob } from '@/lib/download-blob'
+import { compareOutputFiles } from '@/lib/outputs-review'
 import { zipFiles } from '@/lib/zip-files'
 import type { JobFileInfo } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
@@ -76,16 +77,24 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         // Dropped on a failed poll rather than carried: TanStack keeps the last good data through
         // one, and a row naming an actor and a time reads as a statement about now.
         const activityRows = activityState === 'known' ? (activity ?? []) : []
-        return decryptedFiles.map((file) => ({
-            key: rowKey(file),
-            studyJobFileId: file.sourceId,
-            filePath: file.path,
-            name: displayName(file.path),
-            contents: file.contents,
-            activityState,
-            activity:
-                activityRows.find((row) => row.studyJobFileId === file.sourceId && row.filePath === file.path) ?? null,
-        }))
+        // Copied before sorting: decryptedFiles is owned by the caller and shared with the
+        // researcher panels, so ordering it in place would reorder their list too.
+        return decryptedFiles
+            .map((file) => ({ file, name: displayName(file.path) }))
+            .sort((a, b) =>
+                compareOutputFiles({ fileType: a.file.fileType, name: a.name }, { fileType: b.file.fileType, name: b.name }),
+            )
+            .map(({ file, name }) => ({
+                key: rowKey(file),
+                studyJobFileId: file.sourceId,
+                filePath: file.path,
+                name,
+                contents: file.contents,
+                activityState,
+                activity:
+                    activityRows.find((row) => row.studyJobFileId === file.sourceId && row.filePath === file.path) ??
+                    null,
+            }))
     }, [decryptedFiles, activity, activityState])
 
     const onView = useCallback(
