@@ -46,6 +46,7 @@ import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { urlForLegalDocumentVersion } from '../legal-document'
 import { studyAgreementStatusFor } from '../study-agreement'
+import { onStudyAgreementPublished } from '../events'
 import { requireResolvedOrg } from './org-context'
 import { Action, ActionFailure } from './action'
 
@@ -213,7 +214,10 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        // onStudyAgreementPublished belongs here, but the Mailgun template it needs does not exist yet.
+        // Only a Study Agreement has an audience to notify; the org-wide types are not acknowledged per study.
+        if (version.type === 'SLA' && version.studyId) {
+            onStudyAgreementPublished({ studyId: version.studyId })
+        }
 
         return published
     })

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
 import { signedUrlForFile } from '@/server/aws'
+import { flushDeferred } from '@/tests/vitest.setup'
+import logger from '@/lib/logger'
 import {
     actionResult,
     faker,
@@ -142,6 +144,38 @@ describe('fetchStudiesAwaitingStudyAgreementAction', () => {
         await mockSessionWithTestData()
 
         expect(await fetchStudiesAwaitingStudyAgreementAction()).toHaveProperty('error')
+    })
+})
+
+describe('publishLegalDocumentVersionAction', () => {
+    // The ready email is held until its Mailgun template exists, so the log line is what there is to
+    // observe. Assert on `deliver` again once the template lands.
+    const HELD_READY_EMAIL = 'Holding email until its Mailgun template exists: Study Agreement ready to acknowledge'
+
+    it('tells the study parties a published Study Agreement is ready to acknowledge', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { study } = await insertStudyWithDistinctOrgs({ title: 'Ready to acknowledge' })
+        vi.spyOn(logger, 'info').mockImplementation(() => true)
+
+        await uploadAndPublishStudyAgreement(study.id, '2026-07-27')
+        await flushDeferred()
+
+        expect(logger.info).toHaveBeenCalledWith(HELD_READY_EMAIL)
+    })
+
+    // Publishing a Terms of Service runs the same action, and nobody acknowledges one per study.
+    it('says nothing when the published document is not a Study Agreement', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        vi.spyOn(logger, 'info').mockImplementation(() => true)
+
+        const { version } = actionResult(
+            await createLegalDocumentDraftAction({ type: 'TOS', orgId: org.id, file: testUploadFile('tos.pdf') }),
+        )
+        actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
+        await flushDeferred()
+
+        expect(logger.info).not.toHaveBeenCalledWith(HELD_READY_EMAIL)
     })
 })
 

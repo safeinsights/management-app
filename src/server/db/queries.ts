@@ -306,6 +306,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'study.researcherId',
             'study.piUserId',
             'study.title',
+            'study.isTestStudy',
             'reviewer.email as reviewerEmail',
             'reviewer.fullName as reviewerFullName',
             'researcher.email as researcherEmail',
@@ -314,6 +315,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'org.name as orgName',
             // Lab-audience emails link through the lab's slug; `orgSlug` is the Data Partner's.
             'lab.slug as labSlug',
+            'lab.name as labName',
             'study.createdAt',
         ])
         .where('study.id', '=', studyId)
