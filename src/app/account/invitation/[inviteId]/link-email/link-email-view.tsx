@@ -3,7 +3,7 @@
 import { InputError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import OtpInput from '@/components/otp-input'
-import { Box, Button, Flex, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Center, Flex, Paper, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { FC } from 'react'
 import { LinkInviteEmailStatus } from './use-link-invite-email'
@@ -50,8 +50,10 @@ const CodePanel: FC<{
                     {invitedEmail} was invited to {orgName}. Enter the code we sent to {invitedEmail} to add it to your
                     account.
                 </Text>
-                <OtpInput form={form} errorId="link-email-code-error" testId="link-email-pin-input" />
-                <Box id="link-email-code-error">
+                <Center>
+                    <OtpInput form={form} errorId="link-email-code-error" testId="link-email-pin-input" />
+                </Center>
+                <Box id="link-email-code-error" ta="center">
                     <InputError error={form.errors.code} />
                 </Box>
                 <Button type="submit" variant="filled" size="lg" loading={isVerifying} mb={4}>
