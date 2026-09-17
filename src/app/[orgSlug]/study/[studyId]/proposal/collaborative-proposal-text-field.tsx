@@ -9,7 +9,7 @@ import { fieldCounterId, FormField, fieldDescribedBy } from '@/components/form-f
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { countCharactersFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
@@ -30,14 +30,12 @@ type Props = {
     onChange: (val: string) => void
     onBlur: () => void
     websocketProvider: HocuspocusProviderWebsocket | null
-    // Opt-in: Step 2 renders no placeholders (OTTER-691) while the resubmit page still does.
-    placeholder?: string
-    // Opt-in: Step 2 has per-field heights (OTTER-691) while the resubmit page keeps one uniform
-    // height.
     contentHeight?: number
     isResizable?: boolean
 }
 
+// No placeholder: the card removes placeholder text from every input on both pages that render
+// these fields (OTTER-691, OTTER-762).
 export function CollaborativeProposalTextField({
     studyId,
     field,
@@ -46,7 +44,6 @@ export function CollaborativeProposalTextField({
     onChange,
     onBlur,
     websocketProvider,
-    placeholder,
     contentHeight,
     isResizable,
 }: Props) {
@@ -93,7 +90,6 @@ export function CollaborativeProposalTextField({
                         contentStyle={contentStyle}
                         contentHeight={contentHeight}
                         isResizable={isResizable}
-                        placeholder={placeholder}
                         ariaLabel={field.label}
                         onChange={onTextChange}
                         onBlur={onBlur}
@@ -117,28 +113,19 @@ export const ProposalTextFieldEntry: FC<{
     form: UseFormReturnType<ProposalFormValues>
     studyId: string
     websocketProvider: HocuspocusProviderWebsocket | null
-    placeholder?: string
-    contentHeight?: number
-    isResizable?: boolean
-    // Only the over-limit half of the rule is live; the required half belongs to blur and Submit,
-    // so clearing the box does not flash an error mid-edit.
-    liveCharacterLimit?: boolean
-}> = ({
-    field,
-    form,
-    studyId,
-    websocketProvider,
-    placeholder,
-    contentHeight,
-    isResizable,
-    liveCharacterLimit = false,
-}) => {
+}> = ({ field, form, studyId, websocketProvider }) => {
     const value = form.values[field.id] as string
     const error = form.errors[field.id] as string | undefined
 
+    // Only the over-limit half of the rule is live; the required half belongs to blur and Submit,
+    // so clearing the box does not flash an error mid-edit.
     const onChange = (val: string) => {
+        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
+        // is not an edit, and letting it through would clear the required error Submit has just
+        // raised on the field it then focuses (OTTER-762).
+        if (!hasLexicalContent(val) && !hasLexicalContent(value)) return
         form.setFieldValue(field.id, val)
-        if (liveCharacterLimit && countCharactersFromLexical(val) > field.maxCharacters) {
+        if (countCharactersFromLexical(val) > field.maxCharacters) {
             form.setFieldError(field.id, overCharacterLimitError(field.label, field.maxCharacters))
         }
     }
@@ -152,9 +139,8 @@ export const ProposalTextFieldEntry: FC<{
             onChange={onChange}
             onBlur={() => form.validateField(field.id)}
             websocketProvider={websocketProvider}
-            placeholder={placeholder}
-            contentHeight={contentHeight}
-            isResizable={isResizable}
+            contentHeight={field.contentHeight}
+            isResizable
         />
     )
 }

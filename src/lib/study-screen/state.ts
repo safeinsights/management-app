@@ -170,3 +170,10 @@ export const isErroredOutputsSharedOutcome = (s: Pick<StudyState, 'resultsErrore
 export const isOutputsSharedOutcome = (
     s: Pick<StudyState, 'resultsApproved' | 'resultsRejected' | 'resultsErrored'>,
 ): boolean => s.resultsApproved && !s.resultsRejected && !s.resultsErrored
+
+// OTTER-785: a clean run whose outputs the reviewer has not decided on yet. Same contract as the
+// predicates above: the rule table and the screen's render guard both read it, so routing and
+// rendering cannot disagree.
+export const isAwaitingOutputsReviewOutcome = (
+    s: Pick<StudyState, 'hasResults' | 'resultsApproved' | 'resultsRejected' | 'resultsErrored'>,
+): boolean => s.hasResults && !s.resultsApproved && !s.resultsRejected && !s.resultsErrored

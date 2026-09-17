@@ -135,25 +135,26 @@ raw jobs.
 
 **Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                                | Screen                   |
-| --- | ----------------------------------------------------------------------------------- | ------------------------ |
-| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)               | `outputs-errored-shared` |
-| 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`       |
-| 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`         |
-| 4   | `hasResults && !awaitingFilesDecisionOnError`                                       | `study-results`          |
-| 5   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `outputs-pending`        |
-| 6   | `codeDecision === 'CODE-APPROVED'` (only via `/view/code`, walking back)            | `code-approved`          |
-| 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`          |
-| 8   | `codeAwaitingDecision`                                                              | `code-under-review`      |
-| 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`      |
-| 10  | `status === 'PENDING-REVIEW'`                                                       | `study-overview`         |
-| 11  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code)    | `proposal-feedback`      |
-| 12  | `isDraft`                                                                           | `study-overview`         |
-| 13  | fallback                                                                            | `study-overview`         |
+| #   | When                                                                                | Screen                    |
+| --- | ----------------------------------------------------------------------------------- | ------------------------- |
+| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)               | `outputs-errored-shared`  |
+| 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`        |
+| 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`          |
+| 4   | `isAwaitingOutputsReviewOutcome` (clean `RUN-COMPLETE`, no `FILES-*` decision)      | `outputs-awaiting-review` |
+| 5   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `outputs-pending`         |
+| 6   | `codeDecision === 'CODE-APPROVED'` (only via `/view/code`, walking back)            | `code-approved`           |
+| 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`           |
+| 8   | `codeAwaitingDecision`                                                              | `code-under-review`       |
+| 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`       |
+| 10  | `status === 'PENDING-REVIEW'`                                                       | `study-overview`          |
+| 11  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code)    | `proposal-feedback`       |
+| 12  | `isDraft`                                                                           | `study-overview`          |
+| 13  | fallback                                                                            | `study-overview`          |
 
 Researcher precedence note (OTTER-695, OTTER-696, OTTER-697, OTTER-688): the three outputs-decision
-rules sit above `study-results` because a recorded `FILES-*` decision clears
-`awaitingFilesDecisionOnError`, so `study-results` (#4) would otherwise claim every decided run. They
+rules are grouped above `outputs-awaiting-review` for readability, not for precedence.
+`isAwaitingOutputsReviewOutcome` excludes every decided run in its own predicate (OTTER-785), so #4 is
+disjoint from the three and its position below them decides no screen. They
 split the decision across run outcome × decision: #1 is an errored run whose outputs were **shared**
 (the researcher decrypts to diagnose), #2 is an errored or clean run whose outputs were **withheld**,
 #3 is a clean run whose outputs were **shared**. #1 and #3 render **one component**,
@@ -162,11 +163,13 @@ split the decision across run outcome × decision: #1 is an errored run whose ou
 clean share concludes (success), an errored share still needs a resubmit (action, OTTER-781). All
 three screens' banner copy lives in `src/lib/study-banners.ts` with every other status banner
 (OTTER-699): `researcherSharedOutputsBanner` for #1/#3, `researcherOutputsFeedbackBanner` for #2.
-`study-results` (#4) is left with exactly one researcher state: an undecided
-`RUN-COMPLETE`, waiting on the reviewer.
+`outputs-awaiting-review` (#4) serves exactly one researcher state: an undecided `RUN-COMPLETE`,
+waiting on the reviewer. It renders the STEP 4 "Verify outputs" card with
+`researcherOutputsAwaitingReviewBanner`, which names the data partner and dates the banner from the
+`RUN-COMPLETE` row (OTTER-785).
 
 The three predicates are **mutually disjoint** (see `isOutputsSharedOutcome`), so their order relative
-to each other carries no meaning — only their position above `study-results` does. That matters for a
+to each other carries no meaning either. Disjointness still matters for a
 job carrying BOTH `FILES-*` rows, which `submitOutputsDecisionAction` refuses but the QA status route
 and the legacy approve/reject actions can write: `isOutputsSharedOutcome` excludes `resultsRejected`
 so #2 keeps it, agreeing with the pill, which reads Rejected (`DISPLAY_STATUS_PRIORITY` ranks
@@ -316,7 +319,8 @@ table a pure function of state.
 | `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                   |
 | `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                           |
 | `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                    |
-| `outputs-shared`, `study-results`            | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
+| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                            |
+| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
 
 **Reviewer table:**
 

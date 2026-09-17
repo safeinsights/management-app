@@ -62,7 +62,7 @@ describe('initializeDevWorkspaceFiles', () => {
             vi.useRealTimers()
         }
 
-        const writtenFileStat = await fs.stat(`${TEST_CODER_FILES}/main.R`)
+        const writtenFileStat = await fs.stat(`${TEST_CODER_FILES}/Main.R`)
         const jobRow = await db
             .selectFrom('studyJob')
             .select('createdAt')
@@ -102,11 +102,11 @@ describe('initializeDevWorkspaceFiles', () => {
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(study.id)
 
-        await fs.writeFile(`${TEST_CODER_FILES}/main.R`, 'user edits', 'utf-8')
+        await fs.writeFile(`${TEST_CODER_FILES}/Main.R`, 'user edits', 'utf-8')
         await seedContext('SYSTEM', 'updated system context')
         await initializeDevWorkspaceFiles(study.id)
 
-        expect(await fs.readFile(`${TEST_CODER_FILES}/main.R`, 'utf-8')).toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/Main.R`, 'utf-8')).toBe('user edits')
         expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe(
             'updated system context\nr context\nNo data sources provided',
         )

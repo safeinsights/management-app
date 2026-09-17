@@ -1,5 +1,5 @@
 import { createRef } from 'react'
-import { describe, expect, it, renderWithProviders, screen, userEvent, vi } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, userEvent, vi, within } from '@/tests/unit.helpers'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { StudyCodeReviewView } from './study-code-review-view'
 
@@ -16,7 +16,12 @@ const baseProps = {
     setMainFile: vi.fn(),
     removeFile: vi.fn(),
     viewFile: vi.fn(),
-    jobCreatedAt: null,
+    editFileInIde: vi.fn(),
+    downloadFile: vi.fn(),
+    dataPartnerName: 'Test Data Partner',
+    templateFileNames: [],
+    canEditInIde: true,
+    ideOwnerName: null,
     openRef: createRef<(() => void) | null>(),
 }
 
@@ -38,15 +43,22 @@ describe('StudyCodeReviewView', () => {
         const user = userEvent.setup()
         const setMainFile = vi.fn()
         renderWithProviders(<StudyCodeReviewView {...baseProps} setMainFile={setMainFile} />)
-        await user.click(screen.getByRole('button', { name: /set main\.R as main file/i }))
+        await user.click(screen.getByRole('radio', { name: /set main\.R as main file/i }))
         expect(setMainFile).toHaveBeenCalledWith('main.R')
     })
 
-    it('calls removeFile when the trash button is clicked', async () => {
+    // Deleting now asks first, and the main file cannot be deleted at all — both come from sharing
+    // the Submit code page's table rather than a second one.
+    it('confirms before removing a file', async () => {
         const user = userEvent.setup()
         const removeFile = vi.fn()
         renderWithProviders(<StudyCodeReviewView {...baseProps} removeFile={removeFile} />)
-        await user.click(screen.getByRole('button', { name: /remove main\.R/i }))
+
+        await user.click(screen.getByRole('button', { name: /delete main\.R/i }))
+        expect(removeFile).not.toHaveBeenCalled()
+
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Delete file' }))
         expect(removeFile).toHaveBeenCalledWith('main.R')
     })
 })

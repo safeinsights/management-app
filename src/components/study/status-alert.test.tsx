@@ -52,13 +52,13 @@ describe('StatusAlert', () => {
         expect(alert).toHaveTextContent('Nothing left to do')
     })
 
-    // The banner colours are hand-transcribed Figma tokens sitting at the tail of their ramps, so a
-    // ramp reorder would silently repaint a variant while data-variant assertions all still pass.
+    // The banner colours are hand-transcribed Figma tokens, so a ramp retint or reorder would
+    // silently repaint a variant while the data-variant assertions all still pass.
     it.each<[StatusAlertVariant, string, string]>([
-        ['informative', '#EAE8FC', '#291BC4'],
-        ['action', '#FFF9E5', '#5E4418'],
-        ['success', '#E8F8EB', '#285831'],
-        ['decline', '#FBECEB', '#7E241E'],
+        ['informative', '#eae8fc', '#291bc4'],
+        ['action', '#fffae7', '#5e4418'],
+        ['success', '#ecf4ee', '#285831'],
+        ['decline', '#fbeceb', '#7e241e'],
     ])('paints the %s variant from its library tokens', (variant, bg, accent) => {
         renderWithProviders(
             <StatusAlert variant={variant} title="Alert title">
@@ -77,7 +77,7 @@ describe('StatusAlert', () => {
         )
         const icon = screen.getByTestId('status-alert').querySelector('.mantine-Alert-icon')
         expect(icon).not.toBeNull()
-        expect(getComputedStyle(icon as Element).color).toBe('#7E241E')
+        expect(getComputedStyle(icon as Element).color).toBe('#7e241e')
     })
 
     it('stays a plain alert with no live region unless announcing is requested', () => {

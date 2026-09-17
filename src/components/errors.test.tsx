@@ -127,6 +127,17 @@ describe('reportError', () => {
         })
     })
 
+    // The IDE failure modal quotes this id as its support Ref, so it has to be the one the
+    // researcher can also read off the toast.
+    it('returns the same event id it renders in the notification', () => {
+        const eventId = reportError(new Error('Returned id'))
+
+        expect(eventId).toMatch(/^[a-f0-9]{32}$/)
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({ message: expect.stringContaining(`Reference: ${eventId}`) }),
+        )
+    })
+
     // OTTER-726: an action id the current build cannot resolve reached the reviewer as framework
     // text, and each retry added another notification that never closed.
     describe('a stale action id after a deployment', () => {

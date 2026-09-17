@@ -83,10 +83,10 @@ describe('ReviewerOutputsPendingScreen', () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent(/code queued .* ago/)
     })
 
-    it('resolves JOB-RUNNING to the processing alert', async () => {
+    it('resolves JOB-RUNNING to the running alert', async () => {
         const { org, study } = await setupApproved(['CODE-APPROVED', 'JOB-RUNNING'])
         await renderScreen(study, org.slug)
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(/code processing started .* ago/)
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(/code started running .* ago/)
     })
 
     it('shows a not-found alert when the study has no submitted job', async () => {
