@@ -1,7 +1,11 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LostKeyPopover } from './lost-key-popover'
+
+const trigger = () => screen.getByRole('button', { name: /lost your key/i })
+
+const isOpen = () => trigger().getAttribute('aria-expanded') === 'true'
 
 describe('LostKeyPopover', () => {
     it('renders the trigger text and icon', () => {
@@ -67,6 +71,72 @@ describe('LostKeyPopover', () => {
         expect(link).toHaveAttribute('href', '/user-key')
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('aria-label', 'Manage your security key (opens in a new tab)')
+    })
+
+    it('opens the popover when the info icon is hovered', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        await userEvent.hover(trigger())
+
+        await waitFor(() => expect(isOpen()).toBe(true))
+        expect(screen.getByText(/another member of your organization/i)).toBeInTheDocument()
+    })
+
+    it('closes again once the pointer leaves without a click', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        await userEvent.hover(trigger())
+        await waitFor(() => expect(isOpen()).toBe(true))
+
+        await userEvent.unhover(trigger())
+
+        await waitFor(() => expect(isOpen()).toBe(false))
+    })
+
+    it('stays open while the pointer moves from the icon into the card', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        await userEvent.hover(trigger())
+        await waitFor(() => expect(isOpen()).toBe(true))
+
+        // The card holds a link, so the pointer has to be able to travel into it and stay there.
+        const link = screen.getByRole('link', { name: /manage your security key/i, hidden: true })
+        await userEvent.unhover(trigger())
+        await userEvent.hover(link)
+
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        expect(isOpen()).toBe(true)
+    })
+
+    it('opens the popover when the trigger takes focus', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        trigger().focus()
+
+        await waitFor(() => expect(isOpen()).toBe(true))
+    })
+
+    it('keeps a clicked popover open after the pointer leaves', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        await userEvent.click(trigger())
+        await waitFor(() => expect(isOpen()).toBe(true))
+
+        await userEvent.unhover(trigger())
+
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        expect(isOpen()).toBe(true)
+    })
+
+    it('closes a hover-opened popover when focus moves away', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        trigger().focus()
+        await waitFor(() => expect(isOpen()).toBe(true))
+
+        trigger().blur()
+
+        await waitFor(() => expect(isOpen()).toBe(false))
     })
 
     it('marks the link with an external-link icon that assistive tech ignores', async () => {
