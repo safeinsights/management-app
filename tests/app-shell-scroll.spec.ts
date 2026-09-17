@@ -8,16 +8,19 @@ test.describe('scroll padding for the fixed app shell bars', () => {
     test('keeps scrolled-to content clear of the fixed footer', async ({ page }) => {
         await goto(page, '/openstax/dashboard')
 
-        const footerHeight = await page.evaluate(() => {
-            const footer = document.querySelector('[class*="AppShell-footer"]')
-            return footer ? Math.round(footer.getBoundingClientRect().height) : 0
-        })
-        expect(footerHeight).toBeGreaterThan(0)
+        const footer = page.locator('[class*="AppShell-footer"]')
+        await expect(footer).toBeVisible()
 
-        const scrollPaddingBottom = await page.evaluate(
-            () => getComputedStyle(document.documentElement).scrollPaddingBottom,
-        )
-        expect(scrollPaddingBottom).toBe(`${footerHeight}px`)
+        // Re-read both inside the retry: the footer mounts on hydration and settles over several
+        // frames, so a single read could catch a part-way height against a final reservation.
+        await expect(async () => {
+            const footerHeight = await footer.evaluate((el) => Math.round(el.getBoundingClientRect().height))
+            expect(footerHeight).toBeGreaterThan(0)
+            const scrollPaddingBottom = await page.evaluate(
+                () => getComputedStyle(document.documentElement).scrollPaddingBottom,
+            )
+            expect(scrollPaddingBottom).toBe(`${footerHeight}px`)
+        }).toPass()
     })
 
     test('reserves the space the fixed header covers, at any viewport', async ({ page }) => {

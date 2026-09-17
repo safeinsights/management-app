@@ -1,5 +1,4 @@
 import { vi } from 'vitest'
-import { memoryRouter } from 'next-router-mock'
 import {
     actionResult,
     beforeEach,
@@ -12,8 +11,10 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
+import type { StepNav } from '@/lib/study-screen'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
@@ -49,7 +50,10 @@ async function setupValidReviewableJob(
     const job = await latestJobForStudy(study.id)
     const studyWithLab: SelectedStudy = { ...study, submittingLabName: labName }
     const previousHref = Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id })
-    return { study: studyWithLab, job, orgSlug: org.slug, previousHref }
+    const nav: StepNav = {
+        back: { label: 'Previous step', href: previousHref, variant: 'subtle', testId: 'cta-previous-step' },
+    }
+    return { study: studyWithLab, job, orgSlug: org.slug, previousHref, nav }
 }
 
 async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
@@ -82,15 +86,9 @@ describe('CodeReviewClient decision selector', () => {
     })
 
     it('renders both decision options with their titles and descriptions', async () => {
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         expect(screen.getByTestId('code-review-decision-approve')).toBeInTheDocument()
@@ -116,15 +114,9 @@ describe('CodeReviewClient decision selector', () => {
     it('renders the editable review form (not "Code review is closed") for an APPROVED study with a reviewable job', async () => {
         // OTTER-552: a resubmission leaves the study APPROVED while the latest job is
         // CODE-SUBMITTED, and editability is job-driven.
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University', 'APPROVED')
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         expect(screen.queryByTestId('code-review-closed-alert')).not.toBeInTheDocument()
@@ -132,14 +124,14 @@ describe('CodeReviewClient decision selector', () => {
     })
 
     it('renders "Code review is closed" once the job has a decision (CODE-CHANGES-REQUESTED)', async () => {
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University', 'APPROVED')
         renderWithProviders(
             <CodeReviewClient
                 orgSlug={orgSlug}
                 study={study}
                 job={job}
                 latestJobStatus="CODE-CHANGES-REQUESTED"
-                previousHref={previousHref}
+                nav={nav}
             />,
         )
 
@@ -149,15 +141,9 @@ describe('CodeReviewClient decision selector', () => {
 
     it('disables Submit when no decision is selected even with valid feedback and criteria', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         await fillAllCriteria(user)
@@ -169,14 +155,14 @@ describe('CodeReviewClient decision selector', () => {
         'enables Submit when %s is selected with valid feedback and criteria',
         async (decisionTestId) => {
             const user = userEvent.setup()
-            const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+            const { study, job, orgSlug, nav } = await setupValidReviewableJob()
             renderWithProviders(
                 <CodeReviewClient
                     orgSlug={orgSlug}
                     study={study}
                     job={job}
                     latestJobStatus="CODE-SUBMITTED"
-                    previousHref={previousHref}
+                    nav={nav}
                 />,
             )
 
@@ -189,15 +175,9 @@ describe('CodeReviewClient decision selector', () => {
 
     it('opens the non-destructive confirmation modal when submitting with needs-clarification', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         await fillAllCriteria(user)
@@ -205,31 +185,43 @@ describe('CodeReviewClient decision selector', () => {
         await user.click(screen.getByTestId('code-review-submit'))
 
         const dialog = await screen.findByRole('dialog')
-        expect(dialog).toHaveTextContent('Confirm review submission?')
+        expect(dialog).toHaveTextContent('Request revision?')
         expect(dialog).toHaveTextContent(
-            'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.',
+            'Your feedback will be sent to Rice University so they can update and resubmit their code.',
         )
-        expect(screen.getByRole('button', { name: 'Yes, submit review' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Request revision' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-variant', 'outline')
+    })
+
+    it('opens the approve confirmation modal when submitting with approve', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-decision-approve'))
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        const dialog = await screen.findByRole('dialog')
+        expect(dialog).toHaveTextContent('Approve code?')
+        expect(dialog).toHaveTextContent('Your approval and feedback will be sent to Rice University')
+        expect(within(dialog).getByRole('button', { name: 'Approve code' })).toHaveAttribute('data-variant', 'filled')
     })
 
     it('calls submitReview with decision=needs-clarification on confirm', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-decision-needs-clarification'))
         await user.click(screen.getByTestId('code-review-submit'))
 
-        const confirmButton = await screen.findByRole('button', { name: 'Yes, submit review' })
+        const confirmButton = await screen.findByRole('button', { name: 'Request revision' })
         await user.click(confirmButton)
 
         await waitFor(() => {
@@ -246,24 +238,27 @@ describe('CodeReviewClient decision selector', () => {
         })
     })
 
-    it('Back button navigates to the agreements page (previousHref), not the dashboard', async () => {
-        const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
-        memoryRouter.setCurrentUrl(`/${orgSlug}/study/${study.id}/review`)
+    it('renders "Previous step" as a subtle link to the decided proposal and "Submit decision" as the action', async () => {
+        const { study, job, orgSlug, previousHref, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
-        await user.click(screen.getByRole('button', { name: /back/i }))
+        const previous = screen.getByRole('link', { name: /previous step/i })
+        expect(previous).toHaveAttribute('href', previousHref)
+        expect(previous).toHaveAttribute('data-variant', 'subtle')
+        expect(screen.getByTestId('code-review-submit')).toHaveTextContent('Submit decision')
+        expect(screen.queryByRole('button', { name: /^back$/i })).not.toBeInTheDocument()
+    })
 
-        await waitFor(() => {
-            expect(memoryRouter.asPath).toBe(previousHref)
-        })
+    it('keeps "Previous step" when the review is closed', async () => {
+        const { study, job, orgSlug, previousHref, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-APPROVED" nav={nav} />,
+        )
+
+        expect(screen.getByTestId('code-review-closed-alert')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute('href', previousHref)
+        expect(screen.queryByTestId('code-review-submit')).not.toBeInTheDocument()
     })
 })

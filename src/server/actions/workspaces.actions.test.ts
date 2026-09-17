@@ -14,6 +14,7 @@ import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { pathForStarterCode } from '@/lib/paths'
+import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
 
 // Echo the key back so a test can assert which S3 key gets signed.
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -226,7 +227,10 @@ describe('Workspace Actions', () => {
     // marks them all stale.
     describe('ensureWorkspaceAction submit-enable baseline (OTTER-602)', () => {
         const mockCoder = () =>
-            vi.doMock('@/server/coder', () => ({
+            // Spread the real module: a bare factory drops exports the actions import (e.g. the
+            // starter-code copy) and the mock then leaks into every later test in this file.
+            vi.doMock('@/server/coder', async (importOriginal) => ({
+                ...(await importOriginal<typeof import('@/server/coder')>()),
                 createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
                 getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
             }))
@@ -284,6 +288,100 @@ describe('Workspace Actions', () => {
 
     // OTTER-719: the `load IDE` grant used to be unconditioned, so any lab member could read or
     // overwrite another lab's in-progress code. These exercise the RPC endpoints themselves.
+    describe('server-owned file rules (OTTER-693)', () => {
+        const mockCoder = () =>
+            // Spread the real module: a bare factory drops exports the actions import (e.g. the
+            // starter-code copy) and the mock then leaks into every later test in this file.
+            vi.doMock('@/server/coder', async (importOriginal) => ({
+                ...(await importOriginal<typeof import('@/server/coder')>()),
+                createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
+                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
+            }))
+
+        const approvedStudy = async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'INITIATED',
+            })
+            return { study, user, org }
+        }
+
+        // The dropzone filters these client-side, so without the action's own schema a caller
+        // reaching past the UI could write anything under next.config's body cap.
+        test('refuses an upload over the size limit', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudy()
+
+            const { uploadWorkspaceFileAction } = await import('./workspace-files.actions')
+            const tooBig = new File(['x'.repeat(MAX_UPLOAD_FILE_BYTES + 1)], 'big.r', { type: 'text/plain' })
+
+            expect('error' in (await uploadWorkspaceFileAction({ studyId: study.id, file: tooBig }))).toBe(true)
+        })
+
+        test('refuses an upload with an unaccepted extension', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudy()
+
+            const { uploadWorkspaceFileAction } = await import('./workspace-files.actions')
+            const wrongType = new File(['whatever'], 'notes.exe', { type: 'application/octet-stream' })
+
+            expect('error' in (await uploadWorkspaceFileAction({ studyId: study.id, file: wrongType }))).toBe(true)
+        })
+
+        // /code disables the button but /resubmit's table does not, so the rule has to live here or
+        // the column ends up naming a file that no longer exists.
+        test('refuses to delete the study main file, and deletes any other', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudy()
+
+            const studyDir = path.join(TEST_CODER_FILES, study.id)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'main.r'), 'print(1)')
+            await fs.writeFile(path.join(studyDir, 'helper.r'), 'print(2)')
+
+            const { setMainCodeFileAction } = await import('./workspace-files.actions')
+            await setMainCodeFileAction({ studyId: study.id, fileName: 'main.r' })
+
+            const { deleteWorkspaceFileAction } = await import('./workspace-files.actions')
+            expect('error' in (await deleteWorkspaceFileAction({ studyId: study.id, fileName: 'main.r' }))).toBe(true)
+            await expect(fs.readFile(path.join(studyDir, 'main.r'), 'utf8')).resolves.toBe('print(1)')
+
+            actionResult(await deleteWorkspaceFileAction({ studyId: study.id, fileName: 'helper.r' }))
+            await expect(fs.readFile(path.join(studyDir, 'helper.r'), 'utf8')).rejects.toThrow()
+        })
+
+        // The card says IDE access cannot be shared or transferred, and 'load IDE' is granted to
+        // the whole lab, so the claim has to be enforced where it is made.
+        test('refuses a launch when another researcher in the same lab holds the IDE', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+
+            const { study, org } = await approvedStudy()
+            const { user: teammate } = await insertTestUser({ org })
+
+            await db.updateTable('study').set({ ideOwnerId: teammate.id }).where('id', '=', study.id).execute()
+
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+
+            expect('error' in (await ensureWorkspaceAction({ studyId: study.id }))).toBe(true)
+        })
+
+        test('allows the holder to launch again', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+
+            const { study, user } = await approvedStudy()
+            await db.updateTable('study').set({ ideOwnerId: user.id }).where('id', '=', study.id).execute()
+
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+
+            expect('error' in (await ensureWorkspaceAction({ studyId: study.id }))).toBe(false)
+        })
+    })
+
     describe('cross-lab workspace access', () => {
         const setupOtherLabStudy = async () => {
             const { studyId } = await createTestProposalDraft({ enclaveSlug: 'otter719-enclave' })

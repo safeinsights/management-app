@@ -13,9 +13,10 @@ export const REVIEWER_SCREEN_RULES = [
     // present once results land.
     ['reviewer-outputs-decided', { when: (s) => s.hasResults }],
 
-    // Approving code queues the job, so an approved study sits here while it runs; the code-feedback
-    // rule below shows an APPROVE decision only when execution never started.
-    ['reviewer-outputs-pending', { when: (s) => s.isExecuting }],
+    // Code approved: the outputs step ("preparing code") from the moment of approval, not only once the
+    // enclave reports a stage (OTTER-673, spec: "Code approved" always has a Next step). The approved
+    // code screen itself is reached only by walking back (/review/code, resolveReviewerCodeScreen).
+    ['reviewer-outputs-pending', { when: (s) => s.codeDecision === 'CODE-APPROVED' }],
 
     ['reviewer-code-feedback', { when: (s) => s.codeDecision !== null }],
 

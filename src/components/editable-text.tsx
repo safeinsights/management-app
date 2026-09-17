@@ -8,7 +8,7 @@ import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
-import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin'
+import { LinkHoverCardReadOnlyPlugin } from './editable-text/link-hover-card-readonly-plugin'
 import { EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useState } from 'react'
 import { Box } from '@mantine/core'
@@ -152,9 +152,9 @@ export const EditableText: FC<EditableTextProps> = ({
                         {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
                         <EscapeFocusPlugin />
                         <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
-                        {/* While editing, a click should land the caret in the link text rather
-                            than launch a tab. Read-only renders open the URL in a new tab. */}
-                        <ClickableLinkPlugin newTab disabled={isEditable} />
+                        {/* Read-only renders show the link card on a click. While editing, a click
+                            belongs to the caret, and the plugin stands aside. */}
+                        <LinkHoverCardReadOnlyPlugin />
                         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                     </Box>
                     {isEditable && <Toolbar />}

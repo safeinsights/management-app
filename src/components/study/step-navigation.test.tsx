@@ -32,6 +32,14 @@ describe('StepNavigation', () => {
         expect(screen.queryByTestId('cta-edit-code')).not.toBeInTheDocument()
     })
 
+    it('lays out a form-owned action beside the nav buttons', () => {
+        const nav: StepNav = { back: action('Previous step', 'cta-previous-step', 'subtle', '/back') }
+        renderWithProviders(<StepNavigation nav={nav} formAction={<button data-testid="form-submit">Submit</button>} />)
+
+        expect(screen.getByTestId('step-navigation')).toContainElement(screen.getByTestId('form-submit'))
+        expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/back')
+    })
+
     it('renders nothing when no slot is filled, so a draft page shows no empty nav row', () => {
         renderWithProviders(<StepNavigation nav={{}} />)
 

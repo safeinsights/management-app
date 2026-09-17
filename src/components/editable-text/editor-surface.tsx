@@ -14,6 +14,7 @@ import { Paper, Text } from '@mantine/core'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import { LinkHoverCardPlugin } from './link-hover-card-plugin'
 import { Toolbar } from './toolbar'
 import type { WidgetBlurProps } from '@/components/form-field'
 
@@ -148,6 +149,9 @@ export function EditorSurface({
                 </div>
             </div>
             {children}
+            {/* Inside the field on purpose: a card in a portal would read as a blur (OTTER-647),
+                and this position puts it before the toolbar in the tab order. */}
+            <LinkHoverCardPlugin />
             <div ref={chromeRef}>
                 <Toolbar />
             </div>

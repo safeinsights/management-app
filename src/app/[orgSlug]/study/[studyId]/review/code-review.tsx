@@ -3,8 +3,8 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
-import { Routes } from '@/lib/routes'
 import { type Submitted } from '@/schema/study'
+import type { StepNav } from '@/lib/study-screen'
 import { jobAnalysisForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
@@ -16,6 +16,7 @@ type CodeReviewProps = {
     orgSlug: string
     study: Submitted<SelectedStudy>
     entries: CodeReviewFeedbackEntry[]
+    nav: StepNav
 }
 
 // On the current round, entries exist only when a prior round does, so any entry implies a
@@ -48,15 +49,13 @@ function CodeReviewStatusBanner({ labName, version, submittedAt }: CodeReviewSta
     )
 }
 
-export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
+export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewProps) {
     const job = await latestJobForStudyOrNull(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
     const analysis = await jobAnalysisForJob(job)
-    // Not /review, which would re-resolve to this very screen (OTTER-643, OTTER-727).
-    const previousHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
     const version = deriveCodeReviewVersion(entries)
@@ -85,7 +84,7 @@ export async function CodeReview({ orgSlug, study, entries }: CodeReviewProps) {
                     study={study}
                     job={job}
                     latestJobStatus={latestJobStatus}
-                    previousHref={previousHref}
+                    nav={nav}
                 />
             </Stack>
         </Box>

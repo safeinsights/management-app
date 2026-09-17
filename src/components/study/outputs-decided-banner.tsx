@@ -1,5 +1,5 @@
 import { FC } from 'react'
-import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { reviewerOutputsDecisionBanner } from '@/lib/study-banners'
 
 type OutputsDecidedBannerProps = {
@@ -22,9 +22,5 @@ export const OutputsDecidedBanner: FC<OutputsDecidedBannerProps> = ({
         { researchLab: labName, reviewerName },
     )
 
-    return (
-        <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
-            {copy.body}
-        </StatusAlert>
-    )
+    return <DatedStatusBanner copy={copy} at={decidedAt} />
 }

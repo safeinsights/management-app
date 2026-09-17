@@ -13,6 +13,7 @@ import {
     mockSessionWithTestData,
     renderHook,
     waitFor,
+    waitForPendingMutations,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { useIDEFiles } from './use-ide-files'
@@ -58,6 +59,8 @@ describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
         await waitFor(() => expect(result.current.userEditedFiles).toBe(false))
         act(() => result.current.setMainFile('main.R'))
         await waitFor(() => expect(result.current.userEditedFiles).toBe(true))
+        // setMainFile saves the choice behind the optimistic flip.
+        await waitForPendingMutations()
     })
 
     it('flips to true after the user uploads files', async () => {
@@ -68,6 +71,7 @@ describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
         await waitFor(() => expect(result.current.userEditedFiles).toBe(false))
         act(() => result.current.uploadFiles([new File(['print(1)'], 'extra.R')]))
         await waitFor(() => expect(result.current.userEditedFiles).toBe(true))
+        await waitFor(() => expect(result.current.isUploading).toBe(false))
     })
 
     it('flips to true after the user removes a file', async () => {
@@ -79,6 +83,7 @@ describe('useIDEFiles userEditedFiles (OTTER-558)', () => {
         await waitFor(() => expect(result.current.files).toContain('main.R'))
         act(() => result.current.removeFile('main.R'))
         await waitFor(() => expect(result.current.userEditedFiles).toBe(true))
+        await waitFor(() => expect(result.current.isDeleting).toBe(false))
     })
 })
 
@@ -187,6 +192,8 @@ describe('useIDEFiles mainFile (OTTER-729)', () => {
 
         act(() => result.current.setMainFile('main.r'))
         expect(result.current.mainFile).toBe('main.r')
+        // setMainFile saves the choice behind the optimistic flip.
+        await waitForPendingMutations()
     })
 })
 

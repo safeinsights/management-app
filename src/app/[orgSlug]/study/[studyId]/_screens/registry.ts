@@ -4,7 +4,7 @@ import type { ScreenComponentProps } from './types'
 import { CodeDecisionScreen } from './code-decision-screen'
 import { CodeUnderReviewScreen } from './code-under-review-screen'
 import { ProposalFeedbackScreen } from './proposal-feedback-screen'
-import { StudyResultsScreen } from './study-results-screen'
+import { OutputsAwaitingReviewScreen } from './outputs-awaiting-review-screen'
 import { StudyOverviewScreen } from './study-overview-screen'
 import { ReviewerProposalReviewScreen } from './reviewer-proposal-review-screen'
 import { ReviewerProposalFeedbackScreen } from './reviewer-proposal-feedback-screen'
@@ -29,7 +29,7 @@ export const SCREEN_COMPONENTS: Record<ScreenId, ScreenComponent> = {
     'code-feedback': CodeDecisionScreen,
     'code-under-review': CodeUnderReviewScreen,
     'proposal-feedback': ProposalFeedbackScreen,
-    'study-results': StudyResultsScreen,
+    'outputs-awaiting-review': OutputsAwaitingReviewScreen,
     'outputs-pending': OutputsPendingScreen,
     'outputs-feedback': OutputsFeedbackScreen,
     // Both share screens are one component keyed on the id, same as CodeDecisionScreen above.

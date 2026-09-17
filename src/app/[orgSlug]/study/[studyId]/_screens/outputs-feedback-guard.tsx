@@ -4,13 +4,13 @@ import { displayOrgName } from '@/lib/string'
 import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { latestJob, projectStudyState, type RawJob, type RawStudyState, type StudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
-import type { OutputsFeedbackThreadEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { getOrgNameFromId } from '@/server/db/queries'
-import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
+import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type GuardSuccess = {
     job: RawJob
-    entries: OutputsFeedbackThreadEntry[]
+    entries: OutputsDecisionFeedbackEntry[]
     feedbackLoadError: boolean
     dataPartner: string
     decidedAt: Date | string | null
@@ -46,7 +46,7 @@ export async function guardOutputsFeedbackScreen({
         return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
     }
 
-    const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
+    const { entries, feedbackLoadError } = await loadOutputsFeedback(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
     const decidedAt = latestStatusAt(datedStatusChanges(job.statusChanges), decisionStatus)
 

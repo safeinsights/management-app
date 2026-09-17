@@ -4,7 +4,6 @@ export interface EditableTextField {
     label: string
     id: keyof ProposalFormValues
     description: string
-    placeholder: string
     maxCharacters: number
     // Per-field, from the Figma box heights less the toolbar row, which sits inside the box
     // (OTTER-691).
@@ -20,8 +19,6 @@ export const editableTextFields: EditableTextField[] = [
         contentHeight: 205,
         description:
             'Describe the primary research question(s) your study aims to answer. Be as specific as possible to support review and alignment with available data.',
-        placeholder:
-            'Ex. How do textbook highlights correspond to student performance on assessments when the assessment directly is grounded in the highlighted content?',
         required: true,
     },
     {
@@ -31,8 +28,6 @@ export const editableTextFields: EditableTextField[] = [
         contentHeight: 505,
         description:
             'Briefly explain your planned study, including the target population, research design, methods, and any interventions or comparisons.',
-        placeholder:
-            'Ex. This secondary research hopes to examine how textbook highlighting relates to student performance using archival data from your online homework system.',
         required: true,
     },
     {
@@ -42,8 +37,6 @@ export const editableTextFields: EditableTextField[] = [
         contentHeight: 205,
         description:
             'What are the potential outcomes of this study? Describe how your findings could improve learning experiences, teaching practices, educational policy, etc.',
-        placeholder:
-            'Ex. How students encode information during highlighting and what impact it has on subsequent retention has a contentious literature.',
         required: true,
     },
     {
@@ -53,8 +46,6 @@ export const editableTextFields: EditableTextField[] = [
         contentHeight: 105,
         description:
             'Add any other information, constraints, or questions for the Data Partner. This might include timing, special requirements, references, or related work.',
-        placeholder:
-            'Ex. This project is based on grants, so we are operating under specific timelines, reporting requirements, and budget constraints.',
         required: false,
     },
 ]

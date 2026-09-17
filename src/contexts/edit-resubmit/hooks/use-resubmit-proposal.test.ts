@@ -22,15 +22,22 @@ import type { HocuspocusProvider } from '@hocuspocus/provider'
 import { Routes } from '@/lib/routes'
 import { lexicalJson } from '@/lib/lexical'
 import {
+    draftProposalFormSchema,
     initialProposalValues,
-    proposalFormSchema,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import {
     initialResubmitNoteValue,
-    resubmitNoteSchema,
+    proposalResubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import {
+    SUBMIT_FAILURE_MESSAGE,
+    SUBMIT_FAILURE_TITLE,
+    SUBMIT_FAILURE_UNSAVED_MESSAGE,
+    SUBMIT_SUCCESS_TITLE,
+} from '@/contexts/proposal/hooks/submission-toasts'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { useResubmitProposal } from './use-resubmit-proposal'
 
@@ -62,6 +69,48 @@ const buildStubYjsForm = (): { yjsForm: StubYjsForm; sendStateless: Mock } => {
     return { yjsForm, sendStateless }
 }
 
+type HookArgs = {
+    studyId: string
+    values: ProposalFormValues
+    note?: string
+    yjsForm: StubYjsForm
+    tabSessionId: string
+    flushNote?: () => Promise<boolean>
+    withValidation?: boolean
+}
+
+const renderResubmit = ({
+    studyId,
+    values,
+    note = VALID_NOTE,
+    yjsForm,
+    tabSessionId,
+    flushNote = () => Promise.resolve(true),
+    withValidation = false,
+}: HookArgs) =>
+    renderHook(
+        () => {
+            const form = useForm<ProposalFormValues>({
+                mode: 'controlled',
+                initialValues: values,
+                validate: withValidation ? zodResolver(draftProposalFormSchema) : undefined,
+            })
+            const noteForm = useForm<ResubmitNoteValue>({
+                mode: 'controlled',
+                initialValues: { ...initialResubmitNoteValue, resubmissionNote: note },
+                validate: withValidation ? zodResolver(proposalResubmitNoteSchema) : undefined,
+            })
+            const resubmit = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId, flushNote })
+            return { form, noteForm, ...resubmit }
+        },
+        { wrapper: createTestQueryWrapper() },
+    )
+
+const failureToast = () =>
+    (notifications.show as Mock).mock.calls.find(
+        ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
+    )
+
 describe('useResubmitProposal', () => {
     let tabSessionId: string
 
@@ -76,21 +125,12 @@ describe('useResubmitProposal', () => {
         await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
         const { yjsForm, sendStateless } = buildStubYjsForm()
 
-        const { result } = renderHook(
-            () => {
-                const form = useForm<ProposalFormValues>({
-                    mode: 'controlled',
-                    initialValues: buildValidProposalValues(user.id),
-                })
-                const noteForm = useForm<ResubmitNoteValue>({
-                    mode: 'controlled',
-                    initialValues: { resubmissionNote: VALID_NOTE },
-                })
-                const resubmit = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
-                return { form, noteForm, ...resubmit }
-            },
-            { wrapper: createTestQueryWrapper() },
-        )
+        const { result } = renderResubmit({
+            studyId,
+            values: buildValidProposalValues(user.id),
+            yjsForm,
+            tabSessionId,
+        })
 
         await act(async () => {
             result.current.resubmit()
@@ -120,28 +160,75 @@ describe('useResubmitProposal', () => {
         })
     })
 
+    // The title field left this page (OTTER-762), so the form's copy is only a seed and must not
+    // reach the study row.
+    it('leaves the stored title untouched on resubmit', async () => {
+        const { studyId, user } = await createTestProposalDraft({
+            enclaveSlug: 'resubmit-title-owner',
+            studyInfo: { title: 'Chosen on Step 1' },
+        })
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        const { yjsForm, sendStateless } = buildStubYjsForm()
+
+        const { result } = renderResubmit({
+            studyId,
+            values: { ...buildValidProposalValues(user.id), title: 'stale form copy' },
+            yjsForm,
+            tabSessionId,
+        })
+
+        await act(async () => {
+            result.current.resubmit()
+        })
+
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+
+        const study = await db
+            .selectFrom('study')
+            .select(['title', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(study.status).toBe('PENDING-REVIEW')
+        expect(study.title).toBe('Chosen on Step 1')
+    })
+
+    it('announces a successful resubmission before navigating away (OTTER-762)', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-success-toast' })
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        const { yjsForm } = buildStubYjsForm()
+
+        const { result } = renderResubmit({
+            studyId,
+            values: buildValidProposalValues(user.id),
+            yjsForm,
+            tabSessionId,
+        })
+
+        await act(async () => {
+            result.current.resubmit()
+        })
+
+        await waitFor(() => expect(memoryRouter.asPath).toContain('/submitted'))
+        const successCall = (notifications.show as Mock).mock.calls.find(
+            ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_SUCCESS_TITLE,
+        )
+        expect(successCall).toBeDefined()
+        expect(successCall?.[0]).toMatchObject({ color: 'green' })
+    })
+
     it('does not call the action or broadcast when validation fails', async () => {
         const { studyId } = await createTestProposalDraft({ enclaveSlug: 'resubmit-invalid' })
         await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
         const { yjsForm, sendStateless } = buildStubYjsForm()
 
-        const { result } = renderHook(
-            () => {
-                const form = useForm<ProposalFormValues>({
-                    mode: 'controlled',
-                    initialValues: initialProposalValues,
-                    validate: zodResolver(proposalFormSchema),
-                })
-                const noteForm = useForm<ResubmitNoteValue>({
-                    mode: 'controlled',
-                    initialValues: initialResubmitNoteValue,
-                    validate: zodResolver(resubmitNoteSchema),
-                })
-                const resubmit = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
-                return { form, noteForm, ...resubmit }
-            },
-            { wrapper: createTestQueryWrapper() },
-        )
+        const { result } = renderResubmit({
+            studyId,
+            values: initialProposalValues,
+            note: '',
+            yjsForm,
+            tabSessionId,
+            withValidation: true,
+        })
 
         act(() => {
             result.current.resubmit()
@@ -153,37 +240,100 @@ describe('useResubmitProposal', () => {
         expect(sendStateless).not.toHaveBeenCalled()
     })
 
-    it('reports an error and does not broadcast when the proposal can no longer be resubmitted', async () => {
+    it('shows the failure toast with the card copy and stays put when the proposal can no longer be resubmitted', async () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-wrong-status' })
         // Staying DRAFT rather than CHANGE-REQUESTED is what makes the action reject.
         const { yjsForm, sendStateless } = buildStubYjsForm()
 
-        const { result } = renderHook(
-            () => {
-                const form = useForm<ProposalFormValues>({
-                    mode: 'controlled',
-                    initialValues: buildValidProposalValues(user.id),
-                })
-                const noteForm = useForm<ResubmitNoteValue>({
-                    mode: 'controlled',
-                    initialValues: { resubmissionNote: VALID_NOTE },
-                })
-                const resubmit = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId })
-                return { form, noteForm, ...resubmit }
-            },
-            { wrapper: createTestQueryWrapper() },
-        )
+        const { result } = renderResubmit({
+            studyId,
+            values: buildValidProposalValues(user.id),
+            yjsForm,
+            tabSessionId,
+        })
 
         await act(async () => {
             result.current.resubmit()
         })
 
-        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
-        const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to resubmit proposal',
-        )
-        expect(errorCall).toBeDefined()
+        await waitFor(() => expect(failureToast()).toBeDefined())
+        expect(failureToast()?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_MESSAGE })
         expect(sendStateless).not.toHaveBeenCalled()
+        // Staying on the form is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    it('says the work was not saved when the note flush fails too', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-note-unsaved' })
+        const { yjsForm } = buildStubYjsForm()
+
+        const { result } = renderResubmit({
+            studyId,
+            values: buildValidProposalValues(user.id),
+            yjsForm,
+            tabSessionId,
+            flushNote: () => Promise.resolve(false),
+        })
+
+        await act(async () => {
+            result.current.resubmit()
+        })
+
+        await waitFor(() => {
+            expect(failureToast()?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        })
+    })
+
+    it('says the work was not saved when the recovery save of the fields fails too', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-fields-unsaved' })
+        // PENDING-REVIEW rejects both the resubmit and the draft save behind it.
+        await setTestStudyStatus(studyId, 'PENDING-REVIEW')
+        const { yjsForm } = buildStubYjsForm()
+
+        const { result } = renderResubmit({
+            studyId,
+            values: buildValidProposalValues(user.id),
+            yjsForm,
+            tabSessionId,
+        })
+
+        // Dirty, so the recovery save runs rather than short-circuiting on a pristine form.
+        act(() => {
+            result.current.form.setFieldValue('impact', lexicalJson('Revised impact statement.'))
+        })
+
+        await act(async () => {
+            result.current.resubmit()
+        })
+
+        await waitFor(() => {
+            expect(failureToast()?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        })
+    })
+
+    it('puts the resubmit button back in view after a failure (OTTER-762)', async () => {
+        const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'resubmit-scroll' })
+        const { yjsForm } = buildStubYjsForm()
+
+        // A real node under the real id, so this asserts the Resubmit button was scrolled to rather
+        // than merely that some scroll happened.
+        const submitButton = document.createElement('button')
+        submitButton.id = SUBMIT_BUTTON_ID
+        submitButton.scrollIntoView = vi.fn()
+        document.body.appendChild(submitButton)
+
+        const { result } = renderResubmit({
+            studyId,
+            values: buildValidProposalValues(user.id),
+            yjsForm,
+            tabSessionId,
+        })
+
+        await act(async () => {
+            result.current.resubmit()
+        })
+
+        await waitFor(() => expect(submitButton.scrollIntoView).toHaveBeenCalled())
+        expect(submitButton.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
     })
 })

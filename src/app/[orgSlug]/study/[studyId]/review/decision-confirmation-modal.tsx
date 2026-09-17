@@ -3,14 +3,16 @@ import { Text } from '@mantine/core'
 import { ReviewConfirmationModal } from '@/components/modals/review-confirmation-modal'
 import type { Decision } from '@/lib/review-decision'
 
-type DecisionModalConfig = {
+export type DecisionModalConfig = {
     title: string
     body: (labName: string) => string
     confirmLabel: string
     variant: 'default' | 'error'
 }
 
-export const DECISION_MODAL_CONTENT: Record<Decision, DecisionModalConfig> = {
+export type DecisionModalContent = Record<Decision, DecisionModalConfig>
+
+export const DECISION_MODAL_CONTENT: DecisionModalContent = {
     approve: {
         title: 'Approve proposal?',
         body: (lab) =>
@@ -34,6 +36,32 @@ export const DECISION_MODAL_CONTENT: Record<Decision, DecisionModalConfig> = {
     },
 }
 
+// Code review offers only the first two, but the map stays total over Decision (OTTER-650 removed
+// reject from code review) so a future third option cannot fall through to proposal copy.
+export const CODE_DECISION_MODAL_CONTENT: DecisionModalContent = {
+    approve: {
+        title: 'Approve code?',
+        body: (lab) =>
+            `Your approval and feedback will be sent to ${lab}, and the code will run in the secure enclave. You will not be able to make changes after approving.`,
+        confirmLabel: 'Approve code',
+        variant: 'default',
+    },
+    'needs-clarification': {
+        title: 'Request revision?',
+        body: (lab) =>
+            `Your feedback will be sent to ${lab} so they can update and resubmit their code. You'll be notified when the revised code is ready for review.`,
+        confirmLabel: 'Request revision',
+        variant: 'default',
+    },
+    reject: {
+        title: 'Decline code?',
+        body: (lab) =>
+            `Your decision and feedback will be sent to ${lab}. Declining ends this study and cannot be undone.`,
+        confirmLabel: 'Decline and end study',
+        variant: 'error',
+    },
+}
+
 type DecisionConfirmationModalProps = {
     decision: Decision | null
     labName: string
@@ -41,6 +69,8 @@ type DecisionConfirmationModalProps = {
     onClose: () => void
     onConfirm: () => void
     isPending: boolean
+    /** The proposal copy by default; the code review passes its own. */
+    content?: DecisionModalContent
 }
 
 export const DecisionConfirmationModal: FC<DecisionConfirmationModalProps> = ({
@@ -50,10 +80,11 @@ export const DecisionConfirmationModal: FC<DecisionConfirmationModalProps> = ({
     onClose,
     onConfirm,
     isPending,
+    content = DECISION_MODAL_CONTENT,
 }) => {
     if (!decision) return null
 
-    const config = DECISION_MODAL_CONTENT[decision]
+    const config = content[decision]
 
     return (
         <ReviewConfirmationModal

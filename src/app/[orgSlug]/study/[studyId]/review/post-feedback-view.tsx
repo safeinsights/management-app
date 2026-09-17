@@ -1,19 +1,16 @@
 'use client'
 
-import { ButtonLink } from '@/components/links'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { proposalReviewHeading } from '@/lib/proposal-review'
-import { Routes } from '@/lib/routes'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { reviewerCodeDecisionBanner, reviewerProposalDecisionBanner } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
-import { Box, Button, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
-import { useRouter } from 'next/navigation'
-import type { Route } from 'next'
+import type { StepNav } from '@/lib/study-screen'
+import { Box, Stack } from '@mantine/core'
 import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
@@ -34,11 +31,8 @@ type PostFeedbackViewProps = {
         decision: ReviewDecision
         timestamp: Date | string
     }
-    // Set only on the read-only /review/code walk-back step (OTTER-643).
-    previousHref?: Route
-    // Set only when /review resolves past this screen (OTTER-687); the primary action then reads
-    // "Next step" instead of "Go to dashboard".
-    nextStepHref?: Route
+    // Resolved by the screen from the reviewer nav table (OTTER-673).
+    nav: StepNav
     /**
      * Current proposal-review iteration, sourced from `currentReviewVersion`. Drives the
      * versioned PROPOSAL heading ("Review proposal v{N}.0") so this page matches the editable review
@@ -68,41 +62,6 @@ function DecisionBanner({ kind, decision, researchLab, reviewerName, decidedAt }
         <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
             {copy.body}
         </StatusAlert>
-    )
-}
-
-function GoToDashboardButton({ isVisible }: { isVisible: boolean }) {
-    const router = useRouter()
-    const handleClick = () => router.push(Routes.dashboard)
-    if (!isVisible) return null
-    return (
-        <Button onClick={handleClick} data-testid="go-to-dashboard">
-            Go to dashboard
-        </Button>
-    )
-}
-
-function NextStepButton({ href }: { href?: Route }) {
-    if (!href) return null
-    return (
-        <ButtonLink href={href} data-testid="cta-next-step">
-            Next step
-        </ButtonLink>
-    )
-}
-
-function PreviousButton({ href }: { href?: Route }) {
-    const router = useRouter()
-    if (!href) return null
-    return (
-        <Button
-            variant="subtle"
-            leftSection={<CaretLeftIcon />}
-            onClick={() => router.push(href)}
-            data-testid="post-feedback-previous"
-        >
-            Previous
-        </Button>
     )
 }
 
@@ -137,8 +96,7 @@ export function PostFeedbackView({
     job = null,
     analysis = null,
     fallback,
-    previousHref,
-    nextStepHref,
+    nav,
     reviewVersion = 1,
 }: PostFeedbackViewProps) {
     const latest = entries[0]
@@ -162,9 +120,6 @@ export function PostFeedbackView({
     )
     // CODE keeps its static heading; PROPOSAL versions per iteration to match the editable page.
     const heading = isCode ? 'Review study code' : proposalReviewHeading(reviewVersion)
-    // The forward link and the dashboard button are mutually exclusive and both sit right, so the
-    // row only splits when there is a left button.
-    const buttonRowJustify = previousHref ? 'space-between' : 'flex-end'
 
     return (
         <Box bg="grey.0">
@@ -189,11 +144,7 @@ export function PostFeedbackView({
                     banner={banner}
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
-                <Group justify={buttonRowJustify}>
-                    <PreviousButton href={previousHref} />
-                    <NextStepButton href={nextStepHref} />
-                    <GoToDashboardButton isVisible={!nextStepHref} />
-                </Group>
+                <StepNavigation nav={nav} />
             </Stack>
         </Box>
     )

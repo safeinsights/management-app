@@ -154,7 +154,26 @@ describe('StudyReviewPage', () => {
         expect(page?.type).toBe(CodeReview)
     })
 
-    it('renders PostFeedbackView (CODE) once a code decision is recorded', async () => {
+    it('renders PostFeedbackView (CODE) once a code revision is requested', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await addJobStatus(study.id, 'CODE-CHANGES-REQUESTED')
+
+        const page = await callPage(org.slug, study.id)
+
+        // Both feedback screens render PostFeedbackView, so kind="CODE" is what distinguishes them.
+        expect(page?.type).toBe(PostFeedbackView)
+        expect(page?.props.kind).toBe('CODE')
+    })
+
+    // The approved-code screen is only reached by walking back (/review/code); /review moves on to
+    // the outputs step from the moment of approval, before the enclave reports a stage (OTTER-673).
+    it('renders the outputs-pending screen as soon as the code is approved, with no stage yet', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -166,9 +185,8 @@ describe('StudyReviewPage', () => {
 
         const page = await callPage(org.slug, study.id)
 
-        // Both feedback screens render PostFeedbackView, so kind="CODE" is what distinguishes them.
-        expect(page?.type).toBe(PostFeedbackView)
-        expect(page?.props.kind).toBe('CODE')
+        expect(page?.type).toBe(SecondaryAnalysisView)
+        expect(page?.props.stageStatus).toBe('CODE-APPROVED')
     })
 
     it('renders the outputs-pending screen once the approved code is executing (no results yet)', async () => {
