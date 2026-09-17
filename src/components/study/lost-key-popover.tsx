@@ -2,7 +2,7 @@
 
 import { ActionIcon, Group, Popover, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 
@@ -11,9 +11,10 @@ import { Routes } from '@/lib/routes'
 // reachable by pointer (WCAG 2.1 SC 1.4.13, content on hover must be hoverable).
 const HOVER_CLOSE_DELAY_MS = 120
 
-const useLostKeyPopover = () => {
+// The trigger ref is passed in rather than returned: a hook result that carries a ref may not be
+// read during render, and every handler below is read exactly there.
+const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     const [opened, setOpened] = useState(false)
-    const triggerRef = useRef<HTMLButtonElement>(null)
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     // Refs, not state: nothing renders from them, and the hover timer and the blur handler both
     // need the value at the moment they run rather than the one their closure captured.
@@ -42,7 +43,7 @@ const useLostKeyPopover = () => {
     const dismissAndRestoreFocus = useCallback(() => {
         dismiss()
         triggerRef.current?.focus()
-    }, [dismiss])
+    }, [dismiss, triggerRef])
 
     const onPointerEnter = useCallback(() => {
         isPointerInside.current = true
@@ -96,7 +97,6 @@ const useLostKeyPopover = () => {
 
     return {
         opened,
-        triggerRef,
         onOpenedChange,
         onPointerEnter,
         onPointerLeave,
@@ -108,7 +108,8 @@ const useLostKeyPopover = () => {
 }
 
 export const LostKeyPopover = () => {
-    const popover = useLostKeyPopover()
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const popover = useLostKeyPopover(triggerRef)
 
     return (
         <Group gap={4} align="center">
@@ -126,7 +127,7 @@ export const LostKeyPopover = () => {
             >
                 <Popover.Target>
                     <ActionIcon
-                        ref={popover.triggerRef}
+                        ref={triggerRef}
                         variant="transparent"
                         color="charcoal.4"
                         size={20}

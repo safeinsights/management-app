@@ -82,7 +82,10 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         return decryptedFiles
             .map((file) => ({ file, name: displayName(file.path) }))
             .sort((a, b) =>
-                compareOutputFiles({ fileType: a.file.fileType, name: a.name }, { fileType: b.file.fileType, name: b.name }),
+                compareOutputFiles(
+                    { fileType: a.file.fileType, name: a.name },
+                    { fileType: b.file.fileType, name: b.name },
+                ),
             )
             .map(({ file, name }) => ({
                 key: rowKey(file),

@@ -65,9 +65,7 @@ describe('OutputsFilesSection', () => {
         it('pins the last activity and actions columns', () => {
             renderSection([buildRow('run.log')])
 
-            expect(screen.getByRole('columnheader', { name: 'Last activity' })).toHaveClass(
-                classes.lastActivityColumn,
-            )
+            expect(screen.getByRole('columnheader', { name: 'Last activity' })).toHaveClass(classes.lastActivityColumn)
             expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass(classes.actionsColumn)
         })
 
