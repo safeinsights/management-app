@@ -96,6 +96,20 @@ describe('useOutputsDecisionMap', () => {
         expect(onRestore).toHaveBeenCalledWith('share-outputs')
     })
 
+    it('keeps a decision chosen before the document arrived, even before the prop catches up', async () => {
+        const doc = new Y.Doc()
+        const provider = createFakeProvider(doc)
+        const { hook } = setupHook({ provider })
+
+        // The click lands before the sync and `selected` never catches up, which is the ordering
+        // the effect refreshing selectedRef cannot guarantee.
+        act(() => hook.result.current.pushDecision('share-outputs'))
+        act(() => provider.triggerSynced())
+
+        await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
+        expect(decisionMapOf(doc).get(DECISION_KEY)).toBe('share-outputs')
+    })
+
     it('lets the document win over a local choice it already disagrees with', async () => {
         const doc = new Y.Doc()
         decisionMapOf(doc).set(DECISION_KEY, 'share-feedback-only')
@@ -146,6 +160,38 @@ describe('useOutputsDecisionMap', () => {
         })
 
         expect(onRestore).toHaveBeenCalledWith('share-feedback-only')
+    })
+
+    it('applies a peer update that lands in the same tick as the sync', async () => {
+        const doc = new Y.Doc()
+        const provider = createFakeProvider(doc)
+        const { hook, onRestore } = setupHook({ provider })
+
+        act(() => {
+            provider.triggerSynced()
+            decisionMapOf(doc).set(DECISION_KEY, 'share-feedback-only')
+        })
+
+        await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
+        expect(onRestore).toHaveBeenCalledWith('share-feedback-only')
+    })
+
+    it('leaves a decision this reviewer picked when a peer picks the other one', async () => {
+        const doc = new Y.Doc()
+        const provider = createFakeProvider(doc)
+        const { hook, onRestore } = setupHook({ provider })
+        act(() => provider.triggerSynced())
+        await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
+        act(() => hook.result.current.pushDecision('share-feedback-only'))
+        onRestore.mockClear()
+
+        act(() => {
+            decisionMapOf(doc).set(DECISION_KEY, 'share-outputs')
+        })
+
+        // Submitting releases the outputs and cannot be undone, so a peer must not move the radio
+        // out from under the reviewer about to click it.
+        expect(onRestore).not.toHaveBeenCalled()
     })
 
     it('does not echo its own write back as a restore', async () => {

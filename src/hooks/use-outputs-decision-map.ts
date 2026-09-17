@@ -63,6 +63,13 @@ export function useOutputsDecisionMap({ provider, selected, onRestore }: Args): 
         onRestoreRef.current = onRestore
     }, [selected, onRestore])
 
+    // Written by the click itself rather than by the effect above, which runs a commit later: a
+    // radio chosen while the document was still arriving was otherwise read back as null and wiped.
+    const pendingDecision = useRef<OutputsDecision | null | undefined>(undefined)
+    // True once this reviewer has picked an option themselves, as opposed to being shown one the
+    // document already carried.
+    const hasLocalChoice = useRef(false)
+
     useEffect(() => {
         if (!provider) return undefined
 
@@ -70,12 +77,29 @@ export function useOutputsDecisionMap({ provider, selected, onRestore }: Args): 
         const map = doc.getMap<unknown>(DECISION_MAP_NAME)
         let cancelled = false
 
+        let hasSynced = false
+
+        const onChange = (_event: Y.YMapEvent<unknown>, transaction: Y.Transaction) => {
+            // Before the sync the document is still catching up, and onSynced reads it below.
+            if (!hasSynced || transaction.origin === LOCAL_ORIGIN) return
+            // A peer's later choice does not move a radio this reviewer picked themselves: the
+            // next click is Submit, and releasing the outputs cannot be undone. A restored value is
+            // not a choice, so until someone clicks the two reviewers still track each other.
+            if (hasLocalChoice.current) return
+            applyRemote(map, onRestoreRef.current, isApplyingRemote)
+        }
+        // Observed before onSynced reads the map, not in a later effect: an update landing between
+        // the read and the observer was lost until some other peer happened to write again.
+        map.observe(onChange)
+
         const onSynced = () => {
             if (cancelled) return
+            hasSynced = true
 
             // A radio clicked before the document arrived would otherwise be wiped by the restore
-            // below, because pushDecision does nothing while the map is null.
-            const local = selectedRef.current
+            // below, because pushDecision cannot write while the map is null.
+            const local = pendingDecision.current !== undefined ? pendingDecision.current : selectedRef.current
+            pendingDecision.current = undefined
             if (local !== null && map.get(DECISION_KEY) === undefined) {
                 doc.transact(() => map.set(DECISION_KEY, local), LOCAL_ORIGIN)
             }
@@ -93,26 +117,22 @@ export function useOutputsDecisionMap({ provider, selected, onRestore }: Args): 
 
         return () => {
             cancelled = true
+            map.unobserve(onChange)
             provider.off('synced', onSynced)
             setDecisionMap(null)
             setIsSynced(false)
         }
     }, [provider])
 
-    useEffect(() => {
-        if (!decisionMap) return undefined
-
-        const onChange = (_event: Y.YMapEvent<unknown>, transaction: Y.Transaction) => {
-            if (transaction.origin === LOCAL_ORIGIN) return
-            applyRemote(decisionMap, onRestoreRef.current, isApplyingRemote)
-        }
-        decisionMap.observe(onChange)
-        return () => decisionMap.unobserve(onChange)
-    }, [decisionMap])
-
     const pushDecision = useCallback(
         (decision: OutputsDecision | null) => {
-            if (!decisionMap || isApplyingRemote.current) return
+            if (isApplyingRemote.current) return
+            hasLocalChoice.current = true
+            // Held until the sync rather than dropped, so the click is not lost to a slow connection.
+            if (!decisionMap) {
+                pendingDecision.current = decision
+                return
+            }
             decisionMap.doc?.transact(() => {
                 // Delete rather than set(key, null), so Y.Map last-writer-wins resolves a
                 // concurrent set and unset as unselected.
