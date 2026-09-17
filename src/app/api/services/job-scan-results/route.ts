@@ -1,6 +1,8 @@
 import { db } from '@/database'
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
+import logger from '@/lib/logger'
+import { isCurrentCodeRound } from '@/server/db/code-round'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -10,6 +12,10 @@ const schema = z.object({
     jobId: z.string(),
     status: z.enum(['CODE-SUBMITTED', 'CODE-SCANNED', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
+    // OTTER-779. Optional on purpose: a build started before this shipped carries no round, and
+    // refusing every one of those would drop a scan of the code on screen. Coerced because the
+    // round crosses a repository boundary, as a value the scanner merges into its own payload.
+    round: z.coerce.number().int().positive().optional(),
 })
 
 const LOG_FILE_TYPES: Partial<Record<string, { encrypted: FileType; plaintext: FileType }>> = {
@@ -35,6 +41,21 @@ export const POST = createWebhookHandler({
                 'org.slug as orgSlug',
             ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
+
+        // A scan of code that has since been replaced would otherwise be stored and shown as this
+        // round's verdict. Answered 200 all the same: the build did its work, and a retry would
+        // only deliver the same stale result again.
+        //
+        // A delivery that names no round is read as the first one, which is the only round a build
+        // predating this change can still be current for. That keeps the guard closed against a
+        // caller that omits the round, rather than leaving it permanently disabled for one.
+        const round = body.round ?? 1
+        if (!(await isCurrentCodeRound(job.jobId, round))) {
+            logger.warn(
+                `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
+            )
+            return
+        }
 
         const logFileTypes = LOG_FILE_TYPES[body.status]
         if (logFileTypes && body.plaintextLog) {

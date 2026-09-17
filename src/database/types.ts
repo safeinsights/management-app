@@ -348,6 +348,7 @@ export interface StudyReview {
     createdAt: Generated<Timestamp>
     id: Generated<string>
     report: Json | null
+    round: Generated<number>
     studyJobId: string
     summaryFailedAt: Timestamp | null
 }
