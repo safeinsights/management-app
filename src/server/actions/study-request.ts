@@ -10,6 +10,7 @@ import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -37,8 +38,11 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 
-const simulateJobScan = deferred(async (studyJobId: string) => {
+const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
+    // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
+    // as it does in production (OTTER-779).
+    if (!(await isCurrentCodeRound(studyJobId, round, database))) return
     await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
@@ -55,11 +59,11 @@ const sweepDiscardedScanLogs = deferred(async (paths: ReadonlyArray<string>) => 
     await deleteDiscardedScanLogObjects(paths)
 })
 
-function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
+function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string, round: number) {
     if (SIMULATE_CODE_BUILD) {
-        simulateJobScan(studyJobId)
+        simulateJobScan(studyJobId, round)
     } else {
-        triggerScanForStudyJob({ studyJobId, orgSlug, studyId }).catch((err) =>
+        triggerScanForStudyJob({ studyJobId, orgSlug, studyId, round }).catch((err) =>
             logger.error('Failed to trigger code scan', err, { studyJobId }),
         )
     }
@@ -86,9 +90,14 @@ async function attachCodeToRoundJob(
             .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
             .execute()
         await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyId, studyJobId }))
-        // Otherwise generateAndStoreStudyReview short-circuits and keeps the stale
-        // summary for the resubmitted code (SHRMP-263).
-        await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
+        // Earlier rounds keep their summaries, which is what the round column is for. This round's
+        // goes, because a replacement the reviewer has not yet decided on opens no new round: its
+        // summary would otherwise describe deleted code and short-circuit the regeneration that
+        // follows (SHRMP-263, OTTER-779).
+        if (await roundIsAlreadySubmitted(db, studyJobId)) {
+            const round = await codeRoundForJob(studyJobId, db)
+            await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).where('round', '=', round).execute()
+        }
         discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
@@ -117,9 +126,11 @@ async function attachCodeToRoundJob(
     return { studyJobId, discardedScanLogPaths }
 }
 
-// Once per submission round, not per job: a change-requested resubmit stays on the same job,
-// so the round is already submitted iff submitted-count > change-requested-count.
-async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
+// Once per submission round, not per job: a change-requested resubmit stays on the same job, and
+// submissions and change requests alternate on it, so the round this job is on has been submitted
+// iff submitted-count > change-requested-count. A further upload while that holds replaces the
+// round's code without opening a new round.
+async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
     const counts = await db
         .selectFrom('jobStatusChange')
         .select((eb) => [
@@ -129,8 +140,11 @@ async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { study
         .where('studyJobId', '=', studyJobId)
         .executeTakeFirstOrThrow()
 
-    const currentRoundAlreadySubmitted = Number(counts.submitted) > Number(counts.requested)
-    if (currentRoundAlreadySubmitted) return
+    return Number(counts.submitted) > Number(counts.requested)
+}
+
+async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
+    if (await roundIsAlreadySubmitted(db, studyJobId)) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
 }
 
@@ -406,8 +420,12 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         if (latestJob) {
             await markCodeSubmitted(db, { studyJobId: latestJob.id, userId })
-            triggerCodeScan(latestJob.id, orgSlug, studyId)
-            onStudyReviewRequested({ studyJobId: latestJob.id })
+            // Read after the CODE-SUBMITTED row and inside its transaction, so it names the round
+            // this code belongs to. A result that arrives after the next round opens is discarded
+            // against it rather than shown as current (OTTER-779).
+            const round = await codeRoundForJob(latestJob.id, db)
+            triggerCodeScan(latestJob.id, orgSlug, studyId, round)
+            onStudyReviewRequested({ studyJobId: latestJob.id, round })
         }
 
         onStudyCreated({ userId, studyId })
@@ -534,6 +552,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         }
 
         await markCodeSubmitted(db, { studyJobId, userId })
+        const round = await codeRoundForJob(studyJobId, db)
 
         await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
 
@@ -543,12 +562,12 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
             onStudyCreated({ userId, studyId })
         }
 
-        onStudyReviewRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId, round })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
-        triggerCodeScan(studyJobId, orgSlug, studyId)
+        triggerCodeScan(studyJobId, orgSlug, studyId, round)
 
         return { studyJobId }
     })
@@ -802,6 +821,9 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         // Lets the reviewer's feedback panel label note and decision with the same version
         // (OTTER-638).
         const resubmissionRound = await codeSubmissionVersion(studyId, db)
+        // The same number for every real history, but derived from the job the result will be
+        // written against, so a summary or a scan is never filed under a round the job is not on.
+        const round = await codeRoundForJob(studyJobId, db)
 
         await db
             .updateTable('studyJob')
@@ -816,12 +838,12 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .execute()
 
         onStudyCodeSubmitted({ userId, studyId })
-        onStudyReviewRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId, round })
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
-        triggerCodeScan(studyJobId, orgSlug, studyId)
+        triggerCodeScan(studyJobId, orgSlug, studyId, round)
 
         return { studyJobId }
     })

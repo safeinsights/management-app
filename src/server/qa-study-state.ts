@@ -116,12 +116,10 @@ export async function setQaStudyState(
 
     // job_status_change is append-only; the current status is its newest row.
     if (update.jobStatus && studyJobId) {
-        // The real submission path clears the round-scoped state alongside the status row, and
-        // getStudyReviewForJob relies on that: a summary older than the newest CODE-SUBMITTED is
-        // treated as the previous round's and dropped. Writing the status alone would leave QA
-        // looking at a pending panel that never resolves (OTTER-775 review).
+        // The real submission path clears the scan log alongside the status row, and the panel
+        // relies on that: the log carries no round, so QA would otherwise keep the previous
+        // verdict. The summary needs no clearing, being scoped to its round (OTTER-779).
         if (update.jobStatus === 'CODE-SUBMITTED') {
-            await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).execute()
             const discarded = await discardStaleScanLogRows(studyJobId, db)
             await deleteDiscardedScanLogObjects(discarded)
         }

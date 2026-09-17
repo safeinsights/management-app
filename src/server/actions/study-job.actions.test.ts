@@ -774,10 +774,21 @@ describe('Study Job Actions', () => {
     })
 
     describe('getJobAnalysisAction', () => {
-        const insertReview = async (studyJobId: string, codeExplanation: string) =>
+        const insertReview = async (studyJobId: string, codeExplanation: string, round = 1) =>
             await db
                 .insertInto('studyReview')
-                .values({ studyJobId, report: JSON.stringify({ codeExplanation }) })
+                .values({ studyJobId, round, report: JSON.stringify({ codeExplanation }) })
+                .execute()
+
+        // Submitted, changes requested, submitted again: the job now carries round 2's code, with
+        // round 1's summary still beside it.
+        const resubmit = async (studyJobId: string) =>
+            await db
+                .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId, status: 'CODE-CHANGES-REQUESTED' },
+                    { studyJobId, status: 'CODE-SUBMITTED' },
+                ])
                 .execute()
 
         test('returns the review and the scan together', async () => {
@@ -792,46 +803,39 @@ describe('Study Job Actions', () => {
         })
 
         // A change-requested resubmit reuses the job, so the previous round's row is still there
-        // under the same id until the new one lands (OTTER-775).
-        test("drops a review that predates the round's code submission", async () => {
+        // under the same id (OTTER-779).
+        test('drops a review that belongs to the previous round', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-CHANGES-REQUESTED' })
-            await insertReview(job.id, 'Summary of the code submitted last round')
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 1000) })
-                .execute()
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await insertReview(job.id, 'Summary of the code submitted last round', 1)
+            await resubmit(job.id)
 
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
 
             expect(analysis.review).toBeNull()
         })
 
-        test('keeps a review written after the latest code submission', async () => {
+        test('keeps the review written for the current round', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-CHANGES-REQUESTED' })
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() - 1000) })
-                .execute()
-            await insertReview(job.id, 'Summary of the resubmitted code')
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await insertReview(job.id, 'Summary of the code submitted last round', 1)
+            await resubmit(job.id)
+            await insertReview(job.id, 'Summary of the resubmitted code', 2)
 
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of the resubmitted code')
         })
 
-        // Written by this round's attempt, and can land in the same millisecond as the submission.
-        test('keeps a failure row regardless of its timestamp', async () => {
+        // The panel tells a failed generation from one still running, so a failure row for this
+        // round has to reach it.
+        test('keeps a failure row written for the current round', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-CHANGES-REQUESTED' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await resubmit(job.id)
             await db
                 .insertInto('studyReview')
-                .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
-                .execute()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 1000) })
+                .values({ studyJobId: job.id, round: 2, report: null, summaryFailedAt: new Date() })
                 .execute()
 
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
@@ -857,7 +861,38 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeUndefined()
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id })
+            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+        })
+
+        // An earlier round's failure is that round's own history, so regenerating this round must
+        // not reach back and delete it (OTTER-779).
+        test('clears only the current round and re-fires generation for it', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await db
+                .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() + 1000) },
+                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 2000) },
+                ])
+                .execute()
+            await db
+                .insertInto('studyReview')
+                .values([
+                    { studyJobId: job.id, round: 1, report: null, summaryFailedAt: new Date() },
+                    { studyJobId: job.id, round: 2, report: null, summaryFailedAt: new Date() },
+                ])
+                .execute()
+
+            actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
+
+            const remaining = await db
+                .selectFrom('studyReview')
+                .select('round')
+                .where('studyJobId', '=', job.id)
+                .execute()
+            expect(remaining.map((row) => row.round)).toEqual([1])
+            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 2 })
         })
 
         test('leaves a successful review row untouched', async () => {

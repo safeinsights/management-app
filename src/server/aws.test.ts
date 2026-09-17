@@ -175,7 +175,7 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
     })
 
     it('produces the expected CodeBuild input for a source scan', async () => {
-        const info = { studyJobId: 'job-456', studyId: 'study-abc', orgSlug: 'org-xyz' }
+        const info = { studyJobId: 'job-456', studyId: 'study-abc', orgSlug: 'org-xyz', round: 2 }
 
         const input = await buildTriggerScanForStudyJobCommandInput(info)
 
@@ -185,13 +185,14 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/job-scan-results' },
             {
+                // The round rides along so the webhook can refuse a build that outlived it.
                 name: 'ON_SUCCESS_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED', round: 2 }),
             },
             {
                 // A failed scan posts CODE-SCANNED, not JOB-ERRORED: the scan is advisory.
                 name: 'ON_FAILURE_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED', round: 2 }),
             },
             { name: 'SCAN_MODE', value: 'source' },
             { name: 'STUDY_JOB_ID', value: info.studyJobId },
@@ -284,6 +285,7 @@ describe('S3_KEY_PREFIX', () => {
             studyJobId: 'job-456',
             studyId: 'study-abc',
             orgSlug: 'org-xyz',
+            round: 1,
         })
 
         const byName = (name: string) => input.environmentVariablesOverride.find((v) => v.name === name)?.value
