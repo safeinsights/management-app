@@ -1,6 +1,6 @@
 import type { FC, ReactNode } from 'react'
 import { Stack, Text, Title } from '@mantine/core'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // Reserved even when empty so the H1 sits at the same height on every page. An empty block box
 // builds no line box and would measure zero, and `1lh` is one line box of this element's own
@@ -21,7 +21,7 @@ export interface PageHeaderProps {
 export const PageHeader: FC<PageHeaderProps> = ({ title, eyebrow }) => (
     <Stack gap="xs">
         <Eyebrow text={eyebrow} />
-        <Title order={1} c="navy.5">
+        <Title order={1} c={semanticColor('text.header')}>
             {title}
         </Title>
     </Stack>

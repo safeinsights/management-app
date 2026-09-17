@@ -12,7 +12,7 @@ type ProposalStepHeaderProps = {
 const HeaderDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
-    return <Divider my="lg" color="charcoal.1" data-testid="proposal-header-divider" />
+    return <Divider my="lg" color={semanticColor('border.default')} data-testid="proposal-header-divider" />
 }
 
 export function ProposalStepHeader({ stepLabel, heading, banner, children }: ProposalStepHeaderProps) {

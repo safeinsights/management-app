@@ -65,7 +65,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                         onClick={onDownloadAll}
                     />
                 </Group>
-                <Divider color="charcoal.1" />
+                <Divider color={semanticColor('border.default')} />
                 {/* File names, actor names and timestamps are all unbounded; without this the
                     Actions column is the first thing pushed off a narrow viewport. */}
                 <Table.ScrollContainer minWidth={520}>

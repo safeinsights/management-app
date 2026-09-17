@@ -4,6 +4,7 @@ import type { FC } from 'react'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import type { DuplicateResolution } from '@/hooks/use-upload-queue'
+import { fontWeight } from '@/theme/tokens'
 
 const MODAL_TITLE = 'Replace existing file?'
 
@@ -27,7 +28,7 @@ export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve })
         <Stack gap="xl">
             <Text size="md">
                 A file named{' '}
-                <Text span inherit fw={700}>
+                <Text span inherit fw={fontWeight.bold}>
                     {file?.name}
                 </Text>{' '}
                 already exists in SafeInsights. Replacing this file will overwrite and permanently delete the current

@@ -15,8 +15,6 @@ import { fontWeight } from '@/theme/tokens'
 const EXPAND_LABEL = 'View full proposal'
 const COLLAPSE_LABEL = 'Hide full proposal'
 const SNIPPET_LINE_CLAMP = 2
-/** `Spacing/lg` in Figma; the Mantine scale has no 24px step. */
-const CARD_SECTION_GAP = 24
 
 type ProposalRequestProps = {
     study: Submitted<SelectedStudy>
@@ -66,7 +64,7 @@ const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand,
     const dividerVariant = hasBothSections ? 'default' : 'none'
 
     return (
-        <Stack gap={CARD_SECTION_GAP} data-testid="proposal-snippet">
+        <Stack gap="lg" data-testid="proposal-snippet">
             <DatasetsField datasets={datasets} orgDataSources={study.orgDataSources} size="sm" />
             <FieldDivider variant={dividerVariant} />
             <ResearchQuestionSnippet preview={preview} />
@@ -101,7 +99,7 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
     const datasets = study.datasets ?? []
 
     return (
-        <Stack gap={CARD_SECTION_GAP} data-testid="proposal-body">
+        <Stack gap="lg" data-testid="proposal-body">
             <CollapseToggleLink
                 label={COLLAPSE_LABEL}
                 isExpanded

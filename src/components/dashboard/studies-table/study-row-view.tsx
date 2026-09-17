@@ -7,6 +7,7 @@ import type { StatusLabel } from '@/lib/status-labels'
 import { TableTd, TableTr, Text, useMantineTheme } from '@mantine/core'
 import dayjs from 'dayjs'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
+import { fontWeight } from '@/theme/tokens'
 
 // Props only, with no import of the Clerk-coupled StudyActionLink, so it renders in isolation.
 export type StudyRowViewProps = {
@@ -38,7 +39,7 @@ export function StudyRowView({ study, audience, scope, status, isHighlighted, ac
                         lineClamp={2}
                         style={{ cursor: 'pointer', overflowWrap: 'break-word' }}
                         size="sm"
-                        fw={isHighlighted ? 600 : undefined}
+                        fw={isHighlighted ? fontWeight.semibold : undefined}
                     >
                         {study.title}
                     </Text>

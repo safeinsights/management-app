@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { PageHeader } from '@/components/page-header'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type RegenerateKeyViewProps = {
     generatedOn: string
@@ -14,7 +14,7 @@ export type RegenerateKeyViewProps = {
     onConfirmGenerate: () => void
 }
 
-const DIVIDER_COLOR = 'charcoal.1'
+const DIVIDER_COLOR = semanticColor('border.default')
 
 export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
     generatedOn,

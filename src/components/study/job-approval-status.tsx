@@ -4,7 +4,7 @@ import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -17,7 +17,7 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
 
     const isApproved = statusChange.status === 'CODE-APPROVED' || statusChange.status === 'FILES-APPROVED'
 
-    const color = isApproved ? 'green.7' : 'red.7'
+    const color = isApproved ? semanticColor('success.text') : semanticColor('error.text')
     const statusDisplay = isApproved ? 'Approved' : 'Rejected'
 
     return (
