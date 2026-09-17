@@ -18,11 +18,18 @@ import { type Kysely, sql } from 'kysely'
 // migration in this same transaction, which makes comparing as the enum an "unsafe use of new
 // value of enum type".
 //
+// Pinned here rather than imported from CODE_ROUND_CLOSING_JOB_STATUSES: this records the rule that
+// ran against production, so a status added later must not renumber rows that are already stored or
+// make a fresh database disagree with the migrated one. study_review_round.test.ts compares the two
+// lists, so the next status has to decide rather than drift.
+export const BACKFILL_CLOSING_JOB_STATUSES = ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'] as const
+
 // `studyId` narrows the rewrite to one study. The migration passes nothing and renumbers every row;
 // the unit test passes its own study, so rows a parallel suite leaves on some other job can never
 // be collapsed onto one round by a test run.
 export async function backfillStudyReviewRound(db: Kysely<unknown>, studyId?: string): Promise<void> {
     const scope = studyId ? sql`AND owner.study_id = ${studyId}::uuid` : sql``
+    const closers = sql.join(BACKFILL_CLOSING_JOB_STATUSES.map((status) => sql`${status}`))
 
     await sql`
         UPDATE study_review sr
@@ -32,7 +39,7 @@ export async function backfillStudyReviewRound(db: Kysely<unknown>, studyId?: st
             JOIN study_job sibling ON sibling.id = closer.study_job_id
             WHERE sibling.study_id = owner.study_id
               AND (sibling.created_at, sibling.id) < (owner.created_at, owner.id)
-              AND closer.status::text IN ('CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED')
+              AND closer.status::text IN (${closers})
         ) + greatest(0, (
             SELECT count(*)
             FROM job_status_change submission

@@ -1,7 +1,8 @@
 import { db, describe, expect, insertTestStudyJobData, it } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import type { Kysely } from 'kysely'
-import { backfillStudyReviewRound } from './migrations/1786900000000_study_review_round'
+import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { BACKFILL_CLOSING_JOB_STATUSES, backfillStudyReviewRound } from './migrations/1786900000000_study_review_round'
 
 const REPORT = { codeExplanation: 'Aggregates scores by school.' }
 
@@ -32,6 +33,13 @@ const insertResubmittedJob = async () => {
 }
 
 describe('study_review_round migration', () => {
+    // The backfill keeps its own copy so rows already numbered in production stay put. A new closing
+    // status therefore has to be a decision: add it to the pinned list and accept the renumbering on
+    // the next fresh migrate, or change this expectation to record the divergence on purpose.
+    it('pins the closing statuses the runtime rule counts', () => {
+        expect([...BACKFILL_CLOSING_JOB_STATUSES].sort()).toEqual([...CODE_ROUND_CLOSING_JOB_STATUSES].sort())
+    })
+
     it('numbers a summary written after the resubmit as the second round', async () => {
         const { study, job } = await insertResubmittedJob()
         const review = await insertReview(job.id, minutesAgo(5))
