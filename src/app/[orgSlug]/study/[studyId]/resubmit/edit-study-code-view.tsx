@@ -30,6 +30,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
         <Stack gap="xxl">
             <StudyCodePanel
                 ide={ide}
+                dataPartnerName={orgName}
                 stepLabel="STEP 4"
                 heading="Edit study code"
                 showLaunchIde={studyHasCodeEnv}

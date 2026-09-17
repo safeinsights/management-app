@@ -23,7 +23,7 @@ const Frame = ({ label, children }: { label: string; children: React.ReactNode }
 )
 
 const Board = ({ children }: { children: React.ReactNode }) => (
-    <Stack gap="xl" p="xl" bg="grey.10">
+    <Stack gap="xl" p="xl" bg="grey.0">
         {children}
     </Stack>
 )

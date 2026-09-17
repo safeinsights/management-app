@@ -10,126 +10,136 @@ import {
     MantineColorsTuple,
     type VariantColorsResolver,
 } from '@mantine/core'
+import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
+import { semanticColor, semanticCssVariables, typographyCssVariables } from './theme/tokens'
 
+// Transcribed 1:1 from the "SI UI Component Library" Figma file, collection `color primitive`
+// (read from Dev Mode → Variables). Every ramp is exactly ten shades indexed 0-9 — Figma defines
+// no 950 step and no 50-900 naming. Do not add an eleventh entry: Mantine will happily emit
+// --mantine-color-<name>-10 for it, and call sites start depending on a shade design never shipped.
+
+const navy: MantineColorsTuple = [
+    '#e6e9ef',
+    '#ccd3df',
+    '#99a6bf',
+    '#677a9e',
+    '#344d7e',
+    '#01215e',
+    '#011a4b',
+    '#011438',
+    '#000d26',
+    '#000713',
+]
+const turquoise: MantineColorsTuple = [
+    '#e6fafa',
+    '#ccf6f5',
+    '#99eceb',
+    '#66e3e1',
+    '#33d9d7',
+    '#00d0cd',
+    '#00a6a4',
+    '#007d7b',
+    '#005352',
+    '#002a29',
+]
+const red: MantineColorsTuple = [
+    '#fbeceb',
+    '#f6d8d6',
+    '#edb1ad',
+    '#e48a84',
+    '#db635b',
+    '#d23c32',
+    '#a83028',
+    '#7e241e',
+    '#541814',
+    '#2a0c0a',
+]
+const green: MantineColorsTuple = [
+    '#ecf4ee',
+    '#d9e9dc',
+    '#b3d4ba',
+    '#8ebe97',
+    '#68a975',
+    '#429352',
+    '#357642',
+    '#285831',
+    '#1a3b21',
+    '#0d1d10',
+]
+const yellow: MantineColorsTuple = [
+    '#fffae7',
+    '#fbeed8',
+    '#f7ddb1',
+    '#f4cd89',
+    '#f0bc62',
+    '#ecab3b',
+    '#bd892f',
+    '#8e6723',
+    '#5e4418',
+    '#2f220c',
+]
+const blue: MantineColorsTuple = [
+    '#e7f1fe',
+    '#bddcff',
+    '#94c6ff',
+    '#6bb0ff',
+    '#3d98ff',
+    '#1482ff',
+    '#006deb',
+    '#0058bd',
+    '#004594',
+    '#00326b',
+]
+const purple: MantineColorsTuple = [
+    '#eae8fc',
+    '#d5d2f9',
+    '#a7a0f3',
+    '#7d73ed',
+    '#4f42e6',
+    '#291bc4',
+    '#2317ab',
+    '#19107a',
+    '#100a4c',
+    '#070524',
+]
+const grey: MantineColorsTuple = [
+    '#f1f3f5',
+    '#dadee1',
+    '#c4c9cf',
+    '#aab3bb',
+    '#949ea9',
+    '#7a8794',
+    '#64707c',
+    '#525c66',
+    '#3d454c',
+    '#2b3036',
+]
 const charcoal: MantineColorsTuple = [
-    '#E6E6E6',
-    '#D9D9D9',
-    '#BFBFBF',
-    '#A6A6A6',
-    '#8C8C8C',
+    '#f8f9fa',
+    '#d9d9d9',
+    '#bfbfbf',
+    '#a6a6a6',
+    '#8c8c8c',
     '#737373',
     '#595959',
     '#404040',
     '#262626',
-    '#0D0D0D',
-]
-const grey: MantineColorsTuple = [
-    '#E6E8EB',
-    '#DADEE1',
-    '#C4C9CF',
-    '#AAB3BB',
-    '#949EA9',
-    '#7A8794',
-    '#64707C',
-    '#525C66',
-    '#3D454C',
-    '#2B3036',
-    '#F1F3F5',
-]
-const red: MantineColorsTuple = [
-    '#FFE0E0',
-    '#FFCCCC',
-    '#FFADAD',
-    '#FF8A8A',
-    '#FF6B6B',
-    '#FF4747',
-    '#FF2929',
-    '#FF0505',
-    '#E60000',
-    '#C70000',
-    '#A83028',
-    '#7E241E',
-    '#FBECEB',
-]
-const green: MantineColorsTuple = [
-    '#E8F8EB',
-    '#D8F3DD',
-    '#C1ECC9',
-    '#A6E3B2',
-    '#8EDC9E',
-    '#77D58A',
-    '#5CCC72',
-    '#44C55E',
-    '#37AF4F',
-    '#2F9844',
-    '#2B8A3E',
-    '#285831',
-]
-const yellow: MantineColorsTuple = [
-    '#FFF9E5',
-    '#FFF6DB',
-    '#FFF0C2',
-    '#FFE9A8',
-    '#FFE38F',
-    '#FFDD75',
-    '#FFD65C',
-    '#FFD042',
-    '#FFC929',
-    '#FFC30F',
-    '#5E4418',
-]
-const purple: MantineColorsTuple = [
-    '#EAE8FC',
-    '#D5D2F9',
-    '#A7A0F3',
-    '#7D73ED',
-    '#4F42E6',
-    '#291BC4',
-    '#2317AB',
-    '#19107A',
-    '#100A4C',
-    '#070524',
-]
-const BRAND_DEFAULT = '#01215E'
-
-const navy: MantineColorsTuple = [
-    '#E6E9EF',
-    '#CCD3DF',
-    '#99A6BF',
-    '#677A9E',
-    '#344D7E',
-    BRAND_DEFAULT,
-    '#011A4B',
-    '#011438',
-    '#000D26',
-    '#000713',
-]
-const blue: MantineColorsTuple = [
-    '#D6E9FF',
-    '#BDDCFF',
-    '#94C6FF',
-    '#6BB0FF',
-    '#3D98FF',
-    '#1482FF',
-    '#006DEB',
-    '#0058BD',
-    '#004594',
-    '#00326B',
-    BRAND_DEFAULT,
+    '#0d0d0d',
 ]
 
 type ExtendedCustomColors =
     | 'navy'
-    | 'purple'
-    | 'blue'
-    | 'charcoal'
-    | 'grey'
+    | 'turquoise'
     | 'red'
     | 'green'
     | 'yellow'
+    | 'blue'
+    | 'purple'
+    | 'grey'
+    | 'charcoal'
     | DefaultMantineColor
 
-type ExtendedCustomSpacing = 'xxl' | DefaultMantineSize
+type ExtendedCustomSpacing = 'xxs' | 'xxl' | DefaultMantineSize
 
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {
@@ -157,6 +167,10 @@ const variantColorResolver: VariantColorsResolver = (input) => {
     return defaultVariantColorsResolver(input)
 }
 
+// Figma collection `font-family`.
+const fontFamilySans = '"Open Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+const fontFamilyMono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
+
 // Variants Mantine resolves to var(--mantine-color-<c>-light-hover) rather than a shade of the colour
 // itself, so each needs brand/Light supplied explicitly.
 const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'light']
@@ -166,6 +180,7 @@ const LIGHT_HOVER_VARIANTS: readonly ButtonVariant[] = ['outline', 'subtle', 'li
 // travel as custom properties: `vars` reaches the DOM as an inline style, and an inline style cannot
 // carry the :disabled pseudo-class a `styles` callback would need.
 const DISABLED_VARS: Record<string, string> = {
+    // surface/Disabled medium, text/Disabled
     '--mantine-color-disabled': grey[1],
     '--mantine-color-disabled-color': charcoal[6],
 }
@@ -173,68 +188,107 @@ const DISABLED_VARS: Record<string, string> = {
 export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
     root: {
         ...DISABLED_VARS,
+        ...buttonSizeVars(props.size),
         ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
     },
 })
 
 export const theme = createTheme({
-    fontFamily: 'Open Sans',
+    fontFamily: fontFamilySans,
+    fontFamilyMonospace: fontFamilyMono,
     headings: {
-        fontFamily: 'Open Sans',
+        fontFamily: fontFamilySans,
+        // Figma collection `font-weight`: regular 400, semibold 600, bold 700. There is no 500.
+        // Per-heading sizes are deliberately not set: the file's "Text styles" frame still carries
+        // Carbon-era names and 140%/165% line heights that contradict the `line-height` collection
+        // (1.2/1.35/1.5), so there is no composed heading style to transcribe. See OTTER-661.
         fontWeight: '700',
+    },
+    // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Five of those line up
+    // with Mantine's xs-xl scale, which is what existing call sites pass; the rest reach components
+    // as --si-font-size-* rather than being bolted onto Mantine keys design never named.
+    fontSizes: {
+        xs: '0.75rem',
+        sm: '0.875rem',
+        md: '1rem',
+        lg: '1.125rem',
+        xl: '1.25rem',
     },
     variantColorResolver,
     colors: {
         navy,
-        charcoal,
-        grey,
+        turquoise,
         red,
         green,
         yellow,
-        purple,
         blue,
+        purple,
+        grey,
+        charcoal,
     },
     components: {
-        TextInput: {
-            defaultProps: {
-                color: charcoal[9],
-            },
-        },
+        // uiThemeComponents carries the Figma-transcribed Alert/TextInput overrides; it is spread
+        // first so the app-specific entries below win on any shared key.
+        ...uiThemeComponents,
         // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: red[11] } },
+            styles: { required: { color: red[7] } },
         }),
         Table: {
             styles: () => ({
                 th: {
-                    backgroundColor: grey[10],
+                    backgroundColor: semanticColor('surface.tableheader'),
                 },
             }),
         },
+        // Button geometry comes from buttonSizeVars, its colours from OTTER-761's buttonVars — one
+        // `vars` function, because Mantine only calls one per component.
         Button: {
             defaultProps: {
-                color: 'navy',
+                radius: 'xs',
             },
             vars: buttonVars,
         },
     },
+    // brand/default is navy/5 and brand/hover navy/6, so primaryShade 5 makes Mantine resolve the
+    // filled variant and its hover straight off the brand ramp.
     primaryShade: 5,
-    primaryColor: 'purple',
+    primaryColor: 'navy',
+    // Figma collection `Brand` > Spacing and Corner-radius.
     spacing: {
+        xxs: '0.25rem',
         xs: '0.5rem',
+        sm: '0.75rem',
+        md: '1rem',
+        lg: '1.5rem',
+        xl: '2rem',
         xxl: '2.5rem',
+    },
+    radius: {
+        xs: '0.125rem',
+        sm: '0.25rem',
+        md: '0.5rem',
+        lg: '1rem',
+        xl: '2rem',
+    },
+    // Figma collection `Brand` > Shadow, composed from its blur/spread/position/opacity variables.
+    // The file defines no shadow colour, so these compose over black. Note xs blur (3) is larger
+    // than sm (2) in Figma itself — transcribed faithfully, flagged for design.
+    shadows: {
+        xs: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        sm: '0 1px 2px rgba(0, 0, 0, 0.1)',
+        md: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        lg: '0 10px 15px rgba(0, 0, 0, 0.15)',
+        xl: '0 20px 25px rgba(0, 0, 0, 0.2)',
     },
 })
 
 export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
-    variables: {
-        '--mantine-color-placeholder': theme.colors.grey[7],
-        '--mantine-color-dimmed': theme.colors.gray[7],
-        '--mantine-color-error': theme.colors.red[11],
-        '--mantine-color-error-filled': theme.colors.red[10],
-    },
+    // Every --si-* variable comes from src/theme/tokens.ts, which is also what components read
+    // through semanticColor(). One definition, two consumers.
+    variables: { ...semanticCssVariables(theme), ...typographyCssVariables },
     dark: {},
     light: {},
 })

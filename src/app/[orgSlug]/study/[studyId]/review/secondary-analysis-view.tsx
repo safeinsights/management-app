@@ -16,7 +16,7 @@ export type SecondaryAnalysisViewProps = {
 
 export function SecondaryAnalysisView({ header, stageStatus, stageStartedAt, nav }: SecondaryAnalysisViewProps) {
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
                 <ProposalStepHeader

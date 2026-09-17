@@ -33,7 +33,7 @@ export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled
                         <Button variant="outline" onClick={() => setIsOpen(false)}>
                             Back to proposal
                         </Button>
-                        <Button variant="filled" color="red.7" onClick={confirmCancel}>
+                        <Button variant="filled" color="red.6" onClick={confirmCancel}>
                             Yes, delete proposal
                         </Button>
                     </Group>

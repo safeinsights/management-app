@@ -96,7 +96,7 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView }) => {
             <CheckCircleIcon
                 size={18}
                 weight="fill"
-                color="var(--mantine-color-green-6)"
+                color="var(--mantine-color-green-7)"
                 aria-label="Shared with researcher"
             />
         ),
