@@ -32,11 +32,48 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         '<Box mt="-md" ml="-xs" />',
         // A CSS variable reference is already a token lookup.
         '<Box bg="var(--si-color-surface-page)" />',
+        '<Box bg={cssVar("surface.page")} />',
+        // A forwarded prop belongs to the caller; this component decides nothing.
+        'const Row = ({ c }) => <Text c={c} />',
+        'const Row = ({ gap }) => <Stack gap={gap} />',
+        // Both ternary branches are tokens.
+        '<Text c={isActive ? semanticColor("text.white") : semanticColor("text.secondary")} />',
     ],
     invalid: [
         {
             code: '<Text c="charcoal.9" />',
             errors: [{ messageId: 'rawColor' }],
+        },
+        // A ternary is where a raw colour hid from the old check: neither branch was a Literal.
+        {
+            code: `<Text c={isActive ? 'white' : 'charcoal.7'} />`,
+            errors: [{ messageId: 'rawColor' }, { messageId: 'rawColor' }],
+        },
+        // Naming a literal does not make it a token. A shade is reported at its definition, which
+        // is the only place it can be fixed — and is why the rule must also read `.ts`.
+        {
+            code: `const APP_MAIN_BG = 'grey.0'; const S = () => <Box bg={APP_MAIN_BG} />`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        // `gray` and `dark` have no SI ramp at all, so these silently use Mantine's stock palette.
+        {
+            code: `const COLORS = { draft: { bg: 'grey.0', c: 'gray.9' }, other: { c: 'dark.5' } }`,
+            errors: [{ messageId: 'rawShade' }, { messageId: 'rawShade' }, { messageId: 'rawShade' }],
+        },
+        // A shade handed to an arbitrary helper is still a shade.
+        {
+            code: `<Box bg={pickColor('grey.0')} />`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const CARD_SECTION_GAP = 24; const S = () => <Stack gap={CARD_SECTION_GAP} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        // The card scopes one-off `styles={}` alongside inline `style={}`; the same raw value must
+        // not pass in one form and fail in the other.
+        {
+            code: '<TextInput styles={{ label: { fontWeight: 600, marginBottom: 4 } }} />',
+            errors: [{ messageId: 'oneOffStyles' }],
         },
         {
             code: '<Text c="grey.7" />',

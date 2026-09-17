@@ -57,7 +57,7 @@ const truncateFileName = (name: string) =>
     name.length > FILE_NAME_MAX_CHARS ? `${name.slice(0, FILE_NAME_MAX_CHARS)}…` : name
 
 const MainFileColumnHeader: FC = () => (
-    <Group gap={4} wrap="nowrap" align="center">
+    <Group gap="xxs" wrap="nowrap" align="center">
         <Text component="span" inherit>
             Main file
         </Text>

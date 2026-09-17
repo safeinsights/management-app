@@ -77,10 +77,8 @@ describe('ReviewFeedbackSection', () => {
     it('renders the three evaluation criteria with only the label bolded', () => {
         renderWithProviders(<FeedbackTestWrapper />)
 
-        // toHaveStyle resolves through getComputedStyle, where the token var is unset, so assert
-        // the inline style the token actually writes.
         for (const label of ['Feasibility:', 'Impact:', 'Researcher background:']) {
-            expect(screen.getByText(label).style.fontWeight).toBe('var(--si-font-weight-semibold)')
+            expect(screen.getByText(label)).toHaveStyle({ fontWeight: '600' })
         }
 
         expect(

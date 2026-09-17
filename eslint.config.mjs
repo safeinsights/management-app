@@ -150,8 +150,10 @@ const eslintConfig = [
     // Theme tokens over ad-hoc styling. `warn` while the migration lands; raise to `error`
     // per glob as each area comes clean.
     {
-        files: ['src/**/*.tsx'],
-        ignores: ['src/**/*.stories.tsx', 'src/**/*.test.tsx'],
+        // `.ts` too: the status pills and app-shell backgrounds are plain colour constants, and a
+        // .tsx-only glob never sees them.
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/**/*.stories.tsx', 'src/**/*.test.{ts,tsx}'],
         rules: {
             'custom/noRawStyleValues': 'warn',
         },
@@ -159,6 +161,14 @@ const eslintConfig = [
     // The theme is where raw values are supposed to live: it is what the tokens resolve to.
     {
         files: ['src/theme.ts', 'src/theme/**/*.ts', 'src/components/ui/theme-components.ts'],
+        rules: {
+            'custom/noRawStyleValues': 'off',
+        },
+    },
+    // Brand artwork and the editor's own palettes are not themeable: the logo hexes are the mark
+    // itself, and the card keeps Lexical/Yjs cursor colours as they are.
+    {
+        files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },
