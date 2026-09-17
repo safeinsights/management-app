@@ -106,7 +106,7 @@ describe('UserStudyAgreements', () => {
 
         const row = await rowFor(title)
         // Both date columns, since neither an effective nor an acknowledged date can exist.
-        expect(within(row).getAllByText('Test study')).toHaveLength(2)
+        expect(within(row).getAllByText('Test Study')).toHaveLength(2)
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
     })
 
