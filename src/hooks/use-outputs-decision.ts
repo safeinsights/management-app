@@ -2,14 +2,21 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
+import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from '@/components/study/outputs-decision-section'
+import { showOutputsDecisionFailure } from '@/components/study/outputs-decision-failure-notice'
 import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { buildSharedFiles } from '@/lib/re-wrap-results'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
+import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
+import { useOutputsReviewFeedbackProvider } from '@/lib/realtime/outputs-review-feedback-provider-context'
+import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
+import type { SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { submitOutputsDecisionAction } from '@/server/actions/study-job.actions'
@@ -20,14 +27,33 @@ type UseOutputsDecisionOptions = {
     jobId: string
     labName: string
     decryptedFiles: JobFileInfo[]
+    /** Distinguishes this tab from the same reviewer's other tabs, which are peers, not the author. */
+    tabSessionId: string
 }
 
 // Visual/DOM order, which is what "focus the first flagged field" means to the user.
 const FIELD_ORDER = [FEEDBACK_INPUT_ID, DECISION_GROUP_ID]
 
-export function useOutputsDecision({ orgSlug, studyId, jobId, labName, decryptedFiles }: UseOutputsDecisionOptions) {
+export function useOutputsDecision({
+    orgSlug,
+    studyId,
+    jobId,
+    labName,
+    decryptedFiles,
+    tabSessionId,
+}: UseOutputsDecisionOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
+    const { user } = useUser()
+    // The editor's own provider answers whether the feedback reached the service; the broadcast
+    // goes out on its own connection, which the action's document delete cannot take with it.
+    const provider = useOutputsReviewFeedbackProvider()
+    const broadcastProvider = useBroadcastProvider(outputsReviewFeedbackDocName(jobId))
+    const triggerKickOut = useTriggerStudyKickOut()
+
+    // The feedback lives in the collaborative document, so it is safe once the editor service has
+    // taken every local change. With no provider it exists only on this screen.
+    const isFeedbackSaved = () => provider !== null && provider.unsyncedChanges === 0
 
     const [feedback, setFeedback] = useState('')
     const [selected, setSelected] = useState<OutputsDecision | null>(null)
@@ -70,10 +96,38 @@ export function useOutputsDecision({ orgSlug, studyId, jobId, labName, decrypted
                 }),
             )
         },
-        onError: reportMutationError('Failed to submit your decision'),
-        onSuccess: () => {
+        onError: async (error) => {
+            // Not reportMutationError: that appends a Sentry reference to copy the card specifies
+            // exactly, and an action id is not something the reviewer can act on.
+            captureException(error)
+            setConfirming(null)
+
+            // A peer may have decided while this submit was in flight, which closes the round for
+            // everyone and makes a retry impossible. Reconcile against the job before blaming the
+            // submit, and never replay the mutation. Quiet, because this screen answers a failed
+            // check with its own wording below, which names what a reload costs the reviewer.
+            if (await triggerKickOut({ reportFailure: false })) return
+
+            showOutputsDecisionFailure({ error, isSaved: isFeedbackSaved() })
+        },
+        onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
             setConfirming(null)
+
+            // Closes the review in the other tabs at once. The editor service relays this only for
+            // a job that already carries its decision, so it cannot end a peer's review early.
+            const submittedByClerkId = user?.id
+            if (broadcastProvider && submittedByClerkId) {
+                const event: SubmissionEvent = {
+                    type: 'outputs-review-submitted',
+                    studyId,
+                    submittedByTabId: tabSessionId,
+                    submittedByClerkId,
+                    submittedByName: result.submitterFullName,
+                }
+                broadcastProvider.sendStateless(JSON.stringify(event))
+            }
+
             // push() alone is a no-op since /review is already the URL, leaving the decrypted form
             // mounted with plaintext on screen; refresh() re-runs the server components.
             router.push(Routes.studyReview({ orgSlug, studyId }))

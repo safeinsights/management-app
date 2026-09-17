@@ -1,19 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useAuth, useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
 
+import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import { actionResult } from '@/lib/utils'
-import { WS_URL } from '@/lib/config'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
@@ -33,33 +30,9 @@ interface UseCodeReviewMutationOptions {
 export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const { getToken } = useAuth()
     const { user } = useUser()
 
-    // On its own websocket, so the broadcast survives the mutation tearing down the editor's
-    // shared connection.
-    const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
-    useEffect(() => {
-        const doc = new Y.Doc()
-        const docName = codeReviewFeedbackDocName(jobId)
-        const provider = new HocuspocusProvider({
-            url: WS_URL,
-            name: docName,
-            document: doc,
-            token: async () => (await getToken()) ?? '',
-            onAuthenticationFailed: () => {
-                console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`)
-            },
-        } as ConstructorParameters<typeof HocuspocusProvider>[0])
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setBroadcastProvider(provider)
-        return () => {
-            provider.destroy()
-            doc.destroy()
-
-            setBroadcastProvider(null)
-        }
-    }, [jobId, getToken])
+    const broadcastProvider = useBroadcastProvider(codeReviewFeedbackDocName(jobId))
 
     const {
         mutate: submitReview,

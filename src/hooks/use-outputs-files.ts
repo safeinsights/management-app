@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { captureException } from '@sentry/nextjs'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import type { OutputFileRowData } from '@/components/study/outputs-file-row'
+import type { ActivityState, OutputFileRowData } from '@/components/study/outputs-file-row'
 import { downloadBlob } from '@/lib/download-blob'
 import { zipFiles } from '@/lib/zip-files'
 import type { JobFileInfo } from '@/lib/types'
@@ -14,12 +15,20 @@ import {
     recordJobFileActivityAction,
 } from '@/server/actions/study-job-file-activity.actions'
 import type { StudyJobFileAction } from '@/database/types'
+import type { JobFileActivity } from '@/server/db/queries'
 
-const activityQueryKey = (jobId: string) => ['job-file-activity', jobId]
+// Keyed on the org too: a dual-role user moving between the two sides of one study must not be
+// served the other side's rows from cache (OTTER-783).
+const activityQueryKey = (jobId: string, orgSlug: string) => ['job-file-activity', jobId, orgSlug]
 
 const rowKey = (file: JobFileInfo) => `${file.sourceId}:${file.path}`
 
 const displayName = (path: string) => path.split('/').pop() || path
+
+const resolveActivityState = (activity: JobFileActivity[] | undefined, hasFailed: boolean): ActivityState => {
+    if (hasFailed) return 'unavailable'
+    return activity === undefined ? 'pending' : 'known'
+}
 
 type UseOutputsFilesOptions = {
     jobId: string
@@ -27,20 +36,27 @@ type UseOutputsFilesOptions = {
 }
 
 export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOptions) {
+    const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [viewing, setViewing] = useState<OutputFileRowData | null>(null)
     const [isPreparingZip, setIsPreparingZip] = useState(false)
 
-    const { data: activity, isSuccess: isActivityLoaded } = useQuery({
-        queryKey: activityQueryKey(jobId),
-        queryFn: () => fetchJobFileActivityAction({ jobId }),
+    const { data: activity, isError: hasActivityFailed } = useQuery({
+        queryKey: activityQueryKey(jobId, orgSlug),
+        queryFn: () => fetchJobFileActivityAction({ jobId, orgSlug }),
+        // Opts this poll in to the shared reporter, so a reviewer learns that the column is stale
+        // rather than reading the last good rows as current (OTTER-726).
+        meta: { errorMessage: 'Failed to load file activity' },
     })
+
+    const activityState = resolveActivityState(activity, hasActivityFailed)
 
     const { mutate: recordActivity } = useMutation({
         mutationFn: async (variables: { files: OutputFileRowData[]; action: StudyJobFileAction }) =>
             actionResult(
                 await recordJobFileActivityAction({
                     jobId,
+                    orgSlug,
                     files: variables.files.map((file) => ({
                         studyJobFileId: file.studyJobFileId,
                         filePath: file.filePath,
@@ -53,24 +69,24 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         onError: (error) => captureException(error),
         // Refetch rather than optimistically patch: the row shows the actor's name and the
         // server's timestamp, neither of which the client can produce accurately.
-        onSettled: () => queryClient.invalidateQueries({ queryKey: activityQueryKey(jobId) }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: activityQueryKey(jobId, orgSlug) }),
     })
 
     const rows = useMemo<OutputFileRowData[]>(() => {
-        const activityRows = Array.isArray(activity) ? activity : []
+        // Dropped on a failed poll rather than carried: TanStack keeps the last good data through
+        // one, and a row naming an actor and a time reads as a statement about now.
+        const activityRows = activityState === 'known' ? (activity ?? []) : []
         return decryptedFiles.map((file) => ({
             key: rowKey(file),
             studyJobFileId: file.sourceId,
             filePath: file.path,
             name: displayName(file.path),
             contents: file.contents,
-            // Distinguishes "asked, nothing came back" from "haven't asked yet": without it a
-            // pending query renders as a confident "No activity yet" on every row.
-            isActivityKnown: isActivityLoaded,
+            activityState,
             activity:
                 activityRows.find((row) => row.studyJobFileId === file.sourceId && row.filePath === file.path) ?? null,
         }))
-    }, [decryptedFiles, activity, isActivityLoaded])
+    }, [decryptedFiles, activity, activityState])
 
     const onView = useCallback(
         (row: OutputFileRowData) => {

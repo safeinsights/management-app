@@ -27,6 +27,7 @@ import {
 } from 'lexical'
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link'
 import { isValidUrl } from './config'
+import { OPEN_LINK_CARD_COMMAND } from './link-card-node'
 import {
     INSERT_ORDERED_LIST_COMMAND,
     INSERT_UNORDERED_LIST_COMMAND,
@@ -154,7 +155,10 @@ export const Toolbar = () => {
         if (!selected) return
 
         if (selected.existingUrl) {
-            runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
+            // The hover card owns an existing link, and this is the keyboard route into it. The
+            // older standalone editor mounts no card, so unlinking stays its fallback.
+            const openedCard = editor.dispatchCommand(OPEN_LINK_CARD_COMMAND, undefined)
+            if (!openedCard) runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
         } else {
             linkEditor.openLinkEditor(null)
         }

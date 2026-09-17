@@ -11,7 +11,7 @@ import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { codeSubmissionVersion, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
@@ -385,11 +385,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .where('name', 'like', `proposal-${studyId}-%`)
             .execute()
 
-        const submitter = await db
-            .selectFrom('user')
-            .select(['fullName'])
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
+        const submitterFullName = await fetchUserFullName(userId, db)
 
         const reviewerOrg = await db
             .selectFrom('study')
@@ -422,7 +418,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         return {
             studyId,
-            submitterFullName: submitter.fullName,
+            submitterFullName,
             orgName: reviewerOrg.orgName,
         }
     })

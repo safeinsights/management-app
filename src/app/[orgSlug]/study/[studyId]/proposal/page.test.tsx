@@ -24,8 +24,9 @@ beforeEach(() => {
 const renderRoute = (orgSlug: string, studyId: string) =>
     StudyProposalRoute({ params: Promise.resolve({ orgSlug, studyId }) })
 
-// ProposalProvider unconditionally passes the DRAFT resolver and `titleMode: 'omit'`, which are
-// wrong for a CHANGE-REQUESTED study and safe only because of this redirect (OTTER-690).
+// ProposalProvider is built for a DRAFT (its kick-out statuses, its submit action); a
+// CHANGE-REQUESTED study has its own page and provider, so this redirect keeps them apart
+// (OTTER-690).
 describe('StudyProposalRoute status routing', () => {
     it('renders the Step 2 editor for a DRAFT', async () => {
         const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-draft' })

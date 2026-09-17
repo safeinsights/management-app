@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
 import {
+    isOutputsReviewEditable,
     OUTPUTS_DECISION_ERRORS,
     OUTPUTS_DECISIONS,
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
@@ -37,5 +38,31 @@ describe('outputs review decisions', () => {
             'Decision exceeds the 1800 character limit. Shorten it to continue.',
         )
         expect(OUTPUTS_DECISION_ERRORS.decisionMissing).toBe('Select an option before submitting')
+    })
+})
+
+// OTTER-726: the status backstop asks whether the round is still open. The newest status row alone
+// cannot answer that, because the scanner writes CODE-SCANNED asynchronously and it can land after
+// the files decision on the same job.
+describe('isOutputsReviewEditable', () => {
+    it('is editable while no files decision exists', () => {
+        expect(isOutputsReviewEditable({ jobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'] })).toBe(true)
+    })
+
+    it('is closed once the files are approved or rejected', () => {
+        expect(isOutputsReviewEditable({ jobStatuses: ['RUN-COMPLETE', 'FILES-APPROVED'] })).toBe(false)
+        expect(isOutputsReviewEditable({ jobStatuses: ['RUN-COMPLETE', 'FILES-REJECTED'] })).toBe(false)
+    })
+
+    it('stays closed when a late CODE-SCANNED row follows the decision', () => {
+        expect(
+            isOutputsReviewEditable({
+                jobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED', 'CODE-SCANNED'],
+            }),
+        ).toBe(false)
+    })
+
+    it('treats an unknown job as editable, because closing a review needs positive evidence', () => {
+        expect(isOutputsReviewEditable({ jobStatuses: [] })).toBe(true)
     })
 })

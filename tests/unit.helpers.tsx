@@ -1,3 +1,4 @@
+import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error'
 import { db } from '@/database'
 
 import type { AuditRecordType, Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
@@ -19,7 +20,7 @@ import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor as waitForRtl } from '@testing-library/react'
 import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
@@ -94,6 +95,31 @@ export const createTestQueryClient = () => {
     return client
 }
 
+// Mutations only: a read action opens no transaction and issues plain SELECTs, so a late one
+// cannot commit anything. A pending mutation can, see the teardown check in vitest.setup.ts.
+export const pendingTestMutationCount = () =>
+    [...liveTestQueryClients].reduce((count, client) => count + client.isMutating(), 0)
+
+// The read counterpart of pendingTestMutationCount. Nothing fails a test for a query still in
+// flight, but a component whose enabled-ness depends on one needs it settled before interaction.
+export const pendingTestQueryCount = () =>
+    [...liveTestQueryClients].reduce((count, client) => count + client.isFetching(), 0)
+
+// Waits for every in-flight read to land. Cheap to poll, unlike retrying the interaction itself,
+// so it tolerates a slow machine instead of spending the budget on repeated clicks.
+export const waitForPendingQueries = () =>
+    waitForRtl(() => {
+        expect(pendingTestQueryCount()).toBe(0)
+    })
+
+// The teardown check in vitest.setup.ts fails a test that leaves a write in flight. Use this when
+// the mutation is a side effect the test does not otherwise assert on — a first-visit record, an
+// optimistic save — rather than reaching for an unrelated assertion to stall on.
+export const waitForPendingMutations = () =>
+    waitForRtl(() => {
+        expect(pendingTestMutationCount()).toBe(0)
+    })
+
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {
     for (const client of liveTestQueryClients) {
@@ -144,6 +170,13 @@ export const pageHeaderEyebrow = () => screen.getByTestId('page-header-eyebrow')
 export * from './common.helpers'
 
 export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
+
+// The error Next raises when the posted action id is absent from the build now serving, which an
+// open tab meets when the key rotates or the action moved, renamed or was removed. The real class
+// rather than a hand-built stand-in, so a Next upgrade that renames it fails errors.test.ts instead
+// of silently sending such a tab back to the framework text (OTTER-726).
+export const staleActionError = () =>
+    new UnrecognizedActionError('Server Action "7f60224d81" was not found on the server.')
 
 // faker.internet.email() draws from ~1.9M addresses, narrow enough that a full run repeats one
 // and user_email_lower_unique rejects the insert. The counter and token make them unique.

@@ -20,6 +20,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
+import { Routes } from '@/lib/routes'
+import { screenNavProps } from './render-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
 vi.mock('@/server/actions/study-job.actions', async () => {
@@ -40,7 +42,18 @@ const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
 }
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsErroredScreen({ study, raw, orgSlug }))
+    renderWithProviders(
+        await ReviewerOutputsErroredScreen({
+            study,
+            raw,
+            orgSlug,
+            ...screenNavProps('reviewer', 'reviewer-outputs-errored', raw, {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: Routes.dashboard,
+            }),
+        }),
+    )
 
 const unlock = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
@@ -365,7 +378,18 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        renderWithProviders(await ReviewerOutputsAvailableScreen({ study, raw, orgSlug: org.slug }))
+        renderWithProviders(
+            await ReviewerOutputsAvailableScreen({
+                study,
+                raw,
+                orgSlug: org.slug,
+                ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
+                    orgSlug: org.slug,
+                    studyId: study.id,
+                    dashboardHref: Routes.dashboard,
+                }),
+            }),
+        )
 
         expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
@@ -477,19 +501,21 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 
     it('records a view against the file when its name is clicked', async () => {
         const { job } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        await waitFor(() => expect(screen.getByText('No activity yet')).toBeInTheDocument())
 
         fireEvent.click(screen.getByRole('button', { name: 'run.log' }))
 
-        await waitFor(async () => {
-            const rows = await db
-                .selectFrom('studyJobFileActivity')
-                .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
-                .where('studyJobFile.studyJobId', '=', job.id)
-                .selectAll('studyJobFileActivity')
-                .execute()
-            expect(rows).toHaveLength(1)
-            expect(rows[0].action).toBe('VIEWED')
-            expect(rows[0].filePath).toBe('run.log')
-        })
+        // The cell is refetched when the recording settles, so the row is already there after this.
+        await waitFor(() => expect(screen.queryByText('No activity yet')).toBeNull())
+
+        const rows = await db
+            .selectFrom('studyJobFileActivity')
+            .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
+            .where('studyJobFile.studyJobId', '=', job.id)
+            .selectAll('studyJobFileActivity')
+            .execute()
+        expect(rows).toHaveLength(1)
+        expect(rows[0].action).toBe('VIEWED')
+        expect(rows[0].filePath).toBe('run.log')
     })
 })

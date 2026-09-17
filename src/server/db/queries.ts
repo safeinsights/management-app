@@ -1,13 +1,14 @@
+import { sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction } from '@/database/types'
+import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
-import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -169,6 +170,23 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
     return Number(row?.count ?? 0) + 1
 }
 
+// Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
+// first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
+// rather than FILES-* rows, because rejectStudyJobFilesAction writes the status with no comment and
+// counting it would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
+// Count and insert are separate, and the unique constraint backing them is per job, so a caller that
+// writes the counted round must lock the study row first (see submitOutputsDecisionAction).
+export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+    const row = await db
+        .selectFrom('studyReviewComment')
+        .where('studyId', '=', studyId)
+        .where('reviewKind', '=', 'RESULTS')
+        .where('entryType', '=', 'DECISION')
+        .select((eb) => eb.fn.countAll().as('count'))
+        .executeTakeFirst()
+    return Number(row?.count ?? 0) + 1
+}
+
 export const jobInfoForJobId = async (jobId: string) => {
     return await Action.db
         .selectFrom('studyJob')
@@ -310,6 +328,13 @@ export const getUserById = async (userId: string) => {
 // the mongo $in conditions fail CLOSED. Throwing would distinguish "no such org" from "not yours".
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
+
+// The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
+// actions were asking for it the same way.
+export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
+    const user = await db.selectFrom('user').select('fullName').where('id', '=', userId).executeTakeFirstOrThrow()
+    return user.fullName
+}
 
 export const getOrgNameFromId = async (orgId: string) => {
     const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()
@@ -498,12 +523,15 @@ export type JobFileActivity = {
     actorName: string
 }
 
-export async function latestActivityPerJobFile(jobId: string): Promise<JobFileActivity[]> {
+// Scoped to one side of the study: the Data Partner never sees the lab's activity and vice versa
+// (OTTER-783).
+export async function latestActivityPerJobFile(jobId: string, orgId: string): Promise<JobFileActivity[]> {
     return await Action.db
         .selectFrom('studyJobFileActivity')
         .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
         .innerJoin('user', 'user.id', 'studyJobFileActivity.userId')
         .where('studyJobFile.studyJobId', '=', jobId)
+        .where('studyJobFileActivity.orgId', '=', orgId)
         .select([
             'studyJobFileActivity.studyJobFileId',
             'studyJobFileActivity.filePath',
@@ -516,6 +544,56 @@ export async function latestActivityPerJobFile(jobId: string): Promise<JobFileAc
         .orderBy('studyJobFileActivity.filePath')
         .orderBy('studyJobFileActivity.createdAt', 'desc')
         .orderBy('studyJobFileActivity.id', 'desc')
+        .execute()
+}
+
+/**
+ * OTTER-693: whether this researcher has already been shown the Submit code page's FAQ.
+ *
+ * Filters in the same order as the last-login read, so it rides audit_last_login_idx
+ * (record_type, event_type, record_id) and only the handful of rows that survives is checked
+ * against the metadata subject.
+ */
+export async function hasViewedSubmitCodeFaq(userId: string): Promise<boolean> {
+    const row = await Action.db
+        .selectFrom('audit')
+        // recordId rather than userId: the same value here, but recordId is the event's subject and
+        // it is the indexed column.
+        .select('audit.id')
+        .where('audit.recordType', '=', 'USER')
+        .where('audit.eventType', '=', 'VIEWED')
+        .where('audit.recordId', '=', userId)
+        .where(sql<string>`audit.metadata->>'subject'`, '=', SUBMIT_CODE_FAQ_SUBJECT)
+        .limit(1)
+        .executeTakeFirst()
+
+    return row !== undefined
+}
+
+// The workspace-file counterpart of latestActivityPerJobFile: same DISTINCT ON collapse, keyed on
+// (study, file name) because a workspace file is a path on disk rather than a row (OTTER-693).
+export type WorkspaceFileActivityRow = {
+    fileName: string
+    action: WorkspaceFileAction
+    createdAt: Date
+    actorName: string
+}
+
+export async function latestActivityPerWorkspaceFile(studyId: string): Promise<WorkspaceFileActivityRow[]> {
+    return await Action.db
+        .selectFrom('workspaceFileActivity')
+        .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
+        .where('workspaceFileActivity.studyId', '=', studyId)
+        .select([
+            'workspaceFileActivity.fileName',
+            'workspaceFileActivity.action',
+            'workspaceFileActivity.createdAt',
+            'user.fullName as actorName',
+        ])
+        .distinctOn(['workspaceFileActivity.fileName'])
+        .orderBy('workspaceFileActivity.fileName')
+        .orderBy('workspaceFileActivity.createdAt', 'desc')
+        .orderBy('workspaceFileActivity.id', 'desc')
         .execute()
 }
 

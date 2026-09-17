@@ -3,7 +3,7 @@ import { Stack, Text } from '@mantine/core'
 import type { FileWithPath } from '@mantine/dropzone'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { FileDropOverlay } from './file-drop-overlay'
-import { FileReviewTable } from './file-review-table'
+import { YourFilesTable } from './your-files-table'
 import { fontWeight } from '@/theme/tokens'
 
 interface StudyCodeReviewViewProps {
@@ -14,7 +14,12 @@ interface StudyCodeReviewViewProps {
     setMainFile: (fileName: string) => void
     removeFile: (fileName: string) => void
     viewFile: (fileName: string) => void
-    jobCreatedAt: string | null
+    editFileInIde: (fileName: string) => void
+    downloadFile: (fileName: string) => void
+    dataPartnerName: string
+    templateFileNames: string[]
+    canEditInIde: boolean
+    ideOwnerName: string | null
     openRef: RefObject<(() => void) | null>
 }
 
@@ -26,7 +31,12 @@ export function StudyCodeReviewView({
     setMainFile,
     removeFile,
     viewFile,
-    jobCreatedAt,
+    editFileInIde,
+    downloadFile,
+    dataPartnerName,
+    templateFileNames,
+    canEditInIde,
+    ideOwnerName,
     openRef,
 }: StudyCodeReviewViewProps) {
     return (
@@ -39,13 +49,18 @@ export function StudyCodeReviewView({
             </Stack>
 
             <FileDropOverlay onDrop={uploadFiles} disabled={isUploading} showHelperText={false} openRef={openRef}>
-                <FileReviewTable
+                <YourFilesTable
                     files={files}
                     mainFile={mainFile}
-                    onMainFileChange={setMainFile}
-                    onRemoveFile={removeFile}
-                    onViewFile={viewFile}
-                    jobCreatedAt={jobCreatedAt}
+                    templateFileNames={templateFileNames}
+                    dataPartnerName={dataPartnerName}
+                    canEditInIde={canEditInIde}
+                    ideOwnerName={ideOwnerName}
+                    onSelectMain={setMainFile}
+                    onView={viewFile}
+                    onEdit={editFileInIde}
+                    onDownload={downloadFile}
+                    onDelete={removeFile}
                 />
             </FileDropOverlay>
         </Stack>

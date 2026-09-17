@@ -3,11 +3,8 @@ import {
     filesIncludeDecryptableErrorLog,
     filesIncludeUndecryptableErrorLog,
     isEncryptedArtifact,
-    isLegacyResultArtifact,
     isLogType,
     jobHasDecryptableRunOutcome,
-    jobHasEncryptedArtifacts,
-    jobHasLegacyResults,
 } from './file-type-helpers'
 
 describe('file-type-helpers result classification', () => {
@@ -16,27 +13,6 @@ describe('file-type-helpers result classification', () => {
         expect(isEncryptedArtifact('ENCRYPTED-CODE-RUN-LOG')).toBe(true)
         expect(isEncryptedArtifact('APPROVED-RESULT')).toBe(false)
         expect(isEncryptedArtifact('APPROVED-CODE-RUN-LOG')).toBe(false)
-    })
-
-    it('isLegacyResultArtifact matches plaintext approved results and logs', () => {
-        expect(isLegacyResultArtifact('APPROVED-RESULT')).toBe(true)
-        expect(isLegacyResultArtifact('APPROVED-SECURITY-SCAN-LOG')).toBe(true)
-        expect(isLegacyResultArtifact('SECURITY-SCAN-LOG')).toBe(true)
-        expect(isLegacyResultArtifact('ENCRYPTED-RESULT')).toBe(false)
-    })
-
-    it('jobHasEncryptedArtifacts is true when any encrypted artifact is present', () => {
-        expect(jobHasEncryptedArtifacts([{ fileType: 'ENCRYPTED-RESULT' }])).toBe(true)
-        expect(jobHasEncryptedArtifacts([{ fileType: 'APPROVED-RESULT' }])).toBe(false)
-        expect(jobHasEncryptedArtifacts([])).toBe(false)
-    })
-
-    it('jobHasLegacyResults is true only for legacy artifacts with no encrypted ones', () => {
-        expect(jobHasLegacyResults([{ fileType: 'APPROVED-RESULT' }])).toBe(true)
-        expect(jobHasLegacyResults([{ fileType: 'APPROVED-CODE-RUN-LOG' }])).toBe(true)
-        expect(jobHasLegacyResults([{ fileType: 'APPROVED-RESULT' }, { fileType: 'ENCRYPTED-RESULT' }])).toBe(false)
-        expect(jobHasLegacyResults([{ fileType: 'ENCRYPTED-RESULT' }])).toBe(false)
-        expect(jobHasLegacyResults([{ fileType: 'MAIN-CODE' }])).toBe(false)
     })
 
     // OTTER-524: a job carrying only the submission-time security scan log has no artifact
@@ -65,6 +41,6 @@ describe('file-type-helpers result classification', () => {
         expect(jobHasDecryptableRunOutcome([{ fileType: 'PACKAGING-ERROR-LOG' }])).toBe(false)
         expect(jobHasDecryptableRunOutcome([])).toBe(false)
         // The predicate it replaced at the key gate answers differently on the reported job.
-        expect(jobHasEncryptedArtifacts([{ fileType: 'ENCRYPTED-SECURITY-SCAN-LOG' }])).toBe(true)
+        expect(isEncryptedArtifact('ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
     })
 })
