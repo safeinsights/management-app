@@ -1,10 +1,15 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderReviewerCodeStep } from '../../_screens/render-screen'
 import { reviewerPageGuard } from '../reviewer-page-guard'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Review study code' }
+}
 
 // Uses the shared reviewerPageGuard so a non-reviewer is handled exactly as on /review.
 export default async function StudyReviewCodePage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {

@@ -1,5 +1,6 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { AccessDeniedAlert } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
@@ -7,6 +8,10 @@ import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { StudyProposal } from './proposal'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Set up study' }
+}
 
 export default async function RequestStudyPage(props: { params: Promise<{ orgSlug: string }> }) {
     const session = await sessionFromClerk()

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
@@ -5,6 +6,8 @@ import { displayOrgName } from '@/lib/string'
 import { redirect } from 'next/navigation'
 import { LegalPageShell } from '@/components/legal/legal-page-shell'
 import { OrgLegalTabs } from './org-legal-tabs'
+
+export const metadata: Metadata = { title: 'Legal center' }
 
 export default async function OrgLegalPage({ params }: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await params

@@ -1,3 +1,4 @@
+import type { Metadata, Route } from 'next'
 import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect, RedirectType } from 'next/navigation'
@@ -7,7 +8,8 @@ import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
 import { Flex, Paper, Text, Title } from '@mantine/core'
-import type { Route } from 'next'
+
+export const metadata: Metadata = { title: 'Invitation' }
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
     const { inviteId } = await params

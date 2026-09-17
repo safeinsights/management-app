@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { OrganizationSettingsManager } from './organization-settings-manager'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
@@ -8,6 +9,8 @@ import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
+
+export const metadata: Metadata = { title: 'Settings' }
 
 export default async function AdminSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await params

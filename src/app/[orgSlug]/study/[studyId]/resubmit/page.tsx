@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -9,6 +10,8 @@ import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
+
+export const metadata: Metadata = { title: 'Edit study code' }
 
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId } = await props.params
