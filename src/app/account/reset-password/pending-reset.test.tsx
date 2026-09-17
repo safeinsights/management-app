@@ -1,3 +1,5 @@
+import { Routes } from '@/lib/routes'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import {
     db,
     fireEvent,
@@ -68,14 +70,18 @@ describe('PendingReset', () => {
 
         await submitReset()
 
-        await waitFor(async () => {
-            const membership = await db
-                .selectFrom('orgUser')
-                .select('id')
-                .where('userId', '=', user.id)
-                .where('orgId', '=', invitingOrg.id)
-                .executeTakeFirst()
-            expect(membership).toBeDefined()
-        })
+        // The join writes the membership partway through the mutation, so waiting on the row alone
+        // returns while the rest of the flow still runs. The landing is what closes it.
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(keyGenerationUrl(Routes.orgDashboard({ orgSlug: invitingOrg.slug }))),
+        )
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select('id')
+            .where('userId', '=', user.id)
+            .where('orgId', '=', invitingOrg.id)
+            .executeTakeFirst()
+        expect(membership).toBeDefined()
     })
 })

@@ -121,6 +121,22 @@ export const ACCEPTED_FILE_TYPES = {
 
 export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'
 
+const ACCEPTED_EXTENSIONS = new Set(
+    Object.values(ACCEPTED_FILE_TYPES)
+        .flat()
+        .map((ext) => ext.toLowerCase()),
+)
+
+// Shared with the upload action, so the dropzone's rule and the server's cannot drift.
+export function hasAcceptedExtension(fileName: string) {
+    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
+    return ACCEPTED_EXTENSIONS.has(ext)
+}
+
+/** Per file, not per upload: OTTER-693 sets no cap on how many files a researcher may add. */
+export const MAX_UPLOAD_FILE_BYTES = 3 * 1024 * 1024
+export const MAX_UPLOAD_FILE_TEXT = 'Maximum file size is 3 MB.'
+
 export const minimalOrgInfoSchema = z.object({
     orgSlug: z.string(),
 })

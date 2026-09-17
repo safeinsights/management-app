@@ -15,6 +15,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    waitForPendingQueries,
     within,
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
@@ -39,6 +40,8 @@ vi.mock('@/server/aws', async () => {
 
 const workspaceRoots: string[] = []
 
+const DATA_PARTNER = 'Test Data Partner'
+
 const setupStudy = async (orgSlug = 'openstax') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -47,13 +50,37 @@ const setupStudy = async (orgSlug = 'openstax') => {
 
 const renderPage = async (orgSlug = 'openstax') => {
     const { study } = await setupStudy(orgSlug)
-    renderWithProviders(<CodeUploadPage orgSlug={orgSlug} studyId={study.id} previousHref={'/test' as Route} />)
+    renderWithProviders(
+        <CodeUploadPage
+            orgSlug={orgSlug}
+            studyId={study.id}
+            dataPartnerName={DATA_PARTNER}
+            isFirstVisit={false}
+            previousHref={'/test' as Route}
+        />,
+    )
     return { study }
+}
+
+/**
+ * The study agreement gate is the only thing that disables the button, and it reads as blocked
+ * until its query lands, so every reader has to wait for the queries to settle before clicking.
+ * Retrying the click instead spends the budget on repeated userEvent work.
+ */
+const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
+    // canSubmit depends on several reads with no UI signal of their own, so wait for the rows to
+    // render and then for every query to settle. Retrying the click instead spends the budget on
+    // repeated userEvent work, which is what made this fail on a loaded CI runner and never here.
+    await screen.findAllByRole('radio')
+    await waitForPendingQueries()
+
+    await user.click(screen.getByRole('button', { name: /submit code for review/i }))
+    await screen.findByRole('dialog')
 }
 
 const confirmStudyCodeSubmission = async (user: ReturnType<typeof userEvent.setup>) => {
     const dialog = screen.getByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, submit study code' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Submit code' }))
 }
 
 // The durable submit marker is the job's CODE-SUBMITTED status change, not study.status.
@@ -82,8 +109,9 @@ describe('CodeUploadPage', () => {
         await renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
-            expect(screen.getByText('Study code')).toBeInTheDocument()
+            expect(screen.getByText('STEP 3')).toBeInTheDocument()
+            // By role: the footer button and the confirmation modal CTA share this label.
+            expect(screen.getByRole('heading', { name: 'Submit code', level: 2 })).toBeInTheDocument()
             expect(screen.getByText(/write and test your code in ide/i)).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
         })
@@ -102,8 +130,10 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeDisabled()
         })
+        // Enabled once the agreement read lands. Every other blocked reason is reported on click.
+        await waitForPendingQueries()
+        expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
     })
 
     // Cleanup hits real S3, so skip when SeaweedFS is not running locally; CI has it.
@@ -117,7 +147,15 @@ describe('CodeUploadPage', () => {
             'helper.r': 'print("helper")',
         })
 
-        renderWithProviders(<CodeUploadPage orgSlug="openstax" studyId={study.id} previousHref={'/test' as Route} />)
+        renderWithProviders(
+            <CodeUploadPage
+                orgSlug="openstax"
+                studyId={study.id}
+                dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
+                previousHref={'/test' as Route}
+            />,
+        )
 
         await waitFor(() => {
             expect(screen.getAllByText('main.r').length).toBeGreaterThan(0)
@@ -125,13 +163,9 @@ describe('CodeUploadPage', () => {
         })
 
         const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /set main\.r as main file/i }))
+        await user.click(screen.getByRole('radio', { name: /set main\.r as main file/i }))
 
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
-
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
@@ -161,14 +195,18 @@ describe('CodeUploadPage', () => {
             'main.r': 'print("main")',
         })
 
-        renderWithProviders(<CodeUploadPage orgSlug={orgSlug} studyId={study.id} previousHref={'/test' as Route} />)
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
-        })
+        renderWithProviders(
+            <CodeUploadPage
+                orgSlug={orgSlug}
+                studyId={study.id}
+                dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
+                previousHref={'/test' as Route}
+            />,
+        )
 
         const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         await confirmStudyCodeSubmission(user)
 
         await waitFor(async () => {
@@ -191,20 +229,27 @@ describe('CodeUploadPage', () => {
             'main.R': 'print("main")',
         })
 
-        renderWithProviders(<CodeUploadPage orgSlug="openstax" studyId={study.id} previousHref={'/test' as Route} />)
+        renderWithProviders(
+            <CodeUploadPage
+                orgSlug="openstax"
+                studyId={study.id}
+                dataPartnerName={DATA_PARTNER}
+                isFirstVisit={false}
+                previousHref={'/test' as Route}
+            />,
+        )
 
         await waitFor(() => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
-            expect(screen.getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
 
         const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /submit code/i }))
+        await openSubmitConfirmation(user)
         await confirmStudyCodeSubmission(user)
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Unable to submit study' }),
+                expect.objectContaining({ color: 'red', title: 'Code could not be submitted.' }),
             )
         })
 

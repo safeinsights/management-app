@@ -44,7 +44,7 @@ describe('StudyViewPage', () => {
         renderWithProviders(page!)
 
         expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Initial request')
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Submit proposal')
         expect(screen.getByRole('link', { name: /^next step$/i })).toHaveAttribute(
             'href',
             Routes.studyCode({ orgSlug: org.slug, studyId: study.id }),
@@ -627,7 +627,7 @@ describe('StudyViewPage', () => {
         // OTTER-598 comment 43898). Every FILES-* decision now has its own screen: FILES-REJECTED →
         // outputs-feedback (OTTER-695/697), FILES-APPROVED → outputs-shared (OTTER-688) or
         // outputs-errored-shared (OTTER-696) — all below.
-        it('renders StudyDetailsResearcher for a completed run with no files decision yet', async () => {
+        it('renders the awaiting-review screen for a completed run with no files decision yet', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -643,9 +643,9 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
-            expect(screen.getByText('Study Status')).toBeInTheDocument()
-            expect(screen.getByText('Study Details')).toBeInTheDocument()
-            // OTTER-614: results is no longer terminal — "Previous" walks back to the
+            expect(screen.getByTestId('status-alert')).toHaveTextContent('Code run complete, outputs under review by')
+            expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
+            // OTTER-614: results is no longer terminal, so "Previous" walks back to the
             // post-decision code step at its own route (/view/code).
             expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
                 'href',
@@ -757,7 +757,7 @@ describe('StudyViewPage', () => {
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })
 
-        it('threads returnTo=org to the results screen', async () => {
+        it('threads returnTo=org to the awaiting-review screen', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -773,7 +773,7 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
-            expect(screen.getByText('Study Status')).toBeInTheDocument()
+            expect(screen.getByTestId('status-alert')).toHaveTextContent('Code run complete, outputs under review by')
             // returnTo=org survives the page dispatch: the "Previous" link back to the code
             // step carries it so org scope survives the hop.
             expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(

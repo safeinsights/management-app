@@ -69,7 +69,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                     Actions column is the first thing pushed off a narrow viewport. */}
                 <Table.ScrollContainer minWidth={520}>
                     <Table verticalSpacing="md" data-testid="outputs-files-table">
-                        <Table.Thead bg="grey.10">
+                        <Table.Thead bg="grey.0">
                             <Table.Tr>
                                 <Table.Th scope="col">File name</Table.Th>
                                 <Table.Th scope="col">Last activity</Table.Th>

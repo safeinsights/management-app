@@ -10,6 +10,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { describe, it, expect, vi } from 'vitest'
+import { notifications } from '@mantine/notifications'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { clerkErrorOverrides } from '@/lib/errors'
@@ -46,6 +47,24 @@ describe('SignInForm', () => {
         await submitCredentials()
 
         await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+    })
+
+    // OTTER-745: reportError ran before the session_exists branch, so the redirect the test above
+    // asserts arrived behind a red "Failed Signin Attempt" toast.
+    it('does not report an error when it redirects an already-signed-in submit', async () => {
+        memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
+        const create = vi.fn().mockRejectedValue({
+            errors: [
+                { code: 'session_exists', message: 'Session already exists', longMessage: "You're already signed in." },
+            ],
+        })
+        mockSignInCreate(create)
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+        expect(notifications.show).not.toHaveBeenCalled()
     })
 
     // OTTER-671: with no redirect_url present, the post-signin landing is the dashboard.

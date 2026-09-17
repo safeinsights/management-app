@@ -16,7 +16,7 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
 
     const isApproved = statusChange.status === 'CODE-APPROVED' || statusChange.status === 'FILES-APPROVED'
 
-    const color = isApproved ? 'green.9' : 'red.9'
+    const color = isApproved ? 'green.7' : 'red.7'
     const statusDisplay = isApproved ? 'Approved' : 'Rejected'
 
     return (

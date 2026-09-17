@@ -51,6 +51,7 @@ const reportStaleDeployment = () =>
         message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
     })
 
+// Returns the Sentry event id so a caller can quote the same reference the toast shows.
 export const reportError = (error: unknown, title = 'An error occurred') => {
     // Captured on purpose for a stale action id too: these events are the only client-side measure
     // of how often a deploy lands under an open tab. Only the reference id is withheld from the
@@ -59,7 +60,7 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
 
     if (isStaleDeploymentError(error)) {
         reportStaleDeployment()
-        return
+        return eventId
     }
 
     notifications.show({
@@ -67,6 +68,7 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
         title,
         message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
     })
+    return eventId
 }
 
 type FormErrorHandler = {

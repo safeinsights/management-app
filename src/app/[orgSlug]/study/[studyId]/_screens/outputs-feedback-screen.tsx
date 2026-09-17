@@ -1,19 +1,13 @@
 import { Box, Stack } from '@mantine/core'
+import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { researcherOutputsFeedbackBanner, type BannerCopy } from '@/lib/study-banners'
+import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
-
-const FeedbackBanner = ({ copy, decidedAt }: { copy: BannerCopy; decidedAt: Date | string | null }) => (
-    <StatusAlert variant={copy.variant} title={statusAlertTitle(copy.title, decidedAt)}>
-        {copy.body}
-    </StatusAlert>
-)
 
 export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardOutputsFeedbackScreen({
@@ -33,13 +27,13 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
     const banner = researcherOutputsFeedbackBanner({ runErrored: state.runErrored }, { dataPartner })
 
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    banner={<FeedbackBanner copy={banner} decidedAt={decidedAt} />}
+                    banner={<DatedStatusBanner copy={banner} at={decidedAt} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />

@@ -6,12 +6,12 @@ import { studyState } from './state.fixture'
 const state = (overrides: Partial<StudyState>): StudyState => studyState(overrides)
 
 describe('resolveScreen (researcher)', () => {
-    it('results present → study-results (highest precedence)', () => {
+    it('results present → outputs-awaiting-review (highest precedence)', () => {
         expect(resolveScreen('researcher', state({ hasResults: true, codeDecision: 'CODE-APPROVED' })).screen).toBe(
-            'study-results',
+            'outputs-awaiting-review',
         )
     })
-    it('errored job, no reviewer files decision → outputs-pending, NOT study-results (OTTER-598, 43898)', () => {
+    it('errored job, no reviewer files decision → outputs-pending, NOT outputs-awaiting-review (OTTER-598, 43898)', () => {
         // hasResults is true, but the error is still hidden from the researcher.
         expect(
             resolveScreen(
@@ -35,7 +35,7 @@ describe('resolveScreen (researcher)', () => {
             'outputs-feedback',
         )
     })
-    it('OTTER-695: feedback-only decision on a clean run → outputs-feedback (out-ranks study-results)', () => {
+    it('OTTER-695: feedback-only decision on a clean run → outputs-feedback (out-ranks outputs-awaiting-review)', () => {
         expect(
             resolveScreen(
                 'researcher',
@@ -43,7 +43,7 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-feedback')
     })
-    it('OTTER-688: share-outputs decision on a clean run → outputs-shared (out-ranks study-results)', () => {
+    it('OTTER-688: share-outputs decision on a clean run → outputs-shared (out-ranks outputs-awaiting-review)', () => {
         expect(
             resolveScreen(
                 'researcher',
@@ -75,16 +75,16 @@ describe('resolveScreen (researcher)', () => {
             'outputs-errored-shared',
         )
     })
-    it('OTTER-688: an undecided completed run stays on study-results', () => {
-        // The one researcher state study-results still serves once every FILES-* decision is claimed.
+    it('OTTER-688: an undecided completed run stays on outputs-awaiting-review', () => {
+        // The one researcher state this screen serves once every FILES-* decision is claimed.
         expect(
             resolveScreen(
                 'researcher',
                 state({ hasResults: true, resultsDisplayStatus: 'RUN-COMPLETE', codeDecision: 'CODE-APPROVED' }),
             ).screen,
-        ).toBe('study-results')
+        ).toBe('outputs-awaiting-review')
     })
-    it('OTTER-696: errored run whose outputs were shared → outputs-errored-shared (out-ranks study-results)', () => {
+    it('OTTER-696: errored run whose outputs were shared → outputs-errored-shared (out-ranks outputs-awaiting-review)', () => {
         expect(
             resolveScreen(
                 'researcher',
@@ -113,7 +113,7 @@ describe('resolveScreen (researcher)', () => {
             ).screen,
         ).toBe('outputs-pending')
     })
-    it('OTTER-695: clean run with no files decision yet (RUN-COMPLETE) still → study-results, not outputs-feedback', () => {
+    it('OTTER-695: clean run with no files decision yet (RUN-COMPLETE) still → outputs-awaiting-review, not outputs-feedback', () => {
         expect(
             resolveScreen(
                 'researcher',
@@ -123,9 +123,9 @@ describe('resolveScreen (researcher)', () => {
                     codeDecision: 'CODE-APPROVED',
                 }),
             ).screen,
-        ).toBe('study-results')
+        ).toBe('outputs-awaiting-review')
     })
-    it('errored job with a stale code decision (resubmission) → code-under-review, NOT study-results (OTTER-598)', () => {
+    it('errored job with a stale code decision (resubmission) → code-under-review, NOT outputs-awaiting-review (OTTER-598)', () => {
         expect(
             resolveScreen(
                 'researcher',

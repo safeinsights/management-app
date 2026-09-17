@@ -1,6 +1,7 @@
 import { db, type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
+import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import logger from '@/lib/logger'
 import { capturePostHogEvent } from '@/server/posthog'
 import { UserOrgRoles } from '@/lib/types'
@@ -160,6 +161,23 @@ export const onStudyResultsRejected = deferred(async ({ studyId, userId }: Study
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
     await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId })
 })
+
+/**
+ * OTTER-693: `VIEWED` is deliberately generic, so `metadata.subject` is what says which thing was
+ * seen. Not deferred, like auditCodeEnv: the page reads this row back on the next visit.
+ */
+export const onUserViewedSubmitCodeFaq = async ({ db: executor, userId }: { db: DBExecutor; userId: string }) => {
+    await audit(
+        {
+            userId,
+            eventType: 'VIEWED',
+            recordType: 'USER',
+            recordId: userId,
+            metadata: { subject: SUBMIT_CODE_FAQ_SUBJECT },
+        },
+        executor,
+    )
+}
 
 export const onUserResetPW = deferred(async (userId: string) => {
     await audit({ userId, eventType: 'RESET_PASSWORD', recordType: 'USER', recordId: userId })

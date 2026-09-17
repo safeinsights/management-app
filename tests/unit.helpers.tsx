@@ -21,7 +21,7 @@ import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor as waitForRtl } from '@testing-library/react'
 import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
@@ -115,6 +115,26 @@ export const pendingTestMutationDescriptions = () =>
                 return `${key ? JSON.stringify(key) : '<no mutationKey>'} variables=${variables}`
             }),
     )
+
+// The read counterpart of pendingTestMutationCount. Nothing fails a test for a query still in
+// flight, but a component whose enabled-ness depends on one needs it settled before interaction.
+export const pendingTestQueryCount = () =>
+    [...liveTestQueryClients].reduce((count, client) => count + client.isFetching(), 0)
+
+// Waits for every in-flight read to land. Cheap to poll, unlike retrying the interaction itself,
+// so it tolerates a slow machine instead of spending the budget on repeated clicks.
+export const waitForPendingQueries = () =>
+    waitForRtl(() => {
+        expect(pendingTestQueryCount()).toBe(0)
+    })
+
+// The teardown check in vitest.setup.ts fails a test that leaves a write in flight. Use this when
+// the mutation is a side effect the test does not otherwise assert on — a first-visit record, an
+// optimistic save — rather than reaching for an unrelated assertion to stall on.
+export const waitForPendingMutations = () =>
+    waitForRtl(() => {
+        expect(pendingTestMutationCount()).toBe(0)
+    })
 
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {

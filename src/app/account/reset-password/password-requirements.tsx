@@ -61,7 +61,7 @@ export function Requirements({ requirements }: RequirementsProps) {
                 {requirements.slice(i, i + 2).map((requirement, index) => (
                     <Flex key={i + index} component="span" align="center" gap="xs" style={{ flex: 1 }}>
                         {requirement.meets ? (
-                            <CheckIcon size={14} color={theme.colors.green[9]} />
+                            <CheckIcon size={14} color={theme.colors.green[7]} />
                         ) : (
                             <XCircleIcon size={14} color={theme.colors.red[7]} />
                         )}
