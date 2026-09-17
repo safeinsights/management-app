@@ -37,7 +37,7 @@ const PANEL_BACKGROUND = 'rgba(231, 241, 254, 0.3)'
 
 const ACCORDION_STYLES = {
     item: { borderColor: 'var(--mantine-color-charcoal-1)' },
-    control: { backgroundColor: 'var(--mantine-color-grey-10)' },
+    control: { backgroundColor: 'var(--mantine-color-grey-0)' },
     panel: { backgroundColor: PANEL_BACKGROUND },
     content: { paddingInline: 16, paddingBlock: 24 },
 } as const

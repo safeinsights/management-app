@@ -58,8 +58,8 @@ export const JobReviewButtons = ({
     if (approved) {
         return (
             <Group gap="xs">
-                <CheckCircleIcon weight="fill" size={24} color={theme.colors.green[9]} />
-                <Text fz="xs" fw={600} c="green.9">
+                <CheckCircleIcon weight="fill" size={24} color={theme.colors.green[7]} />
+                <Text fz="xs" fw={600} c="green.7">
                     Approved on {dayjs(approved.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
@@ -71,8 +71,8 @@ export const JobReviewButtons = ({
     if (rejected) {
         return (
             <Group gap="xs">
-                <XCircleIcon weight="fill" size={24} color={theme.colors.red[9]} />
-                <Text fz="xs" fw={600} c="red.9">
+                <XCircleIcon weight="fill" size={24} color={theme.colors.red[7]} />
+                <Text fz="xs" fw={600} c="red.7">
                     Rejected on {dayjs(rejected.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>

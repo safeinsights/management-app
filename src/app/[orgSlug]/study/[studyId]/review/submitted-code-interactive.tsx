@@ -715,8 +715,8 @@ const SONARQUBE_LABELS: ScanStatusLabels = {
 // pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
 // rather than introducing a new treatment. Provisional along with the labels above.
 const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
-    FAILED: 'var(--mantine-color-red-9)',
-    INDETERMINATE: 'var(--mantine-color-yellow-10)',
+    FAILED: 'var(--si-color-error-text)',
+    INDETERMINATE: 'var(--si-color-warning-text)',
 }
 
 type ScanRowProps = {

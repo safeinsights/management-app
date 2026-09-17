@@ -45,7 +45,7 @@ export function LexicalProposalField({
 }
 
 const DatasetPill: FC<{ name: string; size: 'sm' | 'md' }> = ({ name, size }) => (
-    <Box bg="grey.10" px="xs" py={2} bdrs="sm">
+    <Box bg="grey.0" px="xs" py={2} bdrs="sm">
         <Text size={size} c="charcoal.9">
             {name}
         </Text>

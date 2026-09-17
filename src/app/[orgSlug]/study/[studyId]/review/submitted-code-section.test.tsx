@@ -520,7 +520,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
         expect(row).toHaveTextContent('Vulnerabilities found')
         const icon = row.querySelector('[data-icon="warning"]')
         expect(icon).not.toBeNull()
-        expect(icon?.outerHTML).toContain('red')
+        expect(icon?.outerHTML).toContain('--si-color-error-text')
     })
 
     it('shows SonarQube "Passed" with no warning icon when it passed', async () => {
@@ -560,7 +560,7 @@ describe('SubmittedCodeSection — Security scan log', () => {
         await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
         const icon = screen.getByTestId('security-scan-trivy').querySelector('[data-icon="warning"]')
         expect(icon).not.toBeNull()
-        expect(icon?.outerHTML).not.toContain('red')
+        expect(icon?.outerHTML).not.toContain('--si-color-error-text')
     })
 
     it('shows a download link to the plaintext scan log when a log file is present', async () => {
