@@ -1,9 +1,10 @@
 'use client'
 
-import { ActionIcon, Anchor, Group, Popover, Stack, Text } from '@mantine/core'
+import { ActionIcon, Group, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { useRef } from 'react'
+import { LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 
 export const LostKeyPopover = () => {
@@ -56,16 +57,17 @@ export const LostKeyPopover = () => {
                             A key you generate now cannot access these outputs. It applies only to outputs encrypted
                             after you generate it.
                         </Text>
-                        <Anchor
+                        {/* Decorative: the aria-label already announces the new tab, which is what
+                            the design asks for rather than an icon-only cue. */}
+                        <LinkWithIcon
                             href={Routes.userKey}
                             target="_blank"
                             rel="noopener noreferrer"
-                            fz={14}
                             aria-label="Manage your security key (opens in a new tab)"
-                            c="blue.7"
+                            icon={<ArrowSquareOutIcon size={16} aria-hidden="true" />}
                         >
                             Manage your security key
-                        </Anchor>
+                        </LinkWithIcon>
                     </Stack>
                 </Popover.Dropdown>
             </Popover>

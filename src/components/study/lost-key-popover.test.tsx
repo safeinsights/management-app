@@ -68,4 +68,15 @@ describe('LostKeyPopover', () => {
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('aria-label', 'Manage your security key (opens in a new tab)')
     })
+
+    it('marks the link with an external-link icon that assistive tech ignores', async () => {
+        renderWithProviders(<LostKeyPopover />)
+        await userEvent.click(screen.getByRole('button', { name: /lost your key/i }))
+
+        const link = screen.getByRole('link', { name: /manage your security key/i, hidden: true })
+        const icon = link.querySelector('svg')
+        expect(icon).not.toBeNull()
+        // The aria-label already says a new tab opens, so a second announcement would repeat it.
+        expect(icon).toHaveAttribute('aria-hidden', 'true')
+    })
 })
