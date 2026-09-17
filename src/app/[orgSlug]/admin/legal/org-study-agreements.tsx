@@ -11,14 +11,14 @@ import {
     type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
-import { AgreementsPanel, signedAtColumn, versionColumn } from '@/components/legal/agreements-table'
+import { ackedAtColumn, AgreementsPanel, signedAtColumn, versionColumn } from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'
 import { Stack, Text } from '@mantine/core'
 import type { DataTableColumn } from 'mantine-datatable'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt'] as const
+const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt', 'ackedAt'] as const
 
 const DEFAULT_SORT: OrgStudyAgreementSort = { columnAccessor: 'signedAt', direction: 'desc' }
 
@@ -28,6 +28,7 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
     { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
     { accessor: 'counterpartyName', title: counterpartyLabel },
     signedAtColumn<StudyAgreement>(testStudyDateCell),
+    ackedAtColumn<StudyAgreement>(testStudyDateCell),
     versionColumn<StudyAgreement>(),
 ]
 

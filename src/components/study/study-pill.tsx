@@ -10,10 +10,11 @@ type Props = {
     c: MantineColor
     icon?: ReactNode
     tooltip?: string
+    bd?: MantineColor
 }
 
 // Shared so two pills rendered on the same study page cannot drift in size or shape.
-export const StudyPill: FC<Props> = ({ label, bg, c, icon, tooltip }) => {
+export const StudyPill: FC<Props> = ({ label, bg, c, bd, icon, tooltip }) => {
     const pill = (
         <Flex
             align="center"
@@ -21,6 +22,7 @@ export const StudyPill: FC<Props> = ({ label, bg, c, icon, tooltip }) => {
             bg={bg}
             c={c}
             bdrs={100}
+            bd={bd ? `1px solid ${bd}` : ''}
             px={16}
             py={4}
             style={{ display: 'inline-flex', whiteSpace: 'nowrap', cursor: tooltip ? 'pointer' : 'default' }}

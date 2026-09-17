@@ -316,11 +316,17 @@ afterEach(async () => {
         try {
             // Unmount first, so nothing can start a mutation between the check and the rollback.
             cleanup()
-            const { pendingTestMutationCount } = await import('@/tests/unit.helpers')
+            const { pendingTestMutationCount, pendingTestMutationDescriptions } = await import('@/tests/unit.helpers')
             const pending = pendingTestMutationCount()
             if (pending) {
+                // Named here rather than left to the reporter: this throws from a hook, which the
+                // github-actions reporter surfaces as a bare error with no test attached.
+                const testName = expect.getState().currentTestName ?? '<unknown test>'
+                const details = pendingTestMutationDescriptions().join('; ')
                 // Failing beats warning: an escaped write would let the test pass. Mechanism in PR #1034.
-                throw new Error(`${pending} mutation(s) still pending at teardown; await the outcome in the test.`)
+                throw new Error(
+                    `${pending} mutation(s) still pending at teardown in "${testName}" [${details}]; await the outcome in the test.`,
+                )
             }
             await flushDeferred()
         } finally {

@@ -163,6 +163,7 @@ const orgStudyAgreementOrderBy = {
     studyId: sql.ref('study.id'),
     studyTitle: displayTitle('study.title', 'study.id'),
     signedAt: sql.ref('agreement.signedAt'),
+    ackedAt: sql.ref('orgAck.ackedAt'),
 } satisfies Record<OrgStudyAgreementSort['columnAccessor'], unknown>
 
 // These two name the wrapping subquery's output aliases, not the source columns.
@@ -362,6 +363,22 @@ export const orgStudyAgreements = (
                         .as('agreement'),
                 (join) => join.onTrue(),
             )
+            // The viewing org's own acknowledgement, not the counterparty's: this table answers
+            // whether our side has signed off. Tied to the version the lateral above picked, so an
+            // ack of a superseded version does not read as an ack of the current one.
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('legalDocumentAcknowledgement')
+                        .innerJoin('orgUser', 'orgUser.userId', 'legalDocumentAcknowledgement.userId')
+                        .select('legalDocumentAcknowledgement.ackedAt as ackedAt')
+                        .whereRef('legalDocumentAcknowledgement.legalDocumentVersionId', '=', 'agreement.versionId')
+                        .where('orgUser.orgId', '=', orgId)
+                        .orderBy('legalDocumentAcknowledgement.ackedAt', 'desc')
+                        .limit(1)
+                        .as('orgAck'),
+                (join) => join.onTrue(),
+            )
             .select([
                 'study.id as studyId',
                 'study.title as studyTitle',
@@ -369,6 +386,7 @@ export const orgStudyAgreements = (
                 'study.isTestStudy as isTestStudy',
                 'agreement.versionId',
                 'agreement.signedAt',
+                'orgAck.ackedAt',
             ])
             .where('study.deletedAt', 'is', null)
             .where(party, '=', orgId)

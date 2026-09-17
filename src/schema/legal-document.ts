@@ -221,7 +221,7 @@ const sortDirection = z.enum(['asc', 'desc'])
 // One enum per table rather than a shared union: an accessor a query does not select would
 // otherwise reach its ORDER BY and throw.
 export const orgStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt']),
+    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
     direction: sortDirection,
 })
 
@@ -304,3 +304,13 @@ export const legalDocumentQueryKeys = {
         ['userParticipationAgreements', type, sort.columnAccessor, sort.direction] as const,
     userGlobalDocument: (type: GlobalLegalDocumentType) => ['userGlobalDocument', type] as const,
 }
+
+// Prefixes rather than whole keys: each of these tables carries its sort in the key, and an
+// acknowledgement changes what every sort of it shows. React Query matches a key by prefix, so one
+// entry per table covers them all.
+export const agreementTableQueryKeyPrefixes = [
+    ['userStudyAgreements'],
+    ['userParticipationAgreements'],
+    ['orgStudyAgreements'],
+    ['orgParticipationAgreement'],
+] as const
