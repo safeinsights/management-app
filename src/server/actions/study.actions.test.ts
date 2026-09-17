@@ -43,7 +43,9 @@ import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { projectStudyState } from '@/lib/study-screen'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 
-vi.mock('@/server/mailgun', () => ({
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
     deliver: vi.fn(),
 }))
 

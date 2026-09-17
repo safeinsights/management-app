@@ -163,16 +163,16 @@ describe('publishLegalDocumentVersionAction', () => {
         expect(logger.info).toHaveBeenCalledWith(HELD_READY_EMAIL)
     })
 
-    // Publishing a Terms of Service runs the same action, and nobody acknowledges one per study.
+    // A ROPA publishes through the same action, and nobody acknowledges one per study.
     it('says nothing when the published document is not a Study Agreement', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         vi.spyOn(logger, 'info').mockImplementation(() => true)
 
         const { version } = actionResult(
-            await createLegalDocumentDraftAction({ type: 'TOS', orgId: org.id, file: testUploadFile('tos.pdf') }),
+            await createLegalDocumentDraftAction({ type: 'ROPA', orgId: org.id, file: testUploadFile('ropa.pdf') }),
         )
-        actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
+        actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-07-27' }))
         await flushDeferred()
 
         expect(logger.info).not.toHaveBeenCalledWith(HELD_READY_EMAIL)

@@ -812,6 +812,8 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('studyJob.createdAt', 'asc')
+        // Jobs inserted in one transaction share now(), and an unstable order renumbers the versions.
+        .orderBy('studyJob.id', 'asc')
         .execute()
 
     const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
