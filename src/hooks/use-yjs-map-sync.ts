@@ -70,7 +70,7 @@ export function useYjsMapSync({
 
         const doc = provider.document
         const target = doc.getMap<unknown>(mapName)
-        let cancelled = false
+        let canceled = false
         let hasSynced = false
 
         const onChange = (_event: Y.YMapEvent<unknown>, transaction: Y.Transaction) => {
@@ -84,7 +84,7 @@ export function useYjsMapSync({
         target.observe(onChange)
 
         const onSynced = () => {
-            if (cancelled) return
+            if (canceled) return
             hasSynced = true
             doc.transact(() => seedRef.current(target), localOrigin)
             runApplyRemote(target)
@@ -99,7 +99,7 @@ export function useYjsMapSync({
         }
 
         return () => {
-            cancelled = true
+            canceled = true
             target.unobserve(onChange)
             provider.off('synced', onSynced)
             setMap(null)
