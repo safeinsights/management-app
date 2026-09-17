@@ -391,7 +391,6 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         // The scan settles, so only the elapsed backstop could stop the poll here.
         await screen.findByTestId('ai-summary-error')
-        await waitFor(() => expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument())
 
         await insertStudyReview(fixture.job.id, 'Late but real summary')
         const review = (await jobAnalysisForJob(fixture.job)).review
@@ -420,30 +419,9 @@ describe('SubmittedCodeSection — AI summary', () => {
             />,
         )
 
-        // The scan panel reports the failure; the summary keeps what it had.
-        await screen.findByTestId('security-scan-unreachable')
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
         expect(screen.getByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
-    })
-
-    // A failed request says nothing about the enclave run, so only the clock may claim the scan
-    // will never report (OTTER-775 review).
-    it('does not report the scan given up when a poll tick fails before the backstop', async () => {
-        const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockRejectedValue(new Error('network died'))
-
-        renderWithProviders(
-            <JobAnalysisPanels
-                studyJobId={fixture.job.id}
-                initialAnalysis={{ review: null, scan: scanInProgress }}
-                submittedAt={new Date()}
-                scanTimeoutMs={60_000}
-                pollIntervalMs={20}
-            />,
-        )
-
-        await screen.findByTestId('security-scan-unreachable')
-        expect(screen.queryByTestId('security-scan-timeout')).not.toBeInTheDocument()
     })
 
     it('errors immediately when the page is opened long after a submission that never produced a row', async () => {
@@ -494,122 +472,14 @@ describe('SubmittedCodeSection — AI summary', () => {
 })
 
 describe('SubmittedCodeSection — Security scan log', () => {
-    it('renders section title "Security scan log" with no status icon in the title', async () => {
+    it('does not render the security scan log section', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
+        expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+        expect(screen.queryByText('Security scan log')).not.toBeInTheDocument()
     })
 
-    it('renders both static tool labels in order', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy filesystem scan:')
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Scans the code for exposed secrets.')
-        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('SonarQube quality gate:')
-        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent(
-            'Scans Python code for risky patterns and security issues like hard-coded credentials or injection risks. R code is not currently scanned.',
-        )
-        expect(screen.getByTestId('security-scan-log')).toHaveTextContent(
-            'Automated scans check code for certain vulnerabilities. Scan coverage varies by programming language (R code is not scanned by Sonarqube). Not a substitute for independent review.',
-        )
-    })
-
-    it('stacks the security scan log above the AI summary', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const scan = screen.getByTestId('security-scan-log')
-        const ai = screen.getByTestId('ai-summary')
-        expect(scan.compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    })
-
-    it('places View and Download scan log under the tool descriptions', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const sonar = screen.getByTestId('security-scan-sonarqube')
-        const view = screen.getByTestId('security-scan-log-view')
-        const download = screen.getByTestId('security-scan-log-download')
-        expect(sonar.compareDocumentPosition(view) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        expect(view.compareDocumentPosition(download) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        expect(download).toHaveTextContent('Download scan log')
-    })
-
-    it('still offers the log download when a tool result is indeterminate', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        expect(screen.getByTestId('security-scan-log-download')).toHaveTextContent('Download scan log')
-    })
-
-    it('shows a download link to the plaintext scan log when a log file is present', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const link = screen.getByTestId('security-scan-log-download')
-        expect(link).toHaveTextContent('Download scan log')
-        expect(link).toHaveAttribute('href', `/dl/scan-log/${fixture.job.id}`)
-    })
-
-    it('keeps both labeled rows, with no View or Download, when no scan log exists yet', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanInProgress)
-        const trivy = screen.getByTestId('security-scan-trivy')
-        const sonar = screen.getByTestId('security-scan-sonarqube')
-        expect(trivy).toHaveTextContent('Trivy filesystem scan:')
-        expect(trivy).toHaveTextContent('Scans the code for exposed secrets.')
-        expect(sonar).toHaveTextContent('SonarQube quality gate:')
-        expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
-        expect(screen.queryByTestId('security-scan-log-view')).not.toBeInTheDocument()
-    })
-
-    it('opens the file viewer modal with the log contents when View is clicked', async () => {
-        const fixture = await setupBaseFixture()
-        await insertStudyJobFile(fixture.job.id, 'security-scan-log.txt', 'SECURITY-SCAN-LOG')
-        vi.mocked(fetchFileContents).mockResolvedValueOnce(
-            new Blob(['Trivy Filesystem Scan: no vulnerabilities found']),
-        )
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-
-        await userEvent.click(screen.getByTestId('security-scan-log-view'))
-
-        expect(await screen.findByText('Trivy Filesystem Scan: no vulnerabilities found')).toBeInTheDocument()
-    })
-
-    it('reports failure inside the viewer when the log cannot be read', async () => {
-        const fixture = await setupBaseFixture()
-        vi.mocked(fetchFileContents).mockRejectedValueOnce(new Error('s3 is down'))
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-
-        await userEvent.click(screen.getByTestId('security-scan-log-view'))
-
-        expect(await screen.findByText('Unable to load the security scan log.')).toBeInTheDocument()
-        // The direct download path doesn't depend on the in-app fetch, so it stays available.
-        expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
-    })
-
-    it('offers View and Download once the scan reports, without a reload', async () => {
-        const fixture = await setupBaseFixture()
-        // The component reads the scan through this action, so resolving it is what a completed
-        // enclave run looks like from the browser's side.
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(
-            actionResult({ review: null, scan: scanResult('FAILED', 'PASSED') }),
-        )
-
-        renderWithProviders(
-            <JobAnalysisPanels
-                studyJobId={fixture.job.id}
-                initialAnalysis={{ review: null, scan: scanInProgress }}
-                submittedAt={new Date()}
-                pollIntervalMs={20}
-            />,
-        )
-        expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy filesystem scan:')
-
-        await waitFor(() => {
-            expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
-        })
-        expect(screen.getByTestId('security-scan-log-view')).toBeInTheDocument()
-    })
-
-    // One poll feeds both panels, so it settles only once both results are in.
+    // One poll still waits for both results, so it settles only once both are in.
     it('stops polling once the scan and the summary have both arrived', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
@@ -626,9 +496,6 @@ describe('SubmittedCodeSection — Security scan log', () => {
                 pollIntervalMs={20}
             />,
         )
-        await waitFor(() => {
-            expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
-        })
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
         // Sampled after several poll intervals of real time: comparing the count to itself inside
@@ -656,45 +523,11 @@ describe('SubmittedCodeSection — Security scan log', () => {
                 pollIntervalMs={20}
             />,
         )
-        await waitFor(() => {
-            expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
-        })
-
-        const afterScan = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterScan))
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
-    })
 
-    it('stops polling and reports unavailability once the backstop elapses with no scan', async () => {
-        const fixture = await setupBaseFixture()
-        renderWithProviders(
-            <JobAnalysisPanels
-                studyJobId={fixture.job.id}
-                initialAnalysis={{ review: null, scan: scanInProgress }}
-                submittedAt={new Date()}
-                scanTimeoutMs={50}
-            />,
-        )
-
-        const timedOut = await screen.findByTestId('security-scan-timeout')
-        expect(timedOut).toHaveTextContent('Scan results are unavailable.')
-        expect(screen.queryByTestId('security-scan-trivy')).not.toBeInTheDocument()
-    })
-
-    it('keeps showing the scan rows rather than the timeout message when the backstop elapses', async () => {
-        const fixture = await setupBaseFixture()
-        renderWithProviders(
-            <JobAnalysisPanels
-                studyJobId={fixture.job.id}
-                initialAnalysis={{ review: null, scan: scanResult('PASSED', 'PASSED') }}
-                submittedAt={new Date(Date.now() - 10 * 60_000)}
-                scanTimeoutMs={50}
-            />,
-        )
-
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy filesystem scan:')
-        expect(screen.getByTestId('security-scan-log-download')).toBeInTheDocument()
-        expect(screen.queryByTestId('security-scan-timeout')).not.toBeInTheDocument()
+        const afterFirst = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterFirst))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 })
 

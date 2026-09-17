@@ -6,7 +6,6 @@ import {
     Anchor,
     Button,
     Collapse,
-    Divider,
     Group,
     Loader,
     Menu,
@@ -16,7 +15,7 @@ import {
     Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRightIcon, DownloadSimpleIcon, EyeIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
@@ -24,12 +23,10 @@ import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { isActionError } from '@/lib/errors'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
-import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
-import { SCAN_LOG_FILE_NAME, scanLogDownloadURL, studyCodeURL } from '@/lib/paths'
+import { studyCodeURL } from '@/lib/paths'
 import {
-    fetchScanLogAction,
     fetchStudyJobCodeFileAction,
     getJobAnalysisAction,
     regenerateStudyReviewAction,
@@ -100,10 +97,6 @@ const ANALYSIS_POLL_INTERVAL_MS = 5_000
 // Backstop for a generation that hangs without throwing; a real failure persists summaryFailedAt.
 // Measured from submission, not page open, so opening late does not reset the clock.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
-
-// Same backstop shape as the AI summary, but a longer clock: the scan log is written by the
-// enclave pipeline at the end of a run, not generated on request.
-const SCAN_TIMEOUT_MS = 600_000
 
 // Unlike the review row, this query always resolves to an object, so "still running" is both
 // statuses being null rather than a missing result. A log that parsed to unknown statuses still
@@ -317,11 +310,10 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
 export type JobAnalysisPanelsProps = {
     studyJobId: string
     initialAnalysis: JobAnalysis
-    // Anchors both backstops so opening the page late does not restart either clock.
+    // Anchors the summary backstop so opening the page late does not restart the clock.
     submittedAt: Date | string
-    // Overridable so tests can exercise the backstops and polling without faking timers.
+    // Overridable so tests can exercise the backstop and polling without faking timers.
     summaryTimeoutMs?: number
-    scanTimeoutMs?: number
     pollIntervalMs?: number
     detailsExpanded?: boolean
     // Sibling of the details Collapse so a closed panel does not leave flex-gap above the toggle.
@@ -348,50 +340,36 @@ function JobAnalysisExtendedDetails({
     )
 }
 
-// Owns the single poll both panels read from; each renders its own pending/timeout state off it.
+// Owns the analysis poll the AI summary reads from. Scan still rides on the same query so the
+// interval can stop once both results have settled.
 export function JobAnalysisPanels({
     studyJobId,
     initialAnalysis,
     submittedAt,
     summaryTimeoutMs = AI_SUMMARY_TIMEOUT_MS,
-    scanTimeoutMs = SCAN_TIMEOUT_MS,
     pollIntervalMs = ANALYSIS_POLL_INTERVAL_MS,
     detailsExpanded = true,
     expandToggle,
     children,
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
-    const scanTimeout = useElapsedSince(submittedAt, scanTimeoutMs)
     const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
     const analysis = data ?? initialAnalysis
-    const isScanWaiting = isScanPending(analysis.scan)
-    // Only the clock decides the scan will not report. A failed request is transient and gets its
-    // own state, since the enclave run it knows nothing about is usually still going.
-    const scanGivenUp = scanTimeout.elapsed && isScanWaiting
 
     return (
-        <Stack gap="xl">
-            <SecurityScanLog
-                studyJobId={studyJobId}
-                scan={analysis.scan}
-                givenUp={scanGivenUp}
-                isUnreachable={error != null && isScanWaiting}
-            />
-            <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
-                <Stack gap="xl">
-                    <Divider />
-                    <AiSummaryCollapsible
-                        studyJobId={studyJobId}
-                        analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
-                        review={analysis.review}
-                        hasError={error != null}
-                        timedOut={summaryTimeout.elapsed}
-                        onRetryStarted={summaryTimeout.reset}
-                    />
-                    {children}
-                </Stack>
-            </JobAnalysisExtendedDetails>
-        </Stack>
+        <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
+            <Stack gap="xl">
+                <AiSummaryCollapsible
+                    studyJobId={studyJobId}
+                    analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
+                    review={analysis.review}
+                    hasError={error != null}
+                    timedOut={summaryTimeout.elapsed}
+                    onRetryStarted={summaryTimeout.reset}
+                />
+                {children}
+            </Stack>
+        </JobAnalysisExtendedDetails>
     )
 }
 
@@ -674,156 +652,6 @@ export function StudyCodeViewer({
                 labels={toggleLabels}
                 testId={toggleTestId}
             />
-        </Stack>
-    )
-}
-
-// The log is only fetched once View is clicked; a reviewer who only downloads never pays for
-// pulling it through the app. A failed fetch surfaces in the modal rather than as a blank viewer.
-function useScanLogViewer(studyJobId: string) {
-    const [isOpen, setIsOpen] = useState(false)
-    const { data, isError } = useQuery({
-        queryKey: ['study-job-scan-log', studyJobId],
-        queryFn: () => fetchScanLogAction({ studyJobId }),
-        enabled: isOpen,
-        staleTime: Infinity,
-    })
-    return {
-        isOpen,
-        open: () => setIsOpen(true),
-        close: () => setIsOpen(false),
-        contents: isError ? SCAN_LOG_UNAVAILABLE : (data?.contents ?? null),
-    }
-}
-
-const SCAN_LOG_UNAVAILABLE = 'Unable to load the security scan log.'
-
-const SCAN_LOG_LINK_PROPS = {
-    size: 'sm',
-    fw: 700,
-    display: 'inline-flex',
-    style: { alignItems: 'center', gap: 4, width: 'fit-content' },
-} as const
-
-const SCAN_LOG_ACTION_ICON_SIZE = 14
-
-// View opens the shared file viewer modal; Download goes straight to the signed S3 URL, so the
-// two paths stay independent — the log stays downloadable even when the in-app fetch fails.
-function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisible: boolean }) {
-    const viewer = useScanLogViewer(studyJobId)
-    if (!isVisible) return null
-
-    const file = viewer.isOpen ? { name: SCAN_LOG_FILE_NAME, contents: viewer.contents } : null
-
-    return (
-        <Group gap={4}>
-            <Anchor
-                component="button"
-                type="button"
-                onClick={viewer.open}
-                data-testid="security-scan-log-view"
-                {...SCAN_LOG_LINK_PROPS}
-            >
-                <EyeIcon size={SCAN_LOG_ACTION_ICON_SIZE} />
-                View
-            </Anchor>
-            <Anchor
-                href={scanLogDownloadURL(studyJobId)}
-                download
-                data-testid="security-scan-log-download"
-                {...SCAN_LOG_LINK_PROPS}
-            >
-                <DownloadSimpleIcon size={SCAN_LOG_ACTION_ICON_SIZE} />
-                Download scan log
-            </Anchor>
-            <FilePreviewModal file={file} onClose={viewer.close} />
-        </Group>
-    )
-}
-
-type ScanRowProps = {
-    label: string
-    description: string
-    testId: string
-}
-
-function ScanRow({ label, description, testId }: ScanRowProps) {
-    return (
-        <Group gap="sm" align="center" data-testid={testId}>
-            <Text size="sm" fw={600}>
-                {label}
-            </Text>
-            <Text size="xs" c="dimmed">
-                {description}
-            </Text>
-        </Group>
-    )
-}
-
-function ScanLogBody() {
-    return (
-        <Stack gap="sm">
-            <ScanRow
-                label="Trivy filesystem scan:"
-                description="Scans the code for exposed secrets."
-                testId="security-scan-trivy"
-            />
-            <ScanRow
-                label="SonarQube quality gate:"
-                description="Scans Python code for risky patterns and security issues like hard-coded credentials or injection risks. R code is not currently scanned."
-                testId="security-scan-sonarqube"
-            />
-        </Stack>
-    )
-}
-
-// There is no scan equivalent of the summary's Retry: the log comes from the enclave run, so the
-// app cannot re-request one. A scan that never reports says so instead of spinning forever.
-function ScanTimedOut() {
-    return (
-        <Text size="sm" c="dimmed" data-testid="security-scan-timeout">
-            Scan results are unavailable. Refresh the page to check again.
-        </Text>
-    )
-}
-
-// Deliberately not ScanTimedOut's wording: a failed request says nothing about the enclave run,
-// which is usually still going. Only the clock may claim the scan will not report.
-function ScanUnreachable() {
-    return (
-        <Text size="sm" c="dimmed" data-testid="security-scan-unreachable">
-            Could not check the scan status. Refresh the page to try again.
-        </Text>
-    )
-}
-
-type SecurityScanLogProps = {
-    studyJobId: string
-    scan: JobScanResult
-    givenUp: boolean
-    isUnreachable: boolean
-}
-
-function SecurityScanLog({ studyJobId, scan, givenUp, isUnreachable }: SecurityScanLogProps) {
-    const renderBody = () => {
-        if (givenUp) return <ScanTimedOut />
-        if (isUnreachable) return <ScanUnreachable />
-        return <ScanLogBody />
-    }
-
-    return (
-        <Stack gap="md" data-testid="security-scan-log">
-            <Stack gap={4}>
-                <Text fw={700} fz={16}>
-                    Security scan log
-                </Text>
-                <Text size="xs" c="dimmed">
-                    Automated scans check code for certain vulnerabilities. Scan coverage varies by programming language
-                    (R code is not scanned by Sonarqube). Not a substitute for independent review.
-                </Text>
-            </Stack>
-            {renderBody()}
-            <ScanLogActions studyJobId={studyJobId} isVisible={scan.logFile != null} />
         </Stack>
     )
 }

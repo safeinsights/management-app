@@ -1,5 +1,5 @@
 import { Button, Divider, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
-import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Ref } from 'react'
 import { Routes } from '@/lib/routes'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
@@ -25,7 +25,7 @@ function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
                 rel="noopener noreferrer"
                 variant="outline"
                 size="sm"
-                rightSection={<ArrowSquareOut size={14} />}
+                rightSection={<ArrowSquareOutIcon weight="bold" size={14} />}
                 data-testid="view-approved-initial-request"
             >
                 View approved proposal
@@ -61,8 +61,8 @@ type SubmittedCodeSectionProps = {
     job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
     analysis: JobAnalysis
     codeInitiallyExpanded?: boolean
-    // When the parent owns expand/collapse, datasets and the scan log stay mounted and this hides
-    // only the AI summary and code files.
+    // When the parent owns expand/collapse, datasets stay mounted and this hides the AI summary
+    // and code files.
     detailsExpanded?: boolean
     // When set, the parent owns expand/collapse. The code viewer then always shows its files and
     // its toggle becomes the section's "Hide full submission details" closer.

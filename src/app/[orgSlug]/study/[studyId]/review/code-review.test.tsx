@@ -90,7 +90,7 @@ describe('CodeReview', () => {
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
             expect(banner).toHaveAttribute('data-variant', 'action')
             expect(banner).toHaveTextContent(`New code submitted by ${labName}`)
-            expect(banner).toHaveTextContent('Review the code files, security log, and AI summary')
+            expect(banner).toHaveTextContent('Review the code files and AI summary')
             expect(banner).not.toHaveTextContent('Revised code submitted')
 
             const strongs = banner.querySelectorAll('strong')
@@ -105,13 +105,13 @@ describe('CodeReview', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('keeps datasets and the security scan log visible when submission details collapse', async () => {
+        it('keeps datasets visible when submission details collapse', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
             expect(screen.getByTestId('ai-summary')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
 
             const user = userEvent.setup()
             await user.click(screen.getByTestId('study-code-toggle-collapse'))
@@ -119,13 +119,13 @@ describe('CodeReview', () => {
             await waitFor(() => expect(screen.getByTestId('ai-summary')).not.toBeVisible())
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
             expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
             expect(opener).toHaveTextContent('View full submission details')
             expect(screen.getByTestId('submitted-code-section')).toContainElement(opener)
             expect(
-                screen.getByTestId('security-scan-log').compareDocumentPosition(opener) &
+                screen.getByTestId('submitted-code-datasets').compareDocumentPosition(opener) &
                     Node.DOCUMENT_POSITION_FOLLOWING,
             ).toBeTruthy()
             expect(opener).toHaveFocus()
@@ -266,7 +266,7 @@ describe('CodeReview', () => {
             expect(screen.getByTestId('submitted-code-section')).toContainElement(toggle)
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
             expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
         })

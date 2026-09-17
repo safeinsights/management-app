@@ -227,7 +227,7 @@ export function reviewerCodeNeedsReviewBanner({ researchLab, version = 1 }: Revi
     return {
         variant: STATUS_ALERT_VARIANT.action,
         title: version > 1 ? `Revised code submitted by ${researchLab}` : `New code submitted by ${researchLab}`,
-        body: 'Review the code files, security log, and AI summary to inform your code evaluation and decision.',
+        body: 'Review the code files and AI summary to inform your code evaluation and decision.',
     }
 }
 

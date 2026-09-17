@@ -489,7 +489,7 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Apr 18, 2026`)
         })
 
-        it('keeps datasets and the security scan log visible until the "View full submission details" toggle is clicked', async () => {
+        it('keeps datasets visible until the "View full submission details" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
@@ -539,13 +539,13 @@ describe('PostFeedbackView', () => {
 
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
             expect(opener).toHaveTextContent('View full submission details')
             expect(screen.getByTestId('submitted-code-section')).toContainElement(opener)
             expect(
-                screen.getByTestId('security-scan-log').compareDocumentPosition(opener) &
+                screen.getByTestId('submitted-code-datasets').compareDocumentPosition(opener) &
                     Node.DOCUMENT_POSITION_FOLLOWING,
             ).toBeTruthy()
 
@@ -554,7 +554,7 @@ describe('PostFeedbackView', () => {
 
             await waitFor(() => expect(screen.getByTestId('ai-summary')).toBeVisible())
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
             await waitFor(() => expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus())
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
@@ -565,7 +565,7 @@ describe('PostFeedbackView', () => {
             await waitFor(() => expect(screen.getByTestId('ai-summary')).not.toBeVisible())
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
             await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 
