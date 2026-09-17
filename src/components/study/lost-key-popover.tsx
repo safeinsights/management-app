@@ -2,7 +2,7 @@
 
 import { ActionIcon, Group, Popover, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react'
 import { LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
 
@@ -20,6 +20,9 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     // need the value at the moment they run rather than the one their closure captured.
     const isPinned = useRef(false)
     const isPointerInside = useRef(false)
+    // Set while a dismissal hands focus back to the icon, so the icon's own focus handler does not
+    // reopen the card that dismissal just closed.
+    const isRestoringFocus = useRef(false)
 
     const cancelScheduledClose = useCallback(() => {
         if (closeTimer.current === null) return
@@ -42,7 +45,10 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
 
     const dismissAndRestoreFocus = useCallback(() => {
         dismiss()
+        isRestoringFocus.current = true
+        // focus() dispatches synchronously, so the flag is still set when onTriggerFocus reads it.
         triggerRef.current?.focus()
+        isRestoringFocus.current = false
     }, [dismiss, triggerRef])
 
     const onPointerEnter = useCallback(() => {
@@ -70,22 +76,32 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
         open()
     }, [dismiss, open])
 
-    const onTriggerFocus = useCallback(() => open(), [open])
+    const onTriggerFocus = useCallback(() => {
+        if (isRestoringFocus.current) return
+        open()
+    }, [open])
 
-    // Tabbing away closes it, but a pointer already inside the card does not: the blur fires on the
-    // mousedown that is on its way to the link, and closing here would swallow that click.
-    const onTriggerBlur = useCallback(() => {
-        if (isPinned.current || isPointerInside.current) return
-        dismiss()
-    }, [dismiss])
+    // Watches the whole group rather than the icon, so Tab from the icon into the card's link is not
+    // a dismissal. A pointer already inside does not dismiss either: the blur fires on the mousedown
+    // that is on its way to the link, and closing here would swallow that click.
+    const onGroupBlur = useCallback(
+        (event: FocusEvent<HTMLDivElement>) => {
+            if (isPinned.current || isPointerInside.current) return
+            if (event.currentTarget.contains(event.relatedTarget)) return
+            dismiss()
+        },
+        [dismiss],
+    )
 
+    // Guarded on `opened`: an unguarded stopPropagation swallowed Escape at the icon even with the
+    // card closed, keeping it from reaching whatever surrounds this.
     const onEscape = useCallback(
         (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return
+            if (event.key !== 'Escape' || !opened) return
             event.stopPropagation()
             dismissAndRestoreFocus()
         },
-        [dismissAndRestoreFocus],
+        [opened, dismissAndRestoreFocus],
     )
 
     const onOpenedChange = useCallback(
@@ -102,7 +118,7 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
         onPointerLeave,
         onTriggerClick,
         onTriggerFocus,
-        onTriggerBlur,
+        onGroupBlur,
         onEscape,
     }
 }
@@ -112,7 +128,7 @@ export const LostKeyPopover = () => {
     const popover = useLostKeyPopover(triggerRef)
 
     return (
-        <Group gap={4} align="center">
+        <Group gap={4} align="center" onBlur={popover.onGroupBlur}>
             <Text fz={16} c="charcoal.7">
                 Lost your key?
             </Text>
@@ -124,6 +140,11 @@ export const LostKeyPopover = () => {
                 shadow="md"
                 radius="md"
                 withArrow
+                // Keeps the card in this group's subtree so Tab from the icon reaches its link; a
+                // portalled dropdown sits at the end of the body and is unreachable by keyboard.
+                // Fixed positioning is what stops the inline card being clipped by an ancestor.
+                withinPortal={false}
+                floatingStrategy="fixed"
             >
                 <Popover.Target>
                     <ActionIcon
@@ -133,7 +154,6 @@ export const LostKeyPopover = () => {
                         size={20}
                         onClick={popover.onTriggerClick}
                         onFocus={popover.onTriggerFocus}
-                        onBlur={popover.onTriggerBlur}
                         onMouseEnter={popover.onPointerEnter}
                         onMouseLeave={popover.onPointerLeave}
                         onKeyDown={popover.onEscape}

@@ -1,4 +1,5 @@
 import { describe, expect, it, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import { vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LostKeyPopover } from './lost-key-popover'
@@ -6,6 +7,8 @@ import { LostKeyPopover } from './lost-key-popover'
 const trigger = () => screen.getByRole('button', { name: /lost your key/i })
 
 const isOpen = () => trigger().getAttribute('aria-expanded') === 'true'
+
+const keyLink = () => screen.getByRole('link', { name: /manage your security key/i, hidden: true })
 
 describe('LostKeyPopover', () => {
     it('renders the trigger text and icon', () => {
@@ -128,7 +131,7 @@ describe('LostKeyPopover', () => {
         expect(isOpen()).toBe(true)
     })
 
-    it('closes a hover-opened popover when focus moves away', async () => {
+    it('closes a focus-opened popover when focus leaves the group entirely', async () => {
         renderWithProviders(<LostKeyPopover />)
 
         trigger().focus()
@@ -137,6 +140,63 @@ describe('LostKeyPopover', () => {
         trigger().blur()
 
         await waitFor(() => expect(isOpen()).toBe(false))
+    })
+
+    // jsdom has no layout, so floating-ui reads the icon as detached and keeps the card
+    // display:none; a real Tab cannot be exercised here. These two cover what makes the link
+    // reachable instead: it sits after the icon in this subtree rather than in a portal at the end
+    // of the body, and focus landing on it is not treated as leaving.
+    it('places the card in the group, after the icon, rather than in a portal', async () => {
+        renderWithProviders(<LostKeyPopover />)
+        await userEvent.click(trigger())
+
+        expect(trigger().closest('[class*="Group-root"]')).toContainElement(keyLink())
+        expect(trigger().compareDocumentPosition(keyLink()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('keeps the card open when focus moves from the icon into it', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        trigger().focus()
+        await waitFor(() => expect(isOpen()).toBe(true))
+
+        fireEvent.focusOut(trigger(), { relatedTarget: keyLink() })
+
+        // Opening on focus is only worth anything if the link it reveals survives being focused.
+        expect(isOpen()).toBe(true)
+    })
+
+    it('dismisses the card on Escape from its link and leaves it closed', async () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        await userEvent.click(trigger())
+        await waitFor(() => expect(isOpen()).toBe(true))
+
+        keyLink().focus()
+        await userEvent.keyboard('{Escape}')
+
+        expect(trigger()).toHaveFocus()
+        // Handing focus back must not trip the icon's focus handler and reopen what Escape closed.
+        await waitFor(() => expect(isOpen()).toBe(false))
+    })
+
+    it('lets Escape reach the surrounding page once the card is closed', async () => {
+        const onKeyDown = vi.fn()
+        renderWithProviders(
+            <div onKeyDown={onKeyDown}>
+                <LostKeyPopover />
+            </div>,
+        )
+
+        trigger().focus()
+        await waitFor(() => expect(isOpen()).toBe(true))
+        fireEvent.mouseDown(document.body)
+        await waitFor(() => expect(isOpen()).toBe(false))
+
+        await userEvent.keyboard('{Escape}')
+
+        // The icon still holds focus, and whatever surrounds this closes on Escape itself.
+        expect(onKeyDown).toHaveBeenCalled()
     })
 
     it('marks the link with an external-link icon that assistive tech ignores', async () => {
