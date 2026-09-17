@@ -2,7 +2,6 @@
 
 import type { FC } from '@/common'
 import type { OrgType } from '@/database/types'
-import { formatDayString } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentCollectionLabels,
@@ -12,14 +11,14 @@ import {
     type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
-import { AgreementsPanel } from '@/components/legal/agreements-table'
-import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
+import { ackedAtColumn, AgreementsPanel, signedAtColumn, versionColumn } from '@/components/legal/agreements-table'
+import { testStudyDateCell } from '@/components/study/test-study-label'
 import { Stack, Text } from '@mantine/core'
 import type { DataTableColumn } from 'mantine-datatable'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt'] as const
+const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt', 'ackedAt'] as const
 
 const DEFAULT_SORT: OrgStudyAgreementSort = { columnAccessor: 'signedAt', direction: 'desc' }
 
@@ -28,17 +27,9 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
     { accessor: 'studyId', title: 'Study ID', sortable: true },
     { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
     { accessor: 'counterpartyName', title: counterpartyLabel },
-    {
-        accessor: 'signedAt',
-        title: 'Effective on',
-        sortable: true,
-        render: (agreement) => formatDayString(agreement.signedAt),
-    },
-    {
-        accessor: 'versionId',
-        title: 'View',
-        render: (agreement) => <LegalDocumentPdfLink versionId={agreement.versionId} />,
-    },
+    signedAtColumn<StudyAgreement>(testStudyDateCell),
+    ackedAtColumn<StudyAgreement>(testStudyDateCell),
+    versionColumn<StudyAgreement>(),
 ]
 
 // This table lists the org's studies, not one reader's acknowledgements.

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import {
     actionResult,
+    db,
     faker,
     insertTestOrg,
     insertTestStudyOnly,
@@ -10,6 +11,7 @@ import {
     testUploadFile,
 } from '@/tests/unit.helpers'
 import {
+    acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
@@ -34,7 +36,12 @@ const insertPartyOrgs = async () => ({
 
 const seedDataPartnerWithStudy = async (title: string) => {
     const { dataPartner, researchLab } = await insertPartyOrgs()
-    const { study } = await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title })
+    const { study } = await insertTestStudyOnly({
+        org: dataPartner,
+        submittedByOrg: researchLab,
+        title,
+        withStudyAgreement: false,
+    })
 
     return { study, dataPartner, researchLab }
 }
@@ -45,6 +52,25 @@ const publishAgreement = async (studyId: string, signedAt: string) => {
         await createLegalDocumentDraftAction({ type: 'SLA', studyId, file: testUploadFile('agreement.pdf') }),
     )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
+}
+
+// Postgres now() is the transaction clock, so an ack written here cannot carry a chosen date.
+const setAckedAt = (versionId: string, ackedAt: Date) =>
+    db
+        .updateTable('legalDocumentAcknowledgement')
+        .set({ ackedAt })
+        .where('legalDocumentVersionId', '=', versionId)
+        .execute()
+
+// A member of `orgSlug`, not the admin who later reads the table: the column is about the org.
+const acknowledgeAs = async (
+    { slug, type }: { slug: string; type: 'enclave' | 'lab' },
+    versionId: string,
+    ackedAt: Date,
+) => {
+    await mockSessionWithTestData({ orgSlug: slug, orgType: type })
+    actionResult(await acknowledgeLegalDocumentAction({ versionId }))
+    await setAckedAt(versionId, ackedAt)
 }
 
 const rowTitles = () =>
@@ -71,7 +97,22 @@ describe('OrgStudyAgreements', () => {
         const row = await rowFor(title)
         expect(within(row).getByText(researchLab.name)).toBeDefined()
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
-        expect(within(row).getAllByText('—')).toHaveLength(2)
+        // Effective on, Acknowledged on and View.
+        expect(within(row).getAllByText('—')).toHaveLength(3)
+    })
+
+    it('marks a test study exempt instead of showing an effective date', async () => {
+        const title = `Test ${faker.string.alpha(6)}`
+        const { study, dataPartner } = await seedDataPartnerWithStudy(title)
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+
+        const row = await rowFor(title)
+        // Both date columns, since neither an effective nor an acknowledged date can exist.
+        expect(within(row).getAllByText('Test Study')).toHaveLength(2)
+        expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
     })
 
     it('links to the PDF and shows the signed date once an agreement is published', async () => {
@@ -141,5 +182,32 @@ describe('OrgStudyAgreements', () => {
         fireEvent.click(header)
 
         await waitFor(() => expect(rowTitles()[rowTitles().length - 1]).toContain(unsignedTitle))
+    })
+
+    it('shows when the viewing org acknowledged the agreement', async () => {
+        const title = `Acked ${faker.string.alpha(6)}`
+        const { study, dataPartner } = await seedDataPartnerWithStudy(title)
+        const version = await publishAgreement(study.id, '2026-06-17')
+        await acknowledgeAs(dataPartner, version.id, new Date('2026-06-20T12:00:00Z'))
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByText('Jun 20, 2026')).toBeDefined()
+    })
+
+    it('leaves Acknowledged on empty when only the counterparty has acknowledged', async () => {
+        const title = `Theirs ${faker.string.alpha(6)}`
+        const { study, dataPartner, researchLab } = await seedDataPartnerWithStudy(title)
+        const version = await publishAgreement(study.id, '2026-06-17')
+        await acknowledgeAs(researchLab, version.id, new Date('2026-06-20T12:00:00Z'))
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+
+        const row = await rowFor(title)
+        expect(within(row).queryByText('Jun 20, 2026')).toBeNull()
+        expect(within(row).getAllByText('\u2014')).toHaveLength(1)
     })
 })

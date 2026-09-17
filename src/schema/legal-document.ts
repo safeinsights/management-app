@@ -25,7 +25,6 @@ export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = 
     ROPA: `${legalDocumentTypeLabels.ROPA}s`,
 }
 
-// List of documents whos acknowledgments are currently required.
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
@@ -57,7 +56,6 @@ export type PendingLegalDocument = ResolvedLegalDocument & {
     orgName: string | null
 }
 
-// `satisfies` enforces parity with the DB enum.
 const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
 
 export const legalDocumentFormatSchema = z.enum(legalDocumentFormatValues)
@@ -183,11 +181,36 @@ export const studyAgreementStatusSchema = z.object({
 // One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
 // `notAParty` is separate from `none` so the notice does not tell an SI admin that the agreement
 // they just published is still being prepared.
+// `exempt` is separate from `none` because only `none` blocks: a test study needs no agreement, but
+// one published against it anyway still binds.
 export type StudyAgreementStatus =
     | { state: 'none' }
+    | { state: 'exempt' }
     | { state: 'notAParty' }
     | { state: 'pending'; versionId: string }
     | { state: 'acknowledged' }
+
+// One place to ask "does this stop work on the study". Undefined counts as blocked: in flight or
+// unreadable, nothing should act as though the gate has cleared. Exhaustive so a sixth state has
+// to state its own answer rather than defaulting to "carry on".
+export const blocksStudyWork = (status?: StudyAgreementStatus) => {
+    if (!status) return true
+
+    switch (status.state) {
+        case 'none':
+            return true
+        // `pending` blocks through the modal, which names the document and records the consent.
+        case 'pending':
+        case 'exempt':
+        case 'notAParty':
+        case 'acknowledged':
+            return false
+        default: {
+            const unhandled: never = status
+            return unhandled
+        }
+    }
+}
 
 export const orgLegalParams = z.object({
     orgSlug: z.string().min(1, 'An organization is required'),
@@ -198,7 +221,7 @@ const sortDirection = z.enum(['asc', 'desc'])
 // One enum per table rather than a shared union: an accessor a query does not select would
 // otherwise reach its ORDER BY and throw.
 export const orgStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt']),
+    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
     direction: sortDirection,
 })
 
@@ -281,3 +304,13 @@ export const legalDocumentQueryKeys = {
         ['userParticipationAgreements', type, sort.columnAccessor, sort.direction] as const,
     userGlobalDocument: (type: GlobalLegalDocumentType) => ['userGlobalDocument', type] as const,
 }
+
+// Prefixes rather than whole keys: each of these tables carries its sort in the key, and an
+// acknowledgement changes what every sort of it shows. React Query matches a key by prefix, so one
+// entry per table covers them all.
+export const agreementTableQueryKeyPrefixes = [
+    ['userStudyAgreements'],
+    ['userParticipationAgreements'],
+    ['orgStudyAgreements'],
+    ['orgParticipationAgreement'],
+] as const

@@ -1,23 +1,20 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
-import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import {
-    acknowledgeLegalDocumentAction,
-    fetchStudyAgreementStatusAction,
-} from '@/server/actions/legal-document.actions'
+import { fetchStudyAgreementStatusAction } from '@/server/actions/legal-document.actions'
 import { captureException } from '@sentry/nextjs'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { StudyAgreementModal } from './study-agreement-modal'
+import { useAcknowledgementConsent } from './use-acknowledgement-consent'
 
 export const useStudyAgreementStatus = (studyId: string) => {
     const { session } = useSession()
 
-    const { data, error } = useQuery({
+    const { data, error, isError } = useQuery({
         queryKey: legalDocumentQueryKeys.studyAgreement(studyId),
         queryFn: () => fetchStudyAgreementStatusAction({ studyId }),
         enabled: Boolean(session),
@@ -31,61 +28,27 @@ export const useStudyAgreementStatus = (studyId: string) => {
         if (error) captureException(error)
     }, [error])
 
-    return data
+    // A gate that cannot be read blocks work just as a missing agreement does, so callers have to
+    // be able to tell the two apart and say which one the reader is looking at.
+    return { status: data, isUnreadable: isError }
 }
 
 const usePendingStudyAgreement = (studyId: string) => {
-    const status = useStudyAgreementStatus(studyId)
-    const queryClient = useQueryClient()
+    const { status } = useStudyAgreementStatus(studyId)
     const router = useRouter()
-    const [consentedVersionId, setConsentedVersionId] = useState<string | null>(null)
 
     const versionId = status?.state === 'pending' ? status.versionId : undefined
-
-    const {
-        mutate: acknowledge,
-        isPending,
-        error,
-    } = useMutation({
-        mutationFn: (version: string) => acknowledgeLegalDocumentAction({ versionId: version }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.studyAgreement(studyId) })
-        },
+    const consent = useAcknowledgementConsent({
+        versionId,
+        invalidateKey: legalDocumentQueryKeys.studyAgreement(studyId),
     })
 
-    return {
-        versionId,
-        // Keyed to the version on screen, not a bare boolean: a version published while the modal is
-        // open must not inherit a tick given to the one before it.
-        isChecked: consentedVersionId === versionId,
-        setIsChecked: (checked: boolean) => setConsentedVersionId(checked ? (versionId ?? null) : null),
-        onContinue: () => {
-            if (consentedVersionId) acknowledge(consentedVersionId)
-        },
-        onCancel: () => router.push(Routes.dashboard),
-        isSubmitting: isPending,
-        // errorToString, not error.message: the wrapped useMutation throws an ActionFailure whose
-        // message is the JSON of its field errors.
-        error: error ? errorToString(error) : null,
-    }
+    // Cancel goes to the dashboard: this blocks one study, not the app.
+    return { versionId, onCancel: () => router.push(Routes.dashboard), ...consent }
 }
 
 // Blocks a member of either party who owes this study's agreement. Mounted in the study layout, so
 // it covers every route of the study for both roles.
-export const RequireStudyAgreement = ({ studyId }: { studyId: string }) => {
-    const { versionId, isChecked, setIsChecked, onContinue, onCancel, isSubmitting, error } =
-        usePendingStudyAgreement(studyId)
-
-    return (
-        <StudyAgreementModal
-            isVisible={Boolean(versionId)}
-            versionId={versionId}
-            isChecked={isChecked}
-            onCheckedChange={setIsChecked}
-            onContinue={onContinue}
-            onCancel={onCancel}
-            isSubmitting={isSubmitting}
-            error={error}
-        />
-    )
-}
+export const RequireStudyAgreement = ({ studyId }: { studyId: string }) => (
+    <StudyAgreementModal {...usePendingStudyAgreement(studyId)} />
+)

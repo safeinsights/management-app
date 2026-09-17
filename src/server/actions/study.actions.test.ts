@@ -10,6 +10,7 @@ import {
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
+    seedAcknowledgedStudyAgreement,
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
@@ -1668,6 +1669,7 @@ describe('submitCodeReviewDecisionAction', () => {
             })
             .returningAll()
             .executeTakeFirstOrThrow()
+        await seedAcknowledgedStudyAgreement(study.id)
 
         const result = await submitCodeReviewDecisionAction({
             studyId: study.id,

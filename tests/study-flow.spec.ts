@@ -5,6 +5,7 @@ import {
     readTestSupportFile,
     fillLexicalField,
     insertLexicalLink,
+    typeIntoLexical,
     goto,
     openContextWithSavedRole,
     withRole,
@@ -302,8 +303,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
 
     const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
     await expect(feedbackEditor).toBeVisible()
-    await feedbackEditor.click()
-    await feedbackEditor.pressSequentially('Approving this initial request — feasibility and impact look reasonable.')
+    await typeIntoLexical(feedbackEditor, 'Approving this initial request — feasibility and impact look reasonable.')
 
     await page
         .getByTestId('review-decision-section')
@@ -351,8 +351,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByTestId('code-review-decision-approve').click()
     const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
     await expect(feedbackEditor).toBeVisible()
-    await feedbackEditor.click()
-    await feedbackEditor.pressSequentially('Approving submitted code — looks good to run.')
+    await typeIntoLexical(feedbackEditor, 'Approving submitted code — looks good to run.')
 
     await page.getByTestId('code-review-submit').click()
     const dialog = page.getByRole('dialog')
@@ -873,8 +872,8 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
-        await feedbackEditor.click()
-        await feedbackEditor.pressSequentially(
+        await typeIntoLexical(
+            feedbackEditor,
             'Rejecting this initial request — scope is not aligned with available data.',
         )
 
@@ -950,8 +949,8 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
-        await feedbackEditor.click()
-        await feedbackEditor.pressSequentially(
+        await typeIntoLexical(
+            feedbackEditor,
             'Please clarify the dataset scope and the analysis plan before we can approve.',
         )
 
@@ -1074,8 +1073,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.getByTestId('code-review-decision-needs-clarification').click()
         const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
         await expect(feedbackEditor).toBeVisible()
-        await feedbackEditor.click()
-        await feedbackEditor.pressSequentially('Requesting revisions to submitted code — please address criteria.')
+        await typeIntoLexical(feedbackEditor, 'Requesting revisions to submitted code — please address criteria.')
 
         await page.getByTestId('code-review-submit').click()
         const dialog = page.getByRole('dialog')

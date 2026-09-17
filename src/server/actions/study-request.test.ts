@@ -11,6 +11,7 @@ import {
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
+    seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renameTestOrg,
@@ -1674,6 +1675,7 @@ describe('Request Study Actions', () => {
             expect(approved.approvedAt).not.toBeNull()
 
             const { user: researcher } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             const root = await createWorkspaceDir('roundtrip-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("main")' })
@@ -1699,6 +1701,7 @@ describe('Request Study Actions', () => {
             })
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             actionResult(
                 await submitCodeReviewDecisionAction({
                     studyId: draft.studyId,
@@ -1718,6 +1721,7 @@ describe('Request Study Actions', () => {
             expect(afterDecision.status).toBe('APPROVED')
 
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("revised")' })
             actionResult(
                 await resubmitStudyCodeAction({

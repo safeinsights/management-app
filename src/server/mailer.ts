@@ -208,10 +208,10 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
 
     // piUserId is null until the PI holds an account, and until then there is no address for them.
     const pi = study.piUserId
-        ? await db.selectFrom('user').select(['email', 'fullName']).where('id', '=', study.piUserId).executeTakeFirst()
+        ? await db.selectFrom('user').select('email').where('id', '=', study.piUserId).executeTakeFirst()
         : undefined
 
-    const emails = [...new Set([study.researcherEmail, pi?.email].filter(Boolean))] as string[]
+    const emails = [...new Set([study.researcherEmail, pi?.email].filter((email) => Boolean(email)))] as string[]
 
     if (emails.length === 0) {
         logger.warn(`No recipients for study agreement email, studyId: ${studyId}`)

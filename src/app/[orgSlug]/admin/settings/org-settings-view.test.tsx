@@ -6,7 +6,14 @@ import { OrgSettingsView } from './org-settings-view'
 describe('OrgSettingsView', () => {
     it('heads the page with the org name above the page title, once', () => {
         renderWithProviders(
-            <OrgSettingsView orgName="Genius" orgSettings={null} apiKeys={null} codeEnvs={null} dataSources={null} />,
+            <OrgSettingsView
+                orgName="Genius"
+                orgSettings={null}
+                apiKeys={null}
+                codeEnvs={null}
+                dataSources={null}
+                testLabs={null}
+            />,
         )
 
         const heading = screen.getByRole('heading', { level: 1, name: 'Settings' })

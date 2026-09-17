@@ -83,6 +83,7 @@ describe('DELETE /api/qa/studies/[studyId]', () => {
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org: lab, email: qaEmail() })
+        // Keeps its agreement: deleting a study has to take its legal documents with it.
         const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
         await authenticate({ isAdmin: true, adminOf: enclave })
 

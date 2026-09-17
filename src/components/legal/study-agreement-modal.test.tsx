@@ -7,7 +7,6 @@ const VERSION_ID = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b'
 const renderModal = (props: Partial<Parameters<typeof StudyAgreementModal>[0]> = {}) =>
     renderWithProviders(
         <StudyAgreementModal
-            isVisible
             versionId={VERSION_ID}
             isChecked={false}
             onCheckedChange={vi.fn()}
@@ -21,7 +20,7 @@ const renderModal = (props: Partial<Parameters<typeof StudyAgreementModal>[0]> =
 
 describe('StudyAgreementModal', () => {
     it('renders nothing when nothing is outstanding', () => {
-        renderModal({ isVisible: false })
+        renderModal({ versionId: undefined })
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 

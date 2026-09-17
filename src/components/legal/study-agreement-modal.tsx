@@ -13,7 +13,6 @@ const STUDY_AGREEMENT_LABEL = legalDocumentTypeLabels.SLA
 const CHECKBOX_LABEL = `I have read and acknowledge the ${STUDY_AGREEMENT_LABEL}.`
 
 type Props = {
-    isVisible: boolean
     versionId?: string
     isChecked: boolean
     onCheckedChange: (checked: boolean) => void
@@ -27,7 +26,6 @@ type Props = {
 // does. Cancel goes to the dashboard: this blocks one study, not the app, so declining has somewhere
 // to go.
 export const StudyAgreementModal: FC<Props> = ({
-    isVisible,
     versionId,
     isChecked,
     onCheckedChange,
@@ -36,7 +34,7 @@ export const StudyAgreementModal: FC<Props> = ({
     isSubmitting,
     error,
 }) => {
-    if (!isVisible || !versionId) return null
+    if (!versionId) return null
 
     return (
         <BlockingModal title={STUDY_AGREEMENT_LABEL}>
