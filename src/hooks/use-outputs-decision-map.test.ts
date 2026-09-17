@@ -2,33 +2,10 @@ import { vi } from 'vitest'
 import * as Y from 'yjs'
 import { act, describe, expect, it, renderHook, waitFor } from '@/tests/unit.helpers'
 import type { OutputsDecision } from '@/lib/outputs-review'
+import { createFakeYjsProvider, type FakeYjsProvider } from '@/tests/yjs.helpers'
 import { useOutputsDecisionMap } from './use-outputs-decision-map'
 
-type Listener = () => void
-
-// Exposes a real Y.Doc so a test can drive the map the way a peer or the server would.
-function createFakeProvider(doc: Y.Doc) {
-    const syncedListeners: Listener[] = []
-    return {
-        document: doc,
-        isSynced: false,
-        on(event: string, fn: Listener) {
-            if (event === 'synced') syncedListeners.push(fn)
-        },
-        off(event: string, fn: Listener) {
-            if (event === 'synced') {
-                const index = syncedListeners.indexOf(fn)
-                if (index >= 0) syncedListeners.splice(index, 1)
-            }
-        },
-        triggerSynced() {
-            this.isSynced = true
-            syncedListeners.forEach((fn) => fn())
-        },
-    }
-}
-
-type Provider = ReturnType<typeof createFakeProvider>
+type Provider = FakeYjsProvider
 
 const DECISION_MAP_NAME = 'outputsDecision'
 const DECISION_KEY = 'decision'
@@ -53,7 +30,7 @@ describe('useOutputsDecisionMap', () => {
     it('restores a decision that the document already carries', async () => {
         const doc = new Y.Doc()
         decisionMapOf(doc).set(DECISION_KEY, 'share-feedback-only')
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider })
 
         act(() => provider.triggerSynced())
@@ -63,7 +40,7 @@ describe('useOutputsDecisionMap', () => {
     })
 
     it('reports no decision when the document carries none', async () => {
-        const provider = createFakeProvider(new Y.Doc())
+        const provider = createFakeYjsProvider(new Y.Doc())
         const { hook, onRestore } = setupHook({ provider })
 
         act(() => provider.triggerSynced())
@@ -75,7 +52,7 @@ describe('useOutputsDecisionMap', () => {
     it('ignores a stored value that is not one of the two decisions', async () => {
         const doc = new Y.Doc()
         decisionMapOf(doc).set(DECISION_KEY, 'share-everything-forever')
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider })
 
         act(() => provider.triggerSynced())
@@ -86,7 +63,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('keeps a choice made before the document arrived, rather than wiping it', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider, selected: 'share-outputs' })
 
         act(() => provider.triggerSynced())
@@ -98,7 +75,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('keeps a decision chosen before the document arrived, even before the prop catches up', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook } = setupHook({ provider })
 
         // The click lands before the sync and `selected` never catches up, which is the ordering
@@ -113,7 +90,7 @@ describe('useOutputsDecisionMap', () => {
     it('lets the document win over a local choice it already disagrees with', async () => {
         const doc = new Y.Doc()
         decisionMapOf(doc).set(DECISION_KEY, 'share-feedback-only')
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider, selected: 'share-outputs' })
 
         act(() => provider.triggerSynced())
@@ -124,7 +101,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('writes a chosen decision into the document', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook } = setupHook({ provider })
         act(() => provider.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
@@ -136,7 +113,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('clears the key instead of storing null, so a concurrent unset wins', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook } = setupHook({ provider })
         act(() => provider.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
@@ -149,7 +126,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('applies a decision a peer makes later', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider })
         act(() => provider.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
@@ -164,7 +141,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('applies a peer update that lands in the same tick as the sync', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider })
 
         act(() => {
@@ -178,7 +155,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('leaves a decision this reviewer picked when a peer picks the other one', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider })
         act(() => provider.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
@@ -196,7 +173,7 @@ describe('useOutputsDecisionMap', () => {
 
     it('does not echo its own write back as a restore', async () => {
         const doc = new Y.Doc()
-        const provider = createFakeProvider(doc)
+        const provider = createFakeYjsProvider(doc)
         const { hook, onRestore } = setupHook({ provider })
         act(() => provider.triggerSynced())
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
