@@ -5,7 +5,7 @@ import type { Route } from 'next'
 import router from 'next-router-mock'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { GenerateKeys } from './generate-keys'
+import { GenerateKeys, postKeyRedirect } from './generate-keys'
 
 vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
@@ -182,5 +182,21 @@ describe('Security key generation', () => {
 
         await waitFor(() => expect(screen.getByText(/Copy did not work/)).toBeDefined())
         expect(screen.queryByText('Copied!')).toBeNull()
+    })
+})
+
+describe('postKeyRedirect', () => {
+    const fallback = '/openstax-lab/dashboard' as Route
+
+    // OTTER-788. searchParams.get() hands safeRedirectUrl an already-decoded path, and the linking
+    // screen takes no query of its own, so the key detour forwards to it untouched.
+    it('forwards a first key to the email-linking screen', () => {
+        const linkEmail = '/account/invitation/019f38c6-804c-70ac-b02a-a4b87d432bc2/link-email'
+
+        expect(postKeyRedirect(false, linkEmail, fallback)).toBe(linkEmail)
+    })
+
+    it('sends a regenerated key to the dashboard rather than the linking screen', () => {
+        expect(postKeyRedirect(true, '/account/invitation/abc/link-email', fallback)).toBe('/dashboard')
     })
 })

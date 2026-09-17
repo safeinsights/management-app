@@ -132,6 +132,8 @@ export const Routes = {
 
     accountInvitationJoinTeam: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/join-team`, InviteParams),
 
+    accountInvitationLinkEmail: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/link-email`, InviteParams),
+
     researcherStudies: '/researcher/studies' as Route,
 
     researcherProfile: '/researcher/profile' as Route,

@@ -776,19 +776,21 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 }
 
 // A signed-in user holding no key, with a live invite to a second org. Every sign-in screen has to
-// accept the invite before the key detour redirects, or the membership is lost.
-export async function insertKeylessInvitedUser() {
+// accept the invite before the key detour redirects, or the membership is lost. Pass invitedEmail to
+// build the OTTER-788 case, where the invite was addressed to something the account does not own yet.
+export async function insertKeylessInvitedUser({ invitedEmail }: { invitedEmail?: string } = {}) {
     const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
     await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
 
+    const email = invitedEmail ?? user.email!
     const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const invite = await db
         .insertInto('pendingUser')
-        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
+        .values({ email, orgId: invitingOrg.id, isAdmin: false })
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    return { user, org, invitingOrg, invite }
+    return { user, org, invitingOrg, invite, invitedEmail: email }
 }
 
 type MockDualRoleSessionOptions = {

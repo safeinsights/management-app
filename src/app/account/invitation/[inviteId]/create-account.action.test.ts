@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import logger from '@/lib/logger'
 import { onUserLogIn } from '@/server/events'
 import {
+    getClaimedInviteAction,
     getOrgInfoForInviteAction,
     onCreateAccountAction,
     onJoinTeamAccountAction,
@@ -879,5 +880,73 @@ describe('Create Account Actions', () => {
         expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
         const created = await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()
         expect(created).toBeUndefined()
+    })
+
+    describe('getClaimedInviteAction', () => {
+        const insertInvite = async (orgId: string, claimedByUserId: string | null) =>
+            await db
+                .insertInto('pendingUser')
+                .values({
+                    orgId,
+                    email: testEmail(),
+                    isAdmin: false,
+                    invitedByUserId: invitingUser.user.id,
+                    claimedByUserId,
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        it('returns the invited address and the inviting org to the claimer', async () => {
+            const { user } = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, user.id)
+
+            signInAs(user, org.slug)
+
+            const result = actionResult(await getClaimedInviteAction({ inviteId: invite.id }))
+
+            expect(result).toEqual({
+                email: invite.email,
+                orgSlug: invitingOrg.slug,
+                orgName: invitingOrg.name,
+            })
+        })
+
+        it('refuses an unauthenticated caller', async () => {
+            const { user } = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, user.id)
+
+            const result = await getClaimedInviteAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+
+        // The invited address belongs to whoever was invited, so only the account that spent the
+        // invite may read it back.
+        it('refuses a signed-in user who did not claim the invite', async () => {
+            const { user } = await insertTestUser({ org })
+            const claimer = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, claimer.user.id)
+
+            signInAs(user, org.slug)
+
+            const result = await getClaimedInviteAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        })
+
+        it('refuses an invite nobody has claimed', async () => {
+            const { user } = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, null)
+
+            signInAs(user, org.slug)
+
+            const result = await getClaimedInviteAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        })
     })
 })

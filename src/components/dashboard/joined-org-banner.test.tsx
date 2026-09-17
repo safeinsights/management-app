@@ -7,7 +7,7 @@ import {
     waitFor,
     userEvent,
 } from '@/tests/unit.helpers'
-import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
+import { JOINED_ORG_STORAGE_KEY, markOrgJoined } from '@/lib/joined-org'
 import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { JoinedOrgBanner } from './joined-org-banner'
 
@@ -53,6 +53,30 @@ describe('JoinedOrgBanner', () => {
 
         const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
         await waitFor(() => expect(getByTestId('joined-org-banner')).toHaveTextContent('ASU Research Lab'))
+    })
+
+    // OTTER-788. The linking step overwrites the flag, so the banner is the one place that reports
+    // both the membership and the newly linked address.
+    it('names the linked address when an invited email was merged into the account', async () => {
+        await mockSessionWithTestData({ orgType: KEYED })
+        markOrgJoined('ASU Research Lab', 'invited@example.com')
+        const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
+
+        await waitFor(() =>
+            expect(getByTestId('joined-org-banner')).toHaveTextContent(
+                'You have been added to ASU Research Lab and invited@example.com is now linked to your account.',
+            ),
+        )
+    })
+
+    it('keeps the plain copy when nothing was linked', async () => {
+        await mockSessionWithTestData({ orgType: KEYED })
+        markOrgJoined('ASU Research Lab')
+        const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
+
+        await waitFor(() =>
+            expect(getByTestId('joined-org-banner')).toHaveTextContent('You have been added to ASU Research Lab.'),
+        )
     })
 
     it('dismisses when the close button is clicked', async () => {
