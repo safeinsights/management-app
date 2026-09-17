@@ -370,6 +370,49 @@ describe('getStudyReviewForJob', () => {
         expect(result.report).toBeNull()
         expect(result.summaryFailedAt).toBeInstanceOf(Date)
     })
+
+    // A resubmit reuses the job, so both rounds live under the same job id (OTTER-779).
+    it('reads the summary of the round the job is on, not the one before it', async () => {
+        const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, round: 1, report: JSON.stringify({ codeExplanation: 'first round' }) })
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values([
+                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
+                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
+            ])
+            .execute()
+
+        expect(await getStudyReviewForJob(await latestJobForStudy(study.id))).toBeNull()
+
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, round: 2, report: JSON.stringify({ codeExplanation: 'second round' }) })
+            .execute()
+
+        const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
+        expect(result?.report?.codeExplanation).toBe('second round')
+    })
+
+    // The round advances on the resubmit, not on the decision, so the reviewer who asked for
+    // changes keeps seeing the summary of the code they read.
+    it('keeps the summary on screen while a change request waits for the resubmit', async () => {
+        const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, round: 1, report: JSON.stringify({ codeExplanation: 'first round' }) })
+            .execute()
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+            .execute()
+
+        const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
+        expect(result?.report?.codeExplanation).toBe('first round')
+    })
 })
 
 describe('getDataSourcesForOrg', () => {

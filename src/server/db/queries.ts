@@ -8,7 +8,8 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
+import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { codeRoundForJob } from './code-round'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -164,7 +165,7 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
-        .where('jobStatusChange.status', 'in', ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'])
+        .where('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
     return Number(row?.count ?? 0) + 1
@@ -688,18 +689,18 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
     }
 }
 
-// The round rule needs the job's submission history, so the job is the argument rather than a bare
-// id: passing both let a caller pair one job's id with another's statuses (OTTER-775). The id key
-// differs by query — getStudyJobInfo aliases it to studyJobId — so either spelling is accepted.
-export type JobForRound = {
-    createdAt: Date | string
-    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
-} & ({ id: string } | { studyJobId: string })
+// The job's round is resolved from its status history in the database, so the id is all a caller
+// has to supply. The id key differs by query, since getStudyJobInfo aliases it to studyJobId, so
+// either spelling is accepted.
+export type JobForRound = { id: string } | { studyJobId: string }
 
 const jobRowId = (job: JobForRound) => ('id' in job ? job.id : job.studyJobId)
 
 export async function getStudyReviewForJob(job: JobForRound): Promise<StudyReviewWithMeta | null> {
     const studyJobId = jobRowId(job)
+    // A resubmit reuses the job, so the id alone matches every round it has been through. Only the
+    // summary written for the code now on the job is current (OTTER-779).
+    const round = await codeRoundForJob(studyJobId, Action.db)
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
@@ -717,13 +718,10 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
             ).as('files'),
         ])
         .where('studyJobId', '=', studyJobId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
+        .where('round', '=', round)
         .executeTakeFirst()
 
-    if (!row) return null
-
-    return reviewForCurrentRound(row, latestCodeSubmittedAt(job))
+    return row ?? null
 }
 
 export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
