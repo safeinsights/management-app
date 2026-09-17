@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
+import { ENCRYPTED_TO_APPROVED } from '@/lib/file-type-helpers'
 import {
     compareOutputFiles,
     isOutputsReviewEditable,
@@ -69,8 +70,11 @@ describe('isOutputsReviewEditable', () => {
     })
 })
 
+// The types here are the post-decryption ones. useDecryptFiles rewrites every ENCRYPTED-* name
+// through ENCRYPTED_TO_APPROVED before the rows are sorted, so an ENCRYPTED-* fixture would pass
+// while the real list stayed alphabetical (OTTER-758).
 describe('compareOutputFiles', () => {
-    const result = (name: string): OutputFileOrder => ({ fileType: 'ENCRYPTED-RESULT', name })
+    const result = (name: string): OutputFileOrder => ({ fileType: 'APPROVED-RESULT', name })
     const order = (files: OutputFileOrder[]) => [...files].sort(compareOutputFiles).map((file) => file.name)
 
     it('sorts the results by name', () => {
@@ -100,18 +104,27 @@ describe('compareOutputFiles', () => {
     it('keeps every log above the results whatever the names are', () => {
         const files = [
             result('a_first_by_name.csv'),
-            { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
+            { fileType: 'APPROVED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
             result('b_second.csv'),
         ]
 
         expect(order(files)).toEqual(['security-scan-log.txt', 'a_first_by_name.csv', 'b_second.csv'])
     })
 
+    // Pins the coupling rather than a literal: ranking names that decryption never produces is
+    // exactly how the log-first order became a no-op.
+    it('ranks the type decryption actually produces for a log', () => {
+        const decrypted = ENCRYPTED_TO_APPROVED['ENCRYPTED-SECURITY-SCAN-LOG']
+        const files = [result('a_first_by_name.csv'), { fileType: decrypted, name: 'scan.txt' } as OutputFileOrder]
+
+        expect(order(files)).toEqual(['scan.txt', 'a_first_by_name.csv'])
+    })
+
     it('puts the code run log above the security scan log, matching the design', () => {
         const files = [
-            { fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG', name: 'packaging.txt' } as OutputFileOrder,
-            { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
-            { fileType: 'ENCRYPTED-CODE-RUN-LOG', name: 'code-run-log.txt' } as OutputFileOrder,
+            { fileType: 'APPROVED-PACKAGING-ERROR-LOG', name: 'packaging.txt' } as OutputFileOrder,
+            { fileType: 'APPROVED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
+            { fileType: 'APPROVED-CODE-RUN-LOG', name: 'code-run-log.txt' } as OutputFileOrder,
         ]
 
         expect(order(files)).toEqual(['code-run-log.txt', 'security-scan-log.txt', 'packaging.txt'])
@@ -120,7 +133,7 @@ describe('compareOutputFiles', () => {
     it('gives the same order whatever order the files arrive in', () => {
         const files = [
             result('tutor_results.csv'),
-            { fileType: 'ENCRYPTED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
+            { fileType: 'APPROVED-SECURITY-SCAN-LOG', name: 'security-scan-log.txt' } as OutputFileOrder,
             result('a_plot.png'),
         ]
         const expected = ['security-scan-log.txt', 'a_plot.png', 'tutor_results.csv']

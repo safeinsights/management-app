@@ -125,14 +125,15 @@ describe('useOutputsFiles activity display', () => {
 })
 
 // Nothing ordered these rows before, so the list arrived in physical database order and the scan
-// log moved between rounds (OTTER-758).
+// log moved between rounds (OTTER-758). The fixtures carry APPROVED-* types because that is what
+// useDecryptFiles hands this hook; ENCRYPTED-* names never reach it.
 describe('useOutputsFiles row order', () => {
     const shuffled = () => [
-        typedFile('tutor_results.csv', 'ENCRYPTED-RESULT'),
-        typedFile('exercises_results.csv', 'ENCRYPTED-RESULT'),
-        typedFile('a_plot.png', 'ENCRYPTED-RESULT'),
-        typedFile('security-scan-log.txt', 'ENCRYPTED-SECURITY-SCAN-LOG'),
-        typedFile('archive.zip', 'ENCRYPTED-RESULT'),
+        typedFile('tutor_results.csv', 'APPROVED-RESULT'),
+        typedFile('exercises_results.csv', 'APPROVED-RESULT'),
+        typedFile('a_plot.png', 'APPROVED-RESULT'),
+        typedFile('security-scan-log.txt', 'APPROVED-SECURITY-SCAN-LOG'),
+        typedFile('archive.zip', 'APPROVED-RESULT'),
     ]
 
     it('lists the scan log first and the results alphabetically', () => {
@@ -158,8 +159,8 @@ describe('useOutputsFiles row order', () => {
 
     it('sorts on the displayed name rather than the full archive path', () => {
         const files = [
-            typedFile('zzz/a_plot.png', 'ENCRYPTED-RESULT'),
-            typedFile('aaa/tutor_results.csv', 'ENCRYPTED-RESULT'),
+            typedFile('zzz/a_plot.png', 'APPROVED-RESULT'),
+            typedFile('aaa/tutor_results.csv', 'APPROVED-RESULT'),
         ]
         const { result } = renderFiles(faker.string.uuid(), files, [])
 

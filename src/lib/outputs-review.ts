@@ -1,6 +1,6 @@
 import type { FileType, ReviewDecision, StudyJobStatus } from '@/database/types'
 import { overCharacterLimitError } from '@/lib/field-limits'
-import { ENCRYPTED_LOG_TYPES } from '@/lib/file-type-helpers'
+import { APPROVED_LOG_TYPES } from '@/lib/file-type-helpers'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 export type OutputsDecision = 'share-outputs' | 'share-feedback-only'
@@ -71,14 +71,16 @@ export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
 
 export type OutputFileOrder = { fileType: FileType; name: string }
 
-// Non-logs rank last, so the logs keep the top of the list.
+// Ranks the approved names, not the encrypted ones: every caller sorts files that useDecryptFiles
+// has already rewritten through ENCRYPTED_TO_APPROVED, so matching ENCRYPTED-* matched nothing and
+// left the whole list alphabetical. Non-logs rank last, so the logs keep the top.
 const logRank = (fileType: FileType): number => {
-    const index = ENCRYPTED_LOG_TYPES.indexOf(fileType)
-    return index === -1 ? ENCRYPTED_LOG_TYPES.length : index
+    const index = APPROVED_LOG_TYPES.indexOf(fileType)
+    return index === -1 ? APPROVED_LOG_TYPES.length : index
 }
 
 /**
- * Logs first, in ENCRYPTED_LOG_TYPES order, then the results by name. Nothing ordered the rows
+ * Logs first, in APPROVED_LOG_TYPES order, then the results by name. Nothing ordered the rows
  * before this, so the list came back in physical database order and moved between rounds; the logs
  * are context for the results rather than results themselves, so they stay above them (OTTER-758).
  */
