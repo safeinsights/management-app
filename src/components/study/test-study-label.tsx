@@ -15,8 +15,9 @@ export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     return (
         <StudyPill
             label={LABEL}
-            bg="gray.2"
+            bg="gray.1"
             c="black"
+            bd="black"
             tooltip={TOOLTIP}
             icon={<InfoIcon size={12} weight="fill" aria-hidden />}
         />
