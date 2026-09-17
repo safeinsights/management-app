@@ -1,7 +1,8 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import { Routes } from '@/lib/routes'
+import { isOrgAdminPath, isResearcherPath, isSiAdminPath } from '@/lib/routes/access'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
 import { marshalSession } from './server/session'
@@ -20,12 +21,6 @@ import {
     reportingEndpointsValue,
 } from '@/lib/csp'
 import * as Sentry from '@sentry/nextjs'
-
-const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
-// path-to-regexp syntax, not Next's `[param]`, which it treats as literal brackets and silently
-// matches nothing. `admin(.*)` not `admin/(.*)` so a bare `/:orgSlug/admin` is also gated.
-const isOrgAdminRoute = createRouteMatcher(['/:orgSlug/admin(.*)'])
-const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
 const ANON_ROUTES: Array<string> = [
     '/about',
@@ -86,12 +81,14 @@ export function continueWithNonce(req: NextRequest): NextResponse {
 }
 
 export const proxy = clerkMiddleware(async (auth, req) => {
+    const pathname = req.nextUrl.pathname
+
     const redirectSanitized = sanitizeRedirectParam(req)
     if (redirectSanitized) return redirectSanitized
 
     const { userId: clerkUserId, sessionClaims } = await auth()
 
-    const isAnonRoute = ANON_ROUTES.some((r) => req.nextUrl.pathname.startsWith(r))
+    const isAnonRoute = ANON_ROUTES.some((r) => pathname.startsWith(r))
 
     let session: UserSession | null = null
     try {
@@ -120,38 +117,38 @@ export const proxy = clerkMiddleware(async (auth, req) => {
             session = BLANK_SESSION
         } else {
             const signInUrl = new URL('/account/signin', req.url)
-            const intended = safeRedirectUrl(req.nextUrl.pathname + req.nextUrl.search, Routes.home)
+            const intended = safeRedirectUrl(pathname + req.nextUrl.search, Routes.home)
             signInUrl.searchParams.set('redirect_url', intended)
             // This branch is the only place that refuses a session, so the mark tells the signin page
             // that the server said no. Without it the page can only infer that from its own client
             // state, which is exactly the state that goes stale and stranded the prompt (OTTER-745).
             signInUrl.searchParams.set(BOUNCE_PARAM, BOUNCE_VALUE)
-            log.warn(`attempted to load ${req.nextUrl.pathname} while not logged in, redirecting to ${signInUrl}`)
+            log.warn(`attempted to load ${pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
     }
 
-    const currentOrgSlug = extractOrgSlugFromPath(req.nextUrl.pathname)
+    const currentOrgSlug = extractOrgSlugFromPath(pathname)
     const currentOrg = currentOrgSlug ? getOrgFromSlug(session, currentOrgSlug) : null
 
     const isAdmin = currentOrg ? isOrgAdmin(currentOrg) : false
 
-    if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
+    if (isSiAdminPath(pathname) && !session.user.isSiAdmin) {
         return redirectToDashboard(req, 'si admin', session)
     }
 
-    if (isResearcherRoute(req) && !getLabOrg(session)) {
+    if (isResearcherPath(pathname) && !getLabOrg(session)) {
         return redirectToDashboard(req, 'researcher', session)
     }
 
-    // extractOrgSlugFromPath, not a route matcher, is what distinguishes `/acme/...` from
-    // `/dashboard`: a `/:orgSlug/(.*)` matcher would match both.
+    // Membership hangs off extractOrgSlugFromPath, which is what tells `/acme/...` apart from
+    // `/dashboard`: any `/:orgSlug/...` pattern matches both.
     if (currentOrgSlug) {
         if (!session.orgs[currentOrgSlug] && !session.user.isSiAdmin) {
             return redirectToDashboard(req, 'org-member', session)
         }
 
-        if (isOrgAdminRoute(req) && !isAdmin && !session.user.isSiAdmin) {
+        if (isOrgAdminPath(pathname) && !isAdmin && !session.user.isSiAdmin) {
             return redirectToDashboard(req, 'org-admin', session)
         }
     }

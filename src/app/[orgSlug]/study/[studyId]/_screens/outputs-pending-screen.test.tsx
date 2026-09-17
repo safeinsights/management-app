@@ -91,7 +91,9 @@ describe('OutputsPendingScreen', () => {
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveTextContent(/Outputs not ready, code processing started/)
             expect(alert).toHaveTextContent(/\w{3} \d{2}, \d{4}/)
-            expect(alert).toHaveTextContent(/Your code is running in the secure enclave/)
+            expect(alert).toHaveTextContent(
+                'Your code is running in the secure enclave. This can take a while, depending on how complex it is. An email notification will be sent when your outputs are ready or if anything goes wrong.',
+            )
         },
     )
 
@@ -123,7 +125,9 @@ describe('OutputsPendingScreen', () => {
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Outputs not ready, awaiting review')
-        expect(alert).toHaveTextContent(/with the data partner for review/)
+        expect(alert).toHaveTextContent(
+            'Code processing has finished and is with the data partner for review. An email notification will be sent when your outputs are ready or if anything needs your attention.',
+        )
         expect(alert).not.toHaveTextContent(/running in the secure enclave/)
         expect(alert).not.toHaveTextContent(/error|fail/i)
     })

@@ -152,7 +152,7 @@ const codeFeedbackNav: NavRule = (state, ctx) => {
 }
 
 // --- outputs phase (researcher) -------------------------------------------------------------------
-// All three anchor back to the approved-code step, like study-results. Their "View" action — entering
+// All four anchor back to the approved-code step. Their "View" action — entering
 // a security key to decrypt — is a page action rather than a navigation, so it stays with the screen
 // that owns the key, the same split Submit actions get.
 
@@ -172,7 +172,7 @@ const outputsFeedbackNav: NavRule = (_state, ctx) => ({
 // Terminal positive: the exit takes the solid slot and "Edit code" sits one level down as the optional
 // further iteration (spec state 5). When the run returned feedback but no shareable outputs there is no
 // successful flow to conclude, so Edit code is the primary action instead (spec states 5 vs 6).
-const studyResultsNav: NavRule = (state, ctx) => {
+const sharedOutputsNav: NavRule = (state, ctx) => {
     const back = resultsPreviousStep(ctx)
     if (!canResearcherResubmitCode(state)) return { back, forward: backToMyStudies(ctx) }
     if (state.resultsApproved) {
@@ -190,15 +190,16 @@ export const RESEARCHER_STEP_NAV: Record<ResearcherScreenId, NavRule> = {
     'code-approved': codeApprovedNav,
     'code-feedback': codeFeedbackNav,
     'outputs-pending': outputsPendingNav,
+    // Waiting on the reviewer's decision, so nothing is ahead: the same pair outputs-pending gets.
+    'outputs-awaiting-review': outputsPendingNav,
     'outputs-feedback': outputsFeedbackNav,
     // Intentionally nav-identical to outputs-feedback: the two screens split only on banner copy, and
     // the spec gives both the same forward action. A state-dependent branch would need its own rule.
     'outputs-errored-shared': outputsFeedbackNav,
-    // A clean run whose outputs were shared is the successful conclusion, so it takes study-results'
-    // shape rather than the errored share's: resultsApproved holds by definition here (OTTER-688), so
-    // the rule reduces to exit-solid with Edit code one level down.
-    'outputs-shared': studyResultsNav,
-    'study-results': studyResultsNav,
+    // A clean run whose outputs were shared is the successful conclusion, so it concludes rather than
+    // taking the errored share's shape: resultsApproved holds by definition here (OTTER-688), so the
+    // rule reduces to exit-solid with Edit code one level down.
+    'outputs-shared': sharedOutputsNav,
 }
 
 export function resolveStepNav(screen: ResearcherScreenId, state: StudyState, ctx: NavCtx): StepNav {

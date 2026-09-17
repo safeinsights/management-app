@@ -108,7 +108,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in
                     your email inbox.
                 </Text>
-                <Text size="sm" c="red.8" mb="md">
+                <Text size="sm" c="red.7" mb="md">
                     <b>Note:</b> This invitation will expire in 7 days.
                 </Text>
                 <Button variant="filled" size="lg" onClick={() => joinTeam()} loading={isJoining || isDisabled} mb={4}>
@@ -147,7 +147,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConf
     <AppModal isOpen={isOpen} onClose={onClose} title="Decline invitation?">
         <Stack>
             <Text size="md">Are you sure you want to decline the invitation to join {orgName}?</Text>
-            <Text size="sm" c="red.9">
+            <Text size="sm" c="red.7">
                 <b>Note:</b> If you decline this invitation, you will need to request a new one if you want to join this
                 organization later.
             </Text>

@@ -63,7 +63,7 @@ export async function SharedOutputsScreen({
     const banner = researcherSharedOutputsBanner(descriptor.screen, { dataPartner })
 
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <SharedOutputsPanel

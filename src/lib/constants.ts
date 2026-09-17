@@ -8,10 +8,10 @@ export const PROPOSAL_GRID_SPAN = {
 }
 
 export const ENCLAVE_BG = 'purple.6'
-export const LAB_BG = 'green.10'
+export const LAB_BG = 'green.6'
 
 // Exported so Ladle's canvas shares the app's source of truth.
-export const APP_MAIN_BG = 'grey.10'
+export const APP_MAIN_BG = 'grey.0'
 
 // Shared by the real shell and Ladle's AppShell decorator so the two can't drift.
 export const APP_SHELL = {
@@ -27,3 +27,7 @@ export const APP_SHELL = {
 export const NOTIFICATION_DISPLAY_MS = 8000
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
+
+// Clerk's signOut can hang instead of settling, which strands whatever awaits it. Shared so the
+// bound is one decision rather than a copy per call site (OTTER-745).
+export const SIGN_OUT_TIMEOUT_MS = 5_000

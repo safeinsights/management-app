@@ -4,7 +4,7 @@ import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FileWithPath } from '@mantine/dropzone'
 import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { FileDropOverlay } from './file-drop-overlay'
-import { LaunchIdeButton } from './launch-ide-button'
+import { LaunchIdeControl } from './launch-ide-control'
 import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
 
@@ -16,7 +16,6 @@ interface StarterFile {
 interface StudyCodeEmptyViewProps {
     launchWorkspace: (options?: { sameWindow?: boolean }) => void
     isLaunching: boolean
-    launchError: Error | null
     launchLastUpdatedAt?: Date | null
     launchBuildLog?: string
     launchAgentLog?: string
@@ -24,12 +23,14 @@ interface StudyCodeEmptyViewProps {
     isUploading: boolean
     starterFiles: StarterFile[]
     showLaunchIde?: boolean
+    isIdeClaimed: boolean
+    canEditInIde: boolean
+    ideOwnerName: string | null
 }
 
 export function StudyCodeEmptyView({
     launchWorkspace,
     isLaunching,
-    launchError,
     launchLastUpdatedAt,
     launchBuildLog = '',
     launchAgentLog = '',
@@ -37,6 +38,9 @@ export function StudyCodeEmptyView({
     isUploading,
     starterFiles,
     showLaunchIde = true,
+    isIdeClaimed,
+    canEditInIde,
+    ideOwnerName,
 }: StudyCodeEmptyViewProps) {
     const openRef = useRef<() => void>(null)
     const starterLink = starterFiles[0]
@@ -59,11 +63,13 @@ export function StudyCodeEmptyView({
                             populate here.
                         </Text>
                         <Box>
-                            <LaunchIdeButton
-                                onClick={(event) => launchWorkspace({ sameWindow: event.shiftKey })}
+                            <LaunchIdeControl
+                                isClaimed={isIdeClaimed}
+                                canLaunch={canEditInIde}
+                                ideOwnerName={ideOwnerName}
                                 isLaunching={isLaunching}
-                                launchError={launchError}
-                                variant="cta"
+                                onLaunch={launchWorkspace}
+                                align="flex-start"
                             />
                         </Box>
                         <LaunchProgress

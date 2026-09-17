@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
     researcherCodeDecisionBanner,
     researcherCodeSubmittedBanner,
+    researcherOutputsAwaitingReviewBanner,
     researcherOutputsFeedbackBanner,
+    researcherOutputsPendingBanner,
     researcherProposalBanner,
     researcherSharedOutputsBanner,
     reviewerCodeDecisionBanner,
@@ -108,6 +110,41 @@ describe('researcherSharedOutputsBanner', () => {
             title: 'Resolve the code error to proceed',
             body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
         })
+    })
+})
+
+describe('researcherOutputsAwaitingReviewBanner', () => {
+    it('names the data partner in both the title and the body, and stays informative', () => {
+        expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER })).toEqual({
+            variant: 'informative',
+            title: `Code run complete, outputs under review by ${DATA_PARTNER}`,
+            body: `${DATA_PARTNER} reviews the outputs before releasing them to you. A notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
+        })
+    })
+
+    it('carries no date, which statusAlertTitle appends at the call site', () => {
+        expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER }).title).not.toContain('•')
+    })
+})
+
+describe('researcherOutputsPendingBanner', () => {
+    it('keeps the run silent while the enclave still has it', () => {
+        expect(researcherOutputsPendingBanner({ runErrored: false })).toEqual({
+            variant: 'informative',
+            title: 'Outputs not ready, code processing started',
+            body: 'Your code is running in the secure enclave. This can take a while, depending on how complex it is. An email notification will be sent when your outputs are ready or if anything goes wrong.',
+        })
+    })
+
+    it('hands a failed run to the data partner without naming the error', () => {
+        const copy = researcherOutputsPendingBanner({ runErrored: true })
+
+        expect(copy).toEqual({
+            variant: 'informative',
+            title: 'Outputs not ready, awaiting review',
+            body: 'Code processing has finished and is with the data partner for review. An email notification will be sent when your outputs are ready or if anything needs your attention.',
+        })
+        expect(copy.body).not.toMatch(/error|fail/i)
     })
 })
 

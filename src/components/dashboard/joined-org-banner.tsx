@@ -44,11 +44,11 @@ export function JoinedOrgBanner() {
             color="green"
             withCloseButton
             onClose={() => setJoinedOrg(null)}
-            icon={<CheckCircleIcon weight="fill" size={20} color={theme.colors.green[9]} />}
-            styles={{ closeButton: { color: theme.colors.green[9] } }}
+            icon={<CheckCircleIcon weight="fill" size={20} color={theme.colors.green[7]} />}
+            styles={{ closeButton: { color: theme.colors.green[7] } }}
             data-testid="joined-org-banner"
         >
-            <Text size="sm" c={theme.colors.green[9]} fw={700}>
+            <Text size="sm" c={theme.colors.green[7]} fw={700}>
                 {bannerMessage(joinedOrg)}
             </Text>
         </Alert>

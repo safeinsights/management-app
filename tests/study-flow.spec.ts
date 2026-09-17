@@ -126,6 +126,14 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
         // Confirm before submitting: an unmarked link here would navigate the
         // researcher out of the app on click.
         await expect(page.locator(`a[href="${PROPOSAL_LINK_URL}"]`)).toHaveAttribute('target', '_blank')
+
+        // OTTER-776: a click on link text opens the card over the link rather than following it.
+        await page.locator(`a[href="${PROPOSAL_LINK_URL}"]`).click()
+        const linkCard = page.getByRole('dialog', { name: 'Link details' })
+        await expect(linkCard).toContainText(PROPOSAL_LINK_URL)
+        await expect(linkCard.getByRole('button', { name: 'Edit link' })).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(linkCard).toBeHidden()
     }
 
     const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
@@ -171,6 +179,9 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await page.waitForURL(/\/submitted(\?.*)?$/)
     await page.getByRole('link', { name: /^Next step$/i }).click()
     await page.waitForURL(/\/code$/)
+    // Render signal, not just a URL signal: the callers below immediately reach for controls
+    // inside the card. Role-scoped because the footer button shares the label.
+    await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
 }
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
@@ -189,14 +200,19 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
-    await expect(page.getByRole('cell', { name: mainFileName, exact: true })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
+    // By the view button, not the cell: this table makes the file name the control that opens the
+    // preview, so the cell's accessible name is "View {file}".
+    // `exact` throughout this file for anything naming a file: Playwright matches accessible names
+    // case-insensitively by default, so `View main.r` also matches the pre-loaded `View Main.R`.
+    await expect(page.getByRole('button', { name: `View ${mainFileName}`, exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
 
     // main file must be picked explicitly when multiple files are present.
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
+    // `radio`, not `button`: this table is a radiogroup.
     await expect(async () => {
-        await page.getByRole('button', { name: `Set ${mainFileName} as main file` }).click()
-        await expect(page.getByRole('button', { name: `${mainFileName} is the main file` })).toBeVisible()
+        await page.getByRole('radio', { name: `Set ${mainFileName} as main file`, exact: true }).click()
+        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file`, exact: true })).toBeVisible()
     }).toPass()
 
     const submitButton = page.getByRole('button', { name: /Submit code/i })
@@ -205,7 +221,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
-    const confirmButton = page.getByRole('button', { name: 'Yes, submit study code' })
+    // OTTER-693 renamed the modal's CTA from "Yes, submit study code" to "Submit code". Scoped to
+    // the dialog and exact: unscoped it would also match the "Submit code for review" button behind
+    // it, since Playwright matches the accessible name as a substring by default.
+    const confirmDialog = page.getByRole('dialog', { name: 'Submit code for review?' })
+    const confirmButton = confirmDialog.getByRole('button', { name: 'Submit code', exact: true })
     await expect(confirmButton).toBeVisible()
     await confirmButton.click()
 
@@ -223,9 +243,26 @@ async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
-    await expect(page.getByRole('cell', { name: 'main.r', exact: true })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'code.r', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'main.r is the main file' })).toBeVisible()
+    // OTTER-693 asks before overwriting a name the workspace already has, one file at a time — and a
+    // resubmission re-uploads the previous round's names, so this is the ordinary case here. Replace
+    // is what a resubmission means. Retried as a block because the prompt can arrive after the
+    // upload settles, and conditional for the same reason the upload-card check above is: whether
+    // the previous files are on disk depends on shared CODER_FILES state.
+    const replacePrompt = page.getByRole('dialog', { name: 'Replace existing file?' })
+    await expect(async () => {
+        if (await replacePrompt.isVisible()) {
+            await replacePrompt.getByRole('button', { name: 'Replace' }).click()
+        }
+        await expect(replacePrompt).toBeHidden()
+        await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
+    }).toPass()
+
+    // /resubmit now renders the same table as /code, so the file name is the view button and the
+    // star is a radio — the same selectors the upload helper above uses.
+    await expect(page.getByRole('button', { name: 'View main.r', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
+    // Without `exact` this passes against `Main.R is the main file`, asserting the wrong file.
+    await expect(page.getByRole('radio', { name: 'main.r is the main file', exact: true })).toBeVisible()
 }
 
 // ============================================================================
@@ -597,6 +634,16 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(submittedLink).toHaveAttribute('href', PROPOSAL_LINK_URL)
         await expect(submittedLink).toHaveAttribute('target', '_blank')
 
+        // OTTER-776: reading the submitted proposal, the click shows the card and stays on the page.
+        const submittedUrl = page.url()
+        await submittedLink.click()
+        const readOnlyCard = page.getByRole('dialog', { name: 'Link details' })
+        await expect(readOnlyCard).toContainText(PROPOSAL_LINK_URL)
+        await expect(readOnlyCard.getByRole('button', { name: 'Copy link' })).toBeVisible()
+        await expect(page).toHaveURL(submittedUrl)
+        await page.keyboard.press('Escape')
+        await expect(readOnlyCard).toBeHidden()
+
         // OTTER-764 state 3 on a proposal genuinely pending review. Step 1 is a record here, so no
         // field has an input left and the CTA only steps forward. The title has been locked since
         // submission, which is what makes the permanent lock outrank state 2's editable title.
@@ -927,6 +974,25 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
+
+        // OTTER-764: a change-requested proposal steps back to the read-only Step 1 record and
+        // forward again, like every other post-submission state. The footer offers the step back
+        // rather than an exit, so no control here leads to the dashboard.
+        await expect(page.getByTestId('cta-back-to-my-studies')).toHaveCount(0)
+        await page.getByRole('link', { name: /Previous step/i }).click()
+        await page.waitForURL(/\/edit(\?.*)?$/)
+        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expectLockedSetupField(page, 'Study title', studyTitle)
+        await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
+        await expectLockedSetupField(page, 'Programming language', 'R')
+        await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
+        await expect(page.getByTestId('org-select')).toHaveCount(0)
+
+        const forwardToProposal = page.getByRole('button', { name: 'Next step' })
+        await expect(forwardToProposal).toBeEnabled()
+        await forwardToProposal.click()
+        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
 
         await page.getByRole('link', { name: /^Edit proposal$/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
