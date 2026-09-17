@@ -25,7 +25,7 @@ export function ProposalReviewLayoutView({
     modals,
 }: ProposalReviewLayoutViewProps) {
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             {listener}
             <Stack px="xl" gap="xxl" py="xl">
                 {header}

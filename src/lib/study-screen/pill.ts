@@ -10,7 +10,7 @@ const LABELS: Record<StudyRole, Partial<Record<StudyJobStatus | string, StatusLa
 
 // Neither label map has a DRAFT key, so without this an unlabeled row resolves to undefined and
 // crashes the caller.
-const FALLBACK_LABEL: StatusLabel = { stage: 'Proposal', label: 'Draft', colors: { bg: 'grey.10', c: 'gray.9' } }
+const FALLBACK_LABEL: StatusLabel = { stage: 'Proposal', label: 'Draft', colors: { bg: 'grey.0', c: 'gray.9' } }
 
 // Returns the first priority status THE ROLE HAS A LABEL FOR, so researchers fall through the
 // execution sub-statuses to CODE-APPROVED.

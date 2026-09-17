@@ -18,7 +18,7 @@ type CollapseToggleLinkProps = {
 }
 
 export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLinkProps>(function CollapseToggleLink(
-    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = 'blue.10' },
+    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = 'navy.5' },
     ref,
 ) {
     if (!isVisible) return null

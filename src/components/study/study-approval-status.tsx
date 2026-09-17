@@ -8,7 +8,7 @@ const StudyApprovalStatus: FC<{ status: StudyStatus; date?: Date | null }> = ({ 
     const allowedStatuses: StudyStatus[] = ['APPROVED', 'REJECTED']
     if (!date || !status || !allowedStatuses.includes(status)) return null
 
-    const color = status === 'APPROVED' ? 'green.9' : 'red.9'
+    const color = status === 'APPROVED' ? 'green.7' : 'red.7'
     const statusDisplay = status === 'APPROVED' ? 'Approved' : 'Rejected'
 
     return (

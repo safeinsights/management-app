@@ -1,13 +1,15 @@
+import { sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction } from '@/database/types'
+import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { latestCodeSubmittedAt, reviewForCurrentRound } from '@/lib/study-job-status'
-import { Selectable } from 'kysely'
+import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { codeRoundForJob } from './code-round'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -163,7 +165,7 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.studyId', '=', studyId)
-        .where('jobStatusChange.status', 'in', ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED'])
+        .where('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
         .select((eb) => eb.fn.countAll().as('count'))
         .executeTakeFirst()
     return Number(row?.count ?? 0) + 1
@@ -546,6 +548,56 @@ export async function latestActivityPerJobFile(jobId: string, orgId: string): Pr
         .execute()
 }
 
+/**
+ * OTTER-693: whether this researcher has already been shown the Submit code page's FAQ.
+ *
+ * Filters in the same order as the last-login read, so it rides audit_last_login_idx
+ * (record_type, event_type, record_id) and only the handful of rows that survives is checked
+ * against the metadata subject.
+ */
+export async function hasViewedSubmitCodeFaq(userId: string): Promise<boolean> {
+    const row = await Action.db
+        .selectFrom('audit')
+        // recordId rather than userId: the same value here, but recordId is the event's subject and
+        // it is the indexed column.
+        .select('audit.id')
+        .where('audit.recordType', '=', 'USER')
+        .where('audit.eventType', '=', 'VIEWED')
+        .where('audit.recordId', '=', userId)
+        .where(sql<string>`audit.metadata->>'subject'`, '=', SUBMIT_CODE_FAQ_SUBJECT)
+        .limit(1)
+        .executeTakeFirst()
+
+    return row !== undefined
+}
+
+// The workspace-file counterpart of latestActivityPerJobFile: same DISTINCT ON collapse, keyed on
+// (study, file name) because a workspace file is a path on disk rather than a row (OTTER-693).
+export type WorkspaceFileActivityRow = {
+    fileName: string
+    action: WorkspaceFileAction
+    createdAt: Date
+    actorName: string
+}
+
+export async function latestActivityPerWorkspaceFile(studyId: string): Promise<WorkspaceFileActivityRow[]> {
+    return await Action.db
+        .selectFrom('workspaceFileActivity')
+        .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
+        .where('workspaceFileActivity.studyId', '=', studyId)
+        .select([
+            'workspaceFileActivity.fileName',
+            'workspaceFileActivity.action',
+            'workspaceFileActivity.createdAt',
+            'user.fullName as actorName',
+        ])
+        .distinctOn(['workspaceFileActivity.fileName'])
+        .orderBy('workspaceFileActivity.fileName')
+        .orderBy('workspaceFileActivity.createdAt', 'desc')
+        .orderBy('workspaceFileActivity.id', 'desc')
+        .execute()
+}
+
 // Rows can exist while the round is still open, and removing a researcher from the lab never
 // retroactively unshares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
@@ -637,18 +689,18 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
     }
 }
 
-// The round rule needs the job's submission history, so the job is the argument rather than a bare
-// id: passing both let a caller pair one job's id with another's statuses (OTTER-775). The id key
-// differs by query — getStudyJobInfo aliases it to studyJobId — so either spelling is accepted.
-export type JobForRound = {
-    createdAt: Date | string
-    statusChanges: ReadonlyArray<{ status: string; createdAt: Date | string }>
-} & ({ id: string } | { studyJobId: string })
+// The job's round is resolved from its status history in the database, so the id is all a caller
+// has to supply. The id key differs by query, since getStudyJobInfo aliases it to studyJobId, so
+// either spelling is accepted.
+export type JobForRound = { id: string } | { studyJobId: string }
 
 const jobRowId = (job: JobForRound) => ('id' in job ? job.id : job.studyJobId)
 
 export async function getStudyReviewForJob(job: JobForRound): Promise<StudyReviewWithMeta | null> {
     const studyJobId = jobRowId(job)
+    // A resubmit reuses the job, so the id alone matches every round it has been through. Only the
+    // summary written for the code now on the job is current (OTTER-779).
+    const round = await codeRoundForJob(studyJobId, Action.db)
     const row = await Action.db
         .selectFrom('studyReview')
         .select((eb) => [
@@ -666,13 +718,10 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
             ).as('files'),
         ])
         .where('studyJobId', '=', studyJobId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
+        .where('round', '=', round)
         .executeTakeFirst()
 
-    if (!row) return null
-
-    return reviewForCurrentRound(row, latestCodeSubmittedAt(job))
+    return row ?? null
 }
 
 export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }

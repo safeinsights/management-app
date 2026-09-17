@@ -27,7 +27,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
     const banner = researcherOutputsFeedbackBanner({ runErrored: state.runErrored }, { dataPartner })
 
     return (
-        <Box bg="grey.10">
+        <Box bg="grey.0">
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader
