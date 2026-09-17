@@ -14,6 +14,7 @@ import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
+import { useOutputsDecisionMap } from '@/hooks/use-outputs-decision-map'
 import { useOutputsReviewFeedbackProvider } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import type { SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
@@ -57,6 +58,9 @@ export function useOutputsDecision({
 
     const [feedback, setFeedback] = useState('')
     const [selected, setSelected] = useState<OutputsDecision | null>(null)
+    // The feedback rides back on the collaborative document by itself; the radio needs this to be
+    // restored with it (OTTER-758).
+    const { pushDecision } = useOutputsDecisionMap({ provider, selected, onRestore: setSelected })
     // Not raised on blur: the message inserts a line that shifts "Submit decision" between
     // mousedown and mouseup, so the click misses and the reviewer has to click twice.
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
@@ -148,7 +152,13 @@ export function useOutputsDecision({
         setConfirming(selected)
     }, [isEmpty, isOverLimit, selected])
 
-    const onSelect = useCallback((next: OutputsDecision) => setSelected(next), [])
+    const onSelect = useCallback(
+        (next: OutputsDecision) => {
+            setSelected(next)
+            pushDecision(next)
+        },
+        [pushDecision],
+    )
 
     const confirmSubmit = useCallback(() => {
         if (confirming) submit(confirming)
