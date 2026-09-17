@@ -2,12 +2,12 @@
 
 import { useForm, useQuery } from '@/common'
 import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
+import { markOrgJoined } from '@/lib/joined-org'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import type { EmailAddressResource, UserResource } from '@clerk/types'
 import { isNotEmpty } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getClaimedInviteAction } from '../create-account.action'
@@ -20,13 +20,6 @@ const matchingAddress = (user: UserResource, email: string) =>
     user.emailAddresses.find((address) => address.emailAddress.toLowerCase() === email.toLowerCase())
 
 const isVerified = (address: EmailAddressResource | undefined) => address?.verification?.status === 'verified'
-
-// "under" is the address the person signs in with, not the invited one: the invite is what gets
-// folded into their existing account (OTTER-345).
-const linkedMessage = (accountEmail: string | undefined) =>
-    accountEmail
-        ? `You’ve successfully linked your SafeInsights accounts under ${accountEmail}.`
-        : 'You’ve successfully linked your SafeInsights accounts.'
 
 // Reuses an address Clerk kept from an abandoned attempt, so a second visit does not collide with
 // the caller's own pending entry. Returns rather than setting state, so both callers can await it
@@ -133,11 +126,9 @@ export function useLinkInviteEmail(inviteId: string) {
             try {
                 await address.attemptVerification({ code })
                 await user.reload()
-                notifications.show({
-                    color: 'green',
-                    title: 'Accounts successfully linked',
-                    message: linkedMessage(user.primaryEmailAddress?.emailAddress),
-                })
+                // Overwrites the flag the accept step set, so the dashboard banner names the
+                // address that was linked rather than the plain "added to" copy.
+                markOrgJoined(invite.orgName, invite.email)
                 router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
             } catch (error) {
                 form.setErrors({

@@ -9,8 +9,8 @@ import {
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
+import { readJoinedOrg } from '@/lib/joined-org'
 import { useReverification, useUser } from '@clerk/nextjs'
-import { notifications } from '@mantine/notifications'
 import router from 'next-router-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LinkEmailPanel } from './link-email-panel'
@@ -69,6 +69,7 @@ const renderPage = (inviteId: string) => renderWithProviders(<LinkEmailPanel inv
 describe('invite email linking screen', () => {
     beforeEach(() => {
         router.setCurrentUrl('/')
+        sessionStorage.clear()
     })
 
     it('sends a code to the invited address and links it once the code is accepted', async () => {
@@ -88,15 +89,9 @@ describe('invite email linking screen', () => {
 
         await waitFor(() => expect(address.attemptVerification).toHaveBeenCalledWith({ code: '424242' }))
 
-        // The toast asserts a merge, so it may only fire once a verification has actually succeeded.
-        await waitFor(() =>
-            expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    title: 'Accounts successfully linked',
-                    message: `You’ve successfully linked your SafeInsights accounts under ${user.email}.`,
-                }),
-            ),
-        )
+        // The banner copy asserts a merge, so it may only name the address once a verification has
+        // actually succeeded.
+        await waitFor(() => expect(readJoinedOrg()).toEqual({ orgName: invitingOrg.name, linkedEmail: invitedEmail }))
         await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
     })
 
@@ -133,7 +128,7 @@ describe('invite email linking screen', () => {
 
         await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
         expect(createEmailAddress).not.toHaveBeenCalled()
-        expect(notifications.show).not.toHaveBeenCalled()
+        expect(readJoinedOrg()).toBeNull()
     })
 
     it('discards the unverified address and keeps the membership when the person skips', async () => {
@@ -149,7 +144,7 @@ describe('invite email linking screen', () => {
 
         await waitFor(() => expect(address.destroy).toHaveBeenCalled())
         await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
-        expect(notifications.show).not.toHaveBeenCalled()
+        expect(readJoinedOrg()).toBeNull()
     })
 
     it('explains and moves on when the address belongs to another SafeInsights account', async () => {
@@ -164,7 +159,7 @@ describe('invite email linking screen', () => {
 
         await userEvent.click(screen.getByRole('button', { name: /continue/i }))
         await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
-        expect(notifications.show).not.toHaveBeenCalled()
+        expect(readJoinedOrg()).toBeNull()
     })
 
     it('reports a wrong code without leaving the screen', async () => {
@@ -181,7 +176,7 @@ describe('invite email linking screen', () => {
         await userEvent.click(screen.getByRole('button', { name: /verify and link/i }))
 
         expect(await screen.findByText(/Invalid verification code/)).toBeDefined()
-        expect(notifications.show).not.toHaveBeenCalled()
+        expect(readJoinedOrg()).toBeNull()
     })
 
     it('shows the invalid-invite panel when the invite is not this account to finish', async () => {
