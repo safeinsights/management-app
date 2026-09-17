@@ -6,9 +6,16 @@
     background-color: var(--si-color-surface-hover);
 }
 
+/* The column has a fixed share of the table now, so a name that still does not fit after the
+   50-character truncation has to end in an ellipsis rather than push the row wider. */
 .fileName {
     cursor: pointer;
     font-size: 14px;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .fileName:hover,
