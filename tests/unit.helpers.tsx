@@ -101,6 +101,21 @@ export const createTestQueryClient = () => {
 export const pendingTestMutationCount = () =>
     [...liveTestQueryClients].reduce((count, client) => count + client.isMutating(), 0)
 
+// Names what is still in flight. The teardown failure is otherwise reported with no test attached,
+// which leaves a CI-only failure to be found by bisection.
+export const pendingTestMutationDescriptions = () =>
+    [...liveTestQueryClients].flatMap((client) =>
+        client
+            .getMutationCache()
+            .getAll()
+            .filter((mutation) => mutation.state.status === 'pending')
+            .map((mutation) => {
+                const key = mutation.options.mutationKey
+                const variables = JSON.stringify(mutation.state.variables ?? null)?.slice(0, 200)
+                return `${key ? JSON.stringify(key) : '<no mutationKey>'} variables=${variables}`
+            }),
+    )
+
 // Must run after RTL cleanup(), which removes the observers; this clears the data behind them.
 export const resetTestQueryClients = () => {
     for (const client of liveTestQueryClients) {
