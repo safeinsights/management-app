@@ -201,6 +201,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
+                    isResizable
                     // Takes the slot the save indicator vacates, not a row below the counter.
                     footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}
                     footerRight={<FeedbackCounter characterCount={characterCount} />}

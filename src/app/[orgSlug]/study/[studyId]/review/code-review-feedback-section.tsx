@@ -71,6 +71,7 @@ function FeedbackEditor({
             placeholder={FEEDBACK_PLACEHOLDER}
             contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            isResizable
             onProviderReady={publishProvider}
         />
     )
