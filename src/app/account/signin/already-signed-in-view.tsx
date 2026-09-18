@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { type FC } from 'react'
 import { Button, Paper, Stack, Text, Title } from '@mantine/core'
 
@@ -20,7 +21,7 @@ export const AlreadySignedInView: FC<AlreadySignedInViewProps> = ({
     onSwitchAccount,
 }) => {
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="xl">
                 <Title order={3} ta="center">
                     You’re already signed in

@@ -114,7 +114,7 @@ export function SingleUserEditor({
                 {children}
             </EditorSurface>
             {(footerLeft || footerRight) && (
-                <Stack gap={4} mt={4}>
+                <Stack gap="xxs" mt="xxs">
                     <EditorFooter left={footerLeft} right={footerRight} />
                 </Stack>
             )}

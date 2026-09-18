@@ -18,6 +18,7 @@ import BackupCodes from '../app/backup-codes'
 import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
 import { AddSmsMfaView } from './add-sms-mfa-view'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // https://clerk.com/docs/custom-flows/add-phone
 // https://clerk.com/docs/custom-flows/manage-sms-based-mfa
@@ -165,7 +166,7 @@ export function AddSMSMFA() {
 
     return (
         <Container>
-            <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
                 <Stack gap="lg">
                     <Stepper
                         unstyled
@@ -225,7 +226,7 @@ export function AddSMSMFA() {
                                                 href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
-                                                fw={600}
+                                                fw={fontWeight.semibold}
                                                 fz="md"
                                                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                                             >

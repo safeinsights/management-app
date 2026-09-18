@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
 import { Box, Button, Stack } from '@mantine/core'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
@@ -93,7 +94,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     tabSessionId={tabSessionId}
                     enabled={isRoundOpen}
                 />
-                <Box bg="grey.0">
+                <Box bg={semanticColor('surface.page')}>
                     <Stack px="xl" gap="xxl" py="xl">
                         {header}
                         <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />

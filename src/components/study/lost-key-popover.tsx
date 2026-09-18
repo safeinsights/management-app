@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { ActionIcon, Anchor, Group, Popover, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
@@ -16,8 +17,8 @@ export const LostKeyPopover = () => {
     }
 
     return (
-        <Group gap={4} align="center">
-            <Text fz={16} c="charcoal.7">
+        <Group gap="xxs" align="center">
+            <Text fz={16} c={semanticColor('text.secondary')}>
                 Lost your key?
             </Text>
             <Popover opened={opened} onChange={close} width={360} position="right" withArrow>
@@ -62,7 +63,7 @@ export const LostKeyPopover = () => {
                             rel="noopener noreferrer"
                             fz={14}
                             aria-label="Manage your security key (opens in a new tab)"
-                            c="blue.7"
+                            c={semanticColor('link.default')}
                         >
                             Manage your security key
                         </Anchor>

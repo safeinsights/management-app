@@ -18,6 +18,7 @@ import { editableTextFields } from './field-config'
 import { ProposalTextFieldEntry } from './collaborative-proposal-text-field'
 import { datasetsDescription, proposalIntroText } from './copy'
 import { type ProposalFormValues } from './schema'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export interface MemberOption {
     value: string
@@ -87,10 +88,9 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
         <Stack gap="xxl">
             <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
             {/* No study title anywhere in the card: Step 1 owns it (OTTER-690) and the card forbids
-                repeating it as body text. Literal 24 rather than gap="lg": this app's Mantine `lg`
-                is 20px while the design token is 24px. */}
+                repeating it as body text. */}
             <ProposalStepHeader stepLabel="STEP 2" heading={heading}>
-                <Stack gap={24}>
+                <Stack gap="lg">
                     <Text>{intro}</Text>
 
                     <FormField
@@ -122,10 +122,10 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 size="sm"
-                                c="blue.7"
-                                fw={600}
+                                c={semanticColor('link.default')}
+                                fw={fontWeight.semibold}
                             >
-                                <Group gap={4} wrap="nowrap">
+                                <Group gap="xxs" wrap="nowrap">
                                     Explore data catalog
                                     <ArrowSquareOutIcon size={16} weight="bold" />
                                 </Group>

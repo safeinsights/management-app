@@ -43,7 +43,7 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
 
 // This table lists the org's studies, not one reader's acknowledgements.
 const NoAgreementsYet: FC = () => (
-    <Stack gap={4} align="center">
+    <Stack gap="xxs" align="center">
         <Text>No Study Agreement yet.</Text>
         <Text c="dimmed">Once a study reaches the agreement stage, its Study Agreement will appear here.</Text>
     </Stack>

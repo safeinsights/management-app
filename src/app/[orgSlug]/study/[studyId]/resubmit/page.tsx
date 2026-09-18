@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -36,7 +37,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     const studyHasCodeEnv = (await fetchLatestCodeEnvForStudyIdOrNull(studyId)) != null
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>

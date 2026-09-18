@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { ActionIcon, Badge, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretDownIcon, CheckCircleIcon, PlusCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
@@ -99,7 +100,7 @@ export function CodeEnvRowView({
                     )}
                     <ScanStatusBadge status={latestScanStatus} onClick={onScanBadgeClick} />
                 </Group>
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     {actions}
                 </Group>
             </Group>
@@ -116,7 +117,7 @@ export type CodeEnvsViewProps = {
 
 export function CodeEnvsView({ onAdd, refresher, children }: CodeEnvsViewProps) {
     return (
-        <Paper bg="white" p="xxl">
+        <Paper bg={semanticColor('surface.raised')} p="xxl">
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="lg">

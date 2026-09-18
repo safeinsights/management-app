@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { InputError } from '@/components/errors'
 import OtpInput from '@/components/otp-input'
 import { SignInResource } from '@clerk/types'
@@ -59,7 +60,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
                     <Anchor
                         component="button"
                         type="button"
-                        c="blue.7"
+                        c={semanticColor('link.default')}
                         fz="sm"
                         underline="always"
                         style={{ opacity: canResendCode ? 1 : 0.4, cursor: canResendCode ? 'pointer' : 'not-allowed' }}

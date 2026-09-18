@@ -17,6 +17,7 @@ import {
 import { useMutation } from '@/common'
 import { markSubmitCodeFaqSeenAction } from '@/server/actions/submit-code-faq.actions'
 import { MainFileTemplateCopy } from './main-file-template-copy'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const FAQ_ITEM_VALUE = 'submit-code-faq'
 const FAQ_HEADER = 'New to SafeInsights IDE? Start here.'
@@ -97,11 +98,11 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
     <Stack gap={0} data-testid={`faq-section-${question}`}>
         <Group gap="xs" wrap="nowrap">
             {icon}
-            <Text fz={SECTION_FONT_SIZE} fw={700} lh={1.2} c="charcoal.9">
+            <Text fz={SECTION_FONT_SIZE} fw={fontWeight.bold} lh={1.2} c={semanticColor('text.primary')}>
                 {question}
             </Text>
         </Group>
-        <Text fz={SECTION_FONT_SIZE} c="charcoal.9" pl={ANSWER_INDENT}>
+        <Text fz={SECTION_FONT_SIZE} c={semanticColor('text.primary')} pl={ANSWER_INDENT}>
             {answer}
         </Text>
     </Stack>
@@ -154,7 +155,7 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
                 <Accordion.Control
                     icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color="var(--mantine-color-blue-7)" />}
                 >
-                    <Text fw={600} c="charcoal.9">
+                    <Text fw={fontWeight.semibold} c={semanticColor('text.primary')}>
                         {FAQ_HEADER}
                     </Text>
                 </Accordion.Control>

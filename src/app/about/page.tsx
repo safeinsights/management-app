@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
+import { fontWeight } from '@/theme/tokens'
 
 export const metadata: Metadata = { title: 'About' }
 
@@ -11,7 +12,7 @@ const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
         <Text component="div" fz="lg" fw={500}>
             {title}:
         </Text>
-        <Text component="div" fz="md" fw={700}>
+        <Text component="div" fz="md" fw={fontWeight.bold}>
             {value}
         </Text>
     </>

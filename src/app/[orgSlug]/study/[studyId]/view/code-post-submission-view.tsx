@@ -20,6 +20,7 @@ import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeSubmittedBanner } from '@/lib/study-banners'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { StudyCodeToggle } from './study-code-collapse'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -68,7 +69,7 @@ const ExpandToggle: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisib
         <Anchor
             component="button"
             size="sm"
-            fw={700}
+            fw={fontWeight.bold}
             onClick={onClick}
             mt="md"
             display="inline-flex"
@@ -142,7 +143,7 @@ const ExpandedCodePanel: FC<ExpandedCodePanelProps> = ({
                     <Anchor
                         component="button"
                         size="sm"
-                        fw={700}
+                        fw={fontWeight.bold}
                         onClick={onCollapse}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
@@ -186,10 +187,10 @@ export function CodePostSubmissionView({
 
             <Stack gap="xxl">
                 <Paper p="xxl">
-                    <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+                    <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
                         STEP 4
                     </Text>
-                    <Title fz={20} order={2} c="charcoal.9" pb={4}>
+                    <Title fz={20} order={2} c={semanticColor('text.primary')} pb="xxs">
                         {sectionTitle}
                     </Title>
                     <Divider my="md" />

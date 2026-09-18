@@ -5,6 +5,7 @@ import { Box, Divider, Group, Stack, Text } from '@mantine/core'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { ProfessionalProfileLink } from '@/components/professional-profile-link'
 import type { SelectedStudy } from '@/server/actions/study.actions'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type FieldDividerVariant = 'subtle' | 'default' | 'none'
 
@@ -32,8 +33,8 @@ export function LexicalProposalField({
     return (
         <>
             <FieldDivider variant={divider} />
-            <Stack gap={4}>
-                <Text fw={600} size="sm">
+            <Stack gap="xxs">
+                <Text fw={fontWeight.semibold} size="sm">
                     {label}
                 </Text>
                 <Text size={size} component="div">
@@ -45,8 +46,8 @@ export function LexicalProposalField({
 }
 
 const DatasetPill: FC<{ name: string; size: 'sm' | 'md' }> = ({ name, size }) => (
-    <Box bg="grey.0" px="xs" py={2} bdrs="sm">
-        <Text size={size} c="charcoal.9">
+    <Box bg={semanticColor('surface.page')} px="xs" py={2} bdrs="sm">
+        <Text size={size} c={semanticColor('text.primary')}>
             {name}
         </Text>
     </Box>
@@ -68,8 +69,8 @@ export function DatasetsField({
     const named = datasets.map((id) => ({ id, name: nameMap[id] || id }))
 
     return (
-        <Stack gap={4}>
-            <Text fw={600} size="sm">
+        <Stack gap="xxs">
+            <Text fw={fontWeight.semibold} size="sm">
                 Dataset(s) of interest
             </Text>
             <Group gap="md">
@@ -95,7 +96,7 @@ const ProfileRow: FC<{
     size?: 'sm' | 'md'
 }> = ({ name, userId, studyId, orgSlug, size = 'md' }) => (
     <Group gap="md" align="center">
-        <Text size={size} c="charcoal.7">
+        <Text size={size} c={semanticColor('text.secondary')}>
             {name}
         </Text>
         <ProfessionalProfileLink userId={userId} studyId={studyId} orgSlug={orgSlug} />
@@ -108,8 +109,8 @@ export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
         <>
             <Divider />
-            <Stack gap={4}>
-                <Text fw={600} size="sm">
+            <Stack gap="xxs">
+                <Text fw={fontWeight.semibold} size="sm">
                     Principal Investigator
                 </Text>
                 <ProfileRow
@@ -126,8 +127,8 @@ export function PIField({ study, orgSlug, size }: ProfileFieldProps) {
 
 export function ResearcherField({ study, orgSlug, size }: ProfileFieldProps) {
     return (
-        <Stack gap={4}>
-            <Text fw={600} size="sm">
+        <Stack gap="xxs">
+            <Text fw={fontWeight.semibold} size="sm">
                 Researcher
             </Text>
             <ProfileRow

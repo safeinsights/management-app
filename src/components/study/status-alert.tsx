@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const STATUS_ALERT_SEPARATOR = '•'
 
@@ -60,10 +61,10 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             {...liveRegion}
         >
             <Stack gap="xs">
-                <Text fz={14} fw={700} c={accent}>
+                <Text fz={14} fw={fontWeight.bold} c={accent}>
                     {title}
                 </Text>
-                <Text fz={14} c="charcoal.9">
+                <Text fz={14} c={semanticColor('text.primary')}>
                     {children}
                 </Text>
             </Stack>

@@ -59,7 +59,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 aria-label="Variable value"
                 error={!envVar.value.trim() ? 'Value is required' : null}
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -94,7 +94,7 @@ function StarterCodeSection({
 
     return (
         <Box>
-            <Title order={5} mb={4}>
+            <Title order={5} mb="xxs">
                 Starter Code
                 <RequiredIndicator isVisible={!isEditMode} />
             </Title>
@@ -170,7 +170,7 @@ function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps
                 aria-label={`Command for .${ext} files`}
                 error={!cmd.trim() ? 'Command is required' : null}
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -202,7 +202,7 @@ function CommandLinesSection({
 
     return (
         <Box>
-            <Title order={5} mb={4}>
+            <Title order={5} mb="xxs">
                 Command Lines
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
@@ -222,7 +222,13 @@ function CommandLinesSection({
                 <Group gap="xs" align="flex-start">
                     <TextInput {...newExtProps} placeholder="Extension (e.g. r, py)" style={{ flex: 1 }} />
                     <TextInput {...newCmdProps} placeholder="Command (e.g. Rscript %f)" style={{ flex: 2 }} />
-                    <ActionIcon color="blue" variant="subtle" onClick={handleAdd} mt={4} aria-label="Add command line">
+                    <ActionIcon
+                        color="blue"
+                        variant="subtle"
+                        onClick={handleAdd}
+                        mt="xxs"
+                        aria-label="Add command line"
+                    >
                         <PlusCircleIcon size={16} />
                     </ActionIcon>
                 </Group>
@@ -285,7 +291,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         label="Is testing image"
                         description="Only admins can use testing images"
                         {...form.getInputProps('isTesting', { type: 'checkbox' })}
-                        mb={4}
+                        mb="xxs"
                     />
                 </Group>
                 <TextInput
@@ -337,7 +343,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 />
                 <Divider />
                 <Box>
-                    <Title order={5} mb={4}>
+                    <Title order={5} mb="xxs">
                         Environment Variables
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
@@ -366,7 +372,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                                 color="blue"
                                 variant="subtle"
                                 onClick={addEnvVar}
-                                mt={4}
+                                mt="xxs"
                                 aria-label="Add environment variable"
                             >
                                 <PlusCircleIcon size={16} />
@@ -376,7 +382,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 </Box>
                 <Divider />
                 <Box>
-                    <Title order={5} mb={4}>
+                    <Title order={5} mb="xxs">
                         Example Data
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">

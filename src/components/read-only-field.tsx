@@ -2,6 +2,7 @@
 
 import { FC, ReactNode, useId } from 'react'
 import { Stack, Text } from '@mantine/core'
+import { fontWeight } from '@/theme/tokens'
 
 interface ReadOnlyFieldProps {
     label: string
@@ -16,11 +17,11 @@ export const ReadOnlyField: FC<ReadOnlyFieldProps> = ({ label, value }) => {
     const labelId = useId()
 
     return (
-        <Stack gap={4} role="group" aria-labelledby={labelId} aria-disabled="true" tabIndex={-1}>
-            <Text id={labelId} fw={600} size="sm">
+        <Stack gap="xxs" role="group" aria-labelledby={labelId} aria-disabled="true" tabIndex={-1}>
+            <Text id={labelId} fw={fontWeight.semibold} size="sm">
                 {label}
             </Text>
-            <Text size="md" fw={400}>
+            <Text size="md" fw={fontWeight.regular}>
                 {value}
             </Text>
         </Stack>

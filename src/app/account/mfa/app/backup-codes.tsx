@@ -6,6 +6,7 @@ import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } f
 import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type ConfirmationModalProps = {
     isOpen: boolean
@@ -71,7 +72,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                 <Stack gap="md" mt="xs">
                     <CopyButton value={codesAsText} timeout={1000}>
                         {({ copied, copy }) => (
-                            <Stack gap={4}>
+                            <Stack gap="xxs">
                                 <Button
                                     fullWidth
                                     size="lg"
@@ -86,7 +87,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                                 {copied && (
                                     <Group gap={6} justify="center" align="center">
                                         <CheckIcon size={16} color={theme.colors.green[7]} />
-                                        <Text size="sm" c="green.7" fw={600}>
+                                        <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
                                             Copied!
                                         </Text>
                                     </Group>
@@ -134,7 +135,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConf
     <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your MFA recovery codes?">
         <Stack>
             <Text size="md">Make sure you have securely saved your MFA recovery codes.</Text>
-            <Text size="sm" c="red.7">
+            <Text size="sm" c={semanticColor('error.text')}>
                 <b>Note:</b> Each code can be used once. We will not show these codes again.
             </Text>
             <Text size="md" mb="md">

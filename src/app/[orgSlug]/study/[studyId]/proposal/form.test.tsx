@@ -166,8 +166,8 @@ describe('ProposalForm field hints (OTTER-769)', () => {
         const asterisk = screen.getByText('Researcher').querySelector('span')
 
         expect(asterisk).toHaveTextContent('*')
-        // Mantine maps `c` to an inline CSS variable, so the resolved color is not assertable.
-        expect(asterisk?.getAttribute('style') || '').toContain('--mantine-color-red-7')
+        // The token var is what lands inline; it resolves to red.7 via error.text.
+        expect(asterisk?.getAttribute('style') || '').toContain('--si-color-error-text')
     })
 
     // The one hand-rolled description on the page, so the only one that can drift from the size
