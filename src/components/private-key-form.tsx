@@ -3,6 +3,7 @@
 import type { FC, FormEventHandler } from 'react'
 import { Button, Group, Stack, Text, Textarea } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
+import { resizableTextareaProps } from '@/components/textarea-resize'
 
 export type PrivateKeyFormValues = { privateKey: string }
 
@@ -31,6 +32,7 @@ export const PrivateKeyForm: FC<PrivateKeyFormProps> = ({
             <Stack>
                 <Textarea
                     label={<Text mb="sm">Enter your Results Key</Text>}
+                    {...resizableTextareaProps}
                     placeholder="Enter your Results Key to access encrypted content."
                     {...form.getInputProps('privateKey')}
                     key={form.key('privateKey')}

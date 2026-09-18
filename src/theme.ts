@@ -243,13 +243,6 @@ export const theme = createTheme({
                 },
             }),
         },
-        // Mantine defaults `resize` to none, so every multi-line field needs the handle turned on
-        // one by one. Set here instead, so a Textarea added later inherits it (OTTER-787).
-        Textarea: {
-            defaultProps: {
-                resize: 'vertical',
-            },
-        },
         // Button geometry comes from buttonSizeVars, its colours from OTTER-761's buttonVars — one
         // `vars` function, because Mantine only calls one per component.
         Button: {

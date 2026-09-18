@@ -35,11 +35,12 @@ describe('palette', () => {
     })
 })
 
-// Mantine's own default is 'none', so without this entry each multi-line field would have to ask
-// for the handle itself, and a new one would silently ship without it (OTTER-787).
+// A blanket resize default is deliberately absent: Mantine floors a multiline input at one row,
+// not at its own height, so a handle without a matching minHeight could be dragged under the
+// height the field loads at (OTTER-787). Each resizable field sets both for itself.
 describe('textarea', () => {
-    it('turns the vertical resize handle on by default', () => {
-        expect(theme.components?.Textarea?.defaultProps).toMatchObject({ resize: 'vertical' })
+    it('turns no resize handle on by default', () => {
+        expect(theme.components?.Textarea).toBeUndefined()
     })
 })
 
