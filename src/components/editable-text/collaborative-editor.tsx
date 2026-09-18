@@ -18,7 +18,7 @@ import { useConnectionPhase } from '@/lib/realtime/yjs-websocket-context'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
-import { EditorFooter } from './editor-footer'
+import { EditorFooter, EditorFooterArea } from './editor-footer'
 import { EditorSurface, resolveContentHeight } from './editor-surface'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
@@ -320,13 +320,28 @@ export function CollaborativeEditor({
     // the navigation completes.
     if (authFailureCode === 'STUDY_NOT_EDITABLE') return null
 
-    if (authFailureCode && TERMINAL_AUTH_CODES.has(authFailureCode)) return <EditorUnavailable />
+    // Neither state recovers without a page reload.
+    const isUnavailable = phase === 'failed' || (!!authFailureCode && TERMINAL_AUTH_CODES.has(authFailureCode))
 
-    if (phase === 'failed') return <EditorUnavailable />
+    // Both fallbacks carry the footer: Submit stays enabled to surface errors, so a field whose
+    // editor never mounted still owes the researcher its own error and count (OTTER-777).
+    if (isUnavailable)
+        return (
+            <>
+                <EditorUnavailable />
+                <EditorFooterArea left={footerLeft} right={footerRight} />
+            </>
+        )
 
     // Same resolution the surface uses, so the skeleton matches the mounted height and the
     // page does not jump.
-    if (phase === 'initial') return <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
+    if (phase === 'initial')
+        return (
+            <>
+                <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
+                <EditorFooterArea left={footerLeft} right={footerRight} />
+            </>
+        )
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
