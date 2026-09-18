@@ -11,3 +11,13 @@ export const resizableTextareaProps = {
     resize: 'vertical',
     styles: { input: { minHeight: TEXTAREA_RESIZE_FLOOR } },
 } satisfies Pick<TextareaProps, 'resize' | 'styles'>
+
+/**
+ * The same handle for a field whose floor follows its content, from `useTextareaResizeFloor`. Kept
+ * out of the JSX because a style object built inline in a return statement is a repo rule breach.
+ */
+export const growingTextareaProps = (floor?: number) =>
+    ({
+        resize: 'vertical',
+        styles: { input: { minHeight: floor } },
+    }) satisfies Pick<TextareaProps, 'resize' | 'styles'>
