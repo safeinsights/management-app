@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { type FC } from 'react'
 import { Text, type TextProps } from '@mantine/core'
 
@@ -10,7 +11,7 @@ type RequiredIndicatorProps = {
 export const RequiredIndicator: FC<RequiredIndicatorProps> = ({ isVisible = true, fz, fw }) => {
     if (!isVisible) return null
     return (
-        <Text span c="red.7" fz={fz} fw={fw} ml={4} aria-label="required">
+        <Text span c={semanticColor('error.text')} fz={fz} fw={fw} ml="xxs" aria-label="required">
             *
         </Text>
     )

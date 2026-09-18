@@ -1,3 +1,5 @@
+import { semanticColor } from '@/theme/tokens'
+
 export const OPENSTAX_ORG_SLUG = 'openstax'
 export const OPENSTAX_LAB_ORG_SLUG = 'openstax-lab'
 export const OPENSTAX_ORG_SLUGS = [OPENSTAX_ORG_SLUG, OPENSTAX_LAB_ORG_SLUG] as const
@@ -7,11 +9,11 @@ export const PROPOSAL_GRID_SPAN = {
     inputSpan: { base: 12, sm: 8, lg: 4 },
 }
 
-export const ENCLAVE_BG = 'purple.6'
-export const LAB_BG = 'green.6'
+export const ENCLAVE_BG = semanticColor('surface.sidenav.dp')
+export const LAB_BG = semanticColor('surface.sidenav.rl')
 
 // Exported so Ladle's canvas shares the app's source of truth.
-export const APP_MAIN_BG = 'grey.0'
+export const APP_MAIN_BG = semanticColor('surface.page')
 
 // Shared by the real shell and Ladle's AppShell decorator so the two can't drift.
 export const APP_SHELL = {

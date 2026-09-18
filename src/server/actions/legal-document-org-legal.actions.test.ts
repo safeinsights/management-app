@@ -45,6 +45,7 @@ const insertStudyWithDistinctOrgs = async ({
         submittedByOrg: researchLab,
         title,
         status,
+        withStudyAgreement: false,
     })
 
     return { study, dataPartner, researchLab }
@@ -91,7 +92,13 @@ describe('fetchOrgStudyAgreementsAction', () => {
     const insertTitledStudies = async (titles: string[]) => {
         const { dataPartner, researchLab } = await insertPartyOrgs()
         for (const title of titles) {
-            await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title, status: 'APPROVED' })
+            await insertTestStudyOnly({
+                org: dataPartner,
+                submittedByOrg: researchLab,
+                title,
+                status: 'APPROVED',
+                withStudyAgreement: false,
+            })
         }
         return dataPartner
     }
@@ -213,7 +220,14 @@ describe('fetchOrgStudyAgreementsAction', () => {
     it('returns every study at the agreement stage, signed or not', async () => {
         const { dataPartner, researchLab } = await insertPartyOrgs()
         const insertStudy = async (title: string) =>
-            (await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title })).study
+            (
+                await insertTestStudyOnly({
+                    org: dataPartner,
+                    submittedByOrg: researchLab,
+                    title,
+                    withStudyAgreement: false,
+                })
+            ).study
 
         const signed = await insertStudy('Has an agreement')
         await insertStudy('Nothing signed')

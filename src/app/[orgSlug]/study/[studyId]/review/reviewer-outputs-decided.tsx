@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -59,7 +60,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
     const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader

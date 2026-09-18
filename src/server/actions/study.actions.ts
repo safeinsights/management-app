@@ -40,6 +40,7 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
     const study = await db
@@ -112,6 +113,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.additionalNotes',
             'study.status',
             'study.title',
+            'study.isTestStudy',
             'study.researcherAgreementsAckedAt',
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',
@@ -690,6 +692,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('review', 'Study')
+    .middleware(requireStudyAgreement(({ params }) => params.studyId))
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
         const userId = session.user.id
 
@@ -809,6 +812,8 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('studyJob.createdAt', 'asc')
+        // Jobs inserted in one transaction share now(), and an unstable order renumbers the versions.
+        .orderBy('studyJob.id', 'asc')
         .execute()
 
     const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))

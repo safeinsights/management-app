@@ -8,6 +8,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
 import { Flex, Paper, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
     const { inviteId } = await params
@@ -82,7 +83,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     const { orgName, isAdmin } = pendingInvite
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
                     You’ve been invited to join SafeInsights!
@@ -92,7 +93,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                     we couldn’t find an existing account associated with this email, please select one of the options
                     below:
                 </Text>
-                <Text size="md" fw={600} ta="center">
+                <Text size="md" fw={fontWeight.semibold} ta="center">
                     Already have a SafeInsights account?
                 </Text>
                 <ButtonLink
@@ -103,14 +104,14 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                 >
                     Login with existing account
                 </ButtonLink>
-                <Text size="sm" c="red.7">
+                <Text size="sm" c={semanticColor('error.text')}>
                     <b>Note:</b> Strongly recommended if you already have an account, since merging accounts later is
                     not supported.
                 </Text>
                 <Text size="md" ta="center" w="100%" my="xs">
                     OR
                 </Text>
-                <Text size="md" fw={600} ta="center">
+                <Text size="md" fw={fontWeight.semibold} ta="center">
                     Setting up a new SafeInsights account?
                 </Text>
                 <ButtonLink variant="outline" size="lg" href={Routes.accountInvitationSignup({ inviteId })} fullWidth>

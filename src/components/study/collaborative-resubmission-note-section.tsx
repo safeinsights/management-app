@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC } from 'react'
 import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
@@ -95,12 +96,12 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={3} size="h4" c="charcoal.9">
+                    <Title order={3} size="h4" c={semanticColor('text.primary')}>
                         Resubmission note
                         <RequiredIndicator isVisible />
                     </Title>
                     <Divider my="md" />
-                    <Text size="sm" c="charcoal.7" mb="md">
+                    <Text size="sm" c={semanticColor('text.secondary')} mb="md">
                         {`Summarize the changes you’ve made based on the feedback from ${orgName}, or include any notes or questions.`}
                     </Text>
                     {/* No placeholder: the card removes the input's placeholder text (OTTER-762). */}

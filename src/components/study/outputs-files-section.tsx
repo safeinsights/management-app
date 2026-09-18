@@ -5,6 +5,7 @@ import { Button, Divider, Group, Paper, Stack, Table, Text } from '@mantine/core
 import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { OutputsFileRow, type OutputFileRowData } from './outputs-file-row'
 import classes from './outputs-files-section.module.css'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // With one file the row's own download icon already does the job.
 const DOWNLOAD_ALL_MIN_FILES = 2
@@ -59,7 +60,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
         <Paper p="xxl" data-testid="outputs-files-section">
             <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
+                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Output files
                     </Text>
                     <DownloadAllButton
@@ -68,7 +69,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                         onClick={onDownloadAll}
                     />
                 </Group>
-                <Divider color="charcoal.1" />
+                <Divider color={semanticColor('border.default')} />
                 {/* File names, actor names and timestamps are all unbounded; without this the
                     Actions column is the first thing pushed off a narrow viewport. */}
                 <Table.ScrollContainer minWidth={TABLE_MIN_WIDTH}>
@@ -76,7 +77,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                         an actor, an action and a timestamp the moment a file is viewed, and an
                         auto-layout table re-apportions every column when it does (OTTER-758). */}
                     <Table verticalSpacing="md" layout="fixed" w="100%" data-testid="outputs-files-table">
-                        <Table.Thead bg="grey.0">
+                        <Table.Thead bg={semanticColor('surface.page')}>
                             <Table.Tr>
                                 <Table.Th scope="col">File name</Table.Th>
                                 <Table.Th scope="col" className={classes.lastActivityColumn}>

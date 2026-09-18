@@ -3,6 +3,7 @@ import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvs } from './code-envs'
 import { DataSources } from './data-sources'
+import { TestLabs } from './test-labs'
 import { OrgSettingsView } from './org-settings-view'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
@@ -25,6 +26,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={<CodeEnvs />}
             dataSources={<DataSources />}
+            testLabs={<TestLabs isVisible={org.type === 'enclave'} />}
         />
     )
 }

@@ -8,6 +8,7 @@ import { OrganizationSettingsDisplay } from './organization-settings-display'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
+import { TestLabRowView, TestLabsView } from './test-labs-view'
 
 // The same layout settings/page.tsx renders, with inline fixtures and stand-in action controls.
 const meta = { title: 'Pages / Org settings', argTypes: pageBackgroundArgTypes }
@@ -108,6 +109,15 @@ const DataSourcesCard = (
     </DataSourcesView>
 )
 
+const TestLabsCard = (
+    <TestLabsView onAdd={noop}>
+        <Stack gap={0}>
+            <TestLabRowView name="Mars Undergraduate Lab" />
+            <TestLabRowView name="Phobos Analytics" />
+        </Stack>
+    </TestLabsView>
+)
+
 export const Populated: Story = () => (
     <Box style={{ maxWidth: 960, margin: '0 auto' }}>
         <OrgSettingsView
@@ -116,6 +126,7 @@ export const Populated: Story = () => (
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={CodeEnvsCard}
             dataSources={DataSourcesCard}
+            testLabs={TestLabsCard}
         />
     </Box>
 )
@@ -139,6 +150,13 @@ export const EmptyCards: Story = () => (
                         No data sources available.
                     </Text>
                 </DataSourcesView>
+            }
+            testLabs={
+                <TestLabsView onAdd={noop}>
+                    <Text fz="sm" c="dimmed" ta="center" p="md">
+                        No test labs have been added.
+                    </Text>
+                </TestLabsView>
             }
         />
     </Box>

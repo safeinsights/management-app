@@ -77,9 +77,9 @@ describe('ReviewFeedbackSection', () => {
     it('renders the three evaluation criteria with only the label bolded', () => {
         renderWithProviders(<FeedbackTestWrapper />)
 
-        expect(screen.getByText('Feasibility:')).toHaveStyle({ fontWeight: 600 })
-        expect(screen.getByText('Impact:')).toHaveStyle({ fontWeight: 600 })
-        expect(screen.getByText('Researcher background:')).toHaveStyle({ fontWeight: 600 })
+        for (const label of ['Feasibility:', 'Impact:', 'Researcher background:']) {
+            expect(screen.getByText(label)).toHaveStyle({ fontWeight: '600' })
+        }
 
         expect(
             screen.getByText(/Can this study be supported with your available data and infrastructure\?/),

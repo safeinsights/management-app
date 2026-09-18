@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -27,7 +28,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
     const banner = researcherOutputsFeedbackBanner({ runErrored: state.runErrored }, { dataPartner })
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader

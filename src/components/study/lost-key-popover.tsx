@@ -4,6 +4,7 @@ import { ActionIcon, Group, Popover, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { useCallback, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react'
 import { LinkWithIcon } from '@/components/links'
+import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
 
 // Long enough for the pointer to cross the gap between the icon and the card, short enough that the
@@ -128,8 +129,8 @@ export const LostKeyPopover = () => {
     const popover = useLostKeyPopover(triggerRef)
 
     return (
-        <Group gap={4} align="center" onBlur={popover.onGroupBlur}>
-            <Text fz={16} c="charcoal.7">
+        <Group gap="xxs" align="center" onBlur={popover.onGroupBlur}>
+            <Text fz={16} c={semanticColor('text.secondary')}>
                 Lost your key?
             </Text>
             <Popover

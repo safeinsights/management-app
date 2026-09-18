@@ -10,6 +10,7 @@ import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { isAwaitingOutputsReviewOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
+import { semanticColor } from '@/theme/tokens'
 
 export async function OutputsAwaitingReviewScreen({
     study,
@@ -29,7 +30,7 @@ export async function OutputsAwaitingReviewScreen({
     const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: displayOrgName(study.orgName) })
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader

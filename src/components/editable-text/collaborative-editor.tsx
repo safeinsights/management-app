@@ -359,7 +359,7 @@ export function CollaborativeEditor({
                     <EscapeFocusPlugin />
                     <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
                 </EditorSurface>
-                <Stack gap={4} mt={4}>
+                <Stack gap="xxs" mt="xxs">
                     <EditorFooter left={footerLeft} right={footerRight}>
                         <SaveStatus provider={activeProvider} isVisible={isSaveStatusVisible && !error} />
                     </EditorFooter>

@@ -40,7 +40,7 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
 
     return (
         <Paper p="xxl" data-testid="security-key-form">
-            <Stack gap={24}>
+            <Stack gap="lg">
                 <FormSectionHeader title={title} description={description} required />
                 <SecurityKeyInput
                     ref={inputRef}

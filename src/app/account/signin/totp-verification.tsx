@@ -3,6 +3,7 @@ import OtpInput from '@/components/otp-input'
 import { Box, Button, Group, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react'
+import { fontWeight } from '@/theme/tokens'
 
 interface TotpVerificationProps {
     form: UseFormReturnType<{ code: string }>
@@ -34,7 +35,7 @@ export const TotpVerification = ({ form, isVerifyingCode, resetFlow }: TotpVerif
                 Verify code
             </Button>
             <Group gap="xs" justify="center">
-                <Button onClick={resetFlow} mt="md" fw={600} fz="md" variant="subtle">
+                <Button onClick={resetFlow} mt="md" fw={fontWeight.semibold} fz="md" variant="subtle">
                     <CaretLeftIcon size={20} />
                     Back to options
                 </Button>

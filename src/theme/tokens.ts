@@ -169,3 +169,11 @@ export const typographyCssVariables: Record<string, string> = {
     '--si-line-height-heading': '1.35',
     '--si-line-height-normal': '1.5',
 }
+
+// Mantine has no font-weight scale, so `fw` had no token to reach for. These name the three
+// weights Figma defines.
+export const fontWeight = {
+    regular: 'var(--si-font-weight-regular)',
+    semibold: 'var(--si-font-weight-semibold)',
+    bold: 'var(--si-font-weight-bold)',
+} as const
