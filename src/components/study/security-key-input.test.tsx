@@ -46,4 +46,12 @@ describe('SecurityKeyInput', () => {
         renderWithProviders(<SecurityKeyInput disabled />)
         expect(screen.getByRole('textbox')).toBeDisabled()
     })
+
+    // Stands in for every plain Textarea in the app: this one sets no resize of its own, so a
+    // handle here proves the theme default reaches the DOM (OTTER-787).
+    it('takes the vertical resize handle from the theme default', () => {
+        renderWithProviders(<SecurityKeyInput />)
+        const host = screen.getByRole('textbox').closest('[style*="--input-resize"]') as HTMLElement
+        expect(host.style.getPropertyValue('--input-resize')).toBe('vertical')
+    })
 })

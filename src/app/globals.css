@@ -87,6 +87,13 @@
     cursor: pointer;
 }
 
+/* A field the user cannot edit must not offer a handle (OTTER-787). Browsers keep a disabled or
+   read-only textarea resizable unless a rule says otherwise. */
+textarea:disabled,
+textarea[readonly] {
+    resize: none;
+}
+
 /* Collaborative editor focus border */
 .collaborative-editor-container {
     border: 1px solid var(--mantine-color-gray-4);

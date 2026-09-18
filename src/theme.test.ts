@@ -35,6 +35,14 @@ describe('palette', () => {
     })
 })
 
+// Mantine's own default is 'none', so without this entry each multi-line field would have to ask
+// for the handle itself, and a new one would silently ship without it (OTTER-787).
+describe('textarea', () => {
+    it('turns the vertical resize handle on by default', () => {
+        expect(theme.components?.Textarea?.defaultProps).toMatchObject({ resize: 'vertical' })
+    })
+})
+
 describe('buttons', () => {
     // light resolves its hover from the same alpha as outline and subtle, so it needs the override
     // too — missing it was the gap review caught.
