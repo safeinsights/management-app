@@ -269,8 +269,8 @@ describe('ProposalReviewView', () => {
             )
 
             const card = screen.getByTestId('decision-card-body')
-            // 1.5rem, i.e. the literal 24px the ticket asks for rather than a spacing token.
-            expect(card.style.getPropertyValue('--stack-gap')).toBe('calc(1.5rem * var(--mantine-scale))')
+            // spacing.lg is 1.5rem, i.e. the 24px the ticket asks for, now via the token.
+            expect(card.style.getPropertyValue('--stack-gap')).toBe('var(--mantine-spacing-lg)')
 
             const feedback = screen.getByTestId('review-feedback-section')
             const decision = screen.getByTestId('review-decision-section')

@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC } from 'react'
 import { Box, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
@@ -40,12 +41,12 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
                 <Box>
-                    <Title order={3} size="h4" c="charcoal.9">
+                    <Title order={3} size="h4" c={semanticColor('text.primary')}>
                         Resubmission Note
                         <RequiredIndicator isVisible />
                     </Title>
                     <Divider my="md" />
-                    <Text size="sm" c="charcoal.7" mb="md">
+                    <Text size="sm" c={semanticColor('text.secondary')} mb="md">
                         {`Summarize the changes you’ve made based on the feedback from ${orgName}, or include any notes or questions.`}
                     </Text>
                     <Textarea
@@ -69,7 +70,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                             }),
                         })}
                     />
-                    <Group justify="space-between" align="center" mt={4}>
+                    <Group justify="space-between" align="center" mt="xxs">
                         {/* The indicator sits beside the error node, not inside it: the textarea's
                             aria-describedby points at that id, and a live region in its subtree
                             would fold "All changes saved" into the field's description. */}

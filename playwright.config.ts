@@ -48,6 +48,9 @@ if (IS_CI) reporters.push(['github'])
 
 export default defineConfig({
     testDir: './tests',
+    // e2e specs are .spec.ts. Without this, Playwright's default testMatch also collects the
+    // vitest-run .test.mjs rule tests that share this directory, and the whole run aborts.
+    testMatch: '**/*.spec.ts',
     // Write per-role storageState + warm routes once before any spec, in-process (no
     // separate worker pool / browser-launch barrier — see tests/global.setup.ts).
     globalSetup: './tests/global.setup.ts',

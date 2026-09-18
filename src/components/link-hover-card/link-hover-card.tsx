@@ -19,6 +19,7 @@ import {
 } from './copy'
 import { formatCategoryLine, type LinkPreview } from './link-preview'
 import classes from './link-hover-card.module.css'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const COPIED_RESET_MS = 3000
 
@@ -76,7 +77,7 @@ export function LinkHoverCard({
     return (
         <Stack gap="sm">
             <LinkHoverCardTitle preview={preview} />
-            <Divider color="charcoal.1" />
+            <Divider color={semanticColor('border.default')} />
             <Group gap="md">
                 <CopyLinkAction href={preview.href} actionRef={firstActionRef} />
                 <LinkCardAction
@@ -118,8 +119,8 @@ function UrlTitle({ href }: { href: string }) {
             rel="noopener noreferrer"
             underline="hover"
             fz={14}
-            fw={600}
-            c="blue.7"
+            fw={fontWeight.semibold}
+            c={semanticColor('link.default')}
             className={classes.url}
         >
             {href}
@@ -129,20 +130,20 @@ function UrlTitle({ href }: { href: string }) {
 
 function InternalTitle({ preview }: { preview: Extract<LinkPreview, { kind: 'internal' }> }) {
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Anchor
                 href={preview.href}
                 target="_blank"
                 rel="noopener noreferrer"
                 underline="hover"
                 fz={14}
-                fw={600}
-                c="charcoal.9"
+                fw={fontWeight.semibold}
+                c={semanticColor('text.primary')}
                 className={classes.url}
             >
                 {preview.title}
             </Anchor>
-            <Text fz={12} c="charcoal.7">
+            <Text fz={12} c={semanticColor('text.secondary')}>
                 {formatCategoryLine(preview.category)}
             </Text>
         </Stack>
@@ -155,9 +156,9 @@ function InternalTitle({ preview }: { preview: Extract<LinkPreview, { kind: 'int
  */
 function LoadingTitle() {
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Skeleton width="70%">
-                <Text fz={14} fw={600}>
+                <Text fz={14} fw={fontWeight.semibold}>
                     &nbsp;
                 </Text>
             </Skeleton>
@@ -171,11 +172,11 @@ function LoadingTitle() {
 
 function UnavailableTitle() {
     return (
-        <Stack gap={4}>
-            <Text fz={14} fw={600} c="charcoal.9">
+        <Stack gap="xxs">
+            <Text fz={14} fw={fontWeight.semibold} c={semanticColor('text.primary')}>
                 {UNAVAILABLE_LINK_TITLE}
             </Text>
-            <Text fz={12} c="charcoal.7">
+            <Text fz={12} c={semanticColor('text.secondary')}>
                 {UNAVAILABLE_LINK_BODY}
             </Text>
         </Stack>

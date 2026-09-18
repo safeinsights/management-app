@@ -6,6 +6,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { Button, Flex, Link } from '@/common'
 import { SignInError } from './sign-in-error'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type SignInFormValues = {
     email: string
@@ -29,7 +30,7 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
 }) => {
     return (
         <form onSubmit={onSubmit}>
-            <Paper bg="white" radius="sm" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} radius="sm" p="xxl">
                 <Title mb="lg" order={3} ta="center">
                     Welcome to SafeInsights!
                 </Title>
@@ -52,7 +53,13 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
                         // its own `error` never sets `aria-invalid` (OTTER-647).
                         aria-invalid={!!form.errors.password || undefined}
                     />
-                    <Link c="blue.7" fw={600} w="fit-content" size="xs" href={forgotPasswordHref}>
+                    <Link
+                        c={semanticColor('link.default')}
+                        fw={fontWeight.semibold}
+                        w="fit-content"
+                        size="xs"
+                        href={forgotPasswordHref}
+                    >
                         Forgot password?
                     </Link>
                     <SignInError clerkError={clerkError} setClerkError={setClerkError} />

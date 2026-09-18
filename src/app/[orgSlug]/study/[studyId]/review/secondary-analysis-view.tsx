@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Box, Stack } from '@mantine/core'
 import type { StudyJobStatus } from '@/database/types'
@@ -16,7 +17,7 @@ export type SecondaryAnalysisViewProps = {
 
 export function SecondaryAnalysisView({ header, stageStatus, stageStartedAt, nav }: SecondaryAnalysisViewProps) {
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
                 <ProposalStepHeader

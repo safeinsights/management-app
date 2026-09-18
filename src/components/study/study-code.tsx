@@ -13,12 +13,10 @@ import { SUBMIT_CODE_ERROR_ID } from './submit-code-error'
 import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
+import { fontWeight } from '@/theme/tokens'
 
 const STEP_LABEL = 'STEP 3'
 const SECTION_TITLE = 'Submit code'
-
-/** `Spacing/lg` in the Figma frames. Mantine `lg` is 20px in this app's theme, the token is 24px. */
-const CARD_SECTION_GAP = 24
 
 interface StudyCodeProps {
     studyId: string
@@ -33,7 +31,7 @@ const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) =
         Develop and test your code in the SafeInsights IDE (Integrated Development Environment) with preloaded example
         data from {dataPartnerName}. The IDE opens in a new tab, and any files you create will appear here
         automatically. When you are ready,{' '}
-        <Text span fw={700}>
+        <Text span fw={fontWeight.bold}>
             return here, select your main file, and submit your code for review
         </Text>
         .
@@ -113,7 +111,7 @@ export const StudyCode = ({
                 {/* No studyTitle: the card forbids repeating the title as body text here. The
                     header's rule only draws when something follows it, which the children below do. */}
                 <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
-                    <Stack gap={CARD_SECTION_GAP}>
+                    <Stack gap="lg">
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
                         <SubmitCodeFaq dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} />
                     </Stack>

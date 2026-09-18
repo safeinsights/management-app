@@ -8,7 +8,7 @@
 
 .fileName {
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--mantine-font-size-sm);
 }
 
 .fileName:hover,

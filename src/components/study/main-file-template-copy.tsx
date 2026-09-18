@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { Text } from '@mantine/core'
+import { fontWeight } from '@/theme/tokens'
 
 /**
  * Shared by the FAQ answer and the Template badge's hover card, which OTTER-693 gives identical
@@ -9,7 +10,7 @@ export const MainFileTemplateCopy: FC<{ dataPartnerName: string }> = ({ dataPart
     <>
         It is a template from {dataPartnerName} that connects to their dataset. You’ll see it listed below, and it’s
         pre-loaded as your starting point when you click{' '}
-        <Text span inherit fw={600}>
+        <Text span inherit fw={fontWeight.semibold}>
             Launch IDE.
         </Text>{' '}
         Leave the fixed setup code unchanged, or your code will not work correctly. The rest is a working example with

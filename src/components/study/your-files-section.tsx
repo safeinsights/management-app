@@ -14,11 +14,9 @@ import { StudyCodeEmptyView } from './study-code-empty-view'
 import { isFilesReviewState } from './study-code-files'
 import { LaunchIdeControl } from './launch-ide-control'
 import { YourFilesTable } from './your-files-table'
+import { semanticColor } from '@/theme/tokens'
 
 const SECTION_TITLE = 'Code files'
-
-/** `Spacing/lg` in the Figma frames; Mantine `lg` is 20px in this app's theme, the token is 24px. */
-const SECTION_GAP = 24
 
 type FilesBodyProps = {
     ide: StudyCodeIDE
@@ -114,7 +112,7 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
         <>
             <Paper p="xxl" data-testid="your-files-section">
                 <Group justify="space-between" wrap="nowrap" align="flex-start">
-                    <Title order={3} fz="lg" c="charcoal.9">
+                    <Title order={3} fz="lg" c={semanticColor('text.primary')}>
                         {SECTION_TITLE}
                     </Title>
                     {/* Launch IDE alone: per the design the card header has no upload control, and
@@ -130,7 +128,7 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
                         onLaunch={ide.launchWorkspace}
                     />
                 </Group>
-                <Divider my={SECTION_GAP} color="charcoal.1" data-testid="your-files-divider" />
+                <Divider my="lg" color={semanticColor('border.default')} data-testid="your-files-divider" />
                 <FilesBody
                     ide={ide}
                     dataPartnerName={dataPartnerName}

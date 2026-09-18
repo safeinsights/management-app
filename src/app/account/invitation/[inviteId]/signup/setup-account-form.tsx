@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
 import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
@@ -201,7 +202,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
     const formErrorBody = clerkErrorCopy?.message || form.errors.form
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <form onSubmit={form.onSubmit((values) => createAccount(values))}>
                 <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
                     <Title mb="lg" order={3} ta="center">
@@ -215,7 +216,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         radius="sm"
                         value={email}
                         disabled
-                        c="charcoal.9"
+                        c={semanticColor('text.primary')}
                         styles={{
                             input: {
                                 backgroundColor: theme.colors.charcoal[1],

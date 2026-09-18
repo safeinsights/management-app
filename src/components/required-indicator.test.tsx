@@ -8,8 +8,8 @@ describe('RequiredIndicator', () => {
         const indicator = screen.getByLabelText('required')
 
         expect(indicator).toHaveTextContent('*')
-        // Mantine maps `c` to an inline CSS variable, so the resolved color is not assertable.
-        expect(indicator.getAttribute('style') || '').toContain('--mantine-color-red-7')
+        // The token var is what lands inline; it resolves to red.7 via error.text.
+        expect(indicator.getAttribute('style') || '').toContain('--si-color-error-text')
     })
 
     it('renders nothing for a field that is not required', () => {

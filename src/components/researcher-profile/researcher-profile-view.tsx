@@ -466,7 +466,7 @@ function ResearchDetailsDisplay({ defaults }: { defaults: ResearchDetailsValues 
             </DisplayField>
             {hasFeaturedUrls && (
                 <DisplayField label="Featured publications URLs">
-                    <Stack gap={4} mt={4}>
+                    <Stack gap="xxs" mt="xxs">
                         {featuredLinks}
                     </Stack>
                 </DisplayField>
