@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FC } from 'react'
+import { useMemo, useState, type FC } from 'react'
 import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
@@ -120,7 +120,11 @@ export const ProposalTextFieldEntry: FC<{
     // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
     // setFieldError that would put it back, so a stored message survived only every other
     // keystroke (OTTER-777). The required half of the rule stays with blur and Submit.
-    const isOverLimit = countCharactersFromLexical(value) > field.maxCharacters
+    // Memoized: a keystroke in any field re-renders all four, and this walks the whole tree.
+    const isOverLimit = useMemo(
+        () => countCharactersFromLexical(value) > field.maxCharacters,
+        [value, field.maxCharacters],
+    )
     const error = isOverLimit
         ? overCharacterLimitError(field.label, field.maxCharacters)
         : (form.errors[field.id] as string | undefined)
