@@ -14,13 +14,18 @@ import {
 } from '@/tests/unit.helpers'
 import { type FC } from 'react'
 import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical'
-import { useForm } from '@/common'
+import { useForm, zodResolver } from '@/common'
 import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { CollaborativeProposalTextField, ProposalTextFieldEntry } from './collaborative-proposal-text-field'
 import { editableTextFields, type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
-import { initialProposalValues, type ProposalFormValues } from './schema'
+import {
+    DRAFT_REQUIRED_ERRORS,
+    draftProposalFormSchema,
+    initialProposalValues,
+    type ProposalFormValues,
+} from './schema'
 import { lexicalJson } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { SAVED_LABEL } from '@/components/save-status'
@@ -85,20 +90,36 @@ const setEditorText = async (surface: HTMLElement, text: string) => {
     })
 }
 
+const LEAVE_LABEL = 'Leave the field'
+
 // The entry bound to a real form, which is what owns the error the field displays. One harness for
 // both editor modes: the provider is null in single-user mode, where the Editor ignores it anyway.
+// The resolver is the page's own, so blur stores the message the page would store; without one,
+// onBlur validates against nothing and the stored-error branch never runs.
 const EntryHarness: FC<{
     field: EditableTextField
     initialValue?: string
     initialErrors?: Record<string, string>
 }> = ({ field, initialValue = '', initialErrors }) => {
     const form = useForm<ProposalFormValues>({
+        validate: zodResolver(draftProposalFormSchema),
         initialValues: { ...initialProposalValues, [field.id]: initialValue },
         initialErrors,
     })
     const websocketProvider = useYjsWebsocket()
 
-    return <ProposalTextFieldEntry field={field} form={form} studyId={STUDY_ID} websocketProvider={websocketProvider} />
+    return (
+        <>
+            <ProposalTextFieldEntry
+                field={field}
+                form={form}
+                studyId={STUDY_ID}
+                websocketProvider={websocketProvider}
+            />
+            {/* Blur needs somewhere for focus to land; on the real page that is Submit. */}
+            <button type="button">{LEAVE_LABEL}</button>
+        </>
+    )
 }
 
 // OTTER-647: ariaRequired was passed bare while the asterisk followed field.required, so the one
@@ -311,6 +332,67 @@ describe('ProposalTextFieldEntry over-limit error', () => {
         await simulateEditorSave()
 
         expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+    })
+})
+
+// The derived message covers the over-limit half only. The required half is still stored, by blur
+// and by Submit, and the entry falls back to it; the tests above reach that branch through an
+// injected error, these through the resolver the page itself runs.
+describe('ProposalTextFieldEntry error stored on blur', () => {
+    const field = fieldWhere((f) => f.id === 'researchQuestions', 'research questions')
+
+    const leaveField = async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(await screen.findByLabelText(field.label))
+        await user.click(screen.getByRole('button', { name: LEAVE_LABEL }))
+        return screen.getByLabelText(field.label)
+    }
+
+    it('shows the required message once focus leaves an empty required field', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<EntryHarness field={field} />, { singleUserEditing: true })
+
+        await leaveField(user)
+
+        expect(await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).toBeInTheDocument()
+    })
+
+    it('drops that message on the next edit, which is the only thing that takes a stored one off', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<EntryHarness field={field} />, { singleUserEditing: true })
+
+        const surface = await leaveField(user)
+        await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)
+
+        await setEditorText(surface, 'A question?')
+
+        await waitFor(() => expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).not.toBeInTheDocument())
+    })
+})
+
+// OTTER-777: the counter and the error moved inside the Editor, which stands the field down to a
+// skeleton until the collaboration socket arrives, and to an alert when it never does. Submit stays
+// enabled to surface errors, so neither state may swallow the field's own.
+describe('CollaborativeProposalTextField before the editor mounts', () => {
+    it('keeps the error and the counter on screen while the editor is a skeleton', async () => {
+        const field = fieldWhere((f) => !!f.required, 'required')
+        const message = overCharacterLimitError(field.label, field.maxCharacters)
+
+        renderWithProviders(
+            <CollaborativeProposalTextField
+                studyId={STUDY_ID}
+                field={field as EditableTextField & { id: ProposalTextFieldKey }}
+                initialValue={lexicalJson('hi')}
+                error={message}
+                onChange={vi.fn()}
+                onBlur={vi.fn()}
+                websocketProvider={null}
+            />,
+        )
+
+        expect(await screen.findByText(message)).toBeInTheDocument()
+        expect(screen.getByText(`2/${field.maxCharacters}`)).toBeInTheDocument()
+        // The editor really is still standing down, so the two above are not the mounted ones.
+        expect(screen.queryByLabelText(field.label)).toBeNull()
     })
 })
 
