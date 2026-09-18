@@ -98,14 +98,7 @@ const EntryHarness: FC<{
     })
     const websocketProvider = useYjsWebsocket()
 
-    return (
-        <ProposalTextFieldEntry
-            field={field}
-            form={form}
-            studyId={STUDY_ID}
-            websocketProvider={websocketProvider}
-        />
-    )
+    return <ProposalTextFieldEntry field={field} form={form} studyId={STUDY_ID} websocketProvider={websocketProvider} />
 }
 
 // OTTER-647: ariaRequired was passed bare while the asterisk followed field.required, so the one
