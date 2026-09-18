@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, type FC } from 'react'
+import { useMemo, useState, type FC } from 'react'
 import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 
-import { fieldCounterId, FormField, fieldDescribedBy } from '@/components/form-field'
+import { fieldCounterId, FieldErrorBox, FormField, fieldDescribedBy } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
@@ -69,17 +69,6 @@ export function CollaborativeProposalTextField({
                     label={field.label}
                     required={field.required}
                     description={field.description}
-                    error={error}
-                    footer={
-                        <CharacterCounter
-                            id={fieldCounterId(inputId)}
-                            count={characterCount}
-                            maxCharacters={field.maxCharacters}
-                        />
-                    }
-                    // The character-limit error appears mid-typing, before focus moves, so it has
-                    // to announce itself (OTTER-690).
-                    errorLive
                 >
                     <Editor
                         id={docName}
@@ -101,6 +90,18 @@ export function CollaborativeProposalTextField({
                             hasDescription: !!field.description,
                             hasCounter: true,
                         })}
+                        // The error takes the slot the save indicator vacates, so it shares the
+                        // counter's row instead of standing one row above it, which moved the
+                        // counter whenever the two swapped (OTTER-674, OTTER-777). Live because
+                        // the message can appear with the caret still in the field (OTTER-690).
+                        footerLeft={<FieldErrorBox fieldId={inputId} error={error} isLive />}
+                        footerRight={
+                            <CharacterCounter
+                                id={fieldCounterId(inputId)}
+                                count={characterCount}
+                                maxCharacters={field.maxCharacters}
+                            />
+                        }
                     />
                 </FormField>
             </Stack>
@@ -115,19 +116,25 @@ export const ProposalTextFieldEntry: FC<{
     websocketProvider: HocuspocusProviderWebsocket | null
 }> = ({ field, form, studyId, websocketProvider }) => {
     const value = form.values[field.id] as string
-    const error = form.errors[field.id] as string | undefined
 
-    // Only the over-limit half of the rule is live; the required half belongs to blur and Submit,
-    // so clearing the box does not flash an error mid-edit.
+    // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
+    // setFieldError that would put it back, so a stored message survived only every other
+    // keystroke (OTTER-777). The required half of the rule stays with blur and Submit.
+    // Memoized: a keystroke in any field re-renders all four, and this walks the whole tree.
+    const isOverLimit = useMemo(
+        () => countCharactersFromLexical(value) > field.maxCharacters,
+        [value, field.maxCharacters],
+    )
+    const error = isOverLimit
+        ? overCharacterLimitError(field.label, field.maxCharacters)
+        : (form.errors[field.id] as string | undefined)
+
     const onChange = (val: string) => {
-        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
-        // is not an edit, and letting it through would clear the required error Submit has just
-        // raised on the field it then focuses (OTTER-762).
+        // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.
+        // Neither is an edit, and both would clear an error Submit has just raised (OTTER-762).
+        if (val === (form.getValues()[field.id] as string)) return
         if (!hasLexicalContent(val) && !hasLexicalContent(value)) return
         form.setFieldValue(field.id, val)
-        if (countCharactersFromLexical(val) > field.maxCharacters) {
-            form.setFieldError(field.id, overCharacterLimitError(field.label, field.maxCharacters))
-        }
     }
 
     return (

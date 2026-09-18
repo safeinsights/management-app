@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Stack } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
@@ -12,7 +11,7 @@ import type { EditorState } from 'lexical'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
-import { EditorFooter } from './editor-footer'
+import { EditorFooterArea } from './editor-footer'
 import { EditorSurface } from './editor-surface'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
@@ -113,11 +112,7 @@ export function SingleUserEditor({
                 {onChange && <EditorChangePlugin onChange={onChange} />}
                 {children}
             </EditorSurface>
-            {(footerLeft || footerRight) && (
-                <Stack gap="xxs" mt="xxs">
-                    <EditorFooter left={footerLeft} right={footerRight} />
-                </Stack>
-            )}
+            <EditorFooterArea left={footerLeft} right={footerRight} />
         </LexicalComposer>
     )
 }

@@ -69,19 +69,21 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
 }) => {
     const singleUserEditing = useSingleUserEditing()
     const value = noteForm.values.resubmissionNote
-    const error = noteForm.errors.resubmissionNote as string | undefined
+    // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
+    // setFieldError that would put it back, so a stored message survived only every other
+    // keystroke (OTTER-777). The required half of the rule stays with blur and Resubmit.
+    const error = resubmissionNoteIsOverLimit(value)
+        ? NOTE_MAX_ERROR
+        : (noteForm.errors.resubmissionNote as string | undefined)
     const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
-    // Only the over-limit half of the rule is live; the required half belongs to blur and Resubmit,
-    // so clearing the box does not flash an error mid-edit (OTTER-762).
     const onNoteChange = (json: string) => {
-        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
-        // is not an edit, and letting it through would clear the required error Resubmit has just
-        // raised on the field it then focuses.
+        // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.
+        // Neither is an edit, and both would clear an error Resubmit has just raised (OTTER-762).
+        if (json === noteForm.getValues().resubmissionNote) return
         if (resubmissionNoteIsBlank(json) && resubmissionNoteIsBlank(value)) return
         noteForm.setFieldValue(RESUBMISSION_NOTE_FIELD_ID, json)
-        if (resubmissionNoteIsOverLimit(json)) noteForm.setFieldError(RESUBMISSION_NOTE_FIELD_ID, NOTE_MAX_ERROR)
     }
 
     // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
