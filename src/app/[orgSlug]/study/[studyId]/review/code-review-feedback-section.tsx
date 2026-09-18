@@ -21,12 +21,7 @@ const contentStyle = {
     lineHeight: 1.6,
 } as const
 
-const FEEDBACK_PLACEHOLDER =
-    '“The code aligns with the approved proposal and accesses only the variables specified in the data use agreement. ' +
-    'Outputs are aggregated at the group level, with no individual-level data exposed. ' +
-    'Security scans passed with no issues. ' +
-    'One question: the code filters by enrollment date, which appears to be a deviation from your initial proposal. ' +
-    'Can you please share your rationale for using this variable?”'
+const SECTION_HEADING_ID = 'code-review-decision-heading'
 
 type CodeReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
@@ -42,11 +37,8 @@ type CodeReviewFeedbackSectionProps = {
 function FeedbackIntro({ labName }: { labName: string }) {
     return (
         <Text fz={16} c={semanticColor('text.primary')}>
-            Share your feedback on this code submission with {labName}. Your comments should address the code’s
-            alignment with the approved study proposal/initial request and all the agreements, whether the security log
-            surfaced issues, and whether the analysis code risks exposing PII. You can also request clarifications about
-            the researchers’ approach and flag potential risks or misconceptions about your dataset(s) before the code
-            is approved to run.
+            Share your decision and feedback with {labName} based on the evaluation criteria above. You can also request
+            clarifications, flag dataset risks, or outline required changes.
         </Text>
     )
 }
@@ -68,7 +60,6 @@ function FeedbackEditor({
             docName={codeReviewFeedbackDocName(jobId)}
             inputId="code-review-feedback"
             ariaLabel="Code review feedback"
-            placeholder={FEEDBACK_PLACEHOLDER}
             contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
             onProviderReady={publishProvider}
@@ -89,8 +80,7 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
         title: 'Approve and run code',
         description: (
             <Text component="span" size="sm" c="grey.7">
-                The code will proceed to run in your secure enclave. {labName} will be notified via email when the code
-                is approved and is being run.
+                The code will run in your secure enclave and your feedback will be shared with {labName}.
             </Text>
         ),
         testId: 'code-review-decision-approve',
@@ -100,8 +90,7 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
         title: 'Request revision',
         description: (
             <Text component="span" size="sm" c="grey.7">
-                Return this code submission to {labName} for necessary updates, additional information, or specific
-                changes.
+                Send the code back to {labName} for changes or additional information.
             </Text>
         ),
         testId: 'code-review-decision-needs-clarification',
@@ -152,9 +141,7 @@ function DecisionRadioGroup({
             onChange={handleChange}
             {...widgetBlur}
             name="code-review-decision"
-            label="Code review decision"
-            labelProps={{ fw: 600 }}
-            withAsterisk
+            labelProps={{ id: SECTION_HEADING_ID }}
             error={error}
         >
             <Stack gap="md">{radioOptions}</Stack>
@@ -176,15 +163,14 @@ export function CodeReviewFeedbackSection({
         <Paper p="xxl" data-testid="code-review-section">
             <Stack gap="lg">
                 <Group gap="xxs" align="center">
-                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
-                        Code review
+                    <Text id={SECTION_HEADING_ID} fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                        Decision
                     </Text>
                     <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider />
                 <FeedbackIntro labName={labName} />
                 <FeedbackEditor feedback={feedback} studyId={studyId} jobId={jobId} />
-                <Divider />
                 <DecisionRadioGroup
                     value={decisionValue}
                     onChange={onDecisionChange}

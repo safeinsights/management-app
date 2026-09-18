@@ -101,13 +101,11 @@ describe('CodeReviewClient decision selector', () => {
 
         expect(
             screen.getByText(
-                /The code will proceed to run in your secure enclave\. Rice University will be notified via email/,
+                'The code will run in your secure enclave and your feedback will be shared with Rice University.',
             ),
         ).toBeInTheDocument()
         expect(
-            screen.getByText(
-                /Return this code submission to Rice University for necessary updates, additional information, or specific changes\./,
-            ),
+            screen.getByText('Send the code back to Rice University for changes or additional information.'),
         ).toBeInTheDocument()
     })
 

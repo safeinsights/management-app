@@ -6,7 +6,8 @@ export const EditorFooter: FC<{ left?: ReactNode; right?: ReactNode; children?: 
     right,
     children,
 }) => (
-    <Group align="center" wrap="nowrap">
+    // gap 0: the empty error slot would otherwise indent the save status away from the input's edge.
+    <Group gap={0} align="center" wrap="nowrap">
         {left}
         {children}
         {right && <Box ml="auto">{right}</Box>}
