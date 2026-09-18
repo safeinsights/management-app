@@ -5,7 +5,7 @@ import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { UseFormReturnType } from '@mantine/form'
 
-import { fieldCounterId, FormField, fieldDescribedBy } from '@/components/form-field'
+import { fieldCounterId, FieldErrorBox, FormField, fieldDescribedBy } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
@@ -69,17 +69,6 @@ export function CollaborativeProposalTextField({
                     label={field.label}
                     required={field.required}
                     description={field.description}
-                    error={error}
-                    footer={
-                        <CharacterCounter
-                            id={fieldCounterId(inputId)}
-                            count={characterCount}
-                            maxCharacters={field.maxCharacters}
-                        />
-                    }
-                    // The character-limit error appears mid-typing, before focus moves, so it has
-                    // to announce itself (OTTER-690).
-                    errorLive
                 >
                     <Editor
                         id={docName}
@@ -101,6 +90,18 @@ export function CollaborativeProposalTextField({
                             hasDescription: !!field.description,
                             hasCounter: true,
                         })}
+                        // The error takes the slot the save indicator vacates, so it shares the
+                        // counter's row instead of standing one row above it, which moved the
+                        // counter whenever the two swapped (OTTER-674, OTTER-777). Live because
+                        // the message can appear with the caret still in the field (OTTER-690).
+                        footerLeft={<FieldErrorBox fieldId={inputId} error={error} isLive />}
+                        footerRight={
+                            <CharacterCounter
+                                id={fieldCounterId(inputId)}
+                                count={characterCount}
+                                maxCharacters={field.maxCharacters}
+                            />
+                        }
                     />
                 </FormField>
             </Stack>

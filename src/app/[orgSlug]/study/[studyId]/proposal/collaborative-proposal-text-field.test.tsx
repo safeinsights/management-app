@@ -320,3 +320,44 @@ describe('ProposalTextFieldEntry over-limit error', () => {
         expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
     })
 })
+
+// OTTER-777: the error used to render in a second row under the editor's own footer, so the counter
+// sat one row lower whenever the save label replaced the error. Asserted on what the error's row
+// holds, because merely sharing an ancestor with the counter also passes while they are apart.
+describe('CollaborativeProposalTextField footer row', () => {
+    const field = fieldWhere((f) => !!f.required, 'required')
+    const OVER_LIMIT_ERROR = overCharacterLimitError(field.label, field.maxCharacters)
+    const inputId = textFieldInputId(field.id)
+
+    const counter = () => document.getElementById(fieldCounterId(inputId))
+
+    it('puts the error beside the counter, below the editor', async () => {
+        renderField(field, { initialValue: lexicalJson('hi'), error: OVER_LIMIT_ERROR })
+
+        const surface = await screen.findByLabelText(field.label)
+        const errorBox = document.getElementById(fieldErrorId(inputId))!
+
+        expect(errorBox).toHaveTextContent(OVER_LIMIT_ERROR)
+        expect(errorBox.parentElement).toContainElement(counter())
+        expect(errorBox.parentElement).not.toContainElement(surface)
+    })
+
+    it('puts the save label in that same row', async () => {
+        renderCollaborativeField(field, { initialValue: lexicalJson('hi') })
+
+        await screen.findByLabelText(field.label)
+        await simulateEditorSave()
+
+        const region = screen.getByTestId('autosave-live-region')
+        expect(region).toContainElement(screen.getByTestId('autosave-status'))
+        expect(region.parentElement).toContainElement(counter())
+    })
+
+    it('renders the message once, not in two rows', async () => {
+        renderField(field, { initialValue: lexicalJson('hi'), error: OVER_LIMIT_ERROR })
+
+        await screen.findByLabelText(field.label)
+
+        expect(screen.getAllByText(OVER_LIMIT_ERROR)).toHaveLength(1)
+    })
+})
