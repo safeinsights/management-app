@@ -1,6 +1,6 @@
 import { AppShell, AppShellHeader, AppShellMain, Group } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { MAIN_CONTENT_PROPS, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import { type ReactNode } from 'react'
 import { AppFooter } from './app-footer'
@@ -37,6 +37,7 @@ export function FocusedLayoutShellView({
             </AppShellHeader>
 
             <AppShellMain
+                {...MAIN_CONTENT_PROPS}
                 bg="purple.8"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 px="md"

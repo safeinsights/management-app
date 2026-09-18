@@ -1,3 +1,9 @@
+/* Focused by script on route change (useRouteFocus), never by Tab, so a ring around the whole
+   page would only be noise. */
+#main-content:focus {
+    outline: none;
+}
+
 .pi-symbol {
     position: fixed;
     bottom: 0px;

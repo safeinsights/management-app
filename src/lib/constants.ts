@@ -26,6 +26,11 @@ export const APP_SHELL = {
     headerBg: 'purple.8',
 } as const
 
+// Spread onto each shell's <main> so useRouteFocus has one target. tabIndex -1 takes scripted
+// focus without joining the tab order; the outline rule lives in globals.css.
+export const MAIN_CONTENT_ID = 'main-content'
+export const MAIN_CONTENT_PROPS = { id: MAIN_CONTENT_ID, tabIndex: -1 } as const
+
 export const NOTIFICATION_DISPLAY_MS = 8000
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
