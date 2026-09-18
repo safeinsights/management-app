@@ -115,19 +115,21 @@ export const ProposalTextFieldEntry: FC<{
     websocketProvider: HocuspocusProviderWebsocket | null
 }> = ({ field, form, studyId, websocketProvider }) => {
     const value = form.values[field.id] as string
-    const error = form.errors[field.id] as string | undefined
 
-    // Only the over-limit half of the rule is live; the required half belongs to blur and Submit,
-    // so clearing the box does not flash an error mid-edit.
+    // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
+    // setFieldError that would put it back, so a stored message survived only every other
+    // keystroke (OTTER-777). The required half of the rule stays with blur and Submit.
+    const isOverLimit = countCharactersFromLexical(value) > field.maxCharacters
+    const error = isOverLimit
+        ? overCharacterLimitError(field.label, field.maxCharacters)
+        : (form.errors[field.id] as string | undefined)
+
     const onChange = (val: string) => {
-        // Focusing an empty Lexical root appends a paragraph, which arrives here as a change. It
-        // is not an edit, and letting it through would clear the required error Submit has just
-        // raised on the field it then focuses (OTTER-762).
+        // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.
+        // Neither is an edit, and both would clear an error Submit has just raised (OTTER-762).
+        if (val === (form.getValues()[field.id] as string)) return
         if (!hasLexicalContent(val) && !hasLexicalContent(value)) return
         form.setFieldValue(field.id, val)
-        if (countCharactersFromLexical(val) > field.maxCharacters) {
-            form.setFieldError(field.id, overCharacterLimitError(field.label, field.maxCharacters))
-        }
     }
 
     return (
