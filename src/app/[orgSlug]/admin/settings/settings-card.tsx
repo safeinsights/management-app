@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { semanticColor } from '@/theme/tokens'
 
 const ROW_BORDER = { borderBottom: '1px solid var(--mantine-color-gray-3)' }
 
@@ -33,7 +34,7 @@ export type SettingsCardProps = {
 // its own line at narrower widths.
 export function SettingsCard({ title, addLabel, onAdd, description, slot, children }: SettingsCardProps) {
     return (
-        <Paper bg="white" p="xxl">
+        <Paper bg={semanticColor('surface.raised')} p="xxl">
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="lg">

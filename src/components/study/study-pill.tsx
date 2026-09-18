@@ -18,13 +18,13 @@ export const StudyPill: FC<Props> = ({ label, bg, c, bd, icon, tooltip }) => {
     const pill = (
         <Flex
             align="center"
-            gap={4}
+            gap="xxs"
             bg={bg}
             c={c}
             bdrs={100}
             bd={bd ? `1px solid ${bd}` : ''}
-            px={16}
-            py={4}
+            px="md"
+            py="xxs"
             style={{ display: 'inline-flex', whiteSpace: 'nowrap', cursor: tooltip ? 'pointer' : 'default' }}
         >
             {icon}

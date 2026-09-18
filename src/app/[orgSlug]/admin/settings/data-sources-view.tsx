@@ -69,7 +69,7 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
                         <DataSourceUrlLink key={u.id} url={u.url} description={u.description} />
                     ))}
                 </Box>
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     {actions}
                 </Group>
             </Group>

@@ -100,7 +100,7 @@ export function CodeEnvRowView({
                     )}
                     <ScanStatusBadge status={latestScanStatus} onClick={onScanBadgeClick} />
                 </Group>
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     {actions}
                 </Group>
             </Group>

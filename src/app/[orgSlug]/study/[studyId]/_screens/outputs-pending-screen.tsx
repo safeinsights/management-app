@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -18,7 +19,7 @@ export async function OutputsPendingScreen({ study, raw, nav }: Pick<ScreenCompo
     const banner = researcherOutputsPendingBanner({ runErrored: projectStudyState(raw).runErrored })
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <ProposalStepHeader

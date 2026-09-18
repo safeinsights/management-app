@@ -4,6 +4,7 @@ import { Anchor as MantineAnchor, AnchorProps, ElementProps, Button, ButtonProps
 import { FC, ReactNode } from 'react'
 import NextLink from 'next/link'
 import type { Route } from 'next'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type LinkProps = AnchorProps & {
     href: Route
@@ -32,9 +33,9 @@ export const LinkWithIcon: FC<LinkWithIconProps> = ({
     ...anchorProps
 }) => (
     <MantineAnchor
-        c="blue.7"
+        c={semanticColor('link.default')}
         fz="sm"
-        fw={600}
+        fw={fontWeight.semibold}
         display="inline-flex"
         {...anchorProps}
         // Merged, not replaced, so a caller's `style` cannot drop the icon+text flex layout.

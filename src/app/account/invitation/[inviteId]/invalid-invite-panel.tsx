@@ -1,11 +1,12 @@
+import { semanticColor } from '@/theme/tokens'
 import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Flex, Paper, Text, Title } from '@mantine/core'
 
 export const InvalidInvitePanel = () => (
-    <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
         <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
-            <Title order={3} ta="center" c="red.7">
+            <Title order={3} ta="center" c={semanticColor('error.text')}>
                 This invitation is no longer valid
             </Title>
             <Text size="md">

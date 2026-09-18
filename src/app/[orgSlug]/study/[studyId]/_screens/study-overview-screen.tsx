@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyDetails } from '@/components/study/study-details'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -8,7 +9,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
     return (
         <Stack p="xl" gap="xxl">
             <StudyPageHeader study={study} />
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
                         <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
@@ -20,7 +21,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={2} size="xl">
@@ -32,7 +33,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={2} size="xl">

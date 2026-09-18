@@ -13,6 +13,7 @@ import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const JobReviewButtons = ({
     job,
@@ -59,7 +60,7 @@ export const JobReviewButtons = ({
         return (
             <Group gap="xs">
                 <CheckCircleIcon weight="fill" size={24} color={theme.colors.green[7]} />
-                <Text fz="xs" fw={600} c="green.7">
+                <Text fz="xs" fw={fontWeight.semibold} c={semanticColor('success.text')}>
                     Approved on {dayjs(approved.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
@@ -72,7 +73,7 @@ export const JobReviewButtons = ({
         return (
             <Group gap="xs">
                 <XCircleIcon weight="fill" size={24} color={theme.colors.red[7]} />
-                <Text fz="xs" fw={600} c="red.7">
+                <Text fz="xs" fw={fontWeight.semibold} c={semanticColor('error.text')}>
                     Rejected on {dayjs(rejected.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>

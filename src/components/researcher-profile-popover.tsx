@@ -27,6 +27,7 @@ import {
 } from '@phosphor-icons/react'
 import { useResearcherPopoverProfile } from '@/hooks/use-researcher-popover-profile'
 import { Routes } from '@/lib/routes'
+import { fontWeight } from '@/theme/tokens'
 
 interface ResearcherProfilePopoverProps {
     userId: string
@@ -47,7 +48,7 @@ const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
     return (
         <Group gap="xs" align="center" wrap="nowrap">
             <ChalkboardTeacherIcon size={20} color="var(--mantine-color-gray-6)" />
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {value}
             </Text>
         </Group>
@@ -59,7 +60,7 @@ const PopoverPositionTitle: FC<{ value?: string | null }> = ({ value }) => {
     return (
         <Group gap="xs" align="center" wrap="nowrap">
             <SuitcaseSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {value}
             </Text>
         </Group>
@@ -72,7 +73,7 @@ const PopoverEducation: FC<{ degree?: string | null }> = ({ degree }) => {
     return (
         <Group gap="xs" align="center" wrap="nowrap">
             <CertificateIcon size={20} color="var(--mantine-color-gray-6)" />
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {degree}
             </Text>
         </Group>
@@ -91,7 +92,7 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
     return (
         <Group gap="xs" align="center" wrap="nowrap">
             <BookOpenIcon size={20} color="var(--mantine-color-gray-6)" />
-            <Group gap={4}>{pills}</Group>
+            <Group gap="xxs">{pills}</Group>
         </Group>
     )
 }
@@ -116,7 +117,7 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             h={32}
             px="md"
         >
-            <Text fw={600} size="sm">
+            <Text fw={fontWeight.semibold} size="sm">
                 {label}
             </Text>
         </Badge>
@@ -132,7 +133,12 @@ const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string
     if (count <= 1) return null
 
     return (
-        <Anchor href={Routes.researcherProfileView({ orgSlug, studyId, userId })} target="_blank" size="sm" fw={600}>
+        <Anchor
+            href={Routes.researcherProfileView({ orgSlug, studyId, userId })}
+            target="_blank"
+            size="sm"
+            fw={fontWeight.semibold}
+        >
             + {count - 1} more current affiliation
         </Anchor>
     )
@@ -148,7 +154,7 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
         <Stack gap="lg" mt={-8}>
             <Divider />
             <Stack gap="md">
-                <Text size="sm" fw={600}>
+                <Text size="sm" fw={fontWeight.semibold}>
                     Professional links
                 </Text>
                 <Group gap="md">
@@ -162,7 +168,7 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
 
 const PopoverHeader: FC<{ fullName: string; onClose: () => void }> = ({ fullName, onClose }) => (
     <Group justify="space-between" align="center" wrap="nowrap">
-        <Text fw={700} size="md" mt="xs">
+        <Text fw={fontWeight.bold} size="md" mt="xs">
             {fullName}
         </Text>
         <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
@@ -180,7 +186,7 @@ const MinimalPopoverContent: FC<{ fullName: string; email: string; onClose: () =
         <PopoverHeader fullName={fullName} onClose={onClose} />
         <Group gap="xs" align="center" wrap="nowrap">
             <EnvelopeSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {email}
             </Text>
         </Group>

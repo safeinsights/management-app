@@ -66,7 +66,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                         justify="center"
                         bg={wrapperBg}
                         style={{ transition: 'background-color 0.2s ease' }}
-                        py={8}
+                        py="xs"
                     >
                         <Square color="white" href={Routes.orgDashboard({ orgSlug: org.slug })}>
                             {orgInitials(org.name, org.type)}

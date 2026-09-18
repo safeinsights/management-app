@@ -10,6 +10,7 @@ import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Step } from './mfa'
 import { useCompleteSignIn } from './use-complete-sign-in'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
@@ -65,7 +66,7 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                 to verify your identity and access your account.
             </Text>
             <Text size="md">Enter one of your recovery codes below. Each code can only be used once.</Text>
-            <Text size="md" c="blue.8" mb="xs">
+            <Text size="md" c={semanticColor('info.text')} mb="xs">
                 <b>Note:</b> If you have lost your authentication device permanently, you should reset your MFA settings
                 after signing in.
             </Text>
@@ -93,7 +94,13 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         Sign in
                     </Button>
                     <Group gap="xs" justify="center">
-                        <Button onClick={() => setStep('select')} mt="md" fw={600} fz="md" variant="subtle">
+                        <Button
+                            onClick={() => setStep('select')}
+                            mt="md"
+                            fw={fontWeight.semibold}
+                            fz="md"
+                            variant="subtle"
+                        >
                             <CaretLeftIcon size={20} />
                             Back to options
                         </Button>

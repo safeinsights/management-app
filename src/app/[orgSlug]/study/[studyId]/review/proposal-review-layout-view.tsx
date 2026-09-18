@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Box, Paper, Stack } from '@mantine/core'
 
@@ -25,14 +26,14 @@ export function ProposalReviewLayoutView({
     modals,
 }: ProposalReviewLayoutViewProps) {
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             {listener}
             <Stack px="xl" gap="xxl" py="xl">
                 {header}
                 {proposal}
                 {feedbackAndNotes}
                 <Paper p="xxl">
-                    <Stack gap={24} data-testid="decision-card-body">
+                    <Stack gap="lg" data-testid="decision-card-body">
                         {feedback}
                         {decision}
                     </Stack>

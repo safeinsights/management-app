@@ -7,6 +7,7 @@ import { SelectedStudy } from '@/server/actions/study.actions'
 import { Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
 import { FC } from 'react'
 import { FileChip } from '@/components/file-chip'
+import { fontWeight } from '@/theme/tokens'
 
 interface BadgeWithDescriptionProps {
     path?: string | null
@@ -33,7 +34,7 @@ export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">Study Name</Text>
+                    <Text fw={fontWeight.bold}>Study Name</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
                     <Text>{study.title}</Text>
@@ -42,7 +43,7 @@ export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">Principal investigator</Text>
+                    <Text fw={fontWeight.bold}>Principal investigator</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
                     <Text>{study.piName}</Text>
@@ -51,7 +52,7 @@ export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">Submitted by</Text>
+                    <Text fw={fontWeight.bold}>Submitted by</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
                     <Text>{study.createdBy}</Text>
@@ -60,7 +61,7 @@ export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">Study Description</Text>
+                    <Text fw={fontWeight.bold}>Study Description</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
                     <Text>
@@ -77,7 +78,7 @@ export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">IRB</Text>
+                    <Text fw={fontWeight.bold}>IRB</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
                     <Text>
@@ -94,7 +95,7 @@ export const StudyDetails: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">Agreement(s)</Text>
+                    <Text fw={fontWeight.bold}>Agreement(s)</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
                     <Text>

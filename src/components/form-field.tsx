@@ -168,7 +168,7 @@ const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNod
     if (!error && !footer && !errorLive) return null
 
     return (
-        <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt={4} wrap="nowrap">
+        <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt="xxs" wrap="nowrap">
             <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
         </Group>

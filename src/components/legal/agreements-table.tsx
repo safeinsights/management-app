@@ -69,7 +69,7 @@ type Props<T, Column extends string> = {
 }
 
 const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
-    <Stack gap={4} align="center">
+    <Stack gap="xxs" align="center">
         <Text>You have not acknowledged any {label} yet</Text>
     </Stack>
 )

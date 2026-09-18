@@ -12,6 +12,7 @@ import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { useCompleteSignIn } from '../signin/use-complete-sign-in'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
+import { fontWeight } from '@/theme/tokens'
 
 const verificationFormSchema = z
     .object({
@@ -170,7 +171,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                     <Button
                         variant="subtle"
                         c={canResend ? 'blue.7' : 'gray.5'}
-                        fw={600}
+                        fw={fontWeight.semibold}
                         size="xs"
                         loading={isResending}
                         onClick={handleResend}

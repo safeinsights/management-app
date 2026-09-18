@@ -1,6 +1,7 @@
 import React from 'react'
 import { Input, Text, Title } from '@mantine/core'
 import { RequiredIndicator } from './required-indicator'
+import { fontWeight } from '@/theme/tokens'
 
 export interface FormFieldLabelProps {
     label: string
@@ -22,7 +23,7 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
     let labelContent
     if (variant === 'orgset') {
         labelContent = (
-            <Text fw={600} size="sm" span>
+            <Text fw={fontWeight.semibold} size="sm" span>
                 {label}
                 <RequiredIndicator isVisible={required} />
             </Text>
@@ -37,7 +38,12 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
         )
     } else {
         labelContent = (
-            <Title order={3} size="h5" fw="semibold" style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
+            <Title
+                order={3}
+                size="h5"
+                fw={fontWeight.semibold}
+                style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}
+            >
                 {label}
                 <RequiredIndicator isVisible={required} />
             </Title>
