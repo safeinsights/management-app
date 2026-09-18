@@ -6,6 +6,7 @@ import { updateOrgAction, insertOrgAction, fetchAdminOrgsWithStatsAction } from 
 import { orgSchema, type ValidatedOrg } from '@/schema/org'
 import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
+import { resizableTextareaProps } from '@/components/textarea-resize'
 
 type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 type NewOrg = Omit<Org, 'id'>
@@ -121,7 +122,7 @@ export const EditOrgForm: FC<{
             {isEnclave && (
                 <Textarea
                     label="Public Key"
-                    resize="vertical"
+                    {...resizableTextareaProps}
                     description="Validates server authentication JWT"
                     placeholder="Enter your public key"
                     name="settings.publicKey"

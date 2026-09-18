@@ -6,6 +6,8 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchOrgDataSourcesAction } from './data-sources.actions'
 import { useDataSourceForm } from './use-data-source-form'
 import { GetInputPropsReturnType } from '@mantine/form'
+import { growingTextareaProps } from '@/components/textarea-resize'
+import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 
@@ -59,6 +61,7 @@ function SourceUrlLine({
 export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormProps) {
     const { form, isEditMode, isPending, onSubmit, updateUrl, updateUrlDescription, removeUrl, addUrl } =
         useDataSourceForm(dataSource, onCompleteAction)
+    const { ref: descriptionRef, floor: descriptionFloor } = useTextareaResizeFloor({ maxRows: 5 })
 
     return (
         <form onSubmit={onSubmit}>
@@ -72,9 +75,9 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                 <Textarea
                     label="Description"
                     placeholder="Brief description of this data source"
-                    autosize
-                    minRows={2}
-                    maxRows={5}
+                    ref={descriptionRef}
+                    rows={2}
+                    {...growingTextareaProps(descriptionFloor)}
                     {...form.getInputProps('description')}
                 />
                 <Divider />
