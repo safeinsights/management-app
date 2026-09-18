@@ -3,6 +3,7 @@
 import type { FC } from 'react'
 import { Button, HoverCard, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const LABEL = 'Launch IDE'
 
@@ -23,8 +24,15 @@ const UnclaimedHelperText: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Text size="xs" c="charcoal.7">
-            <Text span inherit c="yellow.8" mr={4} display="inline-flex" style={{ verticalAlign: 'middle' }}>
+        <Text size="xs" c={semanticColor('text.secondary')}>
+            <Text
+                span
+                inherit
+                c={semanticColor('warning.text')}
+                mr="xxs"
+                display="inline-flex"
+                style={{ verticalAlign: 'middle' }}
+            >
                 <WarningIcon size={12} weight="fill" aria-hidden />
             </Text>
             {UNCLAIMED_HELPER}
@@ -75,7 +83,7 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     )
 
     return (
-        <Stack gap={4} align={align}>
+        <Stack gap="xxs" align={align}>
             <HoverCard width={300} withArrow shadow="md" position="bottom-end">
                 {/* A disabled Mantine Button fires no pointer events, so the target has to be a
                     wrapper rather than the button, or the unavailable card never shows. */}
@@ -95,8 +103,8 @@ const LaunchHoverCardBody: FC<{ canLaunch: boolean; ideOwnerName: string | null 
     if (canLaunch) return <Text size="sm">{ENABLED_HOVER_CARD}</Text>
 
     return (
-        <Stack gap={4}>
-            <Text size="sm" fw={600}>
+        <Stack gap="xxs">
+            <Text size="sm" fw={fontWeight.semibold}>
                 {UNAVAILABLE_TITLE}
             </Text>
             <Text size="sm">{unavailableBody(ideOwnerName)}</Text>

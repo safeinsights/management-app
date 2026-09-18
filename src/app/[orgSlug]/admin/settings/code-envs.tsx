@@ -27,6 +27,7 @@ import { CodeViewer, FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
 import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
+import { fontWeight } from '@/theme/tokens'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -36,7 +37,7 @@ const VALUE_SPAN = { base: 12, sm: 9 }
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
     <Grid align="flex-start">
         <GridCol span={LABEL_SPAN}>
-            <Text fw="bold" c="dimmed" size="sm">
+            <Text fw={fontWeight.bold} c="dimmed" size="sm">
                 {label}
             </Text>
         </GridCol>
@@ -72,7 +73,7 @@ const CodeEnvDetailPanel: React.FC<{
                         : '-'}
                 </DetailRow>
                 <DetailRow label="Starter Code">
-                    <Stack gap={4}>
+                    <Stack gap="xxs">
                         {starterCodeFileNames.map((fileName) => (
                             <Group key={fileName} gap="sm">
                                 <span>{fileName}</span>

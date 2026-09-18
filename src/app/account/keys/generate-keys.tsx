@@ -13,6 +13,7 @@ import { FC, useEffect, useRef, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -110,8 +111,8 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     }
 
     return (
-        <Paper bg="white" p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
-            <Stack gap={24}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
+            <Stack gap="lg">
                 <Title order={3} fz={22}>
                     Security key
                 </Title>
@@ -119,14 +120,14 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                 <Text fz={16}>
                     This is your security key. You will need it to access your study outputs across every organization
                     you belong to.{' '}
-                    <Text component="b" fw={700} inherit>
+                    <Text component="b" fw={fontWeight.bold} inherit>
                         It is shown only once. Copy and store it somewhere safe, like a password manager, before you
                         continue.
                     </Text>
                 </Text>
 
-                <Stack gap={16}>
-                    <Text fz={14} fw={600}>
+                <Stack gap="md">
+                    <Text fz={14} fw={fontWeight.semibold}>
                         Copy and store your security key
                     </Text>
                     <Code

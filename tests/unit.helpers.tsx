@@ -9,7 +9,7 @@ import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
-import { theme } from '@/theme'
+import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
@@ -151,7 +151,7 @@ export function renderWithProviders(
 
     return render(
         <QueryClientProvider client={testQueryClient}>
-            <MantineProvider theme={theme}>
+            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
                 <SpyModeProvider>
                     <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
                         <ModalsProvider>{ui}</ModalsProvider>

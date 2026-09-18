@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import type { ReviewDecision } from '@/database/types'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
@@ -130,7 +131,7 @@ export function PostFeedbackView({
     const feedbackBeforeDetails = isCode && reviewVersion > 1
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <CollapsibleSubmittedCodeSection

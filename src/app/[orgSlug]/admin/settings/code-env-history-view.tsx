@@ -3,6 +3,7 @@
 import { Badge, Group, Stack, Table, Text } from '@mantine/core'
 import type { AuditEventType } from '@/database/types'
 import type { CodeEnvAuditMetadata } from '@/lib/audit-diff'
+import { fontWeight } from '@/theme/tokens'
 
 export type CodeEnvHistoryEntry = {
     id: string
@@ -65,10 +66,10 @@ const StarterCodeBadge: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
 const ChangeList: React.FC<{ changes: CodeEnvAuditMetadata['changes'] }> = ({ changes }) => {
     if (!changes.length) return <Text c="dimmed">No field changes</Text>
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             {changes.map((change) => (
                 <Text key={change.field} size="sm">
-                    <Text span fw={600}>
+                    <Text span fw={fontWeight.semibold}>
                         {FIELD_LABELS[change.field] ?? change.field}
                     </Text>
                     {': '}
@@ -92,7 +93,7 @@ const HistoryRow: React.FC<{ entry: CodeEnvHistoryEntry }> = ({ entry }) => (
             <Text size="sm">{entry.userFullName ?? 'Unknown user'}</Text>
         </Table.Td>
         <Table.Td valign="top">
-            <Group gap={4}>
+            <Group gap="xxs">
                 <EventBadge eventType={entry.eventType} />
                 <StarterCodeBadge isVisible={Boolean(entry.metadata.starterCodeReplaced)} />
             </Group>

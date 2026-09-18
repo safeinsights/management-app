@@ -3,6 +3,7 @@
 import type { FC } from 'react'
 import { Box, Group, Text } from '@mantine/core'
 import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { semanticColor } from '@/theme/tokens'
 
 /** Referenced by the submit button's aria-describedby, so both sides share one definition. */
 export const SUBMIT_CODE_ERROR_ID = 'submit-code-error'
@@ -16,7 +17,7 @@ const ErrorContent: FC<{ message: string | null }> = ({ message }) => {
     return (
         <Group gap={6} wrap="nowrap" align="center">
             <WarningCircleIcon size={16} weight="fill" color="var(--mantine-color-red-7)" aria-hidden />
-            <Text size="sm" c="red.7">
+            <Text size="sm" c={semanticColor('error.text')}>
                 {message}
             </Text>
         </Group>

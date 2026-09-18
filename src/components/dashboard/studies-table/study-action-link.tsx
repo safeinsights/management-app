@@ -1,3 +1,4 @@
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
@@ -47,7 +48,11 @@ function ResearcherLink({
     }
 
     return (
-        <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>
+        <Link
+            href={href}
+            aria-label={`View details for study ${study.title}`}
+            fw={isHighlighted ? fontWeight.semibold : undefined}
+        >
             {action.label}
         </Link>
     )
@@ -58,7 +63,7 @@ function ReviewerLink({ study, orgSlug, isHighlighted }: { study: StudyRow; orgS
     const href = Routes.studyReview({ orgSlug: slug, studyId: study.id })
 
     return (
-        <Link href={href} c="blue.7" fw={isHighlighted ? 600 : undefined}>
+        <Link href={href} c={semanticColor('link.default')} fw={isHighlighted ? fontWeight.semibold : undefined}>
             View
         </Link>
     )

@@ -6,6 +6,7 @@ import { isFilesReviewState, StudyCodeFileActions, StudyCodeFilesBody } from './
 import { ReplaceFileModal } from './replace-file-modal'
 import { IdeLaunchProgressModal } from './ide-launch-progress-modal'
 import { IdeLaunchFailedModal } from './ide-launch-failed-modal'
+import { fontWeight } from '@/theme/tokens'
 
 interface StudyCodePanelProps {
     ide: StudyCodeIDE
@@ -21,7 +22,7 @@ const PanelStepLabel: FC<{ stepLabel?: string }> = ({ stepLabel }) => {
     if (!stepLabel) return null
 
     return (
-        <Text fz="sm" fw={700} c="gray.7">
+        <Text fz="sm" fw={fontWeight.bold} c="gray.7">
             {stepLabel}
         </Text>
     )

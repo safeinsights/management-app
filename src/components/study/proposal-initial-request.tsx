@@ -10,12 +10,11 @@ import { type Submitted } from '@/schema/study'
 import { CollapseToggleLink } from './collapse-toggle-link'
 import { DatasetsField, FieldDivider, LexicalProposalField, PIField, ResearcherField } from './proposal-fields'
 import { ProposalStepHeader } from './proposal-step-header'
+import { fontWeight } from '@/theme/tokens'
 
 const EXPAND_LABEL = 'View full proposal'
 const COLLAPSE_LABEL = 'Hide full proposal'
 const SNIPPET_LINE_CLAMP = 2
-/** `Spacing/lg` in Figma; the Mantine scale has no 24px step. */
-const CARD_SECTION_GAP = 24
 
 type ProposalRequestProps = {
     study: Submitted<SelectedStudy>
@@ -38,8 +37,8 @@ const ResearchQuestionSnippet: FC<{ preview: string }> = ({ preview }) => {
     if (!preview) return null
 
     return (
-        <Stack gap={4}>
-            <Text fw={600} size="sm">
+        <Stack gap="xxs">
+            <Text fw={fontWeight.semibold} size="sm">
                 Research question(s)
             </Text>
             <Text size="md" lineClamp={SNIPPET_LINE_CLAMP} data-testid="proposal-snippet-question">
@@ -65,7 +64,7 @@ const ProposalSnippet: FC<ProposalSnippetProps> = ({ isVisible, study, onExpand,
     const dividerVariant = hasBothSections ? 'default' : 'none'
 
     return (
-        <Stack gap={CARD_SECTION_GAP} data-testid="proposal-snippet">
+        <Stack gap="lg" data-testid="proposal-snippet">
             <DatasetsField datasets={datasets} orgDataSources={study.orgDataSources} size="sm" />
             <FieldDivider variant={dividerVariant} />
             <ResearchQuestionSnippet preview={preview} />
@@ -100,7 +99,7 @@ const ProposalExpandedBody: FC<ProposalExpandedBodyProps> = ({
     const datasets = study.datasets ?? []
 
     return (
-        <Stack gap={CARD_SECTION_GAP} data-testid="proposal-body">
+        <Stack gap="lg" data-testid="proposal-body">
             <CollapseToggleLink
                 label={COLLAPSE_LABEL}
                 isExpanded

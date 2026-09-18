@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
@@ -30,7 +31,7 @@ const formatActivity = (activity: WorkspaceFileActivitySummary) =>
     ].join(' · ')
 
 const LastActivityCell: FC<{ activity: WorkspaceFileActivitySummary | null | undefined }> = ({ activity }) => (
-    <Text size="sm" c="charcoal.7">
+    <Text size="sm" c={semanticColor('text.secondary')}>
         {activity ? formatActivity(activity) : NO_ACTIVITY}
     </Text>
 )
@@ -57,7 +58,7 @@ const truncateFileName = (name: string) =>
     name.length > FILE_NAME_MAX_CHARS ? `${name.slice(0, FILE_NAME_MAX_CHARS)}…` : name
 
 const MainFileColumnHeader: FC = () => (
-    <Group gap={4} wrap="nowrap" align="center">
+    <Group gap="xxs" wrap="nowrap" align="center">
         <Text component="span" inherit>
             Main file
         </Text>
@@ -117,7 +118,7 @@ const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ is
     return (
         <HoverCard width={340} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="light" color="grey.9" fw="semibold" tt="none" style={{ cursor: 'default' }}>
+                <Badge variant="light" color="grey.9" fw={fontWeight.semibold} tt="none" style={{ cursor: 'default' }}>
                     Template
                 </Badge>
             </HoverCard.Target>

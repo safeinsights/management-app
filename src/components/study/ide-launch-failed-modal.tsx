@@ -3,6 +3,7 @@
 import type { FC } from 'react'
 import { Button, Progress, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const MODAL_TITLE = 'Setting up the SafeInsights IDE'
 const HEADING = 'IDE failed to launch'
@@ -33,8 +34,8 @@ export const IdeLaunchFailedModal: FC<IdeLaunchFailedModalProps> = ({
 }) => (
     <AppModal isOpen={isOpen} onClose={onClose} title={MODAL_TITLE} closeButtonProps={{ 'aria-label': 'Close' }}>
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Text fw={700} c="red.7">
+            <Stack gap="xxs">
+                <Text fw={fontWeight.bold} c={semanticColor('error.text')}>
                     {HEADING}
                 </Text>
                 <Text size="sm">{supportLine(supportRef)}</Text>

@@ -10,6 +10,7 @@ import typescriptEslint from 'typescript-eslint'
 import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
+import noRawStyleValues from './tests/no-raw-style-values.mjs'
 
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
@@ -114,6 +115,7 @@ const eslintConfig = [
                     noSelectAllWithoutArgs,
                     noBareRouteStrings,
                     noInvalidButtonVariant,
+                    noRawStyleValues,
                 },
             },
         },
@@ -143,6 +145,32 @@ const eslintConfig = [
             ],
             semi: ['error', 'never'],
             'import/no-duplicates': 'error',
+        },
+    },
+    // Theme tokens over ad-hoc styling. `warn` while the migration lands; raise to `error`
+    // per glob as each area comes clean.
+    {
+        // `.ts` too: the status pills and app-shell backgrounds are plain colour constants, and a
+        // .tsx-only glob never sees them.
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/**/*.stories.tsx', 'src/**/*.test.{ts,tsx}'],
+        rules: {
+            'custom/noRawStyleValues': 'warn',
+        },
+    },
+    // The theme is where raw values are supposed to live: it is what the tokens resolve to.
+    {
+        files: ['src/theme.ts', 'src/theme/**/*.ts', 'src/components/ui/theme-components.ts'],
+        rules: {
+            'custom/noRawStyleValues': 'off',
+        },
+    },
+    // Brand artwork and the editor's own palettes are not themeable: the logo hexes are the mark
+    // itself, and the card keeps Lexical/Yjs cursor colours as they are.
+    {
+        files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
+        rules: {
+            'custom/noRawStyleValues': 'off',
         },
     },
 ]

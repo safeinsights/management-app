@@ -25,7 +25,7 @@ const AgreementDetails: FC<{ agreement: Agreement }> = ({ agreement }) => (
 )
 
 const EmptyState: FC<{ label: string }> = ({ label }) => (
-    <Stack gap={4}>
+    <Stack gap="xxs">
         <Text>No {label} yet.</Text>
         <Text c="dimmed">It will appear here once SafeInsights has countersigned it.</Text>
     </Stack>

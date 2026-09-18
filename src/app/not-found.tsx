@@ -7,6 +7,7 @@ import { AppShell, AppShellHeader, AppShellMain, Button, Group, Paper, Stack, Te
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { NotFoundImage } from '../../public/svg/404-image'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export default function NotFound() {
     const router = useRouter()
@@ -25,13 +26,13 @@ export default function NotFound() {
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 px="md"
             >
-                <Paper bg="white" p="xxl" radius="sm" maw={600} my={{ base: '1rem', lg: 0 }}>
+                <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={600} my={{ base: '1rem', lg: 0 }}>
                     <Stack mb="xxl" ta="center" align="center" gap="0">
                         <NotFoundImage style={{ margin: '0 auto' }} />
                         <Title order={1} fw={800} mt="sm">
                             Page Not Found
                         </Title>
-                        <Text size="md" fw={400} c="grey.6" mt="md">
+                        <Text size="md" fw={fontWeight.regular} c="grey.6" mt="md">
                             The page you are trying to open does not exist. <br />
                             The page address may have been mistyped, or the page <br /> has been moved to another URL.
                         </Text>

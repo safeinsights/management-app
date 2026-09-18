@@ -1,5 +1,6 @@
 'use client'
 
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import {
     ActionIcon,
     Alert,
@@ -177,7 +178,7 @@ function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onTogg
             type="button"
             onClick={onToggle}
             size="sm"
-            fw={700}
+            fw={fontWeight.bold}
             display="inline-flex"
             w="fit-content"
             style={{ alignItems: 'center', gap: 4 }}
@@ -235,7 +236,7 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     return (
         <>
             <Stack gap="xs">
-                <Text fw={600} size="sm">
+                <Text fw={fontWeight.semibold} size="sm">
                     Overview
                 </Text>
                 <AiSummaryBody isExpanded={isExpanded} summary={summary} />
@@ -294,7 +295,7 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
     return (
         <Stack gap="lg" data-testid="ai-summary">
             <Stack gap={4}>
-                <Text fw={700} fz={16}>
+                <Text fw={fontWeight.bold}>     
                     AI Summary of submitted code files
                 </Text>
                 <Text size="xs" c="dimmed">
@@ -419,7 +420,7 @@ function FileTab({
                 py="xs"
                 style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={fontWeight.regular}>
                     {display}
                 </Text>
             </UnstyledButton>
@@ -463,8 +464,8 @@ function OverflowFilesMenu({
                     py="xs"
                     style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
                 >
-                    <Group gap={4} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
-                        <Text size="sm" c="charcoal.7" component="span">
+                    <Group gap="xxs" wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm" c={semanticColor('text.secondary')} component="span">
                             +{hidden.length} more files
                         </Text>
                         <CaretRightIcon size={12} weight="bold" />

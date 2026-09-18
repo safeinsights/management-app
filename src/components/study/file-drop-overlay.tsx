@@ -13,6 +13,7 @@ import {
 } from '@/lib/types'
 import { showUploadFailed } from './upload-notifications'
 import { showToast } from '@/components/toast-notifications'
+import { fontWeight } from '@/theme/tokens'
 
 function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
@@ -38,7 +39,7 @@ function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
                     <ThemeIcon variant="light" color="blue" size="xl" radius="xl">
                         <FileArrowUpIcon size={28} />
                     </ThemeIcon>
-                    <Text fw={600} size="md">
+                    <Text fw={fontWeight.semibold} size="md">
                         Drop files to include
                     </Text>
                     <Text size="xs" c="dimmed">

@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -32,7 +33,7 @@ export const NavbarLink: FC<NavbarLinkProps> = ({ isVisible, url, label, icon, r
                 component={isExternal ? undefined : Link}
                 href={url as Route}
                 active={pathname === url}
-                c="white"
+                c={semanticColor('text.white')}
                 color="blue.7"
                 variant="filled"
                 target={newTab ? '_blank' : '_self'}

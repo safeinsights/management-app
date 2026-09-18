@@ -11,11 +11,12 @@ import {
 import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
+import { fontWeight } from '@/theme/tokens'
 
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
         <Group justify="space-between" align="center" wrap="nowrap" data-testid="submitted-code-header">
-            <Title order={3} fz={18} fw={700}>
+            <Title order={3} fz={18} fw={fontWeight.bold}>
                 Submission details
             </Title>
             <Button
@@ -47,7 +48,7 @@ function DatasetPills({ names }: { names: string[] }) {
     )
     return (
         <Stack gap="xs" data-testid="submitted-code-datasets">
-            <Text size="sm" fw={700}>
+            <Text size="sm" fw={fontWeight.bold}>
                 Dataset(s) associated with the study
             </Text>
             <Group gap="xs">{names.length === 0 ? empty : pills}</Group>

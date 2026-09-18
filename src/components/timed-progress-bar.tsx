@@ -67,7 +67,7 @@ export function TimedProgressBar<T>({
                         {caption ?? label}
                     </Text>
                 </summary>
-                <Stack gap={4} mt={4}>
+                <Stack gap="xxs" mt="xxs">
                     {children}
                 </Stack>
             </details>
