@@ -35,7 +35,6 @@ const validFeedback = buildFeedback(60)
 const validCriteria: CodeReviewCriteria = {
     proposalAlignment: 'yes',
     agreementCompliance: 'yes',
-    securityChecks: 'not-sure',
     privacyProtection: 'yes',
 }
 

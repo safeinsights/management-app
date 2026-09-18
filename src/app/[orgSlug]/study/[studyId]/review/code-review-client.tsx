@@ -13,6 +13,7 @@ import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-s
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import type { Decision } from '@/lib/review-decision'
+import { Routes } from '@/lib/routes'
 import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -62,7 +63,6 @@ function useCodeReview({
             criteria: {
                 proposalAlignment: null,
                 agreementCompliance: null,
-                securityChecks: null,
                 privacyProtection: null,
             },
         },
@@ -119,6 +119,7 @@ type EditableBodyProps = {
     decision: ReturnType<typeof useReviewDecision>
     job: LatestJobForStudy
     labName: string
+    proposalHref: string
     canSubmit: boolean
     isPending: boolean
     nav: StepNav
@@ -133,6 +134,7 @@ function EditableBody({
     decision,
     job,
     labName,
+    proposalHref,
     canSubmit,
     isPending,
     nav,
@@ -142,7 +144,7 @@ function EditableBody({
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <CodeEvaluationSection form={evaluationForm} enabled />
+            <CodeEvaluationSection form={evaluationForm} enabled proposalHref={proposalHref} />
             <CodeReviewFeedbackSection
                 feedback={feedback}
                 studyId={job.studyId}
@@ -206,6 +208,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
 
     const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
 
     return (
         <StudyKickOutProvider
@@ -230,6 +233,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     decision={decision}
                     job={job}
                     labName={labName}
+                    proposalHref={proposalHref}
                     canSubmit={canSubmit}
                     isPending={isPending}
                     nav={nav}

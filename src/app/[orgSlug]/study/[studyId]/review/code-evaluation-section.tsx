@@ -3,17 +3,18 @@
 import { type ReactNode } from 'react'
 import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { useWidgetBlur } from '@/components/form-field'
+import { LinkWithIcon } from '@/components/links'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
+    CODE_REVIEW_CRITERIA_KEYS,
     type CodeReviewCriteriaDraft,
     type CodeReviewCriteriaDraftValue,
     type CodeReviewCriteriaKey,
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
-import { CODE_REVIEW_CRITERIA, type CodeReviewCriterion } from './code-review-criteria'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -25,17 +26,19 @@ const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = 
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
     enabled: boolean
+    proposalHref: string
 }
 
 type CriterionRowProps = {
-    descriptor: CodeReviewCriterion
+    criterionKey: CodeReviewCriteriaKey
     value: CodeReviewCriteriaDraftValue
     error: ReactNode
     onChange: (value: CodeReviewCriteriaDraftValue) => void
     onBlur: () => void
+    label: ReactNode
 }
 
-function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionRowProps) {
+function CriterionRow({ criterionKey, value, error, onChange, onBlur, label }: CriterionRowProps) {
     const handleChange = (raw: string) => {
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
@@ -44,12 +47,12 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
 
     // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper; the
     // role="radiogroup" element takes its name from labelProps.id instead.
-    const labelId = `criteria-${descriptor.key}-label`
+    const labelId = `criteria-${criterionKey}-label`
 
     return (
-        <Group gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${descriptor.key}`}>
+        <Group gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
             <Text id={labelId} fz={14} w={320}>
-                {descriptor.label}
+                {label}
             </Text>
             {/* Guarded blur: the radios are siblings, so an unguarded handler would error while
                 the user is still tabbing across the row (OTTER-647). */}
@@ -57,7 +60,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
                 value={value ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
-                name={`criteria-${descriptor.key}`}
+                name={`criteria-${criterionKey}`}
                 error={error}
                 labelProps={{ id: labelId }}
             >
@@ -69,7 +72,32 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
     )
 }
 
-export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionProps) {
+function ProposalLink({ href, children }: { href: string; children: ReactNode }) {
+    return (
+        <LinkWithIcon
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            underline="always"
+            icon={<ArrowSquareOutIcon size={14} weight="bold" />}
+            data-testid="criteria-proposal-link"
+        >
+            {children}
+        </LinkWithIcon>
+    )
+}
+
+const CRITERION_LABELS: Record<CodeReviewCriteriaKey, (proposalHref: string) => ReactNode> = {
+    proposalAlignment: (href) => (
+        <>
+            Does code align with the approved <ProposalLink href={href}>proposal</ProposalLink>?
+        </>
+    ),
+    agreementCompliance: () => 'Does code align with the Study Agreement?',
+    privacyProtection: () => 'Could the outputs expose any PII?',
+}
+
+export function CodeEvaluationSection({ form, enabled, proposalHref }: CodeEvaluationSectionProps) {
     const provider = useCodeReviewFeedbackProvider()
     const { pushCriterion } = useCodeReviewEvaluationMap({ form, provider, enabled })
 
@@ -80,14 +108,15 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
         pushCriterion(key, value)
     }
 
-    const criterionRows = CODE_REVIEW_CRITERIA.map((descriptor) => (
+    const criterionRows = CODE_REVIEW_CRITERIA_KEYS.map((key) => (
         <CriterionRow
-            key={descriptor.key}
-            descriptor={descriptor}
-            value={criteriaValues[descriptor.key]}
-            error={form.errors[`criteria.${descriptor.key}`]}
-            onChange={handleChange(descriptor.key)}
-            onBlur={() => form.validateField(`criteria.${descriptor.key}`)}
+            key={key}
+            criterionKey={key}
+            value={criteriaValues[key]}
+            error={form.errors[`criteria.${key}`]}
+            onChange={handleChange(key)}
+            onBlur={() => form.validateField(`criteria.${key}`)}
+            label={CRITERION_LABELS[key](proposalHref)}
         />
     ))
 
@@ -101,20 +130,13 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
                     <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider />
-                <Text fz={14} c={semanticColor('text.primary')}>
-                    Use this checklist to guide your review. Consider each criterion based on the submitted code, AI
-                    summary, and security scan results.
-                </Text>
                 <Alert
-                    color="red"
-                    variant="light"
-                    title="Attention"
-                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--si-color-error-text)" />}
-                    styles={{ title: { color: 'var(--si-color-error-text)' } }}
+                    bg={semanticColor('info.bg.light')}
+                    icon={<InfoIcon size={20} weight="fill" color={semanticColor('info.text')} />}
                     data-testid="code-evaluation-attention"
                 >
-                    This checklist is provided as guidance. As the reviewer(s), you are responsible for the final
-                    decision based on your professional judgment and understanding of your data.
+                    This checklist is for guidance only. The final decision is yours, based on your professional
+                    judgment along with your organization&apos;s data and policies.
                 </Alert>
                 <Text fz={16} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     Evaluation criteria

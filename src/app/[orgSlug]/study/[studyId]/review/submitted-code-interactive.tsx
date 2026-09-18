@@ -295,9 +295,7 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
     return (
         <Stack gap="lg" data-testid="ai-summary">
             <Stack gap={4}>
-                <Text fw={fontWeight.bold}>     
-                    AI Summary of submitted code files
-                </Text>
+                <Text fw={fontWeight.bold}>AI Summary of submitted code files</Text>
                 <Text size="xs" c="dimmed">
                     AI-generated summary, which may contain errors. Review the submitted code before making your
                     decision.

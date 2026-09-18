@@ -3,18 +3,24 @@ import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/
 import { useForm, type UseFormReturnType } from '@mantine/form'
 
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
-import { type CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
+import { type CodeReviewCriteriaDraft, type CodeReviewCriteriaKey } from '@/hooks/use-code-review-evaluation-map'
 import { CodeEvaluationSection } from './code-evaluation-section'
-import { CODE_REVIEW_CRITERIA } from './code-review-criteria'
+
+const EXPECTED_LABELS: Record<CodeReviewCriteriaKey, string> = {
+    proposalAlignment: 'Does code align with the approved proposal?',
+    agreementCompliance: 'Does code align with the Study Agreement?',
+    privacyProtection: 'Could the outputs expose any PII?',
+}
 
 type FormShape = { criteria: CodeReviewCriteriaDraft }
 
 const initialDraft: CodeReviewCriteriaDraft = {
     proposalAlignment: null,
     agreementCompliance: null,
-    securityChecks: null,
     privacyProtection: null,
 }
+
+const PROPOSAL_HREF = '/test-org/study/test-study/review/proposal'
 
 const renderSection = () => {
     const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
@@ -25,7 +31,7 @@ const renderSection = () => {
         }, [form])
         return (
             <CodeReviewFeedbackProviderShare>
-                <CodeEvaluationSection form={form} enabled />
+                <CodeEvaluationSection form={form} enabled proposalHref={PROPOSAL_HREF} />
             </CodeReviewFeedbackProviderShare>
         )
     }
@@ -39,19 +45,26 @@ const renderSection = () => {
 }
 
 describe('CodeEvaluationSection', () => {
-    it('renders the heading, intro, attention alert, and the four criteria rows', () => {
+    it('renders the heading, attention alert, and the three criteria rows', () => {
         renderSection()
 
         expect(screen.getByText('Code evaluation')).toBeInTheDocument()
-        expect(screen.getByText(/Use this checklist to guide your review/)).toBeInTheDocument()
-        expect(screen.getByTestId('code-evaluation-attention')).toHaveTextContent(
-            /This checklist is provided as guidance/,
-        )
+        expect(screen.getByTestId('code-evaluation-attention')).toHaveTextContent(/This checklist is for guidance only/)
         expect(screen.getByText('Evaluation criteria')).toBeInTheDocument()
 
-        for (const descriptor of CODE_REVIEW_CRITERIA) {
-            expect(screen.getByTestId(`criteria-row-${descriptor.key}`)).toHaveTextContent(descriptor.label)
+        for (const [key, label] of Object.entries(EXPECTED_LABELS)) {
+            expect(screen.getByTestId(`criteria-row-${key}`)).toHaveTextContent(label)
         }
+    })
+
+    it('links proposal to the review proposal page in a new tab', () => {
+        renderSection()
+        const link = screen.getByTestId('criteria-proposal-link')
+        expect(link).toHaveAttribute('href', PROPOSAL_HREF)
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link).toHaveAttribute('data-underline', 'always')
+        expect(link).toHaveTextContent('proposal')
+        expect(link.querySelector('svg')).toBeInTheDocument()
     })
 
     it('updates the form value when a radio is selected', async () => {
@@ -67,13 +80,15 @@ describe('CodeEvaluationSection', () => {
         expect(refs.form.getValues().criteria.agreementCompliance).toBe('no')
     })
 
-    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper, so assert the
-    // accessible name rather than the attribute.
-    it('names every criterion radiogroup after its visible criterion text', () => {
+    it('wires every criterion radiogroup to its visible label', () => {
         renderSection()
 
-        for (const descriptor of CODE_REVIEW_CRITERIA) {
-            expect(screen.getByRole('radiogroup', { name: descriptor.label })).toBeInTheDocument()
+        for (const key of Object.keys(EXPECTED_LABELS)) {
+            const labelId = `criteria-${key}-label`
+            const radioGroup = screen.getByRole('radiogroup', {
+                name: (_name, el) => el.getAttribute('aria-labelledby') === labelId,
+            })
+            expect(radioGroup).toBeInTheDocument()
         }
     })
 })

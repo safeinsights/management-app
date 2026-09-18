@@ -231,7 +231,6 @@ describe('CodeReviewClient decision selector', () => {
                 criteria: {
                     proposalAlignment: 'yes',
                     agreementCompliance: 'yes',
-                    securityChecks: 'yes',
                     privacyProtection: 'yes',
                 },
             })
