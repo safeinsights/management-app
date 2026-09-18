@@ -20,9 +20,9 @@ import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { Refresher } from '@/components/refresher'
-import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
+import { QueryStateBody } from './query-state-body'
 import { CodeViewer, FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
@@ -30,6 +30,9 @@ import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
 import { fontWeight } from '@/theme/tokens'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
+
+// Module-level, so a render that has no data yet does not mint a new array identity each time.
+const NO_CODE_ENVS: CodeEnv[] = []
 
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
@@ -333,15 +336,7 @@ export const CodeEnvs: React.FC = () => {
 
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
-    const {
-        data: codeEnvs,
-        isLoading,
-        isError,
-        error,
-        refetch,
-        isFetching,
-        isRefetching,
-    } = useQuery({
+    const query = useQuery({
         queryKey: ['orgCodeEnvs', orgSlug],
         queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
     })
@@ -351,28 +346,19 @@ export const CodeEnvs: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 
-    const shouldRefresh = needsRefresh(codeEnvs ?? [])
+    const codeEnvs = query.data ?? NO_CODE_ENVS
+    const shouldRefresh = needsRefresh(codeEnvs)
+    const isRefreshPending = query.isRefetching || query.isFetching
 
     return (
         <>
             <CodeEnvsView
                 onAdd={openAddModal}
-                refresher={
-                    <Refresher isEnabled={shouldRefresh} refresh={refetch} isPending={isRefetching || isFetching} />
-                }
+                refresher={<Refresher isEnabled={shouldRefresh} refresh={query.refetch} isPending={isRefreshPending} />}
             >
-                {isLoading && <LoadingMessage message="Loading code environments" />}
-
-                {isError && (
-                    <ErrorPanel
-                        title={`Failed to load code environments: ${error?.message || 'Unknown error'}`}
-                        onContinue={refetch}
-                    >
-                        Retry
-                    </ErrorPanel>
-                )}
-
-                {!isLoading && !isError && <CodeEnvsTable images={codeEnvs || []} />}
+                <QueryStateBody query={query} loadingMessage="Loading code environments" errorLabel="code environments">
+                    <CodeEnvsTable images={codeEnvs} />
+                </QueryStateBody>
             </CodeEnvsView>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Code Environment" size="xl">

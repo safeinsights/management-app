@@ -106,6 +106,8 @@ export const reportMutationError = (title: string) => (err: unknown) => reportEr
 type ErrorAlertProps = { error: unknown } & AlertProps
 
 export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <WarningIcon />, title = 'An error occurred', error }) => {
+    if (!error) return null
+
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
             {errorToString(error)}

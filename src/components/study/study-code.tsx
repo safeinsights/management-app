@@ -9,6 +9,9 @@ import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SaveStatusIndicator } from '@/components/save-status'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
+import { blocksStudyWork } from '@/schema/legal-document'
+import { useStudyAgreementStatus } from '@/components/legal/require-study-agreement'
 import { SUBMIT_CODE_ERROR_ID } from './submit-code-error'
 import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
@@ -39,26 +42,42 @@ const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) =
 )
 
 type SubmitCodeFooterProps = {
+    studyId: string
     previousHref: Route
     ide: StudyCodeIDE
+    isBlockedByAgreement: boolean
     onSubmitClick: () => void
 }
 
-const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ previousHref, ide, onSubmitClick }) => (
-    <Group justify="space-between" w="100%">
-        <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
-            Previous step
-        </ButtonLink>
-        <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
-            <SaveStatusIndicator status={ide.saveStatus} />
-            {/* Never disabled, per the card: validation happens on click so the reason can be
-                stated, rather than leaving a dead button to be puzzled over. aria-describedby
-                keeps that reason reachable if the researcher tabs back here after it is read out. */}
-            <Button loading={ide.isDirectSubmitting} onClick={onSubmitClick} aria-describedby={SUBMIT_CODE_ERROR_ID}>
-                Submit code for review
-            </Button>
+const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({
+    studyId,
+    previousHref,
+    ide,
+    isBlockedByAgreement,
+    onSubmitClick,
+}) => (
+    <Stack w="100%">
+        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code yet." />
+        <Group justify="space-between" w="100%">
+            <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
+                Previous step
+            </ButtonLink>
+            <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
+                <SaveStatusIndicator status={ide.saveStatus} />
+                {/* The legal gate is the one reason that disables: no amount of editing clears it, and
+                    the notice above already states it. Every other reason validates on click instead, so
+                    it can be named. aria-describedby keeps that reason reachable on tabbing back. */}
+                <Button
+                    disabled={isBlockedByAgreement}
+                    loading={ide.isDirectSubmitting}
+                    onClick={onSubmitClick}
+                    aria-describedby={SUBMIT_CODE_ERROR_ID}
+                >
+                    Submit code for review
+                </Button>
+            </Group>
         </Group>
-    </Group>
+    </Stack>
 )
 
 export const StudyCode = ({
@@ -83,6 +102,11 @@ export const StudyCode = ({
     }, [closeConfirm])
 
     const ide = useIDEFiles({ studyId, onSubmitSuccess, onSubmitError: handleSubmitError })
+
+    // Read here rather than inside useIDEFiles: the IDE hook has no other reason to know about
+    // legal documents, and the notice beside the button already carries the explanation.
+    const { status: agreementStatus } = useStudyAgreementStatus(studyId)
+    const isBlockedByAgreement = blocksStudyWork(agreementStatus)
 
     // Derived rather than snapshotted at click time, so the message tracks the same data the button
     // does: fix the problem and it goes, break it again and it comes back.
@@ -120,7 +144,13 @@ export const StudyCode = ({
                 <YourFilesSection ide={ide} dataPartnerName={dataPartnerName} submitError={submitError} />
 
                 <div ref={footerRef}>
-                    <SubmitCodeFooter previousHref={previousHref} ide={ide} onSubmitClick={handleSubmitClick} />
+                    <SubmitCodeFooter
+                        studyId={studyId}
+                        previousHref={previousHref}
+                        ide={ide}
+                        isBlockedByAgreement={isBlockedByAgreement}
+                        onSubmitClick={handleSubmitClick}
+                    />
                 </div>
             </Stack>
 

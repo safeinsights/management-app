@@ -64,11 +64,34 @@ describe('GET /dl/legal/[versionId]', () => {
         expect((await get(version.id)).status).toBe(307)
     })
 
+    // The study-agreement modal links here before the acknowledgement exists, so a party who has not
+    // signed yet must still be able to read what they are being asked to sign.
+    it('redirects a plain member of a party org who has not acknowledged it', async () => {
+        const { version, researchLab } = await seedStudyAgreement()
+        await publish(version.id)
+        await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab', isAdmin: false })
+
+        expect((await get(version.id)).status).toBe(307)
+    })
+
     it('redirects a plain member who acknowledged this version', async () => {
         const { version, dataPartner } = await seedStudyAgreement()
         await publish(version.id)
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: false })
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+
+        expect((await get(version.id)).status).toBe(307)
+    })
+
+    // DOPA/ROPA are enforced per user, so a plain member must be able to read the one they owe.
+    it('redirects a plain org member to their org participation agreement before they acknowledge', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = actionResult(
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
+        )
+        await publish(version.id)
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave', isAdmin: false })
 
         expect((await get(version.id)).status).toBe(307)
     })
@@ -84,6 +107,18 @@ describe('GET /dl/legal/[versionId]', () => {
     it('refuses an unpublished draft', async () => {
         const { version, dataPartner } = await seedStudyAgreement()
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        expect((await get(version.id)).status).toBe(401)
+    })
+
+    it('refuses a global document to a user who never acknowledged it, since it binds no org', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const { version } = actionResult(
+            await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile('tos.md') }),
+        )
+        // No signedAt: a TOS is published, not signed.
+        actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
+        await mockSessionWithTestData({ orgType: 'lab', isAdmin: true })
 
         expect((await get(version.id)).status).toBe(401)
     })

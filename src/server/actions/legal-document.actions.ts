@@ -2,7 +2,7 @@
 
 import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentType, OrgType } from '@/database/types'
+import type { LegalDocumentType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
@@ -21,6 +21,8 @@ import {
     legalDocumentVersionParams,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
+    studyAgreementStatusSchema,
+    type StudyAgreementStatus,
     globalDocumentTypeParams,
     inviteParams,
     GlobalLegalDocumentType,
@@ -43,6 +45,9 @@ import {
 import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import { urlForLegalDocumentVersion } from '../legal-document'
+import { studyAgreementStatusFor } from '../study-agreement'
+import { onStudyAgreementPublished } from '../events'
+import { requireResolvedOrg } from './org-context'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
@@ -78,6 +83,21 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
     }
 }
 
+// As scopeFromVersionId, for a caller holding a study rather than a version.
+const scopeFromStudyId = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId as dataPartnerId', 'submittedByOrgId as researchLabId'])
+        .where('id', '=', studyId)
+        .executeTakeFirst()
+
+    return {
+        studyId,
+        isGlobal: false,
+        audienceOrgIds: study ? [study.dataPartnerId, study.researchLabId] : [],
+    }
+}
+
 const globalDocumentScope = async () => ({ isGlobal: true, audienceOrgIds: [] })
 
 // Needed because the all-optional ability conditions are a TS weak type.
@@ -108,7 +128,6 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
     .handler(async ({ db, params: { type, orgId, studyId, file } }) => {
         const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
-        // For participation agreements: Make sure agreement type matches org's type
         if (orgId) {
             const org = await db.selectFrom('org').select('type').where('id', '=', orgId).executeTakeFirstOrThrow()
             const acceptableDocType = participationAgreementTypeForOrgType[org.type]
@@ -159,7 +178,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .selectFrom('legalDocumentVersion')
             .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
             .selectAll('legalDocumentVersion')
-            .select('legalDocument.type as type')
+            .select(['legalDocument.type as type', 'legalDocument.studyId as studyId'])
             .where('legalDocumentVersion.id', '=', versionId)
             .executeTakeFirstOrThrow()
 
@@ -182,7 +201,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .executeTakeFirstOrThrow()
 
         // Makes a concurrent second publish claim zero rows and throw rather than overwrite.
-        return await db
+        const published = await db
             .updateTable('legalDocumentVersion')
             .set({
                 publishedAt: new Date(),
@@ -194,6 +213,13 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .where('publishedAt', 'is', null)
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        // Only a Study Agreement has an audience to notify; the org-wide types are not acknowledged per study.
+        if (version.type === 'SLA' && version.studyId) {
+            onStudyAgreementPublished({ studyId: version.studyId })
+        }
+
+        return published
     })
 
 export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVersionsAction')
@@ -328,7 +354,6 @@ const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
         .execute()
 
-    // Narrow DB enum to T
     const isRequestedType = (type: LegalDocumentType): type is T =>
         (types as readonly LegalDocumentType[]).includes(type)
 
@@ -567,7 +592,7 @@ export const fetchParticipationSignatoriesAction = new Action('fetchParticipatio
             .execute(),
     )
 
-export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
+export const fetchStudyAgreementsAction = new Action('fetchStudyAgreementsAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
@@ -611,7 +636,7 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
         )
     })
 
-export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSlaAction')
+export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudiesAwaitingStudyAgreementAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
@@ -629,6 +654,8 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             ])
             .where('study.status', '=', 'APPROVED')
             .where('study.deletedAt', 'is', null)
+            // A test study needs no agreement, so leaving it here would queue work that never ends.
+            .where('study.isTestStudy', '=', false)
             // Keyed on a PUBLISHED version, not the document row: that row is written before the
             // file is uploaded, so an abandoned upload would hide the study from both screens.
             .where((eb) =>
@@ -654,14 +681,16 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .execute()
     })
 
-// An unknown slug leaves orgId undefined; ('manage','all') passes the $in rule, so an SI admin
-// would reach the handler and index a Record with undefined. TypeScript cannot see it.
-function requireResolvedOrg(ctx: {
-    orgId?: string
-    orgType?: OrgType
-}): asserts ctx is { orgId: string; orgType: OrgType } {
-    if (!ctx.orgId || !ctx.orgType) throw new ActionFailure({ org: 'was not found' })
-}
+// `notAParty` for anyone the agreement does not bind: an SI admin passes the ability check with
+// `manage all`, but is the counterparty to every agreement and never a signatory.
+export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementStatusAction')
+    .params(studyAgreementStatusSchema)
+    .middleware(scopeFromStudyId)
+    .requireAbilityTo('acknowledge', 'LegalDocument')
+    .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
+        // An unknown study reads as notAParty, so a probe learns nothing it could not guess.
+        return (await studyAgreementStatusFor(db, { studyId, userId: session.user.id })) ?? { state: 'notAParty' }
+    })
 
 export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
     .params(orgStudyAgreementParams)

@@ -301,16 +301,22 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
         .innerJoin('user as researcher', 'study.researcherId', 'researcher.id')
         .leftJoin('user as reviewer', 'study.reviewerId', 'reviewer.id')
         .innerJoin('org', 'org.id', 'study.orgId')
+        .innerJoin('org as lab', 'lab.id', 'study.submittedByOrgId')
         .select([
             'study.orgId',
             'study.researcherId',
+            'study.piUserId',
             'study.title',
+            'study.isTestStudy',
             'reviewer.email as reviewerEmail',
             'reviewer.fullName as reviewerFullName',
             'researcher.email as researcherEmail',
             'researcher.fullName as researcherFullName',
             'org.slug as orgSlug',
             'org.name as orgName',
+            // Lab-audience emails link through the lab's slug; `orgSlug` is the Data Partner's.
+            'lab.slug as labSlug',
+            'lab.name as labName',
             'study.createdAt',
         ])
         .where('study.id', '=', studyId)

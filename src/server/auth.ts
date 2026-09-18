@@ -26,9 +26,9 @@ export async function canViewStudyJob(study: { orgId: string; submittedByOrgId: 
     )
 }
 
-// Three ways in, matching the three screens that link a document: an SI admin (`view` on
-// LegalDocument is granted to nobody else), an admin of a party org, or the person whose own
-// acknowledgement it is.
+// Four ways in, matching the screens that link a document: an SI admin (`view` on LegalDocument is
+// granted to nobody else), an admin of a party org, someone the document still binds, or the person
+// whose own acknowledgement it is.
 export async function canDownloadLegalDocument(doc: LegalDocumentAudience) {
     const session = await sessionFromClerk()
     if (!session) return false
@@ -37,6 +37,10 @@ export async function canDownloadLegalDocument(doc: LegalDocumentAudience) {
 
     const audienceOrgIds = [doc.orgId, doc.dataPartnerId, doc.researchLabId].filter((id): id is string => id != null)
     if (audienceOrgIds.some((orgId) => session.can('view', toRecord('OrgLegalDocuments', { orgId })))) return true
+
+    // Whoever still owes the acknowledgement has to read what they are signing, so this grants no
+    // more than the study-agreement gate already did when it presigned the URL itself.
+    if (session.can('acknowledge', toRecord('LegalDocument', { audienceOrgIds }))) return true
 
     return userAcknowledgedVersion(db, { versionId: doc.versionId, userId: session.user.id })
 }
