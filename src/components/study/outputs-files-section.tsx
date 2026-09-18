@@ -4,10 +4,14 @@ import { FC } from 'react'
 import { Button, Divider, Group, Paper, Stack, Table, Text } from '@mantine/core'
 import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { OutputsFileRow, type OutputFileRowData } from './outputs-file-row'
+import classes from './outputs-files-section.module.css'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // With one file the row's own download icon already does the job.
 const DOWNLOAD_ALL_MIN_FILES = 2
+
+// The two pinned columns plus a readable file name, below which the container scrolls instead.
+const TABLE_MIN_WIDTH = 820
 
 type DownloadAllButtonProps = {
     isVisible: boolean
@@ -68,13 +72,18 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                 <Divider color={semanticColor('border.default')} />
                 {/* File names, actor names and timestamps are all unbounded; without this the
                     Actions column is the first thing pushed off a narrow viewport. */}
-                <Table.ScrollContainer minWidth={520}>
-                    <Table verticalSpacing="md" data-testid="outputs-files-table">
+                <Table.ScrollContainer minWidth={TABLE_MIN_WIDTH}>
+                    {/* Fixed layout, because a "Last activity" cell grows from "No activity yet" to
+                        an actor, an action and a timestamp the moment a file is viewed, and an
+                        auto-layout table re-apportions every column when it does (OTTER-758). */}
+                    <Table verticalSpacing="md" layout="fixed" w="100%" data-testid="outputs-files-table">
                         <Table.Thead bg={semanticColor('surface.page')}>
                             <Table.Tr>
                                 <Table.Th scope="col">File name</Table.Th>
-                                <Table.Th scope="col">Last activity</Table.Th>
-                                <Table.Th scope="col" ta="right">
+                                <Table.Th scope="col" className={classes.lastActivityColumn}>
+                                    Last activity
+                                </Table.Th>
+                                <Table.Th scope="col" className={classes.actionsColumn} ta="right">
                                     Actions
                                 </Table.Th>
                             </Table.Tr>

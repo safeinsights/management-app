@@ -201,3 +201,34 @@ describe('useOutputsDecision after a refused submit', () => {
         expect(memoryRouter.asPath).toBe('/start')
     })
 })
+
+// The draft decision rides on the collaborative document (OTTER-758). No editor publishes a
+// provider in this harness, which is also the single-user-editing case, so these cover the path
+// where there is nothing to persist to.
+describe('useOutputsDecision without a collaborative provider', () => {
+    it('still records the chosen option', () => {
+        const { result } = renderDecision()
+
+        act(() => result.current.onSelect('share-feedback-only'))
+
+        expect(result.current.selected).toBe('share-feedback-only')
+    })
+
+    it('does not flag the decision merely because one was chosen', () => {
+        const { result } = renderDecision()
+
+        act(() => result.current.onSelect('share-outputs'))
+
+        expect(result.current.decisionError).toBeUndefined()
+        expect(result.current.feedbackError).toBeUndefined()
+    })
+
+    it('lets the reviewer change their mind', () => {
+        const { result } = renderDecision()
+
+        act(() => result.current.onSelect('share-outputs'))
+        act(() => result.current.onSelect('share-feedback-only'))
+
+        expect(result.current.selected).toBe('share-feedback-only')
+    })
+})
