@@ -18,6 +18,6 @@ export {
     resolveDashboardAction,
 } from './resolve'
 export { resolvePillStatus, resolveRowHighlight } from './pill'
-export { resolveStepNav, resolveReviewerStepNav, resolveScreenNav, phasedStepNav } from './nav'
-export type { StepNav, NavAction, NavCtx, NavVariant, PhasedStepNav } from './nav'
+export { resolveStepNav, resolveReviewerStepNav, resolveScreenNav, phasedStepNav, codeSubmissionNav } from './nav'
+export type { StepNav, NavAction, NavCtx, NavCtxBase, NavVariant, PhasedStepNav } from './nav'
 export { canResearcherResubmitCode } from './eligibility'

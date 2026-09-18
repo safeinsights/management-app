@@ -9,6 +9,7 @@ import {
     resolveReviewerStepNav,
     resolveScreenNav,
     resolveStepNav,
+    codeSubmissionNav,
     type NavCtx,
     type StepNav,
 } from './nav'
@@ -215,6 +216,25 @@ describe('resolveStepNav — code phase', () => {
     it('code rejected → terminal, no further submissions offered', () => {
         const nav = resolveStepNav('code-feedback', state({ ...submitted, codeDecision: 'CODE-REJECTED' }), ctx)
         expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+    })
+})
+
+// /code resolves its own nav: it is a form route, not a dispatcher screen (OTTER-673).
+describe('codeSubmissionNav', () => {
+    it('anchors "Previous step" to the approved proposal once the proposal is approved', () => {
+        expect(codeSubmissionNav('APPROVED', ctx)).toMatchObject({
+            back: { label: 'Previous step', href: `${base}/submitted`, variant: 'subtle' },
+        })
+    })
+
+    it('anchors "Previous step" to Step 1 before the proposal is approved', () => {
+        expect(codeSubmissionNav('PENDING-REVIEW', ctx).back?.href).toBe(`${base}/edit`)
+    })
+
+    it('offers no solid action: submitting is form-owned', () => {
+        const nav = codeSubmissionNav('APPROVED', ctx)
+        expect(solids(nav)).toBe(0)
+        expect(labels(nav)).toEqual(['Previous step', undefined, undefined])
     })
 })
 

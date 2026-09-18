@@ -1,17 +1,16 @@
 'use client'
 
 import { useCallback, useRef, useState, type FC } from 'react'
-import type { Route } from 'next'
 import { type StudyCodeIDE, useIDEFiles } from '@/hooks/use-ide-files'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import { ButtonLink } from '@/components/links'
+import type { StepNav } from '@/lib/study-screen'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { blocksStudyWork } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from '@/components/legal/require-study-agreement'
+import { StepNavigation } from './step-navigation'
 import { SUBMIT_CODE_ERROR_ID } from './submit-code-error'
 import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
@@ -25,7 +24,7 @@ interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
     isFirstVisit: boolean
-    previousHref: Route
+    nav: StepNav
     onSubmitSuccess?: () => void
 }
 
@@ -43,50 +42,40 @@ const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) =
 
 type SubmitCodeFooterProps = {
     studyId: string
-    previousHref: Route
+    nav: StepNav
     ide: StudyCodeIDE
     isBlockedByAgreement: boolean
     onSubmitClick: () => void
 }
 
-const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({
-    studyId,
-    previousHref,
-    ide,
-    isBlockedByAgreement,
-    onSubmitClick,
-}) => (
+// Submitting opens a modal rather than navigating, so it rides in as the form-owned action beside
+// the nav table's "Previous step" instead of laying out a second row.
+const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ studyId, nav, ide, isBlockedByAgreement, onSubmitClick }) => (
     <Stack w="100%">
         <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code yet." />
-        <Group justify="space-between" w="100%">
-            <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
-                Previous step
-            </ButtonLink>
-            <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
-                <SaveStatusIndicator status={ide.saveStatus} />
-                {/* The legal gate is the one reason that disables: no amount of editing clears it, and
-                    the notice above already states it. Every other reason validates on click instead, so
-                    it can be named. aria-describedby keeps that reason reachable on tabbing back. */}
-                <Button
-                    disabled={isBlockedByAgreement}
-                    loading={ide.isDirectSubmitting}
-                    onClick={onSubmitClick}
-                    aria-describedby={SUBMIT_CODE_ERROR_ID}
-                >
-                    Submit code for review
-                </Button>
-            </Group>
-        </Group>
+        <StepNavigation
+            nav={nav}
+            formAction={
+                <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
+                    <SaveStatusIndicator status={ide.saveStatus} />
+                    {/* The legal gate is the one reason that disables: no amount of editing clears it, and
+                        the notice above already states it. Every other reason validates on click instead, so
+                        it can be named. aria-describedby keeps that reason reachable on tabbing back. */}
+                    <Button
+                        disabled={isBlockedByAgreement}
+                        loading={ide.isDirectSubmitting}
+                        onClick={onSubmitClick}
+                        aria-describedby={SUBMIT_CODE_ERROR_ID}
+                    >
+                        Submit code for review
+                    </Button>
+                </Group>
+            }
+        />
     </Stack>
 )
 
-export const StudyCode = ({
-    studyId,
-    dataPartnerName,
-    isFirstVisit,
-    previousHref,
-    onSubmitSuccess,
-}: StudyCodeProps) => {
+export const StudyCode = ({ studyId, dataPartnerName, isFirstVisit, nav, onSubmitSuccess }: StudyCodeProps) => {
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [submitAttempted, setSubmitAttempted] = useState(false)
     const footerRef = useRef<HTMLDivElement>(null)
@@ -146,7 +135,7 @@ export const StudyCode = ({
                 <div ref={footerRef}>
                     <SubmitCodeFooter
                         studyId={studyId}
-                        previousHref={previousHref}
+                        nav={nav}
                         ide={ide}
                         isBlockedByAgreement={isBlockedByAgreement}
                         onSubmitClick={handleSubmitClick}
