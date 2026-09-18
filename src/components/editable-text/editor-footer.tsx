@@ -6,7 +6,10 @@ export const EditorFooter: FC<{ left?: ReactNode; right?: ReactNode; children?: 
     right,
     children,
 }) => (
-    <Group align="center" wrap="nowrap">
+    // flex-start, not center: the error box is taller than the counter beside it, so centering
+    // nudged the counter down by ~2px whenever the error appeared (OTTER-777). Matches the
+    // alignment FieldFooterRow already uses for the same pairing.
+    <Group align="flex-start" wrap="nowrap">
         {left}
         {children}
         {right && <Box ml="auto">{right}</Box>}
