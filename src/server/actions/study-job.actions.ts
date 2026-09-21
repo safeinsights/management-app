@@ -322,10 +322,11 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
             .executeTakeFirst()
 
         if (existing) {
-            if (studyReviewState(existing) === 'ready') return { status: 'ready' as const }
+            const state = studyReviewState(existing)
+            if (state === 'ready') return { status: 'ready' as const }
             // A run that is still alive owns the round. Starting a second one would pay for the
             // same report twice and race it for the row (OTTER-799).
-            if (!isStudyReviewStale(existing)) return { status: 'in-progress' as const }
+            if (state === 'pending' && !isStudyReviewStale(existing)) return { status: 'in-progress' as const }
 
             await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).where('round', '=', round).execute()
         }

@@ -1,20 +1,24 @@
-import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const send = vi.fn()
+
 vi.mock('@aws-sdk/client-sqs', () => ({
-    SQSClient: vi.fn(() => ({ send })),
-    SendMessageCommand: vi.fn((input) => ({ input })),
+    SQSClient: class {
+        send = send
+    },
+    SendMessageCommand: class {
+        constructor(readonly input: { QueueUrl: string; MessageBody: string }) {}
+    },
 }))
 
-import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import { enqueueStudyReview } from './enqueue'
 
 const originalQueueUrl = process.env.REVIEW_QUEUE_URL
+const sentMessage = () => send.mock.calls[0][0].input as { QueueUrl: string; MessageBody: string }
 
 describe('enqueueStudyReview', () => {
     beforeEach(() => {
         send.mockReset().mockResolvedValue({})
-        ;(SendMessageCommand as unknown as Mock).mockClear()
     })
 
     afterEach(() => {
@@ -27,10 +31,8 @@ describe('enqueueStudyReview', () => {
 
         expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 2 })).toBe(true)
 
-        const input = (SendMessageCommand as unknown as Mock).mock.calls[0][0]
-        expect(input.QueueUrl).toBe('https://sqs.test/review')
-        expect(JSON.parse(input.MessageBody)).toEqual({ studyJobId: 'job-1', round: 2 })
-        expect(send).toHaveBeenCalledOnce()
+        expect(sentMessage().QueueUrl).toBe('https://sqs.test/review')
+        expect(JSON.parse(sentMessage().MessageBody)).toEqual({ studyJobId: 'job-1', round: 2 })
     })
 
     // Local development, unit tests and PR previews each run against their own database, which the
