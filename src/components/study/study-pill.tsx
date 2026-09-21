@@ -15,7 +15,8 @@ type Props = {
 }
 
 // Shared so two pills rendered on the same study page cannot drift in size or shape. Geometry is the
-// "Badge" component of the SI UI Component Library: 12px padding, 4px gap, 16px radius, label/sm.
+// "Badge" component of the SI UI Component Library: 26px tall, 12px padding, 4px gap, 16px radius,
+// label/sm text.
 export const StudyPill: FC<Props> = ({ label, bg, c, bd, icon, tooltip }) => {
     const pill = (
         <Flex
@@ -26,11 +27,11 @@ export const StudyPill: FC<Props> = ({ label, bg, c, bd, icon, tooltip }) => {
             bdrs="lg"
             bd={bd ? `1px solid ${bd}` : ''}
             px="sm"
-            py="xxs"
+            h="1.625rem"
             style={{ display: 'inline-flex', whiteSpace: 'nowrap', cursor: tooltip ? 'pointer' : 'default' }}
         >
             {icon}
-            <Text size="xs" fw={fontWeight.semibold}>
+            <Text size="xs" fw={fontWeight.semibold} lh={1.2}>
                 {label}
             </Text>
         </Flex>

@@ -23,16 +23,12 @@ export type PillPresentation = {
 // only one that fills with a saturated shade instead of a light tint, so it pairs with body text
 // rather than a tinted text.
 //
-// Two backgrounds name a rung directly because no semantic token carries them. Figma fills the gray
-// badge from the `grey/0` primitive, and its `status/warning/bg-dark` now reads yellow.4 while the
-// token of that name here still resolves to yellow.5. The badge follows Figma and leaves the shared
-// token alone, because other components already paint from it.
+// Figma's `status/warning/bg-dark` currently reads yellow.4 while the token of that name resolves to
+// yellow.5; the badge keeps reading the token so a correction in tokens.ts reaches it (OTTER-698 D7).
 const COLORS = {
-    // eslint-disable-next-line custom/noRawStyleValues
-    gray: { bg: 'grey.0', c: semanticColor('text.secondary') },
+    gray: { bg: semanticColor('surface.page'), c: semanticColor('text.secondary') },
     blue: { bg: semanticColor('info.bg.light'), c: semanticColor('info.text') },
-    // eslint-disable-next-line custom/noRawStyleValues
-    yellow: { bg: 'yellow.4', c: semanticColor('text.primary') },
+    yellow: { bg: semanticColor('warning.bg.dark'), c: semanticColor('text.primary') },
     green: { bg: semanticColor('success.bg.light'), c: semanticColor('success.text') },
     red: { bg: semanticColor('error.bg.light'), c: semanticColor('error.text') },
 } as const satisfies Record<string, PillColors>

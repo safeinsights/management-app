@@ -1,9 +1,9 @@
 import { useStudyStatus } from '@/hooks/use-study-status'
-import { displayOrgName } from '@/lib/string'
-import { projectStudyState, resolveRowHighlight, type PillOrgNames } from '@/lib/study-screen'
+import { projectStudyState, resolveRowHighlight } from '@/lib/study-screen'
 import { StudyActionLink } from './study-action-link'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
 import { dashboardRawStateFromRow } from './dashboard-raw-state'
+import { pillOrgNamesFromRow } from './pill-context'
 import { StudyRowView } from './study-row-view'
 
 type StudyRowProps = {
@@ -17,22 +17,12 @@ function shouldHighlight(study: StudyRowType, audience: Audience): boolean {
     return resolveRowHighlight(audience, projectStudyState(dashboardRawStateFromRow(study)))
 }
 
-// Tooltips name the other side of the study. Neither name is guaranteed on a dashboard row, so both
-// fall back to a role noun rather than rendering an empty gap mid-sentence.
-function pillOrgNames(study: StudyRowType): PillOrgNames {
-    return {
-        dataPartner: displayOrgName(study.reviewingEnclaveName || study.orgName || '') || 'the data partner',
-        researchLab: displayOrgName(study.submittingLabName || '') || 'the research lab',
-    }
-}
-
 export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
     const status = useStudyStatus({
         studyStatus: study.status,
         audience,
         jobStatusChanges: study.jobStatusChanges,
-        outputsViewedAt: study.outputsViewedAt,
-        names: pillOrgNames(study),
+        names: pillOrgNamesFromRow(study),
     })
 
     const isHighlighted = shouldHighlight(study, audience)
