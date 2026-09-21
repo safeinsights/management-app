@@ -30,6 +30,7 @@ export type RawStudyState = {
     reviewerAgreementsAckedAt: Date | null
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
+    outputsViewedAt: Date | null
     // The draft reached Step 2 even if no flush ever wrote the DraftStep2Fields columns (OTTER-572).
     hasStep2CollabDoc: boolean
     jobs: ReadonlyArray<RawJob>
@@ -58,6 +59,9 @@ export type StudyState = {
     // by RUN-COMPLETE on the same job, and no round-closing status blocks either one.
     runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
+    // The researcher has opened the outputs decision. Not derivable from the job statuses, which is
+    // why the study carries a column for it (OTTER-698).
+    outputsViewed: boolean
     submissionRound: number
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean

@@ -279,6 +279,7 @@ export interface Study {
     mainCodeFileName: string | null
     orgId: string
     outputMimeType: string | null
+    outputsViewedAt: Timestamp | null
     piName: string
     piUserId: string | null
     projectSummary: Json | null

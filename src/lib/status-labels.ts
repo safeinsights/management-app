@@ -1,228 +1,221 @@
-import { AllStatus } from '@/lib/types'
+import { semanticColor } from '@/theme/tokens'
 
 export type PillColors = {
     bg: string
     c: string
 }
 
+// Who is looking, plus the organization display names the tooltips address the other side by. Six
+// badges serve both roles and say something different to each, so the role travels with the names.
+export type PillContext = {
+    role: 'researcher' | 'reviewer'
+    dataPartner: string
+    researchLab: string
+}
+
+export type PillPresentation = {
+    label: string
+    tooltip?: (ctx: PillContext) => string
+    colors: PillColors
+}
+
+// The five families of the "Study status badges" frame in the SI UI Component Library. Yellow is the
+// only one that fills with a saturated shade instead of a light tint, so it pairs with body text
+// rather than a tinted text.
+//
+// yellow.4 is Figma's `status/warning/bg-dark`. The semantic token of that name resolves to yellow.5
+// here, one shade darker; the badge follows Figma and leaves the shared token alone, because other
+// components already paint from it.
+const COLORS = {
+    gray: { bg: 'grey.0', c: semanticColor('text.secondary') },
+    blue: { bg: semanticColor('info.bg.light'), c: semanticColor('info.text') },
+    yellow: { bg: 'yellow.4', c: semanticColor('text.primary') },
+    green: { bg: semanticColor('success.bg.light'), c: semanticColor('success.text') },
+    red: { bg: semanticColor('error.bg.light'), c: semanticColor('error.text') },
+} as const satisfies Record<string, PillColors>
+
+// One id per badge in the design. Both roles draw from this set; several badges serve both, which is
+// why the ids name the state rather than the audience.
+export type PillId =
+    | 'proposal-draft'
+    | 'proposal-submitted'
+    | 'proposal-needs-review'
+    | 'proposal-needs-revision'
+    | 'proposal-revision-requested'
+    | 'proposal-approved'
+    | 'proposal-declined'
+    | 'code-draft'
+    | 'code-awaiting'
+    | 'code-submitted'
+    | 'code-needs-review'
+    | 'code-needs-revision'
+    | 'code-revision-requested'
+    | 'code-approved'
+    | 'code-declined'
+    | 'code-processing'
+    | 'code-preparing'
+    | 'code-queued'
+    | 'code-running'
+    | 'code-errored'
+    | 'outputs-awaiting'
+    | 'outputs-need-review'
+    | 'outputs-reviewed'
+
+const isResearcher = (ctx: PillContext) => ctx.role === 'researcher'
+
+// Labels are complete strings, not a stage plus a fragment: "Awaiting outputs" and "Preparing code"
+// do not decompose.
+export const PILL_PRESENTATION: Record<PillId, PillPresentation> = {
+    'proposal-draft': {
+        label: 'Proposal draft',
+        tooltip: () => 'Proposal draft in progress, not yet submitted.',
+        colors: COLORS.gray,
+    },
+    'proposal-submitted': {
+        label: 'Proposal submitted',
+        tooltip: ({ dataPartner }) => `Waiting for ${dataPartner} to review proposal.`,
+        colors: COLORS.blue,
+    },
+    'proposal-needs-review': {
+        label: 'Proposal needs review',
+        tooltip: ({ researchLab }) => `Review ${researchLab} proposal and share your decision.`,
+        colors: COLORS.yellow,
+    },
+    'proposal-needs-revision': {
+        label: 'Proposal needs revision',
+        tooltip: ({ dataPartner }) => `${dataPartner} is requesting revisions to your proposal.`,
+        colors: COLORS.yellow,
+    },
+    'proposal-revision-requested': {
+        label: 'Proposal revision requested',
+        tooltip: ({ researchLab }) => `Waiting for ${researchLab} to revise and resubmit their proposal.`,
+        colors: COLORS.blue,
+    },
+    'proposal-approved': {
+        label: 'Proposal approved',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? 'Proposal Approved. You can now submit your code.'
+                : `Proposal Approved. Waiting for ${ctx.researchLab} to submit their code.`,
+        colors: COLORS.green,
+    },
+    'proposal-declined': {
+        label: 'Proposal declined',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? `${ctx.dataPartner} declined this proposal. The study has ended.`
+                : 'Your organization declined this proposal. The study has ended.',
+        colors: COLORS.red,
+    },
+    'code-draft': {
+        label: 'Code draft',
+        tooltip: () => 'Code draft in progress, not yet submitted.',
+        colors: COLORS.gray,
+    },
+    'code-awaiting': {
+        label: 'Awaiting code',
+        tooltip: ({ researchLab }) => `Waiting for ${researchLab} to submit their code.`,
+        colors: COLORS.blue,
+    },
+    'code-submitted': {
+        label: 'Code submitted',
+        tooltip: ({ dataPartner }) => `Waiting for ${dataPartner} to review code.`,
+        colors: COLORS.blue,
+    },
+    'code-needs-review': {
+        label: 'Code needs review',
+        tooltip: ({ researchLab }) => `Review ${researchLab} code and share your decision.`,
+        colors: COLORS.yellow,
+    },
+    'code-needs-revision': {
+        label: 'Code needs revision',
+        tooltip: ({ dataPartner }) => `${dataPartner} is requesting revisions to your code.`,
+        colors: COLORS.yellow,
+    },
+    'code-revision-requested': {
+        label: 'Code revision requested',
+        tooltip: ({ researchLab }) => `Waiting for ${researchLab} to revise and resubmit their code.`,
+        colors: COLORS.blue,
+    },
+    'code-approved': {
+        label: 'Code approved',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? 'Code Approved. Code processing will begin shortly.'
+                : 'Code Approved. Being prepared to run in the secure enclave.',
+        colors: COLORS.green,
+    },
+    // The design names no badge for a declined code round, because the reject action is hidden from
+    // reviewers (OTTER-650). Studies decided before it was hidden still carry CODE-REJECTED, so the
+    // badge stays and follows the proposal-declined wording rather than falling back to a draft pill.
+    'code-declined': {
+        label: 'Code declined',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? `${ctx.dataPartner} declined this code. The study has ended.`
+                : 'Your organization declined this code. The study has ended.',
+        colors: COLORS.red,
+    },
+    'code-processing': {
+        label: 'Code processing',
+        tooltip: () => 'Code processing has started. This may take a while.',
+        colors: COLORS.blue,
+    },
+    'code-preparing': {
+        label: 'Preparing code',
+        tooltip: () => 'Code is being packaged.',
+        colors: COLORS.blue,
+    },
+    'code-queued': {
+        label: 'Code queued',
+        tooltip: () => 'Code is ready to be picked up by the secure enclave.',
+        colors: COLORS.blue,
+    },
+    'code-running': {
+        label: 'Code running',
+        tooltip: () => 'Code is now running in the secure enclave.',
+        colors: COLORS.blue,
+    },
+    'code-errored': {
+        label: 'Code errored',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? `Code run failed. Review ${ctx.dataPartner} feedback and resubmit.`
+                : 'Code run failed. Review the logs and share feedback.',
+        colors: COLORS.yellow,
+    },
+    'outputs-awaiting': {
+        label: 'Awaiting outputs',
+        tooltip: ({ dataPartner }) => `Code processing complete. Waiting for ${dataPartner} to review the outputs.`,
+        colors: COLORS.blue,
+    },
+    'outputs-need-review': {
+        label: 'Outputs need review',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? 'A decision on the outputs has been shared with you.'
+                : 'Outputs are now ready for your review.',
+        colors: COLORS.yellow,
+    },
+    'outputs-reviewed': {
+        label: 'Outputs reviewed',
+        tooltip: (ctx) =>
+            isResearcher(ctx)
+                ? 'You have reviewed the decision on your outputs. You can resubmit code if needed.'
+                : `A decision on the outputs has been shared with ${ctx.researchLab}.`,
+        colors: COLORS.blue,
+    },
+}
+
+// What the pill renders: the id the rule table picked, resolved against the viewer.
 export type StatusLabel = {
-    stage: 'Proposal' | 'Code' | 'Results'
+    id: PillId
     label: string
     tooltip?: string
     colors: PillColors
 }
 
-const COLORS = {
-    draft: { bg: 'grey.0', c: 'gray.9' },
-    needsReview: { bg: 'purple.1', c: 'purple.7' },
-    underReview: { bg: 'yellow.0', c: 'dark.9' },
-    rejected: { bg: 'red.0', c: 'red.7' },
-    approved: { bg: 'green.0', c: 'green.7' },
-    clarification: { bg: 'blue.1', c: 'blue.8' },
-    default: { bg: 'gray.1', c: 'dark.5' },
-}
-
-// ORDER MATTERS: the LAST status found is displayed, except 'JOB-ERRORED', which takes precedence
-// over all others.
-export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
-    // No 'DRAFT' entry: a reviewer must never see a DRAFT study.
-    'PENDING-REVIEW': {
-        stage: 'Proposal',
-        label: 'Needs Review',
-        tooltip: 'This proposal is now ready for review. Open the study for more details.',
-        colors: COLORS.needsReview,
-    },
-    APPROVED: {
-        stage: 'Proposal',
-        label: 'Approved',
-        tooltip:
-            "This study proposal has been approved. It's now on the Researcher to submit their code for review. You'll receive an email once it's ready.",
-        colors: COLORS.approved,
-    },
-    REJECTED: {
-        stage: 'Proposal',
-        label: 'Rejected',
-        tooltip:
-            "This study proposal has been rejected. It's now on the Researcher to revise and submit an updated version of their proposal. You'll receive an email once it's ready.",
-        colors: COLORS.rejected,
-    },
-    'CHANGE-REQUESTED': {
-        stage: 'Proposal',
-        label: 'Change requested',
-        tooltip: "You've asked the Researcher to clarify or revise this proposal.",
-        colors: COLORS.clarification,
-    },
-
-    'CODE-SUBMITTED': {
-        stage: 'Code',
-        label: 'Needs Review',
-        tooltip: 'This study code is now ready for review. Open the study for more details.',
-        colors: COLORS.needsReview,
-    },
-    'CODE-SCANNED': {
-        stage: 'Code',
-        label: 'Needs Review',
-        tooltip: 'This study code is now ready for review. Open the study for more details.',
-        colors: COLORS.needsReview,
-    },
-    'CODE-APPROVED': {
-        stage: 'Code',
-        label: 'Approved',
-        tooltip:
-            'This study code has been approved and is now being prepared to run in the enclave. No further action is needed at this time.',
-        colors: COLORS.approved,
-    },
-    'CODE-REJECTED': {
-        stage: 'Code',
-        label: 'Rejected',
-        tooltip:
-            "This study code has been rejected. It's now on the Researcher to revise and submit an updated version of their code. You'll receive an email once it's ready.",
-        colors: COLORS.rejected,
-    },
-    'CODE-CHANGES-REQUESTED': {
-        stage: 'Code',
-        label: 'Change requested',
-        tooltip: "You've asked the Researcher to clarify or revise this code.",
-        colors: COLORS.clarification,
-    },
-    'JOB-PACKAGING': {
-        stage: 'Code',
-        label: 'Packaging',
-        tooltip: 'Preparing code to run in enclave. If it stays in this status for over 1h, contact SI admins.',
-        colors: COLORS.default,
-    },
-    'JOB-READY': {
-        stage: 'Code',
-        label: 'Ready',
-        tooltip:
-            'The code is packaged and ready to be picked up by the enclave. If it stays in this status for over 1h, contact your Org Admin.',
-        colors: COLORS.approved,
-    },
-    'JOB-RUNNING': {
-        stage: 'Code',
-        label: 'Processing',
-        tooltip:
-            'The code is now running against the enclave. If it stays in this status for over 1h, contact your Org Admin.',
-        colors: COLORS.default,
-    },
-    'JOB-ERRORED': {
-        stage: 'Code',
-        label: 'Errored',
-        tooltip: 'The code ran into an error. Open the study for more details.',
-        colors: COLORS.rejected,
-    },
-
-    'RUN-COMPLETE': {
-        stage: 'Results',
-        label: 'Needs Review',
-        tooltip: 'Study results are now ready for review. Open the study for more details.',
-        colors: COLORS.underReview,
-    },
-    'FILES-APPROVED': {
-        stage: 'Results',
-        label: 'Ready',
-        tooltip: 'Approved! Study results have now been shared with the Researcher.',
-        colors: COLORS.approved,
-    },
-    'FILES-REJECTED': {
-        stage: 'Results',
-        label: 'Rejected',
-        tooltip: 'Sharing of results was rejected. The research lab now needs to revise and submit an updated version.',
-        colors: COLORS.rejected,
-    },
-}
-
-export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
-    DRAFT: {
-        stage: 'Proposal',
-        label: 'Draft',
-        colors: COLORS.draft,
-    },
-    'PENDING-REVIEW': {
-        stage: 'Proposal',
-        label: 'Under Review',
-        tooltip: "Your study proposal is being reviewed. You'll receive an email once a decision is made.",
-        colors: COLORS.underReview,
-    },
-    APPROVED: {
-        stage: 'Proposal',
-        label: 'Approved',
-        tooltip: 'Your study proposal has been approved! Open your study to submit your code.',
-        colors: COLORS.approved,
-    },
-    REJECTED: {
-        stage: 'Proposal',
-        label: 'Rejected',
-        tooltip: 'Your study proposal needs revision. Open your study for more details.',
-        colors: COLORS.rejected,
-    },
-    'CHANGE-REQUESTED': {
-        stage: 'Proposal',
-        label: 'Change requested',
-        tooltip: 'The reviewer has requested changes to your proposal. Open your study for more details.',
-        colors: COLORS.underReview,
-    },
-
-    INITIATED: {
-        stage: 'Code',
-        label: 'Draft',
-        colors: COLORS.draft,
-    },
-    'CODE-SUBMITTED': {
-        stage: 'Code',
-        label: 'Under Review',
-        tooltip: "Your study code is being reviewed. You'll receive an email once a decision is made.",
-        colors: COLORS.underReview,
-    },
-    'CODE-SCANNED': {
-        stage: 'Code',
-        label: 'Under Review',
-        tooltip: "Your study code is being reviewed. You'll receive an email once a decision is made.",
-        colors: COLORS.underReview,
-    },
-    'CODE-APPROVED': {
-        stage: 'Code',
-        label: 'Approved',
-        tooltip:
-            "Your study code has been approved and is now being executed! You'll receive an email once results are ready.",
-        colors: COLORS.approved,
-    },
-    'CODE-REJECTED': {
-        stage: 'Code',
-        label: 'Rejected',
-        tooltip: 'Your study code needs revision. Open your study for more details.',
-        colors: COLORS.rejected,
-    },
-    'CODE-CHANGES-REQUESTED': {
-        stage: 'Code',
-        label: 'Change requested',
-        tooltip: 'The reviewer has requested changes to your code. Open your study for more details.',
-        colors: COLORS.underReview,
-    },
-    'JOB-ERRORED': {
-        stage: 'Code',
-        label: 'Errored',
-        tooltip: 'Your study code needs revision. Open your study for more details.',
-        colors: COLORS.rejected,
-    },
-
-    'RUN-COMPLETE': {
-        stage: 'Results',
-        label: 'Under Review',
-        tooltip:
-            "Your code ran successfully! The results are now under review. You'll receive an email once a decision is made.",
-        colors: COLORS.underReview,
-    },
-    'FILES-APPROVED': {
-        stage: 'Results',
-        label: 'Ready',
-        tooltip: 'The results of your analysis have been approved! Open your study to access them.',
-        colors: COLORS.approved,
-    },
-    'FILES-REJECTED': {
-        stage: 'Results',
-        label: 'Rejected',
-        tooltip: 'The results of your analysis have not been approved. Open your study for more details.',
-        colors: COLORS.rejected,
-    },
+export const resolvePillPresentation = (id: PillId, ctx: PillContext): StatusLabel => {
+    const { label, tooltip, colors } = PILL_PRESENTATION[id]
+    return { id, label, tooltip: tooltip?.(ctx), colors }
 }

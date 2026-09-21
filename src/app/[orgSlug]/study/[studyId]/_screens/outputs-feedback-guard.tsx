@@ -1,10 +1,12 @@
 import { AlertNotFound } from '@/components/errors'
+import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import { displayOrgName } from '@/lib/string'
 import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { latestJob, projectStudyState, type RawJob, type RawStudyState, type StudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
 import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import { markOutputsViewed } from '@/server/db/mutations'
 import { getOrgNameFromId } from '@/server/db/queries'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
@@ -49,6 +51,11 @@ export async function guardOutputsFeedbackScreen({
     const { entries, feedbackLoadError } = await loadOutputsFeedback(study.id)
     const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
     const decidedAt = latestStatusAt(datedStatusChanges(job.statusChanges), decisionStatus)
+
+    // Reaching here means the researcher is looking at a released decision, which is what flips their
+    // pill to "Outputs reviewed" (OTTER-698). All three researcher outputs screens come through this
+    // guard, so the stamp lands wherever the decision is read.
+    await markOutputsViewed(db, study.id)
 
     return { job, entries, feedbackLoadError, dataPartner, decidedAt }
 }

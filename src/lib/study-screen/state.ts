@@ -114,6 +114,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsErrored,
         runErrored,
         resultsDisplayStatus,
+        outputsViewed: !!raw.outputsViewedAt,
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,

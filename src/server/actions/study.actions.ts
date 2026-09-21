@@ -118,6 +118,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',
             'study.proposalResubmissionNoteDraft',
+            'study.outputsViewedAt',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
