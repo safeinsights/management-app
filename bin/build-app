@@ -23,3 +23,6 @@ cp bin/prod.run.sh .next/standalone/run.sh
 pushd .next/standalone/
 zip -q -r -y ../../lambda-server-package.zip .
 popd
+
+# The review worker ships beside the server package: generation runs there, not in the app.
+./bin/build-review-worker

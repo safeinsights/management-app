@@ -12,6 +12,12 @@ allowBuilds:
     unrs-resolver: true
 minimumReleaseAge: 2880
 overrides:
+    # One AWS SDK tree. A client added later resolves these shared packages to their newest release
+    # while the clients already here stay on the locked one, and aws-sdk-client-mock then types its
+    # mocks against a different copy than the client under test (src/server/config.test.ts).
+    '@aws-sdk/types': 3.973.8
+    '@smithy/core': 3.24.3
+    '@smithy/types': 4.14.2
     '@types/react': 19.2.14
     esbuild: ^0.28.1
     form-data: ^4.0.6

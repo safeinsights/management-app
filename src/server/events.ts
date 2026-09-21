@@ -9,6 +9,7 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
+import { enqueueStudyReview, type StudyReviewMessage } from './agents/review-agent/enqueue'
 import { generateAndStoreStudyReview } from './agents/review-agent/runner'
 import { siUser } from './db/queries'
 import * as email from './mailer'
@@ -101,9 +102,18 @@ export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId:
     await email.sendStudyAgreementReadyEmail(studyId)
 })
 
-export const onStudyReviewRequested = deferred(async ({ studyJobId, round }: { studyJobId: string; round: number }) => {
+const startStudyReviewInline = deferred(async ({ studyJobId, round }: StudyReviewMessage) => {
     await generateAndStoreStudyReview(studyJobId, round)
 })
+
+// Not deferred(), unlike its neighbours: the caller awaits this from afterCommit so the queue is
+// handed a round that is already committed. Generation itself takes minutes, which after() cannot
+// hold open in a Lambda, so the queue is the real path and the in-process run is the fallback for
+// environments that have none (OTTER-799).
+export const onStudyReviewRequested = async ({ studyJobId, round }: StudyReviewMessage) => {
+    if (await enqueueStudyReview({ studyJobId, round })) return
+    startStudyReviewInline({ studyJobId, round })
+}
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')

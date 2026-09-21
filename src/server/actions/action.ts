@@ -16,10 +16,18 @@ type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
 
+// Queues work that must not run until the handler's writes are visible to anyone else. A mutating
+// handler runs inside a transaction, so anything it hands to another process from inside the
+// handler can read the round before it exists (OTTER-799).
+export type AfterCommitFn = (fn: () => Promise<unknown>) => void
+
+// Optional here, required on a handler's own context: this type is also the async-local store,
+// which is populated outside an action in tests and in Action.db.
 export type ActionContext<Args = unknown> = {
     session?: UserSessionWithAbility
     db: DBExecutor
     params?: Args
+    afterCommit?: AfterCommitFn
 }
 
 export type ActionOptions = {
@@ -46,6 +54,7 @@ export class Action<
         session?: UserSessionWithAbility
         db: DBExecutor
         params?: Args
+        afterCommit: AfterCommitFn
     },
 > {
     private schema?: ZodType<Args>
@@ -67,7 +76,10 @@ export class Action<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params<S extends ZodType<any, any, any>>(schema: S) {
         this.schema = schema as ZodType<Args>
-        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db: DBExecutor }>
+        return this as unknown as Action<
+            z.infer<S>,
+            { session?: UserSessionWithAbility; db: DBExecutor; afterCommit: AfterCommitFn }
+        >
     }
 
     middleware<NewCtx>(fn: MiddlewareFn<Ctx & { params: Args }, NewCtx>) {
@@ -88,7 +100,7 @@ export class Action<
 
             // Lands in the permission_denied message returned to a refused caller, so middleware
             // must return ids and slugs only — never a whole row, never secrets (OTTER-724 / MA-6).
-            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db']) }
+            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit']) }
             const abilitySubject = toRecord(String(subject), abilityArgs)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,8 +149,13 @@ export class Action<
                 }
                 const session = await sessionFromClerk()
 
+                const afterCommitFns: (() => Promise<unknown>)[] = []
+                const afterCommit: AfterCommitFn = (fn) => {
+                    afterCommitFns.push(fn)
+                }
+
                 const execute = async (dbConn: DBExecutor): Promise<Res> => {
-                    let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
+                    let ctx = { params: args, session, db: dbConn, afterCommit } as Ctx & { params: Args }
                     actionCtx = ctx
 
                     return localStorageContext.run(ctx, async () => {
@@ -165,6 +182,18 @@ export class Action<
                 }
 
                 if (actionCtx) actionCtx.db = db
+
+                // Only reached once the writes are committed. A handler that threw never gets here,
+                // so work queued by a rolled-back handler is dropped with it. One hook failing must
+                // not fail the action: the mutation the caller asked for already happened.
+                for (const fn of afterCommitFns) {
+                    try {
+                        await fn()
+                    } catch (error: unknown) {
+                        logger.error(error)
+                        Sentry.captureException(error)
+                    }
+                }
 
                 return result
             } catch (error) {

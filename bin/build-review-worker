@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Bundles the review worker into the zip the deploy pipeline uploads beside the server package.
+# @sentry/nextjs is aliased to @sentry/node because the Next build of the SDK is webpack-only; the
+# worker calls Sentry.init itself, so the alias is a swap of implementation, not a stub.
+#
+# .cjs, not .js: this package declares "type": "module", so a bundled .js would be read as ESM and
+# its CommonJS exports would be invisible to the Lambda runtime.
+
+OUT_DIR=".next/review-worker"
+ZIP="lambda-review-worker-package.zip"
+# zip adds to an archive that already exists, so a stale bundle would ride along with the new one.
+rm -rf "$OUT_DIR" "$ZIP"
+mkdir -p "$OUT_DIR"
+
+./node_modules/.bin/esbuild \
+    src/server/agents/review-agent/worker.ts \
+    --bundle \
+    --platform=node \
+    --target=node20 \
+    --format=cjs \
+    --outfile="$OUT_DIR/review-worker.cjs" \
+    --alias:@sentry/nextjs=@sentry/node \
+    --external:pg-native \
+    --tsconfig=tsconfig.json \
+    --sourcemap=linked \
+    --log-level=warning
+
+pushd "$OUT_DIR" > /dev/null
+zip -q -r "../../$ZIP" .
+popd > /dev/null
+
+echo "Built $ZIP"
