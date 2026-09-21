@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-    isStudyReviewStale,
-    STUDY_REVIEW_STALE_AFTER_MS,
-    studyReviewState,
-    type StudyReviewRow,
-} from './study-review'
+import { isStudyReviewStale, STUDY_REVIEW_STALE_AFTER_MS, studyReviewState, type StudyReviewRow } from './study-review'
 
 const now = Date.now()
 const row = (overrides: Partial<StudyReviewRow> = {}): StudyReviewRow => ({
