@@ -299,6 +299,9 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
 async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
+    // The badge states the reviewer's own situation, which is the whole point of the two tables
+    // (OTTER-698): the same study reads "Proposal submitted" to the lab that sent it.
+    await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Proposal needs review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
 
     const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
@@ -332,6 +335,8 @@ const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'securit
 async function openCodeReviewEditor(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Review Studies')).toBeVisible()
+    // Reached only with a decision outstanding, on a first submission or a resubmission alike.
+    await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Code needs review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
 
     await page.waitForURL(/\/review(\?.*)?$/)
@@ -560,6 +565,8 @@ async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: string)
 // for real, so private_key.pem genuinely opens the wrapped keys (OTTER-688).
 async function verifyOutputsSharedDisplay(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, RESEARCHER_DASHBOARD)
+    // Released but unread, so the badge still asks the researcher to look (OTTER-698).
+    await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Outputs need review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
 
     await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
@@ -585,6 +592,21 @@ async function verifyOutputsSharedDisplay(page: Page, studyTitle: string): Promi
     await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /Edit code/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()
+}
+
+// OTTER-698: the outputs badge is the one status a reader's own visit writes. Opening the decision
+// records RESULTS-VIEWED on the job, which turns "Outputs need review" into "Outputs reviewed".
+// Only end-to-end can show it: the screen mounts a client leaf, the leaf calls a server action, and
+// the dashboard's own query is what reads the result back.
+//
+// Reloaded inside toPass because the write is fired on mount rather than awaited by the page, so a
+// dashboard loaded in the same instant can legitimately still read the row as unread. The dashboard
+// does not poll a decided study, so retrying the assertion alone would never see the new value.
+async function verifyOutputsViewedBadge(page: Page, studyTitle: string): Promise<void> {
+    await expect(async () => {
+        await visitAsRole(page, RESEARCHER_DASHBOARD)
+        await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Outputs reviewed')).toBeVisible()
+    }).toPass()
 }
 
 // ============================================================================
@@ -785,6 +807,7 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await verifyOutputsSharedDisplay(page, studyTitle)
+        await verifyOutputsViewedBadge(page, studyTitle)
     })
 })
 
@@ -892,9 +915,11 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
 
+        // Both roles read the same badge for a declined proposal, which is the stored REJECTED
+        // status under the name the spec gives it (OTTER-698).
         const rejectedRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(rejectedRow).toBeVisible()
-        await expect(rejectedRow.getByText(/REJECTED/i)).toBeVisible()
+        await expect(rejectedRow.getByText('Proposal declined')).toBeVisible()
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -902,7 +927,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await expect(studyRow.getByText(/REJECTED/i)).toBeVisible()
+        await expect(studyRow.getByText('Proposal declined')).toBeVisible()
 
         await studyRow.getByRole('link', { name: 'View' }).first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
