@@ -377,21 +377,49 @@ The pill cannot be keyed on a status value alone, which is why it has a table ra
 - `JOB-ERRORED` reads **Awaiting outputs** to a researcher until a reviewer records a `FILES-*`
   decision, then **Code errored** (OTTER-598);
 - a `FILES-*` decision reads **Outputs need review** to a researcher until they open it, then
-  **Outputs reviewed**, which is what `study.outputs_viewed_at` records;
+  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records;
 - a reviewer sees **Outputs reviewed** as soon as they submit the decision, because they made it.
+
+`RESULTS-VIEWED` is the one status a user's reading writes, appended to the latest job by
+`markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
+`MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
+prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
+exists, and only once per job. A job status rather than a study column because a resubmission opens
+a new job, so the fact resets per round without any clearing logic. It is deliberately absent from
+`DISPLAY_STATUS_PRIORITY`: `displayStatus` has no consumer that should read it.
+
+The projection also exposes `executionStage`, the furthest `STAGE_PROGRESSION` member present on the
+latest job, so the reviewer's per-stage badges never read the status log's order.
 
 Stale code decisions are dropped by the projection, not the table, so a resubmission reads as
 submitted rather than as the prior round's decision (OTTER-641).
 
 Both tables end in an unconditional rule, so the pill can never be undefined. `ARCHIVED` reaches
-that fallback in both, because the design has no badge for it.
+that neutral fallback in both, because the design has no badge for it.
+
+The spec names backend states conceptually; none of them is a new stored value except
+`RESULTS-VIEWED`:
+
+| Spec BE status                                | Stored as                                                  |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| `proposal-initiated`                          | `study.status = DRAFT`                                     |
+| `proposal-pending-review`                     | `PENDING-REVIEW`                                           |
+| `proposal-needs-revision`                     | `CHANGE-REQUESTED`                                         |
+| `proposal-approved` / `proposal-declined`     | `APPROVED` / `REJECTED`                                    |
+| `code-initiated`                              | an `INITIATED` job row with no `CODE-SUBMITTED`            |
+| `code-pending-review`                         | `CODE-SUBMITTED` awaiting a decision                       |
+| `code-needs-revision` / `code-approved`       | `CODE-CHANGES-REQUESTED` / `CODE-APPROVED`                 |
+| `job-packaging` / `job-ready` / `job-running` | the `JOB-*` rows (`JOB-PROVISIONING` reads as queued)      |
+| `job-errored` / `job-error-shared`            | `JOB-ERRORED` without / with a `FILES-*` row               |
+| `results-pending-review` / `results-shared`   | `RUN-COMPLETE` undecided / a `FILES-*` row                 |
+| `results-reviewed`                            | `FILES-*` (reviewer) or `FILES-*` + `RESULTS-VIEWED` (lab) |
 
 ### Researcher pill table (`researcher-pill-rules.ts`)
 
 | #   | Condition                                                          | Pill                      |
 | --- | ------------------------------------------------------------------ | ------------------------- |
 | 1   | `resultsErrored` and a `FILES-*` decision exists                   | `code-errored`            |
-| 2   | a `FILES-*` decision exists and `outputsViewed`                    | `outputs-reviewed`        |
+| 2   | a `FILES-*` decision exists and `resultsViewed`                    | `outputs-reviewed`        |
 | 3   | a `FILES-*` decision exists                                        | `outputs-need-review`     |
 | 4   | `isAwaitingOutputsReviewOutcome` or `awaitingFilesDecisionOnError` | `outputs-awaiting`        |
 | 5   | `isExecuting`                                                      | `code-processing`         |
@@ -408,24 +436,24 @@ that fallback in both, because the design has no badge for it.
 
 ### Reviewer pill table (`reviewer-pill-rules.ts`)
 
-| #   | Condition                                                   | Pill                          |
-| --- | ----------------------------------------------------------- | ----------------------------- |
-| 1   | `resultsApproved` or `resultsRejected`                      | `outputs-reviewed`            |
-| 2   | `resultsErrored`                                            | `code-errored`                |
-| 3   | `isAwaitingOutputsReviewOutcome`                            | `outputs-need-review`         |
-| 4   | `isExecuting` and `JOB-RUNNING` present                     | `code-running`                |
-| 5   | `isExecuting` and `JOB-PROVISIONING` or `JOB-READY` present | `code-queued`                 |
-| 6   | `isExecuting` and `JOB-PACKAGING` present                   | `code-preparing`              |
-| 7   | `codeDecision === 'CODE-APPROVED'`                          | `code-approved`               |
-| 8   | `codeDecision === 'CODE-REJECTED'`                          | `code-declined`               |
-| 9   | `codeDecision === 'CODE-CHANGES-REQUESTED'`                 | `code-revision-requested`     |
-| 10  | `codeAwaitingDecision`                                      | `code-needs-review`           |
-| 11  | `APPROVED` with a job but no submitted code                 | `code-awaiting`               |
-| 12  | `status === 'APPROVED'`                                     | `proposal-approved`           |
-| 13  | `status === 'REJECTED'`                                     | `proposal-declined`           |
-| 14  | `status === 'CHANGE-REQUESTED'`                             | `proposal-revision-requested` |
-| 15  | `status === 'PENDING-REVIEW'`                               | `proposal-needs-review`       |
-| 16  | fallback                                                    | `proposal-needs-review`       |
+| #   | Condition                                             | Pill                          |
+| --- | ----------------------------------------------------- | ----------------------------- |
+| 1   | `awaitingFilesDecisionOnError`                        | `code-errored`                |
+| 2   | `isAwaitingOutputsReviewOutcome`                      | `outputs-need-review`         |
+| 3   | `resultsApproved` or `resultsRejected`                | `outputs-reviewed`            |
+| 4   | `executionStage === 'JOB-RUNNING'`                    | `code-running`                |
+| 5   | `executionStage` is `JOB-READY` or `JOB-PROVISIONING` | `code-queued`                 |
+| 6   | `executionStage === 'JOB-PACKAGING'`                  | `code-preparing`              |
+| 7   | `codeDecision === 'CODE-APPROVED'`                    | `code-approved`               |
+| 8   | `codeDecision === 'CODE-REJECTED'`                    | `code-declined`               |
+| 9   | `codeDecision === 'CODE-CHANGES-REQUESTED'`           | `code-revision-requested`     |
+| 10  | `codeAwaitingDecision`                                | `code-needs-review`           |
+| 11  | `APPROVED` with a job but no submitted code           | `code-awaiting`               |
+| 12  | `status === 'APPROVED'`                               | `proposal-approved`           |
+| 13  | `status === 'REJECTED'`                               | `proposal-declined`           |
+| 14  | `status === 'CHANGE-REQUESTED'`                       | `proposal-revision-requested` |
+| 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
+| 16  | fallback                                              | `proposal-draft`              |
 
 `resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved`; reviewer
 highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
@@ -487,7 +515,7 @@ re-architecting — exactly as the design intended.
 | File                                   | Responsibility                                                                         |
 | -------------------------------------- | -------------------------------------------------------------------------------------- |
 | `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                           |
-| `state.ts`                             | `projectStudyState` + priority constants                                               |
+| `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants     |
 | `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`          |
 | `screen-rules.ts`                      | `ScreenRule`, `ScreenRuleEntry` (shared screen rule types)                             |
 | `pill-rules.ts`                        | `PillRule`, `PillRuleEntry` (shared pill rule types)                                   |
@@ -499,6 +527,7 @@ re-architecting — exactly as the design intended.
 | `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                 |
 | `pill.ts`                              | `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                            |
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                  |
+| `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                      |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav` |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                 |
 | `index.ts`                             | public barrel                                                                          |
