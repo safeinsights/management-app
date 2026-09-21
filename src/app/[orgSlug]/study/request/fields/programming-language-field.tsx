@@ -12,6 +12,7 @@ import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { Language } from '@/database/types'
 import { StudyProposalFormValues } from '../form-schemas'
 import { LANGUAGE_FIELD_ID } from './field-ids'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const LABEL = 'Programming language'
 const GROUP_ID = 'programming-language'
@@ -184,11 +185,11 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
         // A wrapper rather than the group's own id: Mantine consumes that id internally and
         // never renders it, so getElementById would find nothing.
         <Box id={LANGUAGE_FIELD_ID}>
-            <Text id={TITLE_ID} fw={600} fz="sm" c="charcoal.9">
+            <Text id={TITLE_ID} fw={fontWeight.semibold} fz="sm" c={semanticColor('text.primary')}>
                 {LABEL}
                 <RequiredIndicator />
             </Text>
-            <Stack gap="xs" mt={4}>
+            <Stack gap="xs" mt="xxs">
                 {body}
             </Stack>
         </Box>

@@ -11,6 +11,7 @@ import {
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
+    seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renameTestOrg,
@@ -1078,6 +1079,14 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
                 .then((r) => Number(r.n))
 
+        const summariesFor = (studyJobId: string) =>
+            db
+                .selectFrom('studyReview')
+                .select(['round', 'report'])
+                .where('studyJobId', '=', studyJobId)
+                .orderBy('round')
+                .execute()
+
         const submitCode = (studyId: string, root: string, files: Record<string, string>, mainFileName: string) =>
             writeWorkspaceFiles(root, studyId, files).then(() =>
                 actionResult(submitStudyCodeAction({ studyId, mainFileName, fileNames: Object.keys(files) })),
@@ -1132,6 +1141,71 @@ describe('Request Study Actions', () => {
             ])
             expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
             expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        // The summary is keyed by (job, round), and a replacement before the reviewer has decided
+        // opens no new round, so the row left behind would stand as the summary of code that no
+        // longer exists and would stop a new one being generated (SHRMP-263, OTTER-779).
+        it('drops the round summary when files are replaced before review', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-summary-replaced')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'v1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify({ codeExplanation: 'describes v1' }) })
+                .where('studyJobId', '=', job.id)
+                .execute()
+
+            await submitCode(study.id, root, { 'main.R': 'v2' }, 'main.R')
+
+            expect(await summariesFor(job.id)).toEqual([])
+        })
+
+        it('keeps the earlier round summary when a change request opens the next round', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-summary-kept')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify({ codeExplanation: 'describes round 1' }) })
+                .where('studyJobId', '=', job.id)
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: 'addressed the feedback and updated the code',
+                }),
+            )
+
+            expect(await summariesFor(job.id)).toEqual([{ round: 1, report: { codeExplanation: 'describes round 1' } }])
         })
 
         it('resubmitting after change-requested REUSES the round job (same job, second submission)', async () => {
@@ -1452,7 +1526,7 @@ describe('Request Study Actions', () => {
             expect(newJob.resubmissionNote).not.toBeNull()
         })
 
-        it('clears the stale AI review so a fresh one is generated for the resubmitted code (SHRMP-263)', async () => {
+        it('generates a fresh AI review for the resubmitted code and keeps the previous round (OTTER-779)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -1460,6 +1534,8 @@ describe('Request Study Actions', () => {
                 studyStatus: 'APPROVED',
                 jobStatus: 'CODE-CHANGES-REQUESTED',
             })
+            // The round the change request was asked about, so the resubmit opens round 2.
+            await insertStatus(job.id, 'CODE-SUBMITTED')
             const staleExplanation = 'Summary of the previously submitted code'
             await db
                 .insertInto('studyReview')
@@ -1492,6 +1568,16 @@ describe('Request Study Actions', () => {
 
             const review = await getStudyReviewForJob(await latestJobForStudy(study.id))
             expect(review?.report?.codeExplanation).not.toBe(staleExplanation)
+
+            // The previous round keeps its own row rather than being destroyed to make room, which
+            // is what lets a late write be told from the current one.
+            const rounds = await db
+                .selectFrom('studyReview')
+                .select('round')
+                .where('studyJobId', '=', job.id)
+                .orderBy('round')
+                .execute()
+            expect(rounds.map((row) => row.round)).toEqual([1, 2])
         })
 
         it('rejects an empty note', async () => {
@@ -1674,6 +1760,7 @@ describe('Request Study Actions', () => {
             expect(approved.approvedAt).not.toBeNull()
 
             const { user: researcher } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             const root = await createWorkspaceDir('roundtrip-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("main")' })
@@ -1699,6 +1786,7 @@ describe('Request Study Actions', () => {
             })
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             actionResult(
                 await submitCodeReviewDecisionAction({
                     studyId: draft.studyId,
@@ -1718,6 +1806,7 @@ describe('Request Study Actions', () => {
             expect(afterDecision.status).toBe('APPROVED')
 
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("revised")' })
             actionResult(
                 await resubmitStudyCodeAction({

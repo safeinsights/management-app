@@ -3,6 +3,7 @@
 import type { ComponentPropsWithoutRef, FocusEvent, FormEventHandler, ReactNode } from 'react'
 import { Button, Flex, Radio, TextInput } from '@mantine/core'
 import { useWidgetBlur } from '@/components/form-field'
+import { fontWeight } from '@/theme/tokens'
 
 // Presentational only; ./invitation wires the form state and mutation in, so this renders in
 // isolation (e.g. Ladle).
@@ -51,7 +52,7 @@ export function InviteFormView({
                 error={emailError}
             />
 
-            <Flex mb="sm" fw="semibold" direction="column">
+            <Flex mb="sm" fw={fontWeight.semibold} direction="column">
                 <Radio.Group
                     label="Assign Permissions"
                     withAsterisk

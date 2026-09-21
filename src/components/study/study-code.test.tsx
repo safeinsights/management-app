@@ -145,11 +145,19 @@ const setMainFileTo = async (user: ReturnType<typeof userEvent.setup>, fileName:
 
 const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
 
+const submitCodeButton = () => screen.getByRole('button', { name: /submit code for review/i })
+
 /**
- * The submit button is never disabled: validation runs on click, so its state no longer says
- * whether a submit will go through. `canSubmit` waits on the last-job query, which has no UI
- * signal, so this retries the click rather than clicking once and hoping the query has landed.
+ * The study agreement gate is the only thing that disables the button, and it reads as blocked
+ * until its query lands, so a click racing that read is dropped with nothing to show for it.
+ * The button's own enabled-ness is the signal for that, and clicking is what reports every other
+ * reason, so no caller should click without waiting here first.
  */
+const clickSubmitCode = async (user: ReturnType<typeof userEvent.setup>) => {
+    await waitFor(() => expect(submitCodeButton()).toBeEnabled())
+    await user.click(submitCodeButton())
+}
+
 const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
     // canSubmit depends on several reads with no UI signal of their own, so wait for the rows to
     // render and then for every query to settle. Retrying the click instead spends the budget on
@@ -157,7 +165,7 @@ const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) 
     await screen.findAllByRole('radio')
     await waitForPendingQueries()
 
-    await user.click(screen.getByRole('button', { name: /submit code for review/i }))
+    await clickSubmitCode(user)
     await screen.findByRole('dialog')
 }
 
@@ -185,8 +193,8 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
             expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
         })
-        // The button is never disabled now; a blocked attempt says why instead.
-        expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
+        // Enabled once the agreement read lands. Every other blocked reason is reported on click.
+        await waitFor(() => expect(submitCodeButton()).toBeEnabled())
     })
 
     it('does not auto-select a main file when multiple files exist', async () => {
@@ -210,7 +218,7 @@ describe('StudyCode component', () => {
         )
         // Nothing is said until the researcher tries: validation is on click, not on render.
         expect(screen.queryByText(/select a main file to submit/i)).not.toBeInTheDocument()
-        await userEvent.setup().click(screen.getByRole('button', { name: /submit code for review/i }))
+        await clickSubmitCode(userEvent.setup())
         expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
 
         // The star moves optimistically; the save behind it still has to settle.
@@ -910,8 +918,6 @@ describe('StudyCode component', () => {
     })
 
     describe('navigation and submit validation (OTTER-693)', () => {
-        const submitButton = () => screen.getByRole('button', { name: 'Submit code for review' })
-
         it('labels the back link as Previous step and points it at the previous screen', async () => {
             const { previousHref } = await renderIDE()
 
@@ -922,7 +928,7 @@ describe('StudyCode component', () => {
         it('keeps the submit button enabled with nothing uploaded', async () => {
             await renderIDE()
 
-            await waitFor(() => expect(submitButton()).toBeEnabled())
+            await waitFor(() => expect(submitCodeButton()).toBeEnabled())
         })
 
         it('blocks a submit with no changes and says so, without opening the confirmation', async () => {
@@ -945,7 +951,7 @@ describe('StudyCode component', () => {
             )
             await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
 
-            await userEvent.setup().click(submitButton())
+            await clickSubmitCode(userEvent.setup())
 
             expect(
                 screen.getByText(
@@ -959,7 +965,7 @@ describe('StudyCode component', () => {
             await renderIDE('openstax-lab', { 'a.R': 'print(1)', 'b.R': 'print(2)' })
             await waitFor(() => expect(screen.getByText('b.R')).toBeInTheDocument())
 
-            await userEvent.setup().click(submitButton())
+            await clickSubmitCode(userEvent.setup())
 
             const card = screen.getByTestId('your-files-section')
             expect(within(card).getByText(/select a main file to submit/i)).toBeInTheDocument()
@@ -973,9 +979,9 @@ describe('StudyCode component', () => {
             // change is announced rather than the region appearing fully formed.
             const region = document.getElementById('submit-code-error')
             expect(region).toHaveAttribute('aria-live', 'polite')
-            expect(submitButton()).toHaveAttribute('aria-describedby', 'submit-code-error')
+            expect(submitCodeButton()).toHaveAttribute('aria-describedby', 'submit-code-error')
 
-            await userEvent.setup().click(submitButton())
+            await clickSubmitCode(userEvent.setup())
 
             expect(region).toHaveTextContent(/select a main file to submit/i)
         })
@@ -987,7 +993,7 @@ describe('StudyCode component', () => {
             await renderIDE('openstax-lab', { 'a.R': 'print(1)', 'b.R': 'print(2)' })
             await waitFor(() => expect(screen.getByText('b.R')).toBeInTheDocument())
 
-            await user.click(submitButton())
+            await clickSubmitCode(user)
             expect(screen.getByText(/select a main file to submit/i)).toBeInTheDocument()
 
             await setMainFileTo(user, 'a.R')
@@ -1640,7 +1646,7 @@ describe('StudyCode component', () => {
 
             await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
 
-            await userEvent.setup().click(screen.getByRole('button', { name: /submit code for review/i }))
+            await clickSubmitCode(userEvent.setup())
 
             expect(
                 screen.getByText(
@@ -1666,6 +1672,63 @@ describe('StudyCode component', () => {
 
             // Readiness is no longer visible on the button, so it is proven by submitting.
             await openSubmitConfirmation(user)
+        })
+    })
+
+    describe('study agreement gate', () => {
+        const renderForAgreementState = async ({
+            withStudyAgreement,
+            isTestStudy = false,
+        }: {
+            withStudyAgreement: boolean
+            isTestStudy?: boolean
+        }) => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['test/path/to/main.R'] })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id, withStudyAgreement })
+            if (isTestStudy) {
+                await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+            }
+
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("starter")', 'helper.R': 'print("helper")' })
+
+            const previousHref = `/test-org/study/${study.id}/agreements` as Route
+            renderWithProviders(
+                <StudyCode
+                    studyId={study.id}
+                    dataPartnerName={DATA_PARTNER}
+                    isFirstVisit={false}
+                    previousHref={previousHref}
+                />,
+            )
+
+            return { study }
+        }
+
+        const selectMainFile = async () => {
+            await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
+            await setMainFileTo(userEvent.setup(), 'main.R')
+        }
+
+        it('blocks submitting and says why when no agreement has been published', async () => {
+            await renderForAgreementState({ withStudyAgreement: false })
+            await selectMainFile()
+
+            await waitFor(() => {
+                expect(screen.getByText(/Study Agreement is being prepared/i)).toBeInTheDocument()
+                expect(submitCodeButton()).toBeDisabled()
+            })
+        })
+
+        it('leaves a test study free to submit, with no notice', async () => {
+            await renderForAgreementState({ withStudyAgreement: false, isTestStudy: true })
+            await selectMainFile()
+
+            await waitFor(() => expect(submitCodeButton()).toBeEnabled())
+            expect(screen.queryByText(/Study Agreement is being prepared/i)).toBeNull()
         })
     })
 

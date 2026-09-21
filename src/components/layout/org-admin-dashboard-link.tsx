@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { NavLink } from '@mantine/core'
 import { FileTextIcon, GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
@@ -48,7 +49,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 onClick={() => setIsAdminMenuOpen((prev) => !prev)}
                 active={isAdminPage}
                 opened={isAdminMenuOpen}
-                c="white"
+                c={semanticColor('text.white')}
                 className={styles.navLinkHover}
                 rightSection={null}
                 aria-haspopup="true"

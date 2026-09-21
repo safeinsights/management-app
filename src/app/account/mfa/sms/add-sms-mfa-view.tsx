@@ -11,6 +11,7 @@ import { revalidateOnBlur } from '@/components/form-field'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import styles from './panel.module.css'
+import { fontWeight } from '@/theme/tokens'
 
 const PHONE_ERROR_ID = 'sms-mfa-phone-error'
 
@@ -68,7 +69,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                     href={Routes.accountMfa}
                     mt="md"
                     c="purple.5"
-                    fw={600}
+                    fw={fontWeight.semibold}
                     fz="md"
                     style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 >

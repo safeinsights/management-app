@@ -5,6 +5,7 @@ import { Progress, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { useTimedProgress } from '@/hooks/use-timed-progress'
 import { LAUNCH_STEPS } from './launch-progress'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const MODAL_TITLE = 'Setting up the SafeInsights IDE'
 const HEADING = 'Launching the IDE in a new tab'
@@ -39,9 +40,9 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
     return (
         <AppModal isOpen={isOpen} onClose={onAbandon} title={MODAL_TITLE} closeButtonProps={{ 'aria-label': 'Close' }}>
             <Stack gap="lg">
-                <Stack gap={4}>
-                    <Text fw={700}>{HEADING}</Text>
-                    <Text size="sm" c="charcoal.7">
+                <Stack gap="xxs">
+                    <Text fw={fontWeight.bold}>{HEADING}</Text>
+                    <Text size="sm" c={semanticColor('text.secondary')}>
                         Ready in {minutesRemaining(secondsRemaining)} minutes
                     </Text>
                 </Stack>
@@ -50,7 +51,7 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
                 <Text size="sm">
                     The IDE opens in a new tab. Write and test your code there. Your files sync back to SafeInsights
                     automatically, so you do not need to keep this page open. When you are ready,{' '}
-                    <Text span inherit fw={700}>
+                    <Text span inherit fw={fontWeight.bold}>
                         return here to submit your code
                     </Text>{' '}
                     to {dataPartnerName} for review.

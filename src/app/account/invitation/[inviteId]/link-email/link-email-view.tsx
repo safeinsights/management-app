@@ -6,6 +6,7 @@ import OtpInput from '@/components/otp-input'
 import { Box, Button, Center, Flex, Paper, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { FC } from 'react'
+import { semanticColor } from '@/theme/tokens'
 import { LinkInviteEmailStatus } from './use-link-invite-email'
 
 type CodeForm = UseFormReturnType<{ code: string }>
@@ -56,10 +57,10 @@ const CodePanel: FC<{
                 <Box id="link-email-code-error" ta="center">
                     <InputError error={form.errors.code} />
                 </Box>
-                <Button type="submit" variant="filled" size="lg" loading={isVerifying} mb={4}>
+                <Button type="submit" variant="filled" size="lg" loading={isVerifying} mb="xxs">
                     Verify and link
                 </Button>
-                <Button variant="outline" size="lg" onClick={onResend} disabled={isVerifying} mb={4}>
+                <Button variant="outline" size="lg" onClick={onResend} disabled={isVerifying} mb="xxs">
                     Resend code
                 </Button>
                 <Button variant="subtle" size="lg" onClick={onSkip} disabled={isVerifying}>
@@ -107,10 +108,10 @@ const FailedPanel: FC<{
             <Title order={3} ta="center" mb="md">
                 We could not send your code
             </Title>
-            <Text size="md" c="red.8">
+            <Text size="md" c={semanticColor('error.text')}>
                 {failureMessage}
             </Text>
-            <Button variant="filled" size="lg" onClick={onResend} mb={4}>
+            <Button variant="filled" size="lg" onClick={onResend} mb="xxs">
                 Try again
             </Button>
             <Button variant="subtle" size="lg" onClick={onSkip}>
@@ -135,7 +136,7 @@ export const LinkEmailView: FC<LinkEmailViewProps> = ({
     const isAwaitingCode = status === 'awaiting-code' || status === 'verifying'
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <PreparingPanel isVisible={isPreparing} />
                 <CodePanel

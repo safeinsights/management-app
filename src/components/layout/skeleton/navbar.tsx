@@ -5,7 +5,7 @@ import { Group, Skeleton, Stack } from '@mantine/core'
 export default function NavbarSkeleton() {
     return (
         <Stack gap="sm" data-testid="navbar-skeleton">
-            <Stack gap={4} mx="sm">
+            <Stack gap="xxs" mx="sm">
                 <Skeleton height={14} width="70%" color="gray.3" />
                 <Skeleton height={36} radius="sm" color="gray.3" />
             </Stack>

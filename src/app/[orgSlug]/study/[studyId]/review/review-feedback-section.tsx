@@ -6,6 +6,7 @@ import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const EDITOR_SKELETON_HEIGHT = 600
 
@@ -45,8 +46,8 @@ const EVALUATION_CRITERIA = [
 function CriterionLine({ label, description }: { label: string; description: string }) {
     return (
         <List.Item>
-            <Text component="span" fz={16} c="charcoal.9">
-                <Text component="span" fz={16} fw={600}>
+            <Text component="span" fz={16} c={semanticColor('text.primary')}>
+                <Text component="span" fz={16} fw={fontWeight.semibold}>
                     {label}:
                 </Text>{' '}
                 {description}
@@ -88,15 +89,15 @@ export function ReviewFeedbackSection({
 }: ReviewFeedbackSectionProps) {
     return (
         <Stack gap="lg" data-testid="review-feedback-section">
-            <Group gap={4} align="center">
-                <Text fz={20} fw={700} c="charcoal.9">
+            <Group gap="xxs" align="center">
+                <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     {SECTION_TITLE}
                 </Text>
-                <RequiredIndicator fz={20} fw={700} />
+                <RequiredIndicator fz={20} fw={fontWeight.bold} />
             </Group>
             <Divider />
             <Stack gap="md">
-                <Text fz={16} c="charcoal.9">
+                <Text fz={16} c={semanticColor('text.primary')}>
                     Share your decision and feedback on this proposal with {submittingLabName}. Consider evaluating the
                     proposal on these criteria:
                 </Text>

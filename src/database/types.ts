@@ -207,6 +207,14 @@ export interface OrgDataSourceUrl {
     url: string | null
 }
 
+export interface OrgTestLab {
+    createdAt: Generated<Timestamp>
+    createdByUserId: string | null
+    dataPartnerId: string
+    id: Generated<string>
+    researchLabId: string
+}
+
 export interface OrgUser {
     id: Generated<string>
     isAdmin: boolean
@@ -265,6 +273,7 @@ export interface Study {
     impact: Json | null
     irbDocPath: string | null
     irbProtocols: string | null
+    isTestStudy: Generated<boolean>
     language: Generated<Language>
     lastUpdatedAt: Generated<Timestamp>
     mainCodeFileName: string | null
@@ -339,6 +348,7 @@ export interface StudyReview {
     createdAt: Generated<Timestamp>
     id: Generated<string>
     report: Json | null
+    round: Generated<number>
     studyJobId: string
     summaryFailedAt: Timestamp | null
 }
@@ -406,6 +416,7 @@ export interface DB {
     orgDataSource: OrgDataSource
     orgDataSourceCodeEnv: OrgDataSourceCodeEnv
     orgDataSourceUrl: OrgDataSourceUrl
+    orgTestLab: OrgTestLab
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition

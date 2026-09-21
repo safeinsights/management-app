@@ -512,14 +512,17 @@ export async function triggerBuildImageForJob(
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }
 
-export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobInfo) {
+// The scanner returns the payload it was given with its log merged in, so `round` travels to the
+// build and back to the webhook untouched. A build that outlives its round is refused there, rather
+// than reporting on code nobody is reviewing any more (OTTER-779).
+export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobInfo & { round: number }) {
     return {
         projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
             // No ON_START_PAYLOAD: a start webhook would re-post CODE-SUBMITTED, reopening a decided
             // round. A failed scan posts CODE-SCANNED too, since the scan is advisory.
-            ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
-            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
+            ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED', round: info.round },
+            ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED', round: info.round },
             SCAN_MODE: 'source',
             STUDY_JOB_ID: info.studyJobId,
             S3_PATH: withS3Prefix(pathForStudyJobCode(info)),
@@ -528,7 +531,7 @@ export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobIn
     }
 }
 
-export async function triggerScanForStudyJob(info: MinimalJobInfo) {
+export async function triggerScanForStudyJob(info: MinimalJobInfo & { round: number }) {
     const codebuild = new CodeBuildClient({})
     const result = await codebuild.send(new StartBuildCommand(await buildTriggerScanForStudyJobCommandInput(info)))
     if (!result.build) throw new Error(`failed to start scan. requestID: ${result.$metadata.requestId}`)

@@ -10,6 +10,7 @@ import { RefresherSlot } from '@/components/refresher'
 import { TableHeader } from './columns'
 import { EmptyState } from './empty-state'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
+import { semanticColor } from '@/theme/tokens'
 
 // Rows come via `renderRow` so the session-dependent action link stays in the container.
 export type StudiesTableViewProps = {
@@ -70,7 +71,7 @@ export function StudiesTableView({
                     )}
                 </Flex>
             </Group>
-            <Divider c="charcoal.1" />
+            <Divider c={semanticColor('border.default')} />
             {description && <Text mb="md">{description}</Text>}
             <RefresherSlot>{refresher}</RefresherSlot>
             {body}

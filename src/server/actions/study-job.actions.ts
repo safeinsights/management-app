@@ -25,10 +25,12 @@ import {
     outputsDecisionVersion,
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -162,10 +164,12 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('review', 'Study')
+    .middleware(requireStudyAgreement(({ studyJob }) => studyJob.studyId))
     .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
         const userId = session.user.id
         const studyId = studyJob.studyId
         const studyJobId = studyJob.studyJobId
+
         const jobStatuses = studyJob.statusChanges.map((change) => change.status)
 
         // UI routing decides which screen renders, but an authorized direct caller could otherwise
@@ -307,12 +311,15 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db }) => {
+        // Only this round's failure is cleared; an earlier round's rows are that round's history.
+        const round = await codeRoundForJob(studyJobId, db)
         await db
             .deleteFrom('studyReview')
             .where('studyJobId', '=', studyJobId)
+            .where('round', '=', round)
             .where('summaryFailedAt', 'is not', null)
             .execute()
-        onStudyReviewRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId, round })
     })
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')

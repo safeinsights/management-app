@@ -7,6 +7,7 @@ import { AlertNotFound } from '@/components/errors'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import type { Json } from '@/database/types'
 import { CollapseToggleLink } from './collapse-toggle-link'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type FeedbackEntryShape = {
     id: string
@@ -72,12 +73,12 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
 
     return (
         <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`}>
-            <Text fw={700} fz={14}>
+            <Text fw={fontWeight.bold} fz={14}>
                 {title}
             </Text>
             <Box bg="gray.0" p="lg">
                 <Stack gap="xs">
-                    <Text size="sm" fw={600}>
+                    <Text size="sm" fw={fontWeight.semibold}>
                         {entry.authorName}
                     </Text>
                     <Text size="sm" c="gray.7">
@@ -152,7 +153,7 @@ export function FeedbackAndNotesSection({
     return (
         <Paper p="xxl" data-testid="feedback-and-notes-section">
             <Stack gap="md">
-                <Title order={3} fz={20} c="charcoal.9" pb={4}>
+                <Title order={3} fz={20} c={semanticColor('text.primary')} pb="xxs">
                     Feedback and notes
                 </Title>
                 <Divider />

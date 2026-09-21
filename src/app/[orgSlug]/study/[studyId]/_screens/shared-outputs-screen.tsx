@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { notFound } from 'next/navigation'
 import { Box, Stack } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
@@ -63,7 +64,7 @@ export async function SharedOutputsScreen({
     const banner = researcherSharedOutputsBanner(descriptor.screen, { dataPartner })
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <SharedOutputsPanel

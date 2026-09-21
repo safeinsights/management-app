@@ -3,7 +3,7 @@
 import { type ReactNode } from 'react'
 import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import { WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { WarningCircleIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { useWidgetBlur } from '@/components/form-field'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -13,7 +13,9 @@ import {
     type CodeReviewCriteriaKey,
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
-import { CODE_REVIEW_CRITERIA, type CodeReviewCriterion } from './code-review-criteria'
+import { InfoTooltip } from '@/components/tooltip'
+import { codeReviewCriteria, type CodeReviewCriterion } from './code-review-criteria'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
     { value: 'yes', label: 'Yes' },
@@ -24,6 +26,24 @@ const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = 
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
     enabled: boolean
+    isTestStudy: boolean
+}
+
+// The lo-fi hangs this off the word "agreements"; a trailing icon carries the same note without
+// splitting the label string.
+function CriterionLabel({ id, descriptor }: { id: string; descriptor: CodeReviewCriterion }) {
+    const { note } = descriptor
+
+    return (
+        <Text id={id} fz={14} w={320}>
+            {descriptor.label}
+            {note && (
+                <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+                    <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
+                </InfoTooltip>
+            )}
+        </Text>
+    )
 }
 
 type CriterionRowProps = {
@@ -47,9 +67,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
 
     return (
         <Group gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${descriptor.key}`}>
-            <Text id={labelId} fz={14} w={320}>
-                {descriptor.label}
-            </Text>
+            <CriterionLabel id={labelId} descriptor={descriptor} />
             {/* Guarded blur: the radios are siblings, so an unguarded handler would error while
                 the user is still tabbing across the row (OTTER-647). */}
             <Radio.Group
@@ -68,7 +86,7 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
     )
 }
 
-export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionProps) {
+export function CodeEvaluationSection({ form, enabled, isTestStudy }: CodeEvaluationSectionProps) {
     const provider = useCodeReviewFeedbackProvider()
     const { pushCriterion } = useCodeReviewEvaluationMap({ form, provider, enabled })
 
@@ -79,7 +97,7 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
         pushCriterion(key, value)
     }
 
-    const criterionRows = CODE_REVIEW_CRITERIA.map((descriptor) => (
+    const criterionRows = codeReviewCriteria(isTestStudy).map((descriptor) => (
         <CriterionRow
             key={descriptor.key}
             descriptor={descriptor}
@@ -93,14 +111,14 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
     return (
         <Paper p="xxl" data-testid="code-evaluation-section">
             <Stack gap="lg">
-                <Group gap={4} align="center">
-                    <Text fz={20} fw={700} c="charcoal.9">
+                <Group gap="xxs" align="center">
+                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Code evaluation
                     </Text>
-                    <RequiredIndicator fz={20} fw={700} />
+                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider />
-                <Text fz={14} c="charcoal.9">
+                <Text fz={14} c={semanticColor('text.primary')}>
                     Use this checklist to guide your review. Consider each criterion based on the submitted code, AI
                     summary, and security scan results.
                 </Text>
@@ -115,7 +133,7 @@ export function CodeEvaluationSection({ form, enabled }: CodeEvaluationSectionPr
                     This checklist is provided as guidance. As the reviewer(s), you are responsible for the final
                     decision based on your professional judgment and understanding of your data.
                 </Alert>
-                <Text fz={16} fw={700} c="charcoal.9">
+                <Text fz={16} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     Evaluation criteria
                 </Text>
                 <Stack gap="md">{criterionRows}</Stack>

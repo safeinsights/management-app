@@ -27,6 +27,7 @@ declare module '@tanstack/react-query' {
 }
 
 export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }
+export type { UseQueryResult }
 
 function processResponse<T>(response: ActionResponse<T>): T {
     if (isActionError(response)) {

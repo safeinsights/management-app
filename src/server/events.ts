@@ -89,7 +89,6 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
-    // TODO(SHRMP-277): call sendSlaPreparationEmail once it exists in mailer.ts
 
     await capturePostHogEvent({
         distinctId: userId,
@@ -98,8 +97,12 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     })
 })
 
-export const onStudyReviewRequested = deferred(async ({ studyJobId }: { studyJobId: string }) => {
-    await generateAndStoreStudyReview(studyJobId)
+export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId: string }) => {
+    await email.sendStudyAgreementReadyEmail(studyId)
+})
+
+export const onStudyReviewRequested = deferred(async ({ studyJobId, round }: { studyJobId: string; round: number }) => {
+    await generateAndStoreStudyReview(studyJobId, round)
 })
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
@@ -112,6 +115,8 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalApprovedEmail(studyId)
+    // Approval is the earliest point an agreement can exist, so it is also the earliest it can be asked for.
+    await email.sendStudyAgreementPreparationEmail(studyId)
 })
 
 export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {

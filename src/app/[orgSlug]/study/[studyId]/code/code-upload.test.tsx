@@ -62,11 +62,17 @@ const renderPage = async (orgSlug = 'openstax') => {
     return { study }
 }
 
+const submitCodeButton = () => screen.getByRole('button', { name: /submit code for review/i })
+
 /**
- * The submit button is never disabled: validation runs on click, so its state no longer says
- * whether a submit will go through. `canSubmit` waits on the last-job query, which has no UI
- * signal, so this retries the click rather than clicking once and hoping the query has landed.
+ * The study agreement gate is the only thing that disables the button, and it reads as blocked
+ * until its query lands, so a click racing that read is dropped with nothing to show for it.
  */
+const clickSubmitCode = async (user: ReturnType<typeof userEvent.setup>) => {
+    await waitFor(() => expect(submitCodeButton()).toBeEnabled())
+    await user.click(submitCodeButton())
+}
+
 const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) => {
     // canSubmit depends on several reads with no UI signal of their own, so wait for the rows to
     // render and then for every query to settle. Retrying the click instead spends the budget on
@@ -74,7 +80,7 @@ const openSubmitConfirmation = async (user: ReturnType<typeof userEvent.setup>) 
     await screen.findAllByRole('radio')
     await waitForPendingQueries()
 
-    await user.click(screen.getByRole('button', { name: /submit code for review/i }))
+    await clickSubmitCode(user)
     await screen.findByRole('dialog')
 }
 
@@ -131,8 +137,8 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
         })
-        // Always clickable now; a blocked attempt reports the reason instead.
-        expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
+        // Enabled once the agreement read lands. Every other blocked reason is reported on click.
+        await waitFor(() => expect(submitCodeButton()).toBeEnabled())
     })
 
     // Cleanup hits real S3, so skip when SeaweedFS is not running locally; CI has it.

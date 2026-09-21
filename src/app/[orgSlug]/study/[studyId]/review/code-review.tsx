@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { AlertNotFound } from '@/components/errors'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -65,7 +66,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
     const submittedAt = latestCodeSubmittedAt(job)
 
     return (
-        <Box bg="grey.0">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
                 <CollapsibleSubmittedCodeSection

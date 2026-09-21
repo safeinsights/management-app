@@ -6,6 +6,7 @@ import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { Alert, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
+import { fontWeight } from '@/theme/tokens'
 
 const bannerMessage = ({ orgName, linkedEmail }: JoinedOrg) =>
     linkedEmail
@@ -48,7 +49,7 @@ export function JoinedOrgBanner() {
             styles={{ closeButton: { color: theme.colors.green[7] } }}
             data-testid="joined-org-banner"
         >
-            <Text size="sm" c={theme.colors.green[7]} fw={700}>
+            <Text size="sm" c={theme.colors.green[7]} fw={fontWeight.bold}>
                 {bannerMessage(joinedOrg)}
             </Text>
         </Alert>
