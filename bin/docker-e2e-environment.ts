@@ -29,7 +29,10 @@ export function dockerE2EEnvironment({
     envFile = readEnvironmentFile('.env'),
     envTestFile = readEnvironmentFile('.env.test'),
 }: DockerE2EEnvironmentOptions = {}): Record<string, string | undefined> {
-    const environment = { ...ambient, ...envFile, ...envTestFile }
+    // Ambient last, which is what dotenv itself does: a shell export is the most deliberate way to
+    // say what you want, and it is how the README tells you to pick the published ports. The keys
+    // that must not be redirected to dev infrastructure are forced below regardless of this order.
+    const environment = { ...envFile, ...envTestFile, ...ambient }
     const pgPort = port(environment.E2E_PG_PORT, '5433', 'E2E_PG_PORT')
     const s3Port = port(environment.E2E_S3_PORT, '8334', 'E2E_S3_PORT')
     const appPort = port(environment.E2E_APP_PORT, '4101', 'E2E_APP_PORT')

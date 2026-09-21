@@ -36,6 +36,8 @@ export default defineConfig({
         include: [
             'src/**/*.(test).{js,jsx,ts,tsx}',
             'services/**/*.(test).{js,jsx,ts,tsx}',
+            // build tooling keeps its tests beside the script, outside the shipped app
+            'bin/**/*.(test).{js,ts}',
             // custom ESLint rules live in tests/ as plain .mjs
             'tests/**/*.(test).mjs',
         ],

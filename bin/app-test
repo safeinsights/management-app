@@ -36,9 +36,13 @@ export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-p
 if [ "${1:-}" != "--no-build" ]; then
     echo "app-test: building (E2E_FAKE_CLERK=1)..."
     if [ "${E2E_MODE:-}" = "docker" ]; then
+        # The binary directly, not `pnpm exec`: the app container does not provision corepack the
+        # way the seed container does, so going through pnpm would try to fetch it over the network
+        # mid-build. Do not "tidy" this back to `pnpm exec` without giving that container a
+        # COREPACK_HOME on the node_modules volume.
         ./node_modules/.bin/next build
     else
-        env -u AWS_PROFILE pnpm exec next build
+        pnpm exec next build
     fi
 fi
 

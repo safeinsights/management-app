@@ -105,7 +105,11 @@ note "SeaweedFS reachable on ${PGHOST}:${S3_PORT}"
 
 if ! psql "postgres://${PGHOST}:${PGPORT}/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='${TEST_DB}'" 2>/dev/null | grep -q 1; then
     note "Creating database ${TEST_DB}…"
-    createdb -h "$PGHOST" -p "$PGPORT" ${PGUSER:+-U "$PGUSER"} "$TEST_DB"
+    # An array, because the inner quotes of ${PGUSER:+-U "$PGUSER"} do not survive word splitting:
+    # a user name containing a space would arrive as two arguments.
+    createdb_args=(-h "$PGHOST" -p "$PGPORT")
+    [ -n "${PGUSER:-}" ] && createdb_args+=(-U "$PGUSER")
+    createdb "${createdb_args[@]}" "$TEST_DB"
 fi
 
 # The same chain bin/docker-e2e's seed service runs. Deliberately NOT `pnpm run db:migrate`:

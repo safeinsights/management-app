@@ -16,26 +16,6 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$repo_root"
 
-# Re-enter this script after the TypeScript loader has merged .env + .env.test and applied
-# authoritative Docker database, S3, auth, and port values. Keeping the merge in TypeScript
-# avoids sourcing dotenv syntax in Bash and keeps its precedence rules unit-testable.
-if [[ "${1:-}" != "--environment-ready" ]]; then
-    unset CI AWS_PROFILE
-    exec pnpm exec tsx bin/docker-e2e-environment.ts ./bin/docker-e2e --environment-ready "$@"
-fi
-shift
-
-# This is a developer entrypoint only. CI runs `pnpm run test:e2e`; an inherited CI value
-# would prevent Playwright from starting the app server and select CI-specific timeouts.
-unset CI
-
-: "${DATABASE_URL:?docker-e2e environment was not initialized}"
-: "${S3_ENDPOINT:?docker-e2e environment was not initialized}"
-: "${E2E_BASE_URL:?docker-e2e environment was not initialized}"
-
-COMPOSE_FILE="$repo_root/docker-compose.e2e.yml"
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-mgmt-app-e2e-local}"
-
 usage() {
     cat <<EOF
 Usage: ./bin/docker-e2e [--clean | --down | --prune] [-- <playwright-args>]
@@ -58,6 +38,35 @@ Examples:
 EOF
     exit 0
 }
+
+# Re-enter this script after the TypeScript loader has merged .env + .env.test and applied
+# authoritative Docker database, S3, auth, and port values. Keeping the merge in TypeScript
+# avoids sourcing dotenv syntax in Bash and keeps its precedence rules unit-testable.
+if [[ "${1:-}" != "--environment-ready" ]]; then
+    # Help answers before the trampoline. It needs none of that environment, and reading it first
+    # means an out-of-range port in .env.test makes `--help` fail instead of explaining itself.
+    # Scanning stops at `--`, so `-- --help` still reaches Playwright.
+    for arg in "$@"; do
+        case $arg in
+            --) break ;;
+            --help | -h) usage ;;
+        esac
+    done
+    unset CI AWS_PROFILE
+    exec pnpm exec tsx bin/docker-e2e-environment.ts ./bin/docker-e2e --environment-ready "$@"
+fi
+shift
+
+# This is a developer entrypoint only. CI runs `pnpm run test:e2e`; an inherited CI value
+# would prevent Playwright from starting the app server and select CI-specific timeouts.
+unset CI
+
+: "${DATABASE_URL:?docker-e2e environment was not initialized}"
+: "${S3_ENDPOINT:?docker-e2e environment was not initialized}"
+: "${E2E_BASE_URL:?docker-e2e environment was not initialized}"
+
+COMPOSE_FILE="$repo_root/docker-compose.e2e.yml"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-mgmt-app-e2e-local}"
 
 clean=false
 down=false
@@ -124,7 +133,13 @@ else
     # Rebuild the DB volume when an applied migration no longer exists after a branch switch.
     dc up -d db-e2e --wait 2>/dev/null || true
     applied=$(dc exec -T db-e2e psql -U si -d si_test -t -c "SELECT name FROM kysely_migration" 2>/dev/null | tr -d ' ' | grep -v '^$' || echo "")
-    filesystem=$(ls src/database/migrations/*.ts 2>/dev/null | xargs -n1 basename | sed 's/\.ts$//')
+    filesystem=$(ls "$repo_root"/src/database/migrations/*.ts 2>/dev/null | xargs -n1 basename | sed 's/\.ts$//')
+    # An unreadable migrations directory is not the same as "every applied migration is stale", and
+    # the difference here is a dropped database volume. Skip the check rather than guess.
+    if [ -z "$filesystem" ]; then
+        echo "Could not read src/database/migrations; skipping the migration mismatch check." >&2
+        applied=""
+    fi
     for migration in $applied; do
         if [ -n "$migration" ] && ! echo "$filesystem" | grep -qx "$migration"; then
             echo "Migration mismatch ('$migration' applied but not in codebase), rebuilding test DB..."

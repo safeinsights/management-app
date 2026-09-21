@@ -249,10 +249,12 @@ Stack management: `--clean` (fresh DB + storage, reseed), `--down` (stop contain
 volumes), `--prune` (remove everything including volumes), and `--print-environment` (show
 non-secret endpoints without starting the stack).
 
-Docker e2e loads `.env` as its base and then applies `.env.test` when present. Docker-owned
-database, S3, local AWS credentials, bucket, fake-auth, and app endpoint values are applied
-last so the seed container, host Playwright, and Docker app cannot be redirected to dev services.
-Customize the published ports with `E2E_PG_PORT`, `E2E_S3_PORT`, or `E2E_APP_PORT`. This does
+Docker e2e loads `.env` as its base, applies `.env.test` when present, and lets a value already
+exported in your shell win over both, the way `dotenv` itself behaves. Docker-owned database, S3,
+local AWS credentials, bucket, fake-auth, and app endpoint values are applied last so the seed
+container, host Playwright, and Docker app cannot be redirected to dev services.
+Customize the published ports with `E2E_PG_PORT`, `E2E_S3_PORT`, or `E2E_APP_PORT`, which work as
+shell overrides even when the same key is set in a checked-out `.env.test`. This does
 not change the regular environment started by `docker compose up`. Remote database secret,
 application secret, and Claude API selectors are removed from the Docker e2e host processes.
 The app's `.next` directory is a disposable Docker volume that masks the bind-mounted checkout,

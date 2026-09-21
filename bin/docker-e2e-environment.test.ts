@@ -1,19 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { dockerE2EEnvironment } from '../bin/docker-e2e-environment'
+import { dockerE2EEnvironment } from './docker-e2e-environment'
 
 describe('dockerE2EEnvironment', () => {
-    it('loads .env.test over .env and ambient values', () => {
+    it('loads .env.test over .env, and a shell value over both', () => {
         const environment = dockerE2EEnvironment({
             ambient: { FEATURE_VALUE: 'ambient', AMBIENT_ONLY: 'kept' },
-            envFile: { FEATURE_VALUE: 'env', ENV_ONLY: 'kept' },
-            envTestFile: { FEATURE_VALUE: 'env-test', TEST_ONLY: 'kept' },
+            envFile: { FEATURE_VALUE: 'env', FILE_VALUE: 'env', ENV_ONLY: 'kept' },
+            envTestFile: { FEATURE_VALUE: 'env-test', FILE_VALUE: 'env-test', TEST_ONLY: 'kept' },
         })
 
         expect(environment).toMatchObject({
-            FEATURE_VALUE: 'env-test',
+            FEATURE_VALUE: 'ambient',
+            FILE_VALUE: 'env-test',
             AMBIENT_ONLY: 'kept',
             ENV_ONLY: 'kept',
             TEST_ONLY: 'kept',
+        })
+    })
+
+    // The documented way to move the published ports is a shell export, so it has to beat a stale
+    // key of the same name in a checked-out .env.test.
+    it('lets a shell port override win over .env.test', () => {
+        const environment = dockerE2EEnvironment({
+            ambient: { E2E_PG_PORT: '5599' },
+            envFile: {},
+            envTestFile: { E2E_PG_PORT: '5543' },
+        })
+
+        expect(environment).toMatchObject({
+            E2E_PG_PORT: '5599',
+            DATABASE_URL: 'postgres://si:si@127.0.0.1:5599/si_test',
         })
     })
 
