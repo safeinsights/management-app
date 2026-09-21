@@ -1,7 +1,7 @@
 'use server'
 
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
-import { latestJob, projectStudyState } from '@/lib/study-screen'
+import { isOutputsDecided, latestJob, projectStudyState } from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { assertDecisionFeedback } from './decision-feedback'
 import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
@@ -14,6 +14,7 @@ import {
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
 import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
+import { isSessionOrgMember } from '@/lib/utils'
 import type { FileType } from '@/database/types'
 import {
     getLabPublicKeysForStudy,
@@ -481,13 +482,14 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
     .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
         // Only the research lab's own view counts: a data partner opening /view must not flip the
         // lab's badge to "Outputs reviewed".
-        const isLabMember = Object.values(session.orgs).some((org) => org.id === submittedByOrgId)
-        if (!isLabMember) throw new ActionFailure({ user: 'not a member of the study research lab' })
+        if (!isSessionOrgMember(session, submittedByOrgId)) {
+            throw new ActionFailure({ user: 'not a member of the study research lab' })
+        }
 
         const raw = await rawStudyStateForStudy(studyId, db)
         if (!raw) return
         const state = projectStudyState(raw)
-        if (!(state.resultsApproved || state.resultsRejected) || state.resultsViewed) return
+        if (!isOutputsDecided(state) || state.resultsViewed) return
 
         const job = latestJob(raw.jobs)
         if (!job) return

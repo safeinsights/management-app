@@ -32,7 +32,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
-                <MarkOutputsDecisionViewed studyId={study.id} isVisible />
+                <MarkOutputsDecisionViewed studyId={study.id} />
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"

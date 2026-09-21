@@ -3,8 +3,8 @@ import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import {
     CODE_DECISION_JOB_STATUSES,
+    furthestStage,
     latestSubmittedJobHasLiveCodeDecision,
-    STAGE_PROGRESSION,
     STUDY_CODE_RUNNING_JOB_STATUSES,
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
@@ -83,7 +83,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsRejected,
     })
     const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
-    const executionStage = [...STAGE_PROGRESSION].reverse().find((stage) => jobStatuses.has(stage)) ?? null
+    const executionStage = furthestStage(jobStatuses)
 
     // Only the live code decision passes, so DISPLAY_STATUS_PRIORITY never picks among coexisting
     // decisions.
@@ -131,6 +131,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
 export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
+
+// The reviewer has released a decision on the outputs, whatever it was. Named apart from
+// hasOutputsDecision in @/lib/outputs-review, which asks the same question of raw job statuses.
+export const isOutputsDecided = (s: Pick<StudyState, 'resultsApproved' | 'resultsRejected'>): boolean =>
+    s.resultsApproved || s.resultsRejected
 
 // Shared by the rule table and the screen's render guard so the two cannot drift (OTTER-695/697).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected

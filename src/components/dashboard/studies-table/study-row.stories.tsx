@@ -3,7 +3,9 @@ import type { ReactNode } from 'react'
 import { Anchor, Table } from '@mantine/core'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { StudyRowView } from './study-row-view'
-import { useStudyStatus } from '@/hooks/use-study-status'
+import { resolvePillStatus } from '@/lib/study-screen'
+import { rowStudyState } from './dashboard-raw-state'
+import { pillOrgNamesFromRow } from './pill-context'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 
 // Targets StudyRowView because the container reads the Clerk session via StudyActionLink.
@@ -53,12 +55,7 @@ function Row({
     scope: Scope
     highlighted?: boolean
 }) {
-    const status = useStudyStatus({
-        studyStatus: s.status,
-        audience,
-        jobStatusChanges: s.jobStatusChanges,
-        names: { dataPartner: 'Openstax', researchLab: 'Openstax Lab' },
-    })
+    const status = resolvePillStatus(audience, rowStudyState(s), pillOrgNamesFromRow(s))
     return (
         <StudyRowView
             study={s}

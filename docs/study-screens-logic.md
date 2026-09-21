@@ -20,7 +20,7 @@ Before this, four places each re-derived overlapping state from incomplete input
 - `use-study-href.ts` — dashboard guessed _which URL_ to open.
 - `view/page.tsx` — a nested if-cascade keyed on `?from=` query params + status ordering.
 - `review/page.tsx` — a parallel reviewer cascade with its own `?from=` cases.
-- `use-study-status.ts` + `study-row.tsx` — pill + row highlight, with their own recency logic.
+- `study-row.tsx` (via `use-study-status.ts`) — pill + row highlight, with their own recency logic.
 
 They drifted, and most past bugs traced to code reading **"the newest status"** when status rows
 can arrive **out of order**. The fix: derive everything **once**, from the whole status set.
@@ -388,8 +388,9 @@ exists, and only once per job. A job status rather than a study column because a
 a new job, so the fact resets per round without any clearing logic. It is deliberately absent from
 `DISPLAY_STATUS_PRIORITY`: `displayStatus` has no consumer that should read it.
 
-The projection also exposes `executionStage`, the furthest `STAGE_PROGRESSION` member present on the
-latest job, so the reviewer's per-stage badges never read the status log's order.
+The projection also exposes `executionStage`, read from `furthestStage` in `study-job-status.ts`,
+which keeps pipeline order in the one file that already owns it. The reviewer's per-stage badges
+therefore never read the status log's order.
 
 Stale code decisions are dropped by the projection, not the table, so a resubmission reads as
 submitted rather than as the prior round's decision (OTTER-641).
@@ -517,8 +518,8 @@ re-architecting — exactly as the design intended.
 | `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                           |
 | `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants     |
 | `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`          |
-| `screen-rules.ts`                      | `ScreenRule`, `ScreenRuleEntry` (shared screen rule types)                             |
-| `pill-rules.ts`                        | `PillRule`, `PillRuleEntry` (shared pill rule types)                                   |
+| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>` (shared by every table), plus the `Screen*` aliases            |
+| `pill-rules.ts`                        | `PillRuleEntry` (the pill tables' entry type)                                          |
 | `researcher-screen-rules.ts`           | `RESEARCHER_SCREEN_RULES` (researcher table)                                           |
 | `reviewer-screen-rules.ts`             | `REVIEWER_SCREEN_RULES` (reviewer table)                                               |
 | `researcher-pill-rules.ts`             | `RESEARCHER_PILL_RULES` (researcher pill table)                                        |

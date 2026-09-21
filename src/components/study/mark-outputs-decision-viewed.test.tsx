@@ -18,22 +18,15 @@ const viewedRows = (jobId: string) =>
         .where('status', '=', 'RESULTS-VIEWED')
         .execute()
 
+// The action's own guards (no decision yet, wrong org, already recorded) are covered in
+// study-job.actions.test.ts. What only the leaf can show is that mounting it fires the write.
 describe('MarkOutputsDecisionViewed', () => {
     it('records the lab view of a released decision once it is on screen', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
 
-        renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} isVisible />)
+        renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />)
 
         await waitFor(async () => expect(await viewedRows(job.id)).toHaveLength(1))
-    })
-
-    it('writes nothing while hidden', async () => {
-        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
-
-        renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} isVisible={false} />)
-
-        expect(await viewedRows(job.id)).toHaveLength(0)
     })
 })

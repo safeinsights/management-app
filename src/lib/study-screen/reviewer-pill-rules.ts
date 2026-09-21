@@ -1,5 +1,5 @@
 import type { PillRuleEntry } from './pill-rules'
-import { awaitingFilesDecisionOnError, isAwaitingOutputsReviewOutcome } from './state'
+import { awaitingFilesDecisionOnError, isAwaitingOutputsReviewOutcome, isOutputsDecided } from './state'
 
 // Reviewer pill rules. Order = display precedence. First match wins. The live contract is the
 // reviewer table in docs/study-screens-logic.md.
@@ -9,7 +9,7 @@ export const REVIEWER_PILL_RULES = [
     ['code-errored', { when: awaitingFilesDecisionOnError }],
     ['outputs-need-review', { when: isAwaitingOutputsReviewOutcome }],
     // The reviewer has submitted their decision, on a clean run or an errored one, so nothing is owed.
-    ['outputs-reviewed', { when: (s) => s.resultsApproved || s.resultsRejected }],
+    ['outputs-reviewed', { when: isOutputsDecided }],
 
     // Enclave stages. Every job with results is claimed above, so these see only a live run.
     // JOB-PROVISIONING shares "Code queued" with JOB-READY: the design names no state between the

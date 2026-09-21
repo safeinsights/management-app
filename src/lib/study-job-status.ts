@@ -10,8 +10,8 @@ export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
 export const isStudyResultsStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && STUDY_RESULTS_JOB_STATUSES.includes(status)
 
-// In pipeline order; STAGE_INDEX below depends on it.
-export const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
+// In pipeline order; STAGE_INDEX and furthestStage below depend on it.
+const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
 
 export type ExecutionStage = (typeof STAGE_PROGRESSION)[number]
 
@@ -30,6 +30,12 @@ export function currentExecutionStage(
     const latest = stages.reduce((a, b) => (rank(b) > rank(a) ? b : a))
     return { status: latest.status, startedAt: latest.createdAt }
 }
+
+// For callers holding statuses as a set with no timestamps, which is every caller downstream of
+// projectStudyState. Applies the same tie-break as the ranking above: furthest along the pipeline
+// wins, and an append-only log makes that the current stage.
+export const furthestStage = (statuses: ReadonlySet<StudyJobStatus>): ExecutionStage | null =>
+    [...STAGE_PROGRESSION].reverse().find((stage) => statuses.has(stage)) ?? null
 
 // Raw status rows carry createdAt optionally, so callers filter through this before latestStatusAt.
 export const datedStatusChanges = (

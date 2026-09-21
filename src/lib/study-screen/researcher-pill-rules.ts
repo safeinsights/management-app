@@ -1,8 +1,5 @@
 import type { PillRuleEntry } from './pill-rules'
-import { awaitingFilesDecisionOnError, isAwaitingOutputsReviewOutcome } from './state'
-
-const hasOutputsDecision = (s: { resultsApproved: boolean; resultsRejected: boolean }) =>
-    s.resultsApproved || s.resultsRejected
+import { awaitingFilesDecisionOnError, isAwaitingOutputsReviewOutcome, isOutputsDecided } from './state'
 
 // Researcher pill rules. Order = display precedence. First match wins. The live contract is the
 // researcher table in docs/study-screens-logic.md.
@@ -11,12 +8,12 @@ export const RESEARCHER_PILL_RULES = [
     // A failed run stays a failed run once the reviewer releases it: the researcher's next move is to
     // read the feedback and resubmit, not to collect outputs. Ahead of the two outputs rows so an
     // errored job never advertises results.
-    ['code-errored', { when: (s) => s.resultsErrored && hasOutputsDecision(s) }],
+    ['code-errored', { when: (s) => s.resultsErrored && isOutputsDecided(s) }],
 
     // A released decision the researcher has already opened, then one they have not. The view is the
     // one fact the lifecycle statuses cannot carry, so RESULTS-VIEWED records it (OTTER-698).
-    ['outputs-reviewed', { when: (s) => hasOutputsDecision(s) && s.resultsViewed }],
-    ['outputs-need-review', { when: hasOutputsDecision }],
+    ['outputs-reviewed', { when: (s) => isOutputsDecided(s) && s.resultsViewed }],
+    ['outputs-need-review', { when: isOutputsDecided }],
 
     // Waiting on the reviewer. awaitingFilesDecisionOnError keeps a bare JOB-ERRORED here rather than
     // disclosing the failure before triage (OTTER-598).
