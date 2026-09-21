@@ -22,7 +22,6 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     reviewerAgreementsAckedAt: null,
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
-    outputsViewedAt: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,
@@ -239,6 +238,39 @@ describe('runErrored', () => {
         expect(runErrored(['JOB-ERRORED', 'RUN-COMPLETE'])).toBe(false)
         expect(runErrored(['RUN-COMPLETE'])).toBe(false)
         expect(runErrored(['CODE-SUBMITTED'])).toBe(false)
+    })
+})
+
+describe('executionStage', () => {
+    const stageOf = (statuses: string[]) =>
+        projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).executionStage
+
+    it('is the furthest enclave stage present, whatever the row order', () => {
+        expect(stageOf(['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'JOB-PACKAGING'])).toBe('JOB-RUNNING')
+        expect(stageOf(['CODE-APPROVED', 'JOB-PROVISIONING', 'JOB-READY'])).toBe('JOB-PROVISIONING')
+        expect(stageOf(['CODE-APPROVED', 'JOB-PACKAGING'])).toBe('JOB-PACKAGING')
+    })
+
+    it('is null before packaging starts', () => {
+        expect(stageOf(['CODE-SUBMITTED', 'CODE-APPROVED'])).toBeNull()
+    })
+})
+
+describe('resultsViewed', () => {
+    it('reads the RESULTS-VIEWED row on the latest job only', () => {
+        const viewedRound = job(ID1, [
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'RUN-COMPLETE',
+            'FILES-APPROVED',
+            'RESULTS-VIEWED',
+        ])
+        expect(projectStudyState(raw({ status: 'APPROVED', jobs: [viewedRound] })).resultsViewed).toBe(true)
+
+        const resubmitted = job(ID2, ['CODE-SUBMITTED'])
+        expect(projectStudyState(raw({ status: 'APPROVED', jobs: [viewedRound, resubmitted] })).resultsViewed).toBe(
+            false,
+        )
     })
 })
 

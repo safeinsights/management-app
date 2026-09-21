@@ -20,6 +20,7 @@ import {
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     getJobAnalysisAction,
+    markOutputsDecisionViewedAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
@@ -383,6 +384,62 @@ describe('Study Job Actions', () => {
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    describe('markOutputsDecisionViewedAction', () => {
+        type Fixture = Awaited<ReturnType<typeof setupResultApprovalFixture>>
+
+        const viewedRows = (jobId: string) =>
+            db
+                .selectFrom('jobStatusChange')
+                .select(['status', 'userId'])
+                .where('studyJobId', '=', jobId)
+                .where('status', '=', 'RESULTS-VIEWED')
+                .execute()
+
+        const approve = async ({ enclave, job, sharedFiles }: Fixture) =>
+            actionResult(await approveStudyJobFilesAction({ orgSlug: enclave.slug, studyJobId: job.id, sharedFiles }))
+
+        const signInAsResearcher = ({ researcher, lab }: Fixture) =>
+            mockClerkSession({
+                clerkUserId: researcher.clerkId,
+                orgSlug: lab.slug,
+                userId: researcher.id,
+                orgId: lab.id,
+                orgType: 'lab',
+            })
+
+        test('records the lab view of a released decision once, on the decided job', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toEqual([
+                { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
+            ])
+        })
+
+        test('writes nothing while the reviewer has not decided', async () => {
+            const fixture = await setupResultApprovalFixture()
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
+        })
+
+        test('refuses a data partner member, whose visit is not the lab reading the decision', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+
+            const result = await markOutputsDecisionViewedAction({ studyId: fixture.study.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ user: expect.any(String) }) })
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
     })
 

@@ -11,7 +11,9 @@ export const isStudyResultsStatus = (status: StudyJobStatus | undefined): boolea
     !!status && STUDY_RESULTS_JOB_STATUSES.includes(status)
 
 // In pipeline order; STAGE_INDEX below depends on it.
-const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
+export const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
+
+export type ExecutionStage = (typeof STAGE_PROGRESSION)[number]
 
 export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = STAGE_PROGRESSION
 

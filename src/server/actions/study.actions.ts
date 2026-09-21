@@ -118,7 +118,6 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.reviewerAgreementsAckedAt',
             'study.codeResubmissionNoteDraft',
             'study.proposalResubmissionNoteDraft',
-            'study.outputsViewedAt',
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
@@ -178,7 +177,13 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
             .where('study.orgId', 'in', reviewerOrgIds)
             .where('study.status', '!=', 'DRAFT')
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.name as orgName', 'org.slug as orgSlug'])
+            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+            .select([
+                'org.name as orgName',
+                'org.slug as orgSlug',
+                'submittingOrg.name as submittingLabName',
+                'submittingOrg.slug as submittedByOrgSlug',
+            ])
             .execute()
     })
 

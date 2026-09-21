@@ -1,6 +1,8 @@
 'use server'
 
-import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
+import { latestJob, projectStudyState } from '@/lib/study-screen'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { assertDecisionFeedback } from './decision-feedback'
 import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -459,4 +461,38 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                     recipientKeys: keysByFileId.get(file.id)!,
                 })),
         )
+    })
+
+// Recorded from the client once the outputs decision page is on screen, not during its render: a
+// render-time write would fire on link prefetch and mark the decision viewed before anyone read it.
+export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionViewedAction', {
+    performsMutations: true,
+})
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
+        // Only the research lab's own view counts: a data partner opening /view must not flip the
+        // lab's badge to "Outputs reviewed".
+        const isLabMember = Object.values(session.orgs).some((org) => org.id === submittedByOrgId)
+        if (!isLabMember) throw new ActionFailure({ user: 'not a member of the study research lab' })
+
+        const raw = await rawStudyStateForStudy(studyId, db)
+        if (!raw) return
+        const state = projectStudyState(raw)
+        if (!(state.resultsApproved || state.resultsRejected) || state.resultsViewed) return
+
+        const job = latestJob(raw.jobs)
+        if (!job) return
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
+            .execute()
     })

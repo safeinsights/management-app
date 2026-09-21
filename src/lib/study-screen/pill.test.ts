@@ -55,12 +55,25 @@ describe('resolvePillId', () => {
     })
 
     it('reviewer keeps a distinct label per enclave stage', () => {
-        const stage = (statuses: StudyState['latestJobStatuses']) =>
-            resolvePillId('reviewer', state({ latestJobStatuses: statuses, isExecuting: true }))
-        expect(stage(['CODE-APPROVED', 'JOB-PACKAGING'])).toBe('code-preparing')
-        expect(stage(['CODE-APPROVED', 'JOB-PACKAGING', 'JOB-READY'])).toBe('code-queued')
-        expect(stage(['CODE-APPROVED', 'JOB-PACKAGING', 'JOB-PROVISIONING'])).toBe('code-queued')
-        expect(stage(['CODE-APPROVED', 'JOB-READY', 'JOB-RUNNING'])).toBe('code-running')
+        const stage = (executionStage: StudyState['executionStage']) =>
+            resolvePillId('reviewer', state({ executionStage, isExecuting: true, codeDecision: 'CODE-APPROVED' }))
+        expect(stage('JOB-PACKAGING')).toBe('code-preparing')
+        expect(stage('JOB-READY')).toBe('code-queued')
+        expect(stage('JOB-PROVISIONING')).toBe('code-queued')
+        expect(stage('JOB-RUNNING')).toBe('code-running')
+    })
+    it('reviewer reads a decided run as reviewed even when the stage rows are still present', () => {
+        const id = resolvePillId(
+            'reviewer',
+            state({
+                executionStage: 'JOB-RUNNING',
+                hasResults: true,
+                resultsErrored: true,
+                resultsRejected: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(id).toBe('outputs-reviewed')
     })
     it('researcher collapses every enclave stage into one processing label', () => {
         const id = resolvePillId(
@@ -104,10 +117,36 @@ describe('resolvePillId', () => {
             resultsApproved: true,
             codeDecision: 'CODE-APPROVED',
         }
-        expect(resolvePillId('researcher', state({ ...decided, outputsViewed: false }))).toBe('outputs-need-review')
-        expect(resolvePillId('researcher', state({ ...decided, outputsViewed: true }))).toBe('outputs-reviewed')
+        expect(resolvePillId('researcher', state({ ...decided, resultsViewed: false }))).toBe('outputs-need-review')
+        expect(resolvePillId('researcher', state({ ...decided, resultsViewed: true }))).toBe('outputs-reviewed')
         // The reviewer made the decision, so it reads as reviewed for them either way.
-        expect(resolvePillId('reviewer', state({ ...decided, outputsViewed: false }))).toBe('outputs-reviewed')
+        expect(resolvePillId('reviewer', state({ ...decided, resultsViewed: false }))).toBe('outputs-reviewed')
+    })
+
+    it('a view recorded before any decision changes nothing', () => {
+        const id = resolvePillId('researcher', state({ resultsViewed: true, codeDecision: 'CODE-APPROVED' }))
+        expect(id).toBe('code-approved')
+    })
+
+    // The fix is still owed after reading the feedback, so the errored badge keeps its call to act.
+    it('an errored, decided run stays errored for the researcher after they viewed it', () => {
+        const id = resolvePillId(
+            'researcher',
+            state({
+                hasResults: true,
+                resultsErrored: true,
+                resultsRejected: true,
+                resultsViewed: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(id).toBe('code-errored')
+    })
+
+    it('a status no rule claims falls back to the neutral draft pill for both roles', () => {
+        const archived: Partial<StudyState> = { status: 'ARCHIVED', hasAnyJob: false, hasSubmittedCode: false }
+        expect(resolvePillId('researcher', state(archived))).toBe('proposal-draft')
+        expect(resolvePillId('reviewer', state(archived))).toBe('proposal-draft')
     })
 
     it('a completed run awaiting a decision reads as awaiting for the researcher, needs review for the reviewer', () => {
@@ -161,7 +200,7 @@ describe('resolvePillStatus', () => {
             latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'],
             hasResults: true,
             resultsApproved: true,
-            outputsViewed: true,
+            resultsViewed: true,
             codeDecision: 'CODE-APPROVED',
         })
         expect(resolvePillStatus('researcher', decided, NAMES).tooltip).toBe(

@@ -17,7 +17,6 @@ export type StudyRow = {
     createdBy: string | null // researcher.fullName
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
     researcherAgreementsAckedAt: Date | null
-    outputsViewedAt: Date | null
     // Used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null
     datasets: string[] | null

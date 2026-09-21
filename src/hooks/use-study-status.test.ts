@@ -8,8 +8,7 @@ const params = (
     studyStatus: StudyStatus,
     audience: 'reviewer' | 'researcher',
     jobStatusChanges: Array<{ status: StudyJobStatus }> = [],
-    outputsViewedAt: Date | null = null,
-): UseStudyStatusParams => ({ studyStatus, audience, jobStatusChanges, outputsViewedAt, names: NAMES })
+): UseStudyStatusParams => ({ studyStatus, audience, jobStatusChanges, names: NAMES })
 
 describe('useStudyStatus', () => {
     it('reads the study status when the study has no jobs', () => {
@@ -79,7 +78,19 @@ describe('useStudyStatus', () => {
         expect(useStudyStatus(params('APPROVED', 'reviewer', changes)).label).toBe('Code revision requested')
     })
 
-    // OTTER-698: the only pill fact the job statuses cannot carry.
+    it('reads the furthest enclave stage for the reviewer and one processing label for the researcher', () => {
+        const running: Array<{ status: StudyJobStatus }> = [
+            { status: 'CODE-SUBMITTED' },
+            { status: 'CODE-APPROVED' },
+            { status: 'JOB-PACKAGING' },
+            { status: 'JOB-READY' },
+            { status: 'JOB-PROVISIONING' },
+        ]
+        expect(useStudyStatus(params('APPROVED', 'reviewer', running)).label).toBe('Code queued')
+        expect(useStudyStatus(params('APPROVED', 'researcher', running)).label).toBe('Code processing')
+    })
+
+    // OTTER-698: the only pill fact the lifecycle statuses cannot carry, so RESULTS-VIEWED records it.
     describe('outputs decision', () => {
         const decided: Array<{ status: StudyJobStatus }> = [
             { status: 'CODE-SUBMITTED' },
@@ -93,7 +104,8 @@ describe('useStudyStatus', () => {
         })
 
         it('reads as reviewed once the researcher has opened it', () => {
-            const result = useStudyStatus(params('APPROVED', 'researcher', decided, new Date()))
+            const viewed = [...decided, { status: 'RESULTS-VIEWED' as StudyJobStatus }]
+            const result = useStudyStatus(params('APPROVED', 'researcher', viewed))
             expect(result.label).toBe('Outputs reviewed')
             expect(result.tooltip).toBe(
                 'You have reviewed the decision on your outputs. You can resubmit code if needed.',

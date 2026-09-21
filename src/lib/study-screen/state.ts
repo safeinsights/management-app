@@ -4,6 +4,7 @@ import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import {
     CODE_DECISION_JOB_STATUSES,
     latestSubmittedJobHasLiveCodeDecision,
+    STAGE_PROGRESSION,
     STUDY_CODE_RUNNING_JOB_STATUSES,
     STUDY_RESULTS_JOB_STATUSES,
 } from '@/lib/study-job-status'
@@ -82,6 +83,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsRejected,
     })
     const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
+    const executionStage = [...STAGE_PROGRESSION].reverse().find((stage) => jobStatuses.has(stage)) ?? null
 
     // Only the live code decision passes, so DISPLAY_STATUS_PRIORITY never picks among coexisting
     // decisions.
@@ -114,7 +116,8 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsErrored,
         runErrored,
         resultsDisplayStatus,
-        outputsViewed: !!raw.outputsViewedAt,
+        resultsViewed: jobStatuses.has('RESULTS-VIEWED'),
+        executionStage,
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,

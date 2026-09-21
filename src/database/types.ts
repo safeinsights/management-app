@@ -78,6 +78,7 @@ export type StudyJobStatus =
     | 'JOB-PROVISIONING'
     | 'JOB-READY'
     | 'JOB-RUNNING'
+    | 'RESULTS-VIEWED'
     | 'RUN-COMPLETE'
 
 export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
@@ -279,7 +280,6 @@ export interface Study {
     mainCodeFileName: string | null
     orgId: string
     outputMimeType: string | null
-    outputsViewedAt: Timestamp | null
     piName: string
     piUserId: string | null
     projectSummary: Json | null

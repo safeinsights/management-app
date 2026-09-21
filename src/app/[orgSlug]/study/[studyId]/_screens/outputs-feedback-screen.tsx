@@ -2,6 +2,7 @@ import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -31,6 +32,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
+                <MarkOutputsDecisionViewed studyId={study.id} isVisible />
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"

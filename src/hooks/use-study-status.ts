@@ -10,7 +10,6 @@ export type UseStudyStatusParams = {
     studyStatus: StudyStatus
     audience: 'reviewer' | 'researcher'
     jobStatusChanges: MinimalStatusChange[]
-    outputsViewedAt: Date | null
     names: PillOrgNames
 }
 
@@ -20,20 +19,18 @@ export const useStudyStatus = ({
     studyStatus,
     audience,
     jobStatusChanges,
-    outputsViewedAt,
     names,
 }: UseStudyStatusParams): StatusLabel => {
     const state = projectStudyState({
         status: studyStatus,
-        // The pill only needs status + jobs + the outputs view; the fields this hook does not receive
-        // affect no pill fact, so they are null.
+        // The pill only needs status + jobs; the fields this hook does not receive affect no pill
+        // fact, so they are null.
         approvedAt: null,
         rejectedAt: null,
         researcherAgreementsAckedAt: null,
         reviewerAgreementsAckedAt: null,
         proposalResubmissionNoteDraft: null,
         codeResubmissionNoteDraft: null,
-        outputsViewedAt,
         piUserId: null,
         datasets: null,
         researchQuestions: null,

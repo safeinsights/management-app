@@ -1,6 +1,6 @@
 import type { Json, StudyJobStatus, StudyStatus } from '@/database/types'
 import type { AllStatus } from '@/lib/types'
-import type { CodeDecisionStatus } from '@/lib/study-job-status'
+import type { CodeDecisionStatus, ExecutionStage } from '@/lib/study-job-status'
 
 export type StudyRole = 'researcher' | 'reviewer'
 
@@ -30,7 +30,6 @@ export type RawStudyState = {
     reviewerAgreementsAckedAt: Date | null
     proposalResubmissionNoteDraft: string | null
     codeResubmissionNoteDraft: string | null
-    outputsViewedAt: Date | null
     // The draft reached Step 2 even if no flush ever wrote the DraftStep2Fields columns (OTTER-572).
     hasStep2CollabDoc: boolean
     jobs: ReadonlyArray<RawJob>
@@ -59,9 +58,12 @@ export type StudyState = {
     // by RUN-COMPLETE on the same job, and no round-closing status blocks either one.
     runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
-    // The researcher has opened the outputs decision. Not derivable from the job statuses, which is
-    // why the study carries a column for it (OTTER-698).
-    outputsViewed: boolean
+    // The research lab has opened the released outputs decision (a RESULTS-VIEWED row on the latest
+    // job). The only pill fact the lifecycle statuses cannot carry (OTTER-698).
+    resultsViewed: boolean
+    // Furthest enclave stage the latest job reached, or null before packaging starts. Set-based like
+    // every other fact: the status log is append-only, so the furthest stage present is the current one.
+    executionStage: ExecutionStage | null
     submissionRound: number
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean

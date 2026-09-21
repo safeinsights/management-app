@@ -147,15 +147,3 @@ export function nextVersionForStudyComment({ studyId, increment }: { studyId: st
     ), 1)`
     return increment ? sql<number>`${current} + 1` : current
 }
-
-// OTTER-698: stamps the first time the researcher opens a released outputs decision, which flips
-// their pill from "Outputs need review" to "Outputs reviewed". The IS NULL guard keeps the first
-// view, so a reload does not move the timestamp and the update is a no-op on every later render.
-export async function markOutputsViewed(db: Kysely<DB>, studyId: string): Promise<void> {
-    await db
-        .updateTable('study')
-        .set({ outputsViewedAt: new Date() })
-        .where('id', '=', studyId)
-        .where('outputsViewedAt', 'is', null)
-        .execute()
-}

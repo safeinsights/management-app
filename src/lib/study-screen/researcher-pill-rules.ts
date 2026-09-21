@@ -13,9 +13,9 @@ export const RESEARCHER_PILL_RULES = [
     // errored job never advertises results.
     ['code-errored', { when: (s) => s.resultsErrored && hasOutputsDecision(s) }],
 
-    // A released decision the researcher has already opened, then one they have not. Splitting on the
-    // view is the only fact in the matrix the job statuses cannot carry.
-    ['outputs-reviewed', { when: (s) => hasOutputsDecision(s) && s.outputsViewed }],
+    // A released decision the researcher has already opened, then one they have not. The view is the
+    // one fact the lifecycle statuses cannot carry, so RESULTS-VIEWED records it (OTTER-698).
+    ['outputs-reviewed', { when: (s) => hasOutputsDecision(s) && s.resultsViewed }],
     ['outputs-need-review', { when: hasOutputsDecision }],
 
     // Waiting on the reviewer. awaitingFilesDecisionOnError keeps a bare JOB-ERRORED here rather than
