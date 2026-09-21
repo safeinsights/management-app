@@ -368,7 +368,7 @@ redirect-free so Step 2's Previous button remains a working escape hatch.
 
 `resolvePillId(role, state)` runs an ordered rule table, the same first-match-wins contract Stage 2
 uses, and returns a `PillId`. `resolvePillStatus(role, state, names)` then resolves that id against
-`PILL_PRESENTATION` in `lib/status-labels.ts`, which owns the label, the tooltip and the colour.
+`PILL_PRESENTATION` in `lib/status-labels.ts`, which owns the label, the tooltip and the color.
 
 The pill cannot be keyed on a status value alone, which is why it has a table rather than a map
 (OTTER-698). Four cases need facts a single status does not carry:
@@ -388,44 +388,44 @@ that fallback in both, because the design has no badge for it.
 
 ### Researcher pill table (`researcher-pill-rules.ts`)
 
-| # | Condition | Pill |
-| - | --------- | ---- |
-| 1 | `resultsErrored` and a `FILES-*` decision exists | `code-errored` |
-| 2 | a `FILES-*` decision exists and `outputsViewed` | `outputs-reviewed` |
-| 3 | a `FILES-*` decision exists | `outputs-need-review` |
-| 4 | `isAwaitingOutputsReviewOutcome` or `awaitingFilesDecisionOnError` | `outputs-awaiting` |
-| 5 | `isExecuting` | `code-processing` |
-| 6 | `codeDecision === 'CODE-APPROVED'` | `code-approved` |
-| 7 | `codeDecision === 'CODE-REJECTED'` | `code-declined` |
-| 8 | `codeDecision === 'CODE-CHANGES-REQUESTED'` | `code-needs-revision` |
-| 9 | `codeAwaitingDecision` | `code-submitted` |
-| 10 | `APPROVED` with a job but no submitted code | `code-draft` |
-| 11 | `status === 'APPROVED'` | `proposal-approved` |
-| 12 | `status === 'REJECTED'` | `proposal-declined` |
-| 13 | `status === 'CHANGE-REQUESTED'` | `proposal-needs-revision` |
-| 14 | `status === 'PENDING-REVIEW'` | `proposal-submitted` |
-| 15 | fallback | `proposal-draft` |
+| #   | Condition                                                          | Pill                      |
+| --- | ------------------------------------------------------------------ | ------------------------- |
+| 1   | `resultsErrored` and a `FILES-*` decision exists                   | `code-errored`            |
+| 2   | a `FILES-*` decision exists and `outputsViewed`                    | `outputs-reviewed`        |
+| 3   | a `FILES-*` decision exists                                        | `outputs-need-review`     |
+| 4   | `isAwaitingOutputsReviewOutcome` or `awaitingFilesDecisionOnError` | `outputs-awaiting`        |
+| 5   | `isExecuting`                                                      | `code-processing`         |
+| 6   | `codeDecision === 'CODE-APPROVED'`                                 | `code-approved`           |
+| 7   | `codeDecision === 'CODE-REJECTED'`                                 | `code-declined`           |
+| 8   | `codeDecision === 'CODE-CHANGES-REQUESTED'`                        | `code-needs-revision`     |
+| 9   | `codeAwaitingDecision`                                             | `code-submitted`          |
+| 10  | `APPROVED` with a job but no submitted code                        | `code-draft`              |
+| 11  | `status === 'APPROVED'`                                            | `proposal-approved`       |
+| 12  | `status === 'REJECTED'`                                            | `proposal-declined`       |
+| 13  | `status === 'CHANGE-REQUESTED'`                                    | `proposal-needs-revision` |
+| 14  | `status === 'PENDING-REVIEW'`                                      | `proposal-submitted`      |
+| 15  | fallback                                                           | `proposal-draft`          |
 
 ### Reviewer pill table (`reviewer-pill-rules.ts`)
 
-| # | Condition | Pill |
-| - | --------- | ---- |
-| 1 | `resultsApproved` or `resultsRejected` | `outputs-reviewed` |
-| 2 | `resultsErrored` | `code-errored` |
-| 3 | `isAwaitingOutputsReviewOutcome` | `outputs-need-review` |
-| 4 | `isExecuting` and `JOB-RUNNING` present | `code-running` |
-| 5 | `isExecuting` and `JOB-PROVISIONING` or `JOB-READY` present | `code-queued` |
-| 6 | `isExecuting` and `JOB-PACKAGING` present | `code-preparing` |
-| 7 | `codeDecision === 'CODE-APPROVED'` | `code-approved` |
-| 8 | `codeDecision === 'CODE-REJECTED'` | `code-declined` |
-| 9 | `codeDecision === 'CODE-CHANGES-REQUESTED'` | `code-revision-requested` |
-| 10 | `codeAwaitingDecision` | `code-needs-review` |
-| 11 | `APPROVED` with a job but no submitted code | `code-awaiting` |
-| 12 | `status === 'APPROVED'` | `proposal-approved` |
-| 13 | `status === 'REJECTED'` | `proposal-declined` |
-| 14 | `status === 'CHANGE-REQUESTED'` | `proposal-revision-requested` |
-| 15 | `status === 'PENDING-REVIEW'` | `proposal-needs-review` |
-| 16 | fallback | `proposal-needs-review` |
+| #   | Condition                                                   | Pill                          |
+| --- | ----------------------------------------------------------- | ----------------------------- |
+| 1   | `resultsApproved` or `resultsRejected`                      | `outputs-reviewed`            |
+| 2   | `resultsErrored`                                            | `code-errored`                |
+| 3   | `isAwaitingOutputsReviewOutcome`                            | `outputs-need-review`         |
+| 4   | `isExecuting` and `JOB-RUNNING` present                     | `code-running`                |
+| 5   | `isExecuting` and `JOB-PROVISIONING` or `JOB-READY` present | `code-queued`                 |
+| 6   | `isExecuting` and `JOB-PACKAGING` present                   | `code-preparing`              |
+| 7   | `codeDecision === 'CODE-APPROVED'`                          | `code-approved`               |
+| 8   | `codeDecision === 'CODE-REJECTED'`                          | `code-declined`               |
+| 9   | `codeDecision === 'CODE-CHANGES-REQUESTED'`                 | `code-revision-requested`     |
+| 10  | `codeAwaitingDecision`                                      | `code-needs-review`           |
+| 11  | `APPROVED` with a job but no submitted code                 | `code-awaiting`               |
+| 12  | `status === 'APPROVED'`                                     | `proposal-approved`           |
+| 13  | `status === 'REJECTED'`                                     | `proposal-declined`           |
+| 14  | `status === 'CHANGE-REQUESTED'`                             | `proposal-revision-requested` |
+| 15  | `status === 'PENDING-REVIEW'`                               | `proposal-needs-review`       |
+| 16  | fallback                                                    | `proposal-needs-review`       |
 
 `resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved`; reviewer
 highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
@@ -498,7 +498,7 @@ re-architecting — exactly as the design intended.
 | `dashboard-rules.ts`                   | `DASHBOARD_RULES` table                                                                |
 | `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                 |
 | `pill.ts`                              | `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                            |
-| `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION` — every badge's label, tooltip and colour                |
+| `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                  |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav` |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                 |
 | `index.ts`                             | public barrel                                                                          |
