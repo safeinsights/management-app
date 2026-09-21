@@ -18,6 +18,7 @@ const baseStudy: StudyRowType = {
     reviewerId: 'reviewer-1',
     createdBy: 'Person A',
     jobStatusChanges: [],
+    outputsViewedAt: null,
     researcherAgreementsAckedAt: null,
     piUserId: null,
     datasets: null,

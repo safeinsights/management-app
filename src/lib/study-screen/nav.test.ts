@@ -30,6 +30,7 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     resultsErrored: false,
     runErrored: false,
     resultsDisplayStatus: null,
+    outputsViewed: false,
     submissionRound: 0,
     hasSavedEdits: false,
     hasSavedCodeEdits: false,

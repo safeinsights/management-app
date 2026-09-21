@@ -23,6 +23,7 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     createdBy: 'Ada Lovelace',
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
+    outputsViewedAt: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,
@@ -53,7 +54,13 @@ function Row({
     scope: Scope
     highlighted?: boolean
 }) {
-    const status = useStudyStatus({ studyStatus: s.status, audience, jobStatusChanges: s.jobStatusChanges })
+    const status = useStudyStatus({
+        studyStatus: s.status,
+        audience,
+        jobStatusChanges: s.jobStatusChanges,
+        outputsViewedAt: s.outputsViewedAt,
+        names: { dataPartner: 'Openstax', researchLab: 'Openstax Lab' },
+    })
     return (
         <StudyRowView
             study={s}

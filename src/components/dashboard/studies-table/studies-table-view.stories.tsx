@@ -25,6 +25,7 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     createdBy: 'Ada Lovelace',
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
+    outputsViewedAt: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,
@@ -39,7 +40,13 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
 })
 
 function StoryRow({ study: s, audience, scope }: { study: StudyRowType; audience: Audience; scope: Scope }) {
-    const status = useStudyStatus({ studyStatus: s.status, audience, jobStatusChanges: s.jobStatusChanges })
+    const status = useStudyStatus({
+        studyStatus: s.status,
+        audience,
+        jobStatusChanges: s.jobStatusChanges,
+        outputsViewedAt: s.outputsViewedAt,
+        names: { dataPartner: 'Openstax', researchLab: 'Openstax Lab' },
+    })
     const isHighlighted =
         audience === 'researcher'
             ? s.jobStatusChanges.some((c) => c.status === 'FILES-APPROVED')

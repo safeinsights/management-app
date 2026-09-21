@@ -23,12 +23,15 @@ export type PillPresentation = {
 // only one that fills with a saturated shade instead of a light tint, so it pairs with body text
 // rather than a tinted text.
 //
-// yellow.4 is Figma's `status/warning/bg-dark`. The semantic token of that name resolves to yellow.5
-// here, one shade darker; the badge follows Figma and leaves the shared token alone, because other
-// components already paint from it.
+// Two backgrounds name a rung directly because no semantic token carries them. Figma fills the gray
+// badge from the `grey/0` primitive, and its `status/warning/bg-dark` now reads yellow.4 while the
+// token of that name here still resolves to yellow.5. The badge follows Figma and leaves the shared
+// token alone, because other components already paint from it.
 const COLORS = {
+    // eslint-disable-next-line custom/noRawStyleValues
     gray: { bg: 'grey.0', c: semanticColor('text.secondary') },
     blue: { bg: semanticColor('info.bg.light'), c: semanticColor('info.text') },
+    // eslint-disable-next-line custom/noRawStyleValues
     yellow: { bg: 'yellow.4', c: semanticColor('text.primary') },
     green: { bg: semanticColor('success.bg.light'), c: semanticColor('success.text') },
     red: { bg: semanticColor('error.bg.light'), c: semanticColor('error.text') },

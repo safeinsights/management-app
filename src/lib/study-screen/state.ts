@@ -165,9 +165,8 @@ export const isErroredOutputsSharedOutcome = (s: Pick<StudyState, 'resultsErrore
 // decides a screen. !resultsErrored yields the errored share to isErroredOutputsSharedOutcome, whose
 // page explains a failed run. !resultsRejected matters for a job carrying BOTH FILES-* rows —
 // unreachable via submitOutputsDecisionAction, which refuses a second decision, but writable by the
-// QA status route and the legacy approve/reject actions. There the pill reads Rejected
-// (DISPLAY_STATUS_PRIORITY ranks FILES-REJECTED first), so advertising outputs would contradict it;
-// the conservative feedback-only page keeps that state instead.
+// QA status route and the legacy approve/reject actions. Advertising shared outputs for a state that
+// also carries a rejection would overstate it; the conservative feedback-only page keeps it instead.
 export const isOutputsSharedOutcome = (
     s: Pick<StudyState, 'resultsApproved' | 'resultsRejected' | 'resultsErrored'>,
 ): boolean => s.resultsApproved && !s.resultsRejected && !s.resultsErrored

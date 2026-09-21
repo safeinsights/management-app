@@ -22,6 +22,7 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     reviewerAgreementsAckedAt: null,
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
+    outputsViewedAt: null,
     piUserId: null,
     datasets: null,
     researchQuestions: null,

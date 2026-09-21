@@ -30,7 +30,7 @@ import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
-import { projectStudyState, resolvePillStatus } from '@/lib/study-screen'
+import { projectStudyState, resolvePillId } from '@/lib/study-screen'
 import logger from '@/lib/logger'
 
 vi.mock('@/server/storage', () => ({
@@ -363,7 +363,7 @@ describe('Study Job Actions', () => {
             const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
             const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
             expect(state.resultsApproved).toBe(true)
-            expect(resolvePillStatus('researcher', state)).toMatchObject({ stage: 'Results', label: 'Ready' })
+            expect(resolvePillId('researcher', state)).toBe('outputs-need-review')
 
             const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
             expect(files).toHaveLength(1)
