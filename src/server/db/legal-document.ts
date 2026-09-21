@@ -104,6 +104,8 @@ export const writeStudyAgreementVersion = async (
 export const studyAgreementState = (db: DBExecutor, { studyId, userId }: { studyId: string; userId: string }) =>
     db
         .selectFrom('study')
+        .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
+        .innerJoin('org as researchLab', 'researchLab.id', 'study.submittedByOrgId')
         .leftJoinLateral(
             (eb) =>
                 eb
@@ -121,6 +123,8 @@ export const studyAgreementState = (db: DBExecutor, { studyId, userId }: { study
         .select((eb) => [
             'study.isTestStudy',
             'agreement.versionId',
+            'researchLab.name as researchLabName',
+            'dataPartner.name as dataPartnerName',
             eb
                 .exists(
                     eb

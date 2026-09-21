@@ -51,7 +51,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
 
                 <AcknowledgementError error={error} />
 
-                <Group justify="flex-end">
+                <Group>
                     <Button variant="subtle" onClick={onSignOut} disabled={isSubmitting}>
                         Sign out
                     </Button>

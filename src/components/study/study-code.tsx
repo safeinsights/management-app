@@ -57,7 +57,7 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({
     onSubmitClick,
 }) => (
     <Stack w="100%">
-        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code yet." />
+        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code" />
         <Group justify="space-between" w="100%">
             <ButtonLink href={previousHref} size="md" variant="subtle" leftSection={<CaretLeftIcon />}>
                 Previous step
@@ -73,7 +73,7 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({
                     onClick={onSubmitClick}
                     aria-describedby={SUBMIT_CODE_ERROR_ID}
                 >
-                    Submit code for review
+                    Submit code
                 </Button>
             </Group>
         </Group>

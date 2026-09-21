@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
+import { ActionFailure, errorToString, extractActionFailure } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
 import { downloadBlob } from '@/lib/download-blob'
 import type { SaveStatusValue } from '@/components/save-status'
@@ -28,7 +29,17 @@ const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
 
 const SUBMIT_SUCCESS_TITLE = 'Code submitted.'
 const SUBMIT_ERROR_TITLE = 'Code could not be submitted.'
-const SUBMIT_ERROR_MESSAGE = 'Your work is saved. Try again.'
+const WORK_IS_SAVED = 'Your work is saved.'
+const SUBMIT_ERROR_MESSAGE = `${WORK_IS_SAVED} Try again.`
+
+// "Try again" would send the researcher back at something that cannot succeed until they act, so a
+// refusal names itself. An unexpected failure stays on the design's copy rather than leaking it.
+const submitErrorMessage = (error: unknown) => {
+    const failure = extractActionFailure(error)
+    if (!failure || typeof failure === 'string') return SUBMIT_ERROR_MESSAGE
+
+    return `${errorToString(error)}. ${WORK_IS_SAVED}`
+}
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -292,9 +303,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
                 mainFileName: mainFile,
                 fileNames,
             })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
+            // ActionFailure rather than Error: onError has to tell an authored refusal, which is
+            // keyed, from an unexpected failure, which is a bare string.
+            if ('error' in result) throw new ActionFailure(result.error)
             return result
         },
         onSuccess: () => {
@@ -313,11 +324,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             }
         },
         onError: (error: unknown) => {
-            // Captured for Sentry, but shown with the design's fixed reassurance rather than the
-            // raw error: the wording can promise the work is safe because uploads, deletions and
-            // the main-file choice all persist as they happen — only the submission failed.
+            // The wording can promise the work is safe because uploads, deletions and the main-file
+            // choice all persist as they happen — only the submission failed.
             captureException(error)
-            showToast('error', SUBMIT_ERROR_TITLE, SUBMIT_ERROR_MESSAGE)
+            showToast('error', SUBMIT_ERROR_TITLE, submitErrorMessage(error))
             onSubmitError?.()
         },
     })

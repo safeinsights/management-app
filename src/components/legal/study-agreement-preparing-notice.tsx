@@ -6,35 +6,37 @@ import type { FC } from 'react'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from './require-study-agreement'
 
-const TITLE = `${legalDocumentTypeLabels.SLA} is being prepared`
-
-const UNREADABLE_TITLE = `${legalDocumentTypeLabels.SLA} could not be checked`
-
-const MESSAGE = `The required Research Lab and Data Partner signatories have not yet signed the ${legalDocumentTypeLabels.SLA}. If you are included in this study, you will be notified when your agreement is ready for acknowledgement.`
+const LABEL = legalDocumentTypeLabels.SLA
 
 type Props = {
     studyId: string
+    /** Clause naming what the wait blocks for this reader, without a trailing period. */
+    consequence: string
     isVisible?: boolean
-    /** What the wait blocks for this reader. The reviewer call sites are not submitting code. */
-    consequence?: string
 }
-
-const UNREADABLE = `We could not check this study's ${legalDocumentTypeLabels.SLA}. Reload the page; if this keeps happening, contact support.`
 
 // Warning rather than info: an approved study with no agreement is now stalled, not merely waiting.
 // A test study is exempt, and reads as `exempt` rather than `none`.
-export const StudyAgreementPreparingNotice: FC<Props> = ({ studyId, isVisible = true, consequence }) => {
+export const StudyAgreementPreparingNotice: FC<Props> = ({ studyId, consequence, isVisible = true }) => {
     const { status, isUnreadable } = useStudyAgreementStatus(studyId)
-    const waiting = consequence ? `${consequence} ${MESSAGE}` : MESSAGE
-    const body = isUnreadable ? UNREADABLE : waiting
-    const title = isUnreadable ? UNREADABLE_TITLE : TITLE
+
+    if (!isVisible) return null
 
     // Unreadable blocks work exactly as `none` does, so it must not do so silently.
-    if (!isVisible || (!isUnreadable && status?.state !== 'none')) return null
+    if (isUnreadable)
+        return (
+            <Alert icon={<WarningCircleIcon weight="fill" />} color="yellow" title={`${LABEL} could not be checked`}>
+                We could not check this study&apos;s {LABEL}. Reload the page; if this keeps happening, contact support.
+            </Alert>
+        )
+
+    if (status?.state !== 'none') return null
 
     return (
-        <Alert icon={<WarningCircleIcon weight="fill" />} color="yellow" title={title}>
-            {body}
+        <Alert icon={<WarningCircleIcon weight="fill" />} color="yellow" title="Study agreements are being prepared">
+            {consequence} until the required {status.researchLabName} and {status.dataPartnerName} signatories have
+            signed the study agreements. If you are included in this study, you will be notified when your agreement is
+            ready for acknowledgement.
         </Alert>
     )
 }

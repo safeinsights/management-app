@@ -1,8 +1,10 @@
 import { type DBExecutor } from '@/database'
 import { ActionFailure } from '@/lib/errors'
-import { type StudyAgreementStatus } from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type StudyAgreementStatus } from '@/schema/legal-document'
 import { type UserSession } from '@/lib/types'
 import { studyAgreementState } from './db/legal-document'
+
+const STUDY_AGREEMENT_LABEL = legalDocumentTypeLabels.SLA
 
 // One resolver for the client gate and the server guards, so the modal and the refusal cannot
 // disagree. Undefined only when the study does not exist; callers decide what that means.
@@ -18,7 +20,14 @@ export const studyAgreementStatusFor = async (
     if (!study.isParty) return { state: 'notAParty' }
 
     // A test study is exempt from needing an agreement, never from honouring one published anyway.
-    if (!study.versionId) return study.isTestStudy ? { state: 'exempt' } : { state: 'none' }
+    if (!study.versionId)
+        return study.isTestStudy
+            ? { state: 'exempt' }
+            : {
+                  state: 'none',
+                  researchLabName: study.researchLabName,
+                  dataPartnerName: study.dataPartnerName,
+              }
 
     if (study.hasAcknowledged) return { state: 'acknowledged' }
 
@@ -33,9 +42,14 @@ export const requireStudyAgreementAcknowledged = async (
     const status = await studyAgreementStatusFor(db, { studyId, userId })
 
     if (!status) throw new ActionFailure({ study: 'was not found' })
-    if (status.state === 'none') throw new ActionFailure({ studyAgreement: 'has not been signed yet for this study' })
+    // The key is the label, not a camelCase field: errorToString capitalises it into the message, so
+    // 'studyAgreement' reached the user as "StudyAgreement must be...".
+    if (status.state === 'none')
+        throw new ActionFailure({ [STUDY_AGREEMENT_LABEL]: 'has not been signed yet for this study' })
     if (status.state === 'pending')
-        throw new ActionFailure({ studyAgreement: 'must be acknowledged before you can continue with this study' })
+        throw new ActionFailure({
+            [STUDY_AGREEMENT_LABEL]: 'must be acknowledged before you can continue with this study',
+        })
 }
 
 // studyId comes from the caller: submitOutputsDecisionAction has only the job id to derive it from.
