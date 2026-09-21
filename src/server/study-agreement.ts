@@ -4,8 +4,6 @@ import { legalDocumentTypeLabels, type StudyAgreementStatus } from '@/schema/leg
 import { type UserSession } from '@/lib/types'
 import { studyAgreementState } from './db/legal-document'
 
-const STUDY_AGREEMENT_LABEL = legalDocumentTypeLabels.SLA
-
 // One resolver for the client gate and the server guards, so the modal and the refusal cannot
 // disagree. Undefined only when the study does not exist; callers decide what that means.
 export const studyAgreementStatusFor = async (
@@ -45,10 +43,10 @@ export const requireStudyAgreementAcknowledged = async (
     // The key is the label, not a camelCase field: errorToString capitalises it into the message, so
     // 'studyAgreement' reached the user as "StudyAgreement must be...".
     if (status.state === 'none')
-        throw new ActionFailure({ [STUDY_AGREEMENT_LABEL]: 'has not been signed yet for this study' })
+        throw new ActionFailure({ [legalDocumentTypeLabels.SLA]: 'has not been signed yet for this study' })
     if (status.state === 'pending')
         throw new ActionFailure({
-            [STUDY_AGREEMENT_LABEL]: 'must be acknowledged before you can continue with this study',
+            [legalDocumentTypeLabels.SLA]: 'must be acknowledged before you can continue with this study',
         })
 }
 

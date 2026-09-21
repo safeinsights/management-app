@@ -6,8 +6,6 @@ import type { FC } from 'react'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from './require-study-agreement'
 
-const LABEL = legalDocumentTypeLabels.SLA
-
 type Props = {
     studyId: string
     /** Clause naming what the wait blocks for this reader, without a trailing period. */
@@ -25,8 +23,13 @@ export const StudyAgreementPreparingNotice: FC<Props> = ({ studyId, consequence,
     // Unreadable blocks work exactly as `none` does, so it must not do so silently.
     if (isUnreadable)
         return (
-            <Alert icon={<WarningCircleIcon weight="fill" />} color="yellow" title={`${LABEL} could not be checked`}>
-                We could not check this study&apos;s {LABEL}. Reload the page; if this keeps happening, contact support.
+            <Alert
+                icon={<WarningCircleIcon weight="fill" />}
+                color="yellow"
+                title={`${legalDocumentTypeLabels.SLA} could not be checked`}
+            >
+                We could not check this study&apos;s {legalDocumentTypeLabels.SLA}. Reload the page; if this keeps
+                happening, contact support.
             </Alert>
         )
 
