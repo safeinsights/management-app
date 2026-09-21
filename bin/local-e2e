@@ -114,6 +114,9 @@ fi
 note "Migrating + seeding ${TEST_DATABASE_URL} (faked Clerk — DB users/orgs only)…"
 (
     export DATABASE_URL="$TEST_DATABASE_URL"
+    # ALLOW_TESTING_DATA=TRUE is the opt-in for the fixed users and keypair the suite signs in with
+    # (OTTER-722). Without it both seeds no-op and every spec fails to resolve its seed users.
+    export ALLOW_TESTING_DATA=TRUE
     pnpm exec kysely migrate:latest
     pnpm exec kysely seed:run
     pnpm exec tsx bin/seed-environment.ts

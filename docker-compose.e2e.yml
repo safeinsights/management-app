@@ -148,10 +148,18 @@ services:
         environment:
             # Override .env's dev DATABASE_URL to target the isolated test DB by service DNS.
             - DATABASE_URL=postgres://si:si@db-e2e:5432/si_test
+            # Same reason as DATABASE_URL: .env points S3 at the host, which is unreachable here.
+            - S3_ENDPOINT=http://seaweedfs-e2e:8333
+            - AWS_ACCESS_KEY_ID=si-local-s3
+            - AWS_SECRET_ACCESS_KEY=si-local-s3
+            - AWS_REGION=us-east-1
+            - BUCKET_NAME=mgmt-app-local
             - E2E_FAKE_CLERK=1
             - NODE_ENV=test
-            # A local override must never disable the fixed users required by the e2e suite.
-            - NO_TESTING_DATA=
+            # The opt-in for the fixed users and keypair the suite signs in with. Named by OTTER-722,
+            # which replaced the earlier NO_TESTING_DATA gate; without it every spec fails to resolve
+            # its seed users. A local override must never be able to turn it off.
+            - ALLOW_TESTING_DATA=TRUE
             # Drop any AWS_PROFILE from .env so the SDK never blocks on expired SSO.
             - AWS_PROFILE=
             # Corepack provisions pnpm at runtime; cache it inside the node_modules volume
@@ -169,6 +177,8 @@ services:
             pnpm exec tsx bin/seed-environment.ts"
         depends_on:
             db-e2e:
+                condition: service_healthy
+            seaweedfs-e2e:
                 condition: service_healthy
         networks:
             - e2e-net
