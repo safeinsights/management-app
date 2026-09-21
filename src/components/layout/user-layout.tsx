@@ -9,6 +9,7 @@ import { ErrorAlert } from '../errors'
 import SentryUserProvider from '../sentry-user-provider'
 import { AppShell } from './app-shell'
 import { connection } from 'next/server'
+import PostHogUserProvider from '../posthog-user-provider'
 
 type Props = {
     children: ReactNode
@@ -31,6 +32,7 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
     return (
         <ClerkProvider publishableKey={clerkPublishableKey}>
             <SentryUserProvider />
+            <PostHogUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
         </ClerkProvider>
     )

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, readTestSupportFile } from '@/tests/unit.helpers'
-import { getUserPublicKeyAction, setUserPublicKeyAction, updateUserPublicKeyAction } from './user-keys.actions'
+import { mockSessionWithTestData, actionResult, faker, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
+import {
+    getKeyPageStateAction,
+    getUserPublicKeyAction,
+    setUserPublicKeyAction,
+    updateUserPublicKeyAction,
+} from './user-keys.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
@@ -48,8 +53,6 @@ describe('User Keys Actions', () => {
 
         await setUserPublicKeyAction({ publicKey })
 
-        // Fingerprint is derived server-side from publicKey, not taken from the client. It must match
-        // an independent derivation of the same key.
         const newKeyResult = actionResult(await getUserPublicKeyAction())
         expect(newKeyResult).toBeDefined()
         expect(newKeyResult?.fingerprint).toEqual(fingerprint)
@@ -102,5 +105,75 @@ describe('User Keys Actions', () => {
         expect(isActionError(result)).toBe(true)
         const stored = actionResult(await getUserPublicKeyAction())
         expect(stored?.fingerprint).toEqual('old-fingerprint')
+    })
+
+    it('stores the generation date, and a rotation advances it without losing the original', async () => {
+        const { user } = await mockSessionWithTestData()
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        const { publicKey } = await validTestKey()
+        const readTimestamps = () =>
+            db
+                .selectFrom('userPublicKey')
+                .select(['createdAt', 'updatedAt'])
+                .where('userId', '=', user.id)
+                .executeTakeFirstOrThrow()
+
+        await setUserPublicKeyAction({ publicKey })
+        const created = await readTimestamps()
+
+        await updateUserPublicKeyAction({ publicKey })
+        const rotated = await readTimestamps()
+
+        // Inequality rather than ordering: the insert's timestamp is the DB default and the
+        // rotation's comes from the app, so clock skew must not decide this.
+        expect(rotated.createdAt).toEqual(created.createdAt)
+        expect(rotated.updatedAt).not.toEqual(created.updatedAt)
+    })
+})
+
+describe('getKeyPageStateAction', () => {
+    const keylessSession = async (options: Parameters<typeof mockSessionWithTestData>[0] = {}) => {
+        const session = await mockSessionWithTestData(options)
+        await db.deleteFrom('userPublicKey').where('userId', '=', session.user.id).execute()
+        return session
+    }
+
+    it('returns the org dashboard when the account belongs to exactly one org', async () => {
+        const { org } = await keylessSession()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${org.slug}/dashboard`,
+        })
+    })
+
+    it('returns the org dashboard for a lab account the same way it does for an enclave account', async () => {
+        const { org } = await keylessSession({ orgType: 'lab' })
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${org.slug}/dashboard`,
+        })
+    })
+
+    it('falls back to My dashboard when the account belongs to more than one org', async () => {
+        const { user } = await keylessSession()
+        const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+    })
+
+    it('falls back to My dashboard when the account belongs to no org', async () => {
+        const { user } = await keylessSession()
+        await db.deleteFrom('orgUser').where('userId', '=', user.id).execute()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+    })
+
+    it('reports an existing key and skips the org resolution', async () => {
+        await mockSessionWithTestData()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: true, firstKeyRedirect: '/dashboard' })
     })
 })

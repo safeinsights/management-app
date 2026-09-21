@@ -20,16 +20,13 @@ import { PATCH } from './route'
 
 const storedFiles = vi.hoisted(() => new Map<string, Blob>())
 
-// The upload is stubbed at the storage layer rather than at @/server/aws: the helper
-// under test reaches S3 through @/server/storage, and mocking the lower module leaves
-// storage.ts bound to the real S3 client. Everything below the upload is left real, so
-// the study_job_file row is still written and asserted against the database.
+// Stubbed at @/server/storage, not @/server/aws: mocking the lower module leaves storage.ts bound
+// to the real S3 client.
 vi.mock('@/server/storage', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/storage')>()
     const { db } = await import('@/database')
     const { pathForStudyJob } = await import('@/lib/paths')
 
-    // Mirrors storeJobFile: capture the bytes in place of the S3 PUT, then insert the row.
     const store = async (info: MinimalJobInfo, path: string, file: File, fileType: FileType) => {
         storedFiles.set(path, new Blob([await file.arrayBuffer()]))
         return await db
@@ -38,8 +35,7 @@ vi.mock('@/server/storage', async (importOriginal) => {
             .executeTakeFirstOrThrow()
     }
 
-    // Plain functions, not vi.fn: vitest.config sets mockReset, which would strip these
-    // implementations before each test and silently skip the row insert.
+    // Plain functions, not vi.fn: mockReset would strip these implementations before each test.
     return {
         ...actual,
         storeStudyEncryptedResultsFile: (info: MinimalJobInfo, file: File) =>
@@ -62,13 +58,20 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdm
     return mocks
 }
 
-/**
- * A study owned by a qa- researcher, in an enclave org with a real keypair enrolled —
- * insertTestUser only creates user_public_key rows for enclave orgs, and reviewers in
- * that org are who an uploaded artifact is encrypted for.
- *
- * studyStatus is DRAFT so a test asserting a move to APPROVED starts somewhere else.
- */
+// Signs in as an admin of an org that already exists, so the caller's rights can be pointed at a
+// specific study's org rather than the throwaway one mockSessionWithTestData creates.
+async function authenticateAsOrgAdminOf(org: { id: string }) {
+    const mocks = await mockSessionWithTestData({ isSiAdmin: false, isAdmin: true })
+    if (!mocks.auth) throw new Error('expected a mocked clerk auth')
+    await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+    const { userId, sessionClaims } = mocks.auth()
+    ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
+    ;(await headers()).set('Authorization', 'Bearer fake-clerk-session-token')
+    return mocks
+}
+
+// Enclave org because insertTestUser only creates user_public_key rows for those, and its reviewers
+// are who an uploaded artifact is encrypted for.
 async function insertQaStudy() {
     const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
     const { user } = await insertTestUser({ org, email: qaEmail(), useRealKeys: true })
@@ -132,8 +135,7 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(body).toMatchObject({ studyStatus: 'PENDING-REVIEW', jobStatus: 'JOB-RUNNING' })
     })
 
-    // The endpoint takes plaintext and encrypts it, so the stored object must be a real
-    // encrypted envelope the researcher's key can open — not the bytes that were posted.
+    // The endpoint encrypts, so the stored object must be a real envelope, not the posted bytes.
     it('encrypts an attached result for the reviewing org', async () => {
         await authenticateAsSiAdmin()
         const { study, job } = await insertQaStudy()
@@ -147,8 +149,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(response.status).toBe(200)
         expect(body.files).toEqual([{ key: 'result', fileType: 'ENCRYPTED-RESULT', name: 'results.csv' }])
 
-        // The row names the encrypted envelope, as in production; the plaintext filename
-        // survives inside the manifest, which is what the reader below recovers.
         const file = await db
             .selectFrom('studyJobFile')
             .select(['path', 'fileType', 'name'])
@@ -157,8 +157,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
             .executeTakeFirstOrThrow()
         expect(file.name).toBe('encrypted-results.zip')
 
-        // Round-trips with the reviewer's key: proves the endpoint stored real ciphertext
-        // the review UI can open, not the plaintext that was posted.
         const stored = storedFiles.get(file.path)
         if (!stored) throw new Error(`nothing uploaded to ${file.path}`)
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
@@ -199,8 +197,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect((await response.json()).error).toContain('public keys')
     })
 
-    // A study has no job until work begins, so a fresh QA study needs one opened before a
-    // job status or artifact has anywhere to live.
     it('opens a round job when the study has none', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -222,7 +218,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
             .select(['status'])
             .where('studyJobId', '=', body.studyJobId)
             .execute()
-        // INITIATED comes from opening the round; RUN-COMPLETE is what was requested.
         expect(changes.map((c) => c.status)).toEqual(expect.arrayContaining(['INITIATED', 'RUN-COMPLETE']))
 
         const file = await db
@@ -233,8 +228,6 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(file?.fileType).toBe('ENCRYPTED-RESULT')
     })
 
-    // Only mint a job when something actually needs one; a status-only call should leave
-    // the study job-less rather than fabricating an empty round.
     it('does not open a job when only the study status is set', async () => {
         await authenticateAsSiAdmin()
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -301,6 +294,49 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(row.status).toBe('DRAFT')
     })
 
+    // The QA tooling runs as an org admin; a study is data of both its enclave and its lab.
+    it('lets an admin of the study org set its status', async () => {
+        const { org, study } = await insertQaStudy()
+        await authenticateAsOrgAdminOf(org)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(200)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('APPROVED')
+    })
+
+    it('rejects an admin of a different org', async () => {
+        const { study } = await insertQaStudy()
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        await authenticateAsOrgAdminOf(other)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(403)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('DRAFT')
+    })
+
+    it('rejects an admin of only the enclave when the lab is a different org', async () => {
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: lab, email: qaEmail() })
+        const { study } = await insertTestStudyOnly({
+            org: enclave,
+            submittedByOrg: lab,
+            researcherId: user.id,
+            status: 'DRAFT',
+        })
+        await authenticateAsOrgAdminOf(enclave)
+
+        const response = await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        expect(response.status).toBe(403)
+        const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('DRAFT')
+    })
+
     it('rejects a caller who is not an SI admin', async () => {
         await authenticateAsSiAdmin({ isSiAdmin: false })
         const { study } = await insertQaStudy()
@@ -310,6 +346,33 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(response.status).toBe(403)
         const row = await db.selectFrom('study').select(['status']).where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(row.status).toBe('DRAFT')
+    })
+
+    // An unauthorized caller must be turned away before the server reads their upload, so an
+    // invalid body answers 403 rather than 400.
+    it('refuses an unauthorized caller before reading the body', async () => {
+        await authenticateAsSiAdmin({ isSiAdmin: false })
+        const { study } = await insertQaStudy()
+
+        const response = await patchStatus(study.id, formWith({}))
+
+        expect(response.status).toBe(403)
+    })
+
+    it('audits a refused request against the caller', async () => {
+        const { user: caller } = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const { study } = await insertQaStudy()
+
+        await patchStatus(study.id, formWith({ studyStatus: 'APPROVED' }))
+
+        const rows = await db
+            .selectFrom('audit')
+            .select(['eventType', 'recordType', 'userId', 'metadata'])
+            .where('recordId', '=', study.id)
+            .execute()
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({ eventType: 'UPDATED', recordType: 'STUDY', userId: caller.id })
+        expect(rows[0].metadata).toMatchObject({ outcome: 'refused' })
     })
 
     it('audits the change against the acting admin', async () => {

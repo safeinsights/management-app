@@ -1,8 +1,6 @@
 import type { Story } from '@ladle/react'
 import { Badge, Button, Group, Stack, Text, Title } from '@mantine/core'
 
-// Sanity story rendering Mantine primitives through the app's real theme — confirms
-// theme tokens (color, type scale, radius) and the font load apply in Ladle.
 const meta = { title: 'Foundations / Sanity check' }
 export default meta
 

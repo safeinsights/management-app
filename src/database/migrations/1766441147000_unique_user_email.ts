@@ -1,8 +1,6 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // For each email with duplicates, find the keeper (most recently created user)
-    // and reassign all studies to that user
     await sql`
         WITH keepers AS (
             SELECT DISTINCT ON (LOWER(email)) id, email
@@ -37,7 +35,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         WHERE study.reviewer_id = o.old_id
     `.execute(db)
 
-    // Now find all duplicate users to delete (keep the most recently created one)
     const duplicateUserIds = sql`
         WITH keepers AS (
             SELECT DISTINCT ON (LOWER(email)) id
@@ -47,15 +44,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         SELECT id FROM "user" WHERE id NOT IN (SELECT id FROM keepers)
     `
 
-    // Delete related records first (foreign key constraints)
     await sql`DELETE FROM job_status_change WHERE user_id IN (${duplicateUserIds})`.execute(db)
     await sql`DELETE FROM org_user WHERE user_id IN (${duplicateUserIds})`.execute(db)
     await sql`DELETE FROM user_public_key WHERE user_id IN (${duplicateUserIds})`.execute(db)
 
-    // Now delete the duplicate users
     await sql`DELETE FROM "user" WHERE id IN (${duplicateUserIds})`.execute(db)
 
-    // Create unique index on lowercase email
     await sql`CREATE UNIQUE INDEX user_email_lower_unique ON "user" (LOWER(email))`.execute(db)
 }
 

@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { sendInviteEmail } from '@/server/mailer'
-import { actionResult, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { actionResult, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { clerkClient } from '@clerk/nextjs/server'
 import { Mock, describe, expect, it, vi } from 'vitest'
 import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
@@ -21,7 +21,6 @@ describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction invites a new user', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Mock Clerk to return no existing user for this email (new user)
         mockClerkClient.mockResolvedValue({
             users: {
                 getUserList: vi.fn().mockResolvedValue({ data: [], totalCount: 0 }),
@@ -47,7 +46,6 @@ describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction blocks invite when user is already in org (merged email)', async () => {
         const { org, user } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Mock Clerk to return the session user when searching by email (simulating a merged email)
         mockClerkClient.mockResolvedValue({
             users: {
                 getUserList: vi.fn().mockResolvedValue({
@@ -75,7 +73,6 @@ describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction allows invite when user exists in Clerk but not in this org', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Mock Clerk to return a different user (not in this org)
         mockClerkClient.mockResolvedValue({
             users: {
                 getUserList: vi.fn().mockResolvedValue({
@@ -125,6 +122,34 @@ describe('Admin Users Actions', () => {
 
         const pendingUsersResult = actionResult(await getPendingUsersAction({ orgSlug: org.slug }))
         expect(pendingUsersResult).toHaveLength(origCount + 2)
+    })
+
+    // Each row's id is the live invite token, so a leak lets an outsider claim a seat in the org
+    // (OTTER-724 / MA-6).
+    it('getPendingUsersAction denies a non-admin member of the org', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false })
+        await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: 'member-cannot-see@test.com', isAdmin: false })
+            .execute()
+
+        const result = await getPendingUsersAction({ orgSlug: org.slug })
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(JSON.stringify(result)).not.toContain('member-cannot-see@test.com')
+    })
+
+    it('getPendingUsersAction denies an admin of another org', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-pending-invites' })
+        await db
+            .insertInto('pendingUser')
+            .values({ orgId: otherOrg.id, email: 'other-org-invitee@test.com', isAdmin: false })
+            .execute()
+
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const result = await getPendingUsersAction({ orgSlug: otherOrg.slug })
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(JSON.stringify(result)).not.toContain('other-org-invitee@test.com')
     })
 
     it('reInviteUserAction re-invites a user', async () => {

@@ -2,6 +2,7 @@ import { Center, Group, Loader } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { FileViewer } from '@/components/file-viewers'
+import { fontWeight } from '@/theme/tokens'
 
 export function FilePreviewModal({
     file,
@@ -10,7 +11,6 @@ export function FilePreviewModal({
 }: {
     file: { name: string; contents: string | null } | null
     onClose: () => void
-    /** Notified when the in-modal download link is used, so callers can log the download. */
     onDownload?: () => void
 }) {
     if (!file) return null
@@ -23,7 +23,7 @@ export function FilePreviewModal({
                     filename={file.name}
                     fileContent={file.contents ?? ''}
                     size="sm"
-                    fw={400}
+                    fw={fontWeight.regular}
                     onClick={onDownload}
                 />
             )}

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
+import { sql } from 'kysely'
 import {
     db,
     insertTestOrg,
     insertTestUser,
     insertTestStudyData,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     faker,
     qaEmail,
@@ -12,7 +14,6 @@ import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { deleteFolderContents } from '@/server/aws'
 
-// PROD_ENV is a module-level const, so override it via a mutable holder we can flip per test.
 const configState = { PROD_ENV: false }
 vi.mock('@/server/config', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/config')>()
@@ -24,28 +25,28 @@ vi.mock('@/server/config', async (importOriginal) => {
     }
 })
 
-// S3 cleanup is exercised by study deletion; stub it so tests don't touch S3.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return { ...actual, deleteFolderContents: vi.fn(async () => {}) }
 })
 
-const { requireQaAdmin, deleteUserById, deleteStudyById, QaCleanupNotFoundError, QaForbiddenError, assertQaEmail } =
-    await import('./qa-cleanup')
+const {
+    requireQaAuth,
+    requireAdminOfOrgs,
+    orgSlugsForUser,
+    deleteUserById,
+    deleteStudyById,
+    QaCleanupNotFoundError,
+    QaForbiddenError,
+    assertQaEmail,
+} = await import('./qa-cleanup')
 
 beforeEach(() => {
     configState.PROD_ENV = false
 })
 
-/**
- * The QA routes verify the SI admin's Clerk session token straight from the
- * Authorization header (clerkMiddleware doesn't run on /api/*), so authenticating
- * a test means setting that header and making `verifyToken` resolve to the same
- * claims `mockSessionWithTestData` wired into the session. Returns the mocked Clerk
- * client so callers can assert on it (e.g. deleteUser).
- */
-async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
-    const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
+async function authenticateAs(options: { isSiAdmin?: boolean; isAdmin?: boolean; orgSlug?: string } = {}) {
+    const mocks = await mockSessionWithTestData(options)
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')
     const { userId, sessionClaims } = mocks.auth()
     ;(verifyToken as Mock).mockResolvedValue({ sub: userId, ...sessionClaims })
@@ -53,18 +54,16 @@ async function authenticateAsSiAdmin(options: { isSiAdmin: boolean }) {
     return mocks
 }
 
-describe('requireQaAdmin', () => {
-    // These routes intentionally run on production; the qa-email guard, not the
-    // environment, is what keeps them off real accounts.
+describe('requireQaAuth', () => {
     it('allows an SI admin in production', async () => {
         configState.PROD_ENV = true
-        await authenticateAsSiAdmin({ isSiAdmin: true })
-        const result = await requireQaAdmin()
+        await authenticateAs({ isSiAdmin: true })
+        const result = await requireQaAuth()
         expect(result.ok).toBe(true)
     })
 
     it('rejects when the Authorization header is missing', async () => {
-        const result = await requireQaAdmin()
+        const result = await requireQaAuth()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(401)
     })
@@ -72,47 +71,173 @@ describe('requireQaAdmin', () => {
     it('rejects when the token fails verification', async () => {
         ;(verifyToken as Mock).mockRejectedValue(new Error('invalid token'))
         ;(await headers()).set('Authorization', 'Bearer bad-token')
-        const result = await requireQaAdmin()
+        const result = await requireQaAuth()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(401)
     })
 
-    it('rejects a non SI admin', async () => {
-        await authenticateAsSiAdmin({ isSiAdmin: false })
-        const result = await requireQaAdmin()
-        expect(result.ok).toBe(false)
-        if (!result.ok) expect(result.status).toBe(403)
+    // Authentication no longer implies authorization — a non-admin gets past this guard and is
+    // stopped by requireAdminOfOrgs, which is why every route must call it.
+    it('authenticates a non-admin and reports them as not an SI admin', async () => {
+        const { user } = await authenticateAs({ isSiAdmin: false })
+        const result = await requireQaAuth()
+        expect(result).toMatchObject({ ok: true, user: { id: user.id }, isSiAdmin: false })
     })
 
-    // The authenticated admin is returned so callers can attribute what they create
-    // (e.g. pendingUser.invited_by_user_id on a QA invite).
     it('allows an SI admin and returns them', async () => {
-        const { user } = await authenticateAsSiAdmin({ isSiAdmin: true })
-        const result = await requireQaAdmin()
-        expect(result).toMatchObject({ ok: true, user: { id: user.id, isSiAdmin: true } })
+        const { user } = await authenticateAs({ isSiAdmin: true })
+        const result = await requireQaAuth()
+        expect(result).toMatchObject({ ok: true, user: { id: user.id, isSiAdmin: true }, isSiAdmin: true })
     })
 
-    // Regression guard for the empty-options bug: standalone verifyToken does not read
-    // CLERK_SECRET_KEY from the env, so the guard must pass it explicitly or JWK resolution
-    // fails and every request 401s. Assert the option is present (by key, not value — the key
-    // is unset in the test env) so dropping it back to `{}` fails here.
+    // Standalone verifyToken does not read CLERK_SECRET_KEY from the env, so the guard must pass
+    // it explicitly. Asserted by key, not value: the key is unset in the test env.
     it('passes the Clerk secret key to verifyToken', async () => {
-        await authenticateAsSiAdmin({ isSiAdmin: true })
-        await requireQaAdmin()
+        await authenticateAs({ isSiAdmin: true })
+        await requireQaAuth()
 
         const [, options] = (verifyToken as Mock).mock.calls.at(-1) ?? []
         expect(Object.keys(options ?? {})).toContain('secretKey')
     })
 })
 
-// The QA routes run on production, so this check is the only thing keeping them off
-// real accounts. Deletion is permanent (DB rows, S3 objects, Clerk account).
+describe('requireAdminOfOrgs', () => {
+    const authFor = (user: { id: string }, isSiAdmin = false) => ({
+        user: { id: user.id, isSiAdmin, clerkUserId: 'clerk-id' },
+        isSiAdmin,
+    })
+
+    it('allows an admin of the targeted org', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: true })
+
+        expect(await requireAdminOfOrgs(db, authFor(user), [org.slug])).toMatchObject({ ok: true })
+    })
+
+    it('rejects a member of the targeted org who is not its admin', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: false })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [org.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    it('rejects an admin of a different org', async () => {
+        const own = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: own, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [other.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    // The blast-radius rule: every targeted org must be administered, not merely one of them.
+    it('rejects when the actor administers only some of the targeted orgs', async () => {
+        const own = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: own, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [own.slug, other.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    // Any signed-in user reaches this check, so the refusal must not reveal the target's orgs.
+    it('does not name the targeted orgs in the refusal', async () => {
+        const own = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: own, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [other.slug])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.message).not.toContain(other.slug)
+    })
+
+    it('allows an admin of every targeted org', async () => {
+        const first = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const second = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: first, isAdmin: true })
+        await db.insertInto('orgUser').values({ orgId: second.id, userId: user.id, isAdmin: true }).execute()
+
+        expect(await requireAdminOfOrgs(db, authFor(user), [first.slug, second.slug])).toMatchObject({ ok: true })
+    })
+
+    // An orgless account has no owning admin, so only an SI admin can reach it.
+    it('rejects an empty target list for an org admin', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: true })
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [])
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.status).toBe(403)
+    })
+
+    it('allows an SI admin regardless of the targeted orgs', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const unrelated = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: false })
+
+        expect(await requireAdminOfOrgs(db, authFor(user, true), [unrelated.slug])).toMatchObject({ ok: true })
+        expect(await requireAdminOfOrgs(db, authFor(user, true), [])).toMatchObject({ ok: true })
+    })
+
+    // Org-admin rights are read from org_user, not the cached session claims, so a revoked org
+    // admin stops passing immediately rather than when their token next refreshes. (The SI-admin
+    // flag still comes from the claims and does not get this guarantee.)
+    it('rejects an actor whose org admin flag was revoked in the database', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org, isAdmin: true })
+        await db.updateTable('orgUser').set({ isAdmin: false }).where('userId', '=', user.id).execute()
+
+        const result = await requireAdminOfOrgs(db, authFor(user), [org.slug])
+        expect(result.ok).toBe(false)
+    })
+})
+
+describe('orgSlugsForUser', () => {
+    it('returns every org the user belongs to', async () => {
+        const first = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const second = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user } = await insertTestUser({ org: first })
+        await db.insertInto('orgUser').values({ orgId: second.id, userId: user.id, isAdmin: false }).execute()
+
+        expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([first.slug, second.slug].sort())
+    })
+
+    // A study is data of both its enclave (org_id) and its lab (submitted_by_org_id), and the
+    // researcher usually belongs to neither or only the lab — membership alone misses the enclave.
+    it('includes both orgs of every study the user owns', async () => {
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org: lab })
+        await insertTestStudyOnly({ org: enclave, submittedByOrg: lab, researcherId: user.id })
+
+        expect((await orgSlugsForUser(db, user.id)).sort()).toEqual([enclave.slug, lab.slug].sort())
+    })
+
+    it('does not count studies the user merely reviews or is PI on', async () => {
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org: lab })
+        const { study } = await insertTestStudyOnly({ org: enclave, submittedByOrg: lab })
+        await db
+            .updateTable('study')
+            .set({ reviewerId: user.id, piUserId: user.id })
+            .where('id', '=', study.id)
+            .execute()
+
+        expect(await orgSlugsForUser(db, user.id)).toEqual([lab.slug])
+    })
+})
+
+// The QA routes run on production, so this check is the only thing keeping them off real accounts.
 describe('assertQaEmail', () => {
     it.each(['qa-reviewer@test.com', 'QA-Test@example.org', 'qa-@test.com'])('accepts %s', (email) => {
         expect(() => assertQaEmail(email, 'user')).not.toThrow()
     })
 
-    // The dash is what separates the QA convention from real given names.
     it.each([
         'qa@test.com',
         'qa.bob@test.com',
@@ -132,7 +257,6 @@ describe('assertQaEmail', () => {
         expect(() => assertQaEmail(null, 'user')).toThrow(QaForbiddenError)
     })
 
-    // "qa" must anchor the local part, not appear anywhere in the address.
     it('rejects an address whose domain merely contains qa', () => {
         expect(() => assertQaEmail('bob@qa.example.com', 'user')).toThrow(QaForbiddenError)
     })
@@ -149,8 +273,6 @@ describe('QA account guard', () => {
         expect(still).toBeDefined()
     })
 
-    // Passing the internal id must not sidestep the check: it is applied to the
-    // stored address, not to whatever the caller typed.
     it('refuses by stored email even when looked up by id', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: 'someone@corp.com' })
@@ -209,10 +331,8 @@ describe('deleteUserById', () => {
     it('deletes the user, their studies, dependent rows, and the Clerk account', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
-        // A study owned by this researcher must be removed before the user (FK has no cascade).
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
-        // Authenticate as an SI admin so the global Clerk client mock (with deleteUser) is wired up.
         const { client } = await mockSessionWithTestData({ isSiAdmin: true })
         if (!client) throw new Error('expected a mocked clerk client')
 
@@ -233,8 +353,6 @@ describe('deleteUserById', () => {
         expect(client.users.deleteUser as Mock).toHaveBeenCalledWith(user.clerkId)
     })
 
-    // Deleting a QA account must never take a real researcher's study with it just
-    // because the QA account was assigned to review it.
     it('detaches, rather than deletes, studies the user only reviews or is PI on', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user: realResearcher } = await insertTestUser({ org })
@@ -283,8 +401,6 @@ describe('deleteUserById', () => {
 
         await expect(deleteUserById(db, user.id)).rejects.toThrow('clerk is down')
 
-        // Rows are deleted transactionally and committed before Clerk cleanup runs,
-        // so the DB side is complete even though the endpoint reports the failure.
         const deleted = await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
     })
@@ -293,7 +409,6 @@ describe('deleteUserById', () => {
         await expect(deleteUserById(db, faker.string.uuid())).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })
 
-    // QA works from email addresses rather than internal ids.
     it('resolves the user by email, ignoring case', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
@@ -310,9 +425,116 @@ describe('deleteUserById', () => {
         await expect(deleteUserById(db, 'nobody@example.com')).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })
 
-    // A segment that is neither a uuid nor an email must 404 rather than making
-    // Postgres raise on the uuid comparison.
+    // Must 404 rather than making Postgres raise on the uuid comparison.
     it('throws for a segment that is neither a uuid nor an email', async () => {
         await expect(deleteUserById(db, 'not-a-uuid')).rejects.toBeInstanceOf(QaCleanupNotFoundError)
     })
+})
+
+// Postgres removes these without help, so a delete list does not need to name them.
+const DB_ENFORCED = new Set(['CASCADE', 'SET NULL', 'SET DEFAULT'])
+
+// References a delete has to clear itself: every FK to the given table's id that the database does
+// not already handle on its own.
+const referencesNeedingHandling = async (table: 'user' | 'study') => {
+    const { rows } = await sql<{ reference: string; deleteRule: string }>`
+        SELECT tc.table_name || '.' || kcu.column_name AS reference,
+               rc.delete_rule AS "deleteRule"
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_name = ccu.constraint_name
+        JOIN information_schema.referential_constraints rc
+          ON tc.constraint_name = rc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_name = ${table}
+          AND ccu.column_name = 'id'
+    `.execute(db)
+
+    // Guards the query itself: an information_schema shape change that returned nothing would
+    // otherwise make these tests pass while checking nothing at all.
+    expect(rows.length).toBeGreaterThan(0)
+
+    return rows.filter((row) => !DB_ENFORCED.has(row.deleteRule)).map((row) => row.reference)
+}
+
+/**
+ * A QA delete clears its FK references from a hand-maintained list, so a new table referencing the
+ * deleted row without a cascade breaks deletion at runtime — an FK violation the route surfaces as
+ * an opaque 500. That is exactly how the legal_document_acknowledgement case shipped: every
+ * fully-signed-up QA account became undeletable, and no test noticed because they all build their
+ * target with insertTestUser, which creates none of these rows.
+ *
+ * So this asserts the property rather than any one table: every FK must either be handled by the
+ * database (CASCADE/SET NULL) or appear in `handled`. Adding a relation without doing one of those
+ * fails here, at the point of the change, instead of on QA weeks later.
+ */
+const describeFkCoverage = ({
+    table,
+    deleter,
+    handled,
+    knownUnhandled = new Set<string>(),
+}: {
+    table: 'user' | 'study'
+    deleter: string
+    handled: Record<string, string>
+    knownUnhandled?: Set<string>
+}) =>
+    describe(`${deleter} FK coverage`, () => {
+        it(`handles every foreign key that references ${table}.id`, async () => {
+            const unhandled = (await referencesNeedingHandling(table)).filter(
+                (reference) => !(reference in handled) && !knownUnhandled.has(reference),
+            )
+
+            expect(unhandled).toEqual([])
+        })
+
+        // The lists are only meaningful while they describe reality: a reference that is dropped,
+        // or gains a cascade, should be removed rather than left as dead weight that silently
+        // excuses a future table of the same name.
+        it('lists no reference that no longer needs handling', async () => {
+            const needsHandling = new Set(await referencesNeedingHandling(table))
+            const stale = [...Object.keys(handled), ...knownUnhandled].filter(
+                (reference) => !needsHandling.has(reference),
+            )
+
+            expect(stale).toEqual([])
+        })
+    })
+
+// Nothing in the legal_document chain cascades off study_id, so a study with a published agreement
+// 500'd the QA delete until deleteStudyRows cleared the chain by hand.
+describeFkCoverage({
+    table: 'study',
+    deleter: 'deleteStudyRows',
+    handled: {
+        'study_job.study_id': 'deleted, along with its job_status_change and study_job_file rows',
+        'yjs_document.study_id': 'deleted',
+        'legal_document.study_id': 'deleted, along with its versions and acknowledgements',
+    },
+})
+
+describeFkCoverage({
+    table: 'user',
+    deleter: 'deleteUserById',
+    // Each entry is a reference deleteUserById clears itself, with how it does so. Keeping the
+    // reason here (rather than a bare name list) makes the intended handling reviewable when a
+    // row is added — "detached" must stay correct for references that can belong to a real user.
+    handled: {
+        'job_status_change.user_id': 'deleted',
+        'legal_document_acknowledgement.user_id': 'deleted',
+        'org_user.user_id': 'deleted',
+        'study.researcher_id': 'owned studies are deleted outright',
+        'study.pi_user_id': 'detached — the study can belong to a real researcher',
+        'study.reviewer_id': 'detached — the study can belong to a real researcher',
+        'study.ide_owner_id': 'detached — releases the IDE so a surviving study is not locked to a deleted account',
+        'study_proposal_comment.author_id': 'deleted',
+        'study_review_comment.author_id': 'deleted (ON DELETE RESTRICT)',
+        'user_public_key.user_id': 'deleted',
+    },
+    // Known gap, deliberately listed so this test states the truth rather than being tuned to
+    // pass: publishing is an SI admin action, so a QA account that published a legal document
+    // is still undeletable. Out of scope here — remove this entry when it is fixed.
+    knownUnhandled: new Set(['legal_document_version.published_by']),
 })

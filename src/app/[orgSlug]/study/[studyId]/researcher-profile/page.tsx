@@ -1,4 +1,5 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { getResearcherProfileByUserIdAction } from '@/server/actions/researcher-profile.actions'
@@ -26,10 +27,8 @@ export default async function ResearcherProfilePage(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // Access is the study's view ability (which getStudyAction already enforced), not org
-    // membership — an SI admin can open this without belonging to either org. The URL slug tells
-    // us which side we're on: the submitting org's slug means the researcher (lab) context, the
-    // reviewing org's slug means the reviewer (enclave) context. This drives the Previous href.
+    // Access is the study's view ability, not org membership. The ?userId param is untrusted:
+    // getResearcherProfileByUserIdAction rejects any id the study does not name.
     const orgType = orgSlug === study.submittedByOrgSlug ? 'lab' : 'enclave'
 
     const profileData = await getResearcherProfileByUserIdAction({
@@ -41,5 +40,13 @@ export default async function ResearcherProfilePage(props: {
         return <AlertNotFound title="Researcher profile not found" message="No profile data available" />
     }
 
-    return <ResearcherProfileView orgSlug={orgSlug} studyId={studyId} profileData={profileData} orgType={orgType} />
+    return (
+        <ResearcherProfileView
+            header={<StudyPageHeader study={study} />}
+            orgSlug={orgSlug}
+            studyId={studyId}
+            profileData={profileData}
+            orgType={orgType}
+        />
+    )
 }

@@ -19,7 +19,6 @@ import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyReviewButtons } from './study-review-buttons'
 
-// Mock the actions
 vi.mock('@/server/actions/study.actions', async (importOriginal) => {
     const original = await importOriginal<typeof import('@/server/actions/study.actions')>()
     return {
@@ -30,7 +29,6 @@ vi.mock('@/server/actions/study.actions', async (importOriginal) => {
     }
 })
 
-// Mock the error reporting
 vi.mock('@/components/errors', () => ({
     reportMutationError: vi.fn(() => vi.fn()),
 }))
@@ -52,7 +50,6 @@ describe('StudyReviewButtons', () => {
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
 
-        // Mock useParams to return both orgSlug and studyId
         vi.mocked(useParams).mockReturnValue({
             orgSlug: 'test-org',
             studyId: study.id,
@@ -98,7 +95,7 @@ describe('StudyReviewButtons', () => {
 
     it('redirects on successful approval', async () => {
         const user = userEvent.setup()
-        mockApproveAction.mockResolvedValueOnce(undefined) // simulate successful action
+        mockApproveAction.mockResolvedValueOnce(undefined)
         renderWithProviders(<StudyReviewButtons study={study} />)
 
         const approveButton = screen.getByRole('button', { name: 'Approve' })
@@ -173,7 +170,6 @@ describe('StudyReviewButtons', () => {
 
     it('handles error responses from server actions', async () => {
         const user = userEvent.setup()
-        // Mock the reject action to return an error
         mockRejectAction.mockResolvedValue({ error: 'Rejection failed due to network error' })
 
         renderWithProviders(<StudyReviewButtons study={study} />)
@@ -181,7 +177,6 @@ describe('StudyReviewButtons', () => {
         const rejectButton = screen.getByRole('button', { name: 'Reject' })
         await user.click(rejectButton)
 
-        // Wait for the mutation to complete and verify the error handler was called
         await waitFor(() => {
             expect(mockReportMutationError).toHaveBeenCalledWith('Failed to update study status')
             const errorHandler = mockReportMutationError.mock.results[0].value

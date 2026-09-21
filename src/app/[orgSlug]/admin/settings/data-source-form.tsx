@@ -49,7 +49,7 @@ function SourceUrlLine({
                 style={{ flex: 1 }}
                 placeholder="URL description"
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -79,7 +79,7 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                 />
                 <Divider />
                 <Box>
-                    <Title order={5} mb={4}>
+                    <Title order={5} mb="xxs">
                         Data source URLs
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
@@ -113,7 +113,7 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                                 aria-label="New URL description"
                                 style={{ flex: 1 }}
                             />
-                            <ActionIcon color="blue" variant="subtle" aria-label="Add URL" onClick={addUrl} mt={4}>
+                            <ActionIcon color="blue" variant="subtle" aria-label="Add URL" onClick={addUrl} mt="xxs">
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>

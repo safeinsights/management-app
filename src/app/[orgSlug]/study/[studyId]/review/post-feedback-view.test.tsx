@@ -6,12 +6,7 @@ import {
     type ProposalFeedbackEntry,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import {
-    getStudyReviewForJob,
-    jobScanResultForJob,
-    latestJobForStudy,
-    type LatestJobForStudy,
-} from '@/server/db/queries'
+import { jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -27,7 +22,19 @@ import {
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
+import type { StepNav } from '@/lib/study-screen'
 import { PostFeedbackView } from './post-feedback-view'
+
+// The view renders whatever nav it is handed; which buttons a state earns is the table's business.
+const NAV: StepNav = {
+    forward: {
+        label: 'Back to my studies',
+        href: Routes.dashboard,
+        variant: 'solid',
+        testId: 'cta-back-to-my-studies',
+    },
+}
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -36,19 +43,6 @@ vi.mock('@/server/storage', async () => {
         fetchFileContents: vi.fn(async () => new Blob(['print("hello from main.R")\n'])),
     }
 })
-
-// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
-// inspect the crumbs prop without depending on the DOM render. The arrow wrapper survives
-// vitest's per-test mockReset (which would otherwise wipe the impl on a bare vi.fn).
-const mockPageBreadcrumbs = vi.fn()
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
-        mockPageBreadcrumbs(props)
-        return null
-    },
-}))
 
 const ORG_SLUG = 'test-org'
 
@@ -84,99 +78,125 @@ describe('PostFeedbackView', () => {
     })
 
     describe('decision header', () => {
-        it('renders "Approved on {date}" timestamp for approve decision', () => {
+        // Dated from the decision comment, not study.approvedAt: the same row supplies the reviewer
+        // name, so name and date cannot disagree.
+        it('dates the approved banner title and attributes it to the reviewer', () => {
             const approvedStudy = {
                 ...study,
                 status: 'APPROVED' as const,
                 approvedAt: new Date('2026-04-20T10:00:00Z'),
             }
             const entries = [buildEntry({ decision: 'APPROVE', createdAt: new Date('2026-04-16T10:00:00Z') })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={approvedStudy} entries={entries} />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={approvedStudy} entries={entries} />,
+            )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 20, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal approved by Reviewer One ${STATUS_ALERT_SEPARATOR} Apr 16, 2026`,
+            )
         })
 
-        it('renders "Clarification requested on {date}" for needs-clarification', () => {
+        it('dates the revision-requested banner title', () => {
             const changeRequestedStudy = { ...study, status: 'CHANGE-REQUESTED' as const }
             const entries = [
                 buildEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
             ]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={changeRequestedStudy} entries={entries} />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={changeRequestedStudy} entries={entries} />,
+            )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(
-                'Clarification requested on Apr 18, 2026',
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Revision requested by Reviewer One ${STATUS_ALERT_SEPARATOR} Apr 18, 2026`,
             )
         })
 
-        it('renders "Rejected on {date}" for reject decision', () => {
+        it('dates the declined banner title', () => {
             const rejectedStudy = {
                 ...study,
                 status: 'REJECTED' as const,
                 rejectedAt: new Date('2026-05-01T10:00:00Z'),
             }
             const entries = [buildEntry({ decision: 'REJECT', createdAt: new Date('2026-04-16T10:00:00Z') })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={rejectedStudy} entries={entries} />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={rejectedStudy} entries={entries} />,
+            )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on May 01, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Proposal declined by Reviewer One ${STATUS_ALERT_SEPARATOR} Apr 16, 2026`,
+            )
         })
 
-        it('renders the page title and study title', () => {
+        it('renders the page title and the "Review proposal" section heading', () => {
             const entries = [buildEntry()]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
-            expect(screen.getByText('Review initial request')).toBeInTheDocument()
-            expect(screen.getByText(/Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
+        })
+
+        it('does not repeat the study title in the proposal section header', () => {
+            const entries = [buildEntry()]
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
+
+            // Scoped to the section: the page h1 also carries the title (OTTER-619).
+            expect(screen.getByTestId('proposal-section-header')).not.toHaveTextContent(study.title!)
+        })
+
+        it('renders the versioned heading on a resubmission (reviewVersion > 1)', () => {
+            const entries = [buildEntry()]
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} reviewVersion={3} />,
+            )
+
+            expect(screen.getByRole('heading', { name: 'Review proposal v3.0', level: 2 })).toBeInTheDocument()
         })
     })
 
     describe('decision banner', () => {
         it('renders the approved banner with the expected copy', () => {
             const entries = [buildEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            const banner = screen.getByTestId('decision-banner-approved')
-            expect(banner).toHaveTextContent(
-                "This initial request has been approved. You'll receive email notifications when the researcher proceeds to the next step.",
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('This proposal has been approved.')
+            expect(banner).toHaveTextContent('moves to the next step')
         })
 
         it('renders the clarification banner with the expected copy', () => {
             const entries = [buildEntry({ decision: 'NEEDS-CLARIFICATION' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            const banner = screen.getByTestId('decision-banner-clarification')
-            expect(banner).toHaveTextContent(
-                'You have requested clarification. The researcher has been notified, and we will inform you once they resubmit.',
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('A revision has been requested.')
+            expect(banner).toHaveTextContent('resubmits the proposal')
         })
 
         it('renders the rejected banner with the expected copy', () => {
             const entries = [buildEntry({ decision: 'REJECT' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            const banner = screen.getByTestId('decision-banner-rejected')
-            expect(banner).toHaveTextContent(
-                'This initial request has been rejected. No further action is required at this time.',
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('This proposal has been declined. No further action is required.')
         })
 
         it('renders only one banner at a time', () => {
             const entries = [buildEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('decision-banner-approved')).toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-rejected')).not.toBeInTheDocument()
+            expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
+            expect(screen.getByTestId('status-alert')).toHaveAttribute('data-variant', 'informative')
         })
     })
 
-    describe('full initial request dropdown', () => {
+    describe('full proposal dropdown', () => {
         it('renders the proposal section collapsed by default', () => {
             const entries = [buildEntry()]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
+            renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByTestId('proposal-toggle-header')).toHaveTextContent('View full initial request')
+            expect(screen.getByTestId('proposal-toggle-snippet')).toHaveTextContent('View full proposal')
         })
     })
 
@@ -205,12 +225,16 @@ describe('PostFeedbackView', () => {
 
         it('orders entries from most recent to oldest', () => {
             renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                <PostFeedbackView
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
             )
 
             const entries = screen.getByTestId('feedback-entries')
             const titles = entries.querySelectorAll('[data-testid^="feedback-entry-"]')
-            // Latest first
             expect(titles[0]).toHaveAttribute('data-testid', 'feedback-entry-reviewer-1')
             expect(titles[1]).toHaveAttribute('data-testid', 'feedback-entry-researcher-1')
         })
@@ -219,7 +243,12 @@ describe('PostFeedbackView', () => {
             const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
             try {
                 renderWithProviders(
-                    <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                    <PostFeedbackView
+                        nav={NAV}
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        entries={[reviewerEntry, researcherEntry]}
+                    />,
                 )
 
                 expect(screen.getByTestId('feedback-toggle-reviewer-1')).toHaveAttribute('aria-expanded', 'true')
@@ -231,7 +260,12 @@ describe('PostFeedbackView', () => {
 
         it('titles entries with their stored version', () => {
             renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                <PostFeedbackView
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
             )
 
             expect(screen.getByTestId('feedback-entry-reviewer-1')).toHaveTextContent('Reviewer feedback (v2.0)')
@@ -239,7 +273,9 @@ describe('PostFeedbackView', () => {
         })
 
         it('renders author name and date for each entry', () => {
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry]} />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry]} />,
+            )
 
             const entry = screen.getByTestId('feedback-entry-reviewer-1')
             expect(entry).toHaveTextContent('Dr. Reviewer')
@@ -248,26 +284,37 @@ describe('PostFeedbackView', () => {
 
         it('renders a divider between entries when there are multiple', () => {
             renderWithProviders(
-                <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                <PostFeedbackView
+                    nav={NAV}
+                    orgSlug={ORG_SLUG}
+                    study={study}
+                    entries={[reviewerEntry, researcherEntry]}
+                />,
             )
 
             expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
         })
 
         it('does not render a divider when there is only one entry', () => {
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry]} />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry]} />,
+            )
 
             expect(screen.queryByTestId('entry-divider')).not.toBeInTheDocument()
         })
 
         it('toggles entry expansion on click', async () => {
-            // happy-dom doesn't compute real layout, so scrollHeight ≈ clientHeight and
-            // isTruncated stays false. Mock a large scrollHeight so the toggle renders.
+            // happy-dom computes no layout, so scrollHeight must be mocked for isTruncated.
             const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
             try {
                 const user = userEvent.setup()
                 renderWithProviders(
-                    <PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[reviewerEntry, researcherEntry]} />,
+                    <PostFeedbackView
+                        nav={NAV}
+                        orgSlug={ORG_SLUG}
+                        study={study}
+                        entries={[reviewerEntry, researcherEntry]}
+                    />,
                 )
 
                 const toggle = screen.getByTestId('feedback-toggle-reviewer-1')
@@ -282,36 +329,38 @@ describe('PostFeedbackView', () => {
     })
 
     describe('navigation', () => {
-        it('navigates to the personal dashboard when "Go to dashboard" is clicked', async () => {
-            const user = userEvent.setup()
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
-
-            await user.click(screen.getByRole('button', { name: 'Go to dashboard' }))
-            expect(memoryRouter.asPath).toBe('/dashboard')
-        })
-
-        // OTTER-643: Previous is opt-in via previousHref (set only on the read-only /review/code
-        // walk-back). It must stay hidden for the live code screen and every proposal usage.
-        it('omits the Previous button when previousHref is not provided', () => {
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />)
-
-            expect(screen.queryByTestId('post-feedback-previous')).not.toBeInTheDocument()
-        })
-
-        it('renders Previous and navigates to previousHref when provided', async () => {
-            const user = userEvent.setup()
-            const previousHref = Routes.studyReviewerAgreements({ orgSlug: ORG_SLUG, studyId: study.id })
+        it('renders the nav it is handed as links', () => {
+            const nav: StepNav = {
+                back: {
+                    label: 'Previous step',
+                    href: Routes.studyReviewProposal({ orgSlug: ORG_SLUG, studyId: study.id }),
+                    variant: 'subtle',
+                    testId: 'cta-previous-step',
+                },
+                forward: {
+                    label: 'Next step',
+                    href: Routes.studyReview({ orgSlug: ORG_SLUG, studyId: study.id }),
+                    variant: 'solid',
+                    testId: 'cta-next-step',
+                },
+            }
             renderWithProviders(
-                <PostFeedbackView
-                    orgSlug={ORG_SLUG}
-                    study={study}
-                    entries={[buildEntry()]}
-                    previousHref={previousHref}
-                />,
+                <PostFeedbackView nav={nav} orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />,
             )
 
-            await user.click(screen.getByTestId('post-feedback-previous'))
-            expect(memoryRouter.asPath).toBe(previousHref)
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', nav.back!.href)
+            expect(screen.getByTestId('cta-next-step')).toHaveAttribute('href', nav.forward!.href)
+            expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
+        })
+
+        it('omits slots the nav leaves empty', () => {
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={[buildEntry()]} />,
+            )
+
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', Routes.dashboard)
+            expect(screen.queryByTestId('cta-previous-step')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('cta-next-step')).not.toBeInTheDocument()
         })
     })
 
@@ -330,103 +379,74 @@ describe('PostFeedbackView', () => {
 
         it('renders the STEP 3 label and "Review study code" heading', () => {
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
+            )
 
             expect(screen.getByText('STEP 3')).toBeInTheDocument()
             expect(screen.getByText('Review study code')).toBeInTheDocument()
         })
 
-        it('renders the code-approved banner with code-review-specific copy', () => {
+        it('renders the informative banner with code-approved copy', () => {
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
-
-            const banner = screen.getByTestId('decision-banner-code-approved')
-            expect(banner).toHaveTextContent(
-                'This study code has been approved. You will be notified when the study results are available for review.',
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
             )
-            expect(screen.queryByTestId('decision-banner-approved')).not.toBeInTheDocument()
+
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('Code approved')
+            expect(banner).toHaveTextContent(
+                'This code has been approved. You will be notified when the study results are available for review.',
+            )
         })
 
-        it('renders the code-rejected banner with code-review-specific copy', () => {
+        it('renders the decline banner with code-rejected copy', () => {
             const entries = [buildCodeEntry({ decision: 'REJECT' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
+            )
 
-            const banner = screen.getByTestId('decision-banner-code-rejected')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('Code declined')
             expect(banner).toHaveTextContent(
                 'This study code was rejected and the study was ended. No further action is required at this time.',
             )
-            expect(screen.queryByTestId('decision-banner-rejected')).not.toBeInTheDocument()
         })
 
-        it('renders the change-requested banner with the right copy and yellow background', () => {
+        it('renders the informative banner naming the lab that must resubmit', () => {
             const entries = [buildCodeEntry({ decision: 'NEEDS-CLARIFICATION' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
-
-            const banner = screen.getByTestId('decision-banner-code-change-requested')
-            expect(banner).toHaveTextContent(
-                'You have requested changes or more information about the study code. The researcher has been notified, and you will be notified once they resubmit.',
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
             )
-            // Proposal-only clarification banner must NOT appear under kind=CODE.
-            expect(screen.queryByTestId('decision-banner-clarification')).not.toBeInTheDocument()
+
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('Revision requested')
+            expect(banner).toHaveTextContent('resubmits their code')
         })
 
-        it('uses "Change requested on" timestamp prefix for NEEDS-CLARIFICATION', () => {
+        it('dates the revision-requested banner title for NEEDS-CLARIFICATION', () => {
             const entries = [
                 buildCodeEntry({ decision: 'NEEDS-CLARIFICATION', createdAt: new Date('2026-04-18T10:00:00Z') }),
             ]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
+            )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Change requested on Apr 18, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Apr 18, 2026`)
         })
 
         it('uses "Review study code" crumb (not "Review initial request") for kind=CODE', () => {
             const entries = [buildCodeEntry()]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
+            renderWithProviders(
+                <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
+            )
 
-            // Proposal-only label should not appear under kind=CODE.
             expect(screen.queryByText('Review initial request')).not.toBeInTheDocument()
         })
 
-        it('renders the "Study proposal" breadcrumb as a link to the proposal post-feedback page for kind=CODE', () => {
-            // PageBreadcrumbs is mocked to () => null in tests/vitest.setup.ts so we assert
-            // on the crumbs array passed to it instead of DOM-querying the link.
-            const entries = [buildCodeEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />)
-
-            const expectedHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            // Assert observable behavior (label + href) per crumb, not tuple shape — so a
-            // future refactor that normalizes crumbs to always be [label, href|undefined]
-            // doesn't silently break this expectation.
-            expect(crumbs).toHaveLength(3)
-            expect(crumbs[0][0]).toBe('Dashboard')
-            expect(crumbs[1][0]).toBe('Study proposal')
-            expect(crumbs[1][1]).toBe(expectedHref)
-            expect(crumbs[2][0]).toBe('Review study code')
-        })
-
-        it('renders the "Study proposal" breadcrumb as plain text (not a link) for kind=PROPOSAL', () => {
-            // The PROPOSAL crumb is linkless because it would otherwise be a self-link to
-            // the page the user is already on.
-            const entries = [buildEntry({ decision: 'APPROVE' })]
-            renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={entries} />)
-
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            expect(crumbs).toHaveLength(3)
-            expect(crumbs[0][0]).toBe('Dashboard')
-            expect(crumbs[1][0]).toBe('Study proposal')
-            // Linkless = no href slot — accept either undefined or a missing index.
-            expect(crumbs[1][1]).toBeFalsy()
-            expect(crumbs[2][0]).toBe('Review initial request')
-        })
-
-        // OTTER-613: on the post-decision DO code page the ENTIRE "Submitted code" section is
-        // visually collapsed — only the "View full study code" toggle shows in the step card.
-        // The content stays mounted so its state survives expansion and collapse.
         it('collapses the full Submitted code section until the "View full study code" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
@@ -459,27 +479,22 @@ describe('PostFeedbackView', () => {
             const codeStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             if (!isSubmittedStudy(codeStudy)) throw new Error('test fixture must be a submitted study')
             const latestJob: LatestJobForStudy = await latestJobForStudy(codeStudy.id)
-            const [review, scan] = await Promise.all([
-                getStudyReviewForJob(latestJob.id),
-                jobScanResultForJob(latestJob.id),
-            ])
+            const analysis = await jobAnalysisForJob(latestJob)
             ;(useParams as Mock).mockReturnValue({ orgSlug: ORG_SLUG, studyId: codeStudy.id })
 
             const entries = [buildCodeEntry({ decision: 'APPROVE' })]
             renderWithProviders(
                 <PostFeedbackView
+                    nav={NAV}
                     orgSlug={ORG_SLUG}
                     study={codeStudy}
                     entries={entries}
                     kind="CODE"
                     job={latestJob}
-                    review={review}
-                    scan={scan}
+                    analysis={analysis}
                 />,
             )
 
-            // Collapsed: the whole "Submitted code" card (header, AI summary, scan, code viewer)
-            // is hidden, while remaining mounted so its state is preserved.
             expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
             expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
@@ -489,7 +504,6 @@ describe('PostFeedbackView', () => {
             const userClick = userEvent.setup()
             await userClick.click(opener)
 
-            // Expanded: full section revealed, code body shown, opener replaced by the closer.
             await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
             expect(screen.getByTestId('ai-summary')).toBeVisible()
             expect(screen.getByTestId('security-scan-log')).toBeVisible()
@@ -499,19 +513,18 @@ describe('PostFeedbackView', () => {
             const closer = screen.getByTestId('study-code-toggle-collapse')
             expect(closer).toHaveTextContent('Hide full study code')
 
-            // Closing collapses the entire card again and returns keyboard focus to the opener.
             await userClick.click(closer)
             await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
             await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 
-        // OTTER-538 QA: code auto-approved via proposal approval leaves a CODE-APPROVED job status
-        // but no code-review comment, so `entries` is empty. The fallback decision metadata keeps
-        // the approved code page rendering instead of blanking out.
+        // Code auto-approved via proposal approval leaves a CODE-APPROVED status but no
+        // code-review comment, so the fallback metadata keeps the page rendering (OTTER-538).
         describe('fallback decision (no code-review comment)', () => {
             it('renders the approved code page from fallback when entries are empty', () => {
                 renderWithProviders(
                     <PostFeedbackView
+                        nav={NAV}
                         orgSlug={ORG_SLUG}
                         study={study}
                         entries={[]}
@@ -521,17 +534,20 @@ describe('PostFeedbackView', () => {
                 )
 
                 expect(screen.getByText('Review study code')).toBeInTheDocument()
-                expect(screen.getByTestId('decision-banner-code-approved')).toBeInTheDocument()
-                expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 21, 2026')
-                // No code-review comments => no Feedback and notes section.
+                // No decision comment, so the title carries the date but no reviewer attribution.
+                expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                    `Code approved ${STATUS_ALERT_SEPARATOR} Apr 21, 2026`,
+                )
                 expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
-                // Without a job/scan there is no Submitted code panel, so the "View full study code"
-                // opener must not appear (clicking it would expand to an empty card with no way back).
+                // Without a job there is no Submitted code panel, so the opener would expand an
+                // empty card with no way back.
                 expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             })
 
             it('renders nothing when entries are empty and no fallback decision is provided', () => {
-                renderWithProviders(<PostFeedbackView orgSlug={ORG_SLUG} study={study} entries={[]} kind="CODE" />)
+                renderWithProviders(
+                    <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={[]} kind="CODE" />,
+                )
 
                 expect(screen.queryByText('Review study code')).not.toBeInTheDocument()
             })

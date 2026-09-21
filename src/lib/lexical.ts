@@ -1,36 +1,49 @@
-export function countWords(text: string): number {
-    const trimmed = text.trim()
-    if (!trimmed) return 0
-    return trimmed.split(/\s+/).length
-}
+import { countCharacters } from '@/lib/field-limits'
 
-/**
- * Extract plain text from Lexical JSON state and count words
- */
-export function countWordsFromLexical(json: string | undefined): number {
-    if (!json) return 0
+type LexicalEnvelope = { root: unknown }
+
+// The one place the app decides "Lexical document or plain text?", so an empty-root state cannot
+// be classified one way on one path and another elsewhere (OTTER-737).
+function asLexicalEnvelope(value: string | undefined): LexicalEnvelope | null {
+    if (!value) return null
 
     try {
-        const state = JSON.parse(json)
-        const text = extractTextFromLexicalNode(state.root)
-        return countWords(text)
+        const parsed: unknown = JSON.parse(value)
+        if (!parsed || typeof parsed !== 'object' || !('root' in parsed)) return null
+
+        const { root } = parsed as LexicalEnvelope
+        return typeof root === 'object' ? { root } : null
     } catch {
-        return 0
+        return null
     }
 }
 
-/**
- * Extract plain text from Lexical JSON (for validation)
- */
+// Accepts either Lexical JSON or a bare string from older plain-text callers.
+export function lexicalToText(value: string | undefined): string {
+    if (!value) return ''
+
+    const envelope = asLexicalEnvelope(value)
+    return envelope ? extractTextFromLexicalNode(envelope.root) : value
+}
+
+// Lexical only: a non-Lexical value must not measure as its own JSON. A field accepting either
+// shape counts `countCharacters(lexicalToText(value))` instead.
+export function countCharactersFromLexical(json: string | undefined): number {
+    return countCharacters(extractTextFromLexical(json))
+}
+
+// Yields '' for a value that is not Lexical; callers that also accept plain text want
+// {@link lexicalToText}.
 export function extractTextFromLexical(json: string | undefined): string {
-    if (!json) return ''
+    const envelope = asLexicalEnvelope(json)
+    return envelope ? extractTextFromLexicalNode(envelope.root) : ''
+}
 
-    try {
-        const state = JSON.parse(json)
-        return extractTextFromLexicalNode(state.root)
-    } catch {
-        return ''
-    }
+// A list is one root-level node, so without a separator its items concatenate into
+// "First question?Second question?" (OTTER-755).
+const CHILD_SEPARATORS: Record<string, string> = {
+    root: '\n\n',
+    list: '\n',
 }
 
 function extractTextFromLexicalNode(node: unknown): string {
@@ -47,60 +60,28 @@ function extractTextFromLexicalNode(node: unknown): string {
     }
 
     if (Array.isArray(n.children)) {
-        const texts = n.children.map((child) => extractTextFromLexicalNode(child))
-        return n.type === 'root' ? texts.join('\n\n') : texts.join('')
+        const separator = typeof n.type === 'string' ? (CHILD_SEPARATORS[n.type] ?? '') : ''
+        return n.children.map((child) => extractTextFromLexicalNode(child)).join(separator)
     }
 
     return ''
 }
 
-/**
- * Check if any of the fields have non-empty lexical content
- */
+// Lexical only: the proposal rich-text fields rely on a non-Lexical value reading as empty so
+// garbage fails their required rule rather than passing as prose.
 export function hasLexicalContent(...fields: (string | undefined)[]): boolean {
     return fields.some((field) => !!extractTextFromLexical(field).trim())
 }
 
-/**
- * Validates that a Lexical JSON string represents a non-empty editor state
- * (root node has at least one child). Lexical throws if initialized with an
- * empty root, so callers should fall back to a default state when this returns false.
- */
+// Lexical throws if initialized with an empty root, so callers fall back to a default state
+// when this is false.
 export function isValidLexicalState(json: string | undefined): boolean {
-    if (!json) return false
-    try {
-        const state = JSON.parse(json)
-        const root = state?.root
-        return !!(root && Array.isArray(root.children) && root.children.length > 0)
-    } catch {
-        return false
-    }
+    const root = asLexicalEnvelope(json)?.root as { children?: unknown } | null | undefined
+    return !!(root && Array.isArray(root.children) && root.children.length > 0)
 }
 
-/**
- * Create Lexical JSON from plain text (for testing)
- */
-/**
- * Accepts either a serialized Lexical state or raw text and returns Lexical JSON plus its word
- * count. Editor-backed fields post Lexical JSON; plain-text callers (and tests) post a string.
- */
-export function normalizeFeedbackToLexical(raw: string): { json: string; wordCount: number } {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(raw)
-    } catch {
-        parsed = null
-    }
-
-    // Loose check: non-Lexical JSON that passes will yield 0 words and fail min-word validation.
-    const looksLikeLexicalRoot =
-        parsed != null &&
-        typeof parsed === 'object' &&
-        'root' in (parsed as Record<string, unknown>) &&
-        typeof (parsed as { root: unknown }).root === 'object'
-
-    const json = looksLikeLexicalRoot ? raw : lexicalJson(raw)
-    return { json, wordCount: countWordsFromLexical(json) }
+export function normalizeFeedbackToLexical(raw: string): string {
+    return asLexicalEnvelope(raw) ? raw : lexicalJson(raw)
 }
 
 export function lexicalJson(text: string): string {

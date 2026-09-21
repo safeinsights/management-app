@@ -1,4 +1,4 @@
-import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
+import { mockClerkSession, pageHeaderEyebrow, renderWithProviders } from '@/tests/unit.helpers'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import router from 'next-router-mock'
 import { describe, expect, it } from 'vitest'
@@ -20,6 +20,15 @@ describe('Security key page', () => {
         expect(screen.getByText('Lost access to your key?')).toBeDefined()
         expect(screen.getByText(/You generated a security key on Jul 08, 2026\./)).toBeDefined()
         expect(screen.getByText(/A new key cannot decrypt your current outputs\./).tagName).toBe('B')
+    })
+
+    // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
+    it('heads the page with no eyebrow above it', async () => {
+        renderPage()
+
+        expect(await screen.findByRole('heading', { level: 1, name: 'Security key' })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe('')
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 
     it('opens the confirm modal and cancelling leaves the page intact', async () => {

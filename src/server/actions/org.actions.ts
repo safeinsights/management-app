@@ -1,33 +1,27 @@
 'use server'
 
 import { ActionSuccessType } from '@/lib/types'
-import { orgSchema, updateOrgSchema } from '@/schema/org'
+import { orgSchema, updateOrgSchema, type PublicOrg } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
 
+// Mass-assignment path: overwriting settings.publicKey would let an org admin forge M2M API JWTs,
+// and flipping type lab->enclave grants reviewer abilities — hence ('manage','all') (MA-5).
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
-    .middleware(async ({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
-    .requireAbilityTo('update', 'Org')
+    .requireAbilityTo('manage', 'all')
     .handler(async ({ params: { id, ...update }, db }) => {
         return await db.updateTable('org').set(update).where('id', '=', id).returningAll().executeTakeFirstOrThrow()
     })
 
 export const insertOrgAction = new Action('insertOrgAction')
     .params(orgSchema)
-    .middleware(async ({ params: { slug } }) => ({ orgSlug: slug })) // translate params for requireAbility below
+    .middleware(async ({ params: { slug } }) => ({ orgSlug: slug }))
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
         return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
-    })
-
-export const getOrgFromIdAction = new Action('getOrgFromIdAction')
-    .params(z.object({ orgId: z.string() }))
-    .requireAbilityTo('view', 'Org')
-    .handler(async ({ db, params: { orgId } }) => {
-        return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
 export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
@@ -41,8 +35,10 @@ export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
             .execute()
     })
 
+// Returns every org's email and settings, including enclave publicKeys; the SI-admin console
+// layout applies no gate, so this check is the only one (MA-6).
 export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
-    .requireAbilityTo('view', 'Orgs')
+    .requireAbilityTo('manage', 'all')
     .handler(async ({ db }) => {
         return await db
             .selectFrom('org')
@@ -71,6 +67,7 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
+// Cross-org by design. Selects catalog columns only — keep it that way (MA-6).
 export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
@@ -99,6 +96,7 @@ type LanguageOption = {
     commandLines: Record<string, string>
 }
 
+// Cross-org by design: a researcher needs the chosen enclave's languages to begin a proposal (MA-6).
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string().min(1) }))
@@ -149,6 +147,8 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
         }
     })
 
+// Cross-org download is the intended researcher flow, so this stays on `view Orgs`; the admin
+// console's editor view is fetchStarterCodeAction, scoped via `view OrgConfig` (MA-6).
 export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string(), language: z.string() }))
@@ -183,18 +183,26 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         return { starterCodeUrls }
     })
 
+// On the unconditioned `view Org`, so the row is read in the HANDLER and narrowed to PublicOrg:
+// a middleware read would echo settings and email back in the permission_denied message (MA-6).
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
-    .middleware(async ({ db, params: { orgSlug } }) => {
-        const org = await db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
-        return { org, orgId: org.id }
-    })
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ org }) => org)
+    .handler(
+        async ({ db, orgId }): Promise<PublicOrg> =>
+            await db
+                .selectFrom('org')
+                .select(['id', 'slug', 'name', 'type', 'description'])
+                .where('id', '=', orgId)
+                .executeTakeFirstOrThrow(),
+    )
 
 export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 
-export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
+// The field list is the whitelist that makes ('update','Org') safe for every org admin: keep type,
+// slug, email and settings out of it (MA-5).
+export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -207,7 +215,6 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
     .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
         await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
 
-        // If both DB and Clerk updates are successful
         revalidatePath(`/admin/team/${orgSlug}/settings`)
         revalidatePath(`/admin/team/${orgSlug}`)
 
@@ -232,9 +239,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             .innerJoin('org', 'org.id', 'orgUser.orgId')
             .innerJoin('user', 'user.id', 'orgUser.userId')
             .leftJoin(
-                (
-                    eb, // join to the latest activity from audit
-                ) =>
+                (eb) =>
                     eb
                         .selectFrom('audit')
                         .distinctOn('audit.userId')

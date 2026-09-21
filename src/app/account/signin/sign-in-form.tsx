@@ -3,14 +3,14 @@ import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import { actionResult, safeRedirectUrl } from '@/lib/utils'
-import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useAuth, useSignIn } from '@clerk/nextjs'
+import { safeRedirectUrl } from '@/lib/utils'
+import { useSignIn } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { type MFAState } from './logic'
 import { SignInFormView } from './sign-in-form-view'
+import { useCompleteSignIn } from './use-complete-sign-in'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -19,22 +19,21 @@ const signInSchema = z.object({
 
 type SignInFormData = z.infer<typeof signInSchema>
 
-// Clerk's session_exists longMessage, thrown by signIn.create when a session is live
+// Clerk's session_exists longMessage, thrown by signIn.create when a session is live.
 const ALREADY_SIGNED_IN_MESSAGE = "You're already signed in."
 
 export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { getToken } = useAuth()
     const { setActive, signIn } = useSignIn()
     const router = useRouter()
+    const completeSignIn = useCompleteSignIn()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
 
     useEffect(() => {
         if (searchParams.get('invite_not_found')) {
-            // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setClerkError({
                 title: 'Invite not found',
@@ -54,13 +53,14 @@ export const SignInForm: FC<{
             email: '',
             password: '',
         },
-        validate: zodResolver(signInSchema),
+        // First-issue priority: the resolver keeps the LAST issue by default, so a blank email
+        // failing both `min(1)` and `email()` reported "Invalid email" (OTTER-647).
+        validate: zodResolver(signInSchema, { errorPriority: 'first' }),
     })
 
     if (!signIn || mfa) return null
 
-    // Default landing is the dashboard (OTTER-671); redirect_url is present when the
-    // user arrived via a deep link (proxy-captured) or an explicit flow (e.g. invitations).
+    // Default landing is the dashboard (OTTER-671).
     const rawRedirect = searchParams.get('redirect_url')
     const validatedRedirect = safeRedirectUrl(rawRedirect, Routes.dashboard)
     const forgotPasswordHref = (
@@ -78,31 +78,20 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
-                const result = actionResult(await onUserSignInAction())
-                await getToken({ skipCache: true })
-                if (result?.redirectToKeyGeneration) {
-                    router.push(Routes.accountKeys as Route)
-                } else {
-                    router.push(validatedRedirect)
-                }
+                await completeSignIn()
             }
             if (attempt.status === 'needs_second_factor') {
-                // Auth method not yet determined, set to false for now
                 await onComplete({ signIn: attempt, usingSMS: false })
             }
         } catch (err: unknown) {
-            reportError(err, 'Failed Signin Attempt')
-
             const errorMessage = errorToString(err, clerkErrorOverrides)
 
-            // A session was restored (e.g. in another tab) between mount and submit —
-            // the user is authenticated, so send them onward instead of erroring.
+            // A session was restored in another tab between mount and submit.
             if (errorMessage === ALREADY_SIGNED_IN_MESSAGE) {
                 router.push(validatedRedirect)
                 return
             }
 
-            //incorrect email or password
             if (
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
                 errorMessage === clerkErrorOverrides.form_identifier_not_found
@@ -112,7 +101,10 @@ export const SignInForm: FC<{
                 return
             }
 
-            // any other clerk error
+            // Only failures the branches above did not already answer. Reporting up front put a red
+            // toast in front of the redirect and of a mistyped password (OTTER-745).
+            reportError(err, 'Failed Signin Attempt')
+
             let title = 'Sign-in Error'
             if (err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)) {
                 const lockedError = err.errors.find((e: { code?: string }) => e.code === 'user_locked')

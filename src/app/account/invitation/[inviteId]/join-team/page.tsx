@@ -1,18 +1,21 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { useMutation, useQuery } from '@/common'
 import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
-import { useAuth, useUser } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
+import { InvalidInvitePanel } from '../invalid-invite-panel'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -29,38 +32,35 @@ type ConfirmationModalProps = {
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
-    const { user } = useUser()
     const auth = useAuth()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [isSkipping, setIsSkipping] = useState(false)
 
-    const { data: org, isLoading } = useQuery({
+    const {
+        data: org,
+        isLoading,
+        isError,
+    } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
 
-    // Check if logged-in user's email matches the invite email (handles both primary and merged emails)
-    const userEmails = user?.emailAddresses?.map((ea) => ea.emailAddress.toLowerCase()) || []
-    const emailMismatch = user && org && !userEmails.includes(org.email.toLowerCase())
-
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: async () => actionResult(await onJoinTeamAccountAction({ inviteId })),
         onSuccess: async (result) => {
-            setIsDisabled(true) // disable button after successful join
+            setIsDisabled(true)
 
-            // forces Clerk to regenerate the JWT session token with the latest user metadata
             await auth.getToken({ skipCache: true })
 
-            // short delay to ensure the token is propagated before navigation
+            // Give the token time to propagate before navigating.
             await new Promise((resolve) => setTimeout(resolve, 500))
 
             markOrgJoined(org!.name)
 
             const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
             if (result?.needsUserKey) {
-                // First-time key generation: land them on the inviting org's dashboard afterwards.
-                router.push(`${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route)
+                router.push(keyGenerationUrl(orgDashboard))
             } else {
                 router.push(orgDashboard)
             }
@@ -78,38 +78,22 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onError: reportMutationError('Unable to decline invitation'),
     })
 
-    if (isLoading || !org || !user) {
+    // A claimed or deleted invite no longer resolves; org stays undefined after the query errors,
+    // so without this the spinner never stops.
+    if (isError) {
+        return <InvalidInvitePanel />
+    }
+
+    if (isLoading || !org) {
         return (
-            <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
                 <LoadingMessage message="Loading account invitation" />
             </Paper>
         )
     }
 
-    if (emailMismatch) {
-        return (
-            <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-                <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
-                    <Title order={3} ta="center" mb="md" c="red.8">
-                        Email Mismatch
-                    </Title>
-                    <Text size="md">
-                        The email address you are logged in with does not match the email address in the invitation.
-                    </Text>
-                    <Text size="md">
-                        Please sign in with the correct account or contact the person who sent the invitation for a new
-                        invite.
-                    </Text>
-                    <Button variant="filled" size="lg" onClick={() => router.push(Routes.accountSignin)} mt="md">
-                        Sign in
-                    </Button>
-                </Flex>
-            </Paper>
-        )
-    }
-
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <Title order={3} ta="center" mb="md">
                     You’ve been invited to join {org.name}.
@@ -124,13 +108,19 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in
                     your email inbox.
                 </Text>
-                <Text size="sm" c="red.8" mb="md">
+                <Text size="sm" c={semanticColor('error.text')} mb="md">
                     <b>Note:</b> This invitation will expire in 7 days.
                 </Text>
-                <Button variant="filled" size="lg" onClick={() => joinTeam()} loading={isJoining || isDisabled} mb={4}>
+                <Button
+                    variant="filled"
+                    size="lg"
+                    onClick={() => joinTeam()}
+                    loading={isJoining || isDisabled}
+                    mb="xxs"
+                >
                     Accept invitation
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb={4} loading={isRevoking}>
+                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb="xxs" loading={isRevoking}>
                     Decline invitation
                 </Button>
 
@@ -163,7 +153,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConf
     <AppModal isOpen={isOpen} onClose={onClose} title="Decline invitation?">
         <Stack>
             <Text size="md">Are you sure you want to decline the invitation to join {orgName}?</Text>
-            <Text size="sm" c="red.9">
+            <Text size="sm" c={semanticColor('error.text')}>
                 <b>Note:</b> If you decline this invitation, you will need to request a new one if you want to join this
                 organization later.
             </Text>

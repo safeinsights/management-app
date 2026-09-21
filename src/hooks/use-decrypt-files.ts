@@ -7,10 +7,8 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
-// One encrypted artifact from fetchEncryptedJobFilesAction: whole-zip ciphertext (embedded
-// manifest). `recipientKeys` (inner path -> wrapped AES key) is set only for lab researchers, who
-// aren't manifest recipients; ResultsReader merges them into the manifest under their fingerprint.
-// Empty for enclave reviewers, who decrypt with their own key.
+// `recipientKeys` is set only for lab researchers, who are not manifest recipients, and is empty
+// for enclave reviewers, who decrypt with their own key.
 export type EncryptedJobFile = {
     studyJobFileId: string
     fileType: FileType
@@ -41,7 +39,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                 fingerprint,
                 artifact.recipientKeys,
             )
-            // Capture each inner file's raw AES key so approval can re-wrap it per researcher.
+            // Captured so approval can re-wrap each key per researcher.
             const entries = await reader.extractFilesWithKeys()
             for (const entry of entries) {
                 files.push({
@@ -49,7 +47,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                     contents: entry.contents,
                     rawAesKey: entry.rawAesKey,
                     sourceId: artifact.studyJobFileId,
-                    // Encrypted type -> approved form; an already-approved input keeps its type.
+                    // An already-approved input keeps its type.
                     fileType: ENCRYPTED_TO_APPROVED[artifact.fileType] ?? artifact.fileType,
                 })
             }

@@ -27,6 +27,7 @@ import {
 } from 'lexical'
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link'
 import { isValidUrl } from './config'
+import { OPEN_LINK_CARD_COMMAND } from './link-card-node'
 import {
     INSERT_ORDERED_LIST_COMMAND,
     INSERT_UNORDERED_LIST_COMMAND,
@@ -52,7 +53,6 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
     const openLinkEditor = useCallback((currentUrl: string | null) => {
         setUrl(currentUrl ?? 'https://')
         setIsEditing(true)
-        // Focus the input after React renders it
         setTimeout(() => inputRef.current?.focus(), 0)
     }, [])
 
@@ -64,11 +64,13 @@ function useLinkEditor(editor: ReturnType<typeof useLexicalComposerContext>[0]) 
             editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
         }
         setIsEditing(false)
+        editor.focus()
     }, [editor, url])
 
     const cancelLink = useCallback(() => {
         setIsEditing(false)
-    }, [])
+        editor.focus()
+    }, [editor])
 
     return { isEditing, url, setUrl, inputRef, openLinkEditor, submitLink, cancelLink }
 }
@@ -127,42 +129,58 @@ export const Toolbar = () => {
         )
     }, [editor, updateToolbar])
 
-    const formatText = (format: TextFormatType) => {
-        editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)
+    // Lexical re-renders the surface a command touched, dropping the caret and DOM focus, which
+    // the container's blur validation reads as "left the field incomplete" (OTTER-647).
+    const runOnEditor = (dispatch: () => void) => {
+        dispatch()
+        editor.focus()
     }
 
+    const formatText = (format: TextFormatType) => {
+        runOnEditor(() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format))
+    }
+
+    // Unlinking dispatches after the read closes, through runOnEditor; opening the link editor is
+    // the one command that should move focus (OTTER-647).
     const toggleLink = () => {
-        editor.getEditorState().read(() => {
+        const selected = editor.getEditorState().read(() => {
             const selection = $getSelection()
-            if (!$isRangeSelection(selection)) return
+            if (!$isRangeSelection(selection)) return null
 
             const node = selection.anchor.getNode()
             const parent = node.getParent()
-            const existingUrl = $isLinkNode(parent) ? parent.getURL() : $isLinkNode(node) ? node.getURL() : null
-
-            if (existingUrl) {
-                editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
-            } else {
-                linkEditor.openLinkEditor(null)
-            }
+            return { existingUrl: $isLinkNode(parent) ? parent.getURL() : $isLinkNode(node) ? node.getURL() : null }
         })
-    }
 
-    const toggleList = (type: 'bullet' | 'number') => {
-        if (formatState.listType === type) {
-            editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
+        if (!selected) return
+
+        if (selected.existingUrl) {
+            // The hover card owns an existing link, and this is the keyboard route into it. The
+            // older standalone editor mounts no card, so unlinking stays its fallback.
+            const openedCard = editor.dispatchCommand(OPEN_LINK_CARD_COMMAND, undefined)
+            if (!openedCard) runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
         } else {
-            const command = type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND
-            editor.dispatchCommand(command, undefined)
+            linkEditor.openLinkEditor(null)
         }
     }
 
-    const indent = () => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
-    const outdent = () => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
+    const toggleList = (type: 'bullet' | 'number') => {
+        runOnEditor(() => {
+            if (formatState.listType === type) {
+                editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
+                return
+            }
+            const command = type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND
+            editor.dispatchCommand(command, undefined)
+        })
+    }
+
+    const indent = () => runOnEditor(() => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined))
+    const outdent = () => runOnEditor(() => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined))
 
     return (
         <Box
-            p={4}
+            p="xxs"
             onMouseDown={(e: React.MouseEvent) => {
                 if (!(e.target instanceof HTMLInputElement)) {
                     e.preventDefault()

@@ -4,7 +4,8 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
 import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
+import { notifications } from '@mantine/notifications'
+import { captureException } from '@sentry/nextjs'
 import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
@@ -17,9 +18,7 @@ export type SubmitReviewArgs = { decision: Decision; feedback: string }
 interface UseProposalReviewMutationOptions {
     studyId: string
     orgSlug: string
-    /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
-    /** Current editable review round. The submit action recomputes and validates this. */
     reviewVersion: number
 }
 
@@ -32,13 +31,8 @@ export function useProposalReviewMutation({
     const router = useRouter()
     const queryClient = useQueryClient()
     const { user } = useUser()
-    // Consume the editor's HocuspocusProvider rather than constructing a
-    // separate one. The editor's provider has been authenticated since page
-    // mount, so the server-side onStateless gate
-    // (services/editor/auth.ts -> if (!connectionUserClerkId) return) reliably
-    // passes. A private broadcast provider, by contrast, could still be in
-    // its onAuthenticate handshake when sendStateless flushes during the
-    // WS-open queue drain. Server drops the message silently in that case.
+    // The editor's provider is authenticated since page mount, so the server's onStateless gate
+    // passes; a private provider could still be mid-handshake and get dropped silently.
     const editorProvider = useReviewFeedbackProvider()
 
     const {
@@ -49,9 +43,17 @@ export function useProposalReviewMutation({
     } = useMutation({
         mutationFn: async (args: SubmitReviewArgs) =>
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
-        onError: reportMutationError('Failed to submit review'),
+        onError: (err) => {
+            captureException(err)
+            notifications.show({
+                color: 'red',
+                title: 'Decision could not be submitted',
+                message: 'Your work is saved. Try again.',
+            })
+        },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            notifications.show({ color: 'green', title: 'Decision submitted', message: '' })
 
             const submittedByClerkId = user?.id
             if (editorProvider && submittedByClerkId) {

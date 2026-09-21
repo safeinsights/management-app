@@ -18,7 +18,21 @@ import { Routes } from '@/lib/routes'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import type { StepNav } from '@/lib/study-screen'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { CodePostDecisionView } from './code-post-decision-view'
+
+// Which buttons a decision earns is resolveStepNav's job (see lib/study-screen/nav.test.ts); this
+// view only has to render the nav it is handed.
+const NAV: StepNav = {
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
+    forward: {
+        label: 'Back to my studies',
+        href: '/dashboard' as Route,
+        variant: 'solid',
+        testId: 'cta-back-to-my-studies',
+    },
+}
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -27,18 +41,6 @@ vi.mock('@/server/storage', async () => {
         fetchFileContents: vi.fn(async () => new Blob(['print("hello from main.R")\n'])),
     }
 })
-
-// tests/vitest.setup.ts mocks PageBreadcrumbs to () => null. Re-mock with a vi.fn so we can
-// inspect the crumbs prop without depending on the DOM render.
-const mockPageBreadcrumbs = vi.fn()
-vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => null,
-    ResearcherBreadcrumbs: () => null,
-    PageBreadcrumbs: (props: { crumbs: Array<[string, string?]> }) => {
-        mockPageBreadcrumbs(props)
-        return null
-    },
-}))
 
 const ORG_SLUG = 'openstax'
 const REVIEWING_ORG_NAME = 'OpenStax Reviewers'
@@ -67,8 +69,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         jobStatus: 'CODE-SUBMITTED',
         title,
     })
-    // Layer the decision row on top. Its createdAt is the user-visible decision timestamp the
-    // header now sources from (the matching status-change row, not the feedback entry).
+    // The header dates the decision from this status-change row, not the feedback entry.
     await db
         .insertInto('jobStatusChange')
         .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
@@ -92,17 +93,15 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
     return { org, study, job: latestJob, latestJobStatus: decisionStatus }
 }
 
-const DEFAULT_DASHBOARD_HREF = Routes.orgDashboard({ orgSlug: ORG_SLUG })
-
 function renderView(
     study: Submitted<SelectedStudy>,
     job: LatestJobForStudy,
     entries: CodeReviewFeedbackEntry[],
     latestJobStatus: DecisionStatus,
     overrides: {
-        dashboardHref?: Route
         reviewingOrgName?: string
         feedbackLoadError?: boolean
+        nav?: StepNav
     } = {},
 ) {
     renderWithProviders(
@@ -112,50 +111,35 @@ function renderView(
             job={job}
             entries={entries}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
-            dashboardHref={overrides.dashboardHref ?? DEFAULT_DASHBOARD_HREF}
             latestJobStatus={latestJobStatus}
+            nav={overrides.nav ?? NAV}
             feedbackLoadError={overrides.feedbackLoadError}
         />,
     )
 }
 
 describe('CodePostDecisionView', () => {
-    describe('breadcrumbs', () => {
-        it('renders Dashboard / Study proposal (linked) / Study code (linkless)', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
-
-            const lastCall = mockPageBreadcrumbs.mock.calls.at(-1)
-            expect(lastCall).toBeDefined()
-            const crumbs = lastCall![0].crumbs
-            const expectedProposalHref = Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id })
-            expect(crumbs).toEqual([
-                ['Dashboard', expect.any(String)],
-                ['Study proposal', expectedProposalHref],
-                ['Study code'],
-            ])
-        })
-    })
-
     describe('header', () => {
-        it('renders the page title, STEP 4 eyebrow, "Study code" section, and study title', async () => {
+        it('renders the page title, STEP 4 eyebrow, and "Study code" section', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
-            expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
         })
 
-        it('renders "Approved on Apr 02, 2026" for CODE-APPROVED', async () => {
+        it('dates the approved banner title from the decision row', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE', createdAt: DECISION_DATE })], latestJobStatus)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Code approved ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
         })
 
-        it('renders "Change requested on Apr 02, 2026" for CODE-CHANGES-REQUESTED', async () => {
+        it('dates the revision-requested banner title from the decision row', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
             renderView(
                 study,
@@ -164,52 +148,52 @@ describe('CodePostDecisionView', () => {
                 latestJobStatus,
             )
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Change requested on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Revision requested on your code ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
         })
 
-        it('renders "Rejected on Apr 02, 2026" for CODE-REJECTED', async () => {
+        it('dates the declined banner title from the decision row', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
             renderView(study, job, [buildEntry({ decision: 'REJECT', createdAt: DECISION_DATE })], latestJobStatus)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Rejected on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Code declined ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
         })
     })
 
     describe('decision banner', () => {
-        it('renders the green code-approved banner with the reviewing org name', async () => {
+        it('renders the success banner with the reviewing org name for CODE-APPROVED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            const banner = screen.getByTestId('decision-banner-code-approved')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'success')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).toHaveTextContent(
-                /has reviewed and approved your study code\. Your code will now proceed to run in the secure enclave\./,
-            )
-            expect(screen.queryByTestId('decision-banner-code-change-requested')).not.toBeInTheDocument()
-            expect(screen.queryByTestId('decision-banner-code-rejected')).not.toBeInTheDocument()
+            expect(banner).toHaveTextContent('Code approved')
+            expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
         })
 
-        it('renders the purple change-requested banner with the right copy', async () => {
+        it('renders the action banner for CODE-CHANGES-REQUESTED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
             renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
 
-            const banner = screen.getByTestId('decision-banner-code-change-requested')
-            expect(banner).toHaveTextContent(
-                /has reviewed your code and has requested information and\/or changes\. Please review the feedback below\. You can update your code and resubmit it to address their comments\./,
-            )
-            expect(screen.queryByTestId('decision-banner-code-approved')).not.toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'action')
+            expect(banner).toHaveTextContent('Revision requested on your code')
+            expect(banner).toHaveTextContent(/requested changes or more information/)
         })
 
-        it('renders the red code-rejected banner with the right copy', async () => {
+        it('renders the decline banner keeping the terminal copy for CODE-REJECTED', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
             renderView(study, job, [buildEntry({ decision: 'REJECT' })], latestJobStatus)
 
-            const banner = screen.getByTestId('decision-banner-code-rejected')
-            expect(banner).toHaveTextContent(
-                /has determined this code does not meet the requirements to proceed\. Please review their feedback below\./,
-            )
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'decline')
+            expect(banner).toHaveTextContent('Code declined')
+            expect(banner).toHaveTextContent(/No further code submissions will be accepted for this study/)
             expect(banner).toHaveTextContent(/If you believe this decision was made in error, contact SafeInsights\./)
-            expect(screen.queryByTestId('decision-banner-code-approved')).not.toBeInTheDocument()
         })
     })
 
@@ -225,11 +209,9 @@ describe('CodePostDecisionView', () => {
             const interact = userEvent.setup()
             await interact.click(toggle)
 
-            // Expanding removes the in-step opener (returns null) and reveals the breakout card's "Hide" toggle.
             await waitFor(() => expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument())
             const collapseToggle = screen.getByTestId('study-code-toggle-collapse')
             expect(collapseToggle).toHaveTextContent('Hide submitted study code')
-            // The file table lives in its own "Submitted code" card, not inside the step header.
             expect(screen.getByRole('heading', { name: 'Submitted code' })).toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
         })
@@ -273,44 +255,19 @@ describe('CodePostDecisionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders a "Previous step" link to studyResearcherAgreements (no ?from=) in all decisions', async () => {
+        it('renders the step nav it is handed, and nothing of its own', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            const previous = screen.getByRole('link', { name: /previous step/i })
-            const href = previous.getAttribute('href') ?? ''
-            expect(href).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
-            expect(href).not.toContain('from=')
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
         })
 
-        it('renders "Go to dashboard" for CODE-APPROVED', async () => {
+        it('renders no step nav at all when the nav is empty', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
-            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus, { nav: {} })
 
-            const dashboard = screen.getByTestId('cta-go-to-dashboard')
-            expect(dashboard).toHaveTextContent('Go to dashboard')
-            expect(dashboard).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-            expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
-        })
-
-        it('renders "Go to dashboard" for CODE-REJECTED', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-REJECTED')
-            renderView(study, job, [buildEntry({ decision: 'REJECT' })], latestJobStatus)
-
-            const dashboard = screen.getByTestId('cta-go-to-dashboard')
-            expect(dashboard).toHaveTextContent('Go to dashboard')
-            expect(dashboard).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-            expect(screen.queryByTestId('cta-edit-and-resubmit')).not.toBeInTheDocument()
-        })
-
-        it('renders "Edit and resubmit" pointing at the resubmit route for CODE-CHANGES-REQUESTED', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
-            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
-
-            const resubmit = screen.getByTestId('cta-edit-and-resubmit')
-            expect(resubmit).toHaveTextContent('Edit and resubmit')
-            expect(resubmit).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/resubmit`)
-            expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('step-navigation')).not.toBeInTheDocument()
         })
     })
 
@@ -319,7 +276,9 @@ describe('CodePostDecisionView', () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [], latestJobStatus)
 
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent('Approved on Apr 02, 2026')
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(
+                `Code approved ${STATUS_ALERT_SEPARATOR} Apr 02, 2026`,
+            )
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
             expect(screen.queryByText('Feedback could not be loaded')).not.toBeInTheDocument()
         })

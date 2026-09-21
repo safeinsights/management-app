@@ -4,7 +4,6 @@ import { Container } from '@mantine/core'
 import { focusedBackgroundArgTypes } from '~ladle/backgrounds'
 import { AlreadySignedInView } from './already-signed-in-view'
 
-// The card shown when an authenticated user opens the sign-in page. Presentational only.
 const meta = { title: 'Pages / Sign in / Already signed in', argTypes: focusedBackgroundArgTypes }
 export default meta
 

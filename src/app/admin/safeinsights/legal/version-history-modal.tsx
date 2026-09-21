@@ -1,0 +1,105 @@
+'use client'
+
+import { useQuery, type FC } from '@/common'
+import { AppModal } from '@/components/modals/app-modal'
+import type { ActionSuccessType } from '@/lib/types'
+import type { LegalDocumentType } from '@/database/types'
+import { legalDocumentFormats, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
+import { Anchor, Stack } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { DataTable, type DataTableColumn } from 'mantine-datatable'
+import { formatInstant, formatDayString } from '@/lib/dates'
+import { PreviewDocument } from './preview-document'
+
+type Scope = { type: LegalDocumentType; orgId?: string; studyId?: string }
+
+type Version = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
+
+// Only scoped types have a counterparty to sign: the DB check constraint leaves both scope
+// columns null for tos/pn.
+const hasSignatory = (scope: Scope) => Boolean(scope.orgId || scope.studyId)
+
+// Rendered in place rather than linked: a signed URL to a .md gives the reader raw source.
+const PreviewLink: FC<{ versionId: string; label: string }> = ({ versionId, label }) => {
+    const [isOpen, { open, close }] = useDisclosure(false)
+
+    return (
+        <>
+            <Anchor component="button" type="button" onClick={open}>
+                View
+            </Anchor>
+            <AppModal isOpen={isOpen} onClose={close} title={label} zIndex={400}>
+                <PreviewDocument versionId={versionId} label={label} />
+            </AppModal>
+        </>
+    )
+}
+
+const documentColumnFor = (type: LegalDocumentType): DataTableColumn<Version> => {
+    if (legalDocumentFormats[type] === 'markdown') {
+        return {
+            accessor: 'id',
+            title: 'Document',
+            render: (version) => <PreviewLink versionId={version.id} label={legalDocumentTypeLabels[type]} />,
+        }
+    }
+
+    return {
+        accessor: 'downloadUrl',
+        title: 'Document',
+        render: (version) => (
+            <Anchor href={version.downloadUrl} target="_blank" rel="noreferrer">
+                View
+            </Anchor>
+        ),
+    }
+}
+
+const SIGNED_ON_COLUMN: DataTableColumn<Version> = {
+    accessor: 'signedAt',
+    title: 'Signed on',
+    render: (version) => formatDayString(version.signedAt),
+}
+
+const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [
+    { accessor: 'versionNumber', title: 'Version' },
+    ...(hasSignatory(scope) ? [SIGNED_ON_COLUMN] : []),
+    { accessor: 'publishedAt', title: 'Published on', render: (version) => formatInstant(version.publishedAt) },
+    { accessor: 'publishedByName', title: 'Published by', render: (version) => version.publishedByName ?? '—' },
+    documentColumnFor(scope.type),
+]
+
+// Fetched on open so a page of agreements does not pull every version and sign every URL up front.
+const useVersionHistory = ({ scope, isOpen }: { scope: Scope; isOpen: boolean }) =>
+    useQuery({
+        queryKey: legalDocumentQueryKeys.versions(scope),
+        queryFn: () => fetchLegalDocumentVersionsAction(scope),
+        enabled: isOpen,
+    })
+
+export const VersionHistoryModal: FC<{
+    isOpen: boolean
+    onClose: () => void
+    title: string
+    scope: Scope
+}> = ({ isOpen, onClose, title, scope }) => {
+    const { data, isLoading } = useVersionHistory({ scope, isOpen })
+    const published = data ? [data.current, ...data.history].filter((version) => version !== null) : []
+
+    return (
+        <AppModal isOpen={isOpen} onClose={onClose} title={title}>
+            <Stack>
+                <DataTable
+                    horizontalSpacing="md"
+                    verticalSpacing="sm"
+                    fetching={isLoading}
+                    idAccessor="id"
+                    noRecordsText="No versions have been published yet."
+                    records={published}
+                    columns={columnsFor(scope)}
+                />
+            </Stack>
+        </AppModal>
+    )
+}

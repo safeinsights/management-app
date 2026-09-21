@@ -38,13 +38,8 @@ interface EnvVarLineProps {
     onRemove: () => void
 }
 
-// Errors are derived from the value, not from per-row `touched` state. These rows are keyed
-// by index, so state living in the row component transfers to whichever row slides into that
-// index when one is deleted, flagging a field the admin never visited and un-flagging the
-// broken one. Deriving keeps the message pinned to the offending row.
-//
-// This cannot fire on a freshly added row: `addEnvVar` now rejects an empty half rather than
-// inserting a blank pair, so any empty row on screen is genuinely invalid (OTTER-647).
+// Derived from the value, not per-row touched state: rows are keyed by index, so touched state
+// would transfer to whichever row slides into that index on delete.
 function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
     return (
         <Group gap="xs" align="flex-start">
@@ -64,7 +59,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 aria-label="Variable value"
                 error={!envVar.value.trim() ? 'Value is required' : null}
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -86,9 +81,8 @@ function StarterCodeSection({
     removeStarterCode: (fileName: string) => void
     error?: string
 }) {
-    // Required on create. It has no input to blur, so "left incomplete" is modeled as
-    // visited-then-left-empty: the dropzone is focusable, and leaving it without files shows
-    // the requirement rather than waiting for submit (OTTER-647).
+    // The dropzone has no input to blur, so "left incomplete" is visited-then-left-empty
+    // (OTTER-647).
     const [touched, setTouched] = useState(false)
     const isMissing = !isEditMode && touched && starterCodes.length === 0
 
@@ -100,7 +94,7 @@ function StarterCodeSection({
 
     return (
         <Box>
-            <Title order={5} mb={4}>
+            <Title order={5} mb="xxs">
                 Starter Code
                 <RequiredIndicator isVisible={!isEditMode} />
             </Title>
@@ -115,6 +109,7 @@ function StarterCodeSection({
                 p="md"
                 onBlur={() => setTouched(true)}
                 aria-invalid={isMissing || !!error || undefined}
+                data-testid="starter-code-dropzone"
             >
                 <Group gap="xs" justify="center">
                     <Dropzone.Accept>
@@ -161,8 +156,8 @@ interface CommandLineRowProps {
     onRemove: () => void
 }
 
-// Value-derived for the same reason as EnvVarLine, and because a command row loaded from an
-// existing environment can arrive empty, which per-row touched state would never flag.
+// Value-derived for the same reason as EnvVarLine, and because a row loaded from an existing
+// environment can arrive empty, which touched state would never flag.
 function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps) {
     return (
         <Group gap="xs" align="flex-start">
@@ -175,7 +170,7 @@ function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps
                 aria-label={`Command for .${ext} files`}
                 error={!cmd.trim() ? 'Command is required' : null}
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -197,8 +192,8 @@ function CommandLinesSection({
     newExtProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
     newCmdProps: ReturnType<ReturnType<typeof useCodeEnvForm>['form']['getInputProps']>
 }) {
-    // No early return on empty: onAdd flags the missing half, and bailing here meant the
-    // "+" button did nothing with no reason given (OTTER-647).
+    // No early return on empty: onAdd flags the missing half, and bailing left "+" doing nothing
+    // with no reason given (OTTER-647).
     const handleAdd = () => {
         const ext = (newExtProps.value as string).trim().toLowerCase().replace(/^\./, '')
         const cmd = (newCmdProps.value as string).trim()
@@ -207,7 +202,7 @@ function CommandLinesSection({
 
     return (
         <Box>
-            <Title order={5} mb={4}>
+            <Title order={5} mb="xxs">
                 Command Lines
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
@@ -227,7 +222,13 @@ function CommandLinesSection({
                 <Group gap="xs" align="flex-start">
                     <TextInput {...newExtProps} placeholder="Extension (e.g. r, py)" style={{ flex: 1 }} />
                     <TextInput {...newCmdProps} placeholder="Command (e.g. Rscript %f)" style={{ flex: 2 }} />
-                    <ActionIcon color="blue" variant="subtle" onClick={handleAdd} mt={4} aria-label="Add command line">
+                    <ActionIcon
+                        color="blue"
+                        variant="subtle"
+                        onClick={handleAdd}
+                        mt="xxs"
+                        aria-label="Add command line"
+                    >
                         <PlusCircleIcon size={16} />
                     </ActionIcon>
                 </Group>
@@ -290,7 +291,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         label="Is testing image"
                         description="Only admins can use testing images"
                         {...form.getInputProps('isTesting', { type: 'checkbox' })}
-                        mb={4}
+                        mb="xxs"
                     />
                 </Group>
                 <TextInput
@@ -342,7 +343,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 />
                 <Divider />
                 <Box>
-                    <Title order={5} mb={4}>
+                    <Title order={5} mb="xxs">
                         Environment Variables
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">
@@ -371,7 +372,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                                 color="blue"
                                 variant="subtle"
                                 onClick={addEnvVar}
-                                mt={4}
+                                mt="xxs"
                                 aria-label="Add environment variable"
                             >
                                 <PlusCircleIcon size={16} />
@@ -381,7 +382,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 </Box>
                 <Divider />
                 <Box>
-                    <Title order={5} mb={4}>
+                    <Title order={5} mb="xxs">
                         Example Data
                     </Title>
                     <Text size="xs" c="dimmed" mb="sm">

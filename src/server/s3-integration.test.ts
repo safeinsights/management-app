@@ -1,10 +1,5 @@
-// Exercises S3 operations (checksums, presigned URLs, batch deletes) against
-// the SeaweedFS S3-compatible API. MinIO was previously used but removed (unmaintained).
-//
-// Locally: tests skip cleanly when SeaweedFS isn't reachable so devs without
-// `docker compose up seaweedfs` aren't blocked. On CI (CI env var set), the
-// probe instead throws — a missing service is a CI setup bug, not a
-// "skip and move on" condition. See tests/s3.helpers.ts.
+// Skips locally when SeaweedFS is unreachable; on CI the probe throws, since a missing service
+// is a setup bug.
 
 import { describe, it, expect, afterAll } from 'vitest'
 import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'
@@ -20,6 +15,7 @@ import {
     createSignedUploadUrl,
 } from './aws'
 import { s3Available } from '@/tests/s3.helpers'
+import type { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Readable } from 'stream'
 
 const TEST_PREFIX = `s3-integration-test-${Date.now()}/`
@@ -39,6 +35,27 @@ async function readableToString(readable: Readable): Promise<string> {
         chunks.push(Buffer.from(chunk))
     }
     return Buffer.concat(chunks).toString('utf-8')
+}
+
+// A POST policy's signature covers the policy document, not the Host header, so re-pointing the
+// host-facing form at the internal endpoint still exercises the real signed policy.
+function reachableFromTests(url: string) {
+    const internal = process.env.S3_ENDPOINT
+    if (!internal) return url
+
+    const target = new URL(url)
+    target.host = new URL(internal).host
+    return target.toString()
+}
+
+async function postSignedUpload(upload: PresignedPost, body: string) {
+    const form = new FormData()
+    for (const [name, value] of Object.entries(upload.fields)) {
+        form.append(name, value)
+    }
+    form.append('file', new File([body], 'agreement.pdf'))
+
+    return await fetch(reachableFromTests(upload.url), { method: 'POST', body: form })
 }
 
 async function cleanupTestObjects(client: S3Client, bucket: string) {
@@ -115,13 +132,19 @@ describe.skipIf(!s3Available)('S3 integration', () => {
         expect(url).toMatch(/^https?:\/\//)
     })
 
-    it('generates a presigned POST policy', async () => {
-        const path = `${TEST_PREFIX}presigned-post/`
+    // The key ends in agreement.pdf because S3 substitutes ${filename} from the form part's own
+    // filename, which only resolves if that part is a File. A bare Blob lands the object at "blob".
+    it('signs a presigned POST that lands the object under the signed prefix', async () => {
+        const prefix = `${TEST_PREFIX}presigned-post`
 
-        const result = await createSignedUploadUrl(path)
+        const upload = await createSignedUploadUrl(prefix)
 
-        expect(result.url).toMatch(/^https?:\/\//)
-        expect(result.fields).toBeDefined()
+        expect(upload.url).toMatch(/^https?:\/\//)
+
+        const response = await postSignedUpload(upload, 'starter code bytes')
+        expect(response.ok).toBe(true)
+
+        expect(await readableToString(await fetchS3File(`${prefix}/agreement.pdf`))).toBe('starter code bytes')
     })
 
     it('deletes a single object with DeleteObject', async () => {

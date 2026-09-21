@@ -73,9 +73,8 @@ describe('Study Results Approve/Reject buttons', async () => {
     })
 
     it('can approve results', async () => {
-        // Approve re-wraps each file's AES key for the lab researchers. Use real keys (so
-        // wrapAesKey accepts the SPKI) and reuse the keyed session user as researcher so no
-        // fake-key user pollutes the recipient set. The selected file must be a real row.
+        // Approve re-wraps each file's AES key, so wrapAesKey needs real keys and a recipient set
+        // free of fake-key users.
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
         const { latestJobWithStatus: job } = await insertTestStudyJobData({
             org,
@@ -118,7 +117,6 @@ describe('Study Results Approve/Reject buttons', async () => {
             expect(latestJob.statusChanges.find((sc) => sc.status === 'FILES-APPROVED')).not.toBeUndefined()
         })
 
-        // The re-wrapped researcher key was persisted against the real file row.
         const wrappedKeys = await db
             .selectFrom('studyJobFileRecipientKey')
             .select('fingerprint')

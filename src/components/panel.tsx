@@ -1,6 +1,7 @@
 import { Flex, FlexProps, Paper, Text, Anchor, useMantineTheme, Title } from '@mantine/core'
 import { CheckCircleIcon, ProhibitIcon } from '@phosphor-icons/react/dist/ssr'
 import React from 'react'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type PanelProps = FlexProps & {
     title: string
@@ -29,12 +30,20 @@ export const SuccessPanel: React.FC<PanelProps & { onContinue(): void }> = ({
     const theme = useMantineTheme()
 
     return (
-        <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold" {...flexProps}>
-            <CheckCircleIcon size={28} color={theme.colors.green[9]} weight="fill" />
-            <Text c="green.9" size="md" fw="bold">
+        <Flex
+            direction="column"
+            justify="center"
+            align="center"
+            gap="xs"
+            mb="sm"
+            fw={fontWeight.semibold}
+            {...flexProps}
+        >
+            <CheckCircleIcon size={28} color={theme.colors.green[7]} weight="fill" />
+            <Text c={semanticColor('success.text')} size="md" fw={fontWeight.bold}>
                 {title}
             </Text>
-            <Anchor component="button" mt={16} size="sm" c="blue.8" fw={600} onClick={onContinue}>
+            <Anchor component="button" mt="md" size="sm" c="blue.8" fw={fontWeight.semibold} onClick={onContinue}>
                 {children}
             </Anchor>
         </Flex>
@@ -50,12 +59,20 @@ export const ErrorPanel: React.FC<PanelProps & { onContinue(): void }> = ({
     const theme = useMantineTheme()
 
     return (
-        <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold" {...flexProps}>
-            <ProhibitIcon size={28} color={theme.colors.red[9]} weight="fill" />
-            <Text c="red.9" size="md" fw="bold">
+        <Flex
+            direction="column"
+            justify="center"
+            align="center"
+            gap="xs"
+            mb="sm"
+            fw={fontWeight.semibold}
+            {...flexProps}
+        >
+            <ProhibitIcon size={28} color={theme.colors.red[7]} weight="fill" />
+            <Text c={semanticColor('error.text')} size="md" fw={fontWeight.bold}>
                 {title}
             </Text>
-            <Anchor component="button" mt={16} size="sm" c="blue.8" fw={600} onClick={onContinue}>
+            <Anchor component="button" mt="md" size="sm" c="blue.8" fw={fontWeight.semibold} onClick={onContinue}>
                 {children}
             </Anchor>
         </Flex>

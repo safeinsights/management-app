@@ -12,8 +12,7 @@ import type { StudyJobStatus } from '@/database/types'
 import StudyViewCode from './page'
 import { CodePostDecisionView } from '../code-post-decision-view'
 
-// OTTER-614: /view/code is the read-only code step — reachable from a results study (whose /view
-// shows the results screen) and 404s for any study that hasn't reached the code stage.
+// OTTER-614: /view/code is the read-only code step, and 404s for a study that has not reached it.
 
 const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
     const job = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).executeTakeFirstOrThrow()
@@ -30,7 +29,6 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
         .execute()
 }
 
-// A CODE-APPROVED study with the given trailing job statuses appended (execution/results substatuses).
 const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
     const { study, job } = await insertTestStudyJobData({
@@ -56,7 +54,7 @@ const seedCodeStudy = async (statuses: StudyJobStatus[]) => {
 const seedResultsStudy = () => seedCodeStudy(['FILES-APPROVED'])
 
 describe('StudyViewCode (/view/code)', () => {
-    it('shows the approved-code page with a "Proceed to step 5" forward for a results study', async () => {
+    it('shows the approved-code page with a "Next step" forward for a results study', async () => {
         const { org, study } = await seedResultsStudy()
 
         const page = await StudyViewCode({
@@ -66,11 +64,11 @@ describe('StudyViewCode (/view/code)', () => {
 
         expect(page?.type).toBe(CodePostDecisionView)
         // Forward goes to plain /view, which resolves to the results screen for a results study.
-        expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view`)
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
 
         renderWithProviders(page!)
-        expect(screen.getByTestId('cta-proceed-to-results')).toHaveTextContent('Proceed to step 5')
-        expect(screen.queryByTestId('cta-go-to-dashboard')).not.toBeInTheDocument()
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
     it('threads returnTo=org onto the forward link and dashboardHref', async () => {
@@ -81,12 +79,46 @@ describe('StudyViewCode (/view/code)', () => {
             searchParams: Promise.resolve({ returnTo: 'org' }),
         })
 
-        expect(page?.props.dashboardHref).toBe(`/${org.slug}/dashboard`)
-        expect(page?.props.resultsHref).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
     })
 
-    // OTTER-640: submitted code stays accessible behind the collapsed control while execution or an
-    // unreviewed error is presented as "Code approved".
+    // /view/code stays on this screen while the job runs, but plain /view resolves to the
+    // outputs-pending screen (OTTER-686), so there is a step to move forward to.
+    it('forwards to /view once the enclave is running the job', async () => {
+        const { org, study } = await seedCodeStudy(['JOB-RUNNING'])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.type).toBe(CodePostDecisionView)
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
+    })
+
+    // /view serves the outputs step from approval onward (OTTER-673), so the forward link never
+    // points at the page it sits on, even before the enclave picks the job up.
+    it('offers "Next step" before the enclave picks the job up', async () => {
+        const { org, study } = await seedCodeStudy([])
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+            searchParams: Promise.resolve({}),
+        })
+
+        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
+
+        renderWithProviders(page!)
+        expect(screen.getByTestId('cta-next-step')).toHaveTextContent('Next step')
+        expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
+    })
+
+    // OTTER-640: submitted code stays reachable behind the collapsed control while an unreviewed
+    // error is presented as "Code approved".
     it.each([
         ['the code is provisioning', ['JOB-PROVISIONING']],
         ['the code is packaging', ['JOB-PACKAGING']],

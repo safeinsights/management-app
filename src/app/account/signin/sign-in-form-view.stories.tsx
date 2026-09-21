@@ -7,11 +7,6 @@ import { Routes } from '@/lib/routes'
 import { focusedBackgroundArgTypes } from '~ladle/backgrounds'
 import { SignInFormView, type SignInFormValues } from './sign-in-form-view'
 
-// The sign-in page-view. SignInFormView is presentational: the real container owns Clerk's
-// useSignIn + MFA + redirect logic. Here a story creates a plain Mantine form (no Clerk/server
-// submit), passes a no-op onSubmit, and varies the injected state (empty/invalid vs. valid vs.
-// Clerk error banner). The navy focused shell is approximated with a backdrop so the card reads
-// in context without importing the Clerk-coupled FocusedLayoutShell.
 const meta = { title: 'Pages / Sign in', argTypes: focusedBackgroundArgTypes }
 export default meta
 

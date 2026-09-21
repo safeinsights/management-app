@@ -2,11 +2,11 @@
 
 import { createContext, createElement, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
 import { WebSocketStatus } from '@hocuspocus/provider'
 
 import { Routes } from '@/lib/routes'
-import { isActionError } from '@/lib/errors'
+import { ActionFailure, isActionError } from '@/lib/errors'
+import { reportError, showOrReplaceNotification } from '@/components/errors'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -15,121 +15,168 @@ import type { StudyJobStatus, StudyStatus } from '@/database/types'
 export type EditableSnapshot = {
     status: StudyStatus
     latestJobStatus: StudyJobStatus | null
+    /** Every status row of the job named by `studyJobId`, oldest first; empty when none was named. */
+    jobStatuses: readonly StudyJobStatus[]
+}
+
+// `id` lets a screen share one notification with its own live-event path, so a race that trips both
+// shows a single notice.
+export type KickOutNotice = { title: string; message: string; id?: string }
+
+export const STATUS_CHECK_FAILURE_TITLE = 'Failed to check the review status'
+
+const PROPOSAL_SUBMITTED_NOTICE: KickOutNotice = {
+    title: 'Submission complete',
+    message: 'This proposal has already been submitted. No further edits are allowed at this point.',
+}
+
+const REVIEW_DECIDED_NOTICE: KickOutNotice = {
+    title: 'Decision submitted',
+    message: 'A decision has already been submitted for this review. No further edits are allowed at this point.',
+}
+
+// Follows the screen the hook redirects to, so no caller can pick the wording of the other kind of
+// round. A screen that shares an id with its own live event still passes its own.
+const DEFAULT_NOTICE: Record<Args['redirectTarget'], KickOutNotice> = {
+    studySubmitted: PROPOSAL_SUBMITTED_NOTICE,
+    studyReview: REVIEW_DECIDED_NOTICE,
 }
 
 type Args = {
     studyId: string
     orgSlug: string
-    /** Statuses where editing is still allowed. Mismatch triggers redirect. */
-    editableStatuses: readonly string[]
     /**
-     * Optional predicate. When supplied, takes precedence over `editableStatuses`
-     * and lets callers (e.g. code review) gate on both study status and latest
-     * job status. Allowlist remains the default for backward-compatible callers.
+     * The job this screen reviews. Set it when the round is closed by a job status rather than the
+     * study status: the newest status row alone can hide a decision, because an asynchronous
+     * CODE-SCANNED row may land after FILES-APPROVED on the same job.
      */
+    studyJobId?: string
+    editableStatuses: readonly string[]
+    /** Takes precedence over `editableStatuses`, to gate on latest job status as well. */
     isEditable?: (snapshot: EditableSnapshot) => boolean
-    /** Where to send the user when status no longer matches. */
     redirectTarget: 'studySubmitted' | 'studyReview'
+    /** Overrides the default wording for a round that closed without this tab seeing the live event. */
+    notice?: KickOutNotice
     enabled?: boolean
 }
 
-/** Imperative trigger exposed via context so the editor can request a kick-out check. */
-type KickOutTrigger = () => void
+// A caller that shows its own message for a failed request passes `reportFailure: false`, so the
+// reader is not told twice about one failure.
+type KickOutOptions = { reportFailure?: boolean }
+
+/** Resolves true when the screen was closed, so a caller can drop its own failure message. */
+type KickOutTrigger = (options?: KickOutOptions) => Promise<boolean>
 
 const KickOutContext = createContext<KickOutTrigger | null>(null)
 
-/**
- * Returns a stable function that, when called, triggers the same kick-out check
- * as a websocket reconnect. The editor calls this when it observes a server
- * `STUDY_NOT_EDITABLE` auth failure on a per-document handshake — that path is
- * a separate signal from the shared websocket's status, so it needs its own
- * trigger to drive the redirect.
- *
- * Returns a no-op when there is no kick-out hook mounted in the tree (the
- * collaboration feature flag is off, or the editor renders outside the proposal
- * / review pages).
- */
+// For the editor's per-document `STUDY_NOT_EDITABLE` auth failure, which is a separate signal from
+// the shared socket's status. A no-op when no kick-out hook is mounted.
 export function useTriggerStudyKickOut(): KickOutTrigger {
     const trigger = useContext(KickOutContext)
     return trigger ?? noop
 }
 
-const noop: KickOutTrigger = () => {}
+const noop: KickOutTrigger = async () => false
 
-/**
- * Backstop for the multi-user kick-out flow.
- *
- * The primary path is the Hocuspocus stateless event (see useSubmissionRedirectListener),
- * but stateless events are fire-and-forget and not replayed on reconnect. This hook fires
- * one HTTP status check whenever the shared websocket transitions back into Connected,
- * which catches the two scenarios the stateless path can't:
- *
- *   1. Tab that was disconnected when a peer submitted — reconnect re-auth would already
- *      throw `STUDY_NOT_EDITABLE`, but we keep this hook as a defence-in-depth check that
- *      fires even if the auth handshake somehow succeeds (e.g. brief race during the
- *      status flip on the server).
- *   2. Tab opened cold against a study a peer has already submitted, where the broadcast
- *      happened before our listener attached.
- *
- * Crucially this is NOT a poll: zero requests on a stable connection. One request per
- * reconnect cycle, plus one on initial connect, plus on-demand when the editor surfaces
- * a STUDY_NOT_EDITABLE auth failure.
- */
+// Backstop for the kick-out flow: stateless events are not replayed, so a tab that was disconnected
+// or opened cold would miss a peer's submission.
 export function useStudyStatusOnReconnect({
     studyId,
+    studyJobId,
     orgSlug,
     editableStatuses,
     isEditable,
     redirectTarget,
+    notice = DEFAULT_NOTICE[redirectTarget],
     enabled = true,
 }: Args) {
     const router = useRouter()
     const socket = useYjsWebsocket()
     const hasRedirectedRef = useRef(false)
-    // Track whether the next 'connected' event should trigger a status check.
-    // True on the first connect after mount; thereafter only true after the socket
-    // dropped at least once. Without this latch we'd fire on every status churn
-    // even though `connected` can re-emit without a real disconnect in between.
+    // A latch, because `connected` can re-emit without a real disconnect in between.
     const wasDisconnectedRef = useRef(true)
 
-    // Stable refs guard against re-running the effect when callers pass inline
-    // arrays / objects on each render. The contract is just "check once on each
-    // connect transition" and that doesn't depend on identity churn.
+    // Refs so inline arrays/objects from callers don't re-run the effect on every render.
     const editableStatusesRef = useRef(editableStatuses)
     const isEditableRef = useRef(isEditable)
     const orgSlugRef = useRef(orgSlug)
     const redirectTargetRef = useRef(redirectTarget)
+    const noticeRef = useRef(notice)
     useEffect(() => {
         editableStatusesRef.current = editableStatuses
         isEditableRef.current = isEditable
         orgSlugRef.current = orgSlug
         redirectTargetRef.current = redirectTarget
-    }, [editableStatuses, isEditable, orgSlug, redirectTarget])
+        noticeRef.current = notice
+    }, [editableStatuses, isEditable, orgSlug, redirectTarget, notice])
 
-    const checkStatus = useCallback(async () => {
-        if (hasRedirectedRef.current) return
-        const result = await getStudyStatusAction({ studyId })
-        if (isActionError(result)) return
-        const predicate = isEditableRef.current
-        if (predicate) {
-            if (predicate({ status: result.status, latestJobStatus: result.latestJobStatus })) return
-        } else if (editableStatusesRef.current.includes(result.status)) {
-            return
-        }
+    const checkStatus = useCallback(
+        async ({ reportFailure = true }: KickOutOptions = {}) => {
+            // True rather than false: a redirect is already under way, so a caller must not add its own
+            // message on top of it.
+            if (hasRedirectedRef.current) return true
 
-        hasRedirectedRef.current = true
-        notifications.show({
-            color: 'blue',
-            title: 'Submission complete',
-            message: 'This proposal has already been submitted. No further edits are allowed at this point.',
-            autoClose: NOTIFICATION_DISPLAY_MS,
-        })
-        if (redirectTargetRef.current === 'studySubmitted') {
-            router.push(Routes.studySubmitted({ orgSlug: orgSlugRef.current, studyId }))
-        } else {
-            router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
+            // Only the transport throws, which is what happens with no network or with an action id a
+            // new build no longer holds; a server-side failure arrives as an envelope. Either way this
+            // tab cannot tell whether the round is open, which is not the same answer as "it is", so
+            // the failure is reported rather than assumed away (OTTER-726).
+            let result: Awaited<ReturnType<typeof getStudyStatusAction>>
+            try {
+                result = await getStudyStatusAction({ studyId, studyJobId })
+            } catch (error) {
+                if (reportFailure) reportError(error, STATUS_CHECK_FAILURE_TITLE)
+                return false
+            }
+            if (isActionError(result)) {
+                if (reportFailure) reportError(new ActionFailure(result.error), STATUS_CHECK_FAILURE_TITLE)
+                return false
+            }
+
+            const predicate = isEditableRef.current
+            if (predicate) {
+                const snapshot: EditableSnapshot = {
+                    status: result.status,
+                    latestJobStatus: result.latestJobStatus,
+                    jobStatuses: result.jobStatuses,
+                }
+                if (predicate(snapshot)) return false
+            } else if (editableStatusesRef.current.includes(result.status)) {
+                return false
+            }
+
+            hasRedirectedRef.current = true
+            showOrReplaceNotification({
+                color: 'blue',
+                ...noticeRef.current,
+                autoClose: NOTIFICATION_DISPLAY_MS,
+            })
+            if (redirectTargetRef.current === 'studySubmitted') {
+                router.push(Routes.studySubmitted({ orgSlug: orgSlugRef.current, studyId }))
+            } else {
+                router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
+            }
+            // An editable screen and the screen that replaces it can answer the same URL, where push
+            // alone is a no-op that leaves the closed form mounted.
+            router.refresh()
+            return true
+        },
+        [studyId, studyJobId, router],
+    )
+
+    // A tab that stayed connected while it was in the background received no event if it had no
+    // editor mounted, and no status change either. Asking when the reviewer comes back to it is
+    // the moment that matters.
+    useEffect(() => {
+        if (!enabled) return undefined
+
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') void checkStatus()
         }
-    }, [studyId, router])
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+        }
+    }, [enabled, checkStatus])
 
     useEffect(() => {
         if (!enabled || !socket) return undefined
@@ -145,8 +192,7 @@ export function useStudyStatusOnReconnect({
         }
 
         socket.on('status', onStatus)
-        // If the socket is already connected when we mount (common on warm navigation
-        // between proposal/review pages), fire one immediate check.
+        // Already-connected on mount is common on warm navigation between proposal/review pages.
         if (socket.status === WebSocketStatus.Connected) {
             wasDisconnectedRef.current = false
             void checkStatus()
@@ -162,11 +208,6 @@ export function useStudyStatusOnReconnect({
 
 type ProviderProps = Args & { children: ReactNode }
 
-/**
- * Wraps children with a kick-out context so descendant editors can call
- * `useTriggerStudyKickOut()` to request the check imperatively. Combines the
- * hook + provider in one place to keep call sites tidy.
- */
 export function StudyKickOutProvider({ children, ...args }: ProviderProps) {
     const { triggerKickOut } = useStudyStatusOnReconnect(args)
     return createElement(KickOutContext.Provider, { value: triggerKickOut }, children)

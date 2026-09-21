@@ -1,38 +1,9 @@
 import { z } from 'zod'
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+import { httpUrl, httpUrlOptionalItem } from './url'
 
 const trimmedRequired = (label: string) => z.string().trim().min(1, `${label} is a required field.`)
 
-const httpUrl = (label: string) =>
-    z
-        .string()
-        .trim()
-        .min(1, `${label} is a required field.`)
-        .url(`Please enter a valid URL (e.g., must start with http:// or https://).`)
-        .refine((v) => v.startsWith('http://') || v.startsWith('https://'), {
-            message: `Please enter a valid URL (e.g., must start with http:// or https://).`,
-        })
-
-// For form fields that use empty string as "unset" (e.g., array fields with fixed slots).
-const httpUrlOptionalItem = (label: string) =>
-    z
-        .string()
-        .trim()
-        .refine((v) => !v || v.startsWith('http://') || v.startsWith('https://'), {
-            message: `${label}: please enter a valid URL (must start with http:// or https://).`,
-        })
-        .refine((v) => !v || z.string().url().safeParse(v).success, {
-            message: `${label}: please enter a valid URL.`,
-        })
-
-// -----------------------------------------------------------------------------
-// Personal information
-// - Email is required but NOT editable (source of truth is Clerk).
-// -----------------------------------------------------------------------------
-
+// Email is required but not editable; Clerk is the source of truth.
 export const personalInfoSchema = z.object({
     firstName: z
         .string()
@@ -48,10 +19,6 @@ export const personalInfoSchema = z.object({
 
 export type PersonalInfoValues = z.infer<typeof personalInfoSchema>
 
-// -----------------------------------------------------------------------------
-// Highest level of education
-// -----------------------------------------------------------------------------
-
 export const educationSchema = z.object({
     educationalInstitution: trimmedRequired('Educational institution'),
     degree: trimmedRequired('Degree'),
@@ -60,10 +27,6 @@ export const educationSchema = z.object({
 })
 
 export type EducationValues = z.infer<typeof educationSchema>
-
-// -----------------------------------------------------------------------------
-// Institutional information (positions)
-// -----------------------------------------------------------------------------
 
 export const positionSchema = z.object({
     affiliation: trimmedRequired('Institution or organization affiliation'),
@@ -79,10 +42,6 @@ export const positionsSchema = z.object({
 
 export type PositionsValues = z.infer<typeof positionsSchema>
 
-// -----------------------------------------------------------------------------
-// Research details
-// -----------------------------------------------------------------------------
-
 export const researchDetailsSchema = z.object({
     researchInterests: z
         .array(z.string().trim().min(1))
@@ -90,7 +49,6 @@ export const researchDetailsSchema = z.object({
         .max(5, 'You can include up to five area(s) of research interest.'),
     detailedPublicationsUrl: httpUrl('Detailed publications URL'),
     featuredPublicationsUrls: z
-        // Optional field: allow empty strings in the UI and validate only when provided.
         .array(httpUrlOptionalItem('Featured publications URL'))
         .max(2, 'You can include up to two featured publications URLs.')
         .default([]),

@@ -71,8 +71,7 @@ describe('useCodeReviewMutation', () => {
 
         await waitFor(() => expect(constructed).toHaveLength(1))
         const handle = constructed[0]
-        // Broadcast provider is keyed by study_job.id so future code-resubmits
-        // (OTTER-558) get a fresh room. studyId is the action-call payload only.
+        // Keyed by study_job.id so future code-resubmits get a fresh room (OTTER-558).
         expect(handle.name).toBe(`code-review-feedback-${job.id}`)
 
         await act(async () => {
@@ -135,9 +134,8 @@ describe('useCodeReviewMutation', () => {
 
     it('action error: no navigation, no broadcast', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-        // Force the action's job-status guard to reject: eligibility keys on job status
-        // alone (OTTER-552), so record a decision on the job. The latest code change is
-        // then a decision, not a submission, and claimInitialCodeReviewJob rejects.
+        // Eligibility keys on job status alone (OTTER-552), so recording a decision makes the
+        // latest code change a decision rather than a submission, which the claim rejects.
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })

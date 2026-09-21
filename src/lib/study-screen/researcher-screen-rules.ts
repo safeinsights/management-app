@@ -1,17 +1,35 @@
 import type { ScreenRuleEntry } from './screen-rules'
-import { awaitingFilesDecisionOnError } from './state'
+import {
+    isAwaitingOutputsReviewOutcome,
+    isErroredOutputsSharedOutcome,
+    isFeedbackOnlyOutcome,
+    isOutputsSharedOutcome,
+} from './state'
 
-// Researcher Tier-2 rules. Order = display precedence (see spec §6). First match wins. Each entry
-// pairs the screen it routes to with the condition that selects it; the leaf view owns its own
-// back/forward buttons.
+// Researcher Tier-2 rules. Order = display precedence. First match wins. Each entry pairs the screen
+// it routes to with the condition that selects it; the leaf view owns its own back/forward buttons.
+// The live contract is the researcher table in docs/study-screens-logic.md — extend from there.
+
 export const RESEARCHER_SCREEN_RULES = [
-    // Results have landed: results-only Study Details. A bare JOB-ERRORED is excluded until a reviewer
-    // records a FILES-* decision (awaitingFilesDecisionOnError) — until then the researcher
-    // holds on the code-approved page below, matching the "Code approved" pill (OTTER-598, 43898).
-    ['study-results', { when: (s) => s.hasResults && !awaitingFilesDecisionOnError(s) }],
+    // These three claim every FILES-* decision. isAwaitingOutputsReviewOutcome excludes decided runs
+    // in its own predicate, so #4 no longer competes for them and this group's position carries no
+    // meaning; they are mutually disjoint apart from an errored job holding both FILES-* rows.
+    ['outputs-errored-shared', { when: isErroredOutputsSharedOutcome }],
+    ['outputs-feedback', { when: isFeedbackOnlyOutcome }],
+    ['outputs-shared', { when: isOutputsSharedOutcome }],
 
-    // Code approved (or actively running): the approved/executing code screen.
-    ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' || s.isExecuting }],
+    // A clean completed run the reviewer has not decided on: the researcher waits on the outputs step
+    // (OTTER-785). A bare JOB-ERRORED is excluded until a reviewer records a FILES-* decision, so the
+    // error is never disclosed before triage (OTTER-598); it falls through to outputs-pending.
+    ['outputs-awaiting-review', { when: isAwaitingOutputsReviewOutcome }],
+
+    // Code approved: the outputs step ("code processing") from the moment of approval, not only once
+    // the enclave reports a stage (OTTER-673, spec: "Code approved" always has a Next step). The gap
+    // between CODE-APPROVED and JOB-PACKAGING, and a packaging failure awaiting triage, both land
+    // here rather than holding the researcher on the code screen with nowhere to go.
+    ['outputs-pending', { when: (s) => s.codeDecision === 'CODE-APPROVED' }],
+    // The approved code screen is reached only by walking back (/view/code, resolveResearcherCodeScreen).
+    ['code-approved', { when: (s) => s.codeDecision === 'CODE-APPROVED' }],
     // Code rejected or changes requested: read-only code feedback.
     [
         'code-feedback',

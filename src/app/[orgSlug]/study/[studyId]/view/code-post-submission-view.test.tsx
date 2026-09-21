@@ -14,8 +14,20 @@ import {
 } from '@/tests/unit.helpers'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { Routes } from '@/lib/routes'
+import type { StepNav } from '@/lib/study-screen'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { CodePostSubmissionView } from './code-post-submission-view'
+// Which buttons a decision/state earns is resolveStepNav's job (see lib/study-screen/nav.test.ts);
+// these views only have to render the nav they are handed.
+const NAV: StepNav = {
+    back: { label: 'Previous step', href: '/prev' as Route, variant: 'subtle', testId: 'cta-previous-step' },
+    forward: {
+        label: 'Back to my studies',
+        href: '/dashboard' as Route,
+        variant: 'solid',
+        testId: 'cta-back-to-my-studies',
+    },
+}
 
 const ORG_SLUG = 'openstax'
 const REVIEWING_ORG_NAME = 'OpenStax Reviewers'
@@ -59,9 +71,8 @@ function renderView(
     study: SelectedStudy,
     job: LatestJobForStudy,
     overrides: {
-        dashboardHref?: Route
         reviewingOrgName?: string
-        returnTo?: 'org'
+        nav?: StepNav
         submissionVersion?: number
         feedbackEntries?: CodeReviewFeedbackEntry[]
         isUnderReview?: boolean
@@ -73,8 +84,7 @@ function renderView(
             study={study}
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
-            dashboardHref={overrides.dashboardHref}
-            returnTo={overrides.returnTo}
+            nav={overrides.nav ?? NAV}
             submissionVersion={overrides.submissionVersion ?? 1}
             feedbackEntries={overrides.feedbackEntries ?? []}
             isUnderReview={overrides.isUnderReview}
@@ -127,54 +137,46 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 })
 
 describe('CodePostSubmissionView', () => {
-    describe('breadcrumbs and header', () => {
-        it('renders STEP 4, page title "Study proposal", section title "Study code", and study title', async () => {
+    describe('header', () => {
+        it('renders STEP 4, the page title, and the section title "Study code"', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
             expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 1, name: 'Study proposal' })).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
-            expect(screen.getByText(/Title:\s*Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
-        it('renders "Submitted on {date}" using the CODE-SUBMITTED status timestamp', async () => {
+        it('dates the banner title from the CODE-SUBMITTED status timestamp', async () => {
             const { study, job } = await setupSubmittedStudy()
-            renderView(study, job)
+            renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 
-            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
-                /^Submitted on \w{3} \d{2}, \d{4}$/,
+            expect(screen.getByTestId('status-alert').textContent).toMatch(
+                new RegExp(`Code submitted to ${REVIEWING_ORG_NAME} \\${STATUS_ALERT_SEPARATOR} \\w{3} \\d{2}, \\d{4}`),
             )
         })
     })
 
     describe('banner', () => {
-        it('renders the yellow status banner with the data partner name and the Figma copy', async () => {
+        it('renders the informative banner with the data partner name and the AC copy', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { reviewingOrgName: REVIEWING_ORG_NAME })
 
-            const banner = screen.getByTestId('code-under-review-banner')
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveAttribute('data-variant', 'informative')
+            expect(banner).toHaveTextContent('Code submitted to')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).toHaveTextContent(/AI-generated summary of its behavior/)
-            expect(banner).toHaveTextContent(/7-10 business days/)
-            expect(banner).toHaveTextContent(/email notifications about updates/)
-        })
-
-        it('renders the banner with the AC-specified background color #FFF9E5', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job)
-
-            const banner = screen.getByTestId('code-under-review-banner')
-            expect(banner).toHaveStyle({ backgroundColor: '#FFF9E5' })
+            expect(banner).toHaveTextContent(/AI summary of its behavior/)
+            expect(banner).toHaveTextContent(/An email notification will be sent/)
+            expect(banner).toHaveTextContent(/Reviews typically take 7 to 10 days/)
         })
 
         it('hides the under-review banner when isUnderReview is false (reached via results-page Previous)', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { isUnderReview: false })
 
-            expect(screen.queryByTestId('code-under-review-banner')).not.toBeInTheDocument()
-            // The rest of the page still renders (e.g. the submitted timestamp).
-            expect(screen.getByTestId('code-submitted-timestamp')).toBeInTheDocument()
+            expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
         })
     })
 
@@ -193,7 +195,6 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // The outer "View full study code" toggle unmounts once expanded.
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
             expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
             expect(
@@ -215,15 +216,12 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // Star is decorative only (aria-label set, but not a button)
             expect(screen.getByLabelText('Main file')).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /set .* as main file/i })).not.toBeInTheDocument()
 
-            // No delete/trash control
             expect(screen.queryByRole('button', { name: /remove main\.R/i })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /remove helper\.R/i })).not.toBeInTheDocument()
 
-            // Eye icons render as buttons that open the shared FilePreviewModal
             expect(screen.getByRole('button', { name: 'View main.R' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'View helper.R' })).toBeInTheDocument()
         })
@@ -235,8 +233,6 @@ describe('CodePostSubmissionView', () => {
             const interact = userEvent.setup()
             await interact.click(screen.getByTestId('study-code-toggle'))
 
-            // After expansion the outer "View full study code" toggle unmounts; only the
-            // in-section "Hide full study code" anchor remains.
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
 
             await interact.click(screen.getByText('Hide full study code'))
@@ -299,53 +295,36 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('navigation', () => {
-        it('renders Back as a link to studyResearcherAgreements (no ?from=) and Go to dashboard linking to dashboardHref', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job, { dashboardHref: Routes.orgDashboard({ orgSlug: ORG_SLUG }) })
-
-            const backLink = screen.getByRole('link', { name: /back/i })
-            const backHref = backLink.getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
-            expect(backHref).not.toContain('from=')
-
-            const dashboardButton = screen.getByRole('link', { name: 'Go to dashboard' })
-            expect(dashboardButton).toHaveAttribute('href', '/openstax/dashboard')
-        })
-
-        it('threads returnTo=org onto the Back → agreements link so org scope survives the hop', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job, { returnTo: 'org' })
-
-            const backHref = screen.getByRole('link', { name: /back/i }).getAttribute('href') ?? ''
-            expect(backHref).toContain(`/${ORG_SLUG}/study/${study.id}/agreements/researcher`)
-            expect(backHref).toContain('returnTo=org')
-        })
-
-        it('falls back to Routes.dashboard when no dashboardHref is provided', async () => {
+        it('renders the step nav it is handed, and nothing of its own', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
-            expect(screen.getByRole('link', { name: 'Go to dashboard' })).toHaveAttribute('href', '/dashboard')
+            expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('href', '/prev')
+            expect(screen.getByTestId('cta-back-to-my-studies')).toHaveAttribute('href', '/dashboard')
+        })
+
+        it('renders no step nav at all when the nav is empty', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job, { nav: {} })
+
+            expect(screen.queryByTestId('step-navigation')).not.toBeInTheDocument()
         })
     })
 
     describe('resubmission (v2+)', () => {
-        it('renders the v2 heading, "Resubmitted on" timestamp, and "has been resubmitted" banner', async () => {
+        it('renders the v2 heading and a versioned resubmitted banner title', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, {
                 submissionVersion: 2,
+                reviewingOrgName: REVIEWING_ORG_NAME,
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code v2.0' })).toBeInTheDocument()
-            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(
-                /^Resubmitted on \w{3} \d{2}, \d{4}$/,
-            )
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code v2.0' })).toBeInTheDocument()
 
-            const banner = screen.getByTestId('code-under-review-banner')
-            expect(banner).toHaveTextContent(/has been resubmitted to/)
-            expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
-            expect(banner).not.toHaveTextContent(/has been submitted to/)
+            const banner = screen.getByTestId('status-alert')
+            expect(banner).toHaveTextContent(`Code v2.0 resubmitted to ${REVIEWING_ORG_NAME}`)
+            expect(banner).not.toHaveTextContent('Code submitted to')
         })
 
         it('shows the compact "View submitted study code" toggle (no v1 expand row) and renders the feedback section', async () => {
@@ -367,12 +346,12 @@ describe('CodePostSubmissionView', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('keeps v1 layout unchanged: shows "Study code" (no v suffix), "Submitted on", and no feedback section', async () => {
+        it('keeps v1 layout unchanged: "Study code" heading, first-submission banner, no feedback section', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { submissionVersion: 1 })
 
-            expect(screen.getByRole('heading', { level: 4, name: 'Study code' })).toBeInTheDocument()
-            expect(screen.getByTestId('code-submitted-timestamp').textContent).toMatch(/^Submitted on /)
+            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByTestId('status-alert')).toHaveTextContent('Code submitted to')
             expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })

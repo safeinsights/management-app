@@ -42,6 +42,11 @@ fi
 export E2E_FAKE_CLERK=1
 export E2E_MODE=local
 
+# The Playwright process runs the seed (tests/e2e.seed.ts) itself, so it needs the same treatment
+# bin/app-test gives the app: a shell AWS_PROFILE makes the SDK prefer (expired) SSO over the static
+# SeaweedFS credentials in .env.test. Carried over from bin/test-e2e-up, which this script replaced.
+unset AWS_PROFILE
+
 TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5432}"

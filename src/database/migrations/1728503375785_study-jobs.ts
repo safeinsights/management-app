@@ -5,18 +5,18 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createType('study_job_status')
         .asEnum([
-            'INITIATED',        // initial state when a study draft is created
-            'CODE-SUBMITTED',   // code is present and awaiting review and approval by Member
-            'CODE-REJECTED',    // Member has rejected the initial code
-            'CODE-APPROVED',    // Member has approved code,
-            'JOB-PACKAGING',    // BMA is packaging code for the Setup App to pick up.
-            'JOB-READY',        // Code is ready and waiting to be picked up by the Setup App
-            'JOB-PROVISIONING', // Setup App has picked up the packaged code and is preparing to run it against the enclave data
-            'JOB-RUNNING',      // Code is running inside the enclave.
-            'JOB-ERRORED',      // code had an error while running inside enclave
-            'RUN-COMPLETE',     // run is complete, results are available for review
-            'RESULTS-APPROVED', // results are approved, can be downloaded by researcher
-            'RESULTS-REJECTED', // results were rejected, cannot be shared with researcher
+            'INITIATED',
+            'CODE-SUBMITTED',
+            'CODE-REJECTED',
+            'CODE-APPROVED',
+            'JOB-PACKAGING',    // BMA is packaging the code for the Setup App
+            'JOB-READY',        // packaged, waiting for the Setup App to pick it up
+            'JOB-PROVISIONING', // Setup App has it and is preparing the enclave run
+            'JOB-RUNNING',      // running inside the enclave
+            'JOB-ERRORED',
+            'RUN-COMPLETE',
+            'RESULTS-APPROVED',
+            'RESULTS-REJECTED',
         ])
         .execute()
 
@@ -31,7 +31,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema.createIndex('study_job_study_indx').on('study_job').column('study_id').execute()
+    await db.schema.createIndex('study_job_study_indx').on('study_job').column('study_id').execute()
 
     await db.schema
         .createTable('job_status_change')
@@ -43,8 +43,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema.createIndex('job_status_change_jb_indx').on('job_status_change').column('study_job_id').execute()
-    db.schema.createIndex('job_status_change_st_indx').on('job_status_change').column('status').execute()
+    await db.schema.createIndex('job_status_change_jb_indx').on('job_status_change').column('study_job_id').execute()
+    await db.schema.createIndex('job_status_change_st_indx').on('job_status_change').column('status').execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

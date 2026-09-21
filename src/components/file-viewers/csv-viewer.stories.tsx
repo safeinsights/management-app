@@ -2,9 +2,6 @@ import type { Story } from '@ladle/react'
 import { Box } from '@mantine/core'
 import { csvViewer } from './csv-viewer'
 
-// csvViewer parses CSV text (header row + data rows) and renders a Mantine
-// DataTable. It returns null for non-.csv paths or empty content, so every story
-// passes a .csv path and inline CSV text.
 const meta = { title: 'File viewers / Csv viewer' }
 export default meta
 
@@ -21,7 +18,6 @@ const singleRowCsv = `metric,value
 total_patients,1240
 `
 
-// A header row only — DataTable renders the columns with an empty body.
 const headersOnlyCsv = `patient_id,age,treatment_group,outcome
 `
 
@@ -30,3 +26,10 @@ export const Typical: Story = () => <Box p="xl">{csvViewer('results.csv', typica
 export const SingleRow: Story = () => <Box p="xl">{csvViewer('summary.csv', singleRowCsv)}</Box>
 
 export const HeadersOnly: Story = () => <Box p="xl">{csvViewer('empty-results.csv', headersOnlyCsv)}</Box>
+
+const wideCsv = `tasks_task_id,tasked_type,number,first_completed_at,last_completed_at,group_type,created_at,updated_at
+614101454928577280,Exercise,1,2023-01-09 14:05:21.267016,2023-01-09 14:05:21.267016,core,2023-01-09 14:05:21.267016,2023-01-09 14:05:21.267016
+614101454928577281,Reading,2,2023-01-10 09:12:03.100000,2023-01-11 10:44:59.000000,personalized,2023-01-10 09:12:03.100000,2023-01-11 10:44:59.000000
+`
+
+export const WideSingleRow: Story = () => <Box p="xl">{csvViewer('tutor_results.csv', wideCsv)}</Box>

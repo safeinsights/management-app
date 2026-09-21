@@ -1,13 +1,5 @@
-/**
- * Scrolls to and focuses the first invalid field, reading the page top to bottom.
- *
- * `fieldIds` must be in visual/DOM order, because that ordering IS the "first" the caller promises the
- * user, and nothing else in the DOM recovers it (a Lexical contenteditable and a radio group
- * share no common wrapper to compare positions against).
- *
- * Focus, not just scroll: a highlighted field the caret never reaches leaves a screen-reader
- * user with no idea which control failed.
- */
+// `fieldIds` must be in visual order — that ordering IS the "first" promised to the user, and
+// nothing in the DOM recovers it.
 export function focusFirstInvalid(fieldIds: string[], hasError: (fieldId: string) => boolean): string | null {
     const target = fieldIds.find(hasError)
     if (!target) return null
@@ -20,14 +12,8 @@ export function focusFirstInvalid(fieldIds: string[], hasError: (fieldId: string
     return target
 }
 
-/**
- * The element to actually put the caret on.
- *
- * A field's id may sit on a wrapper rather than a control: a Mantine `Radio.Group` renders its id
- * on a non-focusable `<div>`, so calling focus() on it silently does nothing and leaves the user on
- * the submit button with no idea which field failed. Descend to the first focusable descendant in
- * that case.
- */
+// A field's id may sit on a wrapper rather than a control (Mantine `Radio.Group` renders its
+// id on a non-focusable `<div>`, where focus() silently does nothing).
 function focusable(node: HTMLElement): HTMLElement {
     if (node.tabIndex >= 0) return node
     const inner = node.querySelector<HTMLElement>(

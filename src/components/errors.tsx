@@ -1,40 +1,90 @@
 'use client'
 
-import { errorToString, extractActionFailure } from '@/lib/errors'
-import { Alert, AlertProps, Group, Text, useMantineTheme } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import {
+    errorToString,
+    extractActionFailure,
+    isStaleDeploymentError,
+    STALE_DEPLOYMENT_MESSAGE,
+    STALE_DEPLOYMENT_TITLE,
+} from '@/lib/errors'
+import { Alert, AlertProps, Button, Group, Stack, Text } from '@mantine/core'
+import { notifications, type NotificationData } from '@mantine/notifications'
 import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
+// Fixed so repeated attempts keep one notification instead of stacking a new one per retry.
+export const STALE_DEPLOYMENT_NOTIFICATION_ID = 'stale-deployment'
+
+export const RELOAD_BUTTON_LABEL = 'Reload'
+
+// The body of any notice whose only remedy is a reload. A control rather than an automatic reload:
+// the page may hold work that exists nowhere else, so the reader chooses the moment.
+export const ReloadNotice: FC<{ message: string }> = ({ message }) => (
+    <Stack gap="xs" align="flex-start">
+        <Text size="sm">{message}</Text>
+        <Button size="compact-sm" onClick={() => window.location.reload()}>
+            {RELOAD_BUTTON_LABEL}
+        </Button>
+    </Stack>
+)
+
+// Mantine's `show` is add-if-absent: it keeps the store unchanged when the id is already on screen,
+// so a later notice under a shared id would never replace the first. `update` is a no-op for an
+// absent id, which makes the pair replace-or-add without reading the store (OTTER-726).
+export const showOrReplaceNotification = (notification: NotificationData) => {
+    notifications.update(notification)
+    notifications.show(notification)
+}
+
+// An action id is hashed with the pinned Server Actions key, so it survives an ordinary deploy. It
+// stops resolving when the key rotates or the action moved, renamed or was removed between builds,
+// and then no request from the open tab can succeed. Answered once here rather than at each call
+// site (OTTER-726).
+const reportStaleDeployment = () =>
+    showOrReplaceNotification({
+        id: STALE_DEPLOYMENT_NOTIFICATION_ID,
+        color: 'blue',
+        autoClose: false,
+        title: STALE_DEPLOYMENT_TITLE,
+        message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
+    })
+
+// Returns the Sentry event id so a caller can quote the same reference the toast shows.
 export const reportError = (error: unknown, title = 'An error occurred') => {
+    // Captured on purpose for a stale action id too: these events are the only client-side measure
+    // of how often a deploy lands under an open tab. Only the reference id is withheld from the
+    // notice, because the copy already says the one thing the reader can do.
     const eventId = captureException(error)
+
+    if (isStaleDeploymentError(error)) {
+        reportStaleDeployment()
+        return eventId
+    }
+
     notifications.show({
         color: 'red',
         title,
         message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
     })
+    return eventId
 }
 
 type FormErrorHandler = {
     setErrors(errs: Record<string, string>): void
-    // Only the keys are read, so the value type is deliberately unconstrained: forms carry
-    // non-string fields too (booleans, files, arrays).
     values: Record<string, unknown>
 }
 export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     return (err: unknown) => {
         const failure = extractActionFailure(err)
         if (failure) {
-            // Handle both string and object errors
             if (typeof failure === 'string') {
                 reportError(err)
             } else {
                 const formErrorKeys = Object.keys(failure)
                 const fieldKeys = Object.keys(form.values)
-                // `form` is the catch-all alert key; `code` is a reserved companion that lets
-                // callers pass an error code (e.g. a Clerk code) to drive an alert title.
+                // `form` is the catch-all alert key; `code` carries an error code driving its title.
                 const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form' && k !== 'code')
 
                 const unknownKeys = difference(nonFieldKeys, fieldKeys)
@@ -56,6 +106,8 @@ export const reportMutationError = (title: string) => (err: unknown) => reportEr
 type ErrorAlertProps = { error: unknown } & AlertProps
 
 export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <WarningIcon />, title = 'An error occurred', error }) => {
+    if (!error) return null
+
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
             {errorToString(error)}
@@ -92,18 +144,14 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
 }
 
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
-    const theme = useMantineTheme()
     if (!error) return null
 
-    // `component="span"`, so this node stays valid wherever it is used as a Mantine `error`.
-    // Mantine renders an input's error inside a `<p>`, and a `<div>` there is invalid HTML that
-    // React reports as a nesting error. Rendering inline also lets call sites hand this straight
-    // to Mantine instead of suppressing the built-in error and rendering an unassociated copy,
-    // which left the message out of `aria-describedby`.
+    // `component="span"` so this stays valid as a Mantine `error`, which renders inside a `<p>`
+    // where a `<div>` is a React nesting error.
     return (
         <Group component="span" gap="xs">
-            <WarningCircleIcon size={14} color={theme.colors.red[7]} weight="fill" />
-            <Text c="red.7" size="sm" component="span">
+            <WarningCircleIcon size={14} color="var(--mantine-color-error)" weight="fill" />
+            <Text c="var(--mantine-color-error)" size="sm" component="span">
                 {error}
             </Text>
         </Group>

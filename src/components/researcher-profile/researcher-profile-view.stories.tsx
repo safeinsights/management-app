@@ -16,19 +16,12 @@ import type {
     ResearchDetailsValues,
 } from '@/schema/researcher-profile'
 
-// Page-view for the Researcher Profile screen. The *SectionView components are
-// presentational: each receives a Mantine form + display values + handlers from the
-// thin section containers (which own useQuery/useMutation/Clerk). Ladle has no
-// QueryClient/Clerk, so the stories build their own forms here (useForm works fine in
-// Ladle) and pass no-op submit/edit handlers — letting the whole stacked page render.
+// Ladle has no QueryClient or Clerk, so these stories build their own forms and pass no-op
+// handlers to the presentational *SectionView components.
 const meta = { title: 'Pages / Researcher profile', argTypes: pageBackgroundArgTypes }
 export default meta
 
 const noop = () => {}
-
-// -----------------------------------------------------------------------------
-// Populated profile — every section in read-only display mode.
-// -----------------------------------------------------------------------------
 
 const populatedPersonalInfo: PersonalInfoValues = { firstName: 'Ada', lastName: 'Lovelace' }
 
@@ -122,11 +115,6 @@ function PopulatedProfile() {
 }
 
 export const Populated: Story = () => <PopulatedProfile />
-
-// -----------------------------------------------------------------------------
-// New / empty profile — incomplete sections auto-open in edit mode, the positions
-// section starts with a single empty editing row (mirrors the real auto-open).
-// -----------------------------------------------------------------------------
 
 const emptyEducation: EducationValues = {
     educationalInstitution: '',

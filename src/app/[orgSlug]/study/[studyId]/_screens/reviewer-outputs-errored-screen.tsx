@@ -1,70 +1,60 @@
-import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
+import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
-import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
-import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
-import { Routes } from '@/lib/routes'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
+import { StudyPageHeader } from '@/components/study/study-page-header'
+import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
+import { latestStatusAt } from '@/lib/study-job-status'
+import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
+import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
-const ErroredBanner = ({ erroredAt }: { erroredAt: Date | string }) => (
-    <StatusAlert
-        variant={STATUS_ALERT_VARIANT.action}
-        title={`Code errored • ${dayjs(erroredAt).format('MMM DD, YYYY')}`}
-    >
-        Enter your security key below to access the outputs and see what went wrong.
-    </StatusAlert>
-)
-
-// OTTER-675: once the key decrypts, the banner stops asking for a key and starts warning about
-// what the reviewer is about to share. The footnote is a real element referenced by
-// aria-describedby, so the asterisk's meaning reaches AT instead of being implied by position.
-const FOOTNOTE_ID = 'outputs-sensitive-data-footnote'
-
-const ReviewBeforeSharingBanner = ({ labName }: { labName: string }) => (
-    <StatusAlert variant={STATUS_ALERT_VARIANT.action} title="Review the outputs before sharing">
-        <span aria-describedby={FOOTNOTE_ID}>
-            As the reviewer, you are responsible for checking the outputs for sensitive or restricted information*
-            before they are shared with {labName}.
-        </span>
-        <span id={FOOTNOTE_ID} style={{ display: 'block', fontSize: 12, marginTop: 8 }}>
-            *Sensitive data could cause harm if disclosed, such as personally identifiable information (PII). Restricted
-            data is limited by a data use agreement or policy.
-        </span>
+// OTTER-524 names the stage that failed and says plainly when no error log exists. OTTER-769
+// replaces both with a single sentence once a key can open the log.
+const ErroredBanner = ({ erroredAt, details }: { erroredAt: Date | string | null; details: JobErrorDetails }) => (
+    <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={statusAlertTitle('Code errored', erroredAt)}>
+        {details.bannerText}
     </StatusAlert>
 )
 
 export async function ReviewerOutputsErroredScreen({
     study,
+    raw,
     orgSlug,
-}: Pick<ScreenComponentProps, 'study' | 'orgSlug'>) {
-    // Uses the same "latest submitted job" anchor as the state machine's latestJob()
-    // so the job here always matches the one that set state.resultsErrored.
-    // The not-found guards below are unreachable via normal routing but protect against
-    // direct URL navigation that bypasses the state machine.
+    phasedNav,
+}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'phasedNav'>) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const erroredAt = job.statusChanges.find((c) => c.status === 'JOB-ERRORED')?.createdAt ?? null
-    if (!erroredAt) {
+    // The same predicate the routing rules use, so routing and rendering cannot disagree.
+    const state = projectStudyState(raw)
+    if (!awaitingFilesDecisionOnError(state)) {
         return <AlertNotFound title="No error found" message="This study has not encountered an error." />
     }
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const erroredAt = latestStatusAt(job.statusChanges, 'JOB-ERRORED')
+    // Reviewer-scoped query, so the raw reason never reaches the researcher.
+    const recordedReason = await latestRecordedJobFailureReason(job.id)
+    // Banner copy and key gate read the same predicate, so the screen cannot promise a key form
+    // it does not render (OTTER-524).
+    const details = jobErrorDetails(job.statusChanges, job.files ?? [], recordedReason)
 
     return (
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
-            studyTitle={study.title ?? ''}
             job={job}
             labName={labName}
-            maxWords={ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS}
-            lockedBanner={<ErroredBanner erroredAt={erroredAt} />}
+            header={<StudyPageHeader study={study} />}
+            lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
-            previousHref={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
+            nav={phasedNav}
+            // A failed run producing nothing is routine, so the round must still be closable.
+            // Deliberately not set on the outputs-available screen (OTTER-524).
+            allowDecisionWithoutArtifacts
         />
     )
 }

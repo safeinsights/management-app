@@ -35,8 +35,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
     } = useMutation({
         mutationFn: async (status: StudyStatus) => {
             if (status === 'APPROVED') {
-                // Re-wrap approved result files for the lab researchers, client-side; the server
-                // receives only wrapped keys, never plaintext.
+                // Client-side re-wrap: the server receives only wrapped keys, never plaintext.
                 const sharedFiles = approvedFiles?.length ? await buildSharedFiles(study.id, approvedFiles) : undefined
                 return approveStudyProposalAction({
                     orgSlug,

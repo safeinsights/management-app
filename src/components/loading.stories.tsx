@@ -17,7 +17,6 @@ export const LongMessage: Story = () => (
     </div>
 )
 
-// isVisible={false} returns null, so nothing should render between the surrounding messages.
 export const Hidden: Story = () => (
     <div style={{ padding: 24, maxWidth: 760 }}>
         <Stack gap="md">

@@ -1,44 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import {
-    countWords,
-    countWordsFromLexical,
     extractTextFromLexical,
     hasLexicalContent,
     isValidLexicalState,
     lexicalJson,
+    lexicalToText,
+    countCharactersFromLexical,
+    normalizeFeedbackToLexical,
 } from './lexical'
 
-describe('countWords', () => {
-    it('returns 0 for empty string', () => {
-        expect(countWords('')).toBe(0)
-    })
-
-    it('returns 0 for whitespace-only string', () => {
-        expect(countWords('   ')).toBe(0)
-        expect(countWords('\n\t')).toBe(0)
-    })
-
-    it('counts single word', () => {
-        expect(countWords('hello')).toBe(1)
-    })
-
-    it('counts multiple words separated by spaces', () => {
-        expect(countWords('hello world')).toBe(2)
-        expect(countWords('one two three four')).toBe(4)
-    })
-
-    it('trims leading and trailing whitespace', () => {
-        expect(countWords('  hello world  ')).toBe(2)
-    })
-
-    it('collapses multiple spaces between words', () => {
-        expect(countWords('hello    world')).toBe(2)
-    })
-
-    it('handles newlines as word separators', () => {
-        expect(countWords('hello\nworld')).toBe(2)
-    })
-})
+const EMPTY_ROOT = JSON.stringify({ root: { type: 'root', children: [] } })
 
 describe('extractTextFromLexical', () => {
     it('returns empty string for undefined', () => {
@@ -142,6 +113,56 @@ describe('extractTextFromLexical', () => {
         expect(extractTextFromLexical(json)).toBe('Paragraph one\n\nParagraph two')
     })
 
+    it('separates list items so a bulleted answer does not run together', () => {
+        const json = JSON.stringify({
+            root: {
+                type: 'root',
+                children: [
+                    {
+                        type: 'list',
+                        listType: 'bullet',
+                        children: [
+                            {
+                                type: 'listitem',
+                                children: [{ type: 'text', text: 'First question?' }],
+                            },
+                            {
+                                type: 'listitem',
+                                children: [{ type: 'text', text: 'Second question?' }],
+                            },
+                        ],
+                    },
+                ],
+            },
+        })
+        expect(extractTextFromLexical(json)).toBe('First question?\nSecond question?')
+    })
+
+    it('keeps a list item that mixes formatting on one line', () => {
+        const json = JSON.stringify({
+            root: {
+                type: 'root',
+                children: [
+                    {
+                        type: 'list',
+                        listType: 'number',
+                        children: [
+                            {
+                                type: 'listitem',
+                                children: [
+                                    { type: 'text', text: 'Does ' },
+                                    { type: 'text', text: 'X', format: 1 },
+                                    { type: 'text', text: ' affect Y?' },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+        })
+        expect(extractTextFromLexical(json)).toBe('Does X affect Y?')
+    })
+
     it('returns empty string for root without text or children', () => {
         const json = JSON.stringify({ root: { type: 'root' } })
         expect(extractTextFromLexical(json)).toBe('')
@@ -150,77 +171,6 @@ describe('extractTextFromLexical', () => {
     it('handles empty children array', () => {
         const json = JSON.stringify({ root: { type: 'root', children: [] } })
         expect(extractTextFromLexical(json)).toBe('')
-    })
-})
-
-describe('countWordsFromLexical', () => {
-    it('returns 0 for undefined', () => {
-        expect(countWordsFromLexical(undefined)).toBe(0)
-    })
-
-    it('returns 0 for empty string', () => {
-        expect(countWordsFromLexical('')).toBe(0)
-    })
-
-    it('returns 0 for invalid JSON', () => {
-        expect(countWordsFromLexical('invalid')).toBe(0)
-    })
-
-    it('counts words from root text node', () => {
-        const json = JSON.stringify({ root: { type: 'text', text: 'Hello world' } })
-        expect(countWordsFromLexical(json)).toBe(2)
-    })
-
-    it('counts words from nested children', () => {
-        const json = JSON.stringify({
-            root: {
-                type: 'root',
-                children: [
-                    { type: 'text', text: 'One two' },
-                    { type: 'text', text: 'three four five' },
-                ],
-            },
-        })
-        expect(countWordsFromLexical(json)).toBe(5)
-    })
-
-    it('trims and collapses whitespace when counting', () => {
-        const json = JSON.stringify({
-            root: { type: 'text', text: '  extra   spaces   between   words  ' },
-        })
-        expect(countWordsFromLexical(json)).toBe(4)
-    })
-
-    it('counts formatted text within a word as one word', () => {
-        const json = JSON.stringify({
-            root: {
-                type: 'root',
-                children: [
-                    {
-                        type: 'paragraph',
-                        children: [
-                            { type: 'text', text: 'un' },
-                            { type: 'text', text: 'bold', format: 1 },
-                            { type: 'text', text: 'ed word' },
-                        ],
-                    },
-                ],
-            },
-        })
-        expect(countWordsFromLexical(json)).toBe(2)
-    })
-
-    it('counts words across multiple paragraphs', () => {
-        const json = JSON.stringify({
-            root: {
-                type: 'root',
-                children: [
-                    { type: 'paragraph', children: [{ type: 'text', text: 'Hello world' }] },
-                    { type: 'paragraph', children: [{ type: 'text', text: 'foo bar baz' }] },
-                ],
-            },
-        })
-        expect(countWordsFromLexical(json)).toBe(5)
     })
 })
 
@@ -281,5 +231,79 @@ describe('hasLexicalContent', () => {
 
     it('returns false with no arguments', () => {
         expect(hasLexicalContent()).toBe(false)
+    })
+
+    // The proposal rich-text fields have no plain-text path, so a non-Lexical value must read as
+    // empty and fail their required rule rather than pass as prose.
+    it('reads a value that is not Lexical as empty', () => {
+        expect(hasLexicalContent('not valid json')).toBe(false)
+        expect(hasLexicalContent('{"a":1}')).toBe(false)
+    })
+
+    it('treats a Lexical document holding nothing as empty', () => {
+        expect(hasLexicalContent(EMPTY_ROOT)).toBe(false)
+    })
+})
+
+describe('lexicalToText', () => {
+    it('reads a Lexical document as its text', () => {
+        expect(lexicalToText(lexicalJson('hello world'))).toBe('hello world')
+        expect(lexicalToText(EMPTY_ROOT)).toBe('')
+    })
+
+    it('reads a plain-text value as itself', () => {
+        expect(lexicalToText('legacy plain note')).toBe('legacy plain note')
+        expect(lexicalToText('not json')).toBe('not json')
+    })
+
+    it('reads nothing as empty', () => {
+        expect(lexicalToText(undefined)).toBe('')
+        expect(lexicalToText('')).toBe('')
+    })
+
+    // An empty-root document is Lexical but is not a usable initial editor state, so the two
+    // answers are allowed to differ.
+    it('agrees with the editor-state check on what is Lexical', () => {
+        expect(lexicalToText(EMPTY_ROOT)).toBe('')
+        expect(isValidLexicalState(EMPTY_ROOT)).toBe(false)
+        expect(normalizeFeedbackToLexical(EMPTY_ROOT)).toBe(EMPTY_ROOT)
+    })
+})
+
+describe('countCharactersFromLexical', () => {
+    it('counts characters, not words', () => {
+        expect(countCharactersFromLexical(lexicalJson('hello world'))).toBe(11)
+    })
+
+    it('excludes surrounding whitespace and counts interior whitespace', () => {
+        expect(countCharactersFromLexical(lexicalJson('  hi  '))).toBe(2)
+        expect(countCharactersFromLexical(lexicalJson('a b'))).toBe(3)
+        expect(countCharactersFromLexical(lexicalJson('  a  b  '))).toBe(4)
+    })
+
+    it('returns 0 for undefined or unparseable input', () => {
+        expect(countCharactersFromLexical(undefined)).toBe(0)
+        expect(countCharactersFromLexical('')).toBe(0)
+        expect(countCharactersFromLexical(EMPTY_ROOT)).toBe(0)
+        expect(countCharactersFromLexical('not json')).toBe(0)
+    })
+
+    it('counts a grapheme cluster once', () => {
+        expect(countCharactersFromLexical(lexicalJson('caf\u0065\u0301'))).toBe(4)
+    })
+})
+
+describe('normalizeFeedbackToLexical', () => {
+    it('passes a serialized Lexical state through untouched', () => {
+        const json = lexicalJson('already lexical')
+        expect(normalizeFeedbackToLexical(json)).toBe(json)
+    })
+
+    it('wraps plain text so callers always measure the same shape', () => {
+        expect(normalizeFeedbackToLexical('plain text')).toBe(lexicalJson('plain text'))
+    })
+
+    it('wraps JSON that is not a Lexical root', () => {
+        expect(extractTextFromLexical(normalizeFeedbackToLexical('{"a":1}'))).toBe('{"a":1}')
     })
 })

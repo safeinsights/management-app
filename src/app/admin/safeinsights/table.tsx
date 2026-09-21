@@ -103,7 +103,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
     })
 
     return (
-        <Group gap={4} justify="center" wrap="nowrap">
+        <Group gap="xxs" justify="center" wrap="nowrap">
             <Modal opened={opened} onClose={close} title={`Edit ${org.name}`} closeOnClickOutside={false}>
                 <EditOrgForm org={org} onCompleteAction={close} />
             </Modal>

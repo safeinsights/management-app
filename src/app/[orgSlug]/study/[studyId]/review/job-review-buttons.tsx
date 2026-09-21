@@ -13,6 +13,7 @@ import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const JobReviewButtons = ({
     job,
@@ -37,8 +38,7 @@ export const JobReviewButtons = ({
             if (!decryptedResults?.length) return
 
             if (status === 'FILES-APPROVED') {
-                // Re-wrap each approved file's AES key for the lab researchers, client-side.
-                // Only the wrapped keys are sent — never the raw key or plaintext.
+                // Client-side re-wrap: only the wrapped keys are sent, never the raw key.
                 const sharedFiles = await buildSharedFiles(job.studyId, decryptedResults)
                 await approveStudyJobFilesAction({ orgSlug, studyJobId: job.id, sharedFiles })
             }
@@ -59,8 +59,8 @@ export const JobReviewButtons = ({
     if (approved) {
         return (
             <Group gap="xs">
-                <CheckCircleIcon weight="fill" size={24} color={theme.colors.green[9]} />
-                <Text fz="xs" fw={600} c="green.9">
+                <CheckCircleIcon weight="fill" size={24} color={theme.colors.green[7]} />
+                <Text fz="xs" fw={fontWeight.semibold} c={semanticColor('success.text')}>
                     Approved on {dayjs(approved.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
@@ -72,8 +72,8 @@ export const JobReviewButtons = ({
     if (rejected) {
         return (
             <Group gap="xs">
-                <XCircleIcon weight="fill" size={24} color={theme.colors.red[9]} />
-                <Text fz="xs" fw={600} c="red.9">
+                <XCircleIcon weight="fill" size={24} color={theme.colors.red[7]} />
+                <Text fz="xs" fw={fontWeight.semibold} c={semanticColor('error.text')}>
                     Rejected on {dayjs(rejected.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>

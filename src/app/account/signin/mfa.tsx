@@ -1,20 +1,15 @@
 'use client'
+import { semanticColor } from '@/theme/tokens'
 import { useForm, useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
-import { Routes } from '@/lib/routes'
-import { actionResult, safeRedirectUrl } from '@/lib/utils'
-import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
+import { useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { isNotEmpty } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
-import type { Route } from 'next'
-import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
-import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
+import { useCompleteSignIn } from './use-complete-sign-in'
 import { VerifyCode } from './verify-code'
 
 export type Step = 'select' | 'verify' | 'recovery'
@@ -24,12 +19,9 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const [step, setStep] = useState<Step>('select')
     const [method, setMethod] = useState<Method | null>(null)
     const { isLoaded, setActive } = useSignIn()
-    const router = useRouter()
-    const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
-    const auth = useAuth()
+    const completeSignIn = useCompleteSignIn()
 
-    // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
     const hasBoth = Boolean(hasSMS && hasTOTP)
@@ -64,57 +56,8 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
-
-                try {
-                    const result = actionResult(await onUserSignInAction())
-                    await auth.getToken({ skipCache: true })
-                    if (result?.redirectToKeyGeneration) {
-                        router.push(Routes.accountKeys)
-                    } else {
-                        let redirectUrl = safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard)
-                        const inviteId = searchParams.get('invite_id')
-                        if (inviteId) {
-                            try {
-                                const joinResult = actionResult(
-                                    await onJoinTeamAccountAction({
-                                        inviteId,
-                                        loggedInEmail: signInAttempt?.identifier || undefined,
-                                    }),
-                                )
-
-                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                const orgDashboard = Routes.orgDashboard({ orgSlug: slug })
-                                if (joinResult?.needsUserKey) {
-                                    // First-time key generation: return to the inviting org's dashboard after.
-                                    redirectUrl =
-                                        `${Routes.accountKeys}?redirect_url=${encodeURIComponent(orgDashboard)}` as Route
-                                } else {
-                                    redirectUrl = orgDashboard as Route
-                                }
-
-                                const email = signInAttempt?.identifier || 'your account'
-                                notifications.show({
-                                    color: 'green',
-                                    message: `You've successfully linked your SafeInsights accounts under ${email}.`,
-                                })
-                                await auth.getToken({ skipCache: true })
-                            } catch {
-                                notifications.show({
-                                    color: 'red',
-                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
-                                })
-                            }
-                        }
-                        router.push(redirectUrl)
-                    }
-                } catch (error) {
-                    // If onUserSignInAction returns an error, we still want to continue with navigation
-                    // since the user is already signed in via Clerk
-                    console.error('onUserSignInAction failed:', error)
-                    router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
-                }
+                await completeSignIn()
             } else {
-                // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({
                     code: `Unknown signIn status: ${signInAttempt?.status || 'unknown'}`,
                 })
@@ -142,14 +85,12 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
             await mfa.signIn.reload()
             setMethod(null)
             setStep('select')
-            // Clear the code input when returning to options
             form.setFieldValue('code', '')
             form.clearErrors()
         }
     }
 
-    // Get phone number from signIn resource if SMS method is selected
-    // clerk masks phone number during mfa signin
+    // Clerk masks the phone number during MFA sign-in.
     const phoneNumber =
         method === 'sms' && mfa
             ? mfa.signIn.supportedSecondFactors?.find((f) => f.strategy === 'phone_code')
@@ -159,7 +100,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     if (!isLoaded) return <Loader />
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
             {step === 'select' && (
                 <Stack mb="xxl">
                     <Title mb="xs" ta="center" order={3}>
@@ -171,7 +112,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     </Text>
                     {hasNoFactors ? (
                         <>
-                            <Text size="sm" c="red.7" mb="xs">
+                            <Text size="sm" c={semanticColor('error.text')} mb="xs">
                                 No MFA factors are configured for your account. Please contact your administrator to set
                                 up MFA, or use a recovery code if you have one.
                             </Text>
@@ -190,14 +131,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         <>
                             <Stack gap="xl">
                                 {hasSMS && (
-                                    <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
+                                    <Button w="100%" size="lg" onClick={() => onSelectMethod('sms')}>
                                         SMS Verification
                                     </Button>
                                 )}
                                 {hasTOTP && (
                                     <Button
                                         w="100%"
-                                        variant={hasBoth ? 'outline' : 'primary'}
+                                        variant={hasBoth ? 'outline' : 'filled'}
                                         size="lg"
                                         onClick={() => onSelectMethod('totp')}
                                     >
@@ -205,7 +146,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     </Button>
                                 )}
                             </Stack>
-                            <Divider my="xs" c="charcoal.1" />
+                            <Divider my="xs" c={semanticColor('border.default')} />
                             <Text size="md" c="grey.7">
                                 Can’t access your MFA device?
                             </Text>

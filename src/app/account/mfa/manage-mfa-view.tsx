@@ -1,18 +1,13 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { FC } from 'react'
 import { Container, Paper, Stack, Text, Title } from '@mantine/core'
 import { ButtonLink, Link } from '@/components/links'
 import { Panel } from '@/components/panel'
 import { Routes } from '@/lib/routes'
 
-// Presentational MFA status page-view. It owns both states: the "MFA is enabled"
-// confirmation card and the enrollment-options card. It is kept in its OWN file (free
-// of Clerk's useUser / reload / redirect) so it renders in isolation (e.g. Ladle). The
-// ManageMFA container (./manage-mfa) reads the real twoFactorEnabled state and passes
-// it via `hasMFA`.
 export type ManageMFAViewProps = {
-    /** When true, show the success/confirmation card; otherwise show enrollment options. */
     hasMFA: boolean
 }
 
@@ -28,7 +23,7 @@ const MFAEnabledCard: FC = () => (
 )
 
 const EnrollOptionsCard: FC = () => (
-    <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
         <Stack mb="xxl">
             <Title mb="xs" ta="center" order={3}>
                 Secure your account with <br /> Multi-Factor Authentication
@@ -40,7 +35,7 @@ const EnrollOptionsCard: FC = () => (
                 You can choose to receive verification codes via text message (SMS) or use an authenticator app.
             </Text>
             <Stack gap="xl">
-                <ButtonLink href={Routes.accountMfaSms} w="100%" size="md" variant="primary">
+                <ButtonLink href={Routes.accountMfaSms} w="100%" size="md">
                     SMS Verification
                 </ButtonLink>
                 <ButtonLink href={Routes.accountMfaApp} w="100%" variant="outline" size="md">

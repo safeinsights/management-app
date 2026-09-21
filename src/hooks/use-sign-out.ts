@@ -2,7 +2,10 @@ import { useClerk } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { useQueryClient } from '@/common'
+import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { Routes } from '@/lib/routes'
+import { withTimeout } from '@/lib/with-timeout'
+import posthog from 'posthog-js'
 
 export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const { signOut } = useClerk()
@@ -10,24 +13,19 @@ export function useSignOut(options?: { redirectAfterSignOut: string }) {
     const queryClient = useQueryClient()
 
     return async () => {
-        // App-initiated logout deliberately carries no redirect_url: the next sign-in
-        // lands on the dashboard, not the page the user was on when the session ended
-        // (OTTER-671). Deep links are unaffected — the proxy still captures the
-        // destination when a signed-out browser requests a protected page. Flows that
-        // need a different destination (e.g. invitation acceptance) pass
-        // redirectAfterSignOut explicitly.
+        posthog.reset()
+        // No redirect_url, so the next sign-in lands on the dashboard rather than the page the
+        // session ended on (OTTER-671).
         const redirectUrl = options?.redirectAfterSignOut ?? Routes.accountSignin
 
-        // Pass redirectUrl so Clerk skips its default afterSignOutUrl ('/'), which the
-        // middleware bounces to the sign-in page — the extra hop that flashed during invite
-        // accept. Race a timeout since signOut() occasionally hangs; router.replace then
-        // guarantees a soft navigation even when Clerk doesn't perform its own (e.g. the e2e fake).
-        await Promise.race([signOut({ redirectUrl }), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {})
+        // redirectUrl skips Clerk's default '/', which the middleware bounces onward as a visible
+        // extra hop. The wait is bounded because signOut() occasionally hangs; the replace below is
+        // the exit either way, so there is nothing here to tell the user.
+        await withTimeout(signOut({ redirectUrl }), SIGN_OUT_TIMEOUT_MS, 'signOut timed out').catch(() => {})
         router.replace(redirectUrl as Route)
 
-        // Clear caches only after the session is gone and we've navigated away, so a mounted
-        // observer can't refetch the outgoing user's data back in. Covers React Query plus any
-        // user-specific server-rendered payload in the Router Cache.
+        // Cleared only after navigating away, or a mounted observer refetches the outgoing user's
+        // data back in.
         queryClient.clear()
         router.refresh()
     }

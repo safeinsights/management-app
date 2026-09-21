@@ -1,10 +1,11 @@
 'use client'
 
 import { Text, Grid, Stack, Flex, Title, Button, Divider } from '@mantine/core'
-import { type Org } from '@/schema/org'
+import { type PublicOrg } from '@/schema/org'
+import { fontWeight } from '@/theme/tokens'
 
 interface OrganizationSettingsDisplayProps {
-    org: Org
+    org: PublicOrg
     onStartEdit: () => void
 }
 
@@ -24,7 +25,7 @@ export function OrganizationSettingsDisplay({ org, onStartEdit }: OrganizationSe
             <Stack gap="lg">
                 <Grid align="flex-start">
                     <Grid.Col span={labelSpan}>
-                        <Text fw={600} size="sm">
+                        <Text fw={fontWeight.semibold} size="sm">
                             Name
                         </Text>
                     </Grid.Col>
@@ -34,7 +35,7 @@ export function OrganizationSettingsDisplay({ org, onStartEdit }: OrganizationSe
                 </Grid>
                 <Grid align="flex-start">
                     <Grid.Col span={labelSpan}>
-                        <Text fw={600} size="sm">
+                        <Text fw={fontWeight.semibold} size="sm">
                             Description
                         </Text>
                     </Grid.Col>

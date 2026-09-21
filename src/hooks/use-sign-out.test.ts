@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
+import posthog from 'posthog-js'
 import { useSignOut } from './use-sign-out'
 
 // next-router-mock implements the pages-router surface; refresh() is app-router only.
@@ -14,8 +15,7 @@ const renderSignOut = (options?: { redirectAfterSignOut: string }) =>
     renderHook(() => useSignOut(options), { wrapper: createTestQueryWrapper() })
 
 describe('useSignOut', () => {
-    // OTTER-671: signing out must never capture the current page — the next
-    // sign-in always lands on the dashboard, not where the session ended.
+    // OTTER-671: the next sign-in lands on the dashboard, not where the session ended.
     it('redirects to signin without a redirect_url', async () => {
         memoryRouter.setCurrentUrl('/openstax/study/123/review')
         const signOut = vi.fn().mockResolvedValue(undefined)
@@ -48,5 +48,17 @@ describe('useSignOut', () => {
         await result.current()
 
         expect(memoryRouter.asPath).toBe(Routes.accountSignin)
+    })
+
+    it('resets posthog identity before signing out', async () => {
+        const signOut = vi.fn().mockResolvedValue(undefined)
+        mockClerkSignOut(signOut)
+        const resetSpy = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
+
+        const { result } = renderSignOut()
+        await result.current()
+
+        expect(resetSpy).toHaveBeenCalledOnce()
+        expect(resetSpy.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0])
     })
 })

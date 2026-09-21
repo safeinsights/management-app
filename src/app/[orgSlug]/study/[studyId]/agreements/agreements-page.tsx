@@ -6,6 +6,7 @@ import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
 import { useQueryClient } from '@/common'
 import { ackAgreementsAction } from '@/server/actions/study.actions'
 import type { Route } from 'next'
+import { fontWeight } from '@/theme/tokens'
 
 interface AgreementsPageProps {
     isReviewer: boolean
@@ -69,10 +70,12 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.7" pb="sm">
+            <Text fz="sm" fw={fontWeight.bold} c="gray.7" pb="sm">
                 {stepLabel}
             </Text>
-            <Title order={4}>{title}</Title>
+            <Title order={2} size="h4">
+                {title}
+            </Title>
             <Divider my="sm" mb="md" />
             <Alert
                 icon={<InfoIcon weight="fill" color={theme.colors.blue[6]} />}
@@ -83,7 +86,7 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
                 This feature is currently under construction.
             </Alert>
             <Text fz="sm">
-                <Text component="span" fw={700} fz="sm">
+                <Text component="span" fw={fontWeight.bold} fz="sm">
                     What to expect:{' '}
                 </Text>
                 {description}
@@ -131,7 +134,7 @@ export function AgreementsPage({
                 >
                     {previousLabel}
                 </Button>
-                <Button type="button" variant="primary" size="md" onClick={handleProceed}>
+                <Button type="button" size="md" onClick={handleProceed}>
                     {resolvedProceedLabel}
                 </Button>
             </Flex>

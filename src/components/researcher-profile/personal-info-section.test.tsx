@@ -13,6 +13,10 @@ import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
 
 describe('PersonalInfoSection', () => {
+    // Derived from the seeded value: a hardcoded literal would match what faker emitted on
+    // some runs, leaving the form pristine and skipping the save entirely.
+    const editOf = (seededName: string) => `${seededName}Edited`
+
     it('should display user data in view mode', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
@@ -68,11 +72,13 @@ describe('PersonalInfoSection', () => {
 
         const firstNameInput = screen.getByPlaceholderText('Enter your first name')
         const lastNameInput = screen.getByPlaceholderText('Enter your last name')
+        const newFirstName = editOf(user.firstName)
+        const newLastName = editOf(user.lastName!)
 
         await userEvents.clear(firstNameInput)
         await userEvents.clear(lastNameInput)
-        await userEvents.type(firstNameInput, 'Jane')
-        await userEvents.type(lastNameInput, 'Smith')
+        await userEvents.type(firstNameInput, newFirstName)
+        await userEvents.type(lastNameInput, newLastName)
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await userEvents.click(saveButton)
@@ -82,15 +88,14 @@ describe('PersonalInfoSection', () => {
             expect(refetch).toHaveBeenCalled()
         })
 
-        // Verify DB was updated
         const updated = await db
             .selectFrom('user')
             .select(['firstName', 'lastName'])
             .where('id', '=', user.id)
             .executeTakeFirstOrThrow()
 
-        expect(updated.firstName).toBe('Jane')
-        expect(updated.lastName).toBe('Smith')
+        expect(updated.firstName).toBe(newFirstName)
+        expect(updated.lastName).toBe(newLastName)
     })
 
     it('should show error notification on save failure', async () => {
@@ -102,7 +107,6 @@ describe('PersonalInfoSection', () => {
         const data = await getTestResearcherProfileData(user.id)
         const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        // Make Clerk mock throw error
         const { updateClerkUserName } = await import('@/server/clerk')
         vi.mocked(updateClerkUserName).mockRejectedValueOnce(new Error('Network error'))
 
@@ -113,7 +117,7 @@ describe('PersonalInfoSection', () => {
 
         const firstNameInput = screen.getByPlaceholderText('Enter your first name')
         await userEvents.clear(firstNameInput)
-        await userEvents.type(firstNameInput, 'Jane')
+        await userEvents.type(firstNameInput, editOf(user.firstName))
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await userEvents.click(saveButton)
@@ -155,8 +159,7 @@ describe('PersonalInfoSection', () => {
         const initialData = await getTestResearcherProfileData(user.id)
         const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        // Harness lets the test swap in changed server data (as a periodic refetch or a
-        // window-focus refetch would) while the form is open for editing.
+        // Swaps in changed server data mid-edit, as a periodic or window-focus refetch would.
         const Harness = () => {
             const [data, setData] = useState(initialData)
             return (
@@ -186,7 +189,6 @@ describe('PersonalInfoSection', () => {
 
         await userEvents.click(screen.getByRole('button', { name: 'simulate-refetch' }))
 
-        // The in-progress edit must not be clobbered by the refetch.
         expect((screen.getByPlaceholderText('Enter your first name') as HTMLInputElement).value).toBe('MyUnsavedName')
     })
 
@@ -217,7 +219,6 @@ describe('PersonalInfoSection', () => {
             expect(screen.getByText(originalFirstName)).toBeDefined()
         })
 
-        // refetch should not be called when no changes were made
         expect(refetch).not.toHaveBeenCalled()
     })
 })

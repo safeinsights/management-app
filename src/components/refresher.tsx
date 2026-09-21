@@ -1,5 +1,17 @@
+import type { ReactNode } from 'react'
 import { useTimer } from './timer'
 import { Text, Flex, Loader } from '@mantine/core'
+
+// The refresher's width varies by state, so a fixed-height row keeps it from shifting the
+// other header controls.
+export const RefresherSlot: React.FC<{ children: ReactNode }> = ({ children }) => {
+    if (!children) return null
+    return (
+        <Flex justify="flex-end" align="center" mih={24} data-testid="refresher-slot">
+            {children}
+        </Flex>
+    )
+}
 
 export const Refresher: React.FC<{ isEnabled: boolean; refresh: () => void; isPending: boolean }> = ({
     isEnabled,

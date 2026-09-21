@@ -22,8 +22,9 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
     const mutation = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // title is omitted: it's owned by the Step 2 editor's autosave mirror and by
-            // submission. Sending Step 1's stale copy would overwrite the mirrored title.
+            // OTTER-690: Step 1 is the single writer of `study.title` on a DRAFT. The one place it
+            // is trimmed; validation measures raw length so it agrees with the character counter.
+            const title = formValues.title?.trim() || undefined
             const draftInfo = {
                 piName: formValues.piName || undefined,
                 language: formValues.language || undefined,
@@ -31,20 +32,27 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
             let result
             if (studyId) {
+                // `undefined` rather than `null`, so an accidental blank save never clears a
+                // stored title.
                 result = actionResult(
                     await onUpdateDraftStudyAction({
                         studyId,
-                        studyInfo: draftInfo,
+                        studyInfo: { ...draftInfo, title },
                     }),
                 )
             } else {
                 if (!formValues.orgSlug) {
                     throw new Error('Data Partner is required to create a study')
                 }
+                // Creation cannot omit the title: the action rejects a blank one. Unreachable
+                // behind the Save & continue gate.
+                if (!title) {
+                    throw new Error('Study title is required to create a study')
+                }
                 result = actionResult(
                     await onSaveDraftStudyAction({
                         orgSlug: formValues.orgSlug,
-                        studyInfo: draftInfo,
+                        studyInfo: { ...draftInfo, title },
                         submittingOrgSlug,
                     }),
                 )

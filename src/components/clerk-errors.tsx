@@ -3,8 +3,7 @@ import { Alert } from '@mantine/core'
 import { WarningIcon } from '@phosphor-icons/react'
 import { FC } from 'react'
 
-// Custom copy for Clerk error alerts; `message` replaces Clerk's wording when it is
-// too vague for end users (OTTER-597)
+// Replaces Clerk's wording where it is too vague for end users (OTTER-597).
 export const CLERK_ERROR_COPY: Record<string, { title: string; message?: string }> = {
     form_password_pwned: {
         title: 'Compromised Password',

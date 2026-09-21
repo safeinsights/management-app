@@ -6,7 +6,7 @@ import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedba
 type Props = {
     orgSlug: string
     studyId: string
-    /** Per-tab id shared with the broadcasting mutation hook, used to skip self-kick-out. */
+    // Shared with the broadcasting mutation hook so a tab can skip its own kick-out.
     tabSessionId: string
     enabled: boolean
 }

@@ -9,7 +9,8 @@ import {
     insertTestStudyJobData,
     insertTestResearcherProfile,
 } from '@/tests/unit.helpers'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import logger from '@/lib/logger'
 import { ResearcherProfilePopover } from './researcher-profile-popover'
 
 function ControlledPopover({ userId, studyId, orgSlug }: { userId: string; studyId: string; orgSlug: string }) {
@@ -72,10 +73,11 @@ describe('ResearcherProfilePopover', () => {
         expect(screen.queryByText('View full profile')).not.toBeInTheDocument()
     })
 
-    it('shows "Profile not available" when user does not exist', async () => {
+    it('shows "Profile not available" for a userId the study does not name', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await renderAndHover(faker.string.uuid(), study.id, 'test-org')
 
         await waitFor(() => {

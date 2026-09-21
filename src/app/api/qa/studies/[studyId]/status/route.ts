@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/database'
-import { requireQaAdmin, findQaStudy } from '@/server/qa-cleanup'
+import { requireQaAuth, requireAdminOfOrgs, findQaStudy } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
 import { setQaStudyState, QA_FILE_KEYS, type QaFileKey } from '@/server/qa-study-state'
-import { qaErrorResponse } from '../../../responses'
+import { qaErrorResponse, qaRefusedResponse } from '../../../responses'
 import { auditQaOperation } from '../../../audit'
 
 const STUDY_STATUSES = ['APPROVED', 'ARCHIVED', 'CHANGE-REQUESTED', 'DRAFT', 'PENDING-REVIEW', 'REJECTED'] as const
@@ -26,19 +26,12 @@ const JOB_STATUSES = [
     'RUN-COMPLETE',
 ] as const
 
-// Both statuses are optional so a caller can attach files without moving either, but a
-// request that sets nothing at all is a mistake worth reporting rather than a no-op 200.
 const statusSchema = z.object({
     studyStatus: z.enum(STUDY_STATUSES).optional(),
     jobStatus: z.enum(JOB_STATUSES).optional(),
 })
 
-/**
- * Read the status fields and file parts out of a multipart body.
- *
- * multipart is required rather than JSON because the point of the endpoint is attaching a
- * file; the status fields ride along as ordinary form fields so QA can do both in one curl.
- */
+// Multipart rather than JSON so QA can set statuses and attach a file in one curl.
 async function parseRequest(req: Request) {
     let formData: FormData
     try {
@@ -58,8 +51,8 @@ async function parseRequest(req: Request) {
         if (value instanceof File && value.size > 0) {
             files[key] = value
         } else if (value != null) {
-            // A string here means the caller sent `result=foo` instead of `result=@foo`;
-            // accepting it would store a file containing the literal text.
+            // A string means the caller sent `result=foo` instead of `result=@foo`; accepting it
+            // would store a file containing the literal text.
             throw new QaInvalidRequestError(`form field "${key}" must be a file`)
         }
     }
@@ -71,35 +64,39 @@ async function parseRequest(req: Request) {
     return { ...statuses, files }
 }
 
-/**
- * Set a study's status, its current round job's status, and/or attach result and log
- * artifacts. A study with no job yet gets one opened when there is something job-scoped
- * to attach.
- *
- * Files are sent as plaintext under the `result` and `log` form keys and are encrypted
- * server-side for the reviewing org before storage.
- */
+// Files arrive as plaintext under the `result` and `log` keys and are encrypted for the reviewing
+// org before storage.
 export const PATCH = async (req: Request, { params }: { params: Promise<{ studyId: string }> }) => {
-    const auth = await requireQaAdmin()
+    const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
     }
 
     const { studyId } = await params
     try {
-        const update = await parseRequest(req)
-        // Resolved before anything is audited so a bad body or a non-QA study is rejected
-        // without leaving an attempt row.
+        // Resolved and authorized before the body is read: an unauthorized caller must not be
+        // able to make the server consume an upload. A non-QA study leaves no attempt row.
         const study = await findQaStudy(db, studyId)
+        const entry = {
+            actorUserId: auth.user.id,
+            eventType: 'UPDATED',
+            recordType: 'STUDY',
+            recordId: study.studyId,
+            metadata: { orgSlugs: study.orgSlugs },
+        } as const
+
+        const authorized = await requireAdminOfOrgs(db, auth, study.orgSlugs)
+        if (!authorized.ok) {
+            return await qaRefusedResponse(entry, authorized)
+        }
+
+        const update = await parseRequest(req)
 
         const result = await auditQaOperation(
             {
-                actorUserId: auth.user.id,
-                eventType: 'UPDATED',
-                recordType: 'STUDY',
-                recordId: study.studyId,
+                ...entry,
                 metadata: {
-                    orgSlug: study.orgSlug,
+                    ...entry.metadata,
                     requested: {
                         studyStatus: update.studyStatus,
                         jobStatus: update.jobStatus,

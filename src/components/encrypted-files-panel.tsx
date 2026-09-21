@@ -35,9 +35,7 @@ export const EncryptedFilesPanel: FC<EncryptedFilesPanelProps> = ({
         closeFileViewer,
     } = useEncryptedFilesPanel({ job, onFilesApproved, isReviewer })
 
-    // No decryptable rows for this user (a researcher with no wrapped keys yet — late joiner, or
-    // pre-renewal). Render nothing rather than a form to nowhere. Future: an honest "no results
-    // shared with you yet" empty state + the renewal re-wrap request affordance lives here.
+    // A researcher with no wrapped keys yet gets nothing rather than a form to nowhere.
     if (!hasFileRows) {
         return null
     }
@@ -98,7 +96,7 @@ const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView }) => {
             <CheckCircleIcon
                 size={18}
                 weight="fill"
-                color="var(--mantine-color-green-6)"
+                color="var(--mantine-color-green-7)"
                 aria-label="Shared with researcher"
             />
         ),

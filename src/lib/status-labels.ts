@@ -13,27 +13,19 @@ export type StatusLabel = {
 }
 
 const COLORS = {
-    draft: { bg: 'grey.10', c: 'gray.9' },
+    draft: { bg: 'grey.0', c: 'gray.9' },
     needsReview: { bg: 'purple.1', c: 'purple.7' },
     underReview: { bg: 'yellow.0', c: 'dark.9' },
-    rejected: { bg: 'red.1', c: 'red.8' },
-    approved: { bg: 'green.1', c: 'green.8' },
+    rejected: { bg: 'red.0', c: 'red.7' },
+    approved: { bg: 'green.0', c: 'green.7' },
     clarification: { bg: 'blue.1', c: 'blue.8' },
     default: { bg: 'gray.1', c: 'dark.5' },
 }
 
-// ORDER MATTERS in the below lists
-// The LAST status found will be displayed
-// EXCEPT for 'JOB-ERRORED' which takes precedence over all other statuses if it exists,
-// with one caveat: for researchers, JOB-ERRORED is hidden until the reviewer posts a
-// FILES-APPROVED/FILES-REJECTED decision on the error logs (see useStudyStatus).
-
-// Proposal -> Code -> Results
+// ORDER MATTERS: the LAST status found is displayed, except 'JOB-ERRORED', which takes precedence
+// over all others.
 export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
-    // note: there is no 'DRAFT' label here even though that status exists on studies
-    // BECAUSE a reviewer should never see a DRAFT study
-
-    // Proposal
+    // No 'DRAFT' entry: a reviewer must never see a DRAFT study.
     'PENDING-REVIEW': {
         stage: 'Proposal',
         label: 'Needs Review',
@@ -61,7 +53,6 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
         colors: COLORS.clarification,
     },
 
-    // Code
     'CODE-SUBMITTED': {
         stage: 'Code',
         label: 'Needs Review',
@@ -121,7 +112,6 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
         colors: COLORS.rejected,
     },
 
-    // Results
     'RUN-COMPLETE': {
         stage: 'Results',
         label: 'Needs Review',
@@ -142,9 +132,7 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     },
 }
 
-// Proposal -> Code -> Results
 export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
-    // Proposal
     DRAFT: {
         stage: 'Proposal',
         label: 'Draft',
@@ -175,7 +163,6 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         colors: COLORS.underReview,
     },
 
-    // Code
     INITIATED: {
         stage: 'Code',
         label: 'Draft',
@@ -219,7 +206,6 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         colors: COLORS.rejected,
     },
 
-    // Results
     'RUN-COMPLETE': {
         stage: 'Results',
         label: 'Under Review',

@@ -30,7 +30,6 @@ export const getAgentContext = async (db: DBConn, { name, orgId }: { name: Conte
     return { content: row?.content ?? '' }
 }
 
-// SYSTEM context followed by the language context, empties skipped.
 export const getAgentContextString = async (
     db: DBConn,
     { language, orgId }: { language: Language; orgId: string | null },

@@ -1,238 +1,12 @@
 'use client'
 
-import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
-import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
-import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
-import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
+import { useQuery } from '@/common'
 import { LoadingMessage } from '@/components/loading'
-import { useAuth, useSignIn } from '@clerk/nextjs'
-import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
-import { TermsCheckbox } from '@/components/terms-checkbox'
-import { useRouter } from 'next/navigation'
-import { FC, use, useState } from 'react'
-import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
-import { Routes } from '@/lib/routes'
-import { markOrgJoined } from '@/lib/joined-org'
-
-const formSchema = z
-    .object({
-        firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        password: (() => {
-            let schema = z.string().max(64)
-            PASSWORD_REQUIREMENTS.forEach((req) => {
-                schema = schema.regex(req.re, req.message)
-            })
-            return schema
-        })(),
-        confirmPassword: z.string(),
-        // In the form so leaving it unchecked raises a visible error rather than only
-        // disabling the button (OTTER-647). Stripped before the action, whose schema
-        // has no such field.
-        termsAccepted: z.literal(true, { message: 'You must accept the terms to continue' }),
-    })
-    .superRefine(({ confirmPassword, password }, ctx) => {
-        if (confirmPassword !== password) {
-            ctx.addIssue({
-                code: 'custom',
-                message: 'Passwords do not match. Please re-enter them.',
-                path: ['confirmPassword'],
-            })
-        }
-    })
-
-type FormValues = z.infer<typeof formSchema>
-
-type InviteData = {
-    inviteId: string
-    email: string
-    orgName: string
-}
-
-const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
-    const { setActive, signIn } = useSignIn()
-    const theme = useMantineTheme()
-    const router = useRouter()
-
-    const form = useForm({
-        validate: zodResolver(formSchema),
-        validateInputOnBlur: true,
-        validateInputOnChange: ['password'],
-        initialValues: {
-            firstName: '',
-            lastName: '',
-            password: '',
-            confirmPassword: '',
-            termsAccepted: false as true,
-        },
-    })
-
-    const [passwordTouched, setPasswordTouched] = useState(false)
-    const { requirementsDescription } = usePasswordRequirements(form.values.password, passwordTouched)
-
-    const { mutate: createAccount, isPending: isCreating } = useMutation({
-        mutationFn: ({ termsAccepted: _termsAccepted, ...form }: FormValues) =>
-            onCreateAccountAction({ inviteId, form }),
-        onError: handleMutationErrorsWithForm(form),
-        async onSuccess(_, vals) {
-            if (!signIn || !setActive) {
-                reportError('unable to signin')
-                return
-            }
-
-            try {
-                const attempt = await signIn.create({
-                    identifier: email,
-                    password: vals.password,
-                })
-
-                if (attempt.status === 'complete') {
-                    await setActive({ session: attempt.createdSessionId })
-                    await onPendingUserLoginAction({ inviteId })
-                    markOrgJoined(orgName)
-                    router.push(Routes.accountMfa)
-                } else if (attempt.status === 'needs_second_factor') {
-                    // A freshly-created account has no MFA factors enrolled, so a second-factor
-                    // challenge here is unsatisfiable — handing this state to <RequestMFA> would
-                    // strand the user on the "No MFA factors are configured" dead-end screen.
-                    // The instance-level Clerk MFA policy must allow first sign-in to complete
-                    // so the user can reach /account/mfa to enroll.
-                    reportError(
-                        'Your account was created, but multi-factor authentication is required before you can sign in. Please contact your administrator.',
-                    )
-                } else {
-                    console.error(
-                        'Sign-in status:',
-                        attempt.status,
-                        'First factor:',
-                        attempt.firstFactorVerification?.status,
-                    )
-                    reportError(`unable to sign in: ${attempt.status}`)
-                }
-            } catch (error) {
-                console.error('Sign-in error:', error)
-                reportError('sign in failed')
-            }
-        },
-    })
-
-    const clerkErrorCopy = CLERK_ERROR_COPY[String(form.errors.code)]
-    const formErrorTitle = clerkErrorCopy?.title || 'Could not create account'
-    const formErrorBody = clerkErrorCopy?.message || form.errors.form
-
-    return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-            <form onSubmit={form.onSubmit((values) => createAccount(values))}>
-                <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
-                    <Title mb="lg" order={3} ta="center">
-                        Welcome to SafeInsights!
-                    </Title>
-                    <Text size="md">
-                        You’ve been invited to join {orgName}. Please fill out the details below to create your account.
-                    </Text>
-                    <TextInput
-                        label="Email"
-                        radius="sm"
-                        value={email}
-                        disabled
-                        c="charcoal.9"
-                        styles={{
-                            input: {
-                                backgroundColor: theme.colors.charcoal[1],
-                                borderColor: theme.colors.charcoal[1],
-                                color: theme.colors.charcoal[9],
-                            },
-                        }}
-                    />
-
-                    <Flex direction="row" gap="xl">
-                        <TextInput
-                            radius="sm"
-                            flex="1"
-                            key={form.key('firstName')}
-                            {...form.getInputProps('firstName')}
-                            label="First name"
-                            placeholder="Enter your first name"
-                            error={form.errors.firstName && <InputError error={form.errors.firstName} />}
-                        />
-
-                        <TextInput
-                            radius="sm"
-                            flex="1"
-                            key={form.key('lastName')}
-                            {...form.getInputProps('lastName')}
-                            label="Last name"
-                            placeholder="Enter your last name"
-                            error={form.errors.lastName && <InputError error={form.errors.lastName} />}
-                        />
-                    </Flex>
-                    <PasswordInput
-                        radius="sm"
-                        label="Enter password"
-                        key={form.key('password')}
-                        placeholder="********"
-                        {...form.getInputProps('password')}
-                        onBlur={(event) => {
-                            form.getInputProps('password').onBlur?.(event)
-                            setPasswordTouched(true)
-                        }}
-                        // Error is suppressed in favor of the requirements list below, which
-                        // now also appears when the field is left empty.
-                        error={undefined}
-                        aria-invalid={!!form.errors.password || undefined}
-                        // Rendered as the input's description so Mantine owns the
-                        // aria-describedby wiring; a hand-passed value is overwritten.
-                        description={requirementsDescription}
-                        // Description below the input, not Mantine's default position above it:
-                        // this is live validation feedback, and it sat under the field before.
-                        inputWrapperOrder={['label', 'input', 'description', 'error']}
-                    />
-
-                    <PasswordInput
-                        radius="sm"
-                        label="Confirm password"
-                        key={form.key('confirmPassword')}
-                        placeholder="********"
-                        {...form.getInputProps('confirmPassword')}
-                        error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
-                    />
-
-                    {form.errors.form && (
-                        <Alert
-                            color="red"
-                            title={formErrorTitle}
-                            withCloseButton
-                            onClose={() => form.clearFieldError('form')}
-                        >
-                            {formErrorBody}
-                        </Alert>
-                    )}
-
-                    <TermsCheckbox
-                        checked={form.values.termsAccepted}
-                        onChange={(checked) => form.setFieldValue('termsAccepted', checked as true)}
-                        onBlur={() => form.validateField('termsAccepted')}
-                        error={form.errors.termsAccepted}
-                    />
-
-                    <Flex mt="sm">
-                        <Button
-                            type="submit"
-                            loading={isCreating}
-                            disabled={!form.isValid()}
-                            w="100%"
-                            size="lg"
-                            bg={!form.isValid() ? 'grey.1' : undefined}
-                            styles={!form.isValid() ? { label: { color: theme.colors.grey[7] } } : undefined}
-                        >
-                            Create Account
-                        </Button>
-                    </Flex>
-                </Flex>
-            </form>
-        </Paper>
-    )
-}
+import { useAuth } from '@clerk/nextjs'
+import { FC, use } from 'react'
+import { getOrgInfoForInviteAction } from '../create-account.action'
+import { InvalidInvitePanel } from '../invalid-invite-panel'
+import { SetupAccountForm } from './setup-account-form'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -242,10 +16,18 @@ const SignupAccountPanel: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const { isLoaded: isLoadedAuth, isSignedIn } = useAuth()
 
-    const { data, isLoading: isLoadingData } = useQuery({
+    const {
+        data,
+        isLoading: isLoadingData,
+        isError,
+    } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
+
+    // A claimed or deleted invite no longer resolves; data stays undefined after the query errors,
+    // so without this the spinner never stops.
+    if (isError) return <InvalidInvitePanel />
 
     if (!isLoadedAuth || isLoadingData || !data) return <LoadingMessage message="Loading" />
 

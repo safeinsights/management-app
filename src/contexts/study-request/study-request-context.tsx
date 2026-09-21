@@ -39,13 +39,9 @@ export function StudyRequestProvider({
     const [orgSlug, setOrgSlug] = useState(initialDraft?.orgSlug ?? '')
     const [submittingOrgSlug, setSubmittingOrgSlug] = useState(initialSubmittingOrgSlug)
 
-    // Resolver is scoped to the fields Step 1 renders; `title` and `piName` belong to the
-    // Step 2 editor and would otherwise fail validation with no field to show the error on.
-    //
-    // validateInputOnChange is retained on top of the blur default: this form is
-    // uncontrolled, so a value change alone does not re-render the provider and
-    // `isStep1Valid` below would go stale, leaving Proceed disabled after a valid
-    // selection. Validating on change updates the errors state, which does re-render.
+    // Scoped to Step 1's fields; `piName` belongs to Step 2 and would fail with no field to show
+    // the error on. `title` is in scope but stays out of validateInputOnChange, where its blank
+    // rule would flash on every keystroke (OTTER-690).
     const form = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(step1FieldsSchema),
@@ -53,25 +49,13 @@ export function StudyRequestProvider({
         validateInputOnChange: ['orgSlug', 'language'],
     })
 
-    const { initDocumentFilesFromPaths, resetDocumentFiles, ...documentFiles } = useDocumentFiles()
-
-    const isStep1Valid = form.isValid()
+    const { initDocumentFilesFromPaths, ...documentFiles } = useDocumentFiles()
 
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
         submittingOrgSlug,
         onStudyCreated: setStudyId,
     })
-
-    const reset = useCallback(
-        (preserveStudyId?: string) => {
-            setStudyId(preserveStudyId ?? null)
-            setOrgSlug('')
-            resetDocumentFiles()
-            form.reset()
-        },
-        [form, resetDocumentFiles],
-    )
 
     const saveDraft = useCallback(
         (options?: MutationOptions) => {
@@ -106,9 +90,6 @@ export function StudyRequestProvider({
 
     useEffect(() => {
         if (initialDraft) {
-            // Seeds the Mantine form and the document-file store from the server-provided
-            // draft. This is a genuine external-store sync from props, and initFromDraft's
-            // form/store writes cannot run during render, so it must stay in an effect.
             // eslint-disable-next-line react-hooks/set-state-in-effect -- external store seeding from a server draft
             initFromDraft(initialDraft, initialSubmittingOrgSlug)
         }
@@ -121,13 +102,11 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
 
             ...documentFiles,
 
             setStudyId,
             initFromDraft,
-            reset,
 
             saveDraft,
             isSaving,
@@ -138,13 +117,11 @@ export function StudyRequestProvider({
             orgSlug,
             submittingOrgSlug,
             form,
-            isStep1Valid,
             documentFiles.documentFiles,
             documentFiles.existingFiles,
             documentFiles.setDocumentFile,
             documentFiles.setExistingDocuments,
             initFromDraft,
-            reset,
             saveDraft,
             isSaving,
         ],

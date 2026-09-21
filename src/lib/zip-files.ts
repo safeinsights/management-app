@@ -5,17 +5,8 @@ export type ZippableFile = {
     contents: ArrayBuffer
 }
 
-/**
- * Bundles decrypted output files into a single zip, in the browser.
- *
- * SECURITY: the inputs are plaintext. The archive is built client-side and handed straight to a
- * blob URL. It must never be uploaded, and the caller should revoke the URL once the download
- * starts so the plaintext isn't reachable from a stale object URL.
- *
- * Names are de-duplicated because the table can legitimately show two artifacts with the same
- * inner path (e.g. the same log re-delivered across job attempts), and a zip with duplicate
- * entries extracts unpredictably.
- */
+// SECURITY: the inputs are plaintext, so the archive must never be uploaded and the caller must
+// revoke the blob URL once the download starts.
 export async function zipFiles(files: ZippableFile[]): Promise<Blob> {
     const writer = new ZipWriter(new BlobWriter('application/zip'))
     const used = new Map<string, number>()

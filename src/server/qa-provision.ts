@@ -1,11 +1,5 @@
-/**
- * QA provisioning helpers: put a user into an exact known state (org memberships,
- * public key, Clerk password) and mint invites without waiting on an inbox. Exposed
- * via /api/qa/* routes gated to non-production SI admins, the same as qa-cleanup.
- *
- * Kept separate from qa-cleanup.ts because that module is also imported by the real
- * study-delete action; nothing here should ever be reachable from production code.
- */
+// QA provisioning helpers behind /api/qa/*, gated to non-production SI admins. Kept out of
+// qa-cleanup.ts because that module is imported by the real study-delete action.
 import { type Kysely } from 'kysely'
 import { type DB } from '@/database/types'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -36,10 +30,7 @@ export type QaProvisionResult = {
     passwordSet: boolean
 }
 
-/**
- * Resolve every requested slug before writing anything, so a typo in one slug cannot
- * leave the user half-migrated to a new set of orgs.
- */
+// Resolved before any write, so a typo in one slug cannot leave the user half-migrated.
 async function resolveOrgs(db: Kysely<DB>, orgs: QaOrgMembership[]) {
     return await Promise.all(
         orgs.map(async ({ slug, isAdmin = false }) => {
@@ -50,12 +41,8 @@ async function resolveOrgs(db: Kysely<DB>, orgs: QaOrgMembership[]) {
     )
 }
 
-/**
- * Make the user's memberships exactly match `resolved`: drop every org not listed and
- * upsert the ones that are. org_user has no unique constraint on (org_id, user_id) —
- * the index in migration 1727379622503 was never awaited — so this selects before
- * inserting rather than relying on onConflict.
- */
+// org_user has no unique constraint on (org_id, user_id), so this selects before inserting
+// rather than relying on onConflict.
 async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awaited<ReturnType<typeof resolveOrgs>>) {
     const keptOrgIds = resolved.map((org) => org.orgId)
     let removals = db.deleteFrom('orgUser').where('userId', '=', userId)
@@ -80,10 +67,7 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
     }
 }
 
-/**
- * The user's memberships in the shape applyOrgMemberships consumes, so a failed Clerk
- * sync can be compensated by replaying them.
- */
+// Shaped for applyOrgMemberships, so a failed Clerk sync can be compensated by replaying them.
 async function currentMemberships(db: Kysely<DB>, userId: string) {
     const rows = await db
         .selectFrom('orgUser')
@@ -94,11 +78,8 @@ async function currentMemberships(db: Kysely<DB>, userId: string) {
     return rows.map(({ orgId, slug, isAdmin }) => ({ orgId, slug, isAdmin }))
 }
 
-/**
- * Store a PEM public key for the user, replacing any existing one. The fingerprint is
- * derived here rather than accepted from the caller — a mismatched one would make every
- * sender wrap to a key the owner cannot unwrap.
- */
+// The fingerprint is derived, not accepted from the caller: a mismatched one would make senders
+// wrap to a key the owner cannot open.
 async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
     let keyData: ArrayBuffer
     try {
@@ -107,8 +88,7 @@ async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
         throw new QaInvalidRequestError('publicKey is not a valid PEM encoded key')
     }
 
-    // A well-formed PEM can still carry a key type we cannot wrap to (EC, Ed25519, an
-    // RSA private key). That is bad caller input, not a fault, so it must read as a 400.
+    // A well-formed PEM can still carry a key type we cannot wrap to; that is bad input, not a fault.
     try {
         await assertValidPublicKey(keyData)
     } catch (error) {
@@ -121,7 +101,6 @@ async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
     const fingerprint = await fingerprintKeyData(keyData)
     const publicKey = Buffer.from(keyData)
 
-    // user_public_key is unique on user_id (migration 1742320602314), so at most one row exists.
     const existing = await db.selectFrom('userPublicKey').select(['id']).where('userId', '=', userId).executeTakeFirst()
 
     if (existing) {
@@ -137,13 +116,7 @@ async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
     return fingerprint
 }
 
-/**
- * Apply any combination of org memberships, public key, and password to an existing user.
- * Omitted fields are left untouched; `orgs: []` is meaningful and removes every membership.
- *
- * DB writes run in one transaction; Clerk calls follow the commit, mirroring qa-cleanup.
- * A failed Clerk metadata sync is compensated — see below.
- */
+// Omitted fields are untouched; `orgs: []` is meaningful and removes every membership.
 export async function provisionQaUser(
     db: Kysely<DB>,
     idOrEmail: string,
@@ -165,23 +138,13 @@ export async function provisionQaUser(
         }
     })
 
-    // Authorization reads org membership and isAdmin from the Clerk JWT's publicMetadata,
-    // not the DB, so a membership change is invisible until the metadata is rewritten.
-    //
-    // The transaction has already committed by this point (updateClerkUserMetadata reads
-    // the memberships back through the module-level db and so cannot see uncommitted
-    // rows). If Clerk is unavailable the two stores would disagree — the DB granting
-    // access the JWT does not, or worse still granting the old access — so restore the
-    // previous memberships and surface the failure. The endpoint is then a no-op rather
-    // than a request that split authorization state in half.
+    // Authorization reads membership from the Clerk JWT, not the DB, so if Clerk is unavailable the
+    // two stores disagree and may still grant the old access; roll back and fail loudly.
     if (resolvedOrgs && priorOrgs) {
         try {
             await updateClerkUserMetadata(user.id)
         } catch (error) {
-            // Compensation is best-effort: nothing it does may replace the original error,
-            // which is what tells the caller the request did not take effect. If the
-            // rollback itself fails the route's `failed` audit row records that production
-            // was left mid-change.
+            // Nothing here may replace the original error, which is what tells the caller it failed.
             try {
                 await withTransaction(db, (trx) => applyOrgMemberships(trx, user.id, priorOrgs))
                 await updateClerkUserMetadata(user.id)
@@ -194,8 +157,7 @@ export async function provisionQaUser(
 
     if (update.password) {
         const clerk = await clerkClient()
-        // QA reuses short, well-known passwords across environments; Clerk would reject
-        // them as weak or breached.
+        // QA reuses short, well-known passwords; Clerk would reject them as weak or breached.
         await clerk.users.updateUser(user.clerkId, { password: update.password, skipPasswordChecks: true })
     }
 
@@ -221,19 +183,14 @@ export type QaInviteResult = {
     inviteUrl: string
 }
 
-/**
- * Create a pending invite and return its URL. Follows orgAdminInviteUserAction — same
- * email normalization, same already-a-member rejection, same reuse of an outstanding
- * invite — with one deliberate difference: it does NOT fire onUserInvited, so no
- * invitation email is delivered and no audit row is written. QA wants the link, not
- * an inbox round-trip; do not "restore" that call.
- */
+// Deliberately does NOT fire onUserInvited: QA wants the link, not an inbox round-trip.
+// Do not "restore" that call.
 export async function createQaInvite(
     db: Kysely<DB>,
     { email, orgSlug, isAdmin = false }: QaInviteRequest,
     invitedByUserId: string | null,
 ): Promise<QaInviteResult> {
-    // clerk normalizes the email to lowercase, do the same here to avoid case-insensitive matching issues
+    // Clerk normalizes to lowercase; match it to avoid case-sensitivity mismatches.
     const invitedEmail = email.toLowerCase()
     // Runs on production, so an invite may only ever be addressed to a QA account.
     assertQaEmail(invitedEmail, 'invited email')

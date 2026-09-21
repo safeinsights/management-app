@@ -1,8 +1,17 @@
 import type { StudyStatus } from '@/database/types'
 
-export const FEEDBACK_MIN_WORDS = 1
-export const FEEDBACK_MAX_WORDS = 500
-export const CODE_REVIEW_FEEDBACK_MAX_WORDS = 300
+export const REVIEW_FEEDBACK_MAX_CHARACTERS = 1800
+
+// "Decision" is what the reviewer sees on both review pages; neither labels a field "Feedback".
+export const REVIEW_FEEDBACK_FIELD_TITLE = 'Decision'
+
+/**
+ * The Data Partner proposal review section title.
+ * First submission reads "Review proposal"; each resubmission bumps the suffix: v2.0, v3.0 etc.
+ */
+export function proposalReviewHeading(reviewVersion: number): string {
+    return reviewVersion > 1 ? `Review proposal v${reviewVersion}.0` : 'Review proposal'
+}
 
 export const SUBMITTED_PROPOSAL_REVIEW_STATUSES = [
     'APPROVED',

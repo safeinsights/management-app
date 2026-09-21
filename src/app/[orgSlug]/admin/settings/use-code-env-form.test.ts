@@ -53,9 +53,8 @@ describe('useCodeEnvForm', () => {
         ;(getSampleDataUploadUrlAction as Mock).mockResolvedValue(mockPresignedUrl)
     })
 
-    // OTTER-647: a draft env-var pair used to be discarded on submit when only one half was
-    // filled, so the save appeared to succeed while losing the input. Whitespace counted as
-    // filled, because the checks read the raw form values while only the schema trimmed.
+    // OTTER-647: a half-filled draft pair was discarded on submit, so the save appeared to
+    // succeed while losing the input.
     describe('draft env var and command pairs', () => {
         const seedRequiredFields = (result: { current: ReturnType<typeof useCodeEnvForm> }) => {
             act(() => {

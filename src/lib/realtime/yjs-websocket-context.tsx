@@ -5,15 +5,13 @@ import { HocuspocusProviderWebsocket, WebSocketStatus } from '@hocuspocus/provid
 
 import { WS_URL } from '@/lib/config'
 
-/** Coarse connection phase exposed to consumers. See useEditorConnection for details. */
 export type ConnectionPhase = 'initial' | 'connected' | 'reconnecting' | 'failed'
 
 type ConnectionState = {
     socket: HocuspocusProviderWebsocket | null
     phase: ConnectionPhase
-    // When true, editors render the standalone single-user surface and no
-    // collaboration websocket is opened. Sourced from a server-read env var (the
-    // app build is shared across environments, so it can't be a build-time flag).
+    // Sourced from a server-read env var: the app build is shared across environments, so it
+    // cannot be a build-time flag.
     singleUserEditing: boolean
 }
 
@@ -23,15 +21,12 @@ const YjsWebsocketContext = createContext<ConnectionState>({
     singleUserEditing: false,
 })
 
-// Module-scoped so the websocket is reused across React Strict Mode double-mounts
-// in dev and across any client-side navigation that re-renders the provider tree.
-// One per browser tab — cleaned up on `pagehide` so a bfcache-restored page can
-// open a fresh connection if the old one is unusable.
+// One per browser tab, module-scoped so Strict Mode double-mounts and client-side navigation reuse
+// it. Destroyed on `pagehide` so a bfcache-restored page can open a fresh connection.
 let sharedSocket: HocuspocusProviderWebsocket | null = null
 
-// Live React setters that should be notified when the singleton is replaced
-// (specifically on `pageshow` after a bfcache restore, where the previous
-// singleton was destroyed by `pagehide` but React state still points at it).
+// Notified when the singleton is replaced on `pageshow` after a bfcache restore, where React
+// state still points at the socket `pagehide` destroyed.
 const socketSubscribers = new Set<(socket: HocuspocusProviderWebsocket) => void>()
 
 function getOrCreateSharedSocket(): HocuspocusProviderWebsocket {
@@ -46,49 +41,26 @@ if (typeof window !== 'undefined') {
         sharedSocket = null
     })
     window.addEventListener('pageshow', (event) => {
-        // Only act on bfcache restores — ordinary first-loads have no destroyed
-        // socket to recover from and providers are mounting fresh anyway.
         if (!(event as PageTransitionEvent).persisted) return
         const next = getOrCreateSharedSocket()
         socketSubscribers.forEach((notify) => notify(next))
     })
 }
 
-/** Test-only: drop the cached socket so each test gets a fresh constructor call. */
 export function __resetSharedYjsWebsocketForTests(): void {
     sharedSocket?.destroy()
     sharedSocket = null
-    // Belt-and-braces: a leaked subscriber from a previous test (e.g. one that
-    // threw mid-render before its useEffect cleanup ran) would otherwise
-    // receive `pageshow` notifications in subsequent tests.
     socketSubscribers.clear()
-    // Also clear the test mock's instance log if present so per-test
-    // `ctorSpy.mock.instances` lookups stay isolated.
     const ctor = HocuspocusProviderWebsocket as unknown as { __instances?: unknown[] }
     if (ctor.__instances) ctor.__instances.length = 0
 }
 
 type Props = {
     children: ReactNode
-    /**
-     * When true, no collaboration websocket is opened and editors render the
-     * standalone single-user surface. Read server-side and passed in from the
-     * root layout so it can vary per deploy environment.
-     */
     singleUserEditing?: boolean
-    /**
-     * How long the websocket can stay disconnected before we surface a "Reconnecting…"
-     * banner to users. Anything shorter false-fires on routine browser tab-switches
-     * and Hocuspocus' own messageReconnectTimeout heartbeat. 30s matches the default
-     * reconnect timeout and is the smallest value that doesn't flap during normal use.
-     */
+    // Shorter values false-fire on tab-switches and Hocuspocus' own reconnect heartbeat.
     reconnectingThresholdMs?: number
-    /**
-     * After this many consecutive disconnect events without a successful reconnect we
-     * surface the "failed" terminal state. The default leaves Hocuspocus' built-in
-     * exponential backoff plenty of room (~5 minutes) before we tell the user the
-     * editor is unavailable.
-     */
+    // The default leaves Hocuspocus' exponential backoff room to recover.
     failureThresholdMs?: number
 }
 
@@ -101,25 +73,15 @@ export const YjsWebsocketProvider: FC<Props> = ({
     reconnectingThresholdMs = DEFAULT_RECONNECTING_THRESHOLD_MS,
     failureThresholdMs = DEFAULT_FAILURE_THRESHOLD_MS,
 }) => {
-    // In single-user mode no collaboration websocket is ever opened — the editor
-    // surface is standalone — so the socket stays null and the phase stays inert.
-    //
-    // The socket starts null on BOTH server and the client's first render even in
-    // collaborative mode: creating it from `getOrCreateSharedSocket()` in the
-    // initializer would make the first client render (editor) diverge from the
-    // server-rendered skeleton and break hydration. The effect below attaches the
-    // real socket after hydration, so the skeleton→editor swap is a normal update.
+    // Starts null even on the client's first render: creating the socket in the initializer
+    // would diverge from the server-rendered skeleton and break hydration.
     const [socket, setSocket] = useState<HocuspocusProviderWebsocket | null>(null)
     const [phase, setPhase] = useState<ConnectionPhase>('initial')
 
-    // Attach the tab-singleton socket post-hydration, and subscribe to
-    // bfcache-restore re-creations so consumers re-render against the live socket
-    // instead of the destroyed one.
     useEffect(() => {
         if (singleUserEditing) return undefined
-        // Intentional: deferring socket creation to this effect (rather than the
-        // useState initializer) is what keeps the first client render matching the
-        // server-rendered skeleton. The one-time cascading render is the fix.
+        // Deferring socket creation to this effect is what keeps the first client render
+        // matching the server-rendered skeleton.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSocket(getOrCreateSharedSocket())
         const onSocketReplaced = (next: HocuspocusProviderWebsocket) => {
@@ -137,9 +99,7 @@ export const YjsWebsocketProvider: FC<Props> = ({
 
         let reconnectingTimer: ReturnType<typeof setTimeout> | null = null
         let failureTimer: ReturnType<typeof setTimeout> | null = null
-        // Tracks whether we've ever successfully connected. Drives the difference
-        // between "initial" (never connected — show skeleton) and "reconnecting"
-        // (was connected, now isn't — keep editing locally, show banner).
+        // Distinguishes "initial" (never connected) from "reconnecting" (was connected).
         let hasEverConnected = false
 
         const clearTimers = () => {
@@ -157,10 +117,8 @@ export const YjsWebsocketProvider: FC<Props> = ({
                 return
             }
 
-            // Connecting / Disconnected: schedule the surface transitions but don't
-            // jump there immediately. Hocuspocus alternates between connecting and
-            // disconnected during normal reconnect with backoff, and a one-second
-            // hop shouldn't disturb the user.
+            // Hocuspocus alternates between connecting and disconnected during a normal
+            // backoff reconnect, so the transition is scheduled rather than immediate.
             if (reconnectingTimer === null) {
                 reconnectingTimer = setTimeout(() => {
                     setPhase((prev) => {
@@ -179,9 +137,8 @@ export const YjsWebsocketProvider: FC<Props> = ({
         }
 
         socket.on('status', onStatus)
-        // Seed phase from the socket's current status — Hocuspocus may already be
-        // connected by the time this effect runs (HMR, route change). Without
-        // seeding we'd stay at 'initial' until the next status emit.
+        // Hocuspocus may already be connected when this effect runs (HMR, route change), and
+        // without seeding the phase would stay 'initial' until the next status emit.
         if (socket.status === WebSocketStatus.Connected) {
             hasEverConnected = true
             // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -203,34 +160,17 @@ export const YjsWebsocketProvider: FC<Props> = ({
     )
 }
 
-/**
- * Returns the tab-singleton Hocuspocus websocket. Null only during SSR or before
- * the provider mounts. Per-document HocuspocusProvider instances multiplex over
- * this single connection via .attach()/.detach(), and authenticate per-document
- * at handshake time.
- */
+// Per-document providers multiplex over this one connection via .attach()/.detach().
 export function useYjsWebsocket(): HocuspocusProviderWebsocket | null {
     return useContext(YjsWebsocketContext).socket
 }
 
-/**
- * Returns the current coarse phase of the shared websocket connection:
- * - `initial` — never connected (cold start). Editors should render a skeleton.
- * - `connected` — healthy. Editors are live.
- * - `reconnecting` — was connected, lost transport for >30s. Yjs holds local edits;
- *   editors stay editable but a banner warns that changes haven't synced yet.
- * - `failed` — disconnected for >5 minutes. Editors are replaced with an unavailable
- *   message; the user should refresh.
- */
+// `initial` never connected; `connected` live; `reconnecting` lost transport but Yjs holds local
+// edits so editors stay editable; `failed` down long enough to show a refresh prompt.
 export function useConnectionPhase(): ConnectionPhase {
     return useContext(YjsWebsocketContext).phase
 }
 
-/**
- * True when the app is running in single-user mode: editors render the standalone
- * (non-collaborative) surface and no websocket is opened. Sourced from a server-read
- * env var passed into YjsWebsocketProvider.
- */
 export function useSingleUserEditing(): boolean {
     return useContext(YjsWebsocketContext).singleUserEditing
 }

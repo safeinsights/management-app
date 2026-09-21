@@ -6,14 +6,8 @@ import { isActionError } from '@/lib/errors'
 import { fetchCodeEnvHistoryAction } from './code-envs.actions'
 import type { CodeEnvHistoryEntry } from './code-env-history-view'
 
-// metadata is jsonb, so it arrives typed as Json. Parsing it through the schema keeps that
-// shape defined in one place rather than cast at each render site.
-//
-// safeParse rather than parse, inside queryFn rather than during render: audit rows outlive
-// the code that wrote them, so a future shape change would otherwise throw out of the hook
-// body, where TanStack cannot catch it — taking down the whole settings page instead of
-// leaving one row unreadable. A row that fails the schema degrades to "no field changes"
-// and keeps the rest of the history visible.
+// safeParse inside queryFn, not parse during render: audit rows outlive the code that wrote them,
+// and a throw from the hook body would take down the whole settings page.
 const toEntry = (entry: {
     id: string
     createdAt: Date
@@ -36,9 +30,8 @@ export const useCodeEnvHistory = (orgSlug: string, codeEnvId: string, enabled: b
     const query = useQuery({
         queryKey: ['codeEnvHistory', orgSlug, codeEnvId],
         enabled,
-        // Thrown rather than filtered out: a denied or failed fetch has to reach query.isError,
-        // otherwise it arrives as an empty list and renders as "no changes recorded" — the
-        // opposite of what happened.
+        // Thrown rather than filtered out: a failed fetch must reach query.isError, not render as
+        // "no changes recorded".
         queryFn: async () => {
             const result = await fetchCodeEnvHistoryAction({ orgSlug, codeEnvId })
             if (isActionError(result)) throw new Error('Failed to load code environment history')

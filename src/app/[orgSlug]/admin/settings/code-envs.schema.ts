@@ -6,11 +6,9 @@ const dataSourceTypeKeys = Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ..
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const MAX_FILE_SIZE_STR = '10MB'
 
-// Valid env var key: starts with letter or underscore, followed by alphanumeric or underscore
 export const envVarKeyRegex = /^[A-Za-z_][A-Za-z0-9_]*$/
 export const ENV_VAR_KEY_ERROR = 'Invalid variable name: must start with letter or underscore'
 
-// Schema for individual environment variable
 const envVarSchema = z.object({
     name: z.string().regex(envVarKeyRegex, ENV_VAR_KEY_ERROR),
     value: z.string().trim().nonempty('Value is required'),
@@ -26,19 +24,11 @@ const codeEnvSettingsSchema = z.object({
         }, 'Environment variable names must be unique'),
 })
 
-// Valid pathname: alphanumeric, hyphens, underscores, dots, forward slashes
 const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
 
 export const identifierRegex = /^[a-z0-9_]+$/
 
-// Docker image reference per OCI distribution spec:
-//   [HOST[:PORT]/]PATH[:TAG|@DIGEST]
-//
-// HOST:  DNS hostname, optional port (e.g., harbor.safeinsights.org:443)
-// PATH:  slash-separated components, each lowercase alphanumeric with [._-] separators
-//        (double __ also allowed, multiple hyphens allowed)
-// TAG:   alphanumeric, [._-], max 128 chars (e.g., :latest, :2025-05-15)
-// DIGEST: algorithm:hex, at least 32 hex chars (e.g., @sha256:9cacb7...)
+// Docker image reference per the OCI distribution spec: [HOST[:PORT]/]PATH[:TAG|@DIGEST]
 const dnsLabel = String.raw`[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?`
 const domain = String.raw`(?:${dnsLabel}(?:\.${dnsLabel})*(?::[0-9]+)?\/)`
 const pathComponent = String.raw`[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*`
@@ -54,15 +44,14 @@ export const dockerImageRefSchema = z
 
 const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < MAX_FILE_SIZE
 
-// Base schema with common fields
 const codeEnvFieldsSchema = z.object({
     name: z.string().trim().nonempty('Name is required'),
     identifier: z
         .string()
         .nonempty('Identifier is required')
         .regex(identifierRegex, 'Must be all lowercase alphanumeric or underscores'),
-    // Trimmed, because the row UI derives "missing" from a trimmed value. Untrimmed, a command
-    // replaced with spaces showed "Command is required" and still saved (OTTER-647).
+    // The row UI derives "missing" from a trimmed value, so untrimmed a whitespace command would
+    // show "Command is required" and still save (OTTER-647).
     commandLines: z.record(z.string(), z.string().trim().nonempty('Command is required')),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: dockerImageRefSchema,
@@ -78,9 +67,6 @@ const codeEnvFieldsSchema = z.object({
     existingStarterCodeFileNames: z.array(z.string()).default([]),
 })
 
-// Schema for new env var input fields (used only in UI form, not for submission)
-// These are validated on-demand when adding, not on every keystroke
-// Automatically trims whitespace from input
 const newEnvVarFieldsSchema = z.object({
     newEnvKey: z
         .string()

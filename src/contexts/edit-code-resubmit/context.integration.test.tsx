@@ -1,9 +1,5 @@
-// Integration coverage for the autosave path with NO action mocking — the real
-// saveCodeResubmissionNoteDraftAction runs against the test DB. This is the layer the
-// OTTER-558 save bug slipped through: the sibling context.test.tsx mocks the action (to
-// inject a transient failure for the retry test), so it never exercised the real eligibility
-// gate. Here the provider, the debounced autosave, the server action, and the DB all run for
-// real, so a regression in the gate (or in how the client reports save success) fails loudly.
+// Unmocked against the test DB: the sibling context.test.tsx mocks the action, so it never
+// exercises the real eligibility gate the OTTER-558 bug slipped through.
 import { describe, expect, it } from 'vitest'
 import {
     db,

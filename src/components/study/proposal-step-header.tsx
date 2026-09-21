@@ -1,45 +1,34 @@
-import type { ReactNode } from 'react'
-import { Divider, Group, Paper, Text, Title } from '@mantine/core'
-import dayjs from 'dayjs'
+import type { FC, ReactNode } from 'react'
+import { Divider, Paper, Text, Title } from '@mantine/core'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type ProposalStepHeaderProps = {
     stepLabel: string
     heading: string
-    studyTitle: string
-    timestampDate?: Date | string | null
-    timestampLabel?: string
     banner?: ReactNode
     children?: ReactNode
 }
 
-export function ProposalStepHeader({
-    stepLabel,
-    heading,
-    studyTitle,
-    timestampDate,
-    timestampLabel = 'Submitted on',
-    banner,
-    children,
-}: ProposalStepHeaderProps) {
+const HeaderDivider: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return <Divider my="lg" color={semanticColor('border.default')} data-testid="proposal-header-divider" />
+}
+
+export function ProposalStepHeader({ stepLabel, heading, banner, children }: ProposalStepHeaderProps) {
+    // The rule separates the header from what follows inside the same card, so a header with
+    // nothing below must not end in one (OTTER-755).
+    const hasContentBelowRule = Boolean(banner) || Boolean(children)
+
     return (
         <Paper p="xxl" data-testid="proposal-section-header">
-            <Text fz={10} fw={700} c="charcoal.7" pb={4}>
+            <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
                 {stepLabel}
             </Text>
-            <Title order={4} fz={20} c="charcoal.9" pb={4}>
+            <Title order={2} fz="xl" c={semanticColor('text.primary')} pb="xxs">
                 {heading}
             </Title>
-            <Group justify="space-between" align="center" wrap="nowrap">
-                <Text c="charcoal.9" style={{ maxWidth: '105ch', wordBreak: 'break-word' }}>
-                    Title: {studyTitle}
-                </Text>
-                {timestampDate && (
-                    <Text fz={12} c="charcoal.7" style={{ whiteSpace: 'nowrap' }} data-testid="proposal-timestamp">
-                        {timestampLabel} {dayjs(timestampDate).format('MMM DD, YYYY')}
-                    </Text>
-                )}
-            </Group>
-            <Divider my={24} color="charcoal.1" data-testid="proposal-header-divider" />
+            <HeaderDivider isVisible={hasContentBelowRule} />
             {banner}
             {children}
         </Paper>

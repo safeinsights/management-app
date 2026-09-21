@@ -38,10 +38,8 @@ describe('EditOrgForm', () => {
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
         const [, nameInput, emailInput] = inputs
 
-        // Public key is a textarea now
         const publicKeyTextarea = screen.getByPlaceholderText('Enter your public key') as HTMLTextAreaElement
 
-        // Type is a select that shows display text
         const typeSelect = screen.getByDisplayValue('Enclave (Data Partner)')
 
         expect(nameInput.value).toBe(mockOrg.name)
@@ -56,7 +54,6 @@ describe('EditOrgForm', () => {
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
         const [slugInput, nameInput, emailInput] = inputs
 
-        // Public key is a textarea now
         const publicKeyTextarea = screen.getByPlaceholderText('Enter your public key') as HTMLTextAreaElement
 
         fireEvent.change(slugInput, { target: { value: 'new-slug' } })

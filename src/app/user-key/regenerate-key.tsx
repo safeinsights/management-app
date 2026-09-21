@@ -7,7 +7,6 @@ import { Routes } from '@/lib/routes'
 import { RegenerateKeyView } from './regenerate-key-view'
 
 type RegenerateKeyProps = {
-    /** Date the current key was generated, preformatted server-side (MMM DD, YYYY). */
     generatedOn: string
 }
 

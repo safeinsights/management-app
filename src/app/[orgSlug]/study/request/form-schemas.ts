@@ -1,28 +1,46 @@
 import { z } from 'zod'
-import { WORD_LIMITS, maxWordsRefine } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 
-// The fields Step 1 actually collects. This is the resolver for the Step 1 form, so it
-// must stay in lockstep with what `StudyProposalForm` renders: anything required here
-// but not rendered produces an error the user can never see or clear (OTTER-647).
-export const step1FieldsSchema = z.object({
-    orgSlug: z.string().min(1, { message: 'Data Partner is required' }),
-    language: z
-        .enum(['R', 'PYTHON'])
-        .nullable()
-        .superRefine((val, ctx) => {
-            if (val === null) {
-                ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Programming language is required' })
-            }
-        }),
+// Shared by Step 1 and the CHANGE-REQUESTED resubmit page (OTTER-690, OTTER-737).
+export const STUDY_TITLE_MAX_CHARACTERS = 60
+
+export const STUDY_TITLE_BLANK_ERROR = 'Enter a study title before continuing.'
+export const STUDY_TITLE_OVER_LIMIT_ERROR = overCharacterLimitError('Study title', STUDY_TITLE_MAX_CHARACTERS)
+export const DATA_PARTNER_REQUIRED_ERROR = 'Select a Data Partner before continuing.'
+export const PROGRAMMING_LANGUAGE_REQUIRED_ERROR = 'Select a programming language before continuing.'
+
+// Measured trimmed so it matches the on-screen counter; the blank message is a parameter because
+// the two pages word it differently.
+export const studyTitleField = (blankError: string) =>
+    z.string().superRefine((val, ctx) => {
+        if (val.trim().length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: blankError })
+        } else if (countCharacters(val) > STUDY_TITLE_MAX_CHARACTERS) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
+        }
+    })
+
+// Must stay in lockstep with what SetupForm renders: anything required here but not rendered
+// produces an error the user can never see or clear (OTTER-647).
+const step1FieldsObject = z.object({
+    title: studyTitleField(STUDY_TITLE_BLANK_ERROR),
+    orgSlug: z.string().min(1, { message: DATA_PARTNER_REQUIRED_ERROR }),
+    language: z.enum(['R', 'PYTHON']).nullable(),
 })
 
-// Step 1 + the fields owned by the Step 2 editor. Not used as a form resolver: it exists
-// to carry the shape of `StudyProposalFormValues`.
-export const studyProposalFormSchema = step1FieldsSchema.extend({
-    title: z
-        .string()
-        .min(1, { message: 'Title is required' })
-        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+export const step1FieldsSchema = step1FieldsObject.superRefine((values, ctx) => {
+    // Conditional because the language field renders nothing until a Data Partner is chosen; an
+    // unconditional rule would flag a field that is not on the page (OTTER-647).
+    if (values.orgSlug && values.language === null) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['language'],
+            message: PROGRAMMING_LANGUAGE_REQUIRED_ERROR,
+        })
+    }
+})
+
+export const studyProposalFormSchema = step1FieldsObject.extend({
     piName: z.string().max(100, { message: 'Name cannot exceed 100 characters' }).trim(),
     description: z.string().optional(),
 })
@@ -80,10 +98,12 @@ export type ResubmitProposalFormValues = Omit<
 >
 
 export const studyProposalApiSchema = z.object({
+    // Trimmed before the length rules so the cap excludes surrounding whitespace (OTTER-737).
     title: z
         .string()
+        .trim()
         .min(1, { message: 'Title is required' })
-        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
+        .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR }),
     piName: z.string().max(100).trim(),
     piUserId: z.string().uuid(),
     language: z.enum(['R', 'PYTHON']),
@@ -102,9 +122,10 @@ export const step2ProposalApiSchema = z.object({
     additionalNotes: z.string(),
 })
 
-// Drafts allow `title: null` so a researcher can save without filling it in;
-// the DB enforces non-null only when status leaves DRAFT.
+// Deliberately uncapped: this serves autosave, and an older study can hold an over-long title a
+// cap would reject inside `.params()`. The cap belongs on the submit paths (OTTER-737).
 export const draftStudyApiSchema = studyProposalApiSchema
     .extend(step2ProposalApiSchema.shape)
     .partial()
-    .extend({ title: z.string().nullable().optional() })
+    // Trimmed so the row stores what the counter measured.
+    .extend({ title: z.string().trim().nullable().optional() })

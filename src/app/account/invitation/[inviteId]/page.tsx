@@ -2,11 +2,13 @@ import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect, RedirectType } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
+import { InvalidInvitePanel } from './invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
 import { Flex, Paper, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
     const { inviteId } = await params
@@ -46,14 +48,13 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
-    // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
+    // getUserList matches merged emails as well as primary ones.
     let matchingUser = pendingInvite?.matchingUser
     if (!matchingUser && pendingInvite?.email) {
         const clerk = await clerkClient()
         const clerkUsers = await clerk.users.getUserList({ emailAddress: [pendingInvite.email] })
 
         if (clerkUsers.data.length > 0) {
-            // Check if this Clerk user has a corresponding user in our database
             const userWithClerkId = await db
                 .selectFrom('user')
                 .select(['id'])
@@ -69,23 +70,20 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
 
     if (session) {
-        // The invitee is already signed in — accept directly, no need to sign out and back in.
         if (matchingUser && session.user.id === matchingUser) {
             redirect(joinTeamUrl, RedirectType.replace)
         }
-        // Signed in as another user: must sign out before accepting.
         return <SignOutPanel />
     }
 
     if (matchingUser) {
-        // redirect to the join team page after signing in
         redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     }
 
     const { orgName, isAdmin } = pendingInvite
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
                     You’ve been invited to join SafeInsights!
@@ -95,7 +93,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                     we couldn’t find an existing account associated with this email, please select one of the options
                     below:
                 </Text>
-                <Text size="md" fw={600} ta="center">
+                <Text size="md" fw={fontWeight.semibold} ta="center">
                     Already have a SafeInsights account?
                 </Text>
                 <ButtonLink
@@ -106,14 +104,14 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                 >
                     Login with existing account
                 </ButtonLink>
-                <Text size="sm" c="red.8">
+                <Text size="sm" c={semanticColor('error.text')}>
                     <b>Note:</b> Strongly recommended if you already have an account, since merging accounts later is
                     not supported.
                 </Text>
                 <Text size="md" ta="center" w="100%" my="xs">
                     OR
                 </Text>
-                <Text size="md" fw={600} ta="center">
+                <Text size="md" fw={fontWeight.semibold} ta="center">
                     Setting up a new SafeInsights account?
                 </Text>
                 <ButtonLink variant="outline" size="lg" href={Routes.accountInvitationSignup({ inviteId })} fullWidth>
@@ -123,20 +121,3 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         </Paper>
     )
 }
-
-const InvalidInvitePanel = () => (
-    <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-        <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
-            <Title order={3} ta="center" c="red.8">
-                This invitation is no longer valid
-            </Title>
-            <Text size="md">
-                It may have already been accepted or expired. If you think this is a mistake, contact the person who
-                invited you for a new invitation.
-            </Text>
-            <ButtonLink variant="filled" size="lg" href={Routes.dashboard} fullWidth>
-                Go to your dashboard
-            </ButtonLink>
-        </Flex>
-    </Paper>
-)

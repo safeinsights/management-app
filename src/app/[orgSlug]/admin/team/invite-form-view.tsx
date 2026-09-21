@@ -1,14 +1,12 @@
 'use client'
 
-import type React from 'react'
-import type { ComponentPropsWithoutRef, FormEventHandler, ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, FocusEvent, FormEventHandler, ReactNode } from 'react'
 import { Button, Flex, Radio, TextInput } from '@mantine/core'
-import { widgetBlurHandler } from '@/components/form-field'
+import { useWidgetBlur } from '@/components/form-field'
+import { fontWeight } from '@/theme/tokens'
 
-// Presentational layout for the "Invite People" form: email input + Contributor /
-// Administrator radios + "Send invitation" button. It owns no form state, mutation, or
-// session — the container (./invitation) wires Mantine form props and the invite mutation
-// in via the props below, so this renders in isolation (e.g. Ladle).
+// Presentational only; ./invitation wires the form state and mutation in, so this renders in
+// isolation (e.g. Ladle).
 export type InviteFormViewProps = {
     onSubmit: FormEventHandler<HTMLFormElement>
     emailProps: Partial<ComponentPropsWithoutRef<typeof TextInput>>
@@ -28,12 +26,19 @@ export function InviteFormView({
     isSubmitting,
     isSubmitDisabled,
 }: InviteFormViewProps) {
-    // Guarded blur: every radio is in the tab order until one is chosen, so Mantine's raw
-    // validating onBlur would flash the error while the user is still moving between options
-    // (OTTER-647). Left undefined when the caller passes no onBlur, so nothing is wired up.
-    const handlePermissionBlur =
-        permissionProps.onBlur &&
-        widgetBlurHandler((event) => permissionProps.onBlur?.(event as React.FocusEvent<HTMLDivElement>))
+    // Every radio is in the tab order until one is chosen, so an unguarded validating onBlur
+    // flashes the error while the user moves between options (OTTER-647).
+    const { onBlur: validatePermission, onFocus: touchPermission, ...permissionRest } = permissionProps
+    const {
+        ref: permissionRef,
+        onFocus: enterPermissionGroup,
+        onBlur: leavePermissionGroup,
+    } = useWidgetBlur<HTMLDivElement>(validatePermission as (() => void) | undefined)
+
+    const handlePermissionFocus = (event: FocusEvent<HTMLDivElement>) => {
+        touchPermission?.(event)
+        enterPermissionGroup()
+    }
 
     return (
         <form onSubmit={onSubmit}>
@@ -47,14 +52,16 @@ export function InviteFormView({
                 error={emailError}
             />
 
-            <Flex mb="sm" fw="semibold" direction="column">
+            <Flex mb="sm" fw={fontWeight.semibold} direction="column">
                 <Radio.Group
                     label="Assign Permissions"
                     withAsterisk
                     styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
                     name="permission"
-                    {...permissionProps}
-                    onBlur={handlePermissionBlur}
+                    {...permissionRest}
+                    ref={permissionRef}
+                    onFocus={handlePermissionFocus}
+                    onBlur={leavePermissionGroup}
                     error={permissionError}
                 >
                     <Flex gap="md" mt="xs" direction="column">

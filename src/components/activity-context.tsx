@@ -7,6 +7,7 @@ import { notifications } from '@mantine/notifications'
 import { Button, Space, Stack, Text } from '@mantine/core'
 import { usePathname } from 'next/navigation'
 import { INACTIVITY_TIMEOUT_MS, WARNING_THRESHOLD_MS } from '@/lib/types'
+import { plural } from '@/lib/string'
 
 interface InactivityWarningMessageProps {
     remainingMinutes: number
@@ -14,11 +15,10 @@ interface InactivityWarningMessageProps {
 }
 
 const InactivityWarningMessage = ({ remainingMinutes, onStaySignedIn }: InactivityWarningMessageProps) => {
-    const minuteLabel = remainingMinutes === 1 ? 'minute' : 'minutes'
     return (
         <Stack>
             <Text>
-                {`To keep your account secure, you'll be logged out in ${remainingMinutes} ${minuteLabel} due to inactivity. Click 'Stay Signed In' to continue your session.`}
+                {`To keep your account secure, you'll be logged out in ${plural(remainingMinutes, 'minute')} due to inactivity. Click 'Stay Signed In' to continue your session.`}
             </Text>
             <Space h="xs" />
             <Button variant="filled" size="sm" onClick={onStaySignedIn}>
@@ -43,7 +43,6 @@ export const ActivityContext = () => {
         const inactivityDuration = currentTime - lastActiveTime
 
         if (inactivityDuration < WARNING_THRESHOLD_MS) {
-            // hide notification if the user is active again
             notifications.hide('session-expired')
         }
 
@@ -85,7 +84,7 @@ export const ActivityContext = () => {
             return
         }
 
-        const intervalId = setInterval(checkInactivity, 10000) // Check every 10 seconds
+        const intervalId = setInterval(checkInactivity, 10000)
         return () => clearInterval(intervalId)
     }, [session, checkInactivity])
 

@@ -5,13 +5,15 @@ import { useDisclosure } from '@mantine/hooks'
 import { usePathname } from 'next/navigation'
 import { useEffect, useCallback } from 'react'
 
-const PINNED_ROUTES: string[] = [Routes.researcherProfile, Routes.userKey, Routes.adminSafeinsights]
+const PINNED_ROUTES: string[] = [
+    Routes.researcherProfile,
+    Routes.userKey,
+    Routes.legal,
+    Routes.adminSafeinsights,
+    Routes.adminSafeinsightsLegal,
+]
 
-/**
- * Manages profile menu disclosure state with special behavior:
- * - Menu stays open while on profile-related pages (researcher profile, reviewer key, SI admin)
- * - Menu cannot be closed by clicking outside while on those pages
- */
+// On profile-related pages the menu stays open and cannot be dismissed by an outside click.
 export function useProfileMenuDisclosure() {
     const pathname = usePathname()
     const isOnPinnedRoute = PINNED_ROUTES.includes(pathname)

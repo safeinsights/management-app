@@ -9,11 +9,8 @@ vi.mock('@/server/mailgun', async (importOriginal) => {
     return { ...actual, deliver: vi.fn(async () => {}) }
 })
 
-/**
- * clerkMiddleware doesn't run on /api/*, so the routes verify the SI admin's session token
- * straight from the Authorization header. Mirror qa-cleanup.test.ts: set the header and make
- * verifyToken resolve to the claims mockSessionWithTestData wired into the session.
- */
+// clerkMiddleware doesn't run on /api/*, so the routes read the session token from the
+// Authorization header directly.
 async function authenticateAsSiAdmin(options: { isSiAdmin: boolean } = { isSiAdmin: true }) {
     const mocks = await mockSessionWithTestData({ isSiAdmin: options.isSiAdmin })
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')
@@ -112,6 +109,33 @@ describe('POST /api/qa/invites', () => {
         expect(entry.metadata).toMatchObject({ email, orgSlug: org.slug, via: 'qa-api' })
     })
 
+    // The QA tooling invites as an org admin; the invite's own orgSlug is the target.
+    it('lets an org admin invite into their own org', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.insertInto('orgUser').values({ orgId: org.id, userId: mocks.user.id, isAdmin: true }).execute()
+
+        const response = await postInvite({ email: qaEmail(), orgSlug: org.slug })
+
+        expect(response.status).toBe(201)
+        const invites = await db.selectFrom('pendingUser').select(['id']).where('orgId', '=', org.id).execute()
+        expect(invites).toHaveLength(1)
+    })
+
+    // Otherwise an org admin could seed itself an admin account inside someone else's org.
+    it('rejects an org admin inviting into an org they do not administer', async () => {
+        const mocks = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const own = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.insertInto('orgUser').values({ orgId: own.id, userId: mocks.user.id, isAdmin: true }).execute()
+
+        const response = await postInvite({ email: qaEmail(), orgSlug: other.slug, isAdmin: true })
+
+        expect(response.status).toBe(403)
+        const invites = await db.selectFrom('pendingUser').select(['id']).where('orgId', '=', other.id).execute()
+        expect(invites).toHaveLength(0)
+    })
+
     it('rejects a caller who is not an SI admin', async () => {
         await authenticateAsSiAdmin({ isSiAdmin: false })
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -121,5 +145,22 @@ describe('POST /api/qa/invites', () => {
         expect(response.status).toBe(403)
         const invites = await db.selectFrom('pendingUser').select(['id']).where('orgId', '=', org.id).execute()
         expect(invites).toHaveLength(0)
+    })
+
+    // No invite row exists to hang the refusal on, so it is filed against the caller.
+    it('audits a refused invite against the caller', async () => {
+        const { user: caller } = await authenticateAsSiAdmin({ isSiAdmin: false })
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const email = qaEmail()
+
+        await postInvite({ email, orgSlug: org.slug })
+
+        const entry = await db
+            .selectFrom('audit')
+            .select(['eventType', 'recordType', 'userId', 'metadata'])
+            .where('recordId', '=', caller.id)
+            .executeTakeFirstOrThrow()
+        expect(entry).toMatchObject({ eventType: 'INVITED', recordType: 'USER', userId: caller.id })
+        expect(entry.metadata).toMatchObject({ outcome: 'refused', email, orgSlug: org.slug })
     })
 })

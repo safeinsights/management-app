@@ -1,26 +1,43 @@
 import type { Route } from 'next'
 
-export type ScreenId =
-    // researcher
+// Split by role so each role's nav table (see ./nav) can be a total Record and a missing screen is a
+// compile error, the same guarantee SCREEN_COMPONENTS gives the screen registry. 'study-overview' is
+// researcher-owned; the reviewer table reuses it only as its exhaustive fallback.
+export type ResearcherScreenId =
     | 'proposal-feedback'
     | 'code-under-review'
     | 'code-approved'
     | 'code-feedback'
-    | 'study-results'
+    | 'outputs-pending'
+    | 'outputs-feedback'
+    | 'outputs-errored-shared'
+    // The clean-run counterpart. Named for the reviewer's decision, not for availability:
+    // 'reviewer-outputs-available' already means a completed run still awaiting one.
+    | 'outputs-shared'
+    // A clean run the data partner has not decided on yet: the researcher waits on the outputs step
+    // with a banner naming the partner (OTTER-785).
+    | 'outputs-awaiting-review'
     | 'study-overview'
-    // reviewer
+
+// The two screens SharedOutputsScreen serves, told apart by routing predicate and banner copy —
+// the same shape CodeDecisionScreenId gives code-approved/code-feedback.
+export type SharedOutputsScreenId = Extract<ResearcherScreenId, 'outputs-shared' | 'outputs-errored-shared'>
+
+export type ReviewerScreenId =
     | 'reviewer-proposal-review'
     | 'reviewer-proposal-feedback'
+    // Unreachable since OTTER-727 hid the Agreements step; kept so the gate can be restored by
+    // re-adding one rule entry.
     | 'reviewer-agreements'
     | 'reviewer-code-review'
     | 'reviewer-code-feedback'
     | 'reviewer-outputs-pending'
     | 'reviewer-outputs-errored'
-    | 'reviewer-study-results'
+    | 'reviewer-outputs-available'
+    | 'reviewer-outputs-decided'
 
-// The rule table decides WHICH screen a study shows; each leaf view owns its own back/forward
-// buttons (nav is simple and stable, and the screen-selection logic is the part that needed
-// centralizing). The screen is derived purely from state — no URL params feed into it.
+export type ScreenId = ResearcherScreenId | ReviewerScreenId
+
 export type ScreenDescriptor = {
     screen: ScreenId
     // True for the reviewer read-only /review/code step, where navigation differs from live review.

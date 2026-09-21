@@ -1,14 +1,12 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Anchor, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { Anchor, Box, Group, Text } from '@mantine/core'
+import { isHttpUrl } from '@/schema/url'
+import { SettingsCard, SettingsCardRow } from './settings-card'
 
-// Presentational pieces for the "Data Sources" settings card. They own the card chrome
-// and the visible row (name / code-env names / description / linked URLs) but NOT data
-// fetching, the add/edit modals, or the per-row delete mutation — those stay in the
-// DataSources container (./data-sources). The body and per-row action node are injected
-// so these render in isolation (e.g. Ladle, which has no QueryClient).
+// Presentational only: the body and per-row action node are injected so these render without a
+// QueryClient (e.g. Ladle).
 
 export type DataSourceUrlView = {
     id: string
@@ -21,13 +19,39 @@ export type DataSourceRowViewProps = {
     codeEnvNames: string
     description: string | null
     urls: DataSourceUrlView[]
-    /** Edit/delete controls — injected by the container (they own mutation + modal). */
     actions: ReactNode
 }
 
-export function DataSourceRowView({ name, codeEnvNames, description, urls, actions }: DataSourceRowViewProps) {
+// Rows persisted before the schema restricted schemes (OTTER-724) can hold a `javascript:` URL,
+// which still executes when React renders it into an href.
+function DataSourceUrlLink({ url, description }: { url: string; description: string | null }) {
+    const linkable = isHttpUrl(url)
+
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+        <Group gap="sm" wrap="nowrap">
+            <Text>
+                {linkable ? (
+                    <Anchor size="sm" href={url} target="_blank" rel="noopener noreferrer">
+                        {url}
+                    </Anchor>
+                ) : (
+                    <Text component="span" size="sm">
+                        {url}
+                    </Text>
+                )}
+            </Text>
+            <Text c="dimmed" size="sm">
+                {description}
+            </Text>
+        </Group>
+    )
+}
+
+export function DataSourceRowView({ name, codeEnvNames, description, urls, actions }: DataSourceRowViewProps) {
+    const linkedUrls = urls.filter((u): u is DataSourceUrlView & { url: string } => Boolean(u.url))
+
+    return (
+        <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Box style={{ minWidth: 0, flex: 1 }}>
                     <Group gap="sm" wrap="nowrap">
@@ -41,27 +65,15 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
                             {description}
                         </Text>
                     )}
-                    {urls.map(
-                        (u) =>
-                            u.url && (
-                                <Group key={u.id} gap="sm" wrap="nowrap">
-                                    <Text>
-                                        <Anchor size="sm" href={u.url} target="_blank" rel="noopener noreferrer">
-                                            {u.url}
-                                        </Anchor>
-                                    </Text>
-                                    <Text c="dimmed" size="sm">
-                                        {u.description}
-                                    </Text>
-                                </Group>
-                            ),
-                    )}
+                    {linkedUrls.map((u) => (
+                        <DataSourceUrlLink key={u.id} url={u.url} description={u.description} />
+                    ))}
                 </Box>
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     {actions}
                 </Group>
             </Group>
-        </Box>
+        </SettingsCardRow>
     )
 }
 
@@ -72,19 +84,8 @@ export type DataSourcesViewProps = {
 
 export function DataSourcesView({ onAdd, children }: DataSourcesViewProps) {
     return (
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={3} size="lg">
-                        Data Sources
-                    </Title>
-                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={onAdd}>
-                        Add Data Source
-                    </Button>
-                </Group>
-                <Divider c="dimmed" />
-                {children}
-            </Stack>
-        </Paper>
+        <SettingsCard title="Data Sources" addLabel="Add Data Source" onAdd={onAdd}>
+            {children}
+        </SettingsCard>
     )
 }

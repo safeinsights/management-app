@@ -11,17 +11,8 @@ import {
     withS3Prefix,
 } from './aws'
 
-// The CodeBuild triggers in aws.ts construct a `StartBuildCommand` from a
-// pure builder and send it. We test the builders directly (which is what
-// actually has any logic worth verifying) rather than try to mock out the
-// AWS SDK — vitest cannot reliably intercept `@aws-sdk/*` imports across the
-// externalised CJS boundary, so any attempt to test the wrapping triggers
-// would either skip the assertions or trip a real network call.
-//
-// `getConfigValue` reads `process.env[key]` before consulting Secrets Manager,
-// so setting `CODEBUILD_WEBHOOK_SECRET` in test env yields predictable output
-// without needing to mock the config module (which has the same externalised-
-// dependency mocking issue as @aws-sdk/*).
+// The pure builders are tested directly: vitest cannot intercept `@aws-sdk/*` across the
+// externalised CJS boundary. Same reason CODEBUILD_WEBHOOK_SECRET is set in env.
 
 describe('toAthenaDbName', () => {
     it('should replace dashes with underscores', () => {
@@ -184,7 +175,7 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
     })
 
     it('produces the expected CodeBuild input for a source scan', async () => {
-        const info = { studyJobId: 'job-456', studyId: 'study-abc', orgSlug: 'org-xyz' }
+        const info = { studyJobId: 'job-456', studyId: 'study-abc', orgSlug: 'org-xyz', round: 2 }
 
         const input = await buildTriggerScanForStudyJobCommandInput(info)
 
@@ -194,14 +185,14 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/job-scan-results' },
             {
+                // The round rides along so the webhook can refuse a build that outlived it.
                 name: 'ON_SUCCESS_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED', round: 2 }),
             },
             {
-                // A failed source scan posts CODE-SCANNED, not JOB-ERRORED: the scan is advisory and
-                // a human reviewer decides. See buildTriggerScanForStudyJobCommandInput.
+                // A failed scan posts CODE-SCANNED, not JOB-ERRORED: the scan is advisory.
                 name: 'ON_FAILURE_PAYLOAD',
-                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
+                value: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED', round: 2 }),
             },
             { name: 'SCAN_MODE', value: 'source' },
             { name: 'STUDY_JOB_ID', value: info.studyJobId },
@@ -212,8 +203,7 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
         expect(input.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
         expect(input.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
 
-        // The scan must NOT post a status on start: a CODE-SUBMITTED echo here would reopen a
-        // round that a reviewer may have already decided. See buildTriggerScanForStudyJobCommandInput.
+        // A CODE-SUBMITTED echo on start would reopen a round a reviewer may have decided.
         expect(input.environmentVariablesOverride.some((v) => v.name === 'ON_START_PAYLOAD')).toBe(false)
     })
 })
@@ -295,6 +285,7 @@ describe('S3_KEY_PREFIX', () => {
             studyJobId: 'job-456',
             studyId: 'study-abc',
             orgSlug: 'org-xyz',
+            round: 1,
         })
 
         const byName = (name: string) => input.environmentVariablesOverride.find((v) => v.name === name)?.value

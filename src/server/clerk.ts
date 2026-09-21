@@ -1,4 +1,5 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
+import { cache } from 'react'
 import { capitalize } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
@@ -8,7 +9,6 @@ import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 
 export { type UserSessionWithAbility } from './session'
 
-// Re-export test user utilities for convenience
 export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser } from '@/lib/clerk'
 
 type ClerkOrganizationProps = {
@@ -69,7 +69,9 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
 
-    await client.users.updateUserMetadata(clerkId, {
+    // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges, which left a
+    // revoked org's slug key granting access through the JWT claim forever.
+    await client.users.updateUser(clerkId, {
         publicMetadata: metadata as unknown as UserPublicMetadata,
     })
 
@@ -101,7 +103,9 @@ export const syncCurrentClerkUser = async () => {
     return await syncUserToDatabaseWithConflictResolution(userAttrs)
 }
 
-export async function sessionFromClerk(options?: MarshalSessionOptions) {
+// cache() dedupes the marshal across one RSC render. A forceUpdate caller passes a fresh options
+// object, whose identity never hits the zero-arg cache entry, so a forced re-sync always executes.
+export const sessionFromClerk = cache(async (options?: MarshalSessionOptions) => {
     const { userId, sessionClaims } = await auth()
     return await marshalSession(userId, sessionClaims, options)
-}
+})

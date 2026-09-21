@@ -76,8 +76,7 @@ describe('EducationSection', () => {
         const initialData = await getTestResearcherProfileData(user.id)
         const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        // Harness lets the test swap in changed server data (as a periodic refetch or a
-        // window-focus refetch would) while the form is open for editing.
+        // Swaps in changed server data mid-edit, as a periodic or window-focus refetch would.
         const Harness = () => {
             const [data, setData] = useState(initialData)
             return (
@@ -109,9 +108,8 @@ describe('EducationSection', () => {
 
         await userEvents.click(screen.getByRole('button', { name: 'simulate-refetch' }))
 
-        // The in-progress edit must not be clobbered by the refetch. Re-query the input
-        // (rather than reusing the captured node) so a clobber that resets the value or
-        // closes edit mode is actually detected.
+        // Re-queried rather than reusing the captured node, so a clobber that resets the value
+        // or closes edit mode is actually detected.
         expect((screen.getByPlaceholderText('Ex: Rice University') as HTMLInputElement).value).toBe('MyUnsavedSchool')
     })
 
@@ -148,7 +146,6 @@ describe('EducationSection', () => {
             expect(refetch).toHaveBeenCalled()
         })
 
-        // Verify DB was updated
         const updated = await db
             .selectFrom('researcherProfile')
             .select('educationInstitution')

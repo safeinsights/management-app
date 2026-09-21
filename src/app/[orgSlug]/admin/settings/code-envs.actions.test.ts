@@ -12,6 +12,7 @@ import {
     deleteOrgCodeEnvAction,
     fetchCodeEnvHistoryAction,
     fetchOrgCodeEnvsAction,
+    fetchStarterCodeAction,
     updateOrgCodeEnvAction,
 } from './code-envs.actions'
 import { db } from '@/database'
@@ -151,7 +152,7 @@ describe('Code Environment Actions', () => {
         expect(result.language).toEqual('PYTHON')
         expect(result.url).toEqual('updated-url')
         expect(result.isTesting).toEqual(true)
-        expect(result.starterCodeFileNames).toEqual(['starter.py']) // Should remain unchanged
+        expect(result.starterCodeFileNames).toEqual(['starter.py'])
     })
 
     it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {
@@ -228,9 +229,8 @@ describe('Code Environment Actions', () => {
         expect(isActionError(result)).toBe(true)
     })
 
-    // A denied ability check stringifies the whole CASL subject — every middleware key —
-    // into the error it returns to the caller. Loading the prior row in middleware put
-    // its plaintext env var values in that message.
+    // A denied ability check stringifies the whole CASL subject into the error it returns, so a
+    // row loaded in middleware puts its plaintext env var values in that message.
     it('updateOrgCodeEnvAction does not leak env var values to a denied non-admin', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false })
 
@@ -286,9 +286,8 @@ describe('Code Environment Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        // An admin of their OWN org: the only thing standing between them and another
-        // org's row is the ability check, since the middleware looks the row up by the
-        // client-supplied orgSlug and codeEnvId.
+        // Middleware looks the row up by client-supplied orgSlug and codeEnvId, so only the
+        // ability check stands between an org admin and another org's row.
         await mockSessionWithTestData({ isAdmin: true })
 
         const result = await updateOrgCodeEnvAction({
@@ -828,8 +827,7 @@ describe('Code Environment Actions', () => {
     })
 })
 
-// These audit writes are inline rather than deferred, so the rows are committed by the
-// time the action resolves — no waitFor needed, unlike the study/user audit tests.
+// These audit writes are inline, so the rows are committed by the time the action resolves.
 describe('Code Environment audit logging', () => {
     const baseEnv = (orgId: string) => ({
         orgId,
@@ -927,8 +925,7 @@ describe('Code Environment audit logging', () => {
                 after: { environment: [{ name: 'API_KEY', value: REDACTED_ENV_VALUE }] },
             },
         ])
-        // The audit row is append-only and outlives any rotation, so the value must never
-        // reach it — only the name, which is what identifies the change.
+        // The audit row outlives any rotation, so only the name may reach it, never the value.
         expect(JSON.stringify(entries[0].metadata)).not.toContain('secret')
     })
 
@@ -999,7 +996,6 @@ describe('Code Environment audit logging', () => {
             .values(baseEnv(org.id))
             .returningAll()
             .executeTakeFirstOrThrow()
-        // A second env of the same language keeps the "last non-testing env" guard happy.
         await insertTestCodeEnv({ orgId: org.id, language: 'R' })
 
         await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: codeEnv.id })
@@ -1015,10 +1011,8 @@ describe('Code Environment audit logging', () => {
         expect(metadata.changes.every((c) => c.after === null)).toBe(true)
     })
 
-    // The reason these audit writes are inline rather than deferred: a deferred write
-    // would land even though the transaction rolled back, claiming a change that never
-    // happened. deleteFolderContents runs after the update and after the audit write, so
-    // failing it exercises exactly that window.
+    // A deferred audit write would land even though the transaction rolled back, claiming a
+    // change that never happened.
     it('writes no audit row when the mutation rolls back', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await db
@@ -1067,6 +1061,73 @@ describe('Code Environment audit logging', () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         const result = await fetchCodeEnvHistoryAction({ orgSlug: org.slug, codeEnvId: otherEnv.id })
+        expect(isActionError(result)).toBe(true)
+    })
+
+    // The row carries settings.environment (plaintext env vars, often credentials), so this is
+    // gated on `view OrgConfig` rather than the unconditioned `view Org` (OTTER-724 / MA-6).
+    describe('fetchOrgCodeEnvsAction scoping', () => {
+        const insertOrgWithSecret = async (slug: string) => {
+            const org = await insertTestOrg({ slug })
+            await insertTestCodeEnv({
+                orgId: org.id,
+                language: 'R',
+                environment: [{ name: 'DB_PASSWORD', value: 'super-secret-value' }],
+            })
+            return org
+        }
+
+        it('denies a non-admin member of the same org', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: false })
+            await insertTestCodeEnv({
+                orgId: org.id,
+                language: 'R',
+                environment: [{ name: 'DB_PASSWORD', value: 'super-secret-value' }],
+            })
+
+            const result = await fetchOrgCodeEnvsAction({ orgSlug: org.slug })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain('super-secret-value')
+        })
+
+        it('denies an admin of a different org', async () => {
+            const otherOrg = await insertOrgWithSecret('other-org-code-env-scope')
+            await mockSessionWithTestData({ isAdmin: true })
+
+            const result = await fetchOrgCodeEnvsAction({ orgSlug: otherOrg.slug })
+            expect(isActionError(result)).toBe(true)
+            expect(JSON.stringify(result)).not.toContain('super-secret-value')
+        })
+
+        it('denies an unknown org slug', async () => {
+            await mockSessionWithTestData({ isAdmin: true })
+
+            const result = await fetchOrgCodeEnvsAction({ orgSlug: 'no-such-org-slug' })
+            expect(isActionError(result)).toBe(true)
+        })
+
+        it('allows an SI admin', async () => {
+            const otherOrg = await insertOrgWithSecret('si-admin-readable-code-env')
+            await mockSessionWithTestData({ isSiAdmin: true })
+
+            const result = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: otherOrg.slug }))
+            expect(result).toHaveLength(1)
+        })
+    })
+
+    it('fetchStarterCodeAction denies a non-admin member of the org', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false })
+        const codeEnv = await insertTestCodeEnv({
+            orgId: org.id,
+            language: 'R',
+            starterCodeFileNames: ['starter.R'],
+        })
+
+        const result = await fetchStarterCodeAction({
+            orgSlug: org.slug,
+            codeEnvId: codeEnv.id,
+            fileName: 'starter.R',
+        })
         expect(isActionError(result)).toBe(true)
     })
 })

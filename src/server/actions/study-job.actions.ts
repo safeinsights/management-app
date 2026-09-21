@@ -1,46 +1,39 @@
 'use server'
 
 import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
+import { assertDecisionFeedback } from './decision-feedback'
 import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
-import { normalizeFeedbackToLexical } from '@/lib/lexical'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
     hasOutputsDecision,
     hasReviewableOutputs,
-    OUTPUTS_FEEDBACK_MIN_WORDS,
-    outputsFeedbackMaxWords,
+    OUTPUTS_FEEDBACK_FIELD_TITLE,
+    OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
 import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
 import type { FileType } from '@/database/types'
 import {
-    codeSubmissionVersion,
     getLabPublicKeysForStudy,
     getUserPublicKey,
     getSharedFileIdsForJob,
+    getStudyJobFileOfType,
     getStudyJobInfo,
-    getStudyReviewForJob,
+    jobAnalysisUpdateForJob,
     latestJobForStudy,
+    fetchUserFullName,
+    outputsDecisionVersion,
 } from '@/server/db/queries'
+import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
+import { requireStudyAgreement } from '@/server/study-agreement'
 
-/**
- * Guards what "share outputs" actually promises: the lab can open every encrypted artifact of
- * this job.
- *
- * Three ways a request can fail that promise, none of which insertSharedFileKeys catches:
- *  - no entries at all, so FILES-APPROVED is recorded while nothing is granted;
- *  - entries whose `keys` array is empty, which insertSharedFileKeys turns into zero rows and
- *    returns silently (this is also what buildSharedFiles produces when the lab has no
- *    registered public keys, so it happens without anyone acting in bad faith);
- *  - a subset: one valid artifact named while the job's other artifacts are omitted.
- *
- * Failing loudly is the point. Recording an approval the lab cannot act on is worse than
- * refusing, because the study looks finished to everyone while the results stay unreadable.
- */
+// insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
+// act on is worse than refusing.
 function assertSharesEveryArtifact(
     jobFiles: ReadonlyArray<{ id: string; fileType: FileType }>,
     sharedFiles: SharedFile[],
@@ -59,9 +52,8 @@ function assertSharesEveryArtifact(
     }
 }
 
-// The study is resolved from the job, not taken alongside it. Authorizing a caller-supplied
-// studyId while mutating a caller-supplied studyJobId lets a reviewer entitled to study A name a
-// job in study B and have the ability check pass against the wrong study.
+// The study is resolved from the job, not taken alongside it: otherwise a reviewer entitled to
+// study A could name a job in study B and pass the ability check against the wrong study.
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
@@ -76,13 +68,8 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
     })
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { sharedFiles }, studyJob, session, db }) => {
-        // Re-wrap, not re-encrypt: persist only the wrapped-key rows the reviewer's browser
-        // produced. Ciphertext untouched; server never sees plaintext. The FILES-APPROVED status
-        // below is the all-or-nothing approval fact.
-        //
-        // No backfill for late joiners: keys are wrapped only for lab members with a registered key
-        // at approval time. Registering a key later can't unlock already-approved results —
-        // re-wrapping needs the raw AES key, which the browser no longer holds.
+        // Re-wrap, not re-encrypt, so the server never sees plaintext. No backfill for late
+        // joiners: re-wrapping needs an AES key the browser has already dropped.
         await insertSharedFileKeys(db, studyJob.studyJobId, sharedFiles)
 
         await db
@@ -103,7 +90,6 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         onStudyResultsApproved({ studyId: studyJob.studyId, userId: session.user.id })
     })
 
-// Lab (researcher) public keys the reviewer's browser re-wraps approved files for.
 export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
@@ -115,8 +101,7 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
         return await getLabPublicKeysForStudy(studyId)
     })
 
-// IDs of the job's artifacts shared with researchers, derived from the re-wrapped key rows. Empty
-// before approval.
+// Derived from the re-wrapped key rows, so empty before approval.
 export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
     .middleware(async ({ params: { jobId } }) => {
@@ -128,7 +113,6 @@ export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
         return await getSharedFileIdsForJob(jobId)
     })
 
-// Study resolved from the job, for the same reason as approveStudyJobFilesAction above.
 export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
     .params(
         z.object({
@@ -157,26 +141,17 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction',
             .where('id', '=', studyJob.studyId)
             .execute()
 
-        // TODO Confirm / Make sure we delete files from S3 when rejecting?
         onStudyResultsRejected({ studyId: studyJob.studyId, userId: session.user.id })
     })
 
-// OTTER-675: the Data Partner's single decision on a job's decrypted outputs. Feedback and the
-// files decision land together so the reviewer's rationale can never be orphaned from the status
-// that acted on it. That is why this exists instead of calling approve/reject plus a second write.
-//
-// 'share-outputs' does exactly what approveStudyJobFilesAction does (persist the browser's
-// re-wrapped keys, then FILES-APPROVED); 'share-feedback-only' does what
-// rejectStudyJobFilesAction does (FILES-REJECTED, files stay unshared). Those two actions remain
-// for the older results screen.
+// Feedback and the files decision land together so the reviewer's rationale can never be orphaned
+// from the status that acted on it (OTTER-675).
 export const submitOutputsDecisionAction = new Action('submitOutputsDecisionAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
             // Only the job id is trusted; the study and its org are derived from it in the
-            // middleware. Accepting a caller-supplied studyId alongside it would let a reviewer
-            // authorized for study A name a job belonging to study B and have the ability check
-            // pass against the wrong study.
+            // middleware, so a caller cannot pair study A with a job in study B.
             studyJobId: z.string(),
             decision: z.enum(['share-outputs', 'share-feedback-only']),
             feedback: z.string(),
@@ -189,43 +164,32 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('review', 'Study')
+    .middleware(requireStudyAgreement(({ studyJob }) => studyJob.studyId))
     .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
         const userId = session.user.id
         const studyId = studyJob.studyId
         const studyJobId = studyJob.studyJobId
+
         const jobStatuses = studyJob.statusChanges.map((change) => change.status)
 
-        // Server-side state gate. UI routing decides which screen renders, but it is not an
-        // invariant a server action can lean on: without this, an authorized direct caller could
+        // UI routing decides which screen renders, but an authorized direct caller could otherwise
         // finalize an INITIATED, still-running, or long-closed job.
         if (!hasReviewableOutputs(jobStatuses)) {
             throw new ActionFailure({ study: 'has no outputs ready for a decision' })
         }
 
-        // A files decision is final, so refuse outright if one already exists. This cannot be left
-        // to the (studyJobId, reviewKind, round) unique constraint: FILES-APPROVED/FILES-REJECTED
-        // are themselves round-opening events, so once the first decision lands
-        // codeSubmissionVersion returns the NEXT round and a second attempt would slot in beside
-        // it rather than collide, writing a phantom decision for a round whose code was never
-        // resubmitted. The constraint still covers the genuine same-round race below, where two
-        // reviewers both read the pre-decision round before either commits.
+        // FILES-APPROVED/REJECTED are themselves round-opening, so the (studyJobId, reviewKind,
+        // round) unique constraint cannot stop a second attempt writing a phantom decision.
         if (hasOutputsDecision(jobStatuses)) {
             throw new ActionFailure({
                 study: 'another reviewer has already submitted a decision for these outputs',
             })
         }
 
-        // The cap is a property of the run being reviewed, not of the request. Taking it from the
-        // client would let a caller raise its own limit to anything.
-        const maxWords = outputsFeedbackMaxWords(jobStatuses)
-
-        const { json, wordCount } = normalizeFeedbackToLexical(feedback)
-        if (wordCount < OUTPUTS_FEEDBACK_MIN_WORDS) {
-            throw new ActionFailure({ feedback: 'Feedback is required' })
-        }
-        if (wordCount > maxWords) {
-            throw new ActionFailure({ feedback: `Feedback must be ${maxWords} words or fewer (got ${wordCount})` })
-        }
+        const json = assertDecisionFeedback(feedback, {
+            fieldTitle: OUTPUTS_FEEDBACK_FIELD_TITLE,
+            maxCharacters: OUTPUTS_FEEDBACK_MAX_CHARACTERS,
+        })
 
         const shareOutputs = decision === 'share-outputs'
 
@@ -233,8 +197,11 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             assertSharesEveryArtifact(studyJob.files, sharedFiles)
         }
 
-        // Read the round BEFORE writing the status below, for the same reason.
-        const round = await codeSubmissionVersion(studyId, db)
+        // The round is counted study-wide but the unique index is per job, so two reviewers deciding
+        // different jobs of one study could otherwise read the same round. Serialize on the study row.
+        await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().executeTakeFirstOrThrow()
+
+        const round = await outputsDecisionVersion(studyId, db)
 
         try {
             await db
@@ -251,9 +218,8 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
                 })
                 .executeTakeFirstOrThrow()
         } catch (err) {
-            // The (studyJobId, reviewKind, round) unique constraint fires when two reviewers submit
-            // a decision on the same outputs within the same round. The first write is already
-            // safe, so the loser gets a clean message rather than a duplicate-key error.
+            // Fires when two reviewers decide the same outputs within one round; the first write
+            // is already safe, so the loser gets a clean message.
             if (isPgUniqueViolation(err)) {
                 throw new ActionFailure({
                     study: 'another reviewer has already submitted a decision for these outputs',
@@ -263,8 +229,7 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         }
 
         if (shareOutputs) {
-            // Re-wrap, not re-encrypt: only the wrapped keys the reviewer's browser produced are
-            // persisted. Ciphertext untouched; the server never sees plaintext or a raw AES key.
+            // Re-wrap, not re-encrypt: ciphertext is untouched and no raw AES key is stored.
             await insertSharedFileKeys(db, studyJobId, sharedFiles)
         }
 
@@ -283,10 +248,8 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             .where('id', '=', studyId)
             .execute()
 
-        // The decision is final, so the collaborative draft has no further purpose. Deleting it is
-        // only half the job: the editor service's persist gate refuses further writes to a decided
-        // job's document (shouldPersistDocument), which is what stops an already-connected tab from
-        // recreating the row a moment later.
+        // The editor's persist gate refuses writes to a decided job, which is what stops a
+        // connected tab recreating the row.
         await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(studyJobId)).execute()
 
         if (shareOutputs) {
@@ -294,13 +257,18 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         } else {
             onStudyResultsRejected({ studyId, userId })
         }
+
+        const submitterFullName = await fetchUserFullName(userId, db)
+
+        // Names the reviewer in the notice the other tabs raise, which only the server can supply.
+        return { submitterFullName }
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status } // orgId + status are validated in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => {
@@ -313,26 +281,28 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
 
         const studyJob = await latestJobForStudy(studyId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status } // Return the job along with the orgId + status for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
 
-export const getStudyReviewAction = new Action('getStudyReviewAction')
-    .params(z.object({ studyJobId: z.string() }))
+// The review panel and the scan panel describe the same submission, so they are fetched together:
+// one authorization, one getStudyJobInfo, one round-trip per poll tick instead of two.
+//
+// `scanSettled` is a caching hint only: it can suppress a re-read, never substitute a value. A
+// client that lies about it gets a null scan back and keeps whatever it already had.
+export const getJobAnalysisAction = new Action('getJobAnalysisAction')
+    .params(z.object({ studyJobId: z.string(), scanSettled: z.boolean().optional() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }) => {
-        return await getStudyReviewForJob(studyJobId)
-    })
+    .handler(
+        async ({ studyJob, params: { scanSettled } }) =>
+            await jobAnalysisUpdateForJob(studyJob, { scanSettled: scanSettled ?? false }),
+    )
 
-// Reviewer-triggered retry after a failed summary generation. Clears the
-// failure row so the generator re-enters cleanly, then re-fires the same
-// deferred task code submission uses. Only a failed row is cleared — a
-// successful review is left untouched so a stray retry can't wipe it.
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
@@ -341,19 +311,22 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db }) => {
+        // Only this round's failure is cleared; an earlier round's rows are that round's history.
+        const round = await codeRoundForJob(studyJobId, db)
         await db
             .deleteFrom('studyReview')
             .where('studyJobId', '=', studyJobId)
+            .where('round', '=', round)
             .where('summaryFailedAt', 'is not', null)
             .execute()
-        onStudyReviewRequested({ studyJobId })
+        onStudyReviewRequested({ studyJobId, round })
     })
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status } // Return the jobInfo along with the orgId + status for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
 
@@ -395,21 +368,41 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
         return { fileName: file.name, contents }
     })
 
+export const fetchScanLogAction = new Action('fetchScanLogAction')
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+    .handler(async ({ params: { studyJobId } }) => {
+        // Newest row of the type, so the viewer shows the same log the displayed
+        // scan statuses were parsed from and the download link serves.
+        const file = await getStudyJobFileOfType(studyJobId, 'SECURITY-SCAN-LOG', false)
+        if (!file) throw new ActionFailure({ file: 'No security scan log found for this job' })
+
+        const blob = await fetchFileContents(file.path)
+        return { fileName: SCAN_LOG_FILE_NAME, contents: await blob.text() }
+    })
+
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')
     .params(
         z.object({
             jobId: z.string(),
+            // session.orgs cannot answer this: a dual-role lab+enclave user is legitimately both
+            // and was handed recipientKeys:{}, failing decrypt as "private key is not valid".
+            type: z.enum(['researcher', 'reviewer']),
         }),
     )
     .middleware(async ({ params: { jobId } }) => {
         const studyJob = await getStudyJobInfo(jobId)
-        // Include submittedByOrgId so 'view StudyJob' matches lab researchers, not just enclave
-        // reviewers — researchers fetch their own re-wrapped result files here.
+        // Include submittedByOrgId so 'view StudyJob' matches lab researchers fetching their own
+        // re-wrapped result files, not just enclave reviewers.
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
 
-    .handler(async ({ studyJob, session, db }) => {
+    .handler(async ({ params: { type }, studyJob, session, db }) => {
         const userKey = await getUserPublicKey(session.user.id)
         if (!userKey) return []
 
@@ -418,17 +411,11 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
         if (!encryptedFiles.length) return []
 
-        // Enclave reviewers are manifest recipients and decrypt with their own key; lab researchers
-        // aren't, so they get per-file re-wrapped keys (study_job_file_recipient_key) as `recipientKeys`. A
-        // reviewer is a member of the study's enclave org; everyone else takes the researcher path.
-        const isEnclaveReviewer = Object.values(session.orgs).some(
-            (org) => org.id === studyJob.orgId && org.type === 'enclave',
-        )
-
-        // TODO(perf): ciphertext bodies are buffered into server memory and serialized through the
-        // action layer. Fine at current sizes; if it grows, hand the client a signed S3 URL to
-        // fetch + decrypt directly instead.
-        if (isEnclaveReviewer) {
+        // TODO(perf): ciphertext bodies are buffered into server memory. If sizes grow, hand the
+        // client a signed S3 URL to fetch and decrypt directly.
+        if (type === 'reviewer') {
+            // Reviewers decrypt with their own key from the zip's embedded manifest; confidentiality
+            // rests entirely on the ciphertext being encrypted to the enclave, not on this parameter.
             return Promise.all(
                 encryptedFiles.map(async (file) => ({
                     studyJobFileId: file.id,
@@ -440,8 +427,8 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             )
         }
 
-        // Researcher: only artifacts this user has wrapped keys for (exist only post-approval, so
-        // naturally gated). Build the {file_path -> crypt} map per artifact.
+        // Researcher: only artifacts this user has wrapped keys for. Rows exist solely for lab
+        // recipients and only post-approval, so the set is naturally gated.
         const wrappedKeys = await db
             .selectFrom('studyJobFileRecipientKey')
             .select(['studyJobFileId', 'filePath', 'crypt'])

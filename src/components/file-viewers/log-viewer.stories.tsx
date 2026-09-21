@@ -2,9 +2,6 @@ import type { Story } from '@ladle/react'
 import { Box } from '@mantine/core'
 import { logViewer } from './log-viewer'
 
-// logViewer parses a JSON array of { timestamp, message } entries and renders a
-// two-column (time / message) table. It returns null for anything that is not a
-// non-empty JSON array, so the fixtures below are JSON strings built from arrays.
 const meta = { title: 'File viewers / Log viewer' }
 export default meta
 
@@ -44,5 +41,4 @@ export const RunLog: Story = () => <Box p="xl">{logViewer('run.log', runLog)}</B
 
 export const ErrorLog: Story = () => <Box p="xl">{logViewer('run.log', errorLog)}</Box>
 
-// A long message exercises the wrapping / pre-wrap behaviour of the message cell.
 export const LongMessage: Story = () => <Box p="xl">{logViewer('run.log', longMessageLog)}</Box>

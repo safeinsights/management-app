@@ -14,9 +14,7 @@ interface UseWorkspaceBuildStatusOptions {
 export interface UseWorkspaceBuildStatusReturn {
     status: WorkspaceLaunchStatus | undefined
     reason: string | null
-    /** Local time a new build/agent log line last arrived, for the "last updated … ago" hint */
     lastUpdatedAt: Date | null
-    /** Full build/agent logs accumulated across polls from each batch of new lines */
     buildLog: string
     agentLog: string
     ready: boolean
@@ -28,13 +26,9 @@ export interface UseWorkspaceBuildStatusReturn {
 
 const POLL_INTERVAL_MS = 5000
 
-// Append a poll's new log lines to the accumulated log, keeping one line per entry.
 const appendLines = (existing: string, lines: string[]): string =>
     lines.length === 0 ? existing : existing ? `${existing}\n${lines.join('\n')}` : lines.join('\n')
 
-// Client-side cursor state carried across polls: the wire cursors (last log id seen per stream), the
-// accumulated build/agent logs, and the local time a new line last arrived. None of this is sent to
-// the server beyond the cursor counters.
 interface CursorState {
     build: number | null
     agent: number | null
@@ -43,17 +37,14 @@ interface CursorState {
     agentLog: string
 }
 
-// Polls the combined Coder build/agent status for a study's workspace. Carries per-source log
-// cursors across refetches (via a ref, not the query key) so steady-state polls only pull new
-// log lines, and stops polling once the launch reaches a terminal state.
+// Cursors ride a ref rather than the query key so steady-state polls only pull new log lines.
 export function useWorkspaceBuildStatus({
     studyId,
     enabled,
 }: UseWorkspaceBuildStatusOptions): UseWorkspaceBuildStatusReturn {
     const cursorsRef = useRef<CursorState | undefined>(undefined)
 
-    // Reset cursors at the start of each polling session so a relaunch (new build, fresh log
-    // id space) isn't filtered out by `?after=` ids left over from the previous build.
+    // Reset per session, or a relaunch's fresh log id space is filtered out by stale `?after=` ids.
     useEffect(() => {
         if (enabled) cursorsRef.current = undefined
     }, [enabled])
@@ -61,8 +52,8 @@ export function useWorkspaceBuildStatus({
     const query = useQuery({
         queryKey: ['workspace-build-status', studyId],
         enabled,
-        // Return a fresh reference every poll (even when a poll adds no new log lines) so the UI
-        // re-renders each interval, keeping the "time remaining" and "updated … ago" hints current.
+        // A fresh reference every poll, so the relative-time hints re-render even when no new log
+        // lines arrived.
         structuralSharing: false,
         refetchInterval: (q) =>
             q.state.data?.status.ready || q.state.data?.status.failed || q.state.error ? false : POLL_INTERVAL_MS,
@@ -74,7 +65,6 @@ export function useWorkspaceBuildStatus({
                     cursors: prev ? { build: prev.build, agent: prev.agent } : undefined,
                 }),
             )
-            // Stamp lastUpdated whenever this poll pulled new build or agent log lines.
             const newLines = status.buildLogLines.length > 0 || status.agentLogLines.length > 0
             const lastUpdated = newLines ? new Date() : (prev?.lastUpdated ?? null)
             const buildLog = appendLines(prev?.buildLog ?? '', status.buildLogLines)
@@ -86,7 +76,7 @@ export function useWorkspaceBuildStatus({
                 buildLog,
                 agentLog,
             }
-            // Derived values ride along in the cached data (not the ref) so the UI re-renders.
+            // Derived values ride in the cached data rather than the ref, so the UI re-renders.
             return { status, lastUpdatedAt: lastUpdated, buildLog, agentLog }
         },
     })

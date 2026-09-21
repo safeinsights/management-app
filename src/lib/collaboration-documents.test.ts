@@ -85,8 +85,6 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(name)).toEqual({ kind: 'outputs-review-feedback', jobId: JOB_ID })
     })
 
-    // Both job-keyed feedback prefixes end in "review-feedback-", so a prefix check in the wrong
-    // order would mis-parse one as the other.
     it('keeps the two job-keyed feedback prefixes distinct', () => {
         const JOB_ID = '01949c1a-1aaa-7000-9000-0000000000ff'
         expect(parseDocumentName(outputsReviewFeedbackDocName(JOB_ID))).toEqual({

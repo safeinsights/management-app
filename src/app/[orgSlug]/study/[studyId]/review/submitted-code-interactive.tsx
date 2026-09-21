@@ -1,5 +1,6 @@
 'use client'
 
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import {
     ActionIcon,
     Alert,
@@ -8,27 +9,32 @@ import {
     Group,
     Loader,
     Menu,
+    Paper,
     Skeleton,
     Stack,
     Text,
     Typography,
     UnstyledButton,
 } from '@mantine/core'
-import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useEffect, useState } from 'react'
+import { CaretRightIcon, DownloadSimpleIcon, EyeIcon, WarningCircle } from '@phosphor-icons/react/dist/ssr'
+import { ToggleChevron } from '@/components/icons'
+import { useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
+import { isActionError } from '@/lib/errors'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
+import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
-import { studyCodeURL } from '@/lib/paths'
+import { SCAN_LOG_FILE_NAME, scanLogDownloadURL, studyCodeURL } from '@/lib/paths'
 import {
+    fetchScanLogAction,
     fetchStudyJobCodeFileAction,
-    getStudyReviewAction,
+    getJobAnalysisAction,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, JobScanResult, ScanToolStatus, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
@@ -38,7 +44,6 @@ import {
 
 export type { CodeFile } from './study-code-files'
 
-// 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
 const MAX_VISIBLE_TABS_BEFORE_OVERFLOW = 4
 
@@ -51,8 +56,6 @@ export function splitVisibleFiles(files: CodeFile[]) {
     if (files.length <= MAX_VISIBLE_TABS_BEFORE_OVERFLOW) {
         return { visible: files, hidden: [] as CodeFile[], hiddenCount: 0 }
     }
-    // When overflowing, the last visible slot becomes the "+N more files" indicator,
-    // so we keep three real tabs and roll the remainder into the overflow menu.
     const visibleSlots = MAX_VISIBLE_TABS_BEFORE_OVERFLOW - 1
     const hidden = files.slice(visibleSlots)
     return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
@@ -63,10 +66,9 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-// Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
 const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
 
-// Panda's preflight zeroes list-style globally, so restore markers explicitly (values match .editable-text-ul/-ol in globals.css).
+// Panda's preflight zeroes list-style globally, so restore markers explicitly.
 const MARKDOWN_LIST_COMPONENTS: Components = {
     ul: ({ node: _node, ...props }) => (
         <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
@@ -93,37 +95,26 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
     )
 }
 
-function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
-    return (
-        <CaretRightIcon
-            size={12}
-            weight="bold"
-            style={{
-                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
-                transition: 'transform 200ms ease',
-            }}
-        />
-    )
-}
+const ANALYSIS_POLL_INTERVAL_MS = 5_000
 
-const REVIEW_POLL_INTERVAL_MS = 5_000
-
-// A genuine failure now persists a row (summaryFailedAt) and is surfaced
-// immediately. This backstop only catches the rarer case where generation
-// hangs without ever throwing — measured from submission, not page open, so a
-// reviewer opening the page late doesn't reset the clock. 3 minutes is well
-// above a normal generation; past it with no row we assume it's stuck.
+// Backstop for a generation that hangs without throwing; a real failure persists summaryFailedAt.
+// Measured from submission, not page open, so opening late does not reset the clock.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
 
-// Returns `{ elapsed, reset }`: `elapsed` becomes true once `ms` have passed
-// since the start time, and `reset()` re-arms the timer from now. Used as a
-// backstop so a generation that hangs without writing a (success or failure)
-// row eventually surfaces as an error instead of spinning forever, while a
-// retry can restart the clock. `since` is read once on mount to seed the start
-// time; later prop changes are ignored, so a new submission must arrive via a
-// fresh server render (or an explicit reset()), not a changed `since`. `since`
-// may be a string — timestamps serialize to ISO strings across the
-// server/client boundary.
+// Same backstop shape as the AI summary, but a longer clock: the scan log is written by the
+// enclave pipeline at the end of a run, not generated on request.
+const SCAN_TIMEOUT_MS = 600_000
+
+// Unlike the review row, this query always resolves to an object, so "still running" is both
+// statuses being null rather than a missing result. A log that parsed to unknown statuses still
+// reports a logFile, which is why that alone does not stop the poll.
+function isScanPending(scan: JobScanResult | undefined) {
+    if (!scan) return true
+    return scan.trivy === null && scan.sonarqube === null
+}
+
+// `since` is read once on mount and later prop changes are ignored, so a new submission must
+// arrive via a fresh server render or an explicit reset().
 function useElapsedSince(since: Date | string, ms: number) {
     const initialSinceMs = new Date(since).getTime()
     const [startedAt, setStartedAt] = useState(initialSinceMs)
@@ -142,20 +133,45 @@ function useElapsedSince(since: Date | string, ms: number) {
     }
 }
 
-// The review row is written by a deferred background task triggered at code
-// submission (onStudyReviewRequested). Seed with the server-fetched value and
-// poll until a row lands so a reviewer who opens the page mid-generation sees
-// the summary appear without a manual refresh. A row — even one with a blank
-// codeExplanation — is terminal and stops the poll.
-function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
+// A resubmit reuses the job id, so keying on it alone lets the cache serve the previous round as
+// current — the same defect the server-side round rule closes, reintroduced on the client by a 60s
+// staleTime over a singleton query client (OTTER-775 review).
+const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
+    ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
+
+// The summary and the scan describe the same submission and land at different times, so one query
+// feeds both panels. The server drops a review belonging to a previous round, so a null review here
+// means "generating", never "last round's" (OTTER-775).
+//
+// The backstops deliberately do not appear here: they decide what a panel renders, not whether the
+// poll runs. 8.4% of measured generations finish past the summary backstop, and stopping there
+// stranded a report that was already in the database until a reload (OTTER-775 review).
+function useJobAnalysisPoll(studyJobId: string, submittedAt: Date | string, initial: JobAnalysis, intervalMs: number) {
+    // Holds the scan once it has reported, so later ticks can tell the server not to re-read it. A
+    // ref rather than the cache because the shared useQuery wrapper's queryFn takes no context.
+    const settledScan = useRef<JobScanResult | null>(isScanPending(initial.scan) ? null : initial.scan)
+
     return useQuery({
-        queryKey: ['study-review', studyJobId],
-        queryFn: () => getStudyReviewAction({ studyJobId }),
-        initialData: initialReview,
+        queryKey: jobAnalysisKey(studyJobId, submittedAt),
+        queryFn: async () => {
+            const held = settledScan.current
+            const response = await getJobAnalysisAction({ studyJobId, scanSettled: held != null })
+            if (isActionError(response)) return response
+
+            // A null scan means "unchanged": the server skipped the re-read because we said we
+            // already had it, so the value we held is the one to keep.
+            const scan = response.scan ?? held ?? initial.scan
+            if (!isScanPending(scan)) settledScan.current = scan
+            return { review: response.review, scan }
+        },
+        initialData: initial,
+        // The server render is already stale by the time it reaches the browser; without this the
+        // seeded value counts as fresh and the first interval tick is skipped.
+        initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
-            if (query.state.data != null) return false
-            return REVIEW_POLL_INTERVAL_MS
+            const data = query.state.data
+            return data?.review == null || isScanPending(data?.scan) ? intervalMs : false
         },
     })
 }
@@ -168,7 +184,7 @@ function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onTogg
             type="button"
             onClick={onToggle}
             size="sm"
-            fw={700}
+            fw={fontWeight.bold}
             display="inline-flex"
             w="fit-content"
             style={{ alignItems: 'center', gap: 4 }}
@@ -226,7 +242,7 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     return (
         <>
             <Stack gap="xs">
-                <Text fw={600} size="sm">
+                <Text fw={fontWeight.semibold} size="sm">
                     Overview
                 </Text>
                 <AiSummaryBody isExpanded={isExpanded} summary={summary} />
@@ -236,14 +252,17 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
-// Clears the failed row server-side, re-fires generation, then resets the
-// cached review to null so the poll resumes and the UI drops back to pending.
-function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
+function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[], onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
         onSuccess: () => {
-            queryClient.setQueryData(['study-review', studyJobId], null)
+            // Must be the poll's own key, round included, or this clears an entry nothing reads and
+            // the panel keeps rendering the failure it just retried.
+            // Clears only the review half; the scan in the same payload is unaffected by a regen.
+            queryClient.setQueryData(analysisKey, (prev: JobAnalysis | undefined) =>
+                prev ? { ...prev, review: null } : prev,
+            )
             onRetryStarted()
         },
     })
@@ -251,54 +270,92 @@ function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
 
 type AiSummaryProps = {
     studyJobId: string
-    initialReview: StudyReviewWithMeta | null
-    // When generation was requested — anchors the stuck-generation backstop so
-    // opening the page late doesn't restart the clock. May arrive as an ISO
-    // string once serialized across the server/client boundary.
-    submittedAt: Date | string
-    // Overridable so tests can exercise the backstop without faking timers.
-    timeoutMs?: number
+    analysisKey: readonly unknown[]
+    review: StudyReviewWithMeta | null
+    hasError: boolean
+    timedOut: boolean
+    onRetryStarted: () => void
 }
 
-export function AiSummaryCollapsible({
-    studyJobId,
-    initialReview,
-    submittedAt,
-    timeoutMs = AI_SUMMARY_TIMEOUT_MS,
-}: AiSummaryProps) {
+function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timedOut, onRetryStarted }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
-    const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    // A successful retry is a new generation request, so it needs its own
-    // timeout window instead of inheriting the original submission's age.
-    const timeout = useElapsedSince(submittedAt, timeoutMs)
-    const retry = useRetryStudyReview(studyJobId, timeout.reset)
-    const timedOut = timeout.elapsed
+    const retry = useRetryStudyReview(studyJobId, analysisKey, onRetryStarted)
     const summary = review?.report?.codeExplanation ?? null
 
     const onRetry = () => retry.mutate()
     const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
 
-    // Failure is terminal and explicit: a poll rejection, or a persisted
-    // failure row (summaryFailedAt) — surfaced with a Retry. A landed success
-    // row shows the summary, or the empty state for the no-API-key /
-    // disabled-review placeholder path. Otherwise we're genuinely still
-    // generating (spinner), with the backstop catching a silent hang.
+    // A summary already on screen outranks a failed poll tick: the poll keeps running for the scan
+    // long after the report lands, and a late failure must not replace good content the reviewer is
+    // reading — it never came back, because an error stops the poll (OTTER-775 review).
     const renderBody = () => {
-        if (error != null) return errorState
         if (review != null) {
             if (review.summaryFailedAt != null) return errorState
             if (!summary) return <AiSummaryEmpty />
             return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
         }
-        if (timedOut) return errorState
+        if (hasError || timedOut) return errorState
         return <AiSummaryPending />
     }
 
     return (
         <Stack gap="lg" data-testid="ai-summary">
-            <Text fw={700}>AI Summary: Analysis of all files</Text>
+            <Text fw={fontWeight.bold}>AI Summary: Analysis of all files</Text>
             {renderBody()}
         </Stack>
+    )
+}
+
+export type JobAnalysisPanelsProps = {
+    studyJobId: string
+    initialAnalysis: JobAnalysis
+    // Anchors both backstops so opening the page late does not restart either clock.
+    submittedAt: Date | string
+    // Overridable so tests can exercise the backstops and polling without faking timers.
+    summaryTimeoutMs?: number
+    scanTimeoutMs?: number
+    pollIntervalMs?: number
+}
+
+// Owns the single poll both panels read from; each renders its own pending/timeout state off it.
+export function JobAnalysisPanels({
+    studyJobId,
+    initialAnalysis,
+    submittedAt,
+    summaryTimeoutMs = AI_SUMMARY_TIMEOUT_MS,
+    scanTimeoutMs = SCAN_TIMEOUT_MS,
+    pollIntervalMs = ANALYSIS_POLL_INTERVAL_MS,
+}: JobAnalysisPanelsProps) {
+    const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
+    const scanTimeout = useElapsedSince(submittedAt, scanTimeoutMs)
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
+    const analysis = data ?? initialAnalysis
+    const isScanWaiting = isScanPending(analysis.scan)
+    // Only the clock decides the scan will not report. A failed request is transient and gets its
+    // own state, since the enclave run it knows nothing about is usually still going.
+    const scanGivenUp = scanTimeout.elapsed && isScanWaiting
+
+    return (
+        <Group align="stretch" grow gap="xl" wrap="nowrap">
+            <Paper withBorder p="lg" radius={0}>
+                <AiSummaryCollapsible
+                    studyJobId={studyJobId}
+                    analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
+                    review={analysis.review}
+                    hasError={error != null}
+                    timedOut={summaryTimeout.elapsed}
+                    onRetryStarted={summaryTimeout.reset}
+                />
+            </Paper>
+            <Paper withBorder p="lg" radius={0}>
+                <SecurityScanLog
+                    studyJobId={studyJobId}
+                    scan={analysis.scan}
+                    givenUp={scanGivenUp}
+                    isUnreachable={error != null && isScanWaiting}
+                />
+            </Paper>
+        </Group>
     )
 }
 
@@ -348,7 +405,7 @@ function FileTab({
                 py="xs"
                 style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={fontWeight.regular}>
                     {display}
                 </Text>
             </UnstyledButton>
@@ -392,8 +449,8 @@ function OverflowFilesMenu({
                     py="xs"
                     style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
                 >
-                    <Group gap={4} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
-                        <Text size="sm" c="charcoal.7" component="span">
+                    <Group gap="xxs" wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm" c={semanticColor('text.secondary')} component="span">
                             +{hidden.length} more files
                         </Text>
                         <CaretRightIcon size={12} weight="bold" />
@@ -453,8 +510,7 @@ function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
     })
 }
 
-// stopPropagation: in the overflow menu this icon sits inside a selectable row,
-// so a download click shouldn't also switch the active file.
+// stopPropagation: in the overflow menu this icon sits inside a selectable row.
 function CodeFileDownloadButton({
     studyJobId,
     fileName,
@@ -531,11 +587,8 @@ type StudyCodeViewerProps = {
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
-    /**
-     * Whole-section collapse mode (post-decision reviewer page): when set, the parent owns the
-     * expand/collapse state. The code + tabs are always shown here and the toggle becomes the
-     * section's single "Hide full study code" closer that collapses the entire card.
-     */
+    // When set, the parent owns expand/collapse and the toggle becomes the closer for the whole
+    // section.
     onCollapse?: () => void
 }
 
@@ -553,8 +606,6 @@ export function StudyCodeViewer({
     const expanded = onCollapse ? true : isExpanded
     const handleToggle = onCollapse ?? toggleExpanded
     const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
-    // In onCollapse mode the toggle is the section's only collapse control, so it must stay
-    // reachable even with no displayable code files; the plain viewer still hides it when empty.
     const toggleVisible = onCollapse ? true : hasFiles
 
     return (
@@ -577,6 +628,204 @@ export function StudyCodeViewer({
                 labels={toggleLabels}
                 testId={toggleTestId}
             />
+        </Stack>
+    )
+}
+
+// The log is only fetched once View is clicked; a reviewer who only downloads never pays for
+// pulling it through the app. A failed fetch surfaces in the modal rather than as a blank viewer.
+function useScanLogViewer(studyJobId: string) {
+    const [isOpen, setIsOpen] = useState(false)
+    const { data, isError } = useQuery({
+        queryKey: ['study-job-scan-log', studyJobId],
+        queryFn: () => fetchScanLogAction({ studyJobId }),
+        enabled: isOpen,
+        staleTime: Infinity,
+    })
+    return {
+        isOpen,
+        open: () => setIsOpen(true),
+        close: () => setIsOpen(false),
+        contents: isError ? SCAN_LOG_UNAVAILABLE : (data?.contents ?? null),
+    }
+}
+
+const SCAN_LOG_UNAVAILABLE = 'Unable to load the security scan log.'
+
+const SCAN_LOG_LINK_PROPS = {
+    size: 'sm',
+    fw: 600,
+    display: 'inline-flex',
+    style: { alignItems: 'center', gap: 4, width: 'fit-content' },
+} as const
+
+// View opens the shared file viewer modal; Download goes straight to the signed S3 URL, so the
+// two paths stay independent — the log stays downloadable even when the in-app fetch fails.
+function ScanLogActions({ studyJobId, isVisible }: { studyJobId: string; isVisible: boolean }) {
+    const viewer = useScanLogViewer(studyJobId)
+    if (!isVisible) return null
+
+    const file = viewer.isOpen ? { name: SCAN_LOG_FILE_NAME, contents: viewer.contents } : null
+
+    return (
+        <Group gap="lg">
+            <Anchor
+                component="button"
+                type="button"
+                onClick={viewer.open}
+                data-testid="security-scan-log-view"
+                {...SCAN_LOG_LINK_PROPS}
+            >
+                <EyeIcon size={16} />
+                View
+            </Anchor>
+            <Anchor
+                href={scanLogDownloadURL(studyJobId)}
+                download
+                data-testid="security-scan-log-download"
+                {...SCAN_LOG_LINK_PROPS}
+            >
+                <DownloadSimpleIcon size={16} />
+                Download
+            </Anchor>
+            <FilePreviewModal file={file} onClose={viewer.close} />
+        </Group>
+    )
+}
+type ScanStatusLabels = Record<ScanToolStatus, string>
+
+// "Needs review" is the card's own phrasing for the case where we cannot state an outcome with
+// confidence. Trivy reaches it two ways: it examined nothing (no analyzer for R, no lockfile to
+// read), or it produced no report at all. Neither is a finding and neither is a clean bill of
+// health. Pending UX sign-off on whether those two should read differently to a Data Partner.
+const TRIVY_LABELS: ScanStatusLabels = {
+    PASSED: 'No vulnerabilities found',
+    FAILED: 'Vulnerabilities found',
+    INDETERMINATE: 'Needs review',
+}
+
+// SonarQube has no third label: a failing gate and an unresolvable one both need the same human look.
+const SONARQUBE_LABELS: ScanStatusLabels = {
+    PASSED: 'Passed',
+    FAILED: 'Needs review',
+    INDETERMINATE: 'Needs review',
+}
+
+// A passed row carries no icon at all. The other two are visually distinct on purpose: red reads as
+// a reported problem, and an indeterminate result is not one. Amber reuses the "action needed"
+// pairing the design system already applies to WarningCircle (see StatusAlert's action variant)
+// rather than introducing a new treatment. Provisional along with the labels above.
+const SCAN_ICON_COLORS: Partial<Record<ScanToolStatus, string>> = {
+    FAILED: 'var(--si-color-error-text)',
+    INDETERMINATE: 'var(--si-color-warning-text)',
+}
+
+type ScanRowProps = {
+    label: string
+    status: ScanToolStatus | null
+    labels: ScanStatusLabels
+    testId: string
+}
+
+function ScanWarningIcon({ color }: { color?: string }) {
+    if (!color) return null
+    return <WarningCircle size={20} color={color} data-icon="warning" aria-hidden="true" />
+}
+
+// A tool's result: plain text when it passed, a warning icon plus the relevant phrasing when it did
+// not, and a neutral pending note while the scan has not reported (status null). Deliberately no
+// "pass" icon, and never a fabricated pass/fail when the status is unknown; we only flag what needs
+// a human (OTTER-649).
+function ScanRowValue({ status, labels }: { status: ScanToolStatus | null; labels: ScanStatusLabels }) {
+    if (status === null) {
+        return (
+            <Text size="sm" c="dimmed">
+                Scan in progress…
+            </Text>
+        )
+    }
+    return (
+        <Group gap="xxs" wrap="nowrap" align="center">
+            <ScanWarningIcon color={SCAN_ICON_COLORS[status]} />
+            <Text size="sm" fw={fontWeight.semibold}>
+                {labels[status]}
+            </Text>
+        </Group>
+    )
+}
+
+function ScanRow({ label, status, labels, testId }: ScanRowProps) {
+    return (
+        <Group gap="xs" wrap="nowrap" align="center" data-testid={testId}>
+            <Text size="sm">{label}</Text>
+            <ScanRowValue status={status} labels={labels} />
+        </Group>
+    )
+}
+
+// The two labeled rows are always shown (the AC lists them as static elements).
+// Their values come from the parsed log; when no log has been read yet, each row
+// shows a pending note rather than a status.
+function ScanLogBody({ scan }: { scan: JobScanResult }) {
+    return (
+        <Stack gap="sm">
+            <ScanRow
+                label="Trivy Filesystem Scan:"
+                status={scan.trivy}
+                labels={TRIVY_LABELS}
+                testId="security-scan-trivy"
+            />
+            <ScanRow
+                label="SonarQube Quality Gate:"
+                status={scan.sonarqube}
+                labels={SONARQUBE_LABELS}
+                testId="security-scan-sonarqube"
+            />
+        </Stack>
+    )
+}
+
+// There is no scan equivalent of the summary's Retry: the log comes from the enclave run, so the
+// app cannot re-request one. A scan that never reports says so instead of spinning forever.
+function ScanTimedOut() {
+    return (
+        <Text size="sm" c="dimmed" data-testid="security-scan-timeout">
+            Scan results are unavailable. Refresh the page to check again.
+        </Text>
+    )
+}
+
+// Deliberately not ScanTimedOut's wording: a failed request says nothing about the enclave run,
+// which is usually still going. Only the clock may claim the scan will not report.
+function ScanUnreachable() {
+    return (
+        <Text size="sm" c="dimmed" data-testid="security-scan-unreachable">
+            Could not check the scan status. Refresh the page to try again.
+        </Text>
+    )
+}
+
+type SecurityScanLogProps = {
+    studyJobId: string
+    scan: JobScanResult
+    givenUp: boolean
+    isUnreachable: boolean
+}
+
+function SecurityScanLog({ studyJobId, scan, givenUp, isUnreachable }: SecurityScanLogProps) {
+    const renderBody = () => {
+        if (givenUp) return <ScanTimedOut />
+        if (isUnreachable) return <ScanUnreachable />
+        return <ScanLogBody scan={scan} />
+    }
+
+    return (
+        <Stack gap="lg" data-testid="security-scan-log">
+            <Text fw={fontWeight.bold} fz={16}>
+                Security scan log
+            </Text>
+            {renderBody()}
+            <ScanLogActions studyJobId={studyJobId} isVisible={scan.logFile != null} />
         </Stack>
     )
 }

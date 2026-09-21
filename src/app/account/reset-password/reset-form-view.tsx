@@ -6,12 +6,7 @@ import { Flex, Paper, Stack, TextInput, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Button, Link } from '@/common'
 import { Routes } from '@/lib/routes'
-
-// Presentational "Reset your password" card. It owns the white Paper, the registered-email
-// field, the "Send Verification Code" button (with loading / disabled state), and the
-// "Back to log in" link. Kept in its OWN file free of the Clerk useSignIn hook and the
-// reset-email mutation so it renders in isolation (e.g. Ladle). The ResetForm container owns
-// the form + mutation and injects the form, submit handler, and pending flag here.
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type ResetFormValues = {
     email: string
@@ -26,7 +21,7 @@ export type ResetFormViewProps = {
 export const ResetFormView: FC<ResetFormViewProps> = ({ form, onSubmit, isPending }) => {
     return (
         <form onSubmit={onSubmit}>
-            <Paper bg="white" shadow="none" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} shadow="none" p="xxl">
                 <Flex direction="column" gap="md" mb="lg">
                     <Title mb="xs" ta="center" order={3}>
                         Reset your password
@@ -47,7 +42,7 @@ export const ResetFormView: FC<ResetFormViewProps> = ({ form, onSubmit, isPendin
                             href={Routes.accountSignin}
                             mt="md"
                             c="purple.5"
-                            fw={600}
+                            fw={fontWeight.semibold}
                             fz="md"
                             style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                         >

@@ -14,12 +14,9 @@ import {
 } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
 import { CodeReview } from './code-review'
-
-// The global setup mocks @/components/page-breadcrumbs to return null; opt back into
-// the real component here so we can assert the rendered breadcrumb links.
-vi.unmock('@/components/page-breadcrumbs')
 
 const ORG_SLUG = 'test-org'
 
@@ -61,86 +58,55 @@ describe('CodeReview', () => {
 
     describe('first submission (entries empty)', () => {
         it('renders the H1 page title "Study proposal"', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByRole('heading', { name: 'Study proposal', level: 1 })).toBeInTheDocument()
-        })
-
-        it('renders all three breadcrumbs with the expected links', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
-
-            const dashboardLink = screen.getByRole('link', { name: 'Dashboard' })
-            expect(dashboardLink).toHaveAttribute('href', `/${ORG_SLUG}/dashboard`)
-
-            const proposalLink = screen.getByRole('link', { name: 'Study proposal' })
-            expect(proposalLink).toHaveAttribute('href', `/${ORG_SLUG}/study/${study.id}/review/proposal`)
-
-            // "Study code" is the terminal crumb and should not be a link
-            expect(screen.getByText('Study code')).toBeInTheDocument()
-            expect(screen.queryByRole('link', { name: 'Study code' })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         })
 
         it('renders the STEP 3 sub-label and the section heading', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             expect(screen.getByText('STEP 3')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: 'Review study code', level: 4 })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
         })
 
-        it('renders the study title in the section header', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+        it('does not render the study title in the section header', async () => {
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByText(/Title: Effect of Reading Comprehension Tools/)).toBeInTheDocument()
+            expect(screen.getByTestId('proposal-section-header')).not.toHaveTextContent(study.title!)
         })
 
-        it('renders "Submitted on {date}" formatted from the latest job createdAt', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+        it('dates the banner title from the latest job createdAt', async () => {
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             const formatted = dayjs(jobCreatedAt).format('MMM DD, YYYY')
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(`Submitted on ${formatted}`)
+            expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} ${formatted}`)
         })
 
-        it('renders the status banner with the first-submission intro copy', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+        it('renders the action banner with the first-submission title', async () => {
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            const banner = screen.getByTestId('code-review-status-banner')
-            expect(banner).toBeInTheDocument()
+            const banner = screen.getByTestId('status-alert')
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
-            expect(banner).toHaveTextContent(labName)
-            expect(banner).toHaveTextContent(
-                'has submitted their study code for review. Below, you will review their code and an AI-generated summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these criteria:',
-            )
-            expect(banner).not.toHaveTextContent('has resubmitted')
+            expect(banner).toHaveAttribute('data-variant', 'action')
+            expect(banner).toHaveTextContent(`New code submitted by ${labName}`)
+            expect(banner).toHaveTextContent('Review the code files, security log, and AI summary')
+            expect(banner).not.toHaveTextContent('Revised code submitted')
 
-            // The lab name should not be wrapped in <strong> / fw=700
             const strongs = banner.querySelectorAll('strong')
             for (const strong of strongs) {
                 expect(strong.textContent ?? '').not.toContain(labName)
             }
         })
 
-        it('renders all four review criteria', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
-
-            const criteria = screen.getByTestId('code-review-criteria')
-            expect(criteria).toHaveTextContent(
-                'Proposal alignment: Does the code align with the approved research proposal?',
-            )
-            expect(criteria).toHaveTextContent('Agreement compliance: Does the code comply with all the agreements?')
-            expect(criteria).toHaveTextContent('Security checks: Have security and vulnerability checks been passed?')
-            expect(criteria).toHaveTextContent(
-                'Privacy protection: Is there any risk of PII exposure expected in the outputs?',
-            )
-        })
-
         it('does not render a Feedback and notes section', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
         it('collapses and restores the entire Submitted code section', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [] }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
@@ -167,8 +133,8 @@ describe('CodeReview', () => {
     })
 
     describe('resubmission (prior entries present)', () => {
-        // A resubmission means the current job is round v2: the prior round's reviewer
-        // decision plus the current round's RL note both surface as feedback entries.
+        // On a resubmission the prior round's reviewer decision and this round's note both
+        // surface as feedback entries.
         const reviewerEntry = buildEntry({
             id: 'reviewer-v1',
             authorName: 'Jessica Walters',
@@ -187,37 +153,26 @@ describe('CodeReview', () => {
             createdAt: ROUND_2_DATE,
             version: 2,
         })
-        // Action returns newest first (createdAt desc).
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
-        it('renders "Resubmitted on {date}" in place of "Submitted on"', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
+        it('switches the banner title to the revised wording', async () => {
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
 
-            const formatted = dayjs(jobCreatedAt).format('MMM DD, YYYY')
-            expect(screen.getByTestId('proposal-timestamp')).toHaveTextContent(`Resubmitted on ${formatted}`)
-            expect(screen.getByTestId('proposal-timestamp')).not.toHaveTextContent('Submitted on')
-        })
-
-        it('renders the resubmission banner copy', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
-
-            const banner = screen.getByTestId('code-review-status-banner')
+            const banner = screen.getByTestId('status-alert')
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
-            expect(banner).toHaveTextContent(labName)
-            expect(banner).toHaveTextContent(
-                'has resubmitted their study code for review. Below, you will review their code and an AI-generated summary of its behavior, then share your feedback and decision. Consider evaluating the code based on these criteria:',
-            )
+            expect(banner).toHaveTextContent(`Revised code submitted by ${labName}`)
+            expect(banner).not.toHaveTextContent('New code submitted')
         })
 
         it('reflects the resubmission version in the section heading', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
 
-            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 4 })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Review study code', level: 4 })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 2 })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review study code', level: 2 })).not.toBeInTheDocument()
         })
 
         it('renders a Feedback and notes section showing both prior and current entries', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
 
             const section = screen.getByTestId('feedback-and-notes-section')
             expect(section).toBeInTheDocument()
@@ -228,11 +183,10 @@ describe('CodeReview', () => {
         })
 
         it('positions the Feedback and notes section above the code evaluation form', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
 
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
-            // DOM order: submitted code → feedback and notes → (evaluation form lives inside CodeReviewClient)
             expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
@@ -253,7 +207,7 @@ describe('CodeReview', () => {
                 })
                 .execute()
 
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries }))
+            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
 
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveAttribute('aria-expanded', 'false')

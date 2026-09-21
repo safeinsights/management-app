@@ -4,8 +4,6 @@ import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { ManageMFAView } from './manage-mfa-view'
 
-// Data container: reads the Clerk twoFactorEnabled state and hands it to the
-// presentational ManageMFAView via `hasMFA`.
 export function ManageMFA() {
     const { isLoaded, user } = useUser()
 
@@ -16,7 +14,7 @@ export function ManageMFA() {
         return redirect('/')
     }
 
-    user.reload() // ensure latest twoFactorEnabled state
+    user.reload()
 
     const hasMFA = user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')
 

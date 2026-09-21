@@ -1,0 +1,67 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+import { legalDocumentQueryKeys, MAX_LEGAL_DOCUMENT_BYTES, publishLegalDocumentVersionSchema } from './legal-document'
+
+const publishWith = (signedAt: string) =>
+    publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version', signedAt })
+
+const dayOffsetFromToday = (days: number) =>
+    new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+// Publishing cannot be undone, and the shape check alone accepted both of these.
+describe('publishLegalDocumentVersionSchema signedAt', () => {
+    it('accepts a real day that has already happened', () => {
+        expect(publishWith('2026-07-27').success).toBe(true)
+    })
+
+    it('rejects a day the calendar does not have', () => {
+        expect(publishWith('2026-02-30').success).toBe(false)
+    })
+
+    it('rejects a mistyped year far in the future', () => {
+        expect(publishWith('2206-07-27').success).toBe(false)
+    })
+
+    // One day of slack, because this runs on a UTC clock while the admin's date input is local.
+    it('allows the day either side of the UTC clock, but not the one after', () => {
+        expect(publishWith(dayOffsetFromToday(1)).success).toBe(true)
+        expect(publishWith(dayOffsetFromToday(2)).success).toBe(false)
+    })
+
+    it('stays optional', () => {
+        expect(publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version' }).success).toBe(true)
+    })
+})
+
+// React Query invalidates by prefix, so a writer's key must prefix every reader's key for the same
+// action; two readers once used different roots and a publish refreshed only one.
+describe('legalDocumentQueryKeys', () => {
+    it('invalidates every scope of a type it publishes', () => {
+        const prefix = legalDocumentQueryKeys.versionsForType('DOPA')
+
+        for (const scope of [{ orgId: 'org-1' }, { studyId: 'study-1' }, {}]) {
+            const key = legalDocumentQueryKeys.versions({ type: 'DOPA', ...scope })
+            expect(key.slice(0, prefix.length)).toEqual([...prefix])
+        }
+    })
+
+    it('does not reach another document type', () => {
+        const prefix = legalDocumentQueryKeys.versionsForType('DOPA')
+        const otherType = legalDocumentQueryKeys.versions({ type: 'SLA', studyId: 'study-1' })
+
+        expect(otherType.slice(0, prefix.length)).not.toEqual([...prefix])
+    })
+})
+
+// The cap only holds if next.config still carries a body limit above it: the upload rides a server
+// action, and Next rejects an over-limit body before any of our validation runs.
+describe('MAX_LEGAL_DOCUMENT_BYTES', () => {
+    it('stays under the serverActions body limit next.config sets', () => {
+        const config = readFileSync('next.config.ts', 'utf-8')
+        const limit = config.match(/bodySizeLimit:\s*'(\d+)mb'/)
+
+        // Asserted before the comparison so a reformat fails here rather than passing vacuously.
+        expect(limit).not.toBeNull()
+        expect(MAX_LEGAL_DOCUMENT_BYTES).toBeLessThan(Number(limit![1]) * 1024 * 1024)
+    })
+})

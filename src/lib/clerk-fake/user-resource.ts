@@ -1,10 +1,3 @@
-// E2E Clerk fake — user resource.
-//
-// Builds the user object returned by both currentUser() (server) and useUser().user
-// (client). Shape matches what the app reads off Clerk's User across the inventory:
-// id, banned, twoFactorEnabled, firstName/lastName/fullName, primaryEmailAddress,
-// emailAddresses, publicMetadata (v3), unsafeMetadata, plus MFA-setup method stubs.
-
 import { buildV3Metadata, defaultOrgSlug, type FakeFixture } from './fixtures'
 
 export type FakeUser = ReturnType<typeof buildFakeUser>
@@ -28,7 +21,6 @@ export function buildFakeUser(fixture: FakeFixture) {
         publicMetadata: buildV3Metadata(fixture) as unknown as UserPublicMetadata,
         unsafeMetadata: { currentOrgSlug } as UserUnsafeMetadata,
 
-        // MFA-setup method stubs (src/app/account/mfa/*). Expanded per failing spec.
         createTOTP: async () => ({
             id: 'fake-totp',
             secret: 'JBSWY3DPEHPK3PXP',

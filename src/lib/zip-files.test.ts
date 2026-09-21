@@ -24,8 +24,7 @@ describe('zipFiles', () => {
         expect(await entryNames(blob)).toEqual(['run.log', 'results.csv'])
     })
 
-    // Two artifacts can legitimately carry the same inner path (the same log re-delivered across
-    // job attempts); duplicate zip entries extract unpredictably, so the later one is renamed.
+    // Two artifacts can carry the same inner path, and duplicate zip entries extract unpredictably.
     it('de-duplicates repeated names instead of writing colliding entries', async () => {
         const blob = await zipFiles([
             { name: 'run.log', contents: toArrayBuffer('first') },

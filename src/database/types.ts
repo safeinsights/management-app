@@ -17,6 +17,7 @@ export type AuditEventType =
     | 'REJECTED'
     | 'RESET_PASSWORD'
     | 'UPDATED'
+    | 'VIEWED'
 
 export type AuditRecordType = 'CODE_ENV' | 'STUDY' | 'USER'
 
@@ -36,6 +37,10 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
+
+export type LegalDocumentFormat = 'markdown' | 'pdf'
+
+export type LegalDocumentType = 'DOPA' | 'PN' | 'ROPA' | 'SLA' | 'TOS'
 
 export type OrgType = 'enclave' | 'lab'
 
@@ -87,6 +92,8 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'CHANGE-REQUESTED' | 'DRAFT'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
+export type WorkspaceFileAction = 'EDITED_IN_IDE' | 'UPLOADED'
+
 export interface AgentContext {
     content: string
     id: Generated<string>
@@ -121,6 +128,34 @@ export interface JobStatusChange {
     status: Generated<StudyJobStatus>
     studyJobId: string
     userId: string | null
+}
+
+export interface LegalDocument {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    orgId: string | null
+    studyId: string | null
+    type: LegalDocumentType
+}
+
+export interface LegalDocumentAcknowledgement {
+    ackedAt: Generated<Timestamp>
+    id: Generated<string>
+    legalDocumentVersionId: string
+    userId: string
+}
+
+export interface LegalDocumentVersion {
+    createdAt: Generated<Timestamp>
+    fileName: string
+    filePath: string
+    format: LegalDocumentFormat
+    id: Generated<string>
+    legalDocumentId: string
+    publishedAt: Timestamp | null
+    publishedBy: string | null
+    signedAt: string | null
+    versionNumber: number | null
 }
 
 export interface Org {
@@ -170,6 +205,14 @@ export interface OrgDataSourceUrl {
     id: Generated<string>
     orgDataSourceId: string
     url: string | null
+}
+
+export interface OrgTestLab {
+    createdAt: Generated<Timestamp>
+    createdByUserId: string | null
+    dataPartnerId: string
+    id: Generated<string>
+    researchLabId: string
 }
 
 export interface OrgUser {
@@ -226,11 +269,14 @@ export interface Study {
     deletedAt: Timestamp | null
     descriptionDocPath: string | null
     id: Generated<string>
+    ideOwnerId: string | null
     impact: Json | null
     irbDocPath: string | null
     irbProtocols: string | null
+    isTestStudy: Generated<boolean>
     language: Generated<Language>
     lastUpdatedAt: Generated<Timestamp>
+    mainCodeFileName: string | null
     orgId: string
     outputMimeType: string | null
     piName: string
@@ -272,6 +318,7 @@ export interface StudyJobFileActivity {
     createdAt: Generated<Timestamp>
     filePath: string
     id: Generated<string>
+    orgId: string
     studyJobFileId: string
     userId: string
 }
@@ -301,6 +348,7 @@ export interface StudyReview {
     createdAt: Generated<Timestamp>
     id: Generated<string>
     report: Json | null
+    round: Generated<number>
     studyJobId: string
     summaryFailedAt: Timestamp | null
 }
@@ -339,6 +387,15 @@ export interface UserPublicKey {
     userId: string
 }
 
+export interface WorkspaceFileActivity {
+    action: WorkspaceFileAction
+    createdAt: Generated<Timestamp>
+    fileName: string
+    id: Generated<string>
+    studyId: string
+    userId: string
+}
+
 export interface YjsDocument {
     data: Buffer
     name: string
@@ -351,11 +408,15 @@ export interface DB {
     audit: Audit
     codeScan: CodeScan
     jobStatusChange: JobStatusChange
+    legalDocument: LegalDocument
+    legalDocumentAcknowledgement: LegalDocumentAcknowledgement
+    legalDocumentVersion: LegalDocumentVersion
     org: Org
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource
     orgDataSourceCodeEnv: OrgDataSourceCodeEnv
     orgDataSourceUrl: OrgDataSourceUrl
+    orgTestLab: OrgTestLab
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition
@@ -370,6 +431,7 @@ export interface DB {
     studyReviewComment: StudyReviewComment
     user: User
     userPublicKey: UserPublicKey
+    workspaceFileActivity: WorkspaceFileActivity
     yjsDocument: YjsDocument
 }
 

@@ -119,8 +119,6 @@ describe('decisionTimestampForProposalHeader', () => {
         )
     })
 
-    // note: a draft study should never be passed to this function, but we should
-    // assert that it throws when submittedAt is null
     it('throws when submittedAt is null on the fallback path', () => {
         expect(() => decisionTimestampForProposalHeader(study({ status: 'DRAFT', submittedAt: null }), [])).toThrow(
             'submittedAt is required for proposal header timestamp',
@@ -143,8 +141,6 @@ describe('draftHasStep2Progress', () => {
     })
 
     it('returns false when datasets is an empty array', () => {
-        // An empty array means "explicitly cleared" rather than "never touched";
-        // until a dataset is actually picked the researcher has nothing to resume on Step 2.
         expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: [] })).toBe(false)
     })
 

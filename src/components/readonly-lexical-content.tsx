@@ -5,6 +5,7 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { lexicalTheme, lexicalNodes } from '@/components/editable-text/config'
+import { LinkHoverCardReadOnlyPlugin } from '@/components/editable-text/link-hover-card-readonly-plugin'
 import type { JsonValue } from '@/database/types'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
@@ -13,9 +14,7 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
     if (value == null) return null
     const editorState = typeof value === 'string' ? value : JSON.stringify(value)
 
-    // Defends against legacy rows where empty-root JSON ({"root":{"children":[]}})
-    // was persisted before the save-boundary filter in EditorChangePlugin. Lexical
-    // throws if initialized with an empty root.
+    // Lexical throws if initialized with an empty root, which legacy rows can hold.
     if (!isValidLexicalState(editorState)) return null
 
     const initialConfig = {
@@ -36,6 +35,9 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
                 placeholder={null}
                 ErrorBoundary={LexicalErrorBoundary}
             />
+            {/* Owns link clicks: they open the card instead of a tab, and a modified or middle
+                click still opens the destination. Nothing here unloads the app (OTTER-463). */}
+            <LinkHoverCardReadOnlyPlugin />
         </LexicalComposer>
     )
 }

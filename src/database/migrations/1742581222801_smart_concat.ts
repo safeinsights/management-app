@@ -21,6 +21,8 @@ $$;
     )
 }
 
+// This rollback path is knowingly broken and left as-is (OTTER-724 / MA-13): the DROP FUNCTION
+// syntax is invalid and the drop order is backwards, so `user.full_name` survives a rollback.
 export async function down(db: Kysely<unknown>): Promise<void> {
     await sql`DROP FUNCTION smart_concat(a text, b text) RETURNS text;`.execute(db)
     db.schema.alterTable('user').dropColumn('full_name')

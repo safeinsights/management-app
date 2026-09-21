@@ -1,15 +1,14 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ActionIcon, Badge, Box, Button, Divider, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CaretDownIcon, CheckCircleIcon, PlusCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Badge, Group, Text } from '@mantine/core'
+import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
+import { SettingsCard, SettingsCardRow } from './settings-card'
 
-// Presentational pieces for the "Code Environments" settings card. They own the card
-// chrome, the visible row line ("R / DEFAULT / SCAN PASSED"), and the scan badge — but
-// NOT data fetching, the add/edit modals, or the per-row mutations, which stay in the
-// CodeEnvs container (./code-envs). The body, refresher, and per-row action/detail nodes
-// are injected so these render in isolation (e.g. Ladle, which has no QueryClient).
+// Presentational only: the body, refresher and per-row nodes are injected so these render
+// without a QueryClient (e.g. Ladle).
 
 const SCAN_BADGE_CONFIG: Record<ScanStatus, { color: string; label: string }> = {
     'SCAN-PENDING': { color: 'dark', label: 'Scan Pending' },
@@ -56,9 +55,7 @@ export type CodeEnvRowViewProps = {
     onToggleDetail: () => void
     onLanguageBadgeClick: () => void
     onScanBadgeClick: () => void
-    /** Edit/delete controls — injected by the container (they own mutations + modals). */
     actions: ReactNode
-    /** Collapsible detail panel — injected by the container. */
     detail: ReactNode
 }
 
@@ -76,7 +73,7 @@ export function CodeEnvRowView({
     detail,
 }: CodeEnvRowViewProps) {
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+        <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
                     <ActionIcon size="sm" variant="subtle" onClick={onToggleDetail}>
@@ -103,12 +100,12 @@ export function CodeEnvRowView({
                     )}
                     <ScanStatusBadge status={latestScanStatus} onClick={onScanBadgeClick} />
                 </Group>
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     {actions}
                 </Group>
             </Group>
             {detail}
-        </Box>
+        </SettingsCardRow>
     )
 }
 
@@ -120,22 +117,13 @@ export type CodeEnvsViewProps = {
 
 export function CodeEnvsView({ onAdd, refresher, children }: CodeEnvsViewProps) {
     return (
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={3} size="lg">
-                        Code Environments
-                    </Title>
-                    <Flex justify="flex-end" align="center" gap="md">
-                        {refresher}
-                        <Button leftSection={<PlusCircleIcon size={16} />} onClick={onAdd}>
-                            Add Code Environment
-                        </Button>
-                    </Flex>
-                </Group>
-                <Divider c="dimmed" />
-                {children}
-            </Stack>
-        </Paper>
+        <SettingsCard
+            title="Code Environments"
+            addLabel="Add Code Environment"
+            onAdd={onAdd}
+            slot={<RefresherSlot>{refresher}</RefresherSlot>}
+        >
+            {children}
+        </SettingsCard>
     )
 }

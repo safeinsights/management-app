@@ -1,34 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
 import { resolveScreen } from './resolve'
+import { studyState } from './state.fixture'
 
-const ctx = { orgSlug: 'org', studyId: '01900000-0000-7000-8000-000000000001' }
+const st = (overrides: Partial<StudyState>): StudyState =>
+    studyState({ status: 'PENDING-REVIEW', isDraft: false, displayStatus: 'PENDING-REVIEW', ...overrides })
 
-const st = (overrides: Partial<StudyState>): StudyState => ({
-    status: 'PENDING-REVIEW',
-    isDraft: false,
-    hasStep2Progress: false,
-    researcherAgreementsAcked: false,
-    reviewerAgreementsAcked: false,
-    hasAnyJob: false,
-    hasSubmittedCode: false,
-    codeDecision: null,
-    codeAwaitingDecision: false,
-    isExecuting: false,
-    hasResults: false,
-    resultsApproved: false,
-    resultsRejected: false,
-    resultsErrored: false,
-    resultsDisplayStatus: null,
-    submissionRound: 0,
-    hasSavedEdits: false,
-    hasSavedCodeEdits: false,
-    displayStatus: 'PENDING-REVIEW',
-    latestJobStatuses: [],
-    ...overrides,
-})
-
-const screen = (s: StudyState) => resolveScreen('reviewer', s, ctx).screen
+const screen = (s: StudyState) => resolveScreen('reviewer', s).screen
 
 describe('resolveScreen(reviewer)', () => {
     it('PENDING-REVIEW → reviewer-proposal-review', () => {
@@ -41,7 +19,8 @@ describe('resolveScreen(reviewer)', () => {
         expect(screen(st({ status: 'CHANGE-REQUESTED' }))).toBe('reviewer-proposal-feedback')
     })
 
-    it('code submitted, agreements NOT acked → reviewer-agreements (gate before review)', () => {
+    // OTTER-727 hid the Agreements gate that used to claim this state.
+    it('code submitted, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         expect(
             screen(
                 st({
@@ -51,7 +30,7 @@ describe('resolveScreen(reviewer)', () => {
                     reviewerAgreementsAcked: false,
                 }),
             ),
-        ).toBe('reviewer-agreements')
+        ).toBe('reviewer-code-review')
     })
 
     it('code submitted, agreements acked → reviewer-code-review', () => {
@@ -67,12 +46,20 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('live code decision → reviewer-code-feedback (not active review)', () => {
-        for (const d of ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const) {
+    it('live negative code decision → reviewer-code-feedback (not active review)', () => {
+        for (const d of ['CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const) {
             expect(screen(st({ status: 'APPROVED', hasSubmittedCode: true, codeDecision: d }))).toBe(
                 'reviewer-code-feedback',
             )
         }
+    })
+
+    // The approved-code screen is only reached by walking back (/review/code): /review moves on to
+    // the outputs step from the moment of approval (OTTER-673).
+    it('code approved, enclave not started yet → reviewer-outputs-pending', () => {
+        expect(screen(st({ status: 'APPROVED', hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' }))).toBe(
+            'reviewer-outputs-pending',
+        )
     })
 
     it('code approved and executing in the enclave, no results → reviewer-outputs-pending', () => {
@@ -88,7 +75,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-pending')
     })
 
-    it('job errored, no files decision → reviewer-outputs-errored (not study-results)', () => {
+    it('job errored, no files decision → reviewer-outputs-errored (not outputs-awaiting-review)', () => {
         expect(
             screen(
                 st({
@@ -102,7 +89,66 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-errored')
     })
 
-    it('job errored then files-rejected → reviewer-study-results (errored no longer intercepted)', () => {
+    it('run complete, no files decision → reviewer-outputs-available (not outputs-awaiting-review)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsDisplayStatus: 'RUN-COMPLETE',
+                }),
+            ),
+        ).toBe('reviewer-outputs-available')
+    })
+
+    it('run complete AND errored → reviewer-outputs-errored (errored out-ranks available)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsErrored: true,
+                    resultsDisplayStatus: 'JOB-ERRORED',
+                }),
+            ),
+        ).toBe('reviewer-outputs-errored')
+    })
+
+    it('run complete then files approved → reviewer-outputs-decided (OTTER-677)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsApproved: true,
+                    resultsDisplayStatus: 'FILES-APPROVED',
+                }),
+            ),
+        ).toBe('reviewer-outputs-decided')
+    })
+
+    it('run complete then files rejected → reviewer-outputs-decided (OTTER-677)', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsRejected: true,
+                    resultsDisplayStatus: 'FILES-REJECTED',
+                }),
+            ),
+        ).toBe('reviewer-outputs-decided')
+    })
+
+    it('job errored then files-rejected → reviewer-outputs-decided (errored no longer intercepted)', () => {
         expect(
             screen(
                 st({
@@ -114,10 +160,25 @@ describe('resolveScreen(reviewer)', () => {
                     resultsRejected: true,
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
-    it('results out-rank the executing window → reviewer-study-results (not outputs-pending)', () => {
+    it('job errored then files-approved → reviewer-outputs-decided', () => {
+        expect(
+            screen(
+                st({
+                    status: 'APPROVED',
+                    hasSubmittedCode: true,
+                    codeDecision: 'CODE-APPROVED',
+                    hasResults: true,
+                    resultsErrored: true,
+                    resultsApproved: true,
+                }),
+            ),
+        ).toBe('reviewer-outputs-decided')
+    })
+
+    it('decided results out-rank the executing window → reviewer-outputs-decided (not outputs-pending)', () => {
         expect(
             screen(
                 st({
@@ -129,10 +190,10 @@ describe('resolveScreen(reviewer)', () => {
                     resultsApproved: true,
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
-    it('results out-rank a present code decision → reviewer-study-results', () => {
+    it('decided results out-rank a present code decision → reviewer-outputs-decided', () => {
         expect(
             screen(
                 st({
@@ -143,7 +204,7 @@ describe('resolveScreen(reviewer)', () => {
                     resultsApproved: true,
                 }),
             ),
-        ).toBe('reviewer-study-results')
+        ).toBe('reviewer-outputs-decided')
     })
 
     it('resubmission (fresh submit, no live decision) → back to reviewer-code-review, not stale feedback', () => {
@@ -160,13 +221,13 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('agreements gate only applies while awaiting decision (irrelevant once decided)', () => {
+    it('an unacked study with a code decision still resolves on the decision', () => {
         expect(
             screen(
                 st({
                     status: 'APPROVED',
                     hasSubmittedCode: true,
-                    codeDecision: 'CODE-APPROVED',
+                    codeDecision: 'CODE-CHANGES-REQUESTED',
                     reviewerAgreementsAcked: false,
                 }),
             ),

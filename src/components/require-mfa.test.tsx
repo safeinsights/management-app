@@ -1,9 +1,8 @@
-import { TestingProviders } from '@/tests/providers'
-import { render, act, waitFor } from '@testing-library/react'
+import { act, waitFor } from '@testing-library/react'
 import router from 'next-router-mock'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { RequireMFA } from './require-mfa'
-import { mockClerkSession } from '@/tests/unit.helpers'
+import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
 
 const mockSessionValues = {
@@ -21,9 +20,8 @@ describe('RequireMFA', () => {
         it('redirects if mfa is not set', async () => {
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: false })
 
-            // act waits for layoutEffect to finish
             await act(async () => {
-                render(<RequireMFA />, { wrapper: TestingProviders })
+                renderWithProviders(<RequireMFA />)
             })
 
             expect(router.asPath).toEqual('/account/mfa')
@@ -36,24 +34,21 @@ describe('RequireMFA', () => {
         })
 
         it('redirects to /account/mfa until MFA is completed', async () => {
-            // 1. brand-new account, Clerk returns twoFactorEnabled: false
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: false })
 
             await act(async () => {
-                render(<RequireMFA />, { wrapper: TestingProviders })
+                renderWithProviders(<RequireMFA />)
             })
 
             await waitFor(() => expect(router.asPath).toBe('/account/mfa'))
 
-            // 2. user completes MFA → Clerk now returns twoFactorEnabled === true
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: true })
             router.setCurrentUrl(`/${mockSessionValues.orgSlug}/dashboard`)
 
             await act(async () => {
-                render(<RequireMFA />, { wrapper: TestingProviders })
+                renderWithProviders(<RequireMFA />)
             })
 
-            // stays on requested page – no more redirect
             expect(router.asPath).toBe(`/${mockSessionValues.orgSlug}/dashboard`)
         })
     })

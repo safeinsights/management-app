@@ -26,6 +26,7 @@ import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
 import OtpInput from '@/components/otp-input'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -72,7 +73,6 @@ function AddTotpScreenContent({
         setIsVerifying(true)
         try {
             await user?.verifyTOTP({ code: values.code })
-            // Generate backup codes after verification
             if (user && !user.backupCodeEnabled) {
                 try {
                     const resource = await createBackupCode()
@@ -144,7 +144,7 @@ function AddTotpScreenContent({
                             <span style={{ color: theme.colors.grey[7] }}>Having trouble?</span>{' '}
                             <Anchor
                                 component="button"
-                                c="blue.7"
+                                c={semanticColor('link.default')}
                                 underline="always"
                                 style={{
                                     opacity: canRegenerate ? 1 : 0.4,
@@ -199,7 +199,7 @@ function AddTotpScreenContent({
                         href={Routes.accountMfa}
                         mt="md"
                         c="purple.5"
-                        fw={600}
+                        fw={fontWeight.semibold}
                         fz="md"
                         style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                     >
@@ -224,7 +224,7 @@ export function AddAppMFA() {
     }
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
             {step === 'add' && <AddTotpScreenContent setStep={setStep} setBackupCodes={setBackupCodes} />}
             {step === 'success' && <BackupCodes codes={backupCodes} />}
         </Paper>

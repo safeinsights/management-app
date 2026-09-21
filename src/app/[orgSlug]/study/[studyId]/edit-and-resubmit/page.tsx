@@ -1,33 +1,34 @@
 import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
 
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
 }) {
-    const { studyId, orgSlug } = await props.params
+    const { studyId } = await props.params
 
     const study = await getStudyAction({ studyId })
 
     if ('error' in study) return notFound()
     if (study.status !== 'CHANGE-REQUESTED') return notFound()
 
-    // OTTER-497: any member of the submitting lab may edit/resubmit a
-    // change-requested proposal, so gate on lab membership (not the original
-    // author). getStudyAction only requires `view Study`, which reviewer-org
-    // users also hold, so this explicit lab check is required. Server writes
-    // are scoped the same way.
+    // OTTER-497: gate on lab membership, not authorship. getStudyAction only requires `view
+    // Study`, which reviewer-org users also hold.
     const session = await sessionFromClerk()
     if (!session) return notFound()
     const isLabMember = Object.values(session.orgs).some((o) => o.id === study.submittedByOrgId)
     if (!isLabMember) return notFound()
+
+    // Resolved server-side: the browser only knows the viewer's Clerk id, not the database user
+    // id researcherId records.
+    const isDraftCreator = session.user.id === study.researcherId
 
     const entriesResult = await getProposalFeedbackForStudyAction({ studyId })
     if ('error' in entriesResult) return notFound()
@@ -43,9 +44,6 @@ export default async function StudyEditAndResubmitRoute(props: {
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs
-                crumbs={{ orgSlug, studyId, studyTitle: study.title, current: 'Edit Initial Request' }}
-            />
             <EditResubmitProvider
                 studyId={studyId}
                 initialNote={initialNote}
@@ -61,6 +59,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                 }}
             >
                 <EditResubmitForm
+                    header={<StudyPageHeader study={study} />}
                     orgName={displayOrgName(enclaveOrg?.name ?? '')}
                     members={memberOptions}
                     researcherName={study.createdBy}
@@ -69,6 +68,8 @@ export default async function StudyEditAndResubmitRoute(props: {
                     feedbackEntries={entries}
                     noteVersion={noteVersion}
                     initialNote={initialNote}
+                    studyTitle={study.title}
+                    isDraftCreator={isDraftCreator}
                 />
             </EditResubmitProvider>
         </Stack>

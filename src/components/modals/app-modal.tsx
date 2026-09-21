@@ -8,9 +8,6 @@ interface AppModalProps extends Omit<ModalProps, 'opened'> {
     title: React.ReactNode
 }
 
-/**
- * A wrapper around Mantine's Modal component to promote reusability and consistent styling.
- */
 export function AppModal({
     isOpen,
     onClose,
@@ -37,7 +34,7 @@ export function AppModal({
             styles={{
                 header: {
                     padding: '0px 40px',
-                    backgroundColor: theme.colors.grey[10],
+                    backgroundColor: theme.colors.charcoal[0],
                     ...styles?.header,
                 },
                 body: {

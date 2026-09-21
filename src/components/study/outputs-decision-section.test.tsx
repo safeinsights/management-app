@@ -1,29 +1,39 @@
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
-import { describe, expect, faker, it, render, screen, userEvent, vi, within } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    faker,
+    it,
+    render,
+    screen,
+    simulateEditorSave,
+    userEvent,
+    vi,
+    within,
+} from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
-import { fieldDescriptionId, fieldErrorId } from '@/components/form-field'
+import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
+import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
-import { ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS } from '@/lib/outputs-review'
+import { SAVED_LABEL } from '@/components/save-status'
+import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID, OutputsDecisionSection } from './outputs-decision-section'
 
 const LAB = 'Rice Lab'
 
 // singleUserEditing renders the standalone Lexical surface, so the editor is interactive here
-// instead of held behind the collaborative skeleton (which needs a live websocket).
+// rather than held behind the collaborative skeleton, which needs a live websocket.
 const renderSection = (overrides: Record<string, unknown> = {}) => {
     const props = {
         jobId: faker.string.uuid(),
         studyId: faker.string.uuid(),
         labName: LAB,
-        maxWords: ERRORED_OUTPUTS_FEEDBACK_MAX_WORDS,
-        wordCount: 0,
+        characterCount: 0,
         feedbackError: undefined,
         onFeedbackChange: vi.fn(),
-        onFeedbackBlur: vi.fn(),
         selected: null,
         onSelect: vi.fn(),
-        onDecisionBlur: vi.fn(),
         decisionError: undefined,
         ...overrides,
     }
@@ -32,12 +42,44 @@ const renderSection = (overrides: Record<string, unknown> = {}) => {
         <MantineProvider theme={theme}>
             <YjsWebsocketProvider singleUserEditing>
                 <ModalsProvider>
-                    <OutputsDecisionSection {...props} />
+                    <OutputsReviewFeedbackProviderShare>
+                        <OutputsDecisionSection {...props} />
+                    </OutputsReviewFeedbackProviderShare>
                 </ModalsProvider>
             </YjsWebsocketProvider>
         </MantineProvider>,
     )
     return props
+}
+
+// The collaborative branch, the only one that draws a save indicator; the single-user surface above
+// has no provider. The returned re-render raises the error, as a submit attempt does.
+const renderCollaborativeSection = () => {
+    const props = {
+        jobId: faker.string.uuid(),
+        studyId: faker.string.uuid(),
+        labName: LAB,
+        characterCount: 0,
+        onFeedbackChange: vi.fn(),
+        selected: null,
+        onSelect: vi.fn(),
+        decisionError: undefined,
+    }
+
+    const tree = (feedbackError?: string) => (
+        <MantineProvider theme={theme}>
+            <YjsWebsocketProvider>
+                <ModalsProvider>
+                    <OutputsReviewFeedbackProviderShare>
+                        <OutputsDecisionSection {...props} feedbackError={feedbackError} />
+                    </OutputsReviewFeedbackProviderShare>
+                </ModalsProvider>
+            </YjsWebsocketProvider>
+        </MantineProvider>
+    )
+
+    const { rerender } = render(tree())
+    return { showFeedbackError: (message: string) => rerender(tree(message)) }
 }
 
 describe('OutputsDecisionSection header', () => {
@@ -67,54 +109,50 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(await screen.findByLabelText('Decision feedback')).toHaveAttribute('aria-required', 'true')
     })
 
-    // Figma renders the unit alongside the count ("0/300 words"), which is also the evidence the
-    // cap is counted in words rather than characters.
-    it('renders the word counter with its unit against the errored-run cap of 300', () => {
-        renderSection({ wordCount: 12 })
+    it('renders the character counter against the 1800 cap', () => {
+        renderSection({ characterCount: 12 })
 
-        expect(screen.getByText('12/300 words')).toBeInTheDocument()
+        expect(screen.getByText(`12/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
     })
 
     it('associates the counter with the editor via aria-describedby', async () => {
-        renderSection({ wordCount: 12 })
+        renderSection({ characterCount: 12 })
 
         const editor = await screen.findByLabelText('Decision feedback')
-        expect(editor.getAttribute('aria-describedby')).toContain(fieldDescriptionId(FEEDBACK_INPUT_ID))
-        expect(document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))).toHaveTextContent('12/300 words')
+        expect(editor.getAttribute('aria-describedby')).toContain(fieldCounterId(FEEDBACK_INPUT_ID))
+        expect(document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID))).toHaveTextContent(
+            `12/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`,
+        )
     })
 
     it('marks the editor invalid and describes the error when over the limit', async () => {
         renderSection({
-            wordCount: 301,
-            feedbackError: 'Feedback exceeds the 300 word limit. Shorten it to continue.',
+            characterCount: OUTPUTS_FEEDBACK_MAX_CHARACTERS + 1,
+            feedbackError: OUTPUTS_DECISION_ERRORS.feedbackTooLong,
         })
 
         const editor = await screen.findByLabelText('Decision feedback')
         expect(editor).toHaveAttribute('aria-invalid', 'true')
         expect(editor.getAttribute('aria-describedby')).toContain(fieldErrorId(FEEDBACK_INPUT_ID))
-        expect(screen.getByText('Feedback exceeds the 300 word limit. Shorten it to continue.')).toBeInTheDocument()
+        expect(screen.getByText(OUTPUTS_DECISION_ERRORS.feedbackTooLong)).toBeInTheDocument()
     })
 
-    // Polite, not assertive: the over-limit message can fire on every keystroke past the cap, and
-    // an assertive region would interrupt the user mid-sentence.
     it('announces field messages politely', () => {
-        renderSection({ feedbackError: 'Feedback exceeds the 300 word limit. Shorten it to continue.' })
+        renderSection({ feedbackError: OUTPUTS_DECISION_ERRORS.feedbackTooLong })
 
         const region = document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))!
         expect(region).toHaveAttribute('aria-live', 'polite')
         expect(region).not.toHaveAttribute('aria-live', 'assertive')
     })
 
-    // The editor owns the autosave indicator (it renders one next to this counter in
-    // collaborative mode), so this section must not draw a second. Asserting on the counter's own
-    // slot rather than a global count, because a global "at most one" also passes when there are
-    // none and would prove nothing.
+    // Asserted on the counter's own slot rather than a global count, since "at most one" also
+    // passes when there are none.
     it('puts the counter in the editor footer and adds no autosave indicator of its own', async () => {
-        renderSection({ wordCount: 7 })
+        renderSection({ characterCount: 7 })
 
         await screen.findByLabelText('Decision feedback')
-        const counter = document.getElementById(fieldDescriptionId(FEEDBACK_INPUT_ID))!
-        expect(counter).toHaveTextContent('7/300 words')
+        const counter = document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID))!
+        expect(counter).toHaveTextContent(`7/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`)
         expect(counter.querySelector('[data-testid="autosave-status"]')).toBeNull()
 
         const section = screen.getByTestId('outputs-decision-section')
@@ -129,7 +167,21 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(screen.getByText('Enter your feedback for Rice Lab before submitting.')).toBeInTheDocument()
     })
 
-    // A real list, so a screen reader announces two items rather than one run-on sentence.
+    // Asserted on what the error's row does and does not hold: merely sharing an ancestor with the
+    // counter also passes while the error is stranded a row below it.
+    it('renders the empty-field error in the same footer row as the character counter', async () => {
+        const emptyError = OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB)
+        renderSection({ feedbackError: emptyError })
+
+        const editor = await screen.findByLabelText('Decision feedback')
+        const errorBox = document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))!
+        expect(errorBox).toHaveTextContent(emptyError)
+
+        const footerRow = errorBox.parentElement!
+        expect(footerRow).toContainElement(document.getElementById(fieldCounterId(FEEDBACK_INPUT_ID)))
+        expect(footerRow).not.toContainElement(editor)
+    })
+
     it('renders the guidance clauses as a list', () => {
         renderSection()
 
@@ -138,23 +190,8 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(items[1]).toHaveTextContent('If they do not, share the outputs along with your feedback.')
     })
 
-    // Guards against an accidental keyboard trap: an unresolved error must not pin the caret in
-    // the editor. Tabs until the radio is reached rather than assuming a fixed count, because the
-    // editor's formatting toolbar sits between the two and its size is not this test's business.
-    it('does not trap focus while an error is active', async () => {
-        renderSection({ feedbackError: 'Enter your feedback for Rice Lab before submitting.' })
-
-        const editor = await screen.findByLabelText('Decision feedback')
-        editor.focus()
-        expect(editor).toHaveFocus()
-
-        const firstRadio = screen.getByTestId('outputs-decision-share-outputs')
-        for (let i = 0; i < 12 && !firstRadio.matches(':focus'); i++) {
-            await userEvent.tab()
-        }
-
-        expect(firstRadio).toHaveFocus()
-    })
+    // "Focus is not trapped in the editor" lives in tests/study-flow.spec.ts: jsdom cannot fail
+    // it, since Lexical's Tab handler returns early without a RangeSelection (OTTER-675).
 })
 
 describe('OutputsDecisionSection radio buttons', () => {
@@ -182,8 +219,6 @@ describe('OutputsDecisionSection radio buttons', () => {
         }
     })
 
-    // Native inputs sharing one `name`, not two JS-coordinated buttons: that is what gives the
-    // group real AT semantics and arrow-key navigation for free.
     it('uses native radio inputs that share a name', () => {
         renderSection()
 
@@ -203,9 +238,8 @@ describe('OutputsDecisionSection radio buttons', () => {
         expect(group).toHaveAccessibleName('Sharing decision')
     })
 
-    // The submit-time focus jump resolves this id with document.getElementById, so it has to be on
-    // a real element that actually contains the radios. Mantine's Radio.Group swallows an `id` prop
-    // without rendering it, which made the jump a silent no-op until the id moved to a wrapper.
+    // Mantine's Radio.Group swallows an `id` prop without rendering it, which made the
+    // submit-time focus jump a silent no-op until the id moved to a wrapper.
     it('exposes a resolvable anchor element containing the radios', () => {
         renderSection()
 
@@ -253,5 +287,39 @@ describe('OutputsDecisionSection radio buttons', () => {
         renderSection({ decisionError: 'Select an option before submitting' })
 
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
+    })
+
+    it('marks the options invalid while the unselected error is showing (OTTER-675)', () => {
+        renderSection({ decisionError: 'Select an option before submitting' })
+
+        for (const option of screen.getAllByRole('radio')) {
+            expect(option).toHaveAttribute('aria-invalid', 'true')
+        }
+    })
+
+    it('leaves the options valid when no error is showing', () => {
+        renderSection()
+
+        for (const option of screen.getAllByRole('radio')) {
+            expect(option).not.toHaveAttribute('aria-invalid')
+        }
+    })
+})
+
+// See the matching blocks in the two reviewer feedback sections.
+describe('OutputsDecisionSection save label and error exclusivity', () => {
+    it('replaces the save label with the empty-field error rather than showing both', async () => {
+        const { showFeedbackError } = renderCollaborativeSection()
+
+        await screen.findByLabelText('Decision feedback')
+        await simulateEditorSave()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+
+        showFeedbackError(OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB))
+
+        expect(document.getElementById(fieldErrorId(FEEDBACK_INPUT_ID))).toHaveTextContent(
+            OUTPUTS_DECISION_ERRORS.feedbackEmpty(LAB),
+        )
+        expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
 })

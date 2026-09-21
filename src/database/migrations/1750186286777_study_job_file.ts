@@ -17,8 +17,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .alterTable('study_job')
         .addColumn('language', sql`language`)
         .execute()
-    db.schema.alterTable('study_job').dropColumn('results_path').execute()
-    db.schema.alterTable('study_job').dropColumn('result_format').execute()
+    await db.schema.alterTable('study_job').dropColumn('results_path').execute()
+    await db.schema.alterTable('study_job').dropColumn('result_format').execute()
 
     await sql`update study_job set language = 'R'::language where language is null`.execute(db)
     await db.schema

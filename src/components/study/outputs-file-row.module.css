@@ -3,12 +3,12 @@
 
 .row:hover,
 .row:focus-within {
-    background-color: var(--mantine-color-grey-10);
+    background-color: var(--si-color-surface-hover);
 }
 
 .fileName {
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--mantine-font-size-sm);
 }
 
 .fileName:hover,

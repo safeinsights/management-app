@@ -12,6 +12,42 @@ import { db } from '@/database'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import type { UserInfo } from '@/lib/types'
+import { testingDataAllowed } from './lib/testing-data-gate'
+
+const STARTER_CODE_BODY: Record<string, string> = {
+    'main.r': 'source("libraries/safeinsights_common.R")\n\ninitialize()\n\n# Researcher: insert query code here\n',
+    'main.py': 'from safeinsights import initialize\n\ninitialize()\n\n# Researcher: insert query code here\n',
+}
+
+async function seedStarterCodeContent(orgSlug: string, orgId: string) {
+    // storeS3File tags the object with whatever it is handed, and an undefined value blows up deep
+    // inside the AWS tag builder rather than here.
+    if (!orgSlug) throw new Error(`seedStarterCodeContent needs an org slug (orgId=${orgId})`)
+
+    const { storeS3File } = await import('@/server/aws')
+    const { pathForStarterCode } = await import('@/lib/paths')
+
+    const codeEnvs = await db
+        .selectFrom('orgCodeEnv')
+        .select(['id', 'starterCodeFileNames'])
+        .where('orgId', '=', orgId)
+        .execute()
+
+    for (const codeEnv of codeEnvs) {
+        for (const fileName of codeEnv.starterCodeFileNames) {
+            const body = STARTER_CODE_BODY[fileName.toLowerCase()]
+            if (!body) continue
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new TextEncoder().encode(body))
+                    controller.close()
+                },
+            })
+            await storeS3File({ orgSlug }, stream, pathForStarterCode({ orgSlug, codeEnvId: codeEnv.id, fileName }))
+        }
+    }
+    console.log(`📦 Seeded starter code content for ${orgSlug}`)
+}
 
 type TestUserRole = 'researcher' | 'reviewer' | 'admin'
 
@@ -332,7 +368,7 @@ async function setupOrganizations() {
 
     const org = await db
         .selectFrom('org')
-        .select(['id', 'settings', 'type'])
+        .select(['id', 'slug', 'settings', 'type'])
         .where('slug', '=', 'openstax')
         .executeTakeFirst()
 
@@ -386,6 +422,10 @@ async function setupOrganizations() {
         } else {
             console.log(`📦 Code environments already exist for openstax`)
         }
+
+        // starterCodeFileNames alone is a promise the workspace cannot keep: the Submit code page
+        // copies the file out of S3, so without the object there is nothing to pre-load.
+        await seedStarterCodeContent(org.slug, org.id)
 
         const existingDataSources = await db.selectFrom('orgDataSource').where('orgId', '=', org.id).execute()
         if (existingDataSources.length === 0) {
@@ -458,6 +498,8 @@ async function setupOrganizations() {
         console.log(`📦 Code environment already exists for single-lang-r-enclave`)
     }
 
+    await seedStarterCodeContent(singleLangOrg.slug, singleLangOrg.id)
+
     let reviewerAdminOrg = await db
         .selectFrom('org')
         .selectAll('org')
@@ -485,6 +527,12 @@ async function setupOrganizations() {
 }
 
 async function seedEnvironment() {
+    // Same opt-in and production backstop as the Kysely seed. This script only ever runs from
+    // bin/migrate-dev-db, never from the migrator Lambda, so it is not part of the production
+    // exposure path — but it writes the same shared test public key and touches the same real
+    // org slugs, so it shares the gate rather than being left as a second footgun.
+    if (!testingDataAllowed('seed-environment')) return
+
     console.log('🌱 Seeding test environment...\n')
 
     // In faked-Clerk mode (e2e) there is no Clerk server to provision against. The DB

@@ -2,10 +2,8 @@ import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.
 import { PasswordInput } from '@mantine/core'
 import { usePasswordRequirements } from './password-requirements'
 
-// The requirements list replaces Mantine's own password error, so it is the only thing telling the
-// user what is wrong. It reaches assistive tech solely through the input's `aria-describedby`,
-// which Mantine computes from its `description` prop. Passing the list any other way leaves it
-// visible but unreachable, the same failure mode that silently broke the OTP digits (OTTER-647).
+// The list reaches assistive tech only through `aria-describedby`, which Mantine computes from its
+// `description` prop; passing it any other way leaves it visible but unreachable (OTTER-647).
 function Harness({ password, touched }: { password: string; touched: boolean }) {
     const { requirementsDescription } = usePasswordRequirements(password, touched)
 
@@ -65,8 +63,8 @@ describe('password requirements association', () => {
     it('renders the list inline, so it is valid inside Mantine description markup', () => {
         const { container } = renderWithProviders(<Harness password="" touched />)
 
-        // Mantine renders a description inside a <p>. A block element there is invalid HTML and
-        // React reports it as a nesting error, which is how the signup hydration bug appeared.
+        // A block element inside Mantine's description <p> is invalid HTML and React reports it as
+        // a nesting error.
         expect(container.querySelectorAll('p div')).toHaveLength(0)
     })
 })

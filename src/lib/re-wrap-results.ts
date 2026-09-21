@@ -3,11 +3,8 @@ import { actionResult } from '@/lib/utils'
 import { fetchLabPublicKeysAction } from '@/server/actions/study-job.actions'
 import type { JobFileInfo, SharedFile } from '@/lib/types'
 
-/**
- * Re-wrap (not re-encrypt) approved files for the study's lab researchers, client-side. Each inner
- * file has its own AES key; for every researcher key we wrap that raw key into a new `crypt`.
- * Ciphertext is untouched — the server only ever receives wrapped keys, never plaintext.
- */
+// Re-wraps rather than re-encrypts, and runs client-side, so the server only ever receives
+// wrapped AES keys and never plaintext.
 export async function buildSharedFiles(studyId: string, files: JobFileInfo[]): Promise<SharedFile[]> {
     const labKeys = actionResult(await fetchLabPublicKeysAction({ studyId }))
 
