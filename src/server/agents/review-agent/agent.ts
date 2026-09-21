@@ -28,7 +28,7 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
             codeExplanation: {
                 type: 'string',
                 description:
-                    'Summarize what the code does for a reader with beginner programming skills. Use plain language. Title each section of the summary and use paragraph breaks between sections. Reference file paths if helpful. Use numbered steps if helpful. Include a list of variables used in the file at the end of the summary.',
+                    'Summarize what the code does for a reader with beginner programming skills. Use plain language. Title each section of the summary and use paragraph breaks between sections. Reference file paths if helpful. Use numbered steps if helpful. Include a list of variables used in the file at the end of the summary. Keep the whole explanation under about 1,500 words: summarize repeated blocks once rather than describing each of them.',
             },
             resultsSummary: {
                 type: 'string',
@@ -132,19 +132,31 @@ export async function generateAnalysis(config: ReviewAgentConfig, content: Revie
     const client = resolveClient(config)
     const prompt = buildPromptForContent(content, config.analysisPromptTemplate)
 
-    const response = await client.messages.create({
-        model: config.model ?? DEFAULT_MODEL,
-        max_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system: buildSystemPrompt(config),
-        tools: [ANALYSIS_TOOL],
-        tool_choice: { type: 'tool', name: ANALYSIS_TOOL_NAME },
-        messages: [{ role: 'user', content: prompt }],
-    })
+    // Streamed, even though only the final message is used: a non-streaming request sends no
+    // response headers until the whole report has been generated, which a large submission takes
+    // long enough to trip Node's 300s header timeout on (OTTER-799).
+    const stream = client.messages.stream(
+        {
+            model: config.model ?? DEFAULT_MODEL,
+            max_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
+            system: buildSystemPrompt(config),
+            tools: [ANALYSIS_TOOL],
+            tool_choice: { type: 'tool', name: ANALYSIS_TOOL_NAME },
+            messages: [{ role: 'user', content: prompt }],
+        },
+        { signal: config.signal },
+    )
+    const response = await stream.finalMessage()
 
     const report = extractReport(response)
     const messages: ReviewMessage[] = [
         { role: 'user', content: prompt },
         { role: 'assistant', content: JSON.stringify(report) },
     ]
-    return { report, messages }
+    return {
+        report,
+        messages,
+        stopReason: response.stop_reason,
+        usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
+    }
 }

@@ -26,6 +26,9 @@ export interface ReviewAgentConfig {
     additionalContext?: string
     analysisPromptTemplate?: string
     maxRetries?: number
+    // Caller-owned deadline. An aborted request rejects and is not retried by the SDK, so the
+    // runner is free to record the failure (OTTER-799).
+    signal?: AbortSignal
 }
 
 // Mirrors ANALYSIS_TOOL in agent.ts so AnalysisReport has one source, and guards the write
@@ -52,8 +55,12 @@ export interface ReviewMessage {
     content: string
 }
 
-// `messages` is the seed conversation to persist for chat continuation.
+// `messages` is the seed conversation to persist for chat continuation. `usage` and `stopReason`
+// are logged by the runner, so the next question about generation cost or length is answerable
+// from the logs rather than from a new deploy.
 export interface AnalysisResult {
     report: AnalysisReport
     messages: ReviewMessage[]
+    stopReason?: string | null
+    usage?: { inputTokens: number; outputTokens: number }
 }
