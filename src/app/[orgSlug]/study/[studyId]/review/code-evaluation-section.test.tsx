@@ -22,7 +22,7 @@ const initialDraft: CodeReviewCriteriaDraft = {
 
 const PROPOSAL_HREF = '/test-org/study/test-study/review/proposal'
 
-const renderSection = () => {
+const renderSection = ({ validateOnBlur = false } = {}) => {
     const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
     const Harness = () => {
         const form = useForm<FormShape>({ initialValues: { criteria: initialDraft } })
@@ -31,7 +31,12 @@ const renderSection = () => {
         }, [form])
         return (
             <CodeReviewFeedbackProviderShare>
-                <CodeEvaluationSection form={form} enabled proposalHref={PROPOSAL_HREF} />
+                <CodeEvaluationSection
+                    form={form}
+                    enabled
+                    proposalHref={PROPOSAL_HREF}
+                    validateOnBlur={validateOnBlur}
+                />
             </CodeReviewFeedbackProviderShare>
         )
     }

@@ -64,6 +64,15 @@ async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
     }
 }
 
+const firstRadioIn = (testId: string) => within(screen.getByTestId(testId)).getAllByRole('radio')[0]
+
+// Blur a radio group without selecting: focus it, then click outside. A click on another control
+// in the group would answer it.
+async function visitAndLeave(user: ReturnType<typeof userEvent.setup>, testId: string) {
+    firstRadioIn(testId).focus()
+    await user.click(screen.getByTestId('code-evaluation-attention'))
+}
+
 describe('CodeReviewClient decision selector', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -137,7 +146,20 @@ describe('CodeReviewClient decision selector', () => {
         expect(screen.queryByTestId('code-review-submit')).not.toBeInTheDocument()
     })
 
-    it('disables Submit when no decision is selected even with valid feedback and criteria', async () => {
+    it('keeps Submit decision enabled regardless of field state', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        expect(screen.getByTestId('code-review-submit')).toBeEnabled()
+
+        await fillAllCriteria(user)
+        expect(screen.getByTestId('code-review-submit')).toBeEnabled()
+    })
+
+    it('shows decision error on submit click when no decision is selected', async () => {
         const user = userEvent.setup()
         const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
@@ -145,31 +167,105 @@ describe('CodeReviewClient decision selector', () => {
         )
 
         await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-submit'))
 
-        expect(screen.getByTestId('code-review-submit')).toBeDisabled()
+        const feedbackSection = screen.getByTestId('code-review-section')
+        await waitFor(() => {
+            expect(within(feedbackSection).getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
+        const approve = screen.getByTestId('code-review-decision-approve')
+        expect(approve).toHaveAttribute('aria-invalid', 'true')
+        expect(approve.getAttribute('aria-describedby')).toContain('code-review-decision-group-error')
+        const errorBox = document.getElementById('code-review-decision-group-error')
+        expect(errorBox).toHaveAttribute('aria-live', 'polite')
+        expect(errorBox!.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it.each([['code-review-decision-approve'], ['code-review-decision-needs-clarification']])(
-        'enables Submit when %s is selected with valid feedback and criteria',
-        async (decisionTestId) => {
-            const user = userEvent.setup()
-            const { study, job, orgSlug, nav } = await setupValidReviewableJob()
-            renderWithProviders(
-                <CodeReviewClient
-                    orgSlug={orgSlug}
-                    study={study}
-                    job={job}
-                    latestJobStatus="CODE-SUBMITTED"
-                    nav={nav}
-                />,
-            )
+    it('shows criteria errors on submit click when no criteria are selected', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
 
-            await fillAllCriteria(user)
-            await user.click(screen.getByTestId(decisionTestId))
+        await user.click(screen.getByTestId('code-review-submit'))
 
-            expect(screen.getByTestId('code-review-submit')).toBeEnabled()
-        },
-    )
+        const evaluationSection = screen.getByTestId('code-evaluation-section')
+        await waitFor(() => {
+            expect(within(evaluationSection).getByText('Select an answer for each criterion.')).toBeInTheDocument()
+        })
+        const firstCriterionRadio = firstRadioIn('criteria-row-proposalAlignment')
+        expect(firstCriterionRadio).toHaveAttribute('aria-invalid', 'true')
+        expect(firstCriterionRadio.getAttribute('aria-describedby')).toContain('code-evaluation-criteria-error')
+        const errorBox = document.getElementById('code-evaluation-criteria-error')
+        expect(errorBox).toHaveAttribute('aria-live', 'polite')
+        expect(errorBox!.compareDocumentPosition(firstCriterionRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('flags the empty feedback field with the lab name on submit click', async () => {
+        const user = userEvent.setup()
+        const { useReviewFeedback: realUseReviewFeedback } =
+            await vi.importActual<typeof import('@/hooks/use-review-feedback')>('@/hooks/use-review-feedback')
+        mockUseReviewFeedback.mockImplementation(realUseReviewFeedback)
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+        await screen.findByRole('textbox', { name: 'Code review feedback' }, { timeout: 5000 })
+
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => {
+            expect(screen.getByText('Enter your feedback for Rice University')).toBeInTheDocument()
+        })
+    })
+
+    it('does not flag a field on blur before the first submit click', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await visitAndLeave(user, 'criteria-row-proposalAlignment')
+        await visitAndLeave(user, 'code-review-section')
+
+        expect(screen.queryByText('Select an answer for each criterion.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Select an option before submitting.')).not.toBeInTheDocument()
+
+        await user.click(screen.getByTestId('code-review-submit'))
+        await waitFor(() => {
+            expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
+    })
+
+    it('scrolls to and focuses the first flagged field, reading top to bottom', async () => {
+        const user = userEvent.setup()
+        const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => expect(document.activeElement).toBe(firstRadioIn('criteria-row-proposalAlignment')))
+        expect(scrollIntoView).toHaveBeenCalled()
+    })
+
+    it('skips answered fields and focuses the decision group when only it is flagged', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('code-review-decision-approve')))
+    })
 
     it('opens the non-destructive confirmation modal when submitting with needs-clarification', async () => {
         const user = userEvent.setup()

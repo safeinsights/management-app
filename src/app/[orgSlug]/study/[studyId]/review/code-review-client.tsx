@@ -12,15 +12,17 @@ import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
+import { focusFirstInvalid } from '@/lib/focus-first-invalid'
+import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
-import { CodeEvaluationSection } from './code-evaluation-section'
+import { CodeEvaluationSection, criterionFieldId } from './code-evaluation-section'
 import { CODE_DECISION_MODAL_CONTENT, DecisionConfirmationModal } from './decision-confirmation-modal'
-import { CodeReviewFeedbackSection } from './code-review-feedback-section'
+import { CodeReviewFeedbackSection, DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from './code-review-feedback-section'
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
 import { CODE_REVIEW_CRITERIA_KEYS } from '@/hooks/use-code-review-evaluation-map'
 import type { CodeReviewCriteria, CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
@@ -41,23 +43,39 @@ const isCodeReviewEditable = ({ latestJobStatus }: Pick<EditableSnapshot, 'lates
 const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeReviewCriteria =>
     CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)
 
+const FIELD_ORDER = [...CODE_REVIEW_CRITERIA_KEYS.map(criterionFieldId), FEEDBACK_INPUT_ID, DECISION_GROUP_ID]
+
+const flaggedFields = (
+    criteriaErrors: Record<string, unknown>,
+    hasFeedbackError: boolean,
+    hasDecisionError: boolean,
+): Record<string, boolean> => ({
+    ...Object.fromEntries(
+        CODE_REVIEW_CRITERIA_KEYS.map((key) => [criterionFieldId(key), !!criteriaErrors[`criteria.${key}`]]),
+    ),
+    [FEEDBACK_INPUT_ID]: hasFeedbackError,
+    [DECISION_GROUP_ID]: hasDecisionError,
+})
+
 function useCodeReview({
     orgSlug,
     studyId,
     jobId,
     tabSessionId,
+    labName,
 }: {
     orgSlug: string
     studyId: string
     jobId: string
     tabSessionId: string
+    labName: string
 }) {
-    const feedback = useReviewFeedback()
+    const feedback = useReviewFeedback(`Enter your feedback for ${labName}.`)
     const decision = useReviewDecision()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
+    // State (not a ref): must re-render so validateOnBlur and the gated field blurs see the flip.
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
 
-    // Without a validator an unanswered row only disabled Submit, with no sign of which one
-    // (OTTER-647).
     const evaluationForm = useForm<{ criteria: CodeReviewCriteriaDraft }>({
         initialValues: {
             criteria: {
@@ -70,27 +88,39 @@ function useCodeReview({
             criteria: Object.fromEntries(
                 CODE_REVIEW_CRITERIA_KEYS.map((key) => [
                     key,
-                    (value: CodeReviewCriteriaDraft[typeof key]) => (value === null ? 'Select an option.' : null),
+                    (value: CodeReviewCriteriaDraft[typeof key]) =>
+                        value === null ? CODE_EVALUATION_CRITERIA_ERROR : null,
                 ]),
             ),
         },
     })
 
-    const criteriaDraft = evaluationForm.getValues().criteria
-    const criteriaComplete = allCriteriaAnswered(criteriaDraft)
-    const hasDecision = decision.selected !== null
-
-    const canSubmit = feedback.isValid && hasDecision && criteriaComplete
-
     const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
-    const handleSubmit = () => {
-        if (!hasDecision) return
+    const handleSubmit = async () => {
+        setHasAttemptedSubmit(true)
+
+        // feedback/decision onBlur raise their errors; validity itself comes from values
+        // (`isValid` also covers the character cap).
+        const criteriaValidation = evaluationForm.validate()
+        await feedback.onBlur()
+        await decision.onBlur()
+
+        const hasFeedbackError = !feedback.isValid
+        const hasDecisionError = decision.selected === null
+
+        if (criteriaValidation.hasErrors || hasFeedbackError || hasDecisionError) {
+            const flagged = flaggedFields(criteriaValidation.errors, hasFeedbackError, hasDecisionError)
+            focusFirstInvalid(FIELD_ORDER, (fieldId) => flagged[fieldId])
+            return
+        }
+
         openConfirm()
     }
 
     const handleConfirmSubmit = () => {
         if (decision.selected === null) return
+        const criteriaDraft = evaluationForm.getValues().criteria
         if (!allCriteriaAnswered(criteriaDraft)) return
         submitReview({
             decision: decision.selected,
@@ -99,16 +129,24 @@ function useCodeReview({
         })
     }
 
+    const conditionalFeedbackBlur = async () => {
+        if (hasAttemptedSubmit) return feedback.onBlur()
+    }
+
+    const conditionalDecisionBlur = async () => {
+        if (hasAttemptedSubmit) return decision.onBlur()
+    }
+
     return {
-        feedback,
-        decision,
+        feedback: { ...feedback, onBlur: conditionalFeedbackBlur },
+        decision: { ...decision, onBlur: conditionalDecisionBlur },
         evaluationForm,
-        canSubmit,
         handleSubmit,
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
         isPending,
+        hasAttemptedSubmit,
     }
 }
 
@@ -120,11 +158,11 @@ type EditableBodyProps = {
     job: LatestJobForStudy
     labName: string
     proposalHref: string
-    canSubmit: boolean
     isPending: boolean
     nav: StepNav
     onSubmit: () => void
     onDecisionChange: (next: Decision) => void
+    hasAttemptedSubmit: boolean
 }
 
 function EditableBody({
@@ -135,16 +173,21 @@ function EditableBody({
     job,
     labName,
     proposalHref,
-    canSubmit,
     isPending,
     nav,
     onSubmit,
     onDecisionChange,
+    hasAttemptedSubmit,
 }: EditableBodyProps) {
     if (!isVisible) return null
     return (
         <Stack gap="xl">
-            <CodeEvaluationSection form={evaluationForm} enabled proposalHref={proposalHref} />
+            <CodeEvaluationSection
+                form={evaluationForm}
+                enabled
+                proposalHref={proposalHref}
+                validateOnBlur={hasAttemptedSubmit}
+            />
             <CodeReviewFeedbackSection
                 feedback={feedback}
                 studyId={job.studyId}
@@ -160,7 +203,8 @@ function EditableBody({
                 formAction={
                     <Button
                         size="md"
-                        disabled={!canSubmit || isPending}
+                        variant="filled"
+                        disabled={isPending}
                         onClick={onSubmit}
                         data-testid="code-review-submit"
                     >
@@ -194,21 +238,21 @@ function NonEditableBody({ isVisible, nav }: NonEditableBodyProps) {
 export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: Props) {
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
+    const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
+    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
+
     const {
         feedback,
         decision,
         evaluationForm,
-        canSubmit,
         handleSubmit,
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
         isPending,
-    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId })
-
-    const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
+        hasAttemptedSubmit,
+    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, labName })
 
     return (
         <StudyKickOutProvider
@@ -234,11 +278,11 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     job={job}
                     labName={labName}
                     proposalHref={proposalHref}
-                    canSubmit={canSubmit}
                     isPending={isPending}
                     nav={nav}
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
+                    hasAttemptedSubmit={hasAttemptedSubmit}
                 />
                 <NonEditableBody isVisible={!initiallyEditable} nav={nav} />
             </CodeReviewFeedbackProviderShare>

@@ -1,10 +1,10 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { useWidgetBlur } from '@/components/form-field'
+import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -22,6 +22,8 @@ const contentStyle = {
 } as const
 
 const SECTION_HEADING_ID = 'code-review-decision-heading'
+export const FEEDBACK_INPUT_ID = 'code-review-feedback'
+export const DECISION_GROUP_ID = 'code-review-decision-group'
 
 type CodeReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
@@ -58,7 +60,7 @@ function FeedbackEditor({
             feedback={feedback}
             studyId={studyId}
             docName={codeReviewFeedbackDocName(jobId)}
-            inputId="code-review-feedback"
+            inputId={FEEDBACK_INPUT_ID}
             ariaLabel="Code review feedback"
             contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
@@ -102,6 +104,35 @@ const RADIO_STYLES = {
     description: { fontSize: 14 },
 }
 
+const decisionDescriptionId = (value: Decision) => `${DECISION_GROUP_ID}-${value}-description`
+
+function DecisionRadioOption({
+    option,
+    error,
+    errorId,
+}: {
+    option: DecisionOption
+    error: ReactNode
+    errorId: string
+}) {
+    // Mantine shows `description` visually but never puts it in aria-describedby.
+    const descriptionId = decisionDescriptionId(option.value)
+    const describedBy = [error ? errorId : null, descriptionId].filter(Boolean).join(' ')
+
+    return (
+        <Radio
+            value={option.value}
+            label={option.title}
+            description={<span id={descriptionId}>{option.description}</span>}
+            styles={RADIO_STYLES}
+            error={!!error}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            data-testid={option.testId}
+        />
+    )
+}
+
 function DecisionRadioGroup({
     value,
     onChange,
@@ -118,34 +149,36 @@ function DecisionRadioGroup({
     const options = buildDecisionOptions(labName)
     const handleChange = (next: string) => onChange(next as Decision)
     const widgetBlur = useWidgetBlur(onBlur)
+    const errorId = fieldErrorId(DECISION_GROUP_ID)
 
-    // Radio.Group's context does not carry `error` to its children, so a boolean `error` restyles
-    // the circles without a second message (OTTER-647).
+    // Boolean `error` restyles the circles without a second message (message is in FieldErrorBox).
+    // aria-* also belongs here: submit-time focus lands on the inputs, and Radio.Group would
+    // forward unknown props onto a roleless wrapper.
     const radioOptions = options.map((option) => (
-        <Radio
-            key={option.value}
-            value={option.value}
-            label={option.title}
-            description={option.description}
-            styles={RADIO_STYLES}
-            error={!!error}
-            data-testid={option.testId}
-        />
+        <DecisionRadioOption key={option.value} option={option} error={error} errorId={errorId} />
     ))
 
     return (
-        // Blur is a bubbled focusout, so moving between radios would validate a still-empty group;
-        // useWidgetBlur waits for the user to leave it (OTTER-647).
-        <Radio.Group
-            value={value ?? ''}
-            onChange={handleChange}
-            {...widgetBlur}
-            name="code-review-decision"
-            labelProps={{ id: SECTION_HEADING_ID }}
-            error={error}
-        >
-            <Stack gap="md">{radioOptions}</Stack>
-        </Radio.Group>
+        // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
+        // focusFirstInvalid targets this wrapper instead.
+        <Box id={DECISION_GROUP_ID}>
+            {/* Not Radio.Group's error prop: FieldErrorBox with isLive always mounts a node, which
+                Mantine treats as permanently invalid. */}
+            <Box mb={error ? 'lg' : undefined}>
+                <FieldErrorBox fieldId={DECISION_GROUP_ID} error={error} isLive />
+            </Box>
+            {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
+                group; useWidgetBlur waits for the user to leave it. */}
+            <Radio.Group
+                value={value ?? ''}
+                onChange={handleChange}
+                {...widgetBlur}
+                name="code-review-decision"
+                labelProps={{ id: SECTION_HEADING_ID }}
+            >
+                <Stack gap="md">{radioOptions}</Stack>
+            </Radio.Group>
+        </Box>
     )
 }
 
