@@ -895,7 +895,7 @@ describe('Study Job Actions', () => {
             expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 2 })
         })
 
-        test('leaves a successful review row untouched', async () => {
+        test('leaves a successful review row untouched and starts nothing', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await db
@@ -903,14 +903,63 @@ describe('Study Job Actions', () => {
                 .values({ studyJobId: job.id, report: JSON.stringify({ codeExplanation: 'ok' }) })
                 .execute()
 
-            actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
+            const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
+            expect(result.status).toBe('ready')
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('id')
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeDefined()
+            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+        })
+
+        // Retry used to start a run whatever was happening, which is how one reviewer could pay
+        // for the same report several times over (OTTER-799).
+        test('refuses to start a second run while the current one is still alive', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            const startedAt = new Date()
+            await db
+                .insertInto('studyReview')
+                .values({ studyJobId: job.id, report: null, summaryStartedAt: startedAt })
+                .execute()
+
+            const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
+
+            expect(result.status).toBe('in-progress')
+            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            const remaining = await db
+                .selectFrom('studyReview')
+                .select('summaryStartedAt')
+                .where('studyJobId', '=', job.id)
+                .executeTakeFirst()
+            expect(remaining?.summaryStartedAt).toEqual(startedAt)
+        })
+
+        test('restarts a run that is old enough to have died', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await db
+                .insertInto('studyReview')
+                .values({
+                    studyJobId: job.id,
+                    report: null,
+                    summaryStartedAt: new Date(Date.now() - 15 * 60_000),
+                })
+                .execute()
+
+            const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
+
+            expect(result.status).toBe('restarted')
+            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            const remaining = await db
+                .selectFrom('studyReview')
+                .select('id')
+                .where('studyJobId', '=', job.id)
+                .executeTakeFirst()
+            expect(remaining).toBeUndefined()
         })
     })
 })
