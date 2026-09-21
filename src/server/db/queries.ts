@@ -619,10 +619,12 @@ export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
 }
 
 export type StudyReviewWithMeta = {
-    // null on a failure row (summaryFailedAt set) — generation produced no report.
+    // null on a failure row (summaryFailedAt set), and on a pending row, where generation has
+    // claimed the round but has not finished.
     report: AnalysisReport | null
     createdAt: Date
     summaryFailedAt: Date | null
+    summaryStartedAt: Date | null
     files: { name: string; fileType: FileType }[]
 }
 
@@ -713,6 +715,7 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
             eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
             'createdAt',
             'summaryFailedAt',
+            'summaryStartedAt',
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
