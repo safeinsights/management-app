@@ -52,7 +52,7 @@ export const LegalAcknowledgementModal: FC<Props> = ({
                 <AcknowledgementError error={error} />
 
                 <Group>
-                    <Button variant="subtle" onClick={onSignOut} disabled={isSubmitting}>
+                    <Button variant="outline" onClick={onSignOut} disabled={isSubmitting}>
                         Sign out
                     </Button>
                     {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}

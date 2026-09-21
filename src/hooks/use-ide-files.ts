@@ -185,12 +185,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     }, [queryClient, studyId])
 
     const deleteMutation = useMutation({
-        mutationFn: async (fileName: string) => {
-            const result = await deleteWorkspaceFileAction({ studyId, fileName })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-        },
+        mutationFn: (fileName: string) => deleteWorkspaceFileAction({ studyId, fileName }),
         onSuccess: () => {
             invalidateFiles()
             setLastSavedAt(new Date())
@@ -211,7 +206,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to read file')(result.error)
+                reportMutationError('Failed to read file')(new ActionFailure(result.error))
                 return
             }
             setViewingFile({ name: result.fileName, contents: result.contents })
@@ -227,7 +222,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             // Reported but not returned on: the launch should still go ahead, but a permission
             // denial or a DB failure must not vanish along with the Last activity row.
             const result = await recordWorkspaceFileEditAction({ studyId, fileName })
-            if (result && 'error' in result) reportMutationError('Failed to record file edit')(result.error)
+            if (result && 'error' in result)
+                reportMutationError('Failed to record file edit')(new ActionFailure(result.error))
 
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             launchWorkspace()
@@ -241,7 +237,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to download file')(result.error)
+                reportMutationError('Failed to download file')(new ActionFailure(result.error))
                 return
             }
             downloadBlob(result.fileName, new Blob([result.contents]))
@@ -297,17 +293,12 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const saveStatus: SaveStatusValue = isSavingChanges ? 'saving' : lastSavedAt ? 'saved' : 'idle'
 
     const submitMutation = useMutation({
-        mutationFn: async () => {
-            const result = await submitStudyCodeAction({
+        mutationFn: () =>
+            submitStudyCodeAction({
                 studyId,
                 mainFileName: mainFile,
                 fileNames,
-            })
-            // ActionFailure rather than Error: onError has to tell an authored refusal, which is
-            // keyed, from an unexpected failure, which is a bare string.
-            if ('error' in result) throw new ActionFailure(result.error)
-            return result
-        },
+            }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
