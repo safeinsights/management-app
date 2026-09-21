@@ -19,21 +19,22 @@ Given a `ReviewContent` (proposal text + code files + reference docs), calls Cla
 - `agent.ts` — `ReviewAgent` class. Constructor takes API key or injected client. `generateAnalysis()` returns the report; `chat()` reserved for future follow-up Q&A (descoped now, planned by Oct 2026).
 - `types.ts` — `ReviewContent`, `ReviewAgentConfig`, `AnalysisReport`, `ReferenceDocs`.
 - `prompts.ts` — `DEFAULT_SYSTEM_INSTRUCTION`, `DEFAULT_ANALYSIS_PROMPT_TEMPLATE`, single-pass `buildAnalysisPrompt(...)` (placeholder injection-safe).
-- `runner.ts` — claims the round, assembles the content, runs the agent under a deadline, and writes the outcome.
-- `enqueue.ts` / `worker.ts` — the queue hop and the Lambda entry point on the far side of it.
+- `runner.ts` (claims the round, assembles the content, runs the agent under a deadline, writes the outcome)
+- `enqueue.ts` / `worker.ts` (the queue hop, and the Lambda entry point on the far side of it)
 
 ## Where it runs
 
 A submission asks for a review through `onStudyReviewRequested`, after the submitting transaction
 commits. Where `REVIEW_QUEUE_URL` is set the request goes to SQS and a dedicated worker Lambda picks
-it up (`bin/build-review-worker` bundles that entry point). Where it is not set — local development,
-unit tests, PR previews, each with their own database — the review is generated in process instead.
+it up (`bin/build-review-worker` bundles that entry point). Where it is not set, the review is
+generated in process instead: local development, unit tests and PR previews each run against their
+own database, which the shared worker cannot reach.
 
 A run first claims its round by writing a `study_review` row with `summary_started_at` and no
 report, so a second request for the same round is refused rather than duplicated, and the reviewer
 can be shown "still working" rather than a guess. The model call carries a deadline
-(`STUDY_REVIEW_GENERATION_DEADLINE_MS`), and every ending — report, failure, abort, nothing to
-analyze — leaves the row saying what happened.
+(`STUDY_REVIEW_GENERATION_DEADLINE_MS`), and every ending leaves the row saying what happened:
+report, failure, abort, or nothing to analyze.
 
 ## Customization
 
