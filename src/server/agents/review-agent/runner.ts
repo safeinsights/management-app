@@ -8,6 +8,7 @@ import { isCurrentCodeRound } from '@/server/db/code-round'
 import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
 import { getAgentContextString } from '@/lib/agent-context'
+import { STUDY_REVIEW_GENERATION_DEADLINE_MS, STUDY_REVIEW_STALE_AFTER_MS } from '@/lib/study-review'
 
 // Booleans are deliberately false so the UI renders red badges: a missing review must not look
 // like a passing one.
@@ -115,6 +116,49 @@ async function assembleReviewContent(
     return { content, agentContext }
 }
 
+// Thrown only once the failure is on the row, so a caller can tell a recorded outcome from a crash
+// that left the round looking alive.
+export class StudyReviewGenerationFailed extends Error {
+    constructor(studyJobId: string, round: number, options?: ErrorOptions) {
+        super(`study review generation failed for job ${studyJobId} round ${round}`, options)
+        this.name = 'StudyReviewGenerationFailed'
+    }
+}
+
+// Marks the round as being generated and answers whether this run owns it. Nothing else serializes
+// two runs of one round: a retry, a redelivered queue message and a leftover deferred run all reach
+// here independently (OTTER-799). A report is never taken over, and a pending row is only taken
+// over once it is old enough to be a run that died without recording anything.
+async function claimRound(studyJobId: string, round: number): Promise<boolean> {
+    const startedAt = new Date()
+    const staleBefore = new Date(startedAt.getTime() - STUDY_REVIEW_STALE_AFTER_MS)
+
+    const claimed = await db
+        .insertInto('studyReview')
+        .values({ studyJobId, round, report: null, summaryFailedAt: null, summaryStartedAt: startedAt })
+        .onConflict((oc) =>
+            oc
+                .columns(['studyJobId', 'round'])
+                .doUpdateSet({ report: null, summaryFailedAt: null, summaryStartedAt: startedAt })
+                .where((eb) =>
+                    eb.or([
+                        eb('studyReview.summaryFailedAt', 'is not', null),
+                        eb.and([
+                            eb('studyReview.report', 'is', null),
+                            eb.or([
+                                eb('studyReview.summaryStartedAt', 'is', null),
+                                eb('studyReview.summaryStartedAt', '<', staleBefore),
+                            ]),
+                        ]),
+                    ]),
+                ),
+        )
+        .returning('id')
+        .executeTakeFirst()
+
+    return claimed != null
+}
+
 export async function generateAndStoreStudyReview(studyJobId: string, round: number): Promise<void> {
     logger.info(`Generating study review`, { studyJobId, round })
 
@@ -125,15 +169,8 @@ export async function generateAndStoreStudyReview(studyJobId: string, round: num
         return
     }
 
-    const existing = await db
-        .selectFrom('studyReview')
-        .select(['id', 'summaryFailedAt'])
-        .where('studyJobId', '=', studyJobId)
-        .where('round', '=', round)
-        .executeTakeFirst()
-    // A prior failure row for this round is not terminal; only a successful row short-circuits.
-    if (existing && existing.summaryFailedAt == null) {
-        logger.info(`Study review already exists, skipping`, { studyJobId, round })
+    if (!(await claimRound(studyJobId, round))) {
+        logger.info(`Study review already generated or in flight, skipping`, { studyJobId, round })
         return
     }
 
@@ -143,7 +180,7 @@ export async function generateAndStoreStudyReview(studyJobId: string, round: num
         // Lets the reviewer-side poll tell "failed" from "still generating"; re-thrown so the
         // deferred wrapper still flushes to Sentry.
         await persistFailure(studyJobId, round)
-        throw error
+        throw new StudyReviewGenerationFailed(studyJobId, round, { cause: error })
     }
 }
 
@@ -156,18 +193,41 @@ async function runStudyReview(studyJobId: string, round: number): Promise<void> 
     }
 
     const assembled = await assembleReviewContent(studyJobId)
-    if (!assembled) return
+    // The round is already claimed, so it has to be resolved here or it stays pending until the
+    // stale threshold and the reviewer waits out a run that is not going to happen.
+    if (!assembled) {
+        await persistFailure(studyJobId, round)
+        return
+    }
     const { content, agentContext } = assembled
 
+    const startedAt = Date.now()
     // TODO(chat): persist `messages` alongside `report` once chat follow-up lands.
-    const { report } = await generateAnalysis({ apiKey, additionalContext: agentContext }, content)
+    const { report, usage, stopReason } = await generateAnalysis(
+        {
+            apiKey,
+            additionalContext: agentContext,
+            signal: AbortSignal.timeout(STUDY_REVIEW_GENERATION_DEADLINE_MS),
+        },
+        content,
+    )
 
     await persistReport(studyJobId, round, report)
-    logger.info(`Study review generated and stored`, { studyJobId, round })
+    logger.info(`Study review generated and stored`, {
+        studyJobId,
+        round,
+        durationMs: Date.now() - startedAt,
+        fileCount: Object.keys(content.codeFiles).length,
+        codeBytes: Object.values(content.codeFiles).reduce((total, file) => total + file.length, 0),
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+        stopReason,
+    })
 }
 
 // A run that outlived its round describes code nobody is reviewing any more, so its result is
-// dropped rather than stored (OTTER-779).
+// dropped rather than stored (OTTER-779). Its claim stays behind on that round as the record of a
+// run that produced nothing; only the current round's row is ever read back.
 async function roundWasSuperseded(studyJobId: string, round: number): Promise<boolean> {
     if (await isCurrentCodeRound(studyJobId, round)) return false
     logger.warn(`Discarding a study review for a superseded round`, { studyJobId, round })
@@ -199,7 +259,7 @@ async function persistFailure(studyJobId: string, round: number): Promise<void> 
                 .doUpdateSet({ report: null, summaryFailedAt: new Date() })
                 // Two runs of one round can overlap, and the failing one may be the older. A report
                 // the reviewer is already reading is never replaced by a failure.
-                .where('studyReview.summaryFailedAt', 'is not', null),
+                .where('studyReview.report', 'is', null),
         )
         .execute()
 }

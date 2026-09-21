@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import { db, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
-import { generateAndStoreStudyReview, PLACEHOLDER } from './runner'
+import { generateAndStoreStudyReview, PLACEHOLDER, StudyReviewGenerationFailed } from './runner'
 import { generateAnalysis } from './agent'
 import { fetchFileContents } from '@/server/storage'
 import { getConfigValue } from '@/server/config'
@@ -199,7 +199,10 @@ describe('generateAndStoreStudyReview', () => {
 
         await generateAndStoreStudyReview(job.id, 1)
 
-        expect(await storedReviews(job.id)).toEqual([])
+        const stored = await storedReviews(job.id)
+        expect(stored.map((row) => row.round)).toEqual([1])
+        expect(stored[0].report).toBeNull()
+        expect(stored[0].summaryFailedAt).toBeNull()
     })
 
     // The inverted order, which the card calls the worse one: a stale failure used to overwrite a
@@ -219,38 +222,63 @@ describe('generateAndStoreStudyReview', () => {
             throw new Error('model exploded')
         })
 
-        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
+
+        // Round 1 keeps the claim of the run that produced nothing; only round 2 reaches a reviewer.
+        const stored = await storedReviews(job.id)
+        expect(stored.map((row) => row.round)).toEqual([1, 2])
+        expect(stored[0].report).toBeNull()
+        expect(stored[1].summaryFailedAt).toBeNull()
+        expect(stored[1].report).not.toBeNull()
+    })
+
+    // Two runs of ONE round used to both proceed and race for the row. Retry is the common way in.
+    it('refuses a second run while one for the same round is still alive', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
+
+        let finishFirstRun = (_result: unknown) => {}
+        generateAnalysisMock.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    finishFirstRun = resolve
+                }),
+        )
+
+        const firstRun = generateAndStoreStudyReview(job.id, 1)
+        await vi.waitFor(() => expect(generateAnalysisMock).toHaveBeenCalledTimes(1))
+
+        await generateAndStoreStudyReview(job.id, 1)
+        expect(generateAnalysisMock).toHaveBeenCalledTimes(1)
+
+        finishFirstRun({ report: stubReport, messages: [] })
+        await firstRun
 
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
-        expect(stored[0].round).toBe(2)
-        expect(stored[0].summaryFailedAt).toBeNull()
         expect(stored[0].report).not.toBeNull()
     })
 
-    // Two runs of ONE round can overlap too, and the failing one can be the older.
+    // The claim is not a lock on the write, so a report can still land while a run is failing.
     it('does not let a late failure replace a report from the same round', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
         await insertMainCode(job.id)
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
 
-        let failFirstRun = (_error: Error) => {}
-        generateAnalysisMock.mockImplementationOnce(
-            () =>
-                new Promise((_resolve, reject) => {
-                    failFirstRun = reject
-                }),
-        )
-        generateAnalysisMock.mockResolvedValueOnce({ report: stubReport, messages: [] })
+        generateAnalysisMock.mockImplementationOnce(async () => {
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify(stubReport) })
+                .where('studyJobId', '=', job.id)
+                .where('round', '=', 1)
+                .execute()
+            throw new Error('model exploded')
+        })
 
-        const firstRun = generateAndStoreStudyReview(job.id, 1)
-        await vi.waitFor(() => expect(generateAnalysisMock).toHaveBeenCalledTimes(1))
-
-        await generateAndStoreStudyReview(job.id, 1)
-
-        failFirstRun(new Error('model exploded'))
-        await expect(firstRun).rejects.toThrow('model exploded')
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
 
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
@@ -258,13 +286,16 @@ describe('generateAndStoreStudyReview', () => {
         expect(stored[0].report).not.toBeNull()
     })
 
-    it('does not call the agent when no code files are attached to the job', async () => {
+    it('records a failure, and does not call the agent, when no code files are attached to the job', async () => {
         const org = await insertTestOrg()
         const { job } = await insertTestStudyJobData({ org })
 
         await generateAndStoreStudyReview(job.id, 1)
 
         expect(generateAnalysisMock).not.toHaveBeenCalled()
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].summaryFailedAt).toBeInstanceOf(Date)
     })
 
     it('persists a failure row and re-throws when generation throws', async () => {
@@ -274,7 +305,7 @@ describe('generateAndStoreStudyReview', () => {
         const { job } = await insertTestStudyJobData({ org })
         await insertMainCode(job.id)
 
-        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
 
         const stored = await db
             .selectFrom('studyReview')
@@ -284,6 +315,56 @@ describe('generateAndStoreStudyReview', () => {
         expect(stored?.report).toBeNull()
         expect(stored?.round).toBe(1)
         expect(stored?.summaryFailedAt).toBeInstanceOf(Date)
+    })
+
+    it('claims the round with a pending row before the model call starts', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+
+        let claimed: { report: unknown; summaryStartedAt: Date | null } | undefined
+        generateAnalysisMock.mockImplementationOnce(async () => {
+            claimed = await db
+                .selectFrom('studyReview')
+                .select(['report', 'summaryStartedAt'])
+                .where('studyJobId', '=', job.id)
+                .where('round', '=', 1)
+                .executeTakeFirst()
+            return { report: stubReport, messages: [] }
+        })
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        expect(claimed?.report).toBeNull()
+        expect(claimed?.summaryStartedAt).toBeInstanceOf(Date)
+    })
+
+    it('takes over a pending row old enough to be a run that died', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await db
+            .insertInto('studyReview')
+            .values({ studyJobId: job.id, round: 1, report: null, summaryStartedAt: minutesAgo(15) })
+            .execute()
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].report).not.toBeNull()
+    })
+
+    it('gives the model call a deadline, so a stalled run reports rather than hangs', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [config] = generateAnalysisMock.mock.calls[0] as [{ signal?: AbortSignal }]
+        expect(config.signal).toBeInstanceOf(AbortSignal)
     })
 
     it('re-runs generation when only a failed row exists (retry path)', async () => {
