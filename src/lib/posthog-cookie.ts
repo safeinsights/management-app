@@ -1,4 +1,5 @@
-// Mirrors posthog-js's own domain match, so the expiry below targets the exact cookie it wrote.
+// posthog-js's fallback domain regex. Its test-cookie probe lands on the same domain for *.safeinsights.org,
+// but not on public-suffix hosts (raw CloudFront or function URLs), where this expiry is a no-op.
 const PARENT_DOMAIN = /[a-z0-9][a-z0-9-]+\.[a-z]{2,}$/i
 const IPV4 = /^\d+(\.\d+){3}$/
 const METADATA_SUFFIX = '_cpm'
