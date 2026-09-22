@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import mockRouter from 'next-router-mock'
 import {
@@ -22,6 +22,7 @@ const STUDY = { orgSlug: 'lab', studyId: BLANK_UUID }
 const SETUP = Routes.studyEdit(STUDY)
 const PROPOSAL = Routes.studyProposal(STUDY)
 const MFA = Routes.accountMfaApp
+const NOT_FOUND = Routes.notFound
 
 // Lives in the shell, like the legal-acknowledgement modal, so it outlasts a route change.
 function ShellModal() {
@@ -50,11 +51,10 @@ function CurrentPage() {
     return <div key={pathname}>{PAGES[pathname]}</div>
 }
 
-// The manager sits outside the shell, as it does in the root layout.
-function App() {
+// The shell and its main, as on every routed page.
+function Shell() {
     return (
         <>
-            <RouteFocusManager />
             <nav>
                 <a href="#dashboard">Dashboard</a>
                 <ShellModal />
@@ -62,6 +62,36 @@ function App() {
             <main {...MAIN_CONTENT_PROPS}>
                 <CurrentPage />
             </main>
+        </>
+    )
+}
+
+// The 404 screen: its main appears a render after the route commits, as a boundary fallback does.
+function LateNotFound() {
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- stands in for a boundary's second pass
+        setIsMounted(true)
+    }, [])
+
+    if (!isMounted) return null
+    return (
+        <main {...MAIN_CONTENT_PROPS}>
+            <h1>Page Not Found</h1>
+        </main>
+    )
+}
+
+// The manager sits outside both, as it does in the root layout.
+function App() {
+    const pathname = usePathname()
+    const isNotFound = pathname === NOT_FOUND
+
+    return (
+        <>
+            <RouteFocusManager />
+            {isNotFound ? <LateNotFound /> : <Shell />}
         </>
     )
 }
@@ -125,6 +155,15 @@ describe('useRouteFocus', () => {
         await navigate(MFA)
 
         expect(screen.getByLabelText('Verification code')).toHaveFocus()
+    })
+
+    it('waits for a main that mounts after the route commits, as the 404 screen does', async () => {
+        renderWithProviders(<App />)
+        screen.getByRole('link', { name: 'Dashboard' }).focus()
+
+        await navigate(NOT_FOUND)
+
+        expect(await screen.findByRole('main')).toHaveFocus()
     })
 
     it('keeps focus inside a modal that is open when the route changes', async () => {

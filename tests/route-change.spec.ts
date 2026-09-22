@@ -15,6 +15,8 @@ test.describe('client-side navigation', () => {
         await expect(page).toHaveTitle('My dashboard - SafeInsights')
         await expect(page.locator('#main-content')).toBeFocused()
 
+        // Parked on a shell control that survives the navigation, so only the hook can move it.
+        await page.getByRole('button', { name: 'Toggle profile menu' }).focus()
         await page.goBack()
 
         await expect(page).toHaveTitle('Dashboard - SafeInsights')
