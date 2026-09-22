@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { NotFoundImage } from '../../public/svg/404-image'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { SIDENAV_BG } from '@/lib/constants'
 
 export default function NotFound() {
     const router = useRouter()
@@ -15,14 +16,14 @@ export default function NotFound() {
 
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
-            <AppShellHeader bg="purple.8" withBorder={false}>
+            <AppShellHeader bg={SIDENAV_BG} withBorder={false}>
                 <Group h="100%" p="md">
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>
             </AppShellHeader>
 
             <AppShellMain
-                bg="purple.8"
+                bg={SIDENAV_BG}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 px="md"
             >

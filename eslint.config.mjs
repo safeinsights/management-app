@@ -11,6 +11,7 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
+import { PENDING_RAW_STYLE_FILES } from './tests/no-raw-style-values-pending.mjs'
 
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
@@ -147,13 +148,20 @@ const eslintConfig = [
             'import/no-duplicates': 'error',
         },
     },
-    // Theme tokens over ad-hoc styling. `warn` while the migration lands; raise to `error`
-    // per glob as each area comes clean.
+    // Theme tokens over ad-hoc styling. `error` everywhere; the files still mid-migration are
+    // listed in tests/no-raw-style-values-pending.mjs and drop back to `warn` until clean.
     {
         // `.ts` too: the status pills and app-shell backgrounds are plain colour constants, and a
         // .tsx-only glob never sees them.
         files: ['src/**/*.{ts,tsx}'],
         ignores: ['src/**/*.stories.tsx', 'src/**/*.test.{ts,tsx}'],
+        rules: {
+            'custom/noRawStyleValues': 'error',
+        },
+    },
+    {
+        // `[orgSlug]` is a route segment, not a glob class.
+        files: PENDING_RAW_STYLE_FILES.map((path) => path.replace(/[[\]]/g, '\\$&')),
         rules: {
             'custom/noRawStyleValues': 'warn',
         },
