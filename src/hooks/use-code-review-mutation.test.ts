@@ -154,7 +154,7 @@ describe('useCodeReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit code review',
+            ([arg]) => arg && (arg as { title?: string }).title === 'Decision could not be submitted',
         )
         expect(errorCall).toBeDefined()
         expect(handle.sendStateless).not.toHaveBeenCalled()

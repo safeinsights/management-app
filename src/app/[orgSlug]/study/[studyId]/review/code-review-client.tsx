@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Alert, Button, Stack } from '@mantine/core'
+import { Alert, Box, Button, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useForm } from '@/common'
 
@@ -45,6 +45,8 @@ const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeRevie
     CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)
 
 const FIELD_ORDER = [...CODE_REVIEW_CRITERIA_KEYS.map(criterionFieldId), FEEDBACK_INPUT_ID, DECISION_GROUP_ID]
+
+const SUBMIT_NAVIGATION_ID = 'code-review-submit-navigation'
 
 const flaggedFields = (
     criteriaErrors: Record<string, unknown>,
@@ -123,11 +125,21 @@ function useCodeReview({
         if (decision.selected === null) return
         const criteriaDraft = evaluationForm.getValues().criteria
         if (!allCriteriaAnswered(criteriaDraft)) return
-        submitReview({
-            decision: decision.selected,
-            feedback: feedback.value,
-            criteria: criteriaDraft,
-        })
+        submitReview(
+            {
+                decision: decision.selected,
+                feedback: feedback.value,
+                criteria: criteriaDraft,
+            },
+            {
+                onError: () => {
+                    closeConfirm()
+                    document
+                        .getElementById(SUBMIT_NAVIGATION_ID)
+                        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                },
+            },
+        )
     }
 
     const conditionalFeedbackBlur = async () => {
@@ -206,20 +218,22 @@ function EditableBody({
                 decisionError={decision.error}
                 labName={labName}
             />
-            <StepNavigation
-                nav={nav}
-                formAction={
-                    <Button
-                        size="md"
-                        variant="filled"
-                        disabled={isPending}
-                        onClick={onSubmit}
-                        data-testid="code-review-submit"
-                    >
-                        Submit decision
-                    </Button>
-                }
-            />
+            <Box id={SUBMIT_NAVIGATION_ID}>
+                <StepNavigation
+                    nav={nav}
+                    formAction={
+                        <Button
+                            size="md"
+                            variant="filled"
+                            disabled={isPending}
+                            onClick={onSubmit}
+                            data-testid="code-review-submit"
+                        >
+                            Submit decision
+                        </Button>
+                    }
+                />
+            </Box>
         </Stack>
     )
 }

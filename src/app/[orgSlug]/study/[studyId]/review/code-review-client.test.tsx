@@ -281,7 +281,7 @@ describe('CodeReviewClient decision selector', () => {
         const dialog = await screen.findByRole('dialog')
         expect(dialog).toHaveTextContent('Request revision?')
         expect(dialog).toHaveTextContent(
-            'Your feedback will be sent to Rice University so they can update and resubmit their code.',
+            'Your feedback will be sent to Rice University so they can update their code and resubmit.',
         )
         expect(within(dialog).getByRole('button', { name: 'Request revision' })).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-variant', 'outline')
@@ -319,7 +319,7 @@ describe('CodeReviewClient decision selector', () => {
         await user.click(confirmButton)
 
         await waitFor(() => {
-            expect(submitReview).toHaveBeenCalledWith({
+            expect(submitReview.mock.calls[0][0]).toEqual({
                 decision: 'needs-clarification',
                 feedback: 'sample feedback body',
                 criteria: {

@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
+import { notifications } from '@mantine/notifications'
+import { captureException } from '@sentry/nextjs'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
@@ -42,9 +43,17 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
     } = useMutation({
         mutationFn: async (args: SubmitCodeReviewArgs) =>
             actionResult(await submitCodeReviewDecisionAction({ orgSlug, studyId, ...args })),
-        onError: reportMutationError('Failed to submit code review'),
+        onError: (err) => {
+            captureException(err)
+            notifications.show({
+                color: 'red',
+                title: 'Decision could not be submitted',
+                message: 'Your work is saved. Try again.',
+            })
+        },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            notifications.show({ color: 'green', title: 'Decision submitted', message: '' })
 
             const submittedByClerkId = user?.id
             if (broadcastProvider && submittedByClerkId) {
