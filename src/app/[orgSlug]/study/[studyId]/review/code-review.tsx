@@ -7,6 +7,7 @@ import { codeReviewHeading } from '@/lib/code-review'
 import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
 import type { StepNav } from '@/lib/study-screen'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { jobAnalysisForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
@@ -19,7 +20,6 @@ type CodeReviewProps = {
     study: Submitted<SelectedStudy>
     entries: CodeReviewFeedbackEntry[]
     nav: StepNav
-    reviewVersion?: number
 }
 
 type PriorRoundFeedbackProps = {
@@ -48,7 +48,7 @@ function CodeReviewStatusBanner({ labName, version, submittedAt }: CodeReviewSta
     )
 }
 
-export async function CodeReview({ orgSlug, study, entries, nav, reviewVersion = 1 }: CodeReviewProps) {
+export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewProps) {
     const job = await latestJobForStudyOrNull(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -57,6 +57,9 @@ export async function CodeReview({ orgSlug, study, entries, nav, reviewVersion =
     const analysis = await jobAnalysisForJob(job)
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
+    // The round of the code on this job, not codeSubmissionVersion: that counts a change request
+    // from the moment it is written, which would label this page as the next iteration.
+    const reviewVersion = await codeRoundForJob(job.id)
     const isResubmission = reviewVersion > 1
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
     const heading = codeReviewHeading(reviewVersion)

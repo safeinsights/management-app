@@ -216,7 +216,7 @@ describe('CodeReviewClient decision selector', () => {
         await user.click(screen.getByTestId('code-review-submit'))
 
         await waitFor(() => {
-            expect(screen.getByText('Enter your feedback for Rice University')).toBeInTheDocument()
+            expect(screen.getByText('Enter your feedback for Rice University.')).toBeInTheDocument()
         })
     })
 

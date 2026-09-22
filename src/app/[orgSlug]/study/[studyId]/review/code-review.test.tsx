@@ -3,6 +3,7 @@ import { type CodeReviewFeedbackEntry, getStudyAction, type SelectedStudy } from
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
+    appendCodeResubmission,
     db,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -162,6 +163,17 @@ describe('CodeReview', () => {
         })
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
+        // Round comes from the job via codeRoundForJob — seed a real change-request + resubmit.
+        beforeEach(async () => {
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .orderBy('createdAt', 'desc')
+                .executeTakeFirstOrThrow()
+            await appendCodeResubmission(job.id, jobCreatedAt)
+        })
+
         it('switches the banner title to the revised wording', async () => {
             renderWithProviders(
                 await CodeReview({
@@ -169,7 +181,6 @@ describe('CodeReview', () => {
                     study,
                     entries: resubmissionEntries,
                     nav: {},
-                    reviewVersion: 2,
                 }),
             )
 
@@ -186,7 +197,6 @@ describe('CodeReview', () => {
                     study,
                     entries: resubmissionEntries,
                     nav: {},
-                    reviewVersion: 2,
                 }),
             )
 
@@ -201,7 +211,6 @@ describe('CodeReview', () => {
                     study,
                     entries: resubmissionEntries,
                     nav: {},
-                    reviewVersion: 2,
                 }),
             )
 
@@ -220,7 +229,6 @@ describe('CodeReview', () => {
                     study,
                     entries: resubmissionEntries,
                     nav: {},
-                    reviewVersion: 2,
                 }),
             )
 
@@ -256,7 +264,6 @@ describe('CodeReview', () => {
                     study,
                     entries: resubmissionEntries,
                     nav: {},
-                    reviewVersion: 2,
                 }),
             )
 

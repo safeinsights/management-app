@@ -449,6 +449,27 @@ export const insertTestBaselineJob = async (studyId: string, { createdAt }: { cr
     return job
 }
 
+// Advances a job that already has CODE-SUBMITTED to round 2 (change request + resubmit). Timestamps
+// are staggered after `after` so they sort after the original submission.
+export const appendCodeResubmission = async (studyJobId: string, after: Date = new Date()) => {
+    const base = after.getTime()
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            {
+                studyJobId,
+                status: 'CODE-CHANGES-REQUESTED',
+                createdAt: new Date(base + 1000),
+            },
+            {
+                studyJobId,
+                status: 'CODE-SUBMITTED',
+                createdAt: new Date(base + 2000),
+            },
+        ])
+        .execute()
+}
+
 // Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
 // Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.
 export const insertTestStudyOnly = async ({
