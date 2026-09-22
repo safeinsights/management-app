@@ -340,7 +340,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -432,7 +432,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             // against it rather than shown as current (OTTER-779).
             const round = await codeRoundForJob(latestJob.id, db)
             triggerCodeScan(latestJob.id, orgSlug, studyId, round)
-            onStudyReviewRequested({ studyJobId: latestJob.id, round })
+            afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
 
         onStudyCreated({ userId, studyId })
