@@ -7,9 +7,9 @@ import {
     insertTestResearcherProfile,
     getTestResearcherProfileData,
     db,
-    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { PositionsSection } from './positions-section'
+import { notifications } from '@mantine/notifications'
 
 describe('PositionsSection', () => {
     it('should auto-open form when no positions exist', async () => {
@@ -81,11 +81,8 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
-        // refetch is the first thing onSuccess does, so the write is still in flight here and
-        // the rows below would be read before it lands.
-        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')
@@ -133,9 +130,8 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
-        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')
@@ -213,9 +209,8 @@ describe('PositionsSection', () => {
         await userEvents.click(deleteButtons[0])
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
         })
-        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')
@@ -403,9 +398,8 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
-        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')

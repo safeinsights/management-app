@@ -8,7 +8,6 @@ import {
     insertTestResearcherProfile,
     getTestResearcherProfileData,
     db,
-    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { ResearchDetailsSection } from './research-details-section'
 
@@ -256,11 +255,8 @@ describe('ResearchDetailsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
-        // refetch is the first thing onSuccess does, so the write is still in flight here and
-        // the rows below would be read before it lands.
-        await waitForPendingMutations()
 
         const updated = await db
             .selectFrom('researcherProfile')
@@ -294,9 +290,8 @@ describe('ResearchDetailsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
-        await waitForPendingMutations()
 
         const updated = await db
             .selectFrom('researcherProfile')
