@@ -4,26 +4,20 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { consoleLoggingIntegration } from '@sentry/nextjs'
-import { scrubSentryEvent } from '@/lib/sentry'
+import { sentryInitOptions } from '@/lib/sentry'
 
 Sentry.init({
-    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    ...sentryInitOptions({
+        dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+        release: process.env.RELEASE_TAG || 'unknown',
+        environment: process.env.ENVIRONMENT_ID || 'development',
+    }),
 
     integrations: [
         // send console.error and console.warn logs to Sentry
         consoleLoggingIntegration({ levels: ['error', 'warn'] }),
     ],
 
-    beforeSend: scrubSentryEvent,
-
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
-
-    // Setting this option to true will print useful information to the console while you're setting up Sentry.
-    debug: false,
-
-    enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
-
-    release: process.env.RELEASE_TAG || 'unknown',
-    environment: process.env.ENVIRONMENT_ID || 'development',
 })

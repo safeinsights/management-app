@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs'
 import { z } from 'zod'
 import logger from '@/lib/logger'
 import { ENVIRONMENT_ID, getConfigValue } from '@/server/config'
+import { sentryInitOptions } from '@/lib/sentry'
 import { STUDY_REVIEW_QUEUE_STALE_AFTER_MS } from '@/lib/study-review'
 import { generateAndStoreStudyReview, StudyReviewGenerationFailed } from './runner'
 
@@ -34,7 +35,15 @@ function startSentry(): Promise<void> {
     return (sentryStarted ??= (async () => {
         const dsn = await getConfigValue('NEXT_PUBLIC_SENTRY_DSN', false)
         if (!dsn) return
-        Sentry.init({ dsn, environment: ENVIRONMENT_ID, release: process.env.RELEASE_TAG || 'unknown' })
+        // No tracesSampleRate: this is a queue worker, not a request path, and tracing every
+        // minutes-long generation buys nothing the logs do not already carry.
+        Sentry.init(
+            sentryInitOptions({
+                dsn,
+                environment: ENVIRONMENT_ID,
+                release: process.env.RELEASE_TAG || 'unknown',
+            }),
+        )
     })())
 }
 

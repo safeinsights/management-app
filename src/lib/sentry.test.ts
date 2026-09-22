@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ErrorEvent } from '@sentry/nextjs'
-import { scrubSentryEvent } from './sentry'
+import { scrubSentryEvent, sentryInitOptions } from './sentry'
 
 function makeEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
     return { type: undefined, ...overrides } as ErrorEvent
@@ -119,5 +119,34 @@ describe('scrubSentryEvent', () => {
         const result = scrubSentryEvent(event)
         expect(result).toBe(event)
         expect(result.request).toBeUndefined()
+    })
+})
+
+describe('sentryInitOptions', () => {
+    // The review worker Lambda builds its own init, and shipping events the other entry points
+    // would have scrubbed is the drift this helper exists to stop (OTTER-799).
+    it('scrubs on every entry point that uses it', () => {
+        expect(sentryInitOptions({ dsn: 'https://key@example.ingest.sentry.io/1' }).beforeSend).toBe(scrubSentryEvent)
+    })
+
+    it('disables the SDK when no dsn is configured, rather than sending nowhere', () => {
+        expect(sentryInitOptions({ dsn: undefined }).enabled).toBe(false)
+        expect(sentryInitOptions({ dsn: '' }).enabled).toBe(false)
+        expect(sentryInitOptions({ dsn: 'https://key@example.ingest.sentry.io/1' }).enabled).toBe(true)
+    })
+
+    it('passes release and environment through, and leaves them unset when not given', () => {
+        const tagged = sentryInitOptions({ dsn: 'd', release: 'v1', environment: 'staging' })
+        expect(tagged.release).toBe('v1')
+        expect(tagged.environment).toBe('staging')
+
+        const bare = sentryInitOptions({ dsn: 'd' })
+        expect(bare.release).toBeUndefined()
+        expect(bare.environment).toBeUndefined()
+    })
+
+    // Sampling is the caller's decision: the worker deliberately runs without tracing.
+    it('sets no sampling of its own', () => {
+        expect(sentryInitOptions({ dsn: 'd' })).not.toHaveProperty('tracesSampleRate')
     })
 })

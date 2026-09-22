@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/nextjs'
 import type { ErrorEvent, EventHint } from '@sentry/nextjs'
-import { UserSession } from './types'
+import type { UserSession } from './types'
 
 export function setSentryFromSession(session: UserSession) {
     Sentry.setUser({ id: session.user.id })
@@ -102,4 +102,24 @@ export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEve
         event.contexts = scrubObjectKeys(event.contexts) as typeof event.contexts
     }
     return event
+}
+
+type SentryInitBase = {
+    dsn?: string
+    release?: string
+    environment?: string
+}
+
+// Shared by every entry point that calls Sentry.init: the Next server, edge and client configs, and
+// the review worker Lambda, which has no Next instrumentation hook to init it. Sampling and
+// integrations stay with each entry point; the scrubbing and the DSN-absent guard must not vary.
+export function sentryInitOptions({ dsn, release, environment }: SentryInitBase) {
+    return {
+        dsn,
+        beforeSend: scrubSentryEvent,
+        debug: false,
+        enabled: Boolean(dsn),
+        release,
+        environment,
+    }
 }
