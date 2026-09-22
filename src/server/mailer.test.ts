@@ -1,7 +1,13 @@
 import { db } from '@/database'
 import { Routes } from '@/lib/routes'
 import * as mailgun from '@/server/mailer'
-import { faker, insertTestOrg, insertTestOrgStudyJobUsers, insertTestUser } from '@/tests/unit.helpers'
+import {
+    faker,
+    insertTestOrg,
+    insertTestOrgStudyJobUsers,
+    insertTestStudyJobData,
+    insertTestUser,
+} from '@/tests/unit.helpers'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { describe, expect, it, Mock, vi } from 'vitest'
 import { deliver, SI_EMAIL } from './mailgun'
@@ -144,9 +150,16 @@ describe('mailgun email functions', () => {
         return user
     }
 
+    // The shared fixture seeds an acknowledged agreement, which is exactly what this email skips on.
+    const insertStudyAwaitingAgreement = async () => {
+        const org = await insertTestOrg()
+        const { study } = await insertTestStudyJobData({ org, withStudyAgreement: false })
+        return { study, org }
+    }
+
     it('sendStudyAgreementPreparationEmail reaches SafeInsights admins, in Bcc', async () => {
         const admin = await insertSiAdmin()
-        const { study, org } = await insertTestOrgStudyJobUsers()
+        const { study, org } = await insertStudyAwaitingAgreement()
 
         await mailgun.sendStudyAgreementPreparationEmail(study.id)
 
@@ -175,10 +188,11 @@ describe('mailgun email functions', () => {
         const { user: member } = await insertTestUser({
             org: { id: siOrg.id, slug: siOrg.slug, type: 'enclave' },
         })
-        const { study } = await insertTestOrgStudyJobUsers()
+        const { study } = await insertStudyAwaitingAgreement()
 
         await mailgun.sendStudyAgreementPreparationEmail(study.id)
 
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - sla notice' }))
         expect(deliverMock).not.toHaveBeenCalledWith(
             expect.objectContaining({ bcc: expect.stringContaining(member.email || '') }),
         )
@@ -186,8 +200,19 @@ describe('mailgun email functions', () => {
 
     it('sendStudyAgreementPreparationEmail sends nothing for a test study', async () => {
         await insertSiAdmin()
-        const { study } = await insertTestOrgStudyJobUsers()
+        const { study } = await insertStudyAwaitingAgreement()
         await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+
+        await mailgun.sendStudyAgreementPreparationEmail(study.id)
+
+        expect(deliverMock).not.toHaveBeenCalled()
+    })
+
+    // Nathan's guard on PR #1062: an agreement already under way must not ask for a second one.
+    it('sendStudyAgreementPreparationEmail sends nothing once an agreement exists', async () => {
+        await insertSiAdmin()
+        const { study } = await insertTestOrgStudyJobUsers()
+
         await mailgun.sendStudyAgreementPreparationEmail(study.id)
 
         expect(deliverMock).not.toHaveBeenCalled()

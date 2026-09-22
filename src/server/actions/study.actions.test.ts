@@ -109,7 +109,13 @@ describe('Study Actions', () => {
     it('approving a proposal no longer asks SafeInsights to prepare the Study Agreement', async () => {
         await insertSiAdmin()
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        // No agreement: with the fixture's own, the email would be skipped for the wrong reason.
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            withStudyAgreement: false,
+        })
 
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
