@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import { db, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
-import { generateAndStoreStudyReview, PLACEHOLDER, StudyReviewGenerationFailed } from './runner'
+import {
+    generateAndStoreStudyReview,
+    markStudyReviewQueued,
+    markStudyReviewUnqueued,
+    PLACEHOLDER,
+    StudyReviewGenerationFailed,
+} from './runner'
 import { generateAnalysis } from './agent'
 import { fetchFileContents } from '@/server/storage'
 import { getConfigValue } from '@/server/config'
@@ -365,6 +371,80 @@ describe('generateAndStoreStudyReview', () => {
 
         const [config] = generateAnalysisMock.mock.calls[0] as [{ signal?: AbortSignal }]
         expect(config.signal).toBeInstanceOf(AbortSignal)
+    })
+
+    // The whole point of the claim: an older run that comes back after a takeover no longer owns the
+    // row, so it can neither publish its stale report nor fail the run that replaced it (OTTER-799).
+    it('does not let a superseded run fail the claim that took over from it', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+
+        generateAnalysisMock.mockImplementationOnce(async () => {
+            // Stands in for the retry that gave the round to a fresh run while this one was hung.
+            await db
+                .updateTable('studyReview')
+                .set({ summaryStartedAt: new Date() })
+                .where('studyJobId', '=', job.id)
+                .where('round', '=', 1)
+                .execute()
+            throw new Error('model exploded')
+        })
+
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
+
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].summaryFailedAt).toBeNull()
+        expect(stored[0].report).toBeNull()
+    })
+
+    it('does not let a superseded run publish its report over the claim that replaced it', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+
+        generateAnalysisMock.mockImplementationOnce(async () => {
+            await db
+                .updateTable('studyReview')
+                .set({ summaryStartedAt: new Date() })
+                .where('studyJobId', '=', job.id)
+                .where('round', '=', 1)
+                .execute()
+            return { report: stubReport, messages: [] }
+        })
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].report).toBeNull()
+    })
+
+    // Queued rows are written before the message is sent, so the worker has to be able to take one.
+    it('claims a queued row that has no start time yet', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await insertMainCode(job.id)
+        await markStudyReviewQueued(job.id, 1)
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        expect(generateAnalysisMock).toHaveBeenCalledOnce()
+        const stored = await storedReviews(job.id)
+        expect(stored).toHaveLength(1)
+        expect(stored[0].report).not.toBeNull()
+    })
+
+    it('marks a queued row failed when the send never made it to the queue', async () => {
+        const org = await insertTestOrg()
+        const { job } = await insertTestStudyJobData({ org })
+        await markStudyReviewQueued(job.id, 1)
+
+        await markStudyReviewUnqueued(job.id, 1)
+
+        const stored = await storedReviews(job.id)
+        expect(stored[0].summaryFailedAt).toBeInstanceOf(Date)
     })
 
     it('re-runs generation when only a failed row exists (retry path)', async () => {

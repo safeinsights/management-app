@@ -7,16 +7,20 @@ export type StudyReviewMessage = { studyJobId: string; round: number }
 let client: SQSClient | null = null
 const sqsClient = () => (client ??= new SQSClient({ region: process.env.AWS_REGION || 'us-east-1' }))
 
-// False means nothing is queued and the caller has to generate in process: either no queue is
-// configured (local development, unit tests, PR previews, which each run against their own
-// database) or the send failed, and a reviewer waiting on a summary is better served by a run that
-// starts now than by one that never starts at all.
+// Local development, unit tests and PR previews each run against their own database, which the
+// shared worker cannot reach, so they generate in process instead.
+export const isStudyReviewQueueConfigured = () => Boolean(process.env.REVIEW_QUEUE_URL)
+
+// requestedAt travels with the message so the worker can tell how long it waited: a message the
+// reviewer has already given up on is not worth the model call.
 export async function enqueueStudyReview(message: StudyReviewMessage): Promise<boolean> {
     const queueUrl = process.env.REVIEW_QUEUE_URL
     if (!queueUrl) return false
 
+    const body = JSON.stringify({ ...message, requestedAt: new Date().toISOString() })
+
     try {
-        await sqsClient().send(new SendMessageCommand({ QueueUrl: queueUrl, MessageBody: JSON.stringify(message) }))
+        await sqsClient().send(new SendMessageCommand({ QueueUrl: queueUrl, MessageBody: body }))
         return true
     } catch (error: unknown) {
         logger.error(error)

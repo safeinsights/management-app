@@ -5,8 +5,9 @@ set -euo pipefail
 # @sentry/nextjs is aliased to @sentry/node because the Next build of the SDK is webpack-only; the
 # worker calls Sentry.init itself, so the alias is a swap of implementation, not a stub.
 #
-# .cjs, not .js: this package declares "type": "module", so a bundled .js would be read as ESM and
-# its CommonJS exports would be invisible to the Lambda runtime.
+# .cjs, not .js: the zip carries no package.json, and the Lambda runtime resolves a handler file as
+# .js, .mjs then .cjs, so the extension is what marks the bundle CommonJS. It also keeps the file
+# runnable in place, where this package's "type": "module" would otherwise claim it as ESM.
 
 OUT_DIR=".next/review-worker"
 ZIP="lambda-review-worker-package.zip"
@@ -18,7 +19,7 @@ mkdir -p "$OUT_DIR"
     src/server/agents/review-agent/worker.ts \
     --bundle \
     --platform=node \
-    --target=node20 \
+    --target=node22 \
     --format=cjs \
     --outfile="$OUT_DIR/review-worker.cjs" \
     --alias:@sentry/nextjs=@sentry/node \

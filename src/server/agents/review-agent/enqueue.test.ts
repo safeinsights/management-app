@@ -11,7 +11,7 @@ vi.mock('@aws-sdk/client-sqs', () => ({
     },
 }))
 
-import { enqueueStudyReview } from './enqueue'
+import { enqueueStudyReview, isStudyReviewQueueConfigured } from './enqueue'
 
 const originalQueueUrl = process.env.REVIEW_QUEUE_URL
 const sentMessage = () => send.mock.calls[0][0].input as { QueueUrl: string; MessageBody: string }
@@ -32,7 +32,18 @@ describe('enqueueStudyReview', () => {
         expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 2 })).toBe(true)
 
         expect(sentMessage().QueueUrl).toBe('https://sqs.test/review')
-        expect(JSON.parse(sentMessage().MessageBody)).toEqual({ studyJobId: 'job-1', round: 2 })
+        expect(JSON.parse(sentMessage().MessageBody)).toMatchObject({ studyJobId: 'job-1', round: 2 })
+    })
+
+    // The worker drops a message that waited longer than the reviewer did, so it has to be able to
+    // tell how long that was.
+    it('stamps the message with when the review was requested', async () => {
+        process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
+
+        await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })
+
+        const { requestedAt } = JSON.parse(sentMessage().MessageBody)
+        expect(Date.now() - new Date(requestedAt).getTime()).toBeLessThan(5_000)
     })
 
     // Local development, unit tests and PR previews each run against their own database, which the
@@ -44,10 +55,20 @@ describe('enqueueStudyReview', () => {
         expect(send).not.toHaveBeenCalled()
     })
 
-    it('reports nothing queued when the send fails, so the caller can still generate', async () => {
+    it('reports nothing queued when the send fails, so the caller can record that', async () => {
         process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
         send.mockRejectedValue(new Error('queue unreachable'))
 
         expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })).toBe(false)
+    })
+})
+
+describe('isStudyReviewQueueConfigured', () => {
+    it('is false without a queue url, which is what selects the in-process path', () => {
+        delete process.env.REVIEW_QUEUE_URL
+        expect(isStudyReviewQueueConfigured()).toBe(false)
+
+        process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
+        expect(isStudyReviewQueueConfigured()).toBe(true)
     })
 })

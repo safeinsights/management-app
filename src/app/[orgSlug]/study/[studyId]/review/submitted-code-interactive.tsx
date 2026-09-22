@@ -312,7 +312,10 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
         if (review != null) {
             const state = studyReviewState(review)
             if (state === 'failed') return errorState
-            if (state === 'pending') return timedOut ? errorState : <AiSummaryPending />
+            // An error stops the poll, so a run still pending when one lands has nothing left to
+            // report its own outcome to this page. Offering the retry beats a spinner that can no
+            // longer resolve, and unlike a landed report there is nothing here worth protecting.
+            if (state === 'pending') return timedOut || hasError ? errorState : <AiSummaryPending />
             if (!summary) return <AiSummaryEmpty />
             return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
         }

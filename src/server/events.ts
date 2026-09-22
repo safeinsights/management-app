@@ -9,8 +9,16 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
-import { enqueueStudyReview, type StudyReviewMessage } from './agents/review-agent/enqueue'
-import { generateAndStoreStudyReview } from './agents/review-agent/runner'
+import {
+    enqueueStudyReview,
+    isStudyReviewQueueConfigured,
+    type StudyReviewMessage,
+} from './agents/review-agent/enqueue'
+import {
+    generateAndStoreStudyReview,
+    markStudyReviewQueued,
+    markStudyReviewUnqueued,
+} from './agents/review-agent/runner'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
@@ -111,8 +119,17 @@ const startStudyReviewInline = deferred(async ({ studyJobId, round }: StudyRevie
 // hold open in a Lambda, so the queue is the real path and the in-process run is the fallback for
 // environments that have none (OTTER-799).
 export const onStudyReviewRequested = async ({ studyJobId, round }: StudyReviewMessage) => {
+    if (!isStudyReviewQueueConfigured()) {
+        startStudyReviewInline({ studyJobId, round })
+        return
+    }
+
+    // Queued first, so the round reads as pending while it waits for a worker. Falling back to an
+    // in-process run here would put generation back in the request path this card moved it out of,
+    // so a failed send is recorded instead and the reviewer is offered a retry straight away.
+    await markStudyReviewQueued(studyJobId, round)
     if (await enqueueStudyReview({ studyJobId, round })) return
-    startStudyReviewInline({ studyJobId, round })
+    await markStudyReviewUnqueued(studyJobId, round)
 }
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {

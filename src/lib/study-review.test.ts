@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { isStudyReviewStale, STUDY_REVIEW_STALE_AFTER_MS, studyReviewState, type StudyReviewRow } from './study-review'
+import {
+    isStudyReviewStale,
+    STUDY_REVIEW_QUEUE_STALE_AFTER_MS,
+    STUDY_REVIEW_STALE_AFTER_MS,
+    studyReviewState,
+    type StudyReviewRow,
+} from './study-review'
 
 const now = Date.now()
 const row = (overrides: Partial<StudyReviewRow> = {}): StudyReviewRow => ({
     report: null,
+    createdAt: new Date(now),
     summaryFailedAt: null,
     summaryStartedAt: new Date(now),
     ...overrides,
@@ -37,8 +44,16 @@ describe('isStudyReviewStale', () => {
         )
     })
 
-    it('treats a pending row with no start time as stale', () => {
-        expect(isStudyReviewStale(row({ summaryStartedAt: null }), now)).toBe(true)
+    // A queued round has no start time yet. Reading that as stale is what made the panel report a
+    // failure for work that was only waiting for a worker (OTTER-799).
+    it('keeps a queued row pending while it waits inside the queue threshold', () => {
+        const createdAt = new Date(now - STUDY_REVIEW_STALE_AFTER_MS - 60_000)
+        expect(isStudyReviewStale(row({ createdAt, summaryStartedAt: null }), now)).toBe(false)
+    })
+
+    it('gives up on a queued row no worker took within the queue threshold', () => {
+        const createdAt = new Date(now - STUDY_REVIEW_QUEUE_STALE_AFTER_MS)
+        expect(isStudyReviewStale(row({ createdAt, summaryStartedAt: null }), now)).toBe(true)
     })
 
     it('accepts a serialized timestamp, which is what crosses the server boundary', () => {

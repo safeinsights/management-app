@@ -3,13 +3,29 @@ import * as Sentry from '@sentry/nextjs'
 import { z } from 'zod'
 import logger from '@/lib/logger'
 import { ENVIRONMENT_ID, getConfigValue } from '@/server/config'
+import { STUDY_REVIEW_QUEUE_STALE_AFTER_MS } from '@/lib/study-review'
 import { generateAndStoreStudyReview, StudyReviewGenerationFailed } from './runner'
 
 // Entry point of the review worker Lambda, which is where generation runs in a deployed
 // environment. The app process cannot host it: it answers an HTTP request and is then frozen,
 // which a run measured in minutes does not survive (OTTER-799).
 
-const messageSchema = z.object({ studyJobId: z.string(), round: z.number().int().positive() })
+const messageSchema = z.object({
+    studyJobId: z.string(),
+    round: z.number().int().positive(),
+    // Absent on a message enqueued before this field existed, which reads as "no idea how long it
+    // waited" and is run rather than dropped.
+    requestedAt: z.string().optional(),
+})
+
+// SQS hides a failed message for the whole visibility timeout, so a redelivery lands long after the
+// reviewer either got their summary or retried. Running it then would wipe the row they are looking
+// at and pay for a report nobody is waiting for (OTTER-799).
+function waitedTooLong(requestedAt: string | undefined): boolean {
+    if (!requestedAt) return false
+    const requested = new Date(requestedAt).getTime()
+    return Number.isFinite(requested) && Date.now() - requested >= STUDY_REVIEW_QUEUE_STALE_AFTER_MS
+}
 
 let sentryStarted: Promise<void> | null = null
 
@@ -47,6 +63,15 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
         const message = parseMessage(record)
         if (!message) continue
 
+        if (waitedTooLong(message.requestedAt)) {
+            logger.warn('Review worker dropping a message the reviewer has stopped waiting for', {
+                messageId: record.messageId,
+                studyJobId: message.studyJobId,
+                round: message.round,
+            })
+            continue
+        }
+
         try {
             await generateAndStoreStudyReview(message.studyJobId, message.round)
         } catch (error: unknown) {
@@ -54,7 +79,9 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
             Sentry.captureException(error)
             // A recorded failure is already on the reviewer's screen beside a Retry control, so
             // running the same generation again when the queue redelivers helps nobody. Anything
-            // else got no further than the claim, and the round is worth another attempt.
+            // else got no further than the claim, and the round is worth another attempt. That
+            // attempt is a backstop, not the reviewer's recovery: a redelivery waits out the whole
+            // visibility timeout, long after Retry became available to them.
             if (!(error instanceof StudyReviewGenerationFailed)) {
                 batchItemFailures.push({ itemIdentifier: record.messageId })
             }

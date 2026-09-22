@@ -11,6 +11,7 @@ vi.mock('@/server/config', () => ({
     ENVIRONMENT_ID: 'test',
 }))
 
+import { STUDY_REVIEW_QUEUE_STALE_AFTER_MS } from '@/lib/study-review'
 import { handler } from './worker'
 import { generateAndStoreStudyReview, StudyReviewGenerationFailed } from './runner'
 
@@ -59,6 +60,28 @@ describe('review worker handler', () => {
         const result = await handler(event([record('m1', JSON.stringify({ studyJobId: 'job-1', round: 1 }))]))
 
         expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'm1' }])
+    })
+
+    // A redelivery lands a full visibility timeout later, long after the reviewer was given Retry.
+    // Running it then would wipe the row they are looking at and pay for a report nobody wants.
+    it('drops a message that waited longer than the reviewer would have', async () => {
+        const requestedAt = new Date(Date.now() - STUDY_REVIEW_QUEUE_STALE_AFTER_MS - 1_000).toISOString()
+
+        const result = await handler(
+            event([record('m1', JSON.stringify({ studyJobId: 'job-1', round: 1, requestedAt }))]),
+        )
+
+        expect(runnerMock).not.toHaveBeenCalled()
+        expect(result.batchItemFailures).toEqual([])
+    })
+
+    it('runs a message that is still inside the queue threshold', async () => {
+        runnerMock.mockResolvedValue(undefined)
+        const requestedAt = new Date(Date.now() - 60_000).toISOString()
+
+        await handler(event([record('m1', JSON.stringify({ studyJobId: 'job-1', round: 1, requestedAt }))]))
+
+        expect(runnerMock).toHaveBeenCalledExactlyOnceWith('job-1', 1)
     })
 
     it('reports only the records that failed, not the whole batch', async () => {

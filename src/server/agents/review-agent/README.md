@@ -30,11 +30,21 @@ it up (`bin/build-review-worker` bundles that entry point). Where it is not set,
 generated in process instead: local development, unit tests and PR previews each run against their
 own database, which the shared worker cannot reach.
 
-A run first claims its round by writing a `study_review` row with `summary_started_at` and no
-report, so a second request for the same round is refused rather than duplicated, and the reviewer
-can be shown "still working" rather than a guess. The model call carries a deadline
-(`STUDY_REVIEW_GENERATION_DEADLINE_MS`), and every ending leaves the row saying what happened:
-report, failure, abort, or nothing to analyze.
+On the queue path a `study_review` row is written _before_ the message is sent, with no
+`summary_started_at`, so a round waiting for a worker reads as pending rather than as one nothing
+ever picked up. A send that fails marks that row failed, because an in-process fallback in a
+deployed environment would put generation back in the request path this design moved it out of.
+
+The worker then claims the round, stamping `summary_started_at` on that row. A second request for
+the same round is refused rather than duplicated, and both writes at the end of a run are fenced to
+the claim they own, so a run that comes back after a takeover can neither publish a stale report nor
+fail its replacement. The deadline (`STUDY_REVIEW_GENERATION_DEADLINE_MS`) starts before the content
+is assembled, not at the model call, so the whole run stays inside the worker's own timeout. Every
+ending leaves the row saying what happened: report, failure, abort, or nothing to analyze.
+
+Two clocks decide when the reviewer is offered a retry: `STUDY_REVIEW_STALE_AFTER_MS` for a run that
+started, and the longer `STUDY_REVIEW_QUEUE_STALE_AFTER_MS` for one still waiting on the queue. A
+message that outlives the second is dropped by the worker rather than run.
 
 ## Customization
 

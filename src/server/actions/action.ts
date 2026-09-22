@@ -186,14 +186,19 @@ export class Action<
                 // Only reached once the writes are committed. A handler that threw never gets here,
                 // so work queued by a rolled-back handler is dropped with it. One hook failing must
                 // not fail the action: the mutation the caller asked for already happened.
-                for (const fn of afterCommitFns) {
-                    try {
-                        await fn()
-                    } catch (error: unknown) {
-                        logger.error(error)
-                        Sentry.captureException(error)
+                const runAfterCommitFns = async () => {
+                    for (const fn of afterCommitFns) {
+                        try {
+                            await fn()
+                        } catch (error: unknown) {
+                            logger.error(error)
+                            Sentry.captureException(error)
+                        }
                     }
                 }
+                // Inside the store, with db already swapped off the committed transaction, so a hook
+                // reads the same context its handler did rather than an empty one.
+                await (actionCtx ? localStorageContext.run(actionCtx, runAfterCommitFns) : runAfterCommitFns())
 
                 return result
             } catch (error) {

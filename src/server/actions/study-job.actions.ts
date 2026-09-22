@@ -316,7 +316,7 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
         const round = await codeRoundForJob(studyJobId, db)
         const existing = await db
             .selectFrom('studyReview')
-            .select(['report', 'summaryFailedAt', 'summaryStartedAt'])
+            .select(['report', 'createdAt', 'summaryFailedAt', 'summaryStartedAt'])
             .where('studyJobId', '=', studyJobId)
             .where('round', '=', round)
             .executeTakeFirst()
