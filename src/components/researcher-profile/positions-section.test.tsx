@@ -7,6 +7,7 @@ import {
     insertTestResearcherProfile,
     getTestResearcherProfileData,
     db,
+    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { PositionsSection } from './positions-section'
 
@@ -82,6 +83,9 @@ describe('PositionsSection', () => {
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
+        // refetch is the first thing onSuccess does, so the write is still in flight here and
+        // the rows below would be read before it lands.
+        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')
@@ -131,6 +135,7 @@ describe('PositionsSection', () => {
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
+        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')
@@ -210,6 +215,7 @@ describe('PositionsSection', () => {
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
+        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')
@@ -399,6 +405,7 @@ describe('PositionsSection', () => {
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
+        await waitForPendingMutations()
 
         const positions = await db
             .selectFrom('researcherPosition')

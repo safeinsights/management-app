@@ -8,6 +8,7 @@ import {
     insertTestResearcherProfile,
     getTestResearcherProfileData,
     db,
+    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
@@ -87,6 +88,9 @@ describe('PersonalInfoSection', () => {
             expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
             expect(refetch).toHaveBeenCalled()
         })
+        // refetch is the first thing onSuccess does, so the write is still in flight here and
+        // the rows below would be read before it lands.
+        await waitForPendingMutations()
 
         const updated = await db
             .selectFrom('user')
