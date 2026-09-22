@@ -1,24 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-const send = vi.fn()
-
-vi.mock('@aws-sdk/client-sqs', () => ({
-    SQSClient: class {
-        send = send
-    },
-    SendMessageCommand: class {
-        constructor(readonly input: { QueueUrl: string; MessageBody: string }) {}
-    },
-}))
-
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { mockClient } from 'aws-sdk-client-mock'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { enqueueStudyReview, isStudyReviewQueueConfigured } from './enqueue'
 
+const sqsMock = mockClient(SQSClient)
+
 const originalQueueUrl = process.env.REVIEW_QUEUE_URL
-const sentMessage = () => send.mock.calls[0][0].input as { QueueUrl: string; MessageBody: string }
+const sentMessages = () => sqsMock.commandCalls(SendMessageCommand)
+const sentMessage = () => sentMessages()[0].args[0].input
 
 describe('enqueueStudyReview', () => {
     beforeEach(() => {
-        send.mockReset().mockResolvedValue({})
+        sqsMock.reset()
+        sqsMock.on(SendMessageCommand).resolves({})
     })
 
     afterEach(() => {
@@ -32,7 +26,7 @@ describe('enqueueStudyReview', () => {
         expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 2 })).toBe(true)
 
         expect(sentMessage().QueueUrl).toBe('https://sqs.test/review')
-        expect(JSON.parse(sentMessage().MessageBody)).toMatchObject({ studyJobId: 'job-1', round: 2 })
+        expect(JSON.parse(sentMessage().MessageBody!)).toMatchObject({ studyJobId: 'job-1', round: 2 })
     })
 
     // The worker drops a message that waited longer than the reviewer did, so it has to be able to
@@ -42,7 +36,7 @@ describe('enqueueStudyReview', () => {
 
         await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })
 
-        const { requestedAt } = JSON.parse(sentMessage().MessageBody)
+        const { requestedAt } = JSON.parse(sentMessage().MessageBody!)
         expect(Date.now() - new Date(requestedAt).getTime()).toBeLessThan(5_000)
     })
 
@@ -52,12 +46,12 @@ describe('enqueueStudyReview', () => {
         delete process.env.REVIEW_QUEUE_URL
 
         expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })).toBe(false)
-        expect(send).not.toHaveBeenCalled()
+        expect(sentMessages()).toHaveLength(0)
     })
 
     it('reports nothing queued when the send fails, so the caller can record that', async () => {
         process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
-        send.mockRejectedValue(new Error('queue unreachable'))
+        sqsMock.on(SendMessageCommand).rejects(new Error('queue unreachable'))
 
         expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })).toBe(false)
     })

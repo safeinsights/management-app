@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
-import { db, insertTestOrg, insertTestStudyJobData } from '@/tests/unit.helpers'
+import { db, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
 import {
@@ -54,6 +54,16 @@ const insertMainCode = (studyJobId: string) =>
         .values({ studyJobId, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
         .execute()
 
+type TestJobOptions = Parameters<typeof insertTestStudyJobData>[0]
+
+const setupJob = async (options?: TestJobOptions) => (await insertTestStudyJobData(options)).job
+
+const setupJobWithCode = async (options?: TestJobOptions) => {
+    const job = await setupJob(options)
+    await insertMainCode(job.id)
+    return job
+}
+
 // Submitted, changes requested, submitted again: the job now carries round 2's code.
 const resubmit = async (studyJobId: string) => {
     await addStatus(studyJobId, 'CODE-CHANGES-REQUESTED', minutesAgo(20))
@@ -82,16 +92,12 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('assembles proposal, code files, and data docs and persists the report', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({
-            org,
+        const job = await setupJobWithCode({
             projectSummary: lexicalJson('Project summary text'),
             researchQuestions: lexicalJson('Research questions text'),
             impact: lexicalJson('Impact text'),
             additionalNotes: lexicalJson('Notes text'),
         })
-
-        await insertMainCode(job.id)
 
         await generateAndStoreStudyReview(job.id, 1)
 
@@ -120,9 +126,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org, language: 'R' })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode({ language: 'R' })
         await db
             .insertInto('agentContext')
             .values([
@@ -139,8 +143,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('skips when a study review already exists for the round', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
+        const job = await setupJob()
         await db
             .insertInto('studyReview')
             .values({ studyJobId: job.id, report: JSON.stringify(stubReport) })
@@ -154,9 +157,7 @@ describe('generateAndStoreStudyReview', () => {
     // The previous round's summary used to be deleted to make room for this one, which is what
     // made a late write from that round indistinguishable from the current one (OTTER-779).
     it('generates for a new round even though the previous round already has a summary', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
         await db
             .insertInto('studyReview')
@@ -179,9 +180,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('does not run generation for a round that is already superseded', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
         await resubmit(job.id)
 
@@ -193,9 +192,7 @@ describe('generateAndStoreStudyReview', () => {
 
     // The race the card reports: the run was current when it started and analyzed the old code.
     it('discards a report when the resubmit lands mid-run', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
 
         generateAnalysisMock.mockImplementationOnce(async () => {
@@ -214,9 +211,7 @@ describe('generateAndStoreStudyReview', () => {
     // The inverted order, which the card calls the worse one: a stale failure used to overwrite a
     // good report and show as a permanent error on code that was analyzed successfully.
     it('keeps the current round intact when a superseded run fails', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
 
         generateAnalysisMock.mockImplementationOnce(async () => {
@@ -240,9 +235,7 @@ describe('generateAndStoreStudyReview', () => {
 
     // Two runs of ONE round used to both proceed and race for the row. Retry is the common way in.
     it('refuses a second run while one for the same round is still alive', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
 
         let finishFirstRun = (_result: unknown) => {}
@@ -269,9 +262,7 @@ describe('generateAndStoreStudyReview', () => {
 
     // The claim is not a lock on the write, so a report can still land while a run is failing.
     it('does not let a late failure replace a report from the same round', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(30))
 
         generateAnalysisMock.mockImplementationOnce(async () => {
@@ -293,8 +284,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('records a failure, and does not call the agent, when no code files are attached to the job', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
+        const job = await setupJob()
 
         await generateAndStoreStudyReview(job.id, 1)
 
@@ -307,9 +297,7 @@ describe('generateAndStoreStudyReview', () => {
     it('persists a failure row and re-throws when generation throws', async () => {
         const boom = new Error('model exploded')
         generateAnalysisMock.mockRejectedValue(boom)
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
 
         await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
 
@@ -324,9 +312,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('claims the round with a pending row before the model call starts', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
 
         let claimed: { report: unknown; summaryStartedAt: Date | null } | undefined
         generateAnalysisMock.mockImplementationOnce(async () => {
@@ -346,9 +332,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('takes over a pending row old enough to be a run that died', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await db
             .insertInto('studyReview')
             .values({ studyJobId: job.id, round: 1, report: null, summaryStartedAt: minutesAgo(15) })
@@ -363,9 +347,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('gives the model call a deadline, so a stalled run reports rather than hangs', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
 
         await generateAndStoreStudyReview(job.id, 1)
 
@@ -376,9 +358,7 @@ describe('generateAndStoreStudyReview', () => {
     // The whole point of the claim: an older run that comes back after a takeover no longer owns the
     // row, so it can neither publish its stale report nor fail the run that replaced it (OTTER-799).
     it('does not let a superseded run fail the claim that took over from it', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
 
         generateAnalysisMock.mockImplementationOnce(async () => {
             // Stands in for the retry that gave the round to a fresh run while this one was hung.
@@ -400,9 +380,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('does not let a superseded run publish its report over the claim that replaced it', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
 
         generateAnalysisMock.mockImplementationOnce(async () => {
             await db
@@ -423,9 +401,7 @@ describe('generateAndStoreStudyReview', () => {
 
     // Queued rows are written before the message is sent, so the worker has to be able to take one.
     it('claims a queued row that has no start time yet', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await markStudyReviewQueued(job.id, 1)
 
         await generateAndStoreStudyReview(job.id, 1)
@@ -437,8 +413,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('marks a queued row failed when the send never made it to the queue', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
+        const job = await setupJob()
         await markStudyReviewQueued(job.id, 1)
 
         await markStudyReviewUnqueued(job.id, 1)
@@ -448,9 +423,7 @@ describe('generateAndStoreStudyReview', () => {
     })
 
     it('re-runs generation when only a failed row exists (retry path)', async () => {
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
-        await insertMainCode(job.id)
+        const job = await setupJobWithCode()
         await db
             .insertInto('studyReview')
             .values({ studyJobId: job.id, report: null, summaryFailedAt: new Date() })
@@ -470,8 +443,7 @@ describe('generateAndStoreStudyReview', () => {
 
     it('writes the disabled-review placeholder and skips the agent when CLAUDE_API_KEY is unset', async () => {
         getConfigValueMock.mockResolvedValue(undefined)
-        const org = await insertTestOrg()
-        const { job } = await insertTestStudyJobData({ org })
+        const job = await setupJob()
 
         await generateAndStoreStudyReview(job.id, 1)
 
