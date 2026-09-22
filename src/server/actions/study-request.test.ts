@@ -9,6 +9,7 @@ import {
     expectStudyJobRecords,
     getAuditEntries,
     insertTestOrg,
+    insertTestStudyAgreement,
     insertTestStudyData,
     insertTestStudyJobData,
     seedAcknowledgedStudyAgreement,
@@ -283,6 +284,19 @@ describe('Request Study Actions', () => {
         await flushDeferred()
 
         expect(deliverMock).toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    // Resubmission after CHANGE-REQUESTED comes back through this same action, so the second pass
+    // must not ask for an agreement an admin has already begun.
+    it('finalizeStudySubmissionAction asks for no Study Agreement once one has been drafted', async () => {
+        const studyId = await submitDraftProposal('sla-already-drafted')
+        await insertTestStudyAgreement({ studyId, published: false })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
     })
 
     it('finalizeStudySubmissionAction asks for no Study Agreement on a test study', async () => {

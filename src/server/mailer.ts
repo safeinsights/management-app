@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
+import { findLegalDocument } from '@/server/db/legal-document'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { pathForInvitation } from '@/lib/paths'
@@ -88,6 +89,10 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 
     // A test study is exempt from the agreement, so there is nothing to prepare.
     if (study.isTestStudy) return
+
+    // Resubmission after CHANGE-REQUESTED runs the same submit path, so without this an admin who
+    // has already started the agreement is asked for it again. A draft counts as started.
+    if (await findLegalDocument(db, { type: 'SLA', studyId })) return
 
     const admins = await getSiAdmins()
     const emails = admins.map((admin) => admin.email).filter((email) => email)
