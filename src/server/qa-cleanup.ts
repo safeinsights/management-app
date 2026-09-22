@@ -213,7 +213,30 @@ async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
         await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
     }
     await db.deleteFrom('yjsDocument').where('studyId', '=', studyId).execute()
+    await deleteStudyAgreementRows(db, studyId)
     await db.deleteFrom('study').where('id', '=', studyId).execute()
+}
+
+// Nothing in the legal_document chain cascades, so a study with a published agreement would
+// otherwise fail the delete on the study_id foreign key.
+async function deleteStudyAgreementRows(db: Kysely<DB>, studyId: string) {
+    const documents = await db.selectFrom('legalDocument').select('id').where('studyId', '=', studyId).execute()
+    if (!documents.length) return
+
+    const documentIds = documents.map((document) => document.id)
+    const versions = await db
+        .selectFrom('legalDocumentVersion')
+        .select('id')
+        .where('legalDocumentId', 'in', documentIds)
+        .execute()
+
+    if (versions.length) {
+        const versionIds = versions.map((version) => version.id)
+        await db.deleteFrom('legalDocumentAcknowledgement').where('legalDocumentVersionId', 'in', versionIds).execute()
+        await db.deleteFrom('legalDocumentVersion').where('id', 'in', versionIds).execute()
+    }
+
+    await db.deleteFrom('legalDocument').where('id', 'in', documentIds).execute()
 }
 
 /**

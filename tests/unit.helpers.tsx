@@ -7,6 +7,7 @@ import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { findOrCreateOrgMembership } from '@/server/mutations'
+import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { cssVariablesResolver, theme } from '@/theme'
@@ -99,6 +100,21 @@ export const createTestQueryClient = () => {
 // cannot commit anything. A pending mutation can, see the teardown check in vitest.setup.ts.
 export const pendingTestMutationCount = () =>
     [...liveTestQueryClients].reduce((count, client) => count + client.isMutating(), 0)
+
+// Names what is still in flight. The teardown failure is otherwise reported with no test attached,
+// which leaves a CI-only failure to be found by bisection.
+export const pendingTestMutationDescriptions = () =>
+    [...liveTestQueryClients].flatMap((client) =>
+        client
+            .getMutationCache()
+            .getAll()
+            .filter((mutation) => mutation.state.status === 'pending')
+            .map((mutation) => {
+                const key = mutation.options.mutationKey
+                const variables = JSON.stringify(mutation.state.variables ?? null)?.slice(0, 200)
+                return `${key ? JSON.stringify(key) : '<no mutationKey>'} variables=${variables}`
+            }),
+    )
 
 // The read counterpart of pendingTestMutationCount. Nothing fails a test for a query still in
 // flight, but a component whose enabled-ness depends on one needs it settled before interaction.
@@ -364,6 +380,7 @@ export const insertTestStudyJobData = async ({
     impact,
     additionalNotes,
     datasets,
+    withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
@@ -377,6 +394,7 @@ export const insertTestStudyJobData = async ({
     projectSummary?: Json | null
     impact?: Json | null
     additionalNotes?: Json | null
+    withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -425,6 +443,8 @@ export const insertTestStudyJobData = async ({
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
 
     const latestJobWithStatus = await latestJobForStudy(study.id)
 
@@ -478,12 +498,17 @@ export const insertTestStudyOnly = async ({
     researcherId,
     title = 'study without job',
     status = 'APPROVED',
+    isTestStudy = false,
+    // False for a test about agreements themselves — those files publish and acknowledge their own.
+    withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
     researcherId?: string
     title?: string
     status?: StudyStatus
+    isTestStudy?: boolean
+    withStudyAgreement?: boolean
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -502,6 +527,7 @@ export const insertTestStudyOnly = async ({
             researcherId,
             piName: 'test',
             status,
+            isTestStudy,
             submittedAt: new Date(),
             dataSources: ['all'],
             outputMimeType: 'application/zip',
@@ -509,6 +535,9 @@ export const insertTestStudyOnly = async ({
         })
         .returningAll()
         .executeTakeFirstOrThrow()
+
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
     return { org, study }
 }
 
@@ -1204,6 +1233,74 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
         },
         orgs: orgsRecord,
     }
+}
+
+type InsertTestStudyAgreementOptions = {
+    studyId: string
+    versionNumber?: number
+    /** Unpublished versions are drafts, which oblige nobody. */
+    published?: boolean
+}
+
+// Written directly, not through the admin action, which would replace the session mid-fixture.
+export const insertTestStudyAgreement = async ({
+    studyId,
+    versionNumber = 1,
+    published = true,
+}: InsertTestStudyAgreementOptions) => {
+    const { researcherId } = await db
+        .selectFrom('study')
+        .select('researcherId')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
+
+    return await writeStudyAgreementVersion(db, {
+        studyId,
+        publishedBy: researcherId,
+        signedAt: '2026-01-01',
+        versionNumber,
+        published,
+    })
+}
+
+// A real agreement plus its acknowledgements, rather than marking fixtures test studies: otherwise
+// the default fixture is the one that bypasses the gate. Callable again after a test mints another
+// session user, since the unique constraint absorbs the acks already written.
+export const seedAcknowledgedStudyAgreement = async (studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .leftJoin('legalDocument', (join) =>
+            join.onRef('legalDocument.studyId', '=', 'study.id').on('legalDocument.type', '=', 'SLA'),
+        )
+        .leftJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
+        .select([
+            'study.orgId as dataPartnerId',
+            'study.submittedByOrgId as researchLabId',
+            'legalDocumentVersion.id as versionId',
+        ])
+        .where('study.id', '=', studyId)
+        .orderBy('legalDocumentVersion.versionNumber', (ob) => ob.desc().nullsLast())
+        .executeTakeFirst()
+    if (!study) throw new Error(`seedAcknowledgedStudyAgreement: no study ${studyId}`)
+
+    // Reuses the study's agreement when it already has one, so a test that mints a second session
+    // user can call this again to acknowledge on their behalf.
+    const versionId = study.versionId ?? (await insertTestStudyAgreement({ studyId })).id
+
+    const parties = await db
+        .selectFrom('orgUser')
+        .select('userId')
+        .distinct()
+        .where('orgId', 'in', [study.dataPartnerId, study.researchLabId])
+        .execute()
+
+    if (!parties.length) return
+
+    await db
+        .insertInto('legalDocumentAcknowledgement')
+        .values(parties.map(({ userId }) => ({ legalDocumentVersionId: versionId, userId })))
+        .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
+        .execute()
 }
 
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }

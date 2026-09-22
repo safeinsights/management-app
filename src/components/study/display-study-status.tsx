@@ -1,10 +1,9 @@
 'use client'
 
 import { StatusLabel } from '@/lib/status-labels'
-import { Flex, Text } from '@mantine/core'
 import { TrophyIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
-import { InfoTooltip } from '../tooltip'
+import { StudyPill } from './study-pill'
 
 const STAGE_DISPLAY_NAME: Record<StatusLabel['stage'], string> = {
     Proposal: 'Proposal',
@@ -19,29 +18,13 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
     const badgeText = `${stageDisplay} ${label.toLowerCase()}`
     const showResultsIcon = stage === 'Results' && label === 'Ready'
 
-    const pill = (
-        <Flex
-            align="center"
-            gap="xxs"
+    return (
+        <StudyPill
+            label={badgeText}
             bg={bg}
             c={c}
-            bdrs={100}
-            px="md"
-            py="xxs"
-            style={{ display: 'inline-flex', whiteSpace: 'nowrap', cursor: tooltip ? 'pointer' : 'default' }}
-        >
-            {showResultsIcon && <TrophyIcon size={12} weight="fill" />}
-            <Text size="xs" fw={500}>
-                {badgeText}
-            </Text>
-        </Flex>
-    )
-
-    if (!tooltip) return pill
-
-    return (
-        <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
-            {pill}
-        </InfoTooltip>
+            tooltip={tooltip}
+            icon={showResultsIcon ? <TrophyIcon size={12} weight="fill" /> : undefined}
+        />
     )
 }

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { within } from '@testing-library/react'
 import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 
@@ -22,7 +23,10 @@ const initialDraft: CodeReviewCriteriaDraft = {
 
 const PROPOSAL_HREF = '/test-org/study/test-study/review/proposal'
 
-const renderSection = ({ validateOnBlur = false } = {}) => {
+const renderSection = ({
+    validateOnBlur = false,
+    isTestStudy = false,
+}: { validateOnBlur?: boolean; isTestStudy?: boolean } = {}) => {
     const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
     const Harness = () => {
         const form = useForm<FormShape>({ initialValues: { criteria: initialDraft } })
@@ -35,6 +39,7 @@ const renderSection = ({ validateOnBlur = false } = {}) => {
                     form={form}
                     enabled
                     proposalHref={PROPOSAL_HREF}
+                    isTestStudy={isTestStudy}
                     validateOnBlur={validateOnBlur}
                 />
             </CodeReviewFeedbackProviderShare>
@@ -70,6 +75,20 @@ describe('CodeEvaluationSection', () => {
         expect(link).toHaveAttribute('data-underline', 'always')
         expect(link).toHaveTextContent('proposal')
         expect(link.querySelector('svg')).toBeInTheDocument()
+    })
+
+    it('explains the agreements criterion only when the study is a test study', () => {
+        renderSection({ isTestStudy: true })
+
+        const row = screen.getByTestId('criteria-row-agreementCompliance')
+        expect(within(row).getByLabelText(/This is a test study/i)).toBeInTheDocument()
+    })
+
+    it('leaves the agreements criterion as plain text for an ordinary study', () => {
+        renderSection()
+
+        const row = screen.getByTestId('criteria-row-agreementCompliance')
+        expect(within(row).queryByLabelText(/This is a test study/i)).toBeNull()
     })
 
     it('updates the form value when a radio is selected', async () => {

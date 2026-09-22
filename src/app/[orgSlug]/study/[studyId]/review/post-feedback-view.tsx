@@ -16,6 +16,7 @@ import { Box, Stack } from '@mantine/core'
 import type { ReactNode } from 'react'
 import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
@@ -129,6 +130,8 @@ export function PostFeedbackView({
     )
     const heading = isCode ? codeReviewHeading(reviewVersion) : proposalReviewHeading(reviewVersion)
     const feedbackBeforeDetails = isCode && reviewVersion > 1
+    // This view is shared with kind: 'CODE', where an agreement notice has no place.
+    const showsAgreementNotice = !isCode && decision === 'APPROVE'
 
     return (
         <Box bg={semanticColor('surface.page')}>
@@ -154,6 +157,7 @@ export function PostFeedbackView({
                     heading={heading}
                     banner={banner}
                 />
+                <StudyAgreementPreparingNotice studyId={study.id} isVisible={showsAgreementNotice} />
                 <PostDecisionFeedback
                     isVisible={!feedbackBeforeDetails}
                     entries={entries}

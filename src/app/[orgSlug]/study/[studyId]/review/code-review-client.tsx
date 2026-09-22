@@ -20,6 +20,7 @@ import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus } from '@/database/types'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CodeEvaluationSection, criterionFieldId } from './code-evaluation-section'
 import { CODE_DECISION_MODAL_CONTENT, DecisionConfirmationModal } from './decision-confirmation-modal'
 import { CodeReviewFeedbackSection, DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from './code-review-feedback-section'
@@ -160,6 +161,7 @@ type EditableBodyProps = {
     proposalHref: string
     isPending: boolean
     nav: StepNav
+    isTestStudy: boolean
     onSubmit: () => void
     onDecisionChange: (next: Decision) => void
     hasAttemptedSubmit: boolean
@@ -175,6 +177,7 @@ function EditableBody({
     proposalHref,
     isPending,
     nav,
+    isTestStudy,
     onSubmit,
     onDecisionChange,
     hasAttemptedSubmit,
@@ -182,10 +185,15 @@ function EditableBody({
     if (!isVisible) return null
     return (
         <Stack gap="xl">
+            <StudyAgreementPreparingNotice
+                studyId={job.studyId}
+                consequence="You cannot submit a review decision yet."
+            />
             <CodeEvaluationSection
                 form={evaluationForm}
                 enabled
                 proposalHref={proposalHref}
+                isTestStudy={isTestStudy}
                 validateOnBlur={hasAttemptedSubmit}
             />
             <CodeReviewFeedbackSection
@@ -280,6 +288,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     proposalHref={proposalHref}
                     isPending={isPending}
                     nav={nav}
+                    isTestStudy={study.isTestStudy}
                     onSubmit={handleSubmit}
                     onDecisionChange={decision.onSelect}
                     hasAttemptedSubmit={hasAttemptedSubmit}

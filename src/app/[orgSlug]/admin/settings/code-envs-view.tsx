@@ -1,11 +1,11 @@
 'use client'
 
-import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
-import { ActionIcon, Badge, Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CaretDownIcon, CheckCircleIcon, PlusCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Badge, Group, Text } from '@mantine/core'
+import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
+import { SettingsCard, SettingsCardRow } from './settings-card'
 
 // Presentational only: the body, refresher and per-row nodes are injected so these render
 // without a QueryClient (e.g. Ladle).
@@ -73,7 +73,7 @@ export function CodeEnvRowView({
     detail,
 }: CodeEnvRowViewProps) {
     return (
-        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+        <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
                     <ActionIcon size="sm" variant="subtle" onClick={onToggleDetail}>
@@ -105,7 +105,7 @@ export function CodeEnvRowView({
                 </Group>
             </Group>
             {detail}
-        </Box>
+        </SettingsCardRow>
     )
 }
 
@@ -117,20 +117,13 @@ export type CodeEnvsViewProps = {
 
 export function CodeEnvsView({ onAdd, refresher, children }: CodeEnvsViewProps) {
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={3} size="lg">
-                        Code Environments
-                    </Title>
-                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={onAdd}>
-                        Add Code Environment
-                    </Button>
-                </Group>
-                <Divider c="dimmed" />
-                <RefresherSlot>{refresher}</RefresherSlot>
-                {children}
-            </Stack>
-        </Paper>
+        <SettingsCard
+            title="Code Environments"
+            addLabel="Add Code Environment"
+            onAdd={onAdd}
+            slot={<RefresherSlot>{refresher}</RefresherSlot>}
+        >
+            {children}
+        </SettingsCard>
     )
 }

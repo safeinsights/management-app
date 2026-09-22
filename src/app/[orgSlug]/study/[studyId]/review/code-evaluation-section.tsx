@@ -7,6 +7,7 @@ import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { LinkWithIcon } from '@/components/links'
+import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
     CODE_REVIEW_CRITERIA_KEYS,
@@ -16,6 +17,7 @@ import {
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
+import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -29,10 +31,13 @@ export const criterionFieldId = (key: CodeReviewCriteriaKey) => `criteria-${key}
 
 export const CRITERIA_SECTION_ERROR_ID = 'code-evaluation-criteria'
 
+const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore ${legalDocumentCollectionLabels.SLA} do not exist for this study.`
+
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
     enabled: boolean
     proposalHref: string
+    isTestStudy: boolean
     /** False until the first Submit click — untouched rows must not flag themselves. */
     validateOnBlur: boolean
 }
@@ -124,17 +129,44 @@ function ProposalLink({ href, children }: { href: string; children: ReactNode })
     )
 }
 
-const CRITERION_LABELS: Record<CodeReviewCriteriaKey, (proposalHref: string) => ReactNode> = {
-    proposalAlignment: (href) => (
-        <>
-            Does code align with the approved <ProposalLink href={href}>proposal</ProposalLink>?
-        </>
-    ),
-    agreementCompliance: () => 'Does code align with the Study Agreement?',
-    privacyProtection: () => 'Could the outputs expose any PII?',
+function AgreementNote({ note }: { note: string | undefined }) {
+    if (!note) return null
+    return (
+        <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+            <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
+        </InfoTooltip>
+    )
 }
 
-export function CodeEvaluationSection({ form, enabled, proposalHref, validateOnBlur }: CodeEvaluationSectionProps) {
+type CriterionLabelConfig = {
+    build: (proposalHref: string) => ReactNode
+    note?: (isTestStudy: boolean) => string | undefined
+}
+
+const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
+    proposalAlignment: {
+        build: (href) => (
+            <>
+                Does code align with the approved <ProposalLink href={href}>proposal</ProposalLink>?
+            </>
+        ),
+    },
+    agreementCompliance: {
+        build: () => 'Does code align with the Study Agreement?',
+        note: (isTestStudy) => (isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined),
+    },
+    privacyProtection: {
+        build: () => 'Could the outputs expose any PII?',
+    },
+}
+
+export function CodeEvaluationSection({
+    form,
+    enabled,
+    proposalHref,
+    isTestStudy,
+    validateOnBlur,
+}: CodeEvaluationSectionProps) {
     const provider = useCodeReviewFeedbackProvider()
     const { pushCriterion } = useCodeReviewEvaluationMap({ form, provider, enabled })
 
@@ -147,18 +179,27 @@ export function CodeEvaluationSection({ form, enabled, proposalHref, validateOnB
         pushCriterion(key, value)
     }
 
-    const criterionRows = CODE_REVIEW_CRITERIA_KEYS.map((key) => (
-        <CriterionRow
-            key={key}
-            criterionKey={key}
-            value={criteriaValues[key]}
-            error={form.errors[`criteria.${key}`]}
-            sectionErrorId={sectionErrorId}
-            onChange={handleChange(key)}
-            onBlur={validateOnBlur ? () => form.validateField(`criteria.${key}`) : undefined}
-            label={CRITERION_LABELS[key](proposalHref)}
-        />
-    ))
+    const criterionRows = CODE_REVIEW_CRITERIA_KEYS.map((key) => {
+        const config = CRITERION_LABELS[key]
+        const note = config.note?.(isTestStudy)
+        return (
+            <CriterionRow
+                key={key}
+                criterionKey={key}
+                value={criteriaValues[key]}
+                error={form.errors[`criteria.${key}`]}
+                sectionErrorId={sectionErrorId}
+                onChange={handleChange(key)}
+                onBlur={validateOnBlur ? () => form.validateField(`criteria.${key}`) : undefined}
+                label={
+                    <>
+                        {config.build(proposalHref)}
+                        <AgreementNote note={note} />
+                    </>
+                }
+            />
+        )
+    })
 
     return (
         <Paper p="xxl" data-testid="code-evaluation-section">

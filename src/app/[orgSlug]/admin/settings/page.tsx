@@ -1,13 +1,17 @@
+import type { Metadata } from 'next'
 import { OrganizationSettingsManager } from './organization-settings-manager'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvs } from './code-envs'
 import { DataSources } from './data-sources'
+import { TestLabs } from './test-labs'
 import { OrgSettingsView } from './org-settings-view'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
+
+export const metadata: Metadata = { title: 'Settings' }
 
 export default async function AdminSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await params
@@ -25,6 +29,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={<CodeEnvs />}
             dataSources={<DataSources />}
+            testLabs={<TestLabs isVisible={org.type === 'enclave'} />}
         />
     )
 }

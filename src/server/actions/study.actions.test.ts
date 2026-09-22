@@ -1,4 +1,5 @@
 import logger from '@/lib/logger'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { deliver } from '@/server/mailgun'
 import {
     BLANK_UUID,
@@ -10,6 +11,7 @@ import {
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
+    seedAcknowledgedStudyAgreement,
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
@@ -41,7 +43,9 @@ import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { projectStudyState } from '@/lib/study-screen'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 
-vi.mock('@/server/mailgun', () => ({
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
     deliver: vi.fn(),
 }))
 
@@ -89,6 +93,50 @@ describe('Study Actions', () => {
         expect(updatedStudy.approvedAt).toBeTruthy()
         expect(updatedStudy.rejectedAt).toBeNull()
         expect(updatedStudy.reviewerId).toBe(user.id)
+    })
+
+    const insertSiAdmin = async () => {
+        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
+        const { user } = await insertTestUser({
+            org: { id: siOrg.id, slug: siOrg.slug, type: 'enclave' },
+            isAdmin: true,
+        })
+        return user
+    }
+
+    // The preparation email is held until its Mailgun template exists, so the log line is what there is
+    // to observe. Assert on `deliver` again once the template lands.
+    const HELD_PREPARATION_EMAIL = 'Holding email until its Mailgun template exists: Study Agreement needed'
+
+    it('approving a proposal asks SafeInsights to prepare the Study Agreement', async () => {
+        await insertSiAdmin()
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        vi.spyOn(logger, 'info').mockImplementation(() => true)
+
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+        await waitFor(() => {
+            expect(logger.info).toHaveBeenCalledWith(HELD_PREPARATION_EMAIL)
+        })
+    })
+
+    it('approving a test study asks for no Study Agreement', async () => {
+        await insertSiAdmin()
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
+        vi.spyOn(logger, 'info').mockImplementation(() => true)
+
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+        // The approval email proves the deferred work ran, so the absent one is absent by choice.
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({ template: 'vb - research proposal approved' }),
+            )
+        })
+        expect(logger.info).not.toHaveBeenCalledWith(HELD_PREPARATION_EMAIL)
     })
 
     it('successfully approves a python language study proposal', async () => {
@@ -1667,6 +1715,7 @@ describe('submitCodeReviewDecisionAction', () => {
             })
             .returningAll()
             .executeTakeFirstOrThrow()
+        await seedAcknowledgedStudyAgreement(study.id)
 
         const result = await submitCodeReviewDecisionAction({
             studyId: study.id,

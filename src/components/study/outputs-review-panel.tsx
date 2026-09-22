@@ -3,6 +3,7 @@
 import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
 import { Box, Button, Stack } from '@mantine/core'
+import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
@@ -98,6 +99,10 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     <Stack px="xl" gap="xxl" py="xl">
                         {header}
                         <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
+                        <StudyAgreementPreparingNotice
+                            studyId={studyId}
+                            consequence="You cannot release these outputs yet."
+                        />
                         <LockedPhase isVisible={isLocked} job={job} nav={nav.locked} onDecrypted={onDecrypted} />
                         <UnlockedPhase
                             decryptedFiles={reviewableFiles}
