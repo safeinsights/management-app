@@ -17,11 +17,14 @@ import {
     renameTestOrg,
     setTestStudyStatus,
     writeWorkspaceFiles,
+    insertTestUser,
 } from '@/tests/unit.helpers'
 import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { deliver } from '@/server/mailgun'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     getDraftStudyAction,
     onDeleteStudyAction,
@@ -51,6 +54,14 @@ vi.mock('@/server/aws', async () => {
         triggerScanForStudyJob: vi.fn(),
     }
 })
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
+
+const deliverMock = deliver as unknown as Mock
 
 const workspaceRoots: string[] = []
 
@@ -242,6 +253,47 @@ describe('Request Study Actions', () => {
 
         const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
         expect(study?.id).toBe(studyId)
+    })
+
+    const submitDraftProposal = async (slugPrefix: string) => {
+        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
+        await insertTestUser({ org: { id: siOrg.id, slug: siOrg.slug, type: 'enclave' }, isAdmin: true })
+        const enclave = await insertTestOrg({ type: 'enclave', slug: slugPrefix })
+        await insertTestUser({ org: { id: enclave.id, slug: enclave.slug, type: 'enclave' } })
+        const lab = await insertTestOrg({ slug: `${slugPrefix}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const draft = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: { title: 'Agreement Email Test', piName: 'PI', language: 'R' as const },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+        return draft.studyId
+    }
+
+    const SLA_NOTICE = expect.objectContaining({ template: 'vb - sla notice' })
+
+    // SHRMP-328: submission, not approval, is when SafeInsights is asked to draw the agreement up.
+    it('finalizeStudySubmissionAction asks SafeInsights to prepare the Study Agreement', async () => {
+        const studyId = await submitDraftProposal('sla-on-submit')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    it('finalizeStudySubmissionAction asks for no Study Agreement on a test study', async () => {
+        const studyId = await submitDraftProposal('sla-on-submit-test')
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', studyId).execute()
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
     })
 
     it('finalizeStudySubmissionAction calls onStudyCreated for DRAFT studies', async () => {

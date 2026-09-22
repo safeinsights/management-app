@@ -292,7 +292,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
         recipients.map((recipient) =>
             deliver({
                 to: recipient.email,
-                subject: `SafeInsights - Acknowledge ${legalDocumentTypeLabels.SLA}`,
+                subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
                 template: 'vb - sla ready for acknowledgment',
                 vars: {
                     ...baseStudyVars(study),
