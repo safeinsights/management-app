@@ -102,7 +102,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
         to: SI_EMAIL,
         bcc: emails.join(', '),
         subject: `New ${legalDocumentTypeLabels.SLA} required`,
-        template: 'SLA notice',
+        template: 'vb - sla notice',
         vars: {
             ...baseStudyVars(study),
             studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
@@ -293,7 +293,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
             deliver({
                 to: recipient.email,
                 subject: `SafeInsights - Acknowledge ${legalDocumentTypeLabels.SLA}`,
-                template: 'SLA ready for acknowledgment',
+                template: 'vb - sla ready for acknowledgment',
                 vars: {
                     ...baseStudyVars(study),
                     fullName: recipient.fullName,

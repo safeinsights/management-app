@@ -63,7 +63,7 @@ describe('mailgun email functions', () => {
             expect.objectContaining({
                 to: researcher.email,
                 subject: 'SafeInsights - Acknowledge Study Agreement',
-                template: 'SLA ready for acknowledgment',
+                template: 'vb - sla ready for acknowledgment',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
                     studyName: study.title,
@@ -76,9 +76,8 @@ describe('mailgun email functions', () => {
 
     // One send each, not a Bcc: the template greets by name, which a shared send cannot do.
     it('sendStudyAgreementReadyEmail names each reader in their own send', async () => {
-        const { study, user1 } = await insertTestOrgStudyJobUsers()
-        await db.updateTable('study').set({ piUserId: user1.id }).where('id', '=', study.id).execute()
-        deliverMock.mockClear()
+        const { study, user2 } = await insertTestOrgStudyJobUsers()
+        await db.updateTable('study').set({ piUserId: user2.id }).where('id', '=', study.id).execute()
 
         await mailgun.sendStudyAgreementReadyEmail(study.id)
 
@@ -103,8 +102,6 @@ describe('mailgun email functions', () => {
                 version: 2,
             })
             .execute()
-        deliverMock.mockClear()
-
         await mailgun.sendStudyAgreementReadyEmail(study.id)
 
         const recipients = (deliverMock.mock.calls as [{ to: string }][]).map(([message]) => message.to)
@@ -117,8 +114,6 @@ describe('mailgun email functions', () => {
         const { study, user1 } = await insertTestOrgStudyJobUsers()
         await db.updateTable('study').set({ piUserId: user1.id }).where('id', '=', study.id).execute()
         const researcher = await getUser(study.researcherId)
-        deliverMock.mockClear()
-
         await mailgun.sendStudyAgreementReadyEmail(study.id)
 
         const recipients = (deliverMock.mock.calls as [{ to: string }][]).map(([message]) => message.to)
@@ -132,8 +127,6 @@ describe('mailgun email functions', () => {
         const { study, org: dataPartner } = await insertTestOrgStudyJobUsers()
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
-        deliverMock.mockClear()
-
         await mailgun.sendStudyAgreementReadyEmail(study.id)
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
@@ -155,13 +148,14 @@ describe('mailgun email functions', () => {
         const admin = await insertSiAdmin()
         const { study, org } = await insertTestOrgStudyJobUsers()
 
-        const message = await mailgun.sendStudyAgreementPreparationEmail(study.id)
+        await mailgun.sendStudyAgreementPreparationEmail(study.id)
 
-        expect(message).toEqual(
+        expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: SI_EMAIL,
                 bcc: expect.stringContaining(admin.email || ''),
                 subject: 'New Study Agreement required',
+                template: 'vb - sla notice',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
                     studyName: study.title,
@@ -194,8 +188,6 @@ describe('mailgun email functions', () => {
         await insertSiAdmin()
         const { study } = await insertTestOrgStudyJobUsers()
         await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
-        deliverMock.mockClear()
-
         await mailgun.sendStudyAgreementPreparationEmail(study.id)
 
         expect(deliverMock).not.toHaveBeenCalled()
