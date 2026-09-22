@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@/common'
-import { useDecryptFiles } from '@/hooks/use-decrypt-files'
+import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import * as Sentry from '@sentry/nextjs'
@@ -9,6 +9,7 @@ const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
     noFiles: 'No encrypted outputs available to decrypt.',
+    integrity: ARCHIVE_INTEGRITY_MESSAGE,
 } as const
 
 type UseSecurityKeyFormOptions = {
@@ -51,6 +52,11 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
     const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
+    const failDecrypt = useCallback(
+        (err: Error) => setError(err instanceof ArchiveIntegrityError ? ERRORS.integrity : ERRORS.invalid),
+        [],
+    )
+
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
         onSuccess: (files) => {
@@ -65,7 +71,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
             setError(undefined)
             onDecrypted(files)
         },
-        onError: failInvalid,
+        onError: failDecrypt,
     })
 
     useEffect(() => {

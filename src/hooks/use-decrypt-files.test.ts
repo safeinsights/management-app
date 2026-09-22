@@ -9,10 +9,10 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { openArchive, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
+import { openArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import type { JobFileInfo } from '@/lib/types'
-import { useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
+import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
 
 const FILENAME = 'results.csv'
 const CONTENTS = 'participant_count,mean_score\n4128,72.4\n'
@@ -57,6 +57,12 @@ const decrypt = async (file: EncryptedJobFile) => {
     return decrypted as JobFileInfo[]
 }
 
+const currentArchive = async () => {
+    const writer = new ResultsWriter([await recipient()])
+    await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+    return writer.generate()
+}
+
 const expectDecryptsToContents = (files: JobFileInfo[]) => {
     expect(files).toHaveLength(1)
     expect(files[0].path).toBe(FILENAME)
@@ -77,9 +83,12 @@ describe('useDecryptFiles', () => {
     })
 
     it('reads a current archive', async () => {
-        const writer = new ResultsWriter([await recipient()])
-        await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+        expectDecryptsToContents(await decrypt(await asJobFile(await currentArchive())))
+    })
 
-        expectDecryptsToContents(await decrypt(await asJobFile(await writer.generate())))
+    it('reports a dropped file as tampering rather than a bad key', async () => {
+        const archive = await tamper(await currentArchive(), { drop: [FILENAME] })
+
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
     })
 })
