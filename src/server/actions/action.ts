@@ -192,7 +192,6 @@ export class Action<
                             await fn()
                         } catch (error: unknown) {
                             logger.error(error)
-                            Sentry.captureException(error)
                         }
                     }
                 }

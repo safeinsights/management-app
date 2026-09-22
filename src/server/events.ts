@@ -14,11 +14,7 @@ import {
     isStudyReviewQueueConfigured,
     type StudyReviewMessage,
 } from './agents/review-agent/enqueue'
-import {
-    generateAndStoreStudyReview,
-    markStudyReviewQueued,
-    markStudyReviewUnqueued,
-} from './agents/review-agent/runner'
+import { generateAndStoreStudyReview } from './agents/review-agent/runner'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
@@ -114,22 +110,16 @@ const startStudyReviewInline = deferred(async ({ studyJobId, round }: StudyRevie
     await generateAndStoreStudyReview(studyJobId, round)
 })
 
-// Not deferred(), unlike its neighbours: the caller awaits this from afterCommit so the queue is
-// handed a round that is already committed. Generation itself takes minutes, which after() cannot
-// hold open in a Lambda, so the queue is the real path and the in-process run is the fallback for
-// environments that have none (OTTER-799).
-export const onStudyReviewRequested = async ({ studyJobId, round }: StudyReviewMessage) => {
-    if (!isStudyReviewQueueConfigured()) {
-        startStudyReviewInline({ studyJobId, round })
-        return
+// Not deferred(), unlike its neighbours: the caller awaits this from afterCommit, so the message is
+// sent before the response and names a round that is already committed. Generation itself takes
+// minutes, which after() cannot hold open in a Lambda, so the queue is the real path and the
+// in-process run is the fallback for environments that have none (OTTER-799).
+export const onStudyReviewRequested = async (message: StudyReviewMessage) => {
+    if (isStudyReviewQueueConfigured()) {
+        await enqueueStudyReview(message)
+    } else {
+        startStudyReviewInline(message)
     }
-
-    // Queued first, so the round reads as pending while it waits for a worker. Falling back to an
-    // in-process run here would put generation back in the request path this card moved it out of,
-    // so a failed send is recorded instead and the reviewer is offered a retry straight away.
-    await markStudyReviewQueued(studyJobId, round)
-    if (await enqueueStudyReview({ studyJobId, round })) return
-    await markStudyReviewUnqueued(studyJobId, round)
 }
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {

@@ -55,12 +55,8 @@ export interface ReviewMessage {
     content: string
 }
 
-// `messages` is the seed conversation to persist for chat continuation. `usage` and `stopReason`
-// are logged by the runner, so the next question about generation cost or length is answerable
-// from the logs rather than from a new deploy.
+// `messages` is the seed conversation to persist for chat continuation.
 export interface AnalysisResult {
     report: AnalysisReport
     messages: ReviewMessage[]
-    stopReason?: string | null
-    usage?: { inputTokens: number; outputTokens: number }
 }

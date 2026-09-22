@@ -116,44 +116,11 @@ async function assembleReviewContent(
     return { content, agentContext }
 }
 
-// Thrown only once the failure is on the row, so a caller can tell a recorded outcome from a crash
-// that left the round looking alive.
-export class StudyReviewGenerationFailed extends Error {
-    constructor(studyJobId: string, round: number, options?: ErrorOptions) {
-        super(`study review generation failed for job ${studyJobId} round ${round}`, options)
-        this.name = 'StudyReviewGenerationFailed'
-    }
-}
-
-// Written before the message reaches the queue, so a round waiting for a worker reads as pending
-// rather than as one nothing ever picked up. The worker's claim takes this row over and stamps
-// summary_started_at on it (OTTER-799).
-export async function markStudyReviewQueued(studyJobId: string, round: number): Promise<void> {
-    await db
-        .insertInto('studyReview')
-        .values({ studyJobId, round, report: null, summaryFailedAt: null, summaryStartedAt: null })
-        .onConflict((oc) => oc.columns(['studyJobId', 'round']).doNothing())
-        .execute()
-}
-
-// The queue is the only path in a deployed environment, so a send that fails leaves nothing coming.
-// Recording that now gives the reviewer a retry instead of a spinner that runs out the clock.
-export async function markStudyReviewUnqueued(studyJobId: string, round: number): Promise<void> {
-    await db
-        .updateTable('studyReview')
-        .set({ summaryFailedAt: new Date() })
-        .where('studyJobId', '=', studyJobId)
-        .where('round', '=', round)
-        .where('report', 'is', null)
-        .where('summaryStartedAt', 'is', null)
-        .execute()
-}
-
 // Marks the round as being generated and answers with the claim this run owns, or null if another
 // run holds it. Nothing else serializes two runs of one round: a retry, a redelivered queue message
 // and a leftover deferred run all reach here independently (OTTER-799). A report is never taken
-// over, and a pending row is only taken over once it is queued or old enough to be a run that died
-// without recording anything.
+// over, and a pending row only once it is old enough to be a run that died without recording
+// anything.
 async function claimRound(studyJobId: string, round: number): Promise<Date | null> {
     const startedAt = new Date()
     const staleBefore = new Date(startedAt.getTime() - STUDY_REVIEW_STALE_AFTER_MS)
@@ -170,10 +137,7 @@ async function claimRound(studyJobId: string, round: number): Promise<Date | nul
                         eb('studyReview.summaryFailedAt', 'is not', null),
                         eb.and([
                             eb('studyReview.report', 'is', null),
-                            eb.or([
-                                eb('studyReview.summaryStartedAt', 'is', null),
-                                eb('studyReview.summaryStartedAt', '<', staleBefore),
-                            ]),
+                            eb('studyReview.summaryStartedAt', '<', staleBefore),
                         ]),
                     ]),
                 ),
@@ -204,9 +168,9 @@ export async function generateAndStoreStudyReview(studyJobId: string, round: num
         await runStudyReview(studyJobId, round, claimedAt)
     } catch (error) {
         // Lets the reviewer-side poll tell "failed" from "still generating"; re-thrown so the
-        // deferred wrapper still flushes to Sentry.
+        // caller still reports it.
         await persistFailure(studyJobId, round, claimedAt)
-        throw new StudyReviewGenerationFailed(studyJobId, round, { cause: error })
+        throw error
     }
 }
 
@@ -232,23 +196,14 @@ async function runStudyReview(studyJobId: string, round: number, claimedAt: Date
     }
     const { content, agentContext } = assembled
 
-    const startedAt = Date.now()
     // TODO(chat): persist `messages` alongside `report` once chat follow-up lands.
-    const { report, usage, stopReason } = await generateAnalysis(
-        { apiKey, additionalContext: agentContext, signal },
-        content,
-    )
+    const { report } = await generateAnalysis({ apiKey, additionalContext: agentContext, signal }, content)
 
     await persistReport(studyJobId, round, report, claimedAt)
     logger.info(`Study review generated and stored`, {
         studyJobId,
         round,
-        durationMs: Date.now() - startedAt,
-        fileCount: Object.keys(content.codeFiles).length,
-        codeBytes: Object.values(content.codeFiles).reduce((total, file) => total + file.length, 0),
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-        stopReason,
+        durationMs: Date.now() - claimedAt.getTime(),
     })
 }
 

@@ -17,7 +17,7 @@ const baseContent: ReviewContent = {
 }
 
 function makeClient(content: unknown, extra: Record<string, unknown> = {}) {
-    const message = { content, stop_reason: null, usage: { input_tokens: 11, output_tokens: 22 }, ...extra }
+    const message = { content, ...extra }
     const stream = vi.fn().mockReturnValue({ finalMessage: () => Promise.resolve(message) })
     return { client: { messages: { stream } } as unknown as Anthropic, stream }
 }
@@ -165,14 +165,5 @@ describe('generateAnalysis', () => {
 
         const schema = stream.mock.calls[0][0].tools[0].input_schema
         expect(schema.properties.codeExplanation.description).toContain('1,500 words')
-    })
-
-    it('reports token usage and the stop reason for the runner to log', async () => {
-        const { client } = makeClient(toolUseBlock, { stop_reason: 'tool_use' })
-
-        const result = await generateAnalysis({ client }, baseContent)
-
-        expect(result.usage).toEqual({ inputTokens: 11, outputTokens: 22 })
-        expect(result.stopReason).toBe('tool_use')
     })
 })

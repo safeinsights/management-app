@@ -2,14 +2,10 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { captureRouterTransitionStart, replayIntegration } from '@sentry/nextjs'
-import { sentryInitOptions } from '@/lib/sentry'
+import { scrubSentryEvent } from '@/lib/sentry'
 
 Sentry.init({
-    ...sentryInitOptions({
-        dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
-        release: process.env.RELEASE_TAG || 'unknown',
-        environment: process.env.ENVIRONMENT_ID || 'development',
-    }),
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
 
     integrations: [
         replayIntegration({
@@ -20,6 +16,8 @@ Sentry.init({
         }),
     ],
 
+    beforeSend: scrubSentryEvent,
+
     tracesSampleRate: 1,
     enableLogs: true,
 
@@ -27,6 +25,13 @@ Sentry.init({
     // recording is a privacy risk even with masking on.
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0.1,
+
+    debug: false,
+
+    enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
+
+    release: process.env.RELEASE_TAG || 'unknown',
+    environment: process.env.ENVIRONMENT_ID || 'development',
 })
 
 export const onRouterTransitionStart = captureRouterTransitionStart

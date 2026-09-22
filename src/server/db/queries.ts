@@ -10,6 +10,7 @@ import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/ty
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 import { codeRoundForJob } from './code-round'
+import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -625,6 +626,8 @@ export type StudyReviewWithMeta = {
     createdAt: Date
     summaryFailedAt: Date | null
     summaryStartedAt: Date | null
+    // Judged here rather than in the browser, so a reviewer's clock cannot call a live run dead.
+    isStale: boolean
     files: { name: string; fileType: FileType }[]
 }
 
@@ -730,7 +733,7 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
         .where('round', '=', round)
         .executeTakeFirst()
 
-    return row ?? null
+    return row ? { ...row, isStale: isStudyReviewStale(row) } : null
 }
 
 export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }

@@ -6,8 +6,6 @@ import { enqueueStudyReview, isStudyReviewQueueConfigured } from './enqueue'
 const sqsMock = mockClient(SQSClient)
 
 const originalQueueUrl = process.env.REVIEW_QUEUE_URL
-const sentMessages = () => sqsMock.commandCalls(SendMessageCommand)
-const sentMessage = () => sentMessages()[0].args[0].input
 
 describe('enqueueStudyReview', () => {
     beforeEach(() => {
@@ -23,37 +21,18 @@ describe('enqueueStudyReview', () => {
     it('sends the job and its round to the configured queue', async () => {
         process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
 
-        expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 2 })).toBe(true)
+        await enqueueStudyReview({ studyJobId: 'job-1', round: 2 })
 
-        expect(sentMessage().QueueUrl).toBe('https://sqs.test/review')
-        expect(JSON.parse(sentMessage().MessageBody!)).toMatchObject({ studyJobId: 'job-1', round: 2 })
+        const input = sqsMock.commandCalls(SendMessageCommand)[0].args[0].input
+        expect(input.QueueUrl).toBe('https://sqs.test/review')
+        expect(JSON.parse(input.MessageBody!)).toEqual({ studyJobId: 'job-1', round: 2 })
     })
 
-    // The worker drops a message that waited longer than the reviewer did, so it has to be able to
-    // tell how long that was.
-    it('stamps the message with when the review was requested', async () => {
-        process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
-
-        await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })
-
-        const { requestedAt } = JSON.parse(sentMessage().MessageBody!)
-        expect(Date.now() - new Date(requestedAt).getTime()).toBeLessThan(5_000)
-    })
-
-    // Local development, unit tests and PR previews each run against their own database, which the
-    // shared worker cannot reach.
-    it('reports nothing queued when no queue is configured', async () => {
-        delete process.env.REVIEW_QUEUE_URL
-
-        expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })).toBe(false)
-        expect(sentMessages()).toHaveLength(0)
-    })
-
-    it('reports nothing queued when the send fails, so the caller can record that', async () => {
+    it('rejects when the send fails, so the caller reports it', async () => {
         process.env.REVIEW_QUEUE_URL = 'https://sqs.test/review'
         sqsMock.on(SendMessageCommand).rejects(new Error('queue unreachable'))
 
-        expect(await enqueueStudyReview({ studyJobId: 'job-1', round: 1 })).toBe(false)
+        await expect(enqueueStudyReview({ studyJobId: 'job-1', round: 1 })).rejects.toThrow('queue unreachable')
     })
 })
 

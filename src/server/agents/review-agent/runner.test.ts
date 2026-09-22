@@ -2,13 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import { db, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
-import {
-    generateAndStoreStudyReview,
-    markStudyReviewQueued,
-    markStudyReviewUnqueued,
-    PLACEHOLDER,
-    StudyReviewGenerationFailed,
-} from './runner'
+import { generateAndStoreStudyReview, PLACEHOLDER } from './runner'
 import { generateAnalysis } from './agent'
 import { fetchFileContents } from '@/server/storage'
 import { getConfigValue } from '@/server/config'
@@ -223,7 +217,7 @@ describe('generateAndStoreStudyReview', () => {
             throw new Error('model exploded')
         })
 
-        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
 
         // Round 1 keeps the claim of the run that produced nothing; only round 2 reaches a reviewer.
         const stored = await storedReviews(job.id)
@@ -275,7 +269,7 @@ describe('generateAndStoreStudyReview', () => {
             throw new Error('model exploded')
         })
 
-        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
 
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
@@ -299,7 +293,7 @@ describe('generateAndStoreStudyReview', () => {
         generateAnalysisMock.mockRejectedValue(boom)
         const job = await setupJobWithCode()
 
-        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
 
         const stored = await db
             .selectFrom('studyReview')
@@ -371,7 +365,7 @@ describe('generateAndStoreStudyReview', () => {
             throw new Error('model exploded')
         })
 
-        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow(StudyReviewGenerationFailed)
+        await expect(generateAndStoreStudyReview(job.id, 1)).rejects.toThrow('model exploded')
 
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
@@ -397,29 +391,6 @@ describe('generateAndStoreStudyReview', () => {
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
         expect(stored[0].report).toBeNull()
-    })
-
-    // Queued rows are written before the message is sent, so the worker has to be able to take one.
-    it('claims a queued row that has no start time yet', async () => {
-        const job = await setupJobWithCode()
-        await markStudyReviewQueued(job.id, 1)
-
-        await generateAndStoreStudyReview(job.id, 1)
-
-        expect(generateAnalysisMock).toHaveBeenCalledOnce()
-        const stored = await storedReviews(job.id)
-        expect(stored).toHaveLength(1)
-        expect(stored[0].report).not.toBeNull()
-    })
-
-    it('marks a queued row failed when the send never made it to the queue', async () => {
-        const job = await setupJob()
-        await markStudyReviewQueued(job.id, 1)
-
-        await markStudyReviewUnqueued(job.id, 1)
-
-        const stored = await storedReviews(job.id)
-        expect(stored[0].summaryFailedAt).toBeInstanceOf(Date)
     })
 
     it('re-runs generation when only a failed row exists (retry path)', async () => {

@@ -153,10 +153,5 @@ export async function generateAnalysis(config: ReviewAgentConfig, content: Revie
         { role: 'user', content: prompt },
         { role: 'assistant', content: JSON.stringify(report) },
     ]
-    return {
-        report,
-        messages,
-        stopReason: response.stop_reason,
-        usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
-    }
+    return { report, messages }
 }

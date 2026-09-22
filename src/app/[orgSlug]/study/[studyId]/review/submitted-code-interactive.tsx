@@ -23,7 +23,7 @@ import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { isActionError } from '@/lib/errors'
-import { isStudyReviewStale, STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-review'
+import { STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-review'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
 import { FilePreviewModal } from '@/components/modals/file-preview-modal'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
@@ -98,9 +98,8 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
 
 const ANALYSIS_POLL_INTERVAL_MS = 5_000
 
-// Last resort only: a run that claimed the round carries its own start time, and a run that
-// failed wrote a row. This covers the remaining case, a run that died before it could claim
-// anything. Measured from submission, not page open, so opening late does not reset the clock.
+// Only for a round with no row yet: queued, or a run that died before it could claim anything.
+// Measured from submission, not page open, so opening late does not reset the clock.
 const AI_SUMMARY_TIMEOUT_MS = STUDY_REVIEW_STALE_AFTER_MS
 
 // Same backstop shape as the AI summary, but a longer clock: the scan log is written by the
@@ -133,15 +132,6 @@ function useElapsedSince(since: Date | string, ms: number) {
             setElapsed(false)
         },
     }
-}
-
-// Whether the summary is not coming. A row carries the time its run started, so it is judged
-// against the last time the poll spoke to the server, and mount time before the first tick. Only
-// where no row exists at all does the submission-anchored backstop decide.
-function useSummaryGaveUp(review: StudyReviewWithMeta | null, dataUpdatedAt: number, submissionElapsed: boolean) {
-    const [mountedAt] = useState(() => Date.now())
-    if (review == null) return submissionElapsed
-    return isStudyReviewStale(review, Math.max(dataUpdatedAt, mountedAt))
 }
 
 // A resubmit reuses the job id, so keying on it alone lets the cache serve the previous round as
@@ -353,10 +343,11 @@ export function JobAnalysisPanels({
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
     const scanTimeout = useElapsedSince(submittedAt, scanTimeoutMs)
-    const { data, error, dataUpdatedAt } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
     const analysis = data ?? initialAnalysis
     const isScanWaiting = isScanPending(analysis.scan)
-    const summaryGaveUp = useSummaryGaveUp(analysis.review, dataUpdatedAt, summaryTimeout.elapsed)
+    // The server judges a row it has; the submission clock only covers a run that never wrote one.
+    const summaryGaveUp = analysis.review ? analysis.review.isStale : summaryTimeout.elapsed
     // Only the clock decides the scan will not report. A failed request is transient and gets its
     // own state, since the enclave run it knows nothing about is usually still going.
     const scanGivenUp = scanTimeout.elapsed && isScanWaiting
