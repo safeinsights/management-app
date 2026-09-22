@@ -1,4 +1,5 @@
 import {
+    createTestQueryClient,
     db,
     describe,
     expect,
@@ -28,5 +29,22 @@ describe('MarkOutputsDecisionViewed', () => {
         renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />)
 
         await waitFor(async () => expect(await viewedRows(job.id)).toHaveLength(1))
+    })
+
+    // Without this the in-app route back reads a dashboard row cached before the write.
+    it('invalidates the researcher dashboard rows once the view is recorded', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(['user-researcher-studies'], [])
+        queryClient.setQueryData(['researcher-studies', org.slug], [])
+
+        renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />, { queryClient })
+
+        await waitFor(async () => expect(await viewedRows(job.id)).toHaveLength(1))
+        await waitFor(() => {
+            expect(queryClient.getQueryState(['user-researcher-studies'])?.isInvalidated).toBe(true)
+            expect(queryClient.getQueryState(['researcher-studies', org.slug])?.isInvalidated).toBe(true)
+        })
     })
 })

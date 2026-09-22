@@ -432,13 +432,14 @@ describe('Study Job Actions', () => {
             expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
 
-        test('refuses a data partner member, whose visit is not the lab reading the decision', async () => {
+        // Silently, not as a failure: a reviewer holds `view Study` on the lab's own outputs page, so
+        // reporting would file an error for a page the lab's own leaf fires on every render.
+        test('ignores a data partner member, whose visit is not the lab reading the decision', async () => {
             const fixture = await setupResultApprovalFixture()
             await approve(fixture)
 
-            const result = await markOutputsDecisionViewedAction({ studyId: fixture.study.id })
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
 
-            expect(result).toEqual({ error: expect.objectContaining({ user: expect.any(String) }) })
             expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
     })

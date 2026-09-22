@@ -481,10 +481,9 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
         // Only the research lab's own view counts: a data partner opening /view must not flip the
-        // lab's badge to "Outputs reviewed".
-        if (!isSessionOrgMember(session, submittedByOrgId)) {
-            throw new ActionFailure({ user: 'not a member of the study research lab' })
-        }
+        // lab's badge to "Outputs reviewed". Silent like the guards below rather than a failure,
+        // because `view Study` also reaches that page as a reviewer and the caller reports to Sentry.
+        if (!isSessionOrgMember(session, submittedByOrgId)) return
 
         const raw = await rawStudyStateForStudy(studyId, db)
         if (!raw) return
