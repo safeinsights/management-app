@@ -158,6 +158,8 @@ describe('useCodeReviewMutation', () => {
             ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit code review',
         )
         expect(errorCall).toBeDefined()
+        // A refusal reaches the reviewer verbatim, so it must not arrive wearing an "Error:" prefix.
+        expect((errorCall?.[0] as { message?: string }).message).not.toMatch(/^Error:/)
         expect(handle.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
     })

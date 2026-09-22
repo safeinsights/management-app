@@ -10,7 +10,6 @@ import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
-import { actionResult } from '@/lib/utils'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
@@ -40,8 +39,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         isSuccess,
         variables: pendingReview,
     } = useMutation({
-        mutationFn: async (args: SubmitCodeReviewArgs) =>
-            actionResult(await submitCodeReviewDecisionAction({ orgSlug, studyId, ...args })),
+        mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
         onError: reportMutationError('Failed to submit code review'),
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
