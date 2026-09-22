@@ -199,7 +199,7 @@ function EditableBody({
         <Stack gap="xl">
             <StudyAgreementPreparingNotice
                 studyId={job.studyId}
-                consequence="You cannot submit a review decision yet."
+                consequence="You cannot submit a review decision"
             />
             <CodeEvaluationSection
                 form={evaluationForm}

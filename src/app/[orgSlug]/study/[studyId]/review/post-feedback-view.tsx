@@ -157,7 +157,11 @@ export function PostFeedbackView({
                     heading={heading}
                     banner={banner}
                 />
-                <StudyAgreementPreparingNotice studyId={study.id} isVisible={showsAgreementNotice} />
+                <StudyAgreementPreparingNotice
+                    studyId={study.id}
+                    consequence="Researchers cannot submit code"
+                    isVisible={showsAgreementNotice}
+                />
                 <PostDecisionFeedback
                     isVisible={!feedbackBeforeDetails}
                     entries={entries}

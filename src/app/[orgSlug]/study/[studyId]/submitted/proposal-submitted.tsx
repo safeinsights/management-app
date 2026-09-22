@@ -92,7 +92,11 @@ export function ProposalSubmitted({
                     banner={banner}
                     initialExpanded={false}
                 />
-                <StudyAgreementPreparingNotice studyId={study.id} isVisible={proposalStatus === 'APPROVED'} />
+                <StudyAgreementPreparingNotice
+                    studyId={study.id}
+                    consequence="You cannot submit code"
+                    isVisible={proposalStatus === 'APPROVED'}
+                />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
                 <StepNavigation nav={nav} />

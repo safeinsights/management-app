@@ -61,7 +61,7 @@ export const StudyAgreementModal: FC<Props> = ({
 
                 <AcknowledgementError error={error} />
 
-                <Group justify="flex-end">
+                <Group>
                     <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
                         Cancel
                     </Button>
