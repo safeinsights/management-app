@@ -410,6 +410,8 @@ describe('Study Job Actions', () => {
                 orgType: 'lab',
             })
 
+        // Sequentially, which is the guard the action actually provides; see the race documented on
+        // the insert for what two overlapping visits do.
         test('records the lab view of a released decision once, on the decided job', async () => {
             const fixture = await setupResultApprovalFixture()
             await approve(fixture)

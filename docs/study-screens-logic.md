@@ -384,7 +384,14 @@ The pill cannot be keyed on a status value alone, which is why it has a table ra
 `markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
 `MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
 prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
-exists, and only once per job. A job status rather than a study column because a resubmission opens
+exists, and once per job for any visit that sees an earlier one. Two visits close enough to read
+before either writes both insert. That race is accepted rather than fixed: every reader asks the
+status set whether the row is there, so a duplicate moves no badge. The partial unique index that
+would settle it cannot be created, because its predicate has to name `RESULTS-VIEWED`, which the
+migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
+of a new value, and `status::text` as a non-IMMUTABLE index predicate; a fresh database replays both
+migrations together, so a later migration cannot escape it either. A job status rather than a study
+column because a resubmission opens
 a new job, so the fact resets per round without any clearing logic. It is deliberately absent from
 `DISPLAY_STATUS_PRIORITY`: `displayStatus` has no consumer that should read it.
 

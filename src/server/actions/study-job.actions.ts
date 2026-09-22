@@ -492,6 +492,9 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
 
         const job = latestJob(raw.jobs)
         if (!job) return
+        // The resultsViewed check is a separate round trip, so two overlapping visits can both insert.
+        // Accepted: no reader counts these rows, and a partial unique index cannot name an enum value
+        // the migration before it adds (OTTER-698, docs/study-screens-logic.md).
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
