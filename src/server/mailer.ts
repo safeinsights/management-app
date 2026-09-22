@@ -82,6 +82,20 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
+// onStudyCreated is the only writer of CREATED/STUDY and audits before it mails, so the row for
+// this submission is already there: a second one means the lab has submitted before.
+const isResubmission = async (studyId: string) => {
+    const { submissions } = await db
+        .selectFrom('audit')
+        .select((eb) => eb.fn.countAll().as('submissions'))
+        .where('recordType', '=', 'STUDY')
+        .where('recordId', '=', studyId)
+        .where('eventType', '=', 'CREATED')
+        .executeTakeFirstOrThrow()
+
+    return Number(submissions) > 1
+}
+
 // Audience: SafeInsights admins, Trigger: a proposal is submitted to a Data Partner. Only they can
 // draw the agreement up, and the study sits behind the gate until one of them publishes it.
 export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
@@ -90,9 +104,12 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     // A test study is exempt from the agreement, so there is nothing to prepare.
     if (study.isTestStudy) return
 
-    // Resubmission after CHANGE-REQUESTED runs the same submit path, so without this an admin who
-    // has already started the agreement is asked for it again. A draft counts as started.
+    // An agreement already under way needs no second ask. A draft counts: submitStudyCodeAction
+    // reaches here too, and its gate only passes once one is acknowledged.
     if (await findLegalDocument(db, { type: 'SLA', studyId })) return
+
+    // The same proposal coming back is already on the admins' list.
+    if (await isResubmission(studyId)) return
 
     const admins = await getSiAdmins()
     const emails = admins.map((admin) => admin.email).filter((email) => email)
