@@ -36,10 +36,10 @@ const renderPage = (props: { isRegenerating?: boolean; firstKeyRedirect?: Route 
     return screen.findByText('Security key', { selector: 'h3' })
 }
 
-const storeKey = async () => {
+const storeKey = async (confirmLabel = 'Yes, I have stored my key') => {
     fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
     fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Yes, I have stored my key' }))
+    fireEvent.click(await screen.findByRole('button', { name: confirmLabel }))
 }
 
 describe('Security key generation', () => {
@@ -81,6 +81,7 @@ describe('Security key generation', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
 
         expect(await screen.findByText('Have you stored your security key?')).toBeDefined()
+        expect(screen.queryByText('Confirm key reset')).toBeNull()
 
         fireEvent.click(screen.getByRole('button', { name: 'Back' }))
         await waitFor(() => expect(screen.queryByText('Have you stored your security key?')).toBeNull())
@@ -112,11 +113,31 @@ describe('Security key generation', () => {
         await waitFor(() => expect(router.asPath).toBe('/acme/dashboard'))
     })
 
+    // OTTER-741: a key holder reaching this route directly used to read a first-time setup and a
+    // modal that warned only about losing the new key.
+    it('describes a reset with the /user-key warning in the body and the confirm modal', async () => {
+        mockClipboard(true)
+        await renderPage({ isRegenerating: true })
+
+        expect(screen.getByText(/It replaces your existing key\./)).toBeDefined()
+        expect(screen.getByText(/A new key cannot decrypt your current outputs\. It works only/).tagName).toBe('B')
+        expect(screen.queryByText(/This is your security key\. You will need it/)).toBeNull()
+
+        fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+        fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
+
+        expect(await screen.findByText('Confirm key reset')).toBeDefined()
+        expect(screen.getByText(/those outputs will be lost\. This action cannot be undone\./)).toBeDefined()
+        expect(screen.queryByText('Have you stored your security key?')).toBeNull()
+        expect(screen.getByRole('button', { name: 'Yes, replace my key' })).toBeDefined()
+        expect(updateUserPublicKeyAction).not.toHaveBeenCalled()
+    })
+
     it('a reset updates the key and redirects to the personal dashboard', async () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: true })
 
-        await storeKey()
+        await storeKey('Yes, replace my key')
 
         await waitFor(() => {
             expect(updateUserPublicKeyAction).toHaveBeenCalledWith(
@@ -131,7 +152,7 @@ describe('Security key generation', () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: true, firstKeyRedirect: '/openstax-lab/dashboard' as Route })
 
-        await storeKey()
+        await storeKey('Yes, replace my key')
 
         await waitFor(() => expect(router.asPath).toBe('/dashboard'))
     })

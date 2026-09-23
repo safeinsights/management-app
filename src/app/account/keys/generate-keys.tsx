@@ -35,6 +35,39 @@ type GenerateKeysProps = {
     firstKeyRedirect?: Route
 }
 
+type KeyCopy = {
+    intro: string
+    emphasis: string
+    modalTitle: string
+    modalBody: string
+    confirmLabel: string
+    confirmColor?: string
+}
+
+const FIRST_KEY_COPY: KeyCopy = {
+    intro: 'This is your security key. You will need it to access your study outputs across every organization you belong to.',
+    emphasis: 'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.',
+    modalTitle: 'Have you stored your security key?',
+    modalBody:
+        'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.',
+    confirmLabel: 'Yes, I have stored my key',
+}
+
+// Same wording as /user-key: a direct visit to this route used to describe a reset as a first-time
+// setup and warn only about losing the new key (OTTER-741).
+const RESET_KEY_COPY: KeyCopy = {
+    intro: 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.',
+    emphasis:
+        'A new key cannot decrypt your current outputs. It works only for outputs encrypted after you generate it.',
+    modalTitle: 'Confirm key reset',
+    modalBody:
+        'A new key cannot decrypt your current outputs. If you no longer have your key and no one in your organization can access them, those outputs will be lost. This action cannot be undone. SafeInsights does not store your new key. If you lose it, you will not be able to access your study outputs.',
+    confirmLabel: 'Yes, replace my key',
+    confirmColor: 'red',
+}
+
+const keyCopyFor = (isRegenerating: boolean): KeyCopy => (isRegenerating ? RESET_KEY_COPY : FIRST_KEY_COPY)
+
 const COPIED_VISIBLE_MS = 2000
 
 type CopyIndication = { hue: 'green' | 'red'; Icon: typeof CheckIcon; fw?: number; text: string }
@@ -110,6 +143,8 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
         setHasAttemptedCopy(true)
     }
 
+    const copyText = keyCopyFor(isRegenerating)
+
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
@@ -117,14 +152,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                     Security key
                 </Title>
 
-                <Text fz={16}>
-                    This is your security key. You will need it to access your study outputs across every organization
-                    you belong to.{' '}
-                    <Text component="b" fw={fontWeight.bold} inherit>
-                        It is shown only once. Copy and store it somewhere safe, like a password manager, before you
-                        continue.
-                    </Text>
-                </Text>
+                <KeyIntro copyText={copyText} />
 
                 <Stack gap="md">
                     <Text fz={14} fw={fontWeight.semibold}>
@@ -158,10 +186,20 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                 keys={keys}
                 isRegenerating={isRegenerating}
                 firstKeyRedirect={firstKeyRedirect}
+                copyText={copyText}
             />
         </Paper>
     )
 }
+
+const KeyIntro: FC<{ copyText: KeyCopy }> = ({ copyText }) => (
+    <Text fz={16}>
+        {copyText.intro}{' '}
+        <Text component="b" fw={fontWeight.bold} inherit>
+            {copyText.emphasis}
+        </Text>
+    </Text>
+)
 
 const NextButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
     if (!isVisible) return null
@@ -193,7 +231,8 @@ const ConfirmationModal: FC<{
     keys: Keys
     isRegenerating: boolean
     firstKeyRedirect: Route
-}> = ({ onClose, isOpen, keys, isRegenerating, firstKeyRedirect }) => {
+    copyText: KeyCopy
+}> = ({ onClose, isOpen, keys, isRegenerating, firstKeyRedirect, copyText }) => {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -211,18 +250,17 @@ const ConfirmationModal: FC<{
     })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your security key?">
+        <AppModal isOpen={isOpen} onClose={onClose} title={copyText.modalTitle}>
             <Stack>
                 <Text fz={16} mb="md">
-                    SafeInsights does not store your key. If you lose it, you will not be able to access your study
-                    outputs.
+                    {copyText.modalBody}
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Back
                     </Button>
-                    <Button onClick={() => saveUserKey()} loading={isSavingKey}>
-                        Yes, I have stored my key
+                    <Button color={copyText.confirmColor} onClick={() => saveUserKey()} loading={isSavingKey}>
+                        {copyText.confirmLabel}
                     </Button>
                 </Group>
             </Stack>

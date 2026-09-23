@@ -24,7 +24,7 @@ vi.mock('si-encryption/util/keypair', async (importOriginal) => ({
 
 // The landing resolver stays real: the point is that the page wires it into the redirect
 // (OTTER-655). The stand-in is a real SPKI key because the action validates the bytes.
-const renderKeysPage = async () => {
+const renderKeysPage = async (confirmLabel = 'Yes, I have stored my key') => {
     Object.defineProperty(navigator, 'clipboard', {
         value: { writeText: vi.fn(() => Promise.resolve()) },
         configurable: true,
@@ -43,7 +43,7 @@ const renderKeysPage = async () => {
 
     fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
     fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Yes, I have stored my key' }))
+    fireEvent.click(await screen.findByRole('button', { name: confirmLabel }))
 }
 
 describe('KeysPage', () => {
@@ -67,5 +67,21 @@ describe('KeysPage', () => {
         await renderKeysPage()
 
         await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+    })
+
+    // OTTER-741: a direct visit by an account that already holds a key is a reset, and must say so.
+    it('walks a key holder through the reset warning and replaces the stored key', async () => {
+        router.setCurrentUrl('/account/keys')
+        const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
+
+        await renderKeysPage('Yes, replace my key')
+
+        await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+        const key = await db
+            .selectFrom('userPublicKey')
+            .select('fingerprint')
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+        expect(key.fingerprint).not.toBe('testFingerprint1')
     })
 })
