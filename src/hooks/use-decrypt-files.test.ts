@@ -16,6 +16,8 @@ import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from '.
 
 const FILENAME = 'results.csv'
 const CONTENTS = 'participant_count,mean_score\n4128,72.4\n'
+const JOB_ID = '0193a1f0-0000-7000-8000-000000000001'
+const OTHER_JOB_ID = '0193a1f0-0000-7000-8000-000000000002'
 
 const toArrayBuffer = (text: string) => new TextEncoder().encode(text).buffer as ArrayBuffer
 
@@ -32,7 +34,7 @@ const asJobFile = async (archive: Blob): Promise<EncryptedJobFile> => ({
     recipientKeys: {},
 })
 
-const decrypt = async (file: EncryptedJobFile) => {
+const decrypt = async (file: EncryptedJobFile, jobId = JOB_ID) => {
     let decrypted: JobFileInfo[] | undefined
     let failure: Error | undefined
 
@@ -40,6 +42,7 @@ const decrypt = async (file: EncryptedJobFile) => {
         () =>
             useDecryptFiles({
                 encryptedFiles: [file],
+                jobId,
                 onSuccess: (files) => {
                     decrypted = files
                 },
@@ -57,8 +60,8 @@ const decrypt = async (file: EncryptedJobFile) => {
     return decrypted as JobFileInfo[]
 }
 
-const currentArchive = async () => {
-    const writer = new ResultsWriter([await recipient()])
+const currentArchive = async (options: { jobId?: string } = { jobId: JOB_ID }) => {
+    const writer = new ResultsWriter([await recipient()], options)
     await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
     return writer.generate()
 }
@@ -88,6 +91,20 @@ describe('useDecryptFiles', () => {
 
     it('reports a dropped file as tampering rather than a bad key', async () => {
         const archive = await tamper(await currentArchive(), { drop: [FILENAME] })
+
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    it('refuses an archive belonging to a different job', async () => {
+        const archive = await currentArchive({ jobId: OTHER_JOB_ID })
+
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    // The TOA must start writing a job id in the same release: once it emits GCM, an unbound
+    // archive is refused outright rather than read as belonging to whichever job asked (OTTER-782).
+    it('refuses a current archive bound to no job at all', async () => {
+        const archive = await currentArchive({})
 
         await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
     })

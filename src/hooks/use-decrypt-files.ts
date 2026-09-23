@@ -25,7 +25,11 @@ export class ArchiveIntegrityError extends Error {}
 export const ARCHIVE_INTEGRITY_MESSAGE =
     'These results failed verification and may have been altered. Contact your administrator.'
 
-async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: string): Promise<JobFileInfo[]> {
+async function decryptFiles(
+    encryptedFiles: EncryptedJobFile[],
+    privateKey: string,
+    jobId: string,
+): Promise<JobFileInfo[]> {
     let fingerprint = ''
     let privateKeyBuffer: ArrayBuffer
     try {
@@ -43,6 +47,7 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
                 privateKeyBuffer,
                 fingerprint,
                 artifact.recipientKeys,
+                { jobId },
             )
             // Captured so approval can re-wrap each key per researcher.
             const entries = await reader.extractFilesWithKeys()
@@ -70,10 +75,12 @@ async function decryptFiles(encryptedFiles: EncryptedJobFile[], privateKey: stri
 
 export function useDecryptFiles(options: {
     encryptedFiles: EncryptedJobFile[] | undefined
+    /** The job these archives were fetched for. Checked against what each archive claims. */
+    jobId: string
     onSuccess: (files: JobFileInfo[]) => void
     onError?: (err: Error) => void
 }) {
-    const { encryptedFiles, onSuccess, onError } = options
+    const { encryptedFiles, jobId, onSuccess, onError } = options
 
     const form = useForm({
         mode: 'uncontrolled' as const,
@@ -102,7 +109,7 @@ export function useDecryptFiles(options: {
     const { mutate, isPending } = useMutation({
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
             if (!encryptedFiles) return []
-            return decryptFiles(encryptedFiles, privateKey)
+            return decryptFiles(encryptedFiles, privateKey, jobId)
         },
         onSuccess,
         onError: handleError,

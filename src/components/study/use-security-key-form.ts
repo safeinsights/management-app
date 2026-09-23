@@ -59,6 +59,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
+        jobId: job.id,
         onSuccess: (files) => {
             // A key is only proven by ciphertext it actually opened. useDecryptFiles resolves with
             // [] rather than throwing when it extracts nothing, and its parse step accepts any

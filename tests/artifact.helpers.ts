@@ -54,7 +54,7 @@ export async function seedEncryptedArtifact(
 ) {
     const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
+    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId })
     for (const file of files) await writer.addFile(file.name, toArrayBuffer(file.content))
     const zip = await writer.generate()
 

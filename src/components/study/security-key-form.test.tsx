@@ -35,7 +35,7 @@ async function seedArtifact(
 ) {
     const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
+    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId })
     for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
     const zip = await writer.generate()
 
