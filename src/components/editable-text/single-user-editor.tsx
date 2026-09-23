@@ -12,7 +12,7 @@ import type { EditorState } from 'lexical'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
-import { EditorFooter } from './editor-footer'
+import { EditorFooterArea } from './editor-footer'
 import { EditorSurface } from './editor-surface'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
@@ -114,7 +114,7 @@ export function SingleUserEditor({
                     {onChange && <EditorChangePlugin onChange={onChange} />}
                     {children}
                 </EditorSurface>
-                {(footerLeft || footerRight) && <EditorFooter left={footerLeft} right={footerRight} />}
+                <EditorFooterArea left={footerLeft} right={footerRight} />
             </Stack>
         </LexicalComposer>
     )
