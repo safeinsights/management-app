@@ -1,8 +1,9 @@
 ## Hard Rules
 
-- Keep JSX minimal: no logic inside the return statement — no complex ternaries, no calculations, no object or array literals built inline. A bare `.map()` that delegates each item to an extracted row component is fine; a `.map()` whose callback contains logic is not.
+- Keep JSX minimal: no complex logic inside the return statement — no nested ternaries or multi-step calculations. Short expressions (`a || b`, `cond ? x : undefined`), simple ternaries and static config objects (`events={{ hover: true }}`) go inline. A bare `.map()` that delegates each item to an extracted row component is fine; a `.map()` whose callback contains logic is not.
+- No single-use constants or locals: never hoist a value used once into a named `const` just to keep JSX clean. Inline it, or if it's genuinely complex, move it into a named helper function or hook. Extract only when a value is shared, or when a stable reference is required.
 - Move logic out: All state management, event handling, and data processing must be in custom hooks (useFeatureName) or helper functions outside the main component function.
-- Co-locate, don't embed: If logic is used only in the component, define it just above the JSX, keep the JSX clean of declarations and other logic
+- Co-locate, don't embed: If a helper is used only by one component, define it in the same file next to that component rather than in a shared module
 - Extract: If a sub-section of a function or JSX is complex, break it into separate, smaller parts.
 - Conditional visibility: Instead of hiding/showing large blocks using `{condition && <Component />}`, have the component accept an `isVisible` prop and return null when it shouldn't render.
 - Comments: Reserve comments for genuinely hard-to-understand code. Be brief and to the point — explain **why**, not **how**; the code already shows how. Prefer one or two lines, three at the outside. A comment longer than the code it describes is a smell: if the reasoning truly needs more room, link a ticket instead of restating it. Do not write comments that narrate the code (`// Create profile` before `insertInto('profile')`), banner separators (`// ==== Handlers ====`), or JSDoc that merely repeats the signature (`@param schema - the schema`). If the code is self-explanatory, no comment is needed.
