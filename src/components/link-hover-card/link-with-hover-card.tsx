@@ -85,7 +85,8 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
         <Popover
             {...LINK_CARD_POPOVER_PROPS}
             opened={card.opened}
-            // Mantine reads a link it cannot measure as scrolled away and hides the card.
+            // As in the editor cards. Mantine's detached check hides the card wherever layout is not
+            // measured, the unit tests included.
             hideDetached={false}
             closeOnEscape={false}
             // Mantine would name the card after the link text; it is "Link details" everywhere.
