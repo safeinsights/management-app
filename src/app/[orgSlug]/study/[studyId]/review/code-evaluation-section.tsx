@@ -7,7 +7,7 @@ import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionRadio } from '@/components/study/decision-radio'
 import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
-import { LinkWithIcon } from '@/components/links'
+import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
 import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
@@ -18,6 +18,7 @@ import {
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
+import { Routes } from '@/lib/routes'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -101,18 +102,16 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
     )
 }
 
-function ProposalLink({ href, children }: { href: string; children: ReactNode }) {
+function CriterionLink({ href, testId, children }: { href: string; testId: string; children: ReactNode }) {
     return (
-        <LinkWithIcon
+        <LinkWithHoverCard
             href={href}
-            target="_blank"
-            rel="noopener noreferrer"
             underline="always"
             icon={<ArrowSquareOutIcon size={14} weight="bold" />}
-            data-testid="criteria-proposal-link"
+            data-testid={testId}
         >
             {children}
-        </LinkWithIcon>
+        </LinkWithHoverCard>
     )
 }
 
@@ -134,12 +133,24 @@ const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
     proposalAlignment: {
         build: (href) => (
             <>
-                Does code align with the approved <ProposalLink href={href}>proposal</ProposalLink>?
+                Does code align with the approved{' '}
+                <CriterionLink href={href} testId="criteria-proposal-link">
+                    proposal
+                </CriterionLink>
+                ?
             </>
         ),
     },
     agreementCompliance: {
-        build: () => 'Does code align with the Study Agreement?',
+        build: () => (
+            <>
+                Does code align with the{' '}
+                <CriterionLink href={Routes.legal} testId="criteria-agreement-link">
+                    Study Agreement
+                </CriterionLink>
+                ?
+            </>
+        ),
         note: (isTestStudy) => (isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined),
     },
     privacyProtection: {
