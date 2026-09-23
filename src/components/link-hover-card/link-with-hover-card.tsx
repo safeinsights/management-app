@@ -30,7 +30,11 @@ type TabDirection = 'forward' | 'back'
  * The card is portaled to the end of the page, so Tab past its edge would skip the rest of the
  * form. Leaving it closes the card and continues from the link, as if the card sat right after it.
  */
-function useTabOutOfCard(isOpen: boolean, dropdownId: string, onLeave: (direction: TabDirection) => void) {
+function useTabOutOfCard(
+    isOpen: boolean,
+    dropdownId: string,
+    onLeave: (direction: TabDirection, card: HTMLElement) => boolean,
+) {
     useEffect(() => {
         if (!isOpen) return
 
@@ -45,8 +49,7 @@ function useTabOutOfCard(isOpen: boolean, dropdownId: string, onLeave: (directio
             const edge = direction === 'forward' ? stops.at(-1) : stops[0]
             if (event.target !== edge) return
 
-            event.preventDefault()
-            onLeave(direction)
+            if (onLeave(direction, card)) event.preventDefault()
         }
 
         document.addEventListener('keydown', handleTab, true)
@@ -68,16 +71,17 @@ function useLinkWithHoverCard() {
         triggerRef.current?.focus()
     }, [close])
 
+    // With nothing after the link, the browser's own Tab from the card, last in the page, is right.
     const leaveCard = useCallback(
-        (direction: TabDirection) => {
-            const card = document.getElementById(dropdownId)
+        (direction: TabDirection, card: HTMLElement) => {
             const trigger = triggerRef.current
             close()
-            if (!trigger) return
-            if (direction === 'forward' && card && focusNextTabStopAfter(trigger, card)) return
+            if (!trigger) return false
+            if (direction === 'forward') return focusNextTabStopAfter(trigger, card)
             trigger.focus()
+            return true
         },
-        [close, dropdownId],
+        [close],
     )
 
     useEscapeOnCard(opened, closeAndReturnFocus)
@@ -127,8 +131,8 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
         <Popover
             {...LINK_CARD_POPOVER_PROPS}
             opened={card.opened}
-            // As in the editor cards. Mantine's detached check hides the card wherever layout is not
-            // measured, the unit tests included.
+            // The card already scrolls away with its link. The detached check would only hide it with
+            // display: none, dropping focus from Copy link, and it misfires wherever layout is unmeasured.
             hideDetached={false}
             closeOnEscape={false}
             // Mantine would name the card after the link text; it is "Link details" everywhere.

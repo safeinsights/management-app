@@ -127,6 +127,17 @@ describe('LinkWithHoverCard', () => {
         expect(document.activeElement).toBe(link)
     })
 
+    it('leaves Tab to the browser when nothing follows the link', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+
+        fireEvent.click(link)
+        const copy = await within(await findCard()).findByRole('button', { name: LINK_CARD_LABELS.copy })
+
+        expect(fireEvent.keyDown(copy, { key: 'Tab' })).toBe(true)
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    })
+
     it('opens from the keyboard and returns focus to the link on Escape', async () => {
         await mockSessionWithTestData()
         const link = renderLink(Routes.legal)
