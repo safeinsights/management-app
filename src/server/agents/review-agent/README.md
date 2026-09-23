@@ -20,15 +20,17 @@ Given a `ReviewContent` (proposal text + code files + reference docs), calls Cla
 - `types.ts` — `ReviewContent`, `ReviewAgentConfig`, `AnalysisReport`, `ReferenceDocs`.
 - `prompts.ts` — `DEFAULT_SYSTEM_INSTRUCTION`, `DEFAULT_ANALYSIS_PROMPT_TEMPLATE`, single-pass `buildAnalysisPrompt(...)` (placeholder injection-safe).
 - `runner.ts` (claims the round, assembles the content, runs the agent under a deadline, writes the outcome)
-- `enqueue.ts` / `worker.ts` (the queue hop, and the Lambda entry point on the far side of it)
+- The queue hop lives outside this folder, in `src/server/jobs/` (`queue.ts`, and `registry.ts`, where this agent is the `study-review` job) and `src/app/api/jobs/route.ts` (where the worker runs it).
 
 ## Where it runs
 
 A submission asks for a review through `onStudyReviewRequested`, after the submitting transaction
-commits. Where `REVIEW_QUEUE_URL` is set the request goes to SQS and a dedicated worker Lambda picks
-it up; its bundle (`review-worker.cjs`) is built by `bin/build-app` into the same zip as the app.
-Where it is not set, the review is generated in process instead: local development, unit tests and
-PR previews each run against their own database, which the shared worker cannot reach.
+commits. Where `JOB_QUEUE_URL` is set the request goes to SQS as a `study-review` job. The job
+worker Lambda runs the same server package as the app, behind the same Lambda Web Adapter, and the
+adapter POSTs each SQS event to `/api/jobs`. That route answers only where `JOB_WORKER` is set,
+which is the worker and never the app. Where no queue is configured, the job runs in process
+instead: local development, unit tests and PR previews each run against their own database, which
+the shared worker cannot reach.
 
 The worker claims the round by stamping `summary_started_at` on its `study_review` row. A second
 request for the same round is refused rather than duplicated, and both writes at the end of a run

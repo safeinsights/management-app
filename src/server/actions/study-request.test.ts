@@ -210,7 +210,7 @@ describe('Request Study Actions', () => {
             visibleWhenSent.push(submitted != null)
             return {}
         })
-        vi.stubEnv('REVIEW_QUEUE_URL', 'https://sqs.test/review')
+        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
 

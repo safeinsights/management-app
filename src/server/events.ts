@@ -9,12 +9,8 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
-import {
-    enqueueStudyReview,
-    isStudyReviewQueueConfigured,
-    type StudyReviewMessage,
-} from './agents/review-agent/enqueue'
-import { generateAndStoreStudyReview } from './agents/review-agent/runner'
+import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
+import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
@@ -107,21 +103,21 @@ export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId:
     await email.sendStudyAgreementReadyEmail(studyId)
 })
 
-const startStudyReviewInline = deferred(async ({ studyJobId, round }: StudyReviewMessage) => {
-    await generateAndStoreStudyReview(studyJobId, round)
-})
+const runJobInProcess = deferred(runJob)
 
-// Not deferred(), unlike its neighbours: the caller awaits this from afterCommit, so the message is
-// sent before the response and names a round that is already committed. Generation itself takes
-// minutes, which after() cannot hold open in a Lambda, so the queue is the real path and the
-// in-process run is the fallback for environments that have none (OTTER-799).
-export const onStudyReviewRequested = async (message: StudyReviewMessage) => {
-    if (isStudyReviewQueueConfigured()) {
-        await enqueueStudyReview(message)
+// Awaited from afterCommit, so the message is sent before the response and names committed rows.
+// A job can take minutes, which after() cannot hold open in a Lambda, so the queue is the real path
+// and the in-process run is the fallback for environments that have none (OTTER-799).
+const startJob = async (message: JobMessage) => {
+    if (isJobQueueConfigured()) {
+        await enqueueJob(message)
     } else {
-        startStudyReviewInline(message)
+        runJobInProcess(message)
     }
 }
+
+export const onStudyReviewRequested = (payload: JobPayload<'study-review'>) =>
+    startJob({ job: 'study-review', payload })
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
