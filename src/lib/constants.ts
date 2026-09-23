@@ -12,6 +12,10 @@ export const PROPOSAL_GRID_SPAN = {
 export const ENCLAVE_BG = semanticColor('surface.sidenav.dp')
 export const LAB_BG = semanticColor('surface.sidenav.rl')
 
+// surface/sidenav is scoped to frame fills, so the header, the outer nav rail and the focused
+// (sign-in, error, not-found) shells all read it.
+export const SIDENAV_BG = semanticColor('surface.sidenav')
+
 // Exported so Ladle's canvas shares the app's source of truth.
 export const APP_MAIN_BG = semanticColor('surface.page')
 
@@ -23,7 +27,7 @@ export const APP_SHELL = {
     navbarBreakpoint: 'sm',
     padding: 'md',
     mainMaxWidth: 1600,
-    headerBg: 'purple.8',
+    headerBg: SIDENAV_BG,
 } as const
 
 // Spread onto each shell's <main> so useRouteFocus has one target. tabIndex -1 takes scripted

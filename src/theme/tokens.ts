@@ -137,11 +137,37 @@ export const semanticCssVariables = (theme: MantineTheme): Record<string, string
         vars[cssVar(token as keyof typeof NON_RAMP)] = value
     }
 
-    // Mantine built-ins that should follow the semantic layer rather than its own defaults.
-    vars['--mantine-color-placeholder'] = resolveShade(theme, semanticShades['text.placeholder'])
-    vars['--mantine-color-dimmed'] = resolveShade(theme, semanticShades['text.secondary'])
-    vars['--mantine-color-error'] = resolveShade(theme, semanticShades['error.text'])
-    vars['--mantine-color-error-filled'] = resolveShade(theme, semanticShades['error.bg.dark'])
+    return vars
+}
+
+// Mantine derives each ramp's light/subtle variant from primaryShade, pairing e.g. yellow.5 text
+// with a yellow tint (2.2:1). Figma's Badge and Alert pages pair bg-light with text-icon, and the
+// neutral badge is grey/0 under text/Sub-labels. Hover is not a Figma token: it is the next tint
+// up the same ramp.
+const LIGHT_VARIANT_PAIRS: Record<string, { bg: SemanticToken; text: SemanticToken; hover: ShadeRef }> = {
+    red: { bg: 'error.bg.light', text: 'error.text', hover: 'red.1' },
+    green: { bg: 'success.bg.light', text: 'success.text', hover: 'green.1' },
+    yellow: { bg: 'warning.bg.light', text: 'warning.text', hover: 'yellow.1' },
+    blue: { bg: 'info.bg.light', text: 'info.text', hover: 'blue.1' },
+    grey: { bg: 'surface.page', text: 'text.secondary', hover: 'grey.1' },
+}
+
+// Mantine built-ins that should follow the semantic layer. These belong in the resolver's
+// light/dark slots: Mantine emits its own values under :root[data-mantine-color-scheme], which
+// outranks the plain :root that the `variables` slot renders to.
+export const mantineColorOverrides = (theme: MantineTheme): Record<string, string> => {
+    const vars: Record<string, string> = {
+        '--mantine-color-placeholder': resolveShade(theme, semanticShades['text.placeholder']),
+        '--mantine-color-dimmed': resolveShade(theme, semanticShades['text.secondary']),
+        '--mantine-color-error': resolveShade(theme, semanticShades['error.text']),
+        '--mantine-color-error-filled': resolveShade(theme, semanticShades['error.bg.dark']),
+    }
+
+    for (const [ramp, pair] of Object.entries(LIGHT_VARIANT_PAIRS)) {
+        vars[`--mantine-color-${ramp}-light`] = resolveShade(theme, semanticShades[pair.bg])
+        vars[`--mantine-color-${ramp}-light-color`] = resolveShade(theme, semanticShades[pair.text])
+        vars[`--mantine-color-${ramp}-light-hover`] = resolveShade(theme, pair.hover)
+    }
 
     return vars
 }

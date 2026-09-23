@@ -11,7 +11,7 @@ import {
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
-import { semanticColor, semanticCssVariables, typographyCssVariables } from './theme/tokens'
+import { mantineColorOverrides, semanticColor, semanticCssVariables, typographyCssVariables } from './theme/tokens'
 
 // Transcribed 1:1 from the "SI UI Component Library" Figma file, collection `color primitive`
 // (read from Dev Mode → Variables). Every ramp is exactly ten shades indexed 0-9 — Figma defines
@@ -285,10 +285,13 @@ export const theme = createTheme({
     },
 })
 
-export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+export const cssVariablesResolver: CSSVariablesResolver = (theme) => {
     // Every --si-* variable comes from src/theme/tokens.ts, which is also what components read
     // through semanticColor(). One definition, two consumers.
-    variables: { ...semanticCssVariables(theme), ...typographyCssVariables },
-    dark: {},
-    light: {},
-})
+    const overrides = mantineColorOverrides(theme)
+    return {
+        variables: { ...semanticCssVariables(theme), ...typographyCssVariables },
+        light: overrides,
+        dark: overrides,
+    }
+}

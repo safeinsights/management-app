@@ -4,10 +4,10 @@ import type { ReactNode } from 'react'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { InfoTooltip } from '@/components/tooltip'
 import type { StatusLabel } from '@/lib/status-labels'
-import { TableTd, TableTr, Text, useMantineTheme } from '@mantine/core'
+import { TableTd, TableTr, Text } from '@mantine/core'
 import dayjs from 'dayjs'
 import { Audience, Scope, StudyRow as StudyRowType } from './types'
-import { fontWeight } from '@/theme/tokens'
+import classes from './study-row-view.module.css'
 
 // Props only, with no import of the Clerk-coupled StudyActionLink, so it renders in isolation.
 export type StudyRowViewProps = {
@@ -20,11 +20,6 @@ export type StudyRowViewProps = {
 }
 
 export function StudyRowView({ study, audience, scope, status, isHighlighted, actionLink }: StudyRowViewProps) {
-    const theme = useMantineTheme()
-    const highlightStyle = isHighlighted
-        ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 }
-        : undefined
-
     const submittedTo = study.reviewingEnclaveName || study.orgName || ''
 
     const submittedBy = study.createdBy
@@ -32,15 +27,10 @@ export function StudyRowView({ study, audience, scope, status, isHighlighted, ac
     const reviewedByOrOrg = scope === 'org' ? (study.reviewerName ?? '-') : study.orgName
 
     return (
-        <TableTr fz={14} style={highlightStyle}>
+        <TableTr fz={14} className={classes.row} mod={{ highlighted: isHighlighted }}>
             <TableTd>
                 <InfoTooltip label={study.title} multiline maw={400}>
-                    <Text
-                        lineClamp={2}
-                        style={{ cursor: 'pointer', overflowWrap: 'break-word' }}
-                        size="sm"
-                        fw={isHighlighted ? fontWeight.semibold : undefined}
-                    >
+                    <Text lineClamp={2} style={{ cursor: 'pointer', overflowWrap: 'break-word' }} size="sm">
                         {study.title}
                     </Text>
                 </InfoTooltip>

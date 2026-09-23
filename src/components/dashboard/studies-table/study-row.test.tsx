@@ -41,7 +41,8 @@ function renderRow(study: StudyRowType) {
 }
 
 const rowEl = () => screen.getByText('Reading Comprehension Study').closest('tr') as HTMLElement
-const isHighlighted = (tr: HTMLElement) => tr.style.backgroundColor !== '' || tr.style.fontWeight === '600'
+// The highlight is a data attribute the CSS module keys on, not an inline colour.
+const isHighlighted = (tr: HTMLElement) => tr.hasAttribute('data-highlighted')
 
 describe('StudyRow reviewer highlight', () => {
     it('highlights when the proposal is awaiting review (PENDING-REVIEW)', () => {
