@@ -10,7 +10,6 @@ import { fontWeight } from '@/theme/tokens'
 
 const SELECTION_REQUIRED = 'Select at least one Research Lab to continue'
 const SUBMIT_LABEL = 'Add as Test Lab'
-const TOOLTIP_EVENTS = { hover: true, focus: true, touch: false }
 
 export type EligibleLab = { id: string; name: string }
 
@@ -61,21 +60,17 @@ function placeholderFor(picker: Picker, isLoading: boolean) {
 }
 
 function LabSelect({ picker, isLoading }: { picker: Picker; isLoading: boolean }) {
-    const placeholder = placeholderFor(picker, isLoading)
-    const isDisabled = isLoading || !picker.options.length
-    const rightSection = isLoading ? <Loader size="xs" /> : <CaretUpDownIcon size={18} />
-
     return (
         <MultiSelect
             aria-label="Research Labs"
             data={picker.options}
             value={picker.selectedIds}
             onChange={picker.setSelectedIds}
-            placeholder={placeholder}
-            disabled={isDisabled}
+            placeholder={placeholderFor(picker, isLoading)}
+            disabled={isLoading || !picker.options.length}
             searchable
             nothingFoundMessage="Nothing found"
-            rightSection={rightSection}
+            rightSection={isLoading ? <Loader size="xs" /> : <CaretUpDownIcon size={18} />}
             rightSectionPointerEvents="none"
         />
     )
@@ -92,23 +87,21 @@ function SelectionHint({ id, isVisible }: { id: string; isVisible: boolean }) {
 function ContinueButton({ picker }: { picker: Picker }) {
     const hintId = useId()
     const isBlocked = !picker.hasSelection
-    const describedBy = isBlocked ? hintId : undefined
-    const dataDisabled = isBlocked || undefined
 
     return (
         <>
             <Tooltip
                 label={SELECTION_REQUIRED}
-                events={TOOLTIP_EVENTS}
+                events={{ hover: true, focus: true, touch: false }}
                 disabled={picker.hasSelection}
                 position="bottom"
                 withArrow
             >
                 <Button
                     onClick={picker.goToConfirm}
-                    data-disabled={dataDisabled}
+                    data-disabled={isBlocked || undefined}
                     aria-disabled={isBlocked}
-                    aria-describedby={describedBy}
+                    aria-describedby={isBlocked ? hintId : undefined}
                 >
                     {SUBMIT_LABEL}
                 </Button>

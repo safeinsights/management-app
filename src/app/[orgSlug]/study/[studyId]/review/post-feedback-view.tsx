@@ -122,19 +122,6 @@ export function PostFeedbackView({
     )
     // CODE keeps its static heading; PROPOSAL versions per iteration to match the editable page.
     const heading = isCode ? 'Review study code' : proposalReviewHeading(reviewVersion)
-    // This view is shared with kind: 'CODE', where an agreement notice has no place.
-    const showsAgreementNotice = !isCode && decision === 'APPROVE'
-    const proposalBanner = (
-        <Stack gap="md">
-            {banner}
-            <StudyAgreementPreparingNotice
-                studyId={study.id}
-                consequence="Researchers cannot submit code"
-                tone="informative"
-                isVisible={showsAgreementNotice}
-            />
-        </Stack>
-    )
 
     return (
         <Box bg={semanticColor('surface.page')}>
@@ -156,7 +143,17 @@ export function PostFeedbackView({
                     orgSlug={orgSlug}
                     stepLabel={stepLabel}
                     heading={heading}
-                    banner={proposalBanner}
+                    banner={
+                        <Stack gap="md">
+                            {banner}
+                            <StudyAgreementPreparingNotice
+                                studyId={study.id}
+                                consequence="Researchers cannot submit code"
+                                tone="informative"
+                                isVisible={decision === 'APPROVE'}
+                            />
+                        </Stack>
+                    }
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <StepNavigation nav={nav} />

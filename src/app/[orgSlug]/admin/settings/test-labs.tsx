@@ -18,11 +18,9 @@ type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]
 const NO_LABS: TestLab[] = []
 const NO_ELIGIBLE: EligibleLab[] = []
 
-const TestLabRow: React.FC<{ lab: TestLab }> = ({ lab }) => {
-    const addedOn = formatInstant(lab.createdAt)
-
-    return <TestLabRowView name={lab.researchLabName} addedOn={addedOn} />
-}
+const TestLabRow: React.FC<{ lab: TestLab }> = ({ lab }) => (
+    <TestLabRowView name={lab.researchLabName} addedOn={formatInstant(lab.createdAt)} />
+)
 
 const TestLabsTable: React.FC<{ testLabs: TestLab[] }> = ({ testLabs }) => {
     if (!testLabs.length) return <TestLabsEmptyView />
