@@ -4,6 +4,7 @@ import { AlertNotFound } from '@/components/errors'
 import { projectStudyState } from '@/lib/study-screen'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { jobAnalysisForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
@@ -21,6 +22,9 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
     const analysis = job ? await jobAnalysisForJob(job) : null
     const entries = await getCodeReviewFeedbackAction({ studyId: study.id })
     const safeEntries = isActionError(entries) ? [] : entries
+    // The round of the code on this job, not codeSubmissionVersion: that counts the
+    // CODE-CHANGES-REQUESTED just written and would label this page as the next iteration.
+    const reviewVersion = job ? await codeRoundForJob(job.id) : 1
     if (safeEntries.length > 0) {
         return (
             <PostFeedbackView
@@ -30,6 +34,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
                 kind="CODE"
                 job={job}
                 analysis={analysis}
+                reviewVersion={reviewVersion}
                 nav={nav}
             />
         )
@@ -53,6 +58,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
             job={job}
             analysis={analysis}
             fallback={fallback}
+            reviewVersion={reviewVersion}
             nav={nav}
         />
     )

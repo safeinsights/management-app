@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Skeleton } from '@mantine/core'
+import { Skeleton, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocus/provider'
 
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
@@ -69,10 +69,10 @@ export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorPr
     // researcher its own error and count (OTTER-777).
     if (!mounted || !websocketProvider)
         return (
-            <>
+            <Stack gap="xxs">
                 <Skeleton h={placeholderHeight} radius={4} />
                 <EditorFooterArea left={props.footerLeft} right={props.footerRight} />
-            </>
+            </Stack>
         )
 
     return <CollaborativeEditor websocketProvider={websocketProvider} {...props} />

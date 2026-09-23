@@ -327,54 +327,54 @@ export function CollaborativeEditor({
     // editor never mounted still owes the researcher its own error and count (OTTER-777).
     if (isUnavailable)
         return (
-            <>
+            <Stack gap="xxs">
                 <EditorUnavailable />
                 <EditorFooterArea left={footerLeft} right={footerRight} />
-            </>
+            </Stack>
         )
 
     // Same resolution the surface uses, so the skeleton matches the mounted height and the
     // page does not jump.
     if (phase === 'initial')
         return (
-            <>
+            <Stack gap="xxs">
                 <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
                 <EditorFooterArea left={footerLeft} right={footerRight} />
-            </>
+            </Stack>
         )
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
                 {(phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE') && <ReconnectingBanner />}
-                <EditorSurface
-                    inputId={inputId}
-                    contentClassName={contentClassName}
-                    contentStyle={contentStyle}
-                    placeholder={placeholder}
-                    ariaLabel={ariaLabel}
-                    ariaDescribedBy={ariaDescribedBy}
-                    ariaRequired={ariaRequired}
-                    error={error}
-                    widgetBlur={widgetBlur}
-                    contentHeight={contentHeight}
-                    isResizable={isResizable}
-                >
-                    <CollaborationPlugin
-                        id={id}
-                        providerFactory={providerFactory}
-                        shouldBootstrap={false}
-                        username={username}
-                        cursorColor={cursorColor}
-                        awarenessData={awarenessData}
-                    />
-                    {onChange && <EditorChangePlugin onChange={onChange} />}
-                    <ListPlugin />
-                    {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
-                    <EscapeFocusPlugin />
-                    <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
-                </EditorSurface>
-                <Stack gap="xxs" mt="xxs">
+                <Stack gap="xxs">
+                    <EditorSurface
+                        inputId={inputId}
+                        contentClassName={contentClassName}
+                        contentStyle={contentStyle}
+                        placeholder={placeholder}
+                        ariaLabel={ariaLabel}
+                        ariaDescribedBy={ariaDescribedBy}
+                        ariaRequired={ariaRequired}
+                        error={error}
+                        widgetBlur={widgetBlur}
+                        contentHeight={contentHeight}
+                        isResizable={isResizable}
+                    >
+                        <CollaborationPlugin
+                            id={id}
+                            providerFactory={providerFactory}
+                            shouldBootstrap={false}
+                            username={username}
+                            cursorColor={cursorColor}
+                            awarenessData={awarenessData}
+                        />
+                        {onChange && <EditorChangePlugin onChange={onChange} />}
+                        <ListPlugin />
+                        {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
+                        <EscapeFocusPlugin />
+                        <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
+                    </EditorSurface>
                     <EditorFooter left={footerLeft} right={footerRight}>
                         <SaveStatus provider={activeProvider} isVisible={isSaveStatusVisible && !error} />
                     </EditorFooter>

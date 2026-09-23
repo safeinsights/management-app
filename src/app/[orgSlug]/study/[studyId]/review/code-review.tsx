@@ -3,9 +3,11 @@ import { AlertNotFound } from '@/components/errors'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
+import { codeReviewHeading } from '@/lib/code-review'
 import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
 import type { StepNav } from '@/lib/study-screen'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { jobAnalysisForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
@@ -18,20 +20,6 @@ type CodeReviewProps = {
     study: Submitted<SelectedStudy>
     entries: CodeReviewFeedbackEntry[]
     nav: StepNav
-}
-
-// On the current round, entries exist only when a prior round does, so any entry implies a
-// resubmission.
-function deriveCodeReviewVersion(entries: CodeReviewFeedbackEntry[]): number {
-    if (entries.length === 0) return 1
-    const versions = entries.map((entry) => entry.version).filter((v): v is number => v != null)
-    if (versions.length === 0) return 1
-    return Math.max(...versions)
-}
-
-function codeReviewHeading(version: number): string {
-    if (version <= 1) return 'Review study code'
-    return `Review study code v${version}.0`
 }
 
 type CodeReviewStatusBannerProps = {
@@ -59,10 +47,12 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
     const analysis = await jobAnalysisForJob(job)
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
-    const version = deriveCodeReviewVersion(entries)
-    const isResubmission = version > 1
+    // The round of the code on this job, not codeSubmissionVersion: that counts a change request
+    // from the moment it is written, which would label this page as the next iteration.
+    const reviewVersion = await codeRoundForJob(job.id)
+    const isResubmission = reviewVersion > 1
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const heading = codeReviewHeading(version)
+    const heading = codeReviewHeading(reviewVersion)
     const submittedAt = latestCodeSubmittedAt(job)
 
     return (
@@ -74,12 +64,15 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
                     study={study}
                     job={job}
                     analysis={analysis}
-                    stepLabel="STEP 3"
+                    stepLabel="STEP 2"
                     heading={heading}
-                    banner={<CodeReviewStatusBanner labName={labName} version={version} submittedAt={submittedAt} />}
+                    banner={
+                        <CodeReviewStatusBanner labName={labName} version={reviewVersion} submittedAt={submittedAt} />
+                    }
                     initiallyExpanded={!isResubmission}
-                />
-                {isResubmission && <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />}
+                >
+                    <FeedbackAndNotesSection isVisible={isResubmission} entries={entries} alwaysExpandLatest />
+                </CollapsibleSubmittedCodeSection>
                 <CodeReviewClient
                     orgSlug={orgSlug}
                     study={study}

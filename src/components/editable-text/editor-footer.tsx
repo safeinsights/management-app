@@ -1,15 +1,16 @@
 import { FC, ReactNode } from 'react'
-import { Box, Group, Stack } from '@mantine/core'
+import { Box, Group } from '@mantine/core'
 
 export const EditorFooter: FC<{ left?: ReactNode; right?: ReactNode; children?: ReactNode }> = ({
     left,
     right,
     children,
 }) => (
+    // gap 0: the empty error slot would otherwise indent the save status away from the input's edge.
     // flex-start, not center: the error box is taller than the counter beside it, so centering
     // nudged the counter down by ~2px whenever the error appeared (OTTER-777). Matches the
     // alignment FieldFooterRow already uses for the same pairing.
-    <Group align="flex-start" wrap="nowrap">
+    <Group gap={0} align="flex-start" wrap="nowrap">
         {left}
         {children}
         {right && <Box ml="auto">{right}</Box>}
@@ -21,9 +22,5 @@ export const EditorFooter: FC<{ left?: ReactNode; right?: ReactNode; children?: 
 export const EditorFooterArea: FC<{ left?: ReactNode; right?: ReactNode }> = ({ left, right }) => {
     if (!left && !right) return null
 
-    return (
-        <Stack gap="xxs" mt="xxs">
-            <EditorFooter left={left} right={right} />
-        </Stack>
-    )
+    return <EditorFooter left={left} right={right} />
 }

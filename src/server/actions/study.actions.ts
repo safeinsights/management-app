@@ -669,7 +669,6 @@ async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
 const codeReviewCriteriaSchema = z.object({
     proposalAlignment: z.enum(['yes', 'no', 'not-sure']),
     agreementCompliance: z.enum(['yes', 'no', 'not-sure']),
-    securityChecks: z.enum(['yes', 'no', 'not-sure']),
     privacyProtection: z.enum(['yes', 'no', 'not-sure']),
 })
 

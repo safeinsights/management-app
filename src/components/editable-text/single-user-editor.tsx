@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { Stack } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
@@ -91,28 +92,30 @@ export function SingleUserEditor({
 
     return (
         <LexicalComposer initialConfig={createInitialConfig(id, initialValue)}>
-            <EditorSurface
-                inputId={inputId}
-                contentClassName={contentClassName}
-                contentStyle={contentStyle}
-                placeholder={placeholder}
-                ariaLabel={ariaLabel}
-                ariaDescribedBy={ariaDescribedBy}
-                ariaRequired={ariaRequired}
-                error={error}
-                widgetBlur={widgetBlur}
-                contentHeight={contentHeight}
-                isResizable={isResizable}
-            >
-                <HistoryPlugin />
-                <ListPlugin />
-                {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
-                <EscapeFocusPlugin />
-                <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
-                {onChange && <EditorChangePlugin onChange={onChange} />}
-                {children}
-            </EditorSurface>
-            <EditorFooterArea left={footerLeft} right={footerRight} />
+            <Stack gap="xxs">
+                <EditorSurface
+                    inputId={inputId}
+                    contentClassName={contentClassName}
+                    contentStyle={contentStyle}
+                    placeholder={placeholder}
+                    ariaLabel={ariaLabel}
+                    ariaDescribedBy={ariaDescribedBy}
+                    ariaRequired={ariaRequired}
+                    error={error}
+                    widgetBlur={widgetBlur}
+                    contentHeight={contentHeight}
+                    isResizable={isResizable}
+                >
+                    <HistoryPlugin />
+                    <ListPlugin />
+                    {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
+                    <EscapeFocusPlugin />
+                    <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
+                    {onChange && <EditorChangePlugin onChange={onChange} />}
+                    {children}
+                </EditorSurface>
+                <EditorFooterArea left={footerLeft} right={footerRight} />
+            </Stack>
         </LexicalComposer>
     )
 }
