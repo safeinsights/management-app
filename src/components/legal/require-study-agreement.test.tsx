@@ -18,10 +18,11 @@ import { StudyAgreementPreparingNotice } from './study-agreement-preparing-notic
 
 beforeEach(resetLegalDocuments)
 
-// A study on a lab the session user belongs to, so they are a party to its agreement.
+// A study on a lab the session user belongs to, so they are a party to its agreement. The two org
+// names are set explicitly: the notice prints both, and faker could hand back the same name twice.
 const arrangeStudyForCurrentUser = async ({ status = 'APPROVED' as StudyStatus } = {}) => {
-    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-    const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave', name: 'Partner Enclave' })
+    const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: 'Curious Lab' })
     const { user: researcher } = await insertTestUser({
         org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
     })
@@ -36,7 +37,7 @@ const arrangeStudyForCurrentUser = async ({ status = 'APPROVED' as StudyStatus }
     })
 
     const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
-    return { study, user }
+    return { study, user, dataPartner, researchLab }
 }
 
 const acknowledgementsFor = (userId: string) =>
@@ -92,21 +93,40 @@ describe('RequireStudyAgreement', () => {
 })
 
 describe('StudyAgreementPreparingNotice', () => {
+    const renderNotice = (studyId: string, { isVisible = true } = {}) =>
+        renderWithProviders(
+            <StudyAgreementPreparingNotice
+                studyId={studyId}
+                consequence="You cannot submit code"
+                isVisible={isVisible}
+            />,
+        )
+
     it('says an agreement is coming while none is published', async () => {
         const { study } = await arrangeStudyForCurrentUser()
 
-        renderWithProviders(<StudyAgreementPreparingNotice studyId={study.id} isVisible />)
+        renderNotice(study.id)
 
-        expect(await screen.findByText(/is being prepared/)).toBeInTheDocument()
+        expect(await screen.findByText(/are being prepared/)).toBeInTheDocument()
+    })
+
+    it('names both signatories, lab first, so the reader knows who is holding it up', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+
+        renderNotice(study.id)
+
+        expect(
+            await screen.findByText(/You cannot submit code until the required Curious Lab and Partner Enclave/),
+        ).toBeInTheDocument()
     })
 
     it('goes quiet once an agreement exists, so it cannot contradict the modal', async () => {
         const { study } = await arrangeStudyForCurrentUser()
         await insertTestStudyAgreement({ studyId: study.id })
 
-        renderWithProviders(<StudyAgreementPreparingNotice studyId={study.id} isVisible />)
+        renderNotice(study.id)
 
-        await waitFor(() => expect(screen.queryByText(/is being prepared/)).toBeNull())
+        await waitFor(() => expect(screen.queryByText(/are being prepared/)).toBeNull())
     })
 
     // The SI admin who published it must not be told it is still being drawn up.
@@ -115,16 +135,16 @@ describe('StudyAgreementPreparingNotice', () => {
         await insertTestStudyAgreement({ studyId: study.id })
         await mockSessionWithTestData({ isSiAdmin: true })
 
-        renderWithProviders(<StudyAgreementPreparingNotice studyId={study.id} isVisible />)
+        renderNotice(study.id)
 
-        await waitFor(() => expect(screen.queryByText(/is being prepared/)).toBeNull())
+        await waitFor(() => expect(screen.queryByText(/are being prepared/)).toBeNull())
     })
 
     it('renders nothing on the proposal states where no agreement is drawn up', async () => {
         const { study } = await arrangeStudyForCurrentUser({ status: 'PENDING-REVIEW' })
 
-        renderWithProviders(<StudyAgreementPreparingNotice studyId={study.id} isVisible={false} />)
+        renderNotice(study.id, { isVisible: false })
 
-        await waitFor(() => expect(screen.queryByText(/is being prepared/)).toBeNull())
+        await waitFor(() => expect(screen.queryByText(/are being prepared/)).toBeNull())
     })
 })

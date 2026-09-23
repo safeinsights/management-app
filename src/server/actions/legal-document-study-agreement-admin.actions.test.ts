@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { db } from '@/database'
 import { signedUrlForFile } from '@/server/aws'
 import { flushDeferred } from '@/tests/vitest.setup'
-import logger from '@/lib/logger'
+import { deliver } from '@/server/mailgun'
 import {
     actionResult,
     faker,
@@ -19,6 +19,14 @@ import {
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 import type { StudyStatus } from '@/database/types'
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
+
+const deliverMock = deliver as unknown as Mock
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -148,26 +156,22 @@ describe('fetchStudiesAwaitingStudyAgreementAction', () => {
 })
 
 describe('publishLegalDocumentVersionAction', () => {
-    // The ready email is held until its Mailgun template exists, so the log line is what there is to
-    // observe. Assert on `deliver` again once the template lands.
-    const HELD_READY_EMAIL = 'Holding email until its Mailgun template exists: Study Agreement ready to acknowledge'
+    const READY_EMAIL = expect.objectContaining({ template: 'vb - sla ready for acknowledgment' })
 
     it('tells the study parties a published Study Agreement is ready to acknowledge', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const { study } = await insertStudyWithDistinctOrgs({ title: 'Ready to acknowledge' })
-        vi.spyOn(logger, 'info').mockImplementation(() => true)
 
         await uploadAndPublishStudyAgreement(study.id, '2026-07-27')
         await flushDeferred()
 
-        expect(logger.info).toHaveBeenCalledWith(HELD_READY_EMAIL)
+        expect(deliverMock).toHaveBeenCalledWith(READY_EMAIL)
     })
 
     // A DOPA publishes through the same action, and nobody acknowledges one per study.
     it('says nothing when the published document is not a Study Agreement', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        vi.spyOn(logger, 'info').mockImplementation(() => true)
 
         const { version } = actionResult(
             await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
@@ -175,7 +179,7 @@ describe('publishLegalDocumentVersionAction', () => {
         actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-07-27' }))
         await flushDeferred()
 
-        expect(logger.info).not.toHaveBeenCalledWith(HELD_READY_EMAIL)
+        expect(deliverMock).not.toHaveBeenCalledWith(READY_EMAIL)
     })
 })
 

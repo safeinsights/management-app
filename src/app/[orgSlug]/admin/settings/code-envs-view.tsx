@@ -10,10 +10,12 @@ import { SettingsCard, SettingsCardRow } from './settings-card'
 // Presentational only: the body, refresher and per-row nodes are injected so these render
 // without a QueryClient (e.g. Ladle).
 
+// Figma Badge page: status badges are the light variant on the status ramps, whose light
+// variables the theme pairs with the library's bg-light/text-icon tokens. Neutral is the grey ramp.
 const SCAN_BADGE_CONFIG: Record<ScanStatus, { color: string; label: string }> = {
-    'SCAN-PENDING': { color: 'dark', label: 'Scan Pending' },
+    'SCAN-PENDING': { color: 'grey', label: 'Scan Pending' },
     'SCAN-RUNNING': { color: 'blue', label: 'Scanning...' },
-    'SCAN-COMPLETE': { color: 'teal', label: 'Scan Passed' },
+    'SCAN-COMPLETE': { color: 'green', label: 'Scan Passed' },
     'SCAN-FAILED': { color: 'red', label: 'Scan Failed' },
 }
 
@@ -89,12 +91,13 @@ export function CodeEnvRowView({
                         {language}
                     </Badge>
                     {isTesting && (
-                        <Badge variant="light" size="sm" color="orange">
+                        <Badge variant="light" size="sm" color="yellow">
                             Testing
                         </Badge>
                     )}
                     {isDefault && (
-                        <Badge variant="filled" size="sm" color="dark">
+                        // Figma's filled brand badge is purple/5.
+                        <Badge variant="filled" size="sm" color="purple">
                             Default
                         </Badge>
                     )}

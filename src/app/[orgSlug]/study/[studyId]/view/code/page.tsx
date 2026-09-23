@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { notFound } from 'next/navigation'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderResearcherCodeStep } from '../../_screens/render-screen'
+
+export const metadata: Metadata = { title: 'Study code' }
 
 // renderResearcherCodeStep 404s if the study has not reached the code stage.
 export default async function StudyViewCode(props: {

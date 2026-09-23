@@ -8,6 +8,7 @@ import { AppErrorImage } from '../../public/svg/app-error-image'
 import { AppFooter } from './layout/app-footer'
 import { SafeInsightsLogo } from './layout/svg/si-logo'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { SIDENAV_BG } from '@/lib/constants'
 
 interface Props {
     children?: ReactNode
@@ -35,14 +36,14 @@ export class ErrorBoundary extends Component<Props, State> {
         if (this.state.hasError) {
             return (
                 <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
-                    <AppShellHeader bg="purple.8" withBorder={false}>
+                    <AppShellHeader bg={SIDENAV_BG} withBorder={false}>
                         <Group h="100%" p="md">
                             <SafeInsightsLogo width={250} height={54} />
                         </Group>
                     </AppShellHeader>
 
                     <AppShellMain
-                        bg="purple.8"
+                        bg={SIDENAV_BG}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         px="md"
                     >
