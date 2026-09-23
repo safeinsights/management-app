@@ -52,6 +52,17 @@ function CodeFeedbackTestWrapper() {
 }
 
 describe('CodeReviewFeedbackSection', () => {
+    it('renders the decision heading and intro copy', () => {
+        renderWithProviders(<CodeFeedbackTestWrapper />)
+
+        expect(screen.getByText('Decision')).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Share your decision and feedback with Test Lab based on the evaluation criteria above. You can also request clarifications, flag dataset risks, or outline required changes.',
+            ),
+        ).toBeInTheDocument()
+    })
+
     it('displays the character counter and an empty error box while the field is clean', async () => {
         renderWithProviders(<CodeFeedbackTestWrapper />)
 

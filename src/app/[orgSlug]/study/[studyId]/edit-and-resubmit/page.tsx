@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
@@ -8,6 +9,8 @@ import { displayOrgName } from '@/lib/string'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
+
+export const metadata: Metadata = { title: 'Edit proposal' }
 
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>

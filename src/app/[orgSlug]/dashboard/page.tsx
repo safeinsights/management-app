@@ -1,5 +1,6 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { isActionError } from '@/lib/errors'
@@ -10,6 +11,10 @@ import { PageHeader } from '@/components/page-header'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { Stack, Text } from '@mantine/core'
 import { redirect } from 'next/navigation'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Dashboard' }
+}
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params

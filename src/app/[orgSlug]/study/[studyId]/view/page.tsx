@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { notFound } from 'next/navigation'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderStudyScreen } from '../_screens/render-screen'
+
+export const metadata: Metadata = { title: 'Study details' }
 
 export default async function StudyView(props: {
     params: Promise<{ studyId: string; orgSlug: string }>

@@ -46,7 +46,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
             <TextInput
                 value={envVar.name}
                 onChange={(e) => onNameChange(e.target.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 placeholder="Variable name"
                 aria-label="Variable name"
                 error={!envVar.name.trim() ? 'Variable name is required' : null}
@@ -54,7 +54,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
             <TextInput
                 value={envVar.value}
                 onChange={(e) => onValueChange(e.target.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 placeholder="Value"
                 aria-label="Variable value"
                 error={!envVar.value.trim() ? 'Value is required' : null}
@@ -161,11 +161,11 @@ interface CommandLineRowProps {
 function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps) {
     return (
         <Group gap="xs" align="flex-start">
-            <TextInput value={ext} readOnly style={{ flex: 1 }} aria-label="File extension" />
+            <TextInput value={ext} readOnly flex={1} aria-label="File extension" />
             <TextInput
                 value={cmd}
                 onChange={(e) => onCmdChange(e.target.value)}
-                style={{ flex: 2 }}
+                flex={2}
                 placeholder={ext === 'r' ? 'Rscript %f' : ext === 'py' ? 'python %f' : 'command %f'}
                 aria-label={`Command for .${ext} files`}
                 error={!cmd.trim() ? 'Command is required' : null}
@@ -220,8 +220,8 @@ function CommandLinesSection({
                     />
                 ))}
                 <Group gap="xs" align="flex-start">
-                    <TextInput {...newExtProps} placeholder="Extension (e.g. r, py)" style={{ flex: 1 }} />
-                    <TextInput {...newCmdProps} placeholder="Command (e.g. Rscript %f)" style={{ flex: 2 }} />
+                    <TextInput {...newExtProps} placeholder="Extension (e.g. r, py)" flex={1} />
+                    <TextInput {...newCmdProps} placeholder="Command (e.g. Rscript %f)" flex={2} />
                     <ActionIcon
                         color="blue"
                         variant="subtle"
@@ -285,7 +285,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         placeholder="e.g., r_4_2_0"
                         description="Unique lowercase identifier using only letters, numbers, and underscores"
                         {...form.getInputProps('identifier')}
-                        style={{ flex: 1 }}
+                        flex={1}
                     />
                     <Checkbox
                         label="Is testing image"
@@ -362,12 +362,8 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         ))}
 
                         <Group gap="xs" align="flex-start">
-                            <TextInput
-                                {...form.getInputProps('newEnvKey')}
-                                placeholder="Variable name"
-                                style={{ flex: 1 }}
-                            />
-                            <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" style={{ flex: 1 }} />
+                            <TextInput {...form.getInputProps('newEnvKey')} placeholder="Variable name" flex={1} />
+                            <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" flex={1} />
                             <ActionIcon
                                 color="blue"
                                 variant="subtle"

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
@@ -7,6 +8,8 @@ import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { UsersTable } from './users-table'
 import { InviteButton } from './invitation'
 import { ManageTeamView } from './manage-team-view'
+
+export const metadata: Metadata = { title: 'Manage team' }
 
 export default async function UsersListingPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params

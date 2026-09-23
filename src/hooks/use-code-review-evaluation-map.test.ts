@@ -9,7 +9,6 @@ import { type CodeReviewCriteriaDraft, useCodeReviewEvaluationMap } from './use-
 const initialDraft: CodeReviewCriteriaDraft = {
     proposalAlignment: null,
     agreementCompliance: null,
-    securityChecks: null,
     privacyProtection: null,
 }
 
@@ -54,13 +53,13 @@ describe('useCodeReviewEvaluationMap', () => {
 
         const map = docA.getMap<unknown>('evaluationCriteria')
         map.set('proposalAlignment', 'yes')
-        map.set('securityChecks', 'not-sure')
+        map.set('privacyProtection', 'not-sure')
 
         act(() => providerA.triggerSynced())
 
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
         expect(form.getValues().criteria.proposalAlignment).toBe('yes')
-        expect(form.getValues().criteria.securityChecks).toBe('not-sure')
+        expect(form.getValues().criteria.privacyProtection).toBe('not-sure')
         expect(form.getValues().criteria.agreementCompliance).toBeNull()
         expect(form.isDirty()).toBe(false)
     })

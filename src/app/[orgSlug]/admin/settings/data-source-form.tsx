@@ -39,14 +39,14 @@ function SourceUrlLine({
                 {...urlProps}
                 value={url}
                 onChange={(e) => onUrlChange(e.target.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 placeholder="URL"
             />
             <TextInput
                 {...descriptionProps}
                 value={description}
                 onChange={(e) => onDescriptionChange(e.target.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 placeholder="URL description"
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
@@ -105,13 +105,13 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                                 {...form.getInputProps('newUrl')}
                                 placeholder="URL"
                                 aria-label="New URL"
-                                style={{ flex: 1 }}
+                                flex={1}
                             />
                             <TextInput
                                 {...form.getInputProps('newUrlDescription')}
                                 placeholder="URL description"
                                 aria-label="New URL description"
-                                style={{ flex: 1 }}
+                                flex={1}
                             />
                             <ActionIcon color="blue" variant="subtle" aria-label="Add URL" onClick={addUrl} mt="xxs">
                                 <PlusCircleIcon size={16} />

@@ -11,7 +11,7 @@ import {
 
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
-import { APP_MAIN_BG, APP_SHELL, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { APP_MAIN_BG, APP_SHELL, MAIN_CONTENT_PROPS, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
@@ -26,6 +26,7 @@ import { ActivityContext } from '../activity-context'
 import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
 import { Routes } from '@/lib/routes'
+import { semanticColor } from '@/theme/tokens'
 
 type Props = { children: ReactNode }
 
@@ -60,7 +61,13 @@ export function AppShell({ children }: Props) {
 
             <AppShellHeader bg={APP_SHELL.headerBg} w="100%">
                 <Group h="100%" px="md">
-                    <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" />
+                    <Burger
+                        opened={opened}
+                        onClick={toggle}
+                        hiddenFrom="sm"
+                        size="sm"
+                        color={semanticColor('text.white')}
+                    />
                     <Link href={Routes.home}>
                         <SafeInsightsLogo />
                     </Link>
@@ -70,6 +77,7 @@ export function AppShell({ children }: Props) {
             <AppNav isDesktop={isDesktop} />
 
             <AppShellMain
+                {...MAIN_CONTENT_PROPS}
                 bg={APP_MAIN_BG}
                 style={{ maxWidth: APP_SHELL.mainMaxWidth, width: '100%', margin: '0 auto' }}
             >

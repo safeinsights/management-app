@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
@@ -10,6 +11,8 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { displayOrgName } from '@/lib/string'
 import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
+
+export const metadata: Metadata = { title: 'Study proposal' }
 
 export default async function StudyProposalRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params

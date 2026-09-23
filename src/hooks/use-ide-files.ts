@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { reportMutationError } from '@/components/errors'
+import { ActionFailure, errorToString, extractActionFailure } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
 import { downloadBlob } from '@/lib/download-blob'
 import type { SaveStatusValue } from '@/components/save-status'
@@ -28,7 +29,17 @@ const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
 
 const SUBMIT_SUCCESS_TITLE = 'Code submitted.'
 const SUBMIT_ERROR_TITLE = 'Code could not be submitted.'
-const SUBMIT_ERROR_MESSAGE = 'Your work is saved. Try again.'
+const WORK_IS_SAVED = 'Your work is saved.'
+const SUBMIT_ERROR_MESSAGE = `${WORK_IS_SAVED} Try again.`
+
+// "Try again" would send the researcher back at something that cannot succeed until they act, so a
+// refusal names itself. An unexpected failure stays on the design's copy rather than leaking it.
+const submitErrorMessage = (error: unknown) => {
+    const failure = extractActionFailure(error)
+    if (!failure || typeof failure === 'string') return SUBMIT_ERROR_MESSAGE
+
+    return `${errorToString(error)}. ${WORK_IS_SAVED}`
+}
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -174,12 +185,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     }, [queryClient, studyId])
 
     const deleteMutation = useMutation({
-        mutationFn: async (fileName: string) => {
-            const result = await deleteWorkspaceFileAction({ studyId, fileName })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-        },
+        mutationFn: (fileName: string) => deleteWorkspaceFileAction({ studyId, fileName }),
         onSuccess: () => {
             invalidateFiles()
             setLastSavedAt(new Date())
@@ -200,7 +206,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to read file')(result.error)
+                reportMutationError('Failed to read file')(new ActionFailure(result.error))
                 return
             }
             setViewingFile({ name: result.fileName, contents: result.contents })
@@ -216,7 +222,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             // Reported but not returned on: the launch should still go ahead, but a permission
             // denial or a DB failure must not vanish along with the Last activity row.
             const result = await recordWorkspaceFileEditAction({ studyId, fileName })
-            if (result && 'error' in result) reportMutationError('Failed to record file edit')(result.error)
+            if (result && 'error' in result)
+                reportMutationError('Failed to record file edit')(new ActionFailure(result.error))
 
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             launchWorkspace()
@@ -230,7 +237,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to download file')(result.error)
+                reportMutationError('Failed to download file')(new ActionFailure(result.error))
                 return
             }
             downloadBlob(result.fileName, new Blob([result.contents]))
@@ -286,17 +293,12 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const saveStatus: SaveStatusValue = isSavingChanges ? 'saving' : lastSavedAt ? 'saved' : 'idle'
 
     const submitMutation = useMutation({
-        mutationFn: async () => {
-            const result = await submitStudyCodeAction({
+        mutationFn: () =>
+            submitStudyCodeAction({
                 studyId,
                 mainFileName: mainFile,
                 fileNames,
-            })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
+            }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
@@ -313,11 +315,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             }
         },
         onError: (error: unknown) => {
-            // Captured for Sentry, but shown with the design's fixed reassurance rather than the
-            // raw error: the wording can promise the work is safe because uploads, deletions and
-            // the main-file choice all persist as they happen — only the submission failed.
+            // The wording can promise the work is safe because uploads, deletions and the main-file
+            // choice all persist as they happen — only the submission failed.
             captureException(error)
-            showToast('error', SUBMIT_ERROR_TITLE, SUBMIT_ERROR_MESSAGE)
+            showToast('error', SUBMIT_ERROR_TITLE, submitErrorMessage(error))
             onSubmitError?.()
         },
     })

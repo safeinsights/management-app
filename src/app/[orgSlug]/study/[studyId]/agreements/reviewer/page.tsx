@@ -1,7 +1,12 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { Routes } from '@/lib/routes'
 import { redirect } from 'next/navigation'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Agreements' }
+}
 
 // OTTER-727 hid the Agreements step; this route only catches stale bookmarks. /review runs the
 // shared reviewer access guard, so no preamble is needed here.
