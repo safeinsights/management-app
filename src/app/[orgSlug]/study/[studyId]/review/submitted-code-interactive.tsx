@@ -18,7 +18,7 @@ import {
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
@@ -32,7 +32,7 @@ import {
     getJobAnalysisAction,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { JobAnalysis, JobScanResult, StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
@@ -99,14 +99,6 @@ const ANALYSIS_POLL_INTERVAL_MS = 5_000
 // Measured from submission, not page open, so opening late does not reset the clock.
 const AI_SUMMARY_TIMEOUT_MS = 180_000
 
-// Unlike the review row, this query always resolves to an object, so "still running" is both
-// statuses being null rather than a missing result. A log that parsed to unknown statuses still
-// reports a logFile, which is why that alone does not stop the poll.
-function isScanPending(scan: JobScanResult | undefined) {
-    if (!scan) return true
-    return scan.trivy === null && scan.sonarqube === null
-}
-
 // `since` is read once on mount and later prop changes are ignored, so a new submission must
 // arrive via a fresh server render or an explicit reset().
 function useElapsedSince(since: Date | string, ms: number) {
@@ -133,39 +125,36 @@ function useElapsedSince(since: Date | string, ms: number) {
 const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
     ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
 
-// The summary and the scan describe the same submission and land at different times, so one query
-// feeds both panels. The server drops a review belonging to a previous round, so a null review here
-// means "generating", never "last round's" (OTTER-775).
+type JobAnalysisUpdate = { review: StudyReviewWithMeta | null }
+
+// The server drops a review belonging to a previous round, so a null review here means
+// "generating", never "last round's" (OTTER-775).
 //
 // The backstops deliberately do not appear here: they decide what a panel renders, not whether the
 // poll runs. 8.4% of measured generations finish past the summary backstop, and stopping there
 // stranded a report that was already in the database until a reload (OTTER-775 review).
-function useJobAnalysisPoll(studyJobId: string, submittedAt: Date | string, initial: JobAnalysis, intervalMs: number) {
-    // Holds the scan once it has reported, so later ticks can tell the server not to re-read it. A
-    // ref rather than the cache because the shared useQuery wrapper's queryFn takes no context.
-    const settledScan = useRef<JobScanResult | null>(isScanPending(initial.scan) ? null : initial.scan)
-
+function useJobAnalysisPoll(
+    studyJobId: string,
+    submittedAt: Date | string,
+    initialReview: StudyReviewWithMeta | null,
+    intervalMs: number,
+) {
     return useQuery({
         queryKey: jobAnalysisKey(studyJobId, submittedAt),
-        queryFn: async () => {
-            const held = settledScan.current
-            const response = await getJobAnalysisAction({ studyJobId, scanSettled: held != null })
-            if (isActionError(response)) return response
-
-            // A null scan means "unchanged": the server skipped the re-read because we said we
-            // already had it, so the value we held is the one to keep.
-            const scan = response.scan ?? held ?? initial.scan
-            if (!isScanPending(scan)) settledScan.current = scan
-            return { review: response.review, scan }
+        // No `withScan`: this page stopped rendering a scan verdict in OTTER-694, and asking for
+        // one would buy an S3 read on every tick.
+        queryFn: async (): Promise<JobAnalysisUpdate> => {
+            const response = await getJobAnalysisAction({ studyJobId })
+            if (isActionError(response)) return { review: null }
+            return { review: response.review }
         },
-        initialData: initial,
+        initialData: { review: initialReview },
         // The server render is already stale by the time it reaches the browser; without this the
         // seeded value counts as fresh and the first interval tick is skipped.
         initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
-            const data = query.state.data
-            return data?.review == null || isScanPending(data?.scan) ? intervalMs : false
+            return query.state.data?.review == null ? intervalMs : false
         },
     })
 }
@@ -253,8 +242,7 @@ function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[]
         onSuccess: () => {
             // Must be the poll's own key, round included, or this clears an entry nothing reads and
             // the panel keeps rendering the failure it just retried.
-            // Clears only the review half; the scan in the same payload is unaffected by a regen.
-            queryClient.setQueryData(analysisKey, (prev: JobAnalysis | undefined) =>
+            queryClient.setQueryData(analysisKey, (prev: JobAnalysisUpdate | undefined) =>
                 prev ? { ...prev, review: null } : prev,
             )
             onRetryStarted()
@@ -279,9 +267,8 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
     const onRetry = () => retry.mutate()
     const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
 
-    // A summary already on screen outranks a failed poll tick: the poll keeps running for the scan
-    // long after the report lands, and a late failure must not replace good content the reviewer is
-    // reading — it never came back, because an error stops the poll (OTTER-775 review).
+    // A summary already on screen outranks a failed tick: a failure stops the poll, so replacing
+    // good content the reviewer is reading would never come back (OTTER-775 review).
     const renderBody = () => {
         if (review != null) {
             if (review.summaryFailedAt != null) return errorState
@@ -339,8 +326,7 @@ function JobAnalysisExtendedDetails({
     )
 }
 
-// Owns the analysis poll the AI summary reads from. Scan still rides on the same query so the
-// interval can stop once both results have settled.
+// Owns the analysis poll the AI summary reads from.
 export function JobAnalysisPanels({
     studyJobId,
     initialAnalysis,
@@ -352,8 +338,7 @@ export function JobAnalysisPanels({
     children,
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
-    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
-    const analysis = data ?? initialAnalysis
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis.review, pollIntervalMs)
 
     return (
         <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
@@ -361,7 +346,7 @@ export function JobAnalysisPanels({
                 <AiSummaryCollapsible
                     studyJobId={studyJobId}
                     analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
-                    review={analysis.review}
+                    review={data?.review ?? null}
                     hasError={error != null}
                     timedOut={summaryTimeout.elapsed}
                     onRetryStarted={summaryTimeout.reset}
