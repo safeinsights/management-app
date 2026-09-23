@@ -87,17 +87,6 @@ function ProposalSection({ isVisible, study, orgSlug, stepLabel, heading, banner
     )
 }
 
-type PostDecisionFeedbackProps = {
-    isVisible: boolean
-    entries: ProposalFeedbackEntry[] | CodeReviewFeedbackEntry[]
-    alwaysExpandLatest: boolean
-}
-
-function PostDecisionFeedback({ isVisible, entries, alwaysExpandLatest }: PostDecisionFeedbackProps) {
-    if (!isVisible) return null
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={alwaysExpandLatest} />
-}
-
 export function PostFeedbackView({
     orgSlug,
     study,
@@ -147,7 +136,7 @@ export function PostFeedbackView({
                     heading={heading}
                     banner={banner}
                 >
-                    <PostDecisionFeedback isVisible={feedbackBeforeDetails} entries={entries} alwaysExpandLatest />
+                    <FeedbackAndNotesSection isVisible={feedbackBeforeDetails} entries={entries} alwaysExpandLatest />
                 </CollapsibleSubmittedCodeSection>
                 <ProposalSection
                     isVisible={!isCode}
@@ -162,7 +151,7 @@ export function PostFeedbackView({
                     consequence="Researchers cannot submit code"
                     isVisible={showsAgreementNotice}
                 />
-                <PostDecisionFeedback
+                <FeedbackAndNotesSection
                     isVisible={!feedbackBeforeDetails}
                     entries={entries}
                     alwaysExpandLatest={isCode}

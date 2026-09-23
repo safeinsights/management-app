@@ -4,6 +4,7 @@ import { type ReactNode } from 'react'
 import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
+import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
 import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -99,40 +100,6 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
     },
 ]
 
-const RADIO_STYLES = {
-    label: { fontWeight: 600, fontSize: 16 },
-    description: { fontSize: 14 },
-}
-
-const decisionDescriptionId = (value: Decision) => `${DECISION_GROUP_ID}-${value}-description`
-
-function DecisionRadioOption({
-    option,
-    error,
-    errorId,
-}: {
-    option: DecisionOption
-    error: ReactNode
-    errorId: string
-}) {
-    // Mantine shows `description` visually but never puts it in aria-describedby.
-    const descriptionId = decisionDescriptionId(option.value)
-    const describedBy = [error ? errorId : null, descriptionId].filter(Boolean).join(' ')
-
-    return (
-        <Radio
-            value={option.value}
-            label={option.title}
-            description={<span id={descriptionId}>{option.description}</span>}
-            styles={RADIO_STYLES}
-            error={!!error}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy}
-            data-testid={option.testId}
-        />
-    )
-}
-
 function DecisionRadioGroup({
     value,
     onChange,
@@ -155,7 +122,16 @@ function DecisionRadioGroup({
     // aria-* also belongs here: submit-time focus lands on the inputs, and Radio.Group would
     // forward unknown props onto a roleless wrapper.
     const radioOptions = options.map((option) => (
-        <DecisionRadioOption key={option.value} option={option} error={error} errorId={errorId} />
+        <DecisionRadio
+            key={option.value}
+            value={option.value}
+            label={option.title}
+            description={option.description}
+            testId={option.testId}
+            error={error}
+            errorId={errorId}
+            styles={DECISION_RADIO_STYLES}
+        />
     ))
 
     return (

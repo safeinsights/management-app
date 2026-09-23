@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
+import { DECISION_NOTICES } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
@@ -43,15 +44,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
         onError: (err) => {
             captureException(err)
-            notifications.show({
-                color: 'red',
-                title: 'Decision could not be submitted',
-                message: 'Your work is saved. Try again.',
-            })
+            notifications.show(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            notifications.show({ color: 'green', title: 'Decision submitted', message: '' })
+            notifications.show(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (broadcastProvider && submittedByClerkId) {

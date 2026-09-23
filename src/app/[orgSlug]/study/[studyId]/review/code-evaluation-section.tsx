@@ -5,6 +5,7 @@ import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { LinkWithIcon } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
@@ -52,26 +53,6 @@ type CriterionRowProps = {
     label: ReactNode
 }
 
-function CriterionRadio({
-    option,
-    error,
-    sectionErrorId,
-}: {
-    option: (typeof OPTIONS)[number]
-    error: ReactNode
-    sectionErrorId: string
-}) {
-    return (
-        <Radio
-            value={option.value}
-            label={option.label}
-            error={!!error}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? sectionErrorId : undefined}
-        />
-    )
-}
-
 function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, onBlur, label }: CriterionRowProps) {
     const handleChange = (raw: string) => {
         onChange(raw as CodeReviewCriteriaDraftValue)
@@ -83,7 +64,13 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
     // aria-* also belongs here: submit-time focus lands on the inputs, and Radio.Group would
     // forward unknown props onto a roleless wrapper.
     const radioOptions = OPTIONS.map((option) => (
-        <CriterionRadio key={option.value} option={option} error={error} sectionErrorId={sectionErrorId} />
+        <DecisionRadio
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            error={error}
+            errorId={sectionErrorId}
+        />
     ))
 
     // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper; the
