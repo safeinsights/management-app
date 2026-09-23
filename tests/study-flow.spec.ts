@@ -225,8 +225,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
-    // Scoped to the dialog and exact: the page's own "Submit code for review" button is behind it,
-    // and Playwright matches the accessible name as a substring by default.
+    // Exact and dialog-scoped: Playwright matches names as substrings, and the page's own button is behind it.
     const confirmDialog = page.getByRole('dialog', { name: 'Submit code for review?' })
     const confirmButton = confirmDialog.getByRole('button', { name: 'Submit code', exact: true })
     await expect(confirmButton).toBeVisible()
