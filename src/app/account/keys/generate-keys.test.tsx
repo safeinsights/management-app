@@ -33,7 +33,7 @@ const renderPage = (props: { isRegenerating?: boolean; firstKeyRedirect?: Route 
     mockClerkSession({ userId: 'user-id', clerkUserId: 'clerk-user-id', orgSlug: 'dev' })
     vi.mocked(generateKeyPair).mockResolvedValue(mockKeys as never)
     renderWithProviders(<GenerateKeys {...props} />)
-    return screen.findByText('Security key', { selector: 'h3' })
+    return screen.findByText(/security key/i, { selector: 'h3' })
 }
 
 const storeKey = async (confirmLabel = 'Yes, I have stored my key') => {
@@ -119,6 +119,7 @@ describe('Security key generation', () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: true })
 
+        expect(screen.getByText('New security key', { selector: 'h3' })).toBeDefined()
         expect(screen.getByText(/It replaces your existing key\./)).toBeDefined()
         expect(screen.getByText(/A new key cannot decrypt your current outputs\. It works only/).tagName).toBe('B')
         expect(screen.queryByText(/This is your security key\. You will need it/)).toBeNull()

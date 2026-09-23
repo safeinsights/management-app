@@ -36,6 +36,7 @@ type GenerateKeysProps = {
 }
 
 type KeyCopy = {
+    heading: string
     intro: string
     emphasis: string
     modalTitle: string
@@ -45,6 +46,7 @@ type KeyCopy = {
 }
 
 const FIRST_KEY_COPY: KeyCopy = {
+    heading: 'Security key',
     intro: 'This is your security key. You will need it to access your study outputs across every organization you belong to.',
     emphasis: 'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.',
     modalTitle: 'Have you stored your security key?',
@@ -56,6 +58,7 @@ const FIRST_KEY_COPY: KeyCopy = {
 // Same wording as /user-key: a direct visit to this route used to describe a reset as a first-time
 // setup and warn only about losing the new key (OTTER-741).
 const RESET_KEY_COPY: KeyCopy = {
+    heading: 'New security key',
     intro: 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.',
     emphasis:
         'A new key cannot decrypt your current outputs. It works only for outputs encrypted after you generate it.',
@@ -149,7 +152,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
                 <Title order={3} fz={22}>
-                    Security key
+                    {copyText.heading}
                 </Title>
 
                 <KeyIntro copyText={copyText} />
