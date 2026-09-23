@@ -19,6 +19,7 @@ import {
     useEscapeOnCard,
     useExclusiveLinkCard,
     useFocusOnOpen,
+    wantsBrowserDefault,
 } from '@/components/link-hover-card/link-card-interactions'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { linkAttributes } from './config'
@@ -85,7 +86,7 @@ function useEditorLinkCard(editor: LexicalEditor) {
         (event: MouseEvent) => {
             // Modified and middle clicks belong to the browser, and a click that ends a drag is
             // the user selecting text rather than reaching for the link.
-            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+            if (wantsBrowserDefault(event)) return
             if (movedSincePress(event)) return
             if (!isDOMNode(event.target)) return
 

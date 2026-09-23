@@ -18,6 +18,19 @@ export const LINK_CARD_POPOVER_PROPS: Pick<
     clickOutsideEvents: ['mousedown', 'touchstart'],
 }
 
+// Enter would follow the link and Space would scroll the page, so both open the card instead.
+export const OPEN_KEYS = ['Enter', ' ']
+
+const PRIMARY_BUTTON = 0
+
+type ModifierKeys = { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }
+
+// Any modifier asks the browser for a new tab, a new window or the context menu, not for the card.
+export const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+
+export const wantsBrowserDefault = (event: ModifierKeys & { button: number }) =>
+    event.button !== PRIMARY_BUTTON || hasModifier(event)
+
 export function openLinkInNewTab(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer')
 }

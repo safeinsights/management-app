@@ -13,27 +13,18 @@ import { Popover } from '@mantine/core'
 import { LinkWithIcon, type LinkWithIconProps } from '@/components/links'
 import { LINK_CARD_DIALOG_LABEL } from './copy'
 import {
+    hasModifier,
     LINK_CARD_POPOVER_PROPS,
-    openLinkInNewTab,
+    OPEN_KEYS,
     useEscapeOnCard,
     useExclusiveLinkCard,
-    useFocusOnOpen,
+    wantsBrowserDefault,
 } from './link-card-interactions'
-import { LinkHoverCard } from './link-hover-card'
 import { absoluteHref, currentOrigin } from './link-preview'
+import { ReadOnlyLinkCardBody } from './read-only-link-card'
 import { focusNextTabStopAfter, tabStopsIn } from './tab-stops'
-import { useLinkPreview } from './use-link-preview'
-
-const OPEN_KEYS = ['Enter', ' ']
-const PRIMARY_BUTTON = 0
 
 type TabDirection = 'forward' | 'back'
-
-// Any modifier asks the browser for a new tab, a new window or the context menu, not for the card.
-const hasModifier = (event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }) =>
-    event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
-
-const wantsBrowserDefault = (event: ReactMouseEvent) => event.button !== PRIMARY_BUTTON || hasModifier(event)
 
 /**
  * The card is portaled to the end of the page, so Tab past its edge would skip the rest of the
@@ -108,7 +99,6 @@ function useLinkWithHoverCard() {
         toggle(event.currentTarget)
     }
 
-    // Enter would follow the link and Space would scroll the page.
     const onKeyDown = (event: ReactKeyboardEvent<HTMLAnchorElement>) => {
         if (!OPEN_KEYS.includes(event.key) || hasModifier(event)) return
         event.preventDefault()
@@ -168,25 +158,7 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
 function LinkCardContent({ isVisible, href }: { isVisible: boolean; href: string }) {
     if (!isVisible) return null
 
-    return <LinkCardBody href={href} />
-}
-
-function LinkCardBody({ href }: { href: string }) {
-    const firstActionRef = useRef<HTMLButtonElement>(null)
-
-    useFocusOnOpen(firstActionRef)
-
     const url = absoluteHref(href, currentOrigin())
-    const preview = useLinkPreview(url)
-    const openInNewTab = () => openLinkInNewTab(url)
 
-    return (
-        <LinkHoverCard
-            preview={preview}
-            mode="readOnly"
-            opensInNewTab
-            firstActionRef={firstActionRef}
-            onOpenInNewTab={openInNewTab}
-        />
-    )
+    return <ReadOnlyLinkCardBody url={url} opensInNewTab />
 }

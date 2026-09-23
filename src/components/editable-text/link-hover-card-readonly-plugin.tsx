@@ -4,14 +4,13 @@ import { useCallback, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import type { LexicalEditor } from 'lexical'
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
-import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
 import {
+    OPEN_KEYS,
     openLinkInNewTab,
     useEscapeOnCard,
     useExclusiveLinkCard,
-    useFocusOnOpen,
 } from '@/components/link-hover-card/link-card-interactions'
-import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
+import { ReadOnlyLinkCardBody } from '@/components/link-hover-card/read-only-link-card'
 import {
     AnchoredLinkCard,
     hasPrimaryModifier,
@@ -22,7 +21,6 @@ import {
 } from './link-card-popover'
 import { $linkAtDomNode, type LinkCardTarget } from './link-card-node'
 
-const OPEN_KEYS = ['Enter', ' ']
 const MIDDLE_BUTTON = 1
 
 const closestAnchor = (target: EventTarget | null) => (target instanceof Element ? target.closest('a') : null)
@@ -100,7 +98,6 @@ function useReadOnlyLinkCard(editor: LexicalEditor) {
             const hit = linkFromEvent(event.target)
             if (!hit) return
 
-            // Enter would follow the link and Space would scroll the page.
             event.preventDefault()
             open(hit.found, hit.anchor)
         },
@@ -148,24 +145,5 @@ export function LinkHoverCardReadOnlyPlugin() {
 function ReadOnlyCardContent({ link }: { link: LinkCardTarget | null }) {
     if (!link) return null
 
-    return <ReadOnlyCardBody link={link} />
-}
-
-function ReadOnlyCardBody({ link }: { link: LinkCardTarget }) {
-    const firstActionRef = useRef<HTMLButtonElement>(null)
-
-    useFocusOnOpen(firstActionRef)
-
-    const preview = useLinkPreview(link.url)
-    const openInNewTab = () => openLinkInNewTab(link.url)
-
-    return (
-        <LinkHoverCard
-            preview={preview}
-            mode="readOnly"
-            opensInNewTab={link.target === '_blank'}
-            firstActionRef={firstActionRef}
-            onOpenInNewTab={openInNewTab}
-        />
-    )
+    return <ReadOnlyLinkCardBody url={link.url} opensInNewTab={link.target === '_blank'} />
 }
