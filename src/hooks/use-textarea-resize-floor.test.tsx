@@ -14,7 +14,7 @@ function Harness({ maxRows }: { maxRows?: number }) {
     const { ref, floor } = useTextareaResizeFloor({ maxRows })
     return (
         <>
-            <textarea ref={ref} rows={3} aria-label="Note" style={{ minHeight: floor }} />
+            <textarea ref={ref} rows={3} aria-label="Note" style={{ minHeight: floor ?? undefined }} />
             <output data-testid="floor">{floor ?? 'none'}</output>
         </>
     )

@@ -122,7 +122,7 @@ export const EditOrgForm: FC<{
             {isEnclave && (
                 <Textarea
                     label="Public Key"
-                    {...resizableTextareaProps}
+                    {...resizableTextareaProps()}
                     description="Validates server authentication JWT"
                     placeholder="Enter your public key"
                     name="settings.publicKey"

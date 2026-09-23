@@ -6,7 +6,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchOrgDataSourcesAction } from './data-sources.actions'
 import { useDataSourceForm } from './use-data-source-form'
 import { GetInputPropsReturnType } from '@mantine/form'
-import { growingTextareaProps } from '@/components/textarea-resize'
+import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
@@ -77,7 +77,7 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                     placeholder="Brief description of this data source"
                     ref={descriptionRef}
                     rows={2}
-                    {...growingTextareaProps(descriptionFloor)}
+                    {...resizableTextareaProps(descriptionFloor)}
                     {...form.getInputProps('description')}
                 />
                 <Divider />

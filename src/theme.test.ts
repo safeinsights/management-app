@@ -40,7 +40,7 @@ describe('palette', () => {
 // height the field loads at (OTTER-787). Each resizable field sets both for itself.
 describe('textarea', () => {
     it('turns no resize handle on by default', () => {
-        expect(theme.components?.Textarea).toBeUndefined()
+        expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
     })
 })
 

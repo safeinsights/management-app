@@ -7,17 +7,10 @@ import type { TextareaProps } from '@mantine/core'
  */
 export const TEXTAREA_RESIZE_FLOOR = 72
 
-export const resizableTextareaProps = {
-    resize: 'vertical',
-    styles: { input: { minHeight: TEXTAREA_RESIZE_FLOOR } },
-} satisfies Pick<TextareaProps, 'resize' | 'styles'>
-
-/**
- * The same handle for a field whose floor follows its content, from `useTextareaResizeFloor`. Kept
- * out of the JSX because a style object built inline in a return statement is a repo rule breach.
- */
-export const growingTextareaProps = (floor?: number) =>
+// A growing field passes the floor from `useTextareaResizeFloor`, which is null before the first
+// measurement. Null rather than undefined, so it does not fall back to the fixed floor.
+export const resizableTextareaProps = (floor: number | null = TEXTAREA_RESIZE_FLOOR) =>
     ({
         resize: 'vertical',
-        styles: { input: { minHeight: floor } },
+        styles: { input: { minHeight: floor ?? undefined } },
     }) satisfies Pick<TextareaProps, 'resize' | 'styles'>

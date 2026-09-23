@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { type PublicOrg } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
-import { growingTextareaProps } from '@/components/textarea-resize'
+import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
 interface FormFieldMessageProps {
@@ -135,7 +135,7 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 {...form.getInputProps('description')}
                                 ref={descriptionRef}
                                 rows={3}
-                                {...growingTextareaProps(descriptionFloor)}
+                                {...resizableTextareaProps(descriptionFloor)}
                                 placeholder="Consider adding a sentence to publicly introduce your organization."
                                 error={
                                     form.errors.description && (

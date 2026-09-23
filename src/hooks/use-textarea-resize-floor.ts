@@ -21,7 +21,7 @@ const pxOrZero = (value: string) => {
  */
 export function useTextareaResizeFloor({ maxRows }: Options = {}) {
     const ref = useRef<HTMLTextAreaElement>(null)
-    const [floor, setFloor] = useState<number | undefined>(undefined)
+    const [floor, setFloor] = useState<number | null>(null)
 
     const measure = useCallback(() => {
         const el = ref.current

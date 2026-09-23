@@ -14,7 +14,7 @@ export const SecurityKeyInput = forwardRef<HTMLTextAreaElement, SecurityKeyInput
             aria-label="Security key"
             disabled={disabled}
             error={error ? <span role="alert">{error}</span> : undefined}
-            {...resizableTextareaProps}
+            {...resizableTextareaProps()}
             w="75%"
             {...props}
         />
