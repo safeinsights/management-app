@@ -23,6 +23,7 @@ import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { isActionError } from '@/lib/errors'
+import { STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-review'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
@@ -95,9 +96,9 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
 
 const ANALYSIS_POLL_INTERVAL_MS = 5_000
 
-// Backstop for a generation that hangs without throwing; a real failure persists summaryFailedAt.
+// Only for a round with no row yet: queued, or a run that died before it could claim anything.
 // Measured from submission, not page open, so opening late does not reset the clock.
-const AI_SUMMARY_TIMEOUT_MS = 180_000
+const AI_SUMMARY_TIMEOUT_MS = STUDY_REVIEW_STALE_AFTER_MS
 
 // `since` is read once on mount and later prop changes are ignored, so a new submission must
 // arrive via a fresh server render or an explicit reset().
@@ -154,7 +155,8 @@ function useJobAnalysisPoll(
         initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
-            return query.state.data?.review == null ? intervalMs : false
+            const review = query.state.data?.review
+            return review == null || studyReviewState(review) === 'pending' ? intervalMs : false
         },
     })
 }
@@ -239,7 +241,14 @@ function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[]
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
-        onSuccess: () => {
+        onSuccess: (result) => {
+            // The server refuses to restart a run that is still alive, and there is nothing to
+            // restart for a report that has already landed. Either way the row on screen is the
+            // one to re-read, and the clock it is judged against must not move.
+            if (isActionError(result) || result.status !== 'restarted') {
+                queryClient.invalidateQueries({ queryKey: [...analysisKey] })
+                return
+            }
             // Must be the poll's own key, round included, or this clears an entry nothing reads and
             // the panel keeps rendering the failure it just retried.
             queryClient.setQueryData(analysisKey, (prev: JobAnalysisUpdate | undefined) =>
@@ -271,7 +280,12 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
     // good content the reviewer is reading would never come back (OTTER-775 review).
     const renderBody = () => {
         if (review != null) {
-            if (review.summaryFailedAt != null) return errorState
+            const state = studyReviewState(review)
+            if (state === 'failed') return errorState
+            // An error stops the poll, so a run still pending when one lands has nothing left to
+            // report its own outcome to this page. Offering the retry beats a spinner that can no
+            // longer resolve, and unlike a landed report there is nothing here worth protecting.
+            if (state === 'pending') return timedOut || hasError ? errorState : <AiSummaryPending />
             if (!summary) return <AiSummaryEmpty />
             return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
         }
@@ -339,6 +353,9 @@ export function JobAnalysisPanels({
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
     const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis.review, pollIntervalMs)
+    const review = data?.review ?? null
+    // The server judges a row it has; the submission clock only covers a run that never wrote one.
+    const summaryGaveUp = review ? review.isStale : summaryTimeout.elapsed
 
     return (
         <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
@@ -346,9 +363,9 @@ export function JobAnalysisPanels({
                 <AiSummaryCollapsible
                     studyJobId={studyJobId}
                     analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
-                    review={data?.review ?? null}
+                    review={review}
                     hasError={error != null}
-                    timedOut={summaryTimeout.elapsed}
+                    timedOut={summaryGaveUp}
                     onRetryStarted={summaryTimeout.reset}
                 />
                 {children}

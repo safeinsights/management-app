@@ -19,6 +19,29 @@ Given a `ReviewContent` (proposal text + code files + reference docs), calls Cla
 - `agent.ts` — `ReviewAgent` class. Constructor takes API key or injected client. `generateAnalysis()` returns the report; `chat()` reserved for future follow-up Q&A (descoped now, planned by Oct 2026).
 - `types.ts` — `ReviewContent`, `ReviewAgentConfig`, `AnalysisReport`, `ReferenceDocs`.
 - `prompts.ts` — `DEFAULT_SYSTEM_INSTRUCTION`, `DEFAULT_ANALYSIS_PROMPT_TEMPLATE`, single-pass `buildAnalysisPrompt(...)` (placeholder injection-safe).
+- `runner.ts` (claims the round, assembles the content, runs the agent under a deadline, writes the outcome)
+- The queue hop lives outside this folder, in `src/server/jobs/` (`queue.ts`, and `registry.ts`, where this agent is the `study-review` job) and `src/app/api/jobs/route.ts` (where the worker runs it).
+
+## Where it runs
+
+A submission asks for a review through `onStudyReviewRequested`, after the submitting transaction
+commits. Where `JOB_QUEUE_URL` is set the request goes to SQS as a `study-review` job. The job
+worker Lambda runs the same server package as the app, behind the same Lambda Web Adapter, and the
+adapter POSTs each SQS event to `/api/jobs`. That route answers only where `JOB_WORKER` is set,
+which is the worker and never the app. Where no queue is configured, the job runs in process
+instead: local development, unit tests and PR previews each run against their own database, which
+the shared worker cannot reach.
+
+The worker claims the round by stamping `summary_started_at` on its `study_review` row. A second
+request for the same round is refused rather than duplicated, and both writes at the end of a run
+are fenced to the claim they own, so a run that comes back after a takeover can neither publish a
+stale report nor fail its replacement. The deadline (`STUDY_REVIEW_GENERATION_DEADLINE_MS`) starts
+before the content is assembled, so the whole run stays inside the worker's own timeout, and every
+ending leaves the row saying what happened: report, failure, or abort.
+
+A pending row older than `STUDY_REVIEW_STALE_AFTER_MS` is a run that died, and the reviewer is
+offered a retry. Before any row exists, the panel falls back to the same clock measured from the
+submission.
 
 ## Customization
 
