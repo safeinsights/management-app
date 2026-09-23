@@ -5,16 +5,18 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import type { LexicalEditor } from 'lexical'
 import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
+import {
+    openLinkInNewTab,
+    useEscapeOnCard,
+    useExclusiveLinkCard,
+    useFocusOnOpen,
+} from '@/components/link-hover-card/link-card-interactions'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import {
     AnchoredLinkCard,
     hasPrimaryModifier,
     isSecondaryClick,
-    openLinkInNewTab,
     useClickWithoutDrag,
-    useEscapeOnCard,
-    useExclusiveLinkCard,
-    useFocusOnOpen,
     useLinkCardTriggerAria,
     useRootDomListeners,
 } from './link-card-popover'

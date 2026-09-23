@@ -24,6 +24,17 @@ export function internalPathname(href: string, origin: string): string | null {
     }
 }
 
+/** Plain links in the app carry route paths; the card needs the full URL to resolve and to copy. */
+export function absoluteHref(href: string, origin: string): string {
+    if (!origin) return href
+
+    try {
+        return new URL(href, origin).href
+    } catch {
+        return href
+    }
+}
+
 export function currentOrigin(): string {
     if (typeof window === 'undefined') return ''
     return window.location.origin
