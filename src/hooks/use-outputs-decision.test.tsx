@@ -202,9 +202,7 @@ describe('useOutputsDecision after a refused submit', () => {
     })
 })
 
-// The draft decision rides on the collaborative document (OTTER-758). No editor publishes a
-// provider in this harness, which is also the single-user-editing case, so these cover the path
-// where there is nothing to persist to.
+// No editor publishes a provider in this harness, as in single-user editing, so there is nothing to persist to.
 describe('useOutputsDecision without a collaborative provider', () => {
     it('still records the chosen option', () => {
         const { result } = renderDecision()

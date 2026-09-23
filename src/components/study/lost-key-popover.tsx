@@ -7,22 +7,17 @@ import { LinkWithIcon } from '@/components/links'
 import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
 
-// Long enough for the pointer to cross the gap between the icon and the card, short enough that the
-// card does not linger once the pointer has really left. The card holds a link, so it has to stay
-// reachable by pointer (WCAG 2.1 SC 1.4.13, content on hover must be hoverable).
-const HOVER_CLOSE_DELAY_MS = 120
+// Time for the pointer to cross from the icon into the card (WCAG 2.1 SC 1.4.13, hover content must be hoverable).
+export const HOVER_CLOSE_DELAY_MS = 120
 
-// The trigger ref is passed in rather than returned: a hook result that carries a ref may not be
-// read during render, and every handler below is read exactly there.
+// Takes the trigger ref instead of returning it: a hook result that carries a ref cannot be read during render.
 const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     const [opened, setOpened] = useState(false)
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    // Refs, not state: nothing renders from them, and the hover timer and the blur handler both
-    // need the value at the moment they run rather than the one their closure captured.
+    // Refs, not state: the hover timer and the blur handler need the live value, not the captured one.
     const isPinned = useRef(false)
     const isPointerInside = useRef(false)
-    // Set while a dismissal hands focus back to the icon, so the icon's own focus handler does not
-    // reopen the card that dismissal just closed.
+    // Keeps the icon's focus handler from reopening the card that a dismissal just closed.
     const isRestoringFocus = useRef(false)
 
     const cancelScheduledClose = useCallback(() => {
@@ -82,9 +77,8 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
         open()
     }, [open])
 
-    // Watches the whole group rather than the icon, so Tab from the icon into the card's link is not
-    // a dismissal. A pointer already inside does not dismiss either: the blur fires on the mousedown
-    // that is on its way to the link, and closing here would swallow that click.
+    // On the whole group, so Tab into the card's link is not a dismissal. A pointer inside does not dismiss
+    // either, because the blur fires on the mousedown of a click headed for the link.
     const onGroupBlur = useCallback(
         (event: FocusEvent<HTMLDivElement>) => {
             if (isPinned.current || isPointerInside.current) return
@@ -94,8 +88,7 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
         [dismiss],
     )
 
-    // Guarded on `opened`: an unguarded stopPropagation swallowed Escape at the icon even with the
-    // card closed, keeping it from reaching whatever surrounds this.
+    // Only while open, so Escape still reaches the surrounding page when the card is closed.
     const onEscape = useCallback(
         (event: KeyboardEvent) => {
             if (event.key !== 'Escape' || !opened) return
@@ -141,9 +134,7 @@ export const LostKeyPopover = () => {
                 shadow="md"
                 radius="md"
                 withArrow
-                // Keeps the card in this group's subtree so Tab from the icon reaches its link; a
-                // portalled dropdown sits at the end of the body and is unreachable by keyboard.
-                // Fixed positioning is what stops the inline card being clipped by an ancestor.
+                // Not portaled, so Tab from the icon reaches the link. Fixed positioning stops an ancestor clipping it.
                 withinPortal={false}
                 floatingStrategy="fixed"
             >
@@ -177,8 +168,7 @@ export const LostKeyPopover = () => {
                             A key you generate now cannot access these outputs. It applies only to outputs encrypted
                             after you generate it.
                         </Text>
-                        {/* Decorative: the aria-label already announces the new tab, which is what
-                            the design asks for rather than an icon-only cue. */}
+                        {/* Decorative: the aria-label already announces the new tab. */}
                         <LinkWithIcon
                             href={Routes.userKey}
                             target="_blank"

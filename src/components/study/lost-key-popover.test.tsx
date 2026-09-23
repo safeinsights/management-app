@@ -1,8 +1,8 @@
-import { describe, expect, it, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import { act, afterEach, describe, expect, it, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LostKeyPopover } from './lost-key-popover'
+import { HOVER_CLOSE_DELAY_MS, LostKeyPopover } from './lost-key-popover'
 
 const trigger = () => screen.getByRole('button', { name: /lost your key/i })
 
@@ -10,7 +10,11 @@ const isOpen = () => trigger().getAttribute('aria-expanded') === 'true'
 
 const keyLink = () => screen.getByRole('link', { name: /manage your security key/i, hidden: true })
 
+const passHoverCloseDelay = () => act(() => vi.advanceTimersByTime(HOVER_CLOSE_DELAY_MS + 1))
+
 describe('LostKeyPopover', () => {
+    afterEach(() => vi.useRealTimers())
+
     it('renders the trigger text and icon', () => {
         renderWithProviders(<LostKeyPopover />)
         expect(screen.getByText('Lost your key?')).toBeInTheDocument()
@@ -102,12 +106,11 @@ describe('LostKeyPopover', () => {
         await userEvent.hover(trigger())
         await waitFor(() => expect(isOpen()).toBe(true))
 
-        // The card holds a link, so the pointer has to be able to travel into it and stay there.
-        const link = screen.getByRole('link', { name: /manage your security key/i, hidden: true })
-        await userEvent.unhover(trigger())
-        await userEvent.hover(link)
+        vi.useFakeTimers()
+        fireEvent.mouseLeave(trigger())
+        fireEvent.mouseEnter(keyLink())
+        passHoverCloseDelay()
 
-        await new Promise((resolve) => setTimeout(resolve, 250))
         expect(isOpen()).toBe(true)
     })
 
@@ -125,9 +128,10 @@ describe('LostKeyPopover', () => {
         await userEvent.click(trigger())
         await waitFor(() => expect(isOpen()).toBe(true))
 
-        await userEvent.unhover(trigger())
+        vi.useFakeTimers()
+        fireEvent.mouseLeave(trigger())
+        passHoverCloseDelay()
 
-        await new Promise((resolve) => setTimeout(resolve, 250))
         expect(isOpen()).toBe(true)
     })
 
@@ -142,10 +146,8 @@ describe('LostKeyPopover', () => {
         await waitFor(() => expect(isOpen()).toBe(false))
     })
 
-    // jsdom has no layout, so floating-ui reads the icon as detached and keeps the card
-    // display:none; a real Tab cannot be exercised here. These two cover what makes the link
-    // reachable instead: it sits after the icon in this subtree rather than in a portal at the end
-    // of the body, and focus landing on it is not treated as leaving.
+    // jsdom has no layout, so a real Tab into the card cannot run here. These two cover what makes it work:
+    // the card follows the icon in this subtree, and focus moving into it does not count as leaving.
     it('places the card in the group, after the icon, rather than in a portal', async () => {
         renderWithProviders(<LostKeyPopover />)
         await userEvent.click(trigger())
@@ -206,7 +208,6 @@ describe('LostKeyPopover', () => {
         const link = screen.getByRole('link', { name: /manage your security key/i, hidden: true })
         const icon = link.querySelector('svg')
         expect(icon).not.toBeNull()
-        // The aria-label already says a new tab opens, so a second announcement would repeat it.
         expect(icon).toHaveAttribute('aria-hidden', 'true')
     })
 })

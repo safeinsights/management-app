@@ -124,9 +124,7 @@ describe('useOutputsFiles activity display', () => {
     })
 })
 
-// Nothing ordered these rows before, so the list arrived in physical database order and the scan
-// log moved between rounds (OTTER-758). The fixtures carry APPROVED-* types because that is what
-// useDecryptFiles hands this hook; ENCRYPTED-* names never reach it.
+// APPROVED-* fixtures, because useDecryptFiles has already rewritten the ENCRYPTED-* names (OTTER-758).
 describe('useOutputsFiles row order', () => {
     const shuffled = () => [
         typedFile('tutor_results.csv', 'APPROVED-RESULT'),

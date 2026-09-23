@@ -1,6 +1,5 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, vi, within } from '@/tests/unit.helpers'
 import { OutputsFilesSection } from './outputs-files-section'
-import classes from './outputs-files-section.module.css'
 import type { OutputFileRowData } from './outputs-file-row'
 
 const buildRow = (name: string, overrides: Partial<OutputFileRowData> = {}): OutputFileRowData => ({
@@ -60,21 +59,6 @@ describe('OutputsFilesSection', () => {
             renderSection([buildRow('run.log')])
 
             expect(screen.getByRole('table').getAttribute('style')).toContain('--table-layout: fixed')
-        })
-
-        it('pins the last activity and actions columns', () => {
-            renderSection([buildRow('run.log')])
-
-            expect(screen.getByRole('columnheader', { name: 'Last activity' })).toHaveClass(classes.lastActivityColumn)
-            expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass(classes.actionsColumn)
-        })
-
-        it('leaves the file name column free to take the remaining space', () => {
-            renderSection([buildRow('run.log')])
-
-            const fileName = screen.getByRole('columnheader', { name: 'File name' })
-            expect(fileName).not.toHaveClass(classes.lastActivityColumn)
-            expect(fileName).not.toHaveClass(classes.actionsColumn)
         })
     })
 

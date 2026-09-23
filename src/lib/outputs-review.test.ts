@@ -70,9 +70,8 @@ describe('isOutputsReviewEditable', () => {
     })
 })
 
-// The types here are the post-decryption ones. useDecryptFiles rewrites every ENCRYPTED-* name
-// through ENCRYPTED_TO_APPROVED before the rows are sorted, so an ENCRYPTED-* fixture would pass
-// while the real list stayed alphabetical (OTTER-758).
+// Post-decryption types: useDecryptFiles rewrites ENCRYPTED-* names before sorting, so an ENCRYPTED-* fixture
+// would pass while the real list stayed alphabetical (OTTER-758).
 describe('compareOutputFiles', () => {
     const result = (name: string): OutputFileOrder => ({ fileType: 'APPROVED-RESULT', name })
     const order = (files: OutputFileOrder[]) => [...files].sort(compareOutputFiles).map((file) => file.name)

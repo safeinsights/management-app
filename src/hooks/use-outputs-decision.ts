@@ -58,8 +58,7 @@ export function useOutputsDecision({
 
     const [feedback, setFeedback] = useState('')
     const [selected, setSelected] = useState<OutputsDecision | null>(null)
-    // The feedback rides back on the collaborative document by itself; the radio needs this to be
-    // restored with it (OTTER-758).
+    // The feedback restores itself from the collaborative document; the radio needs this (OTTER-758).
     const { pushDecision } = useOutputsDecisionMap({ provider, selected, onRestore: setSelected })
     // Not raised on blur: the message inserts a line that shifts "Submit decision" between
     // mousedown and mouseup, so the click misses and the reviewer has to click twice.

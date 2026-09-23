@@ -4,14 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
-/**
- * The half that every hook mirroring a Y.Map into local state was repeating: the sync, the seeding
- * of values chosen before the document arrived, the remote observer, and the origin guard that
- * keeps a local write from echoing back as a remote one. Callers bring the domain half.
- *
- * `seed` and `applyRemote` are held in refs and may be stale closures, so they must read live state
- * themselves (a ref, or a Mantine form's getValues) rather than values captured at render.
- */
+// `seed` and `applyRemote` are held in refs and may be stale closures, so they must read live state
+// (a ref, or a Mantine form's getValues) rather than values captured at render.
 
 type Args = {
     provider: HocuspocusProvider | null

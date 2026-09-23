@@ -171,6 +171,25 @@ describe('useOutputsDecisionMap', () => {
         expect(onRestore).not.toHaveBeenCalled()
     })
 
+    it('keeps a decision this reviewer picked through a re-sync after a peer picked the other one', async () => {
+        const doc = new Y.Doc()
+        const provider = createFakeYjsProvider(doc)
+        const { hook, onRestore } = setupHook({ provider })
+        act(() => provider.triggerSynced())
+        await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
+        act(() => hook.result.current.pushDecision('share-feedback-only'))
+        hook.rerender({ selected: 'share-feedback-only' })
+
+        act(() => {
+            decisionMapOf(doc).set(DECISION_KEY, 'share-outputs')
+        })
+        onRestore.mockClear()
+        act(() => provider.triggerSynced())
+
+        expect(decisionMapOf(doc).get(DECISION_KEY)).toBe('share-feedback-only')
+        expect(onRestore).not.toHaveBeenCalledWith('share-outputs')
+    })
+
     it('does not echo its own write back as a restore', async () => {
         const doc = new Y.Doc()
         const provider = createFakeYjsProvider(doc)
