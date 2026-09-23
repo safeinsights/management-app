@@ -1,3 +1,7 @@
+// ESLint reads `files` as minimatch globs. Backslash goes in the class too, so one already in a
+// path is escaped rather than swallowing the bracket after it.
+export const toLiteralGlob = (path) => path.replace(/[\\[\]{}()*?!+@]/g, '\\$&')
+
 // Files still carrying custom/noRawStyleValues violations. The rule runs at `error` everywhere
 // else; remove a path here as soon as its file is clean, and delete this file when it is empty.
 export const PENDING_RAW_STYLE_FILES = [
@@ -46,7 +50,7 @@ export const PENDING_RAW_STYLE_FILES = [
     'src/app/admin/safeinsights/legal/pdf-dropzone.tsx',
     'src/app/admin/safeinsights/table.tsx',
     'src/app/legal/user-global-document.tsx',
-    'src/app/not-found.tsx',
+    'src/app/not-found-view.tsx',
     'src/app/user-key/regenerate-key-view.tsx',
     'src/components/cancel-button.tsx',
     'src/components/copying-input.tsx',

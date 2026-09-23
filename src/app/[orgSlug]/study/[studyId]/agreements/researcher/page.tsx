@@ -1,5 +1,6 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
@@ -7,6 +8,10 @@ import { researcherCodeStepHref } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Agreements' }
+}
 
 // OTTER-727 hid the Agreements step; this route only catches stale bookmarks. Access is still
 // checked so the redirect cannot be used to probe studies the user cannot see.

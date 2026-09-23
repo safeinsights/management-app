@@ -1,11 +1,16 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import { proposalReviewDecision } from '@/lib/review-decision'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderScreenById, renderStudyScreen } from '../../_screens/render-screen'
 import { reviewerPageGuard } from '../reviewer-page-guard'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Review proposal' }
+}
 
 // Shows the decided proposal even when the canonical /review screen is code-stage. Decided-ness
 // comes from proposalReviewDecision because code submissions flip status back to PENDING-REVIEW.

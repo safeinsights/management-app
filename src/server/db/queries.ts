@@ -318,6 +318,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'lab.slug as labSlug',
             'lab.name as labName',
             'study.createdAt',
+            'study.submittedAt',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))

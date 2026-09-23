@@ -101,7 +101,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                         <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
                         <StudyAgreementPreparingNotice
                             studyId={studyId}
-                            consequence="You cannot release these outputs yet."
+                            consequence="You cannot release these outputs"
                         />
                         <LockedPhase isVisible={isLocked} job={job} nav={nav.locked} onDecrypted={onDecrypted} />
                         <UnlockedPhase

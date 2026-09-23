@@ -11,7 +11,7 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
-import { PENDING_RAW_STYLE_FILES } from './tests/no-raw-style-values-pending.mjs'
+import { PENDING_RAW_STYLE_FILES, toLiteralGlob } from './tests/no-raw-style-values-pending.mjs'
 
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
@@ -161,7 +161,7 @@ const eslintConfig = [
     },
     {
         // `[orgSlug]` is a route segment, not a glob class.
-        files: PENDING_RAW_STYLE_FILES.map((path) => path.replace(/[[\]]/g, '\\$&')),
+        files: PENDING_RAW_STYLE_FILES.map(toLiteralGlob),
         rules: {
             'custom/noRawStyleValues': 'warn',
         },

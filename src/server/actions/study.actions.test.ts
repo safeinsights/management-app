@@ -104,29 +104,18 @@ describe('Study Actions', () => {
         return user
     }
 
-    // The preparation email is held until its Mailgun template exists, so the log line is what there is
-    // to observe. Assert on `deliver` again once the template lands.
-    const HELD_PREPARATION_EMAIL = 'Holding email until its Mailgun template exists: Study Agreement needed'
-
-    it('approving a proposal asks SafeInsights to prepare the Study Agreement', async () => {
+    // SHRMP-328 moved this email to submission. Approval is where it used to fire, so it is the one
+    // place worth proving it no longer does.
+    it('approving a proposal no longer asks SafeInsights to prepare the Study Agreement', async () => {
         await insertSiAdmin()
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-        vi.spyOn(logger, 'info').mockImplementation(() => true)
-
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-
-        await waitFor(() => {
-            expect(logger.info).toHaveBeenCalledWith(HELD_PREPARATION_EMAIL)
+        // No agreement: with the fixture's own, the email would be skipped for the wrong reason.
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            withStudyAgreement: false,
         })
-    })
-
-    it('approving a test study asks for no Study Agreement', async () => {
-        await insertSiAdmin()
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
-        vi.spyOn(logger, 'info').mockImplementation(() => true)
 
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
@@ -136,7 +125,7 @@ describe('Study Actions', () => {
                 expect.objectContaining({ template: 'vb - research proposal approved' }),
             )
         })
-        expect(logger.info).not.toHaveBeenCalledWith(HELD_PREPARATION_EMAIL)
+        expect(deliverMock).not.toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - sla notice' }))
     })
 
     it('successfully approves a python language study proposal', async () => {
