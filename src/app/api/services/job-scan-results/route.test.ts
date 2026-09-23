@@ -1,9 +1,11 @@
 import { describe, expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
+import { insertTestStudyData, mockSessionWithTestData, readTestSupportFile, BLANK_UUID } from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
 import { fetchFileContents } from '@/server/storage'
+import { ResultsReader } from 'si-encryption/job-results/reader'
+import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -162,6 +164,33 @@ test.skipIf(!s3Available)('does not duplicate log files when CODE-SCANNED is del
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.filter((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toHaveLength(1)
     expect(files.filter((f) => f.fileType === 'SECURITY-SCAN-LOG')).toHaveLength(1)
+})
+
+test.skipIf(!s3Available)('binds the encrypted scan log to the job that produced it', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const body = { jobId, status: 'CODE-SCANNED', plaintextLog: 'Scan results: no issues found.' }
+    expect((await apiHandler.POST(authedRequest(body))).ok).toBe(true)
+
+    const encrypted = await db
+        .selectFrom('studyJobFile')
+        .select('path')
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .executeTakeFirstOrThrow()
+
+    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+    const privateKey = pemToArrayBuffer(await readTestSupportFile('private_key.pem'))
+    const reader = new ResultsReader(
+        await fetchFileContents(encrypted.path),
+        privateKey,
+        await fingerprintKeyData(publicKey),
+    )
+    await reader.extractFiles()
+
+    expect(reader.manifest.jobId).toBe(jobId)
 })
 
 // One scan log is stored twice: encrypted for the researcher, plaintext for the reviewer. Once the
