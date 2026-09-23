@@ -54,8 +54,9 @@ const toArrayBuffer = (s: string): ArrayBuffer => {
 async function buildZip(
     files: Array<{ name: string; content: string }>,
     keys: { publicKey: ArrayBuffer; fingerprint: string }[],
+    jobId: string,
 ): Promise<File> {
-    const writer = new ResultsWriter(keys)
+    const writer = new ResultsWriter(keys, { jobId })
     for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
     const zip = await writer.generate()
     return new File([zip], 'encrypted.zip', { type: 'application/zip' })
@@ -95,8 +96,16 @@ async function main() {
         console.info(`Job already has encrypted results — skipping store (delete study_job_file rows to re-inject).`)
     } else {
         // One results file + one logs file, matching the real enclave helper (one file per upload).
-        const resultsZip = await buildZip([{ name: 'results.csv', content: 'group,count\nA,42\nB,17\n' }], reviewerKeys)
-        const logZip = await buildZip([{ name: 'run.log', content: 'job started\njob finished ok\n' }], reviewerKeys)
+        const resultsZip = await buildZip(
+            [{ name: 'results.csv', content: 'group,count\nA,42\nB,17\n' }],
+            reviewerKeys,
+            jobId,
+        )
+        const logZip = await buildZip(
+            [{ name: 'run.log', content: 'job started\njob finished ok\n' }],
+            reviewerKeys,
+            jobId,
+        )
         await storeStudyEncryptedResultsFile(info, resultsZip)
         await storeStudyEncryptedLogFile(info, logZip, 'ENCRYPTED-CODE-RUN-LOG')
     }
