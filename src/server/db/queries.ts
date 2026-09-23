@@ -318,6 +318,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'lab.slug as labSlug',
             'lab.name as labName',
             'study.createdAt',
+            'study.submittedAt',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))
@@ -730,26 +731,16 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
     return row ?? null
 }
 
-export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult | null }
 
-// The summary and the scan always travel together — both server renders of the code section and the
-// poll that keeps it current need the pair — so they are fetched as one thing.
-export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
-    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
-    return { review, scan }
-}
-
-// The poll's variant. A scan that has already reported is immutable for the round, so once the
-// client holds one it only needs the summary — and re-reading the scan meant fetching and parsing
-// the same S3 object every 5s for the length of a generation (OTTER-775 review). `scan` comes back
-// null to mean "unchanged, keep yours", never the client's own copy echoed back as confirmed.
-export async function jobAnalysisUpdateForJob(
-    job: JobForRound,
-    { scanSettled }: { scanSettled: boolean },
-): Promise<{ review: StudyReviewWithMeta | null; scan: JobScanResult | null }> {
+// `withScan` because a scan costs an S3 fetch and two parses, while the summary is one row: a
+// caller that does not render a verdict should not pay for one. No surface renders one today —
+// OTTER-694 took the panel off the review page and the feature is parked until the replacement
+// scanning tool is chosen (OTTER-775) — so every current caller leaves it off and `scan` is null.
+export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
     const [review, scan] = await Promise.all([
         getStudyReviewForJob(job),
-        scanSettled ? Promise.resolve(null) : jobScanResultForJob(jobRowId(job)),
+        withScan ? jobScanResultForJob(jobRowId(job)) : Promise.resolve(null),
     ])
     return { review, scan }
 }

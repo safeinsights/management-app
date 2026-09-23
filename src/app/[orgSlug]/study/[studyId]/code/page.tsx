@@ -1,5 +1,6 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
@@ -12,6 +13,10 @@ import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { ensureStarterCodePreloadAction } from '@/server/actions/workspaces.actions'
 import logger from '@/lib/logger'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Study code' }
+}
 
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params

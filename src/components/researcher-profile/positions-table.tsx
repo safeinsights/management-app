@@ -47,7 +47,7 @@ function ActionCell({
                 <ActionIcon
                     className={classes.actionIcon}
                     variant="subtle"
-                    color="gray"
+                    color="grey"
                     data-disabled={disabled || undefined}
                     onClick={disabled ? (e: React.MouseEvent) => e.preventDefault() : onClick}
                     aria-label={label}

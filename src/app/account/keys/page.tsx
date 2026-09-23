@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { actionResult } from '@/lib/utils'
 import { getKeyPageStateAction } from '@/server/actions/user-keys.actions'
 import { GenerateKeys } from './generate-keys'
+
+export const metadata: Metadata = { title: 'Security key' }
 
 export const dynamic = 'force-dynamic'
 

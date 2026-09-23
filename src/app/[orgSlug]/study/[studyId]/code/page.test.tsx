@@ -9,6 +9,7 @@ import {
     setTestStudyStatus,
     waitFor,
     waitForPendingMutations,
+    within,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
@@ -94,7 +95,7 @@ describe('StudyCodeUploadRoute', () => {
 
         // The submit button stays clickable; OTTER-693 validates on click instead of gating it.
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /submit code for review/i })).toBeEnabled()
+            expect(within(screen.getByTestId('submit-row')).getByRole('button', { name: /submit code/i })).toBeEnabled()
         })
     })
 

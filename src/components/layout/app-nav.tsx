@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
+import { ENCLAVE_BG, LAB_BG, SIDENAV_BG } from '@/lib/constants'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 import { usePathname } from 'next/navigation'
@@ -34,7 +34,7 @@ export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop }) => {
             focusedOrgSlug={focusedOrgSlug}
             isMainDashboard={isMainDashboard}
             isDesktop={isDesktop}
-            navbarBg={focusedOrgTheme || 'purple.8'}
+            navbarBg={focusedOrgTheme || SIDENAV_BG}
             navContent={isMainDashboard ? <NavOrgsList orgs={sortedOrgs} /> : <NavOrgLinks org={focusedOrg} />}
             profileMenu={<NavbarProfileMenu />}
         />

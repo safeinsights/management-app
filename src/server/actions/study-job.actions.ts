@@ -19,7 +19,7 @@ import {
     getSharedFileIdsForJob,
     getStudyJobFileOfType,
     getStudyJobInfo,
-    jobAnalysisUpdateForJob,
+    jobAnalysisForJob,
     latestJobForStudy,
     fetchUserFullName,
     outputsDecisionVersion,
@@ -286,22 +286,17 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
 
-// The review panel and the scan panel describe the same submission, so they are fetched together:
-// one authorization, one getStudyJobInfo, one round-trip per poll tick instead of two.
-//
-// `scanSettled` is a caching hint only: it can suppress a re-read, never substitute a value. A
-// client that lies about it gets a null scan back and keeps whatever it already had.
+// The summary and the scan describe the same submission, so a caller that wants both gets them in
+// one authorization and one getStudyJobInfo rather than two round-trips. `withScan` is off by
+// default: the scan costs an S3 fetch, and no caller has rendered a verdict since OTTER-694.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
-    .params(z.object({ studyJobId: z.string(), scanSettled: z.boolean().optional() }))
+    .params(z.object({ studyJobId: z.string(), withScan: z.boolean().optional() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(
-        async ({ studyJob, params: { scanSettled } }) =>
-            await jobAnalysisUpdateForJob(studyJob, { scanSettled: scanSettled ?? false }),
-    )
+    .handler(async ({ studyJob, params: { withScan } }) => await jobAnalysisForJob(studyJob, { withScan }))
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))

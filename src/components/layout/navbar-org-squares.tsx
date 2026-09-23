@@ -1,4 +1,4 @@
-import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
+import { ENCLAVE_BG, LAB_BG, SIDENAV_BG } from '@/lib/constants'
 import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
@@ -6,6 +6,7 @@ import { Flex } from '@mantine/core'
 import { ButtonLink, type ButtonLinkProps } from '../links'
 import { SiBulbLogo } from './svg/si-bulb-logo'
 import { Routes } from '@/lib/routes'
+import { semanticColor } from '@/theme/tokens'
 
 type Orgs = ActionSuccessType<typeof fetchUsersOrgsAction>
 
@@ -46,19 +47,24 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
             direction="column"
             align="center"
             h="100%"
-            bg="purple.8"
+            bg={SIDENAV_BG}
             gap="xs"
             w={WIDTH}
             pt={isMainDashboard ? 0 : 'md'}
             ml={isMainDashboard ? -WIDTH : 0}
             style={{ transition: 'margin 0.3s ease, padding 0.3s ease' }}
         >
-            <Square color="white" my="lg" href={Routes.dashboard} display={isMainDashboard ? undefined : 'none'}>
+            <Square
+                color={semanticColor('surface.raised')}
+                my="lg"
+                href={Routes.dashboard}
+                display={isMainDashboard ? undefined : 'none'}
+            >
                 <SiBulbLogo width={24} />
             </Square>
             {orgs.map((org) => {
                 const isActive = org.slug === focusedOrgSlug
-                const wrapperBg = isActive ? (org.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : 'purple.8'
+                const wrapperBg = isActive ? (org.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : SIDENAV_BG
                 return (
                     <Flex
                         key={org.id}
@@ -68,7 +74,10 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                         style={{ transition: 'background-color 0.2s ease' }}
                         py="xs"
                     >
-                        <Square color="white" href={Routes.orgDashboard({ orgSlug: org.slug })}>
+                        <Square
+                            color={semanticColor('surface.raised')}
+                            href={Routes.orgDashboard({ orgSlug: org.slug })}
+                        >
                             {orgInitials(org.name, org.type)}
                         </Square>
                     </Flex>
