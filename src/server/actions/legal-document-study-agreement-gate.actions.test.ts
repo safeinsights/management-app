@@ -197,6 +197,23 @@ describe('requireStudyAgreementAcknowledged', () => {
         ).resolves.toBeUndefined()
     })
 
+    it('clears only the member who acknowledged, not the rest of their lab', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs()
+        const version = await insertTestStudyAgreement({ studyId: study.id })
+        const { user: colleague } = await insertTestUser({
+            org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
+        })
+        const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+
+        await expect(
+            requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id }),
+        ).resolves.toBeUndefined()
+        await expect(
+            requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: colleague.id }),
+        ).rejects.toThrow()
+    })
+
     it('allows an SI admin, who owes nothing', async () => {
         const { study } = await insertStudyWithDistinctOrgs()
         await insertTestStudyAgreement({ studyId: study.id })
