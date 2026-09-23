@@ -77,6 +77,56 @@ describe('LinkWithHoverCard', () => {
         expect(screen.queryByRole('dialog')).toBeNull()
     })
 
+    it('leaves a modified Enter to the browser', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+
+        for (const modifier of ['metaKey', 'ctrlKey', 'shiftKey', 'altKey']) {
+            expect(fireEvent.keyDown(link, { key: 'Enter', [modifier]: true })).toBe(true)
+        }
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('closes the card when the link is clicked again', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+
+        fireEvent.click(link)
+        await findCard()
+        fireEvent.click(link)
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(link).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('continues the tab order from the link when Tab leaves the card', async () => {
+        await mockSessionWithTestData()
+        renderWithProviders(
+            <>
+                <LinkWithHoverCard href={Routes.legal} icon={null}>
+                    Study Agreement
+                </LinkWithHoverCard>
+                <button type="button">next field</button>
+            </>,
+        )
+        const link = screen.getByRole('link', { name: 'Study Agreement' })
+
+        fireEvent.click(link)
+        const copy = await within(await findCard()).findByRole('button', { name: LINK_CARD_LABELS.copy })
+        fireEvent.keyDown(copy, { key: 'Tab' })
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'next field' }))
+
+        fireEvent.click(link)
+        const title = await within(await findCard()).findByRole('link', { name: 'Legal' })
+        fireEvent.keyDown(title, { key: 'Tab', shiftKey: true })
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(document.activeElement).toBe(link)
+    })
+
     it('opens from the keyboard and returns focus to the link on Escape', async () => {
         await mockSessionWithTestData()
         const link = renderLink(Routes.legal)

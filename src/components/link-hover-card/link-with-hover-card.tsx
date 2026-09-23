@@ -2,6 +2,7 @@
 
 import {
     useCallback,
+    useEffect,
     useId,
     useRef,
     useState,
@@ -20,14 +21,48 @@ import {
 } from './link-card-interactions'
 import { LinkHoverCard } from './link-hover-card'
 import { absoluteHref, currentOrigin } from './link-preview'
+import { focusNextTabStopAfter, tabStopsIn } from './tab-stops'
 import { useLinkPreview } from './use-link-preview'
 
 const OPEN_KEYS = ['Enter', ' ']
 const PRIMARY_BUTTON = 0
 
+type TabDirection = 'forward' | 'back'
+
 // Any modifier asks the browser for a new tab, a new window or the context menu, not for the card.
-const wantsBrowserDefault = (event: ReactMouseEvent) =>
-    event.button !== PRIMARY_BUTTON || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+const hasModifier = (event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }) =>
+    event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+
+const wantsBrowserDefault = (event: ReactMouseEvent) => event.button !== PRIMARY_BUTTON || hasModifier(event)
+
+/**
+ * The card is portaled to the end of the page, so Tab past its edge would skip the rest of the
+ * form. Leaving it closes the card and continues from the link, as if the card sat right after it.
+ */
+function useTabOutOfCard(isOpen: boolean, dropdownId: string, onLeave: (direction: TabDirection) => void) {
+    useEffect(() => {
+        if (!isOpen) return
+
+        const handleTab = (event: KeyboardEvent) => {
+            if (event.key !== 'Tab') return
+
+            const card = document.getElementById(dropdownId)
+            if (!card || !(event.target instanceof Node) || !card.contains(event.target)) return
+
+            const stops = tabStopsIn(card)
+            const direction: TabDirection = event.shiftKey ? 'back' : 'forward'
+            const edge = direction === 'forward' ? stops.at(-1) : stops[0]
+            if (event.target !== edge) return
+
+            event.preventDefault()
+            onLeave(direction)
+        }
+
+        document.addEventListener('keydown', handleTab, true)
+
+        return () => document.removeEventListener('keydown', handleTab, true)
+    }, [isOpen, dropdownId, onLeave])
+}
 
 function useLinkWithHoverCard() {
     const [opened, setOpened] = useState(false)
@@ -42,9 +77,26 @@ function useLinkWithHoverCard() {
         triggerRef.current?.focus()
     }, [close])
 
-    useEscapeOnCard(opened, closeAndReturnFocus)
+    const leaveCard = useCallback(
+        (direction: TabDirection) => {
+            const card = document.getElementById(dropdownId)
+            const trigger = triggerRef.current
+            close()
+            if (!trigger) return
+            if (direction === 'forward' && card && focusNextTabStopAfter(trigger, card)) return
+            trigger.focus()
+        },
+        [close, dropdownId],
+    )
 
-    const open = (trigger: HTMLAnchorElement) => {
+    useEscapeOnCard(opened, closeAndReturnFocus)
+    useTabOutOfCard(opened, dropdownId, leaveCard)
+
+    const toggle = (trigger: HTMLAnchorElement) => {
+        if (opened) {
+            close()
+            return
+        }
         claim()
         triggerRef.current = trigger
         setOpened(true)
@@ -53,14 +105,14 @@ function useLinkWithHoverCard() {
     const onClick = (event: ReactMouseEvent<HTMLAnchorElement>) => {
         if (wantsBrowserDefault(event)) return
         event.preventDefault()
-        open(event.currentTarget)
+        toggle(event.currentTarget)
     }
 
     // Enter would follow the link and Space would scroll the page.
     const onKeyDown = (event: ReactKeyboardEvent<HTMLAnchorElement>) => {
-        if (!OPEN_KEYS.includes(event.key)) return
+        if (!OPEN_KEYS.includes(event.key) || hasModifier(event)) return
         event.preventDefault()
-        open(event.currentTarget)
+        toggle(event.currentTarget)
     }
 
     const triggerAria = {
