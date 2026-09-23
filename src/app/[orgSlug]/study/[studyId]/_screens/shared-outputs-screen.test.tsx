@@ -35,6 +35,7 @@ import type { ScreenComponentProps } from './types'
 // fixture artifact, since the DB seed has no researcher-wrapped keys.
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
+    markOutputsDecisionViewedAction: vi.fn(() => ({})),
 }))
 
 vi.mock('@/server/actions/study-job-file-activity.actions', () => ({

@@ -6,6 +6,8 @@ export const STUDY_TITLE_MAX_CHARACTERS = 60
 
 export const STUDY_TITLE_BLANK_ERROR = 'Enter a study title before continuing.'
 export const STUDY_TITLE_OVER_LIMIT_ERROR = overCharacterLimitError('Study title', STUDY_TITLE_MAX_CHARACTERS)
+export const isTitleOverLimit = (title: string) => countCharacters(title) > STUDY_TITLE_MAX_CHARACTERS
+
 export const DATA_PARTNER_REQUIRED_ERROR = 'Select a Data Partner before continuing.'
 export const PROGRAMMING_LANGUAGE_REQUIRED_ERROR = 'Select a programming language before continuing.'
 
@@ -15,7 +17,7 @@ export const studyTitleField = (blankError: string) =>
     z.string().superRefine((val, ctx) => {
         if (val.trim().length === 0) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: blankError })
-        } else if (countCharacters(val) > STUDY_TITLE_MAX_CHARACTERS) {
+        } else if (isTitleOverLimit(val)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
     })

@@ -21,6 +21,9 @@ export const FIELD_TITLES = {
     additionalNotes: 'Additional notes or requests',
 } as const
 
+export const isLexicalOverLimit = (value: string, maxCharacters: number) =>
+    countCharactersFromLexical(value) > maxCharacters
+
 // superRefine rather than chained refines so a blank field reports only that it is empty.
 const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
     z.string().superRefine((val, ctx) => {
@@ -28,7 +31,7 @@ const lexicalField = (fieldTitle: string, requiredError: string | null, maxChara
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
             return
         }
-        if (countCharactersFromLexical(val) > maxCharacters) {
+        if (isLexicalOverLimit(val, maxCharacters)) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: overCharacterLimitError(fieldTitle, maxCharacters),

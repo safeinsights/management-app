@@ -1,11 +1,11 @@
 'use client'
 
-import { countCharacters } from '@/lib/field-limits'
+import { liveLimitError } from '@/lib/field-limits'
 import { useCallback, useState, type ChangeEvent } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { UseFormReturnType } from '@mantine/form'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
-import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR, type StudyProposalFormValues } from './form-schemas'
+import { isTitleOverLimit, STUDY_TITLE_OVER_LIMIT_ERROR, type StudyProposalFormValues } from './form-schemas'
 import { FIELD_ID_TO_FORM_PATH, LANGUAGE_FIELD_ID, ORG_SELECT_ID, TITLE_INPUT_ID } from './fields/field-ids'
 
 export interface SetupFormLocks {
@@ -46,16 +46,10 @@ export function useSetupForm({
 
     const [isConfirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
 
-    // Only the over-limit half of the rule is live; the blank rule belongs to blur and Continue,
-    // so clearing the box does not flash an error mid-edit.
+    const titleError = liveLimitError(isTitleOverLimit(titleValue), STUDY_TITLE_OVER_LIMIT_ERROR, form.errors.title)
+
     const onTitleChange = useCallback(
-        (event: ChangeEvent<HTMLInputElement>) => {
-            const raw = event.currentTarget.value
-            form.setFieldValue('title', raw)
-            if (countCharacters(raw) > STUDY_TITLE_MAX_CHARACTERS) {
-                form.setFieldError('title', STUDY_TITLE_OVER_LIMIT_ERROR)
-            }
-        },
+        (event: ChangeEvent<HTMLInputElement>) => form.setFieldValue('title', event.currentTarget.value),
         [form],
     )
 
@@ -93,7 +87,7 @@ export function useSetupForm({
 
     return {
         titleValue,
-        titleError: form.errors.title as string | undefined,
+        titleError,
         onTitleChange,
         onTitleBlur,
         attemptContinue,

@@ -1917,7 +1917,6 @@ describe('Request Study Actions', () => {
                     criteria: {
                         proposalAlignment: 'yes',
                         agreementCompliance: 'yes',
-                        securityChecks: 'yes',
                         privacyProtection: 'yes',
                     },
                 }),

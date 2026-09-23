@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { StudyRow } from './types'
-import { dashboardRawStateFromRow } from './dashboard-raw-state'
-import { projectStudyState, resolveDashboardAction } from '@/lib/study-screen'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import type { Audience, StudyRow } from './types'
+import { dashboardRawStateFromRow, rowStudyState } from './dashboard-raw-state'
+import { projectStudyState, resolveDashboardAction, resolvePillStatus } from '@/lib/study-screen'
 
 const row = (overrides: Partial<StudyRow>): StudyRow => ({
     id: '019000000000-0000-0000-0000-000000000001',
@@ -62,5 +63,32 @@ describe('dashboardRawStateFromRow', () => {
             studyId: '01900000-0000-7000-8000-000000000001',
         })
         expect(action.href).toContain('/code')
+    })
+})
+
+const NAMES = { dataPartner: 'Openstax', researchLab: 'Openstax Lab' }
+
+// Proves a StudyRow reaches the right pill; the rule matrix itself lives in pill.test.ts.
+const pill = (status: StudyStatus, audience: Audience, jobStatusChanges: Array<{ status: StudyJobStatus }> = []) =>
+    resolvePillStatus(audience, rowStudyState(row({ status, jobStatusChanges })), NAMES)
+
+describe('row pill', () => {
+    it('reads the study status when the study has no jobs', () => {
+        expect(pill('PENDING-REVIEW', 'researcher')).toMatchObject({
+            id: 'proposal-submitted',
+            label: 'Proposal submitted',
+            tooltip: 'Waiting for Openstax to review proposal.',
+        })
+    })
+
+    it('reads the job statuses, including the RESULTS-VIEWED row, once jobs exist', () => {
+        const decided: Array<{ status: StudyJobStatus }> = [
+            { status: 'CODE-SUBMITTED' },
+            { status: 'CODE-APPROVED' },
+            { status: 'RUN-COMPLETE' },
+            { status: 'FILES-APPROVED' },
+        ]
+        expect(pill('APPROVED', 'researcher', decided).id).toBe('outputs-need-review')
+        expect(pill('APPROVED', 'researcher', [...decided, { status: 'RESULTS-VIEWED' }]).id).toBe('outputs-reviewed')
     })
 })

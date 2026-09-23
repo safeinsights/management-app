@@ -4,6 +4,8 @@ import { useForm, useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
 import { errorToString } from '@/lib/errors'
 import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
+import { resizableTextareaProps } from '@/components/textarea-resize'
+import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 
@@ -48,14 +50,15 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
 
 function AgentContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
     const { form, onSubmit, isPending } = useAgentContextEditor({ name, orgId, initialContent })
+    const { ref, floor } = useTextareaResizeFloor({ maxRows: 20 })
 
     return (
         <form onSubmit={onSubmit}>
             <Stack gap="md">
                 <Textarea
-                    autosize
-                    minRows={8}
-                    maxRows={20}
+                    ref={ref}
+                    rows={8}
+                    {...resizableTextareaProps(floor)}
                     label={CONTEXT_LABELS[name].label}
                     description={CONTEXT_LABELS[name].description}
                     {...form.getInputProps('content')}

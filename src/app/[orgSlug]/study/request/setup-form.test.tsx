@@ -342,6 +342,24 @@ describe('Study title character limit', () => {
         expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
     })
 
+    // Pins what storing the message could not promise: setFieldValue clears the field's error, and
+    // a setFieldError putting it back is deduped against a ref that clear has not always reached
+    // (OTTER-777).
+    it('keeps the over-limit error through the keystrokes that follow', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'a'.repeat(61))
+        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await user.paste('a')
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await user.paste('a')
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+    })
+
     it('clears the over-limit error as soon as the value comes back under, without a blur', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()

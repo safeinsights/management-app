@@ -47,8 +47,6 @@ describe('projectStudyState', () => {
         expect(s.hasResults).toBe(false)
         expect(s.isDraft).toBe(true)
         expect(s.submissionRound).toBe(0)
-        expect(s.displayStatus).toBe('DRAFT')
-        expect(s.latestJobStatuses).toEqual([])
     })
 
     it('CODE-APPROVED stays approved even with a later CODE-SCANNED on the same job', () => {
@@ -77,25 +75,23 @@ describe('projectStudyState', () => {
         expect(s.codeAwaitingDecision).toBe(true)
     })
 
-    // OTTER-641: the stale CODE-CHANGES-REQUESTED used to win by DISPLAY_STATUS_PRIORITY order.
-    it('same-job resubmit then approved → displayStatus is CODE-APPROVED, not the stale changes-requested', () => {
+    // OTTER-641: the stale CODE-CHANGES-REQUESTED must not outlive the live decision.
+    it('same-job resubmit then approved → CODE-APPROVED, not the stale changes-requested', () => {
         const approved = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [approved] }))
         expect(s.codeDecision).toBe('CODE-APPROVED')
         expect(s.codeAwaitingDecision).toBe(false)
-        expect(s.displayStatus).toBe('CODE-APPROVED')
     })
 
     // The same stale-decision drop applies when the resubmit is rejected (OTTER-641).
-    it('same-job resubmit then rejected → displayStatus is CODE-REJECTED, not the stale changes-requested', () => {
+    it('same-job resubmit then rejected → CODE-REJECTED, not the stale changes-requested', () => {
         const rejected = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'])
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [rejected] }))
         expect(s.codeDecision).toBe('CODE-REJECTED')
         expect(s.codeAwaitingDecision).toBe(false)
-        expect(s.displayStatus).toBe('CODE-REJECTED')
     })
 
-    it('approved job then execution starts → displayStatus follows execution, not the code decision', () => {
+    it('approved job then execution starts → the enclave stage follows execution', () => {
         const running = job(ID1, [
             'CODE-SUBMITTED',
             'CODE-CHANGES-REQUESTED',
@@ -104,7 +100,8 @@ describe('projectStudyState', () => {
             'JOB-READY',
         ])
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [running] }))
-        expect(s.displayStatus).toBe('JOB-READY')
+        expect(s.executionStage).toBe('JOB-READY')
+        expect(s.isExecuting).toBe(true)
     })
 
     it('agreements acked booleans map from the two columns', () => {
@@ -126,7 +123,6 @@ describe('projectStudyState', () => {
         expect(s.hasResults).toBe(true)
         expect(s.resultsApproved).toBe(true)
         expect(s.resultsDisplayStatus).toBe('FILES-APPROVED')
-        expect(s.latestJobStatuses).toContain('FILES-APPROVED')
     })
 
     // Status changes are append-only, so a JOB-RUNNING row survives forever; gating on results
@@ -238,6 +234,39 @@ describe('runErrored', () => {
         expect(runErrored(['JOB-ERRORED', 'RUN-COMPLETE'])).toBe(false)
         expect(runErrored(['RUN-COMPLETE'])).toBe(false)
         expect(runErrored(['CODE-SUBMITTED'])).toBe(false)
+    })
+})
+
+describe('executionStage', () => {
+    const stageOf = (statuses: string[]) =>
+        projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).executionStage
+
+    it('is the furthest enclave stage present, whatever the row order', () => {
+        expect(stageOf(['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'JOB-PACKAGING'])).toBe('JOB-RUNNING')
+        expect(stageOf(['CODE-APPROVED', 'JOB-PROVISIONING', 'JOB-READY'])).toBe('JOB-PROVISIONING')
+        expect(stageOf(['CODE-APPROVED', 'JOB-PACKAGING'])).toBe('JOB-PACKAGING')
+    })
+
+    it('is null before packaging starts', () => {
+        expect(stageOf(['CODE-SUBMITTED', 'CODE-APPROVED'])).toBeNull()
+    })
+})
+
+describe('resultsViewed', () => {
+    it('reads the RESULTS-VIEWED row on the latest job only', () => {
+        const viewedRound = job(ID1, [
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'RUN-COMPLETE',
+            'FILES-APPROVED',
+            'RESULTS-VIEWED',
+        ])
+        expect(projectStudyState(raw({ status: 'APPROVED', jobs: [viewedRound] })).resultsViewed).toBe(true)
+
+        const resubmitted = job(ID2, ['CODE-SUBMITTED'])
+        expect(projectStudyState(raw({ status: 'APPROVED', jobs: [viewedRound, resubmitted] })).resultsViewed).toBe(
+            false,
+        )
     })
 })
 

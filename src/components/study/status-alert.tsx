@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor, type SemanticToken } from '@/theme/tokens'
 
 export const STATUS_ALERT_SEPARATOR = '•'
 
@@ -27,33 +27,29 @@ type StatusAlertProps = {
     announce?: boolean
 }
 
-// Backgrounds are the status ramps' shade 0, accents the text/icon shade the semantic tokens point
-// at (success.text, warning.text, error.text). Informative has no status token: purple is the
-// brand-side banner and sits on its own ramp.
+// Each variant is the Figma Alert's light status pair: status/*/bg-light under status/*/text-icon.
 const VARIANTS = {
-    informative: { bg: 'purple.0', accent: 'purple.5', Icon: InfoIcon },
-    action: { bg: 'yellow.0', accent: 'yellow.8', Icon: WarningCircleIcon },
-    success: { bg: 'green.0', accent: 'green.7', Icon: CheckCircleIcon },
-    decline: { bg: 'red.0', accent: 'red.7', Icon: WarningCircleIcon },
-} as const satisfies Record<StatusAlertVariant, { bg: string; accent: string; Icon: typeof InfoIcon }>
-
-// Mantine resolves 'color.shade' in its own style props only, not inside a styles object.
-const cssColor = (color: string) => `var(--mantine-color-${color.replace('.', '-')})`
+    informative: { bg: 'info.bg.light', accent: 'info.text', Icon: InfoIcon },
+    action: { bg: 'warning.bg.light', accent: 'warning.text', Icon: WarningCircleIcon },
+    success: { bg: 'success.bg.light', accent: 'success.text', Icon: CheckCircleIcon },
+    decline: { bg: 'error.bg.light', accent: 'error.text', Icon: WarningCircleIcon },
+} as const satisfies Record<StatusAlertVariant, { bg: SemanticToken; accent: SemanticToken; Icon: typeof InfoIcon }>
 
 // aria-atomic so the swap is read as one banner (title AND body), not just the changed title.
 const announceProps = { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } as const
 
 export function StatusAlert({ variant, title, children, announce = false }: StatusAlertProps) {
     const { bg, accent, Icon } = VARIANTS[variant]
+    const accentColor = semanticColor(accent)
     const liveRegion = announce ? announceProps : {}
     return (
         <Alert
             variant="light"
             radius={0}
-            bg={bg}
+            bg={semanticColor(bg)}
             icon={<Icon size={20} weight="fill" />}
             styles={{
-                icon: { color: cssColor(accent), marginInlineEnd: 'var(--mantine-spacing-xs)' },
+                icon: { color: accentColor, marginInlineEnd: 'var(--mantine-spacing-xs)' },
                 wrapper: { alignItems: 'flex-start' },
             }}
             data-testid="status-alert"
@@ -61,7 +57,7 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             {...liveRegion}
         >
             <Stack gap="xs">
-                <Text fz={14} fw={fontWeight.bold} c={accent}>
+                <Text fz={14} fw={fontWeight.bold} c={accentColor}>
                     {title}
                 </Text>
                 <Text fz={14} c={semanticColor('text.primary')}>

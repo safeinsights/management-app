@@ -20,6 +20,7 @@ import {
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     getJobAnalysisAction,
+    markOutputsDecisionViewedAction,
     regenerateStudyReviewAction,
     rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
@@ -30,7 +31,7 @@ import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
-import { projectStudyState, resolvePillStatus } from '@/lib/study-screen'
+import { projectStudyState, resolvePillId } from '@/lib/study-screen'
 import logger from '@/lib/logger'
 
 vi.mock('@/server/storage', () => ({
@@ -363,7 +364,7 @@ describe('Study Job Actions', () => {
             const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
             const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
             expect(state.resultsApproved).toBe(true)
-            expect(resolvePillStatus('researcher', state)).toMatchObject({ stage: 'Results', label: 'Ready' })
+            expect(resolvePillId('researcher', state)).toBe('outputs-need-review')
 
             const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
             expect(files).toHaveLength(1)
@@ -383,6 +384,65 @@ describe('Study Job Actions', () => {
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    describe('markOutputsDecisionViewedAction', () => {
+        type Fixture = Awaited<ReturnType<typeof setupResultApprovalFixture>>
+
+        const viewedRows = (jobId: string) =>
+            db
+                .selectFrom('jobStatusChange')
+                .select(['status', 'userId'])
+                .where('studyJobId', '=', jobId)
+                .where('status', '=', 'RESULTS-VIEWED')
+                .execute()
+
+        const approve = async ({ enclave, job, sharedFiles }: Fixture) =>
+            actionResult(await approveStudyJobFilesAction({ orgSlug: enclave.slug, studyJobId: job.id, sharedFiles }))
+
+        const signInAsResearcher = ({ researcher, lab }: Fixture) =>
+            mockClerkSession({
+                clerkUserId: researcher.clerkId,
+                orgSlug: lab.slug,
+                userId: researcher.id,
+                orgId: lab.id,
+                orgType: 'lab',
+            })
+
+        // Sequentially, which is the guard the action actually provides; see the race documented on
+        // the insert for what two overlapping visits do.
+        test('records the lab view of a released decision once, on the decided job', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toEqual([
+                { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
+            ])
+        })
+
+        test('writes nothing while the reviewer has not decided', async () => {
+            const fixture = await setupResultApprovalFixture()
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
+        })
+
+        // Silently, not as a failure: a reviewer holds `view Study` on the lab's own outputs page, so
+        // reporting would file an error for a page the lab's own leaf fires on every render.
+        test('ignores a data partner member, whose visit is not the lab reading the decision', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
     })
 
@@ -791,12 +851,27 @@ describe('Study Job Actions', () => {
                 ])
                 .execute()
 
-        test('returns the review and the scan together', async () => {
+        // A scan costs an S3 fetch, and nothing has rendered a verdict since OTTER-694, so the
+        // default must not pay for one.
+        test('returns the review without a scan by default', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await insertReview(job.id, 'Summary of this round')
 
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
+
+            expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
+            expect(analysis.scan).toBeNull()
+        })
+
+        // The panel is parked pending a new scanning tool (OTTER-775), not gone: the pair must
+        // still come back in one round-trip for whoever rebuilds it.
+        test('returns the scan alongside the review when asked', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await insertReview(job.id, 'Summary of this round')
+
+            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id, withScan: true }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
             expect(analysis.scan).toEqual({ trivy: null, sonarqube: null, logFile: null })

@@ -10,23 +10,25 @@ export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
 export const isStudyResultsStatus = (status: StudyJobStatus | undefined): boolean =>
     !!status && STUDY_RESULTS_JOB_STATUSES.includes(status)
 
-// In pipeline order; STAGE_INDEX below depends on it.
+// In pipeline order; furthestStage below depends on it.
 const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
+
+export type ExecutionStage = (typeof STAGE_PROGRESSION)[number]
 
 export const STUDY_CODE_RUNNING_JOB_STATUSES: readonly StudyJobStatus[] = STAGE_PROGRESSION
 
-const STAGE_INDEX: ReadonlyMap<StudyJobStatus, number> = new Map(STAGE_PROGRESSION.map((s, i) => [s, i]))
+// The one answer to "which enclave stage is this job in". The status log is append-only, so the
+// furthest stage present is the current one, whatever order or timestamps the rows carry.
+export const furthestStage = (statuses: ReadonlySet<StudyJobStatus>): ExecutionStage | null =>
+    [...STAGE_PROGRESSION].reverse().find((stage) => statuses.has(stage)) ?? null
 
-// When timestamps tie, as they do for statuses written in one transaction, the stage furthest
-// along the pipeline wins regardless of insertion order.
+// furthestStage plus the time that stage was entered, for screens that show how long it has run.
 export function currentExecutionStage(
     statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
-): { status: StudyJobStatus; startedAt: Date | string } | null {
-    const stages = statusChanges.filter((c) => STUDY_CODE_RUNNING_JOB_STATUSES.includes(c.status))
-    if (stages.length === 0) return null
-    const rank = (c: (typeof stages)[number]) => new Date(c.createdAt).getTime() * 10 + (STAGE_INDEX.get(c.status) ?? 0)
-    const latest = stages.reduce((a, b) => (rank(b) > rank(a) ? b : a))
-    return { status: latest.status, startedAt: latest.createdAt }
+): { status: ExecutionStage; startedAt: Date | string } | null {
+    const status = furthestStage(new Set(statusChanges.map((c) => c.status)))
+    if (!status) return null
+    return { status, startedAt: latestStatusAt(statusChanges, status)! }
 }
 
 // Raw status rows carry createdAt optionally, so callers filter through this before latestStatusAt.

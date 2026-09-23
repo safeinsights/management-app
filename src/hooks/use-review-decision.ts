@@ -1,4 +1,5 @@
 import { useField } from '@mantine/form'
+import { REVIEW_SELECT_OPTION_ERROR } from '@/lib/proposal-review'
 import type { Decision } from '@/lib/review-decision'
 
 // `useField` rather than plain state so an untouched radio group raises a visible error instead of
@@ -8,7 +9,7 @@ export function useReviewDecision() {
     // hook does not use; consumers wire blur through the exposed `onBlur` instead.
     const field = useField<Decision | null>({
         initialValue: null,
-        validate: (value) => (value === null ? 'Select an option before submitting.' : null),
+        validate: (value) => (value === null ? REVIEW_SELECT_OPTION_ERROR : null),
     })
 
     return {
