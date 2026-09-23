@@ -97,7 +97,13 @@ function ContinueButton({ picker }: { picker: Picker }) {
 
     return (
         <>
-            <Tooltip label={SELECTION_REQUIRED} events={TOOLTIP_EVENTS} disabled={picker.hasSelection} withArrow>
+            <Tooltip
+                label={SELECTION_REQUIRED}
+                events={TOOLTIP_EVENTS}
+                disabled={picker.hasSelection}
+                position="bottom"
+                withArrow
+            >
                 <Button
                     onClick={picker.goToConfirm}
                     data-disabled={dataDisabled}

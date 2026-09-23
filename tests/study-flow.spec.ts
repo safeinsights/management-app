@@ -317,7 +317,8 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await dialog.getByRole('button', { name: /^Approve proposal$/i }).click()
     await expect(dialog).toBeHidden()
 
-    await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
+    // A live-approved study has no agreement yet, so the preparing notice is a second status alert.
+    await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
     await page.getByTestId('cta-back-to-my-studies').click()
     await page.waitForURL('**/dashboard')
 }
