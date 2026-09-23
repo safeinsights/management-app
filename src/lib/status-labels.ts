@@ -1,3 +1,4 @@
+import type { StudyRole } from '@/lib/study-screen/state.types'
 import { semanticColor } from '@/theme/tokens'
 
 export type PillColors = {
@@ -8,7 +9,7 @@ export type PillColors = {
 // Who is looking, plus the organization display names the tooltips address the other side by. Six
 // badges serve both roles and say something different to each, so the role travels with the names.
 export type PillContext = {
-    role: 'researcher' | 'reviewer'
+    role: StudyRole
     dataPartner: string
     researchLab: string
 }
@@ -33,38 +34,12 @@ const COLORS = {
     red: { bg: semanticColor('error.bg.light'), c: semanticColor('error.text') },
 } as const satisfies Record<string, PillColors>
 
-// One id per badge in the design. Both roles draw from this set; several badges serve both, which is
-// why the ids name the state rather than the audience.
-export type PillId =
-    | 'proposal-draft'
-    | 'proposal-submitted'
-    | 'proposal-needs-review'
-    | 'proposal-needs-revision'
-    | 'proposal-revision-requested'
-    | 'proposal-approved'
-    | 'proposal-declined'
-    | 'code-draft'
-    | 'code-awaiting'
-    | 'code-submitted'
-    | 'code-needs-review'
-    | 'code-needs-revision'
-    | 'code-revision-requested'
-    | 'code-approved'
-    | 'code-declined'
-    | 'code-processing'
-    | 'code-preparing'
-    | 'code-queued'
-    | 'code-running'
-    | 'code-errored'
-    | 'outputs-awaiting'
-    | 'outputs-need-review'
-    | 'outputs-reviewed'
-
 const isResearcher = (ctx: PillContext) => ctx.role === 'researcher'
 
-// Labels are complete strings, not a stage plus a fragment: "Awaiting outputs" and "Preparing code"
-// do not decompose.
-export const PILL_PRESENTATION: Record<PillId, PillPresentation> = {
+// One entry per badge in the design, and its key is the badge's PillId. Several badges serve both
+// roles, which is why the ids name the state rather than the audience. Labels are complete strings:
+// "Awaiting outputs" and "Preparing code" do not decompose into a stage plus a fragment.
+export const PILL_PRESENTATION = {
     'proposal-draft': {
         label: 'Proposal draft',
         tooltip: () => 'Proposal draft in progress, not yet submitted.',
@@ -204,7 +179,9 @@ export const PILL_PRESENTATION: Record<PillId, PillPresentation> = {
                 : `A decision on the outputs has been shared with ${ctx.researchLab}.`,
         colors: COLORS.blue,
     },
-}
+} as const satisfies Record<string, PillPresentation>
+
+export type PillId = keyof typeof PILL_PRESENTATION
 
 // What the pill renders: the id the rule table picked, resolved against the viewer.
 export type StatusLabel = {

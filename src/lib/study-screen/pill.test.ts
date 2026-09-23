@@ -10,7 +10,6 @@ const state = (overrides: Partial<StudyState>): StudyState =>
         hasAnyJob: true,
         hasSubmittedCode: true,
         submissionRound: 1,
-        displayStatus: 'CODE-SUBMITTED',
         ...overrides,
     })
 
@@ -21,7 +20,6 @@ describe('resolvePillId', () => {
         const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'],
                 resultsErrored: true,
                 hasResults: true,
                 codeDecision: 'CODE-APPROVED',
@@ -33,7 +31,6 @@ describe('resolvePillId', () => {
         const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-APPROVED'],
                 resultsErrored: true,
                 resultsApproved: true,
                 hasResults: true,
@@ -46,7 +43,6 @@ describe('resolvePillId', () => {
         const id = resolvePillId(
             'reviewer',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'],
                 resultsErrored: true,
                 hasResults: true,
             }),
@@ -79,7 +75,6 @@ describe('resolvePillId', () => {
         const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-APPROVED', 'JOB-PACKAGING'],
                 isExecuting: true,
                 codeDecision: 'CODE-APPROVED',
             }),
@@ -91,7 +86,6 @@ describe('resolvePillId', () => {
         const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'],
                 codeDecision: 'CODE-REJECTED',
             }),
         )
@@ -103,7 +97,6 @@ describe('resolvePillId', () => {
         const id = resolvePillId(
             role,
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'],
                 codeDecision: 'CODE-APPROVED',
             }),
         )
@@ -112,7 +105,6 @@ describe('resolvePillId', () => {
 
     it('researcher outputs pill splits on whether the decision has been opened', () => {
         const decided: Partial<StudyState> = {
-            latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'],
             hasResults: true,
             resultsApproved: true,
             codeDecision: 'CODE-APPROVED',
@@ -151,7 +143,6 @@ describe('resolvePillId', () => {
 
     it('a completed run awaiting a decision reads as awaiting for the researcher, needs review for the reviewer', () => {
         const complete: Partial<StudyState> = {
-            latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'],
             hasResults: true,
             codeDecision: 'CODE-APPROVED',
         }
@@ -159,11 +150,19 @@ describe('resolvePillId', () => {
         expect(resolvePillId('reviewer', state(complete))).toBe('outputs-need-review')
     })
 
+    it('code under review and code sent back read differently to each role', () => {
+        const awaiting: Partial<StudyState> = { codeAwaitingDecision: true }
+        expect(resolvePillId('researcher', state(awaiting))).toBe('code-submitted')
+        expect(resolvePillId('reviewer', state(awaiting))).toBe('code-needs-review')
+
+        const changes: Partial<StudyState> = { codeDecision: 'CODE-CHANGES-REQUESTED' }
+        expect(resolvePillId('researcher', state(changes))).toBe('code-needs-revision')
+        expect(resolvePillId('reviewer', state(changes))).toBe('code-revision-requested')
+    })
+
     it('a job with no submitted code reads as a draft to the researcher and awaited by the reviewer', () => {
         const noCode: Partial<StudyState> = {
             hasSubmittedCode: false,
-            displayStatus: 'INITIATED',
-            latestJobStatuses: [],
         }
         expect(resolvePillId('researcher', state(noCode))).toBe('code-draft')
         expect(resolvePillId('reviewer', state(noCode))).toBe('code-awaiting')
@@ -197,7 +196,6 @@ describe('resolvePillStatus', () => {
 
     it('gives the two roles different tooltips for the same badge', () => {
         const decided = state({
-            latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'],
             hasResults: true,
             resultsApproved: true,
             resultsViewed: true,
@@ -219,7 +217,8 @@ describe('resolveRowHighlight', () => {
     it('reviewer: code awaiting decision highlights', () => {
         expect(resolveRowHighlight('reviewer', state({ codeAwaitingDecision: true }))).toBe(true)
     })
-    it('researcher: results approved highlights', () => {
+    it('researcher: results approved highlights until the lab opens the decision', () => {
         expect(resolveRowHighlight('researcher', state({ resultsApproved: true }))).toBe(true)
+        expect(resolveRowHighlight('researcher', state({ resultsApproved: true, resultsViewed: true }))).toBe(false)
     })
 })

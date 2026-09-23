@@ -1,5 +1,4 @@
 import type { Json, StudyJobStatus, StudyStatus } from '@/database/types'
-import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus, ExecutionStage } from '@/lib/study-job-status'
 
 export type StudyRole = 'researcher' | 'reviewer'
@@ -67,9 +66,6 @@ export type StudyState = {
     submissionRound: number
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean
-    displayStatus: AllStatus
-    // Raw status set of the LATEST job. Set, not ordered.
-    latestJobStatuses: StudyJobStatus[]
 }
 
 export type DashboardState = Omit<StudyState, 'submissionRound' | 'hasSavedEdits' | 'hasSavedCodeEdits'>

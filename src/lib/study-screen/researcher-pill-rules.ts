@@ -1,4 +1,4 @@
-import type { PillRuleEntry } from './pill-rules'
+import type { PillRuleEntry } from './pill'
 import { awaitingFilesDecisionOnError, isAwaitingOutputsReviewOutcome, isOutputsDecided } from './state'
 
 // Researcher pill rules. Order = display precedence. First match wins. The live contract is the

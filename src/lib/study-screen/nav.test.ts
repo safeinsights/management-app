@@ -35,8 +35,6 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     submissionRound: 0,
     hasSavedEdits: false,
     hasSavedCodeEdits: false,
-    displayStatus: 'DRAFT',
-    latestJobStatuses: [],
     ...overrides,
 })
 

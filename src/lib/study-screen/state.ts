@@ -1,8 +1,6 @@
 import type { StudyJobStatus } from '@/database/types'
-import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import {
-    CODE_DECISION_JOB_STATUSES,
     furthestStage,
     latestSubmittedJobHasLiveCodeDecision,
     STUDY_CODE_RUNNING_JOB_STATUSES,
@@ -26,25 +24,6 @@ const RESULTS_PRIORITY: StudyState['resultsDisplayStatus'][] = [
 // APPROVED is permanent and wins if several ever coexist on the job.
 const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED']
 
-// Callers keep only the live code decision, so the three decisions' order among themselves is
-// immaterial here.
-export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
-    'JOB-ERRORED',
-    'FILES-REJECTED',
-    'FILES-APPROVED',
-    'RUN-COMPLETE',
-    'JOB-RUNNING',
-    'JOB-READY',
-    'JOB-PACKAGING',
-    'JOB-PROVISIONING',
-    'CODE-REJECTED',
-    'CODE-CHANGES-REQUESTED',
-    'CODE-APPROVED',
-    'CODE-SCANNED',
-    'CODE-SUBMITTED',
-    'INITIATED',
-]
-
 // Exported so consumers read a display fact from the SAME job the projection decided on.
 export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
@@ -54,11 +33,6 @@ export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     const pool = submitted.length > 0 ? submitted : jobs
     return pool.reduce((a, b) => (b.id > a.id ? b : a))
 }
-
-// Dropping stale decisions makes the pill and displayStatus follow the live codeDecision, never
-// a prior round's (OTTER-641).
-export const isStaleCodeDecision = (status: StudyJobStatus, liveDecision: CodeDecisionStatus | null): boolean =>
-    CODE_DECISION_JOB_STATUSES.includes(status as CodeDecisionStatus) && status !== liveDecision
 
 export function projectStudyState(raw: RawStudyState): StudyState {
     const job = latestJob(raw.jobs)
@@ -84,13 +58,6 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     })
     const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
     const executionStage = furthestStage(jobStatuses)
-
-    // Only the live code decision passes, so DISPLAY_STATUS_PRIORITY never picks among coexisting
-    // decisions.
-    const visible = DISPLAY_STATUS_PRIORITY.filter(
-        (st) => jobStatuses.has(st) && !isStaleCodeDecision(st, codeDecision),
-    )
-    const displayStatus: AllStatus = visible[0] ?? raw.status
 
     // Across ALL jobs. NOT the user-facing displayed version, which counts round-opening events.
     const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
@@ -121,8 +88,6 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,
-        displayStatus,
-        latestJobStatuses: [...jobStatuses].sort(),
     }
 }
 

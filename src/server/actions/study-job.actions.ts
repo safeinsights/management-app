@@ -480,9 +480,7 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
-        // Only the research lab's own view counts: a data partner opening /view must not flip the
-        // lab's badge to "Outputs reviewed". Silent like the guards below rather than a failure,
-        // because `view Study` also reaches that page as a reviewer and the caller reports to Sentry.
+        // Only the lab's own view counts. Silent, not a failure: reviewers reach this page too.
         if (!isSessionOrgMember(session, submittedByOrgId)) return
 
         const raw = await rawStudyStateForStudy(studyId, db)
@@ -492,9 +490,7 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
 
         const job = latestJob(raw.jobs)
         if (!job) return
-        // The resultsViewed check is a separate round trip, so two overlapping visits can both insert.
-        // Accepted: no reader counts these rows, and a partial unique index cannot name an enum value
-        // the migration before it adds (OTTER-698, docs/study-screens-logic.md).
+        // Two overlapping visits can both insert; accepted, see docs/study-screens-logic.md (OTTER-698).
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })

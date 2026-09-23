@@ -113,8 +113,6 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `isExecuting` = latest job has a running status (`JOB-PROVISIONING/PACKAGING/READY/RUNNING`).
 - `hasResults` / `resultsApproved` / `resultsRejected` / `resultsErrored` — results statuses are
   terminal-and-permanent for their job (pure existence; no counting).
-- `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
-  stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
 - `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
   layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
@@ -391,13 +389,13 @@ would settle it cannot be created, because its predicate has to name `RESULTS-VI
 migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
 of a new value, and `status::text` as a non-IMMUTABLE index predicate; a fresh database replays both
 migrations together, so a later migration cannot escape it either. A job status rather than a study
-column because a resubmission opens
-a new job, so the fact resets per round without any clearing logic. It is deliberately absent from
-`DISPLAY_STATUS_PRIORITY`: `displayStatus` has no consumer that should read it.
+column because a resubmission opens a new job, so the fact resets per round without any clearing
+logic.
 
 The projection also exposes `executionStage`, read from `furthestStage` in `study-job-status.ts`,
 which keeps pipeline order in the one file that already owns it. The reviewer's per-stage badges
-therefore never read the status log's order.
+therefore never read the status log's order. `currentExecutionStage`, which the reviewer's outputs
+pending screen reads, picks its stage with the same helper, so the badge and the screen agree.
 
 Stale code decisions are dropped by the projection, not the table, so a resubmission reads as
 submitted rather than as the prior round's decision (OTTER-641).
@@ -463,8 +461,9 @@ The spec names backend states conceptually; none of them is a new stored value e
 | 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
 | 16  | fallback                                              | `proposal-draft`              |
 
-`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved`; reviewer
-highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
+`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved` until the lab has
+opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` or
+`codeAwaitingDecision`. Both mean an action is owed.
 
 > `code-declined` has no row in the product spec, because the reject action is hidden from reviewers
 > (OTTER-650). Studies decided before it was hidden still carry `CODE-REJECTED`, so the badge stays
@@ -525,15 +524,14 @@ re-architecting — exactly as the design intended.
 | `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                           |
 | `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants     |
 | `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`          |
-| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>` (shared by every table), plus the `Screen*` aliases            |
-| `pill-rules.ts`                        | `PillRuleEntry` (the pill tables' entry type)                                          |
+| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>`, `firstMatch` (shared by every table), plus `Screen*` aliases  |
 | `researcher-screen-rules.ts`           | `RESEARCHER_SCREEN_RULES` (researcher table)                                           |
 | `reviewer-screen-rules.ts`             | `REVIEWER_SCREEN_RULES` (reviewer table)                                               |
 | `researcher-pill-rules.ts`             | `RESEARCHER_PILL_RULES` (researcher pill table)                                        |
 | `reviewer-pill-rules.ts`               | `REVIEWER_PILL_RULES` (reviewer pill table)                                            |
 | `dashboard-rules.ts`                   | `DASHBOARD_RULES` table                                                                |
 | `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                 |
-| `pill.ts`                              | `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                            |
+| `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`           |
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                  |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                      |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav` |

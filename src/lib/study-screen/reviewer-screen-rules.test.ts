@@ -4,7 +4,7 @@ import { resolveScreen } from './resolve'
 import { studyState } from './state.fixture'
 
 const st = (overrides: Partial<StudyState>): StudyState =>
-    studyState({ status: 'PENDING-REVIEW', isDraft: false, displayStatus: 'PENDING-REVIEW', ...overrides })
+    studyState({ status: 'PENDING-REVIEW', isDraft: false, ...overrides })
 
 const screen = (s: StudyState) => resolveScreen('reviewer', s).screen
 

@@ -19,8 +19,7 @@ export {
     resolveDashboardAction,
 } from './resolve'
 export { resolvePillStatus, resolvePillId, resolveRowHighlight } from './pill'
-export type { PillOrgNames } from './pill'
-export type { PillRuleEntry } from './pill-rules'
+export type { PillOrgNames, PillRuleEntry } from './pill'
 export { RESEARCHER_PILL_RULES } from './researcher-pill-rules'
 export { REVIEWER_PILL_RULES } from './reviewer-pill-rules'
 export { resolveStepNav, resolveReviewerStepNav, resolveScreenNav, phasedStepNav } from './nav'

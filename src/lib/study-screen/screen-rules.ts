@@ -6,5 +6,9 @@ import type { ScreenId } from './screens'
 export type Rule = { when: (s: StudyState) => boolean }
 export type RuleEntry<Id> = readonly [Id, Rule]
 
+// Every table ends in an unconditional rule, so a match always exists.
+export const firstMatch = <Id>(rules: ReadonlyArray<RuleEntry<Id>>, state: StudyState): Id =>
+    rules.find(([, rule]) => rule.when(state))![0]
+
 export type ScreenRule = Rule
 export type ScreenRuleEntry = RuleEntry<ScreenId>

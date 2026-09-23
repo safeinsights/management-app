@@ -3,18 +3,11 @@
 import { type FC, useEffect, useRef } from 'react'
 import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
+import { RESEARCHER_STUDIES_QUERY_KEYS } from '@/components/dashboard/studies-table'
 import { actionResult } from '@/lib/utils'
 import { markOutputsDecisionViewedAction } from '@/server/actions/study-job.actions'
 
-// The two tables that draw a researcher badge. Both hold rows this write has just made wrong.
-const RESEARCHER_STUDY_QUERY_KEYS = [['user-researcher-studies'], ['researcher-studies']]
-
-/**
- * Records that the research lab has now seen the released outputs decision, so their badge can move
- * on from "Outputs need review". A failure is not surfaced: the badge is a courtesy on the lab's own
- * dashboard, so a toast would report a problem the reader did not cause and cannot act on. The ref
- * keeps a re-render, or StrictMode's double mount, from writing a second audit row.
- */
+// Failures go to Sentry only: the reader cannot act on them. The ref stops StrictMode writing twice.
 function useMarkOutputsDecisionViewed(studyId: string) {
     const queryClient = useQueryClient()
     const { mutate } = useMutation({
@@ -23,7 +16,9 @@ function useMarkOutputsDecisionViewed(studyId: string) {
         // would land on the badge this write just superseded.
         onSuccess: async () => {
             await Promise.all(
-                RESEARCHER_STUDY_QUERY_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+                Object.values(RESEARCHER_STUDIES_QUERY_KEYS).map((key) =>
+                    queryClient.invalidateQueries({ queryKey: [key] }),
+                ),
             )
         },
         // Nothing else asks again: the reader is already past the decision, and the guard below stops
@@ -41,9 +36,7 @@ function useMarkOutputsDecisionViewed(studyId: string) {
     }, [mutate])
 }
 
-// Renders nothing. The researcher outputs screens are async server components, so recording the
-// view from the client needs a leaf that mounts with them rather than a write during their render,
-// which would also fire on link prefetch.
+// Renders nothing. A client leaf, because a write during the server render would also fire on prefetch.
 export const MarkOutputsDecisionViewed: FC<{ studyId: string }> = ({ studyId }) => {
     useMarkOutputsDecisionViewed(studyId)
     return null
