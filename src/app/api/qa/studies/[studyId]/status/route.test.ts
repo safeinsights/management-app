@@ -121,6 +121,22 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(changes.map((c) => c.status)).toContain('RUN-COMPLETE')
     })
 
+    // The researcher-viewed fact is a job status too, so QA can drive the "Outputs reviewed" badge.
+    it('accepts RESULTS-VIEWED as a job status', async () => {
+        await authenticateAsSiAdmin()
+        const { study, job } = await insertQaStudy()
+
+        const response = await patchStatus(study.id, formWith({ jobStatus: 'RESULTS-VIEWED' }))
+
+        expect(response.status).toBe(200)
+        const changes = await db
+            .selectFrom('jobStatusChange')
+            .select(['status'])
+            .where('studyJobId', '=', job.id)
+            .execute()
+        expect(changes.map((c) => c.status)).toContain('RESULTS-VIEWED')
+    })
+
     it('sets both statuses in one request', async () => {
         await authenticateAsSiAdmin()
         const { study } = await insertQaStudy()

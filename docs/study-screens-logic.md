@@ -20,7 +20,7 @@ Before this, four places each re-derived overlapping state from incomplete input
 - `use-study-href.ts` — dashboard guessed _which URL_ to open.
 - `view/page.tsx` — a nested if-cascade keyed on `?from=` query params + status ordering.
 - `review/page.tsx` — a parallel reviewer cascade with its own `?from=` cases.
-- `use-study-status.ts` + `study-row.tsx` — pill + row highlight, with their own recency logic.
+- `study-row.tsx` (via `use-study-status.ts`) — pill + row highlight, with their own recency logic.
 
 They drifted, and most past bugs traced to code reading **"the newest status"** when status rows
 can arrive **out of order**. The fix: derive everything **once**, from the whole status set.
@@ -113,8 +113,6 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `isExecuting` = latest job has a running status (`JOB-PROVISIONING/PACKAGING/READY/RUNNING`).
 - `hasResults` / `resultsApproved` / `resultsRejected` / `resultsErrored` — results statuses are
   terminal-and-permanent for their job (pure existence; no counting).
-- `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
-  stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
 - `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
   layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
@@ -172,9 +170,9 @@ The three predicates are **mutually disjoint** (see `isOutputsSharedOutcome`), s
 to each other carries no meaning either. Disjointness still matters for a
 job carrying BOTH `FILES-*` rows, which `submitOutputsDecisionAction` refuses but the QA status route
 and the legacy approve/reject actions can write: `isOutputsSharedOutcome` excludes `resultsRejected`
-so #2 keeps it, agreeing with the pill, which reads Rejected (`DISPLAY_STATUS_PRIORITY` ranks
-`FILES-REJECTED` first). The one overlap left is an errored job with both rows, where #1 and #2 both
-match and order does decide; `state.test.ts` pins it.
+so #2 keeps it, and the conservative feedback-only page is what the researcher sees. The one overlap
+left is an errored job with both rows, where #1 and #2 both match and order does decide;
+`state.test.ts` pins it.
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
@@ -366,24 +364,110 @@ redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ## Stage 4 — Pill + row highlight (`pill.ts`)
 
-`resolvePillStatus(role, state)` walks `DISPLAY_STATUS_PRIORITY` over the **latest job's status
-set**, returning the label for the first status **the role can label**. This is why a researcher
-(who has no execution sub-status labels) falls through `JOB-PACKAGING/READY/RUNNING` to
-`CODE-APPROVED`, while a reviewer shows the granular execution label. Role-specific rules:
+`resolvePillId(role, state)` runs an ordered rule table, the same first-match-wins contract Stage 2
+uses, and returns a `PillId`. `resolvePillStatus(role, state, names)` then resolves that id against
+`PILL_PRESENTATION` in `lib/status-labels.ts`, which owns the label, the tooltip and the color.
 
-- a **researcher hides `JOB-ERRORED`** until a reviewer records a `FILES-*` decision;
-- on a resubmission (`codeAwaitingDecision`), **stale code-decision statuses are dropped** so the
-  fresh `CODE-SUBMITTED` drives the pill, not the prior round's decision.
+The pill cannot be keyed on a status value alone, which is why it has a table rather than a map
+(OTTER-698). Four cases need facts a single status does not carry:
 
-Fallbacks: status candidate label → study-status label → a guaranteed-present terminal
-`FALLBACK_LABEL` (no non-null assertion that could lie).
+- one researcher label, **Code processing**, spans `JOB-PACKAGING`, `JOB-READY` and `JOB-RUNNING`;
+- `JOB-ERRORED` reads **Awaiting outputs** to a researcher until a reviewer records a `FILES-*`
+  decision, then **Code errored** (OTTER-598);
+- a `FILES-*` decision reads **Outputs need review** to a researcher until they open it, then
+  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records;
+- a reviewer sees **Outputs reviewed** as soon as they submit the decision, because they made it.
 
-`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved`; reviewer
-highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
+`RESULTS-VIEWED` is the one status a user's reading writes, appended to the latest job by
+`markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
+`MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
+prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
+exists, and once per job for any visit that sees an earlier one. Two visits close enough to read
+before either writes both insert. That race is accepted rather than fixed: every reader asks the
+status set whether the row is there, so a duplicate moves no badge. The partial unique index that
+would settle it cannot be created, because its predicate has to name `RESULTS-VIEWED`, which the
+migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
+of a new value, and `status::text` as a non-IMMUTABLE index predicate; a fresh database replays both
+migrations together, so a later migration cannot escape it either. A job status rather than a study
+column because a resubmission opens a new job, so the fact resets per round without any clearing
+logic.
 
-> **Deliberate divergence from legacy:** when one job carries both `CODE-CHANGES-REQUESTED` and a
-> terminal `CODE-REJECTED`, the pill now reads **Rejected** (the truthful terminal state), and it
-> agrees with the rejected-screen routing. Legacy's reversed-label-order ranked them the other way.
+The projection also exposes `executionStage`, read from `furthestStage` in `study-job-status.ts`,
+which keeps pipeline order in the one file that already owns it. The reviewer's per-stage badges
+therefore never read the status log's order. `currentExecutionStage`, which the reviewer's outputs
+pending screen reads, picks its stage with the same helper, so the badge and the screen agree.
+
+Stale code decisions are dropped by the projection, not the table, so a resubmission reads as
+submitted rather than as the prior round's decision (OTTER-641).
+
+Both tables end in an unconditional rule, so the pill can never be undefined. `ARCHIVED` reaches
+that neutral fallback in both, because the design has no badge for it.
+
+The spec names backend states conceptually; none of them is a new stored value except
+`RESULTS-VIEWED`:
+
+| Spec BE status                                | Stored as                                                  |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| `proposal-initiated`                          | `study.status = DRAFT`                                     |
+| `proposal-pending-review`                     | `PENDING-REVIEW`                                           |
+| `proposal-needs-revision`                     | `CHANGE-REQUESTED`                                         |
+| `proposal-approved` / `proposal-declined`     | `APPROVED` / `REJECTED`                                    |
+| `code-initiated`                              | an `INITIATED` job row with no `CODE-SUBMITTED`            |
+| `code-pending-review`                         | `CODE-SUBMITTED` awaiting a decision                       |
+| `code-needs-revision` / `code-approved`       | `CODE-CHANGES-REQUESTED` / `CODE-APPROVED`                 |
+| `job-packaging` / `job-ready` / `job-running` | the `JOB-*` rows (`JOB-PROVISIONING` reads as queued)      |
+| `job-errored` / `job-error-shared`            | `JOB-ERRORED` without / with a `FILES-*` row               |
+| `results-pending-review` / `results-shared`   | `RUN-COMPLETE` undecided / a `FILES-*` row                 |
+| `results-reviewed`                            | `FILES-*` (reviewer) or `FILES-*` + `RESULTS-VIEWED` (lab) |
+
+### Researcher pill table (`researcher-pill-rules.ts`)
+
+| #   | Condition                                                          | Pill                      |
+| --- | ------------------------------------------------------------------ | ------------------------- |
+| 1   | `resultsErrored` and a `FILES-*` decision exists                   | `code-errored`            |
+| 2   | a `FILES-*` decision exists and `resultsViewed`                    | `outputs-reviewed`        |
+| 3   | a `FILES-*` decision exists                                        | `outputs-need-review`     |
+| 4   | `isAwaitingOutputsReviewOutcome` or `awaitingFilesDecisionOnError` | `outputs-awaiting`        |
+| 5   | `isExecuting`                                                      | `code-processing`         |
+| 6   | `codeDecision === 'CODE-APPROVED'`                                 | `code-approved`           |
+| 7   | `codeDecision === 'CODE-REJECTED'`                                 | `code-declined`           |
+| 8   | `codeDecision === 'CODE-CHANGES-REQUESTED'`                        | `code-needs-revision`     |
+| 9   | `codeAwaitingDecision`                                             | `code-submitted`          |
+| 10  | `APPROVED` with a job but no submitted code                        | `code-draft`              |
+| 11  | `status === 'APPROVED'`                                            | `proposal-approved`       |
+| 12  | `status === 'REJECTED'`                                            | `proposal-declined`       |
+| 13  | `status === 'CHANGE-REQUESTED'`                                    | `proposal-needs-revision` |
+| 14  | `status === 'PENDING-REVIEW'`                                      | `proposal-submitted`      |
+| 15  | fallback                                                           | `proposal-draft`          |
+
+### Reviewer pill table (`reviewer-pill-rules.ts`)
+
+| #   | Condition                                             | Pill                          |
+| --- | ----------------------------------------------------- | ----------------------------- |
+| 1   | `awaitingFilesDecisionOnError`                        | `code-errored`                |
+| 2   | `isAwaitingOutputsReviewOutcome`                      | `outputs-need-review`         |
+| 3   | `resultsApproved` or `resultsRejected`                | `outputs-reviewed`            |
+| 4   | `executionStage === 'JOB-RUNNING'`                    | `code-running`                |
+| 5   | `executionStage` is `JOB-READY` or `JOB-PROVISIONING` | `code-queued`                 |
+| 6   | `executionStage === 'JOB-PACKAGING'`                  | `code-preparing`              |
+| 7   | `codeDecision === 'CODE-APPROVED'`                    | `code-approved`               |
+| 8   | `codeDecision === 'CODE-REJECTED'`                    | `code-declined`               |
+| 9   | `codeDecision === 'CODE-CHANGES-REQUESTED'`           | `code-revision-requested`     |
+| 10  | `codeAwaitingDecision`                                | `code-needs-review`           |
+| 11  | `APPROVED` with a job but no submitted code           | `code-awaiting`               |
+| 12  | `status === 'APPROVED'`                               | `proposal-approved`           |
+| 13  | `status === 'REJECTED'`                               | `proposal-declined`           |
+| 14  | `status === 'CHANGE-REQUESTED'`                       | `proposal-revision-requested` |
+| 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
+| 16  | fallback                                              | `proposal-draft`              |
+
+`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved` until the lab has
+opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` or
+`codeAwaitingDecision`. Both mean an action is owed.
+
+> `code-declined` has no row in the product spec, because the reject action is hidden from reviewers
+> (OTTER-650). Studies decided before it was hidden still carry `CODE-REJECTED`, so the badge stays
+> rather than letting those rows fall to the draft fallback.
 
 ---
 
@@ -438,14 +522,18 @@ re-architecting — exactly as the design intended.
 | File                                   | Responsibility                                                                         |
 | -------------------------------------- | -------------------------------------------------------------------------------------- |
 | `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                           |
-| `state.ts`                             | `projectStudyState` + priority constants                                               |
+| `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants     |
 | `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`          |
-| `screen-rules.ts`                      | `ScreenRule`, `ScreenRuleEntry`, `ScreenRuleCtx` (shared rule types)                   |
+| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>`, `firstMatch` (shared by every table), plus `Screen*` aliases  |
 | `researcher-screen-rules.ts`           | `RESEARCHER_SCREEN_RULES` (researcher table)                                           |
 | `reviewer-screen-rules.ts`             | `REVIEWER_SCREEN_RULES` (reviewer table)                                               |
+| `researcher-pill-rules.ts`             | `RESEARCHER_PILL_RULES` (researcher pill table)                                        |
+| `reviewer-pill-rules.ts`               | `REVIEWER_PILL_RULES` (reviewer pill table)                                            |
 | `dashboard-rules.ts`                   | `DASHBOARD_RULES` table                                                                |
 | `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                 |
-| `pill.ts`                              | `resolvePillStatus`, `resolveRowHighlight`                                             |
+| `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`           |
+| `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                  |
+| `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                      |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav` |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                 |
 | `index.ts`                             | public barrel                                                                          |

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
-import { resolvePillStatus, resolveRowHighlight } from './pill'
+import { resolvePillId, resolvePillStatus, resolveRowHighlight } from './pill'
 import { studyState } from './state.fixture'
 
 const state = (overrides: Partial<StudyState>): StudyState =>
@@ -10,91 +10,203 @@ const state = (overrides: Partial<StudyState>): StudyState =>
         hasAnyJob: true,
         hasSubmittedCode: true,
         submissionRound: 1,
-        displayStatus: 'CODE-SUBMITTED',
         ...overrides,
     })
 
-describe('resolvePillStatus', () => {
-    it('researcher does NOT see Errored until a reviewer files a decision (falls back to Approved)', () => {
-        const label = resolvePillStatus(
+const NAMES = { dataPartner: 'Openstax', researchLab: 'Openstax Lab' }
+
+describe('resolvePillId', () => {
+    it('researcher does not see the error until a reviewer files a decision', () => {
+        const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'],
                 resultsErrored: true,
+                hasResults: true,
                 codeDecision: 'CODE-APPROVED',
             }),
         )
-        expect(label.label).not.toBe('Errored')
-        expect(label.label).toBe('Approved')
+        expect(id).toBe('outputs-awaiting')
     })
-    it('reviewer sees Errored immediately', () => {
-        const label = resolvePillStatus(
-            'reviewer',
-            state({ latestJobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'], resultsErrored: true }),
-        )
-        expect(label.label).toBe('Errored')
-    })
-    it('reviewer execution sub-status keeps its distinct label (Packaging)', () => {
-        const label = resolvePillStatus(
-            'reviewer',
-            state({ latestJobStatuses: ['CODE-APPROVED', 'JOB-PACKAGING'], isExecuting: true }),
-        )
-        expect(label.label).toBe('Packaging')
-    })
-    it('researcher during execution shows Approved, NOT Packaging (no researcher exec label)', () => {
-        const label = resolvePillStatus(
+    it('researcher sees the error once the reviewer shares a decision', () => {
+        const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-APPROVED', 'JOB-PACKAGING'],
+                resultsErrored: true,
+                resultsApproved: true,
+                hasResults: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(id).toBe('code-errored')
+    })
+    it('reviewer sees the error immediately', () => {
+        const id = resolvePillId(
+            'reviewer',
+            state({
+                resultsErrored: true,
+                hasResults: true,
+            }),
+        )
+        expect(id).toBe('code-errored')
+    })
+
+    it('reviewer keeps a distinct label per enclave stage', () => {
+        const stage = (executionStage: StudyState['executionStage']) =>
+            resolvePillId('reviewer', state({ executionStage, isExecuting: true, codeDecision: 'CODE-APPROVED' }))
+        expect(stage('JOB-PACKAGING')).toBe('code-preparing')
+        expect(stage('JOB-READY')).toBe('code-queued')
+        expect(stage('JOB-PROVISIONING')).toBe('code-queued')
+        expect(stage('JOB-RUNNING')).toBe('code-running')
+    })
+    it('reviewer reads a decided run as reviewed even when the stage rows are still present', () => {
+        const id = resolvePillId(
+            'reviewer',
+            state({
+                executionStage: 'JOB-RUNNING',
+                hasResults: true,
+                resultsErrored: true,
+                resultsRejected: true,
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(id).toBe('outputs-reviewed')
+    })
+    it('researcher collapses every enclave stage into one processing label', () => {
+        const id = resolvePillId(
+            'researcher',
+            state({
                 isExecuting: true,
                 codeDecision: 'CODE-APPROVED',
             }),
         )
-        expect(label.label).toBe('Approved')
+        expect(id).toBe('code-processing')
     })
-    it('job with both CODE-CHANGES-REQUESTED and CODE-REJECTED reads Rejected (terminal wins)', () => {
-        const label = resolvePillStatus(
+
+    it('a declined code round is terminal, not a revision request', () => {
+        const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-REJECTED'],
                 codeDecision: 'CODE-REJECTED',
             }),
         )
-        expect(label.label).toBe('Rejected')
+        expect(id).toBe('code-declined')
     })
+
     // OTTER-641: the stale CODE-CHANGES-REQUESTED must not win over the live approval.
-    it('resubmit then approved reads Approved, not the stale Change requested', () => {
-        const label = resolvePillStatus(
+    it.each(['researcher', 'reviewer'] as const)('%s: resubmit then approved reads approved', (role) => {
+        const id = resolvePillId(
+            role,
+            state({
+                codeDecision: 'CODE-APPROVED',
+            }),
+        )
+        expect(id).toBe('code-approved')
+    })
+
+    it('researcher outputs pill splits on whether the decision has been opened', () => {
+        const decided: Partial<StudyState> = {
+            hasResults: true,
+            resultsApproved: true,
+            codeDecision: 'CODE-APPROVED',
+        }
+        expect(resolvePillId('researcher', state({ ...decided, resultsViewed: false }))).toBe('outputs-need-review')
+        expect(resolvePillId('researcher', state({ ...decided, resultsViewed: true }))).toBe('outputs-reviewed')
+        // The reviewer made the decision, so it reads as reviewed for them either way.
+        expect(resolvePillId('reviewer', state({ ...decided, resultsViewed: false }))).toBe('outputs-reviewed')
+    })
+
+    it('a view recorded before any decision changes nothing', () => {
+        const id = resolvePillId('researcher', state({ resultsViewed: true, codeDecision: 'CODE-APPROVED' }))
+        expect(id).toBe('code-approved')
+    })
+
+    // The fix is still owed after reading the feedback, so the errored badge keeps its call to act.
+    it('an errored, decided run stays errored for the researcher after they viewed it', () => {
+        const id = resolvePillId(
             'researcher',
             state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'],
+                hasResults: true,
+                resultsErrored: true,
+                resultsRejected: true,
+                resultsViewed: true,
                 codeDecision: 'CODE-APPROVED',
             }),
         )
-        expect(label.label).toBe('Approved')
+        expect(id).toBe('code-errored')
     })
-    // Reviewers DO have a label for CODE-CHANGES-REQUESTED, so the stale round-1 status could win
-    // by DISPLAY_STATUS_PRIORITY were isStaleCodeDecision not applied to every role.
-    it('reviewer: resubmit then approved reads Approved, not the stale Change requested', () => {
-        const label = resolvePillStatus(
-            'reviewer',
-            state({
-                latestJobStatuses: ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'],
-                codeDecision: 'CODE-APPROVED',
-            }),
-        )
-        expect(label.label).toBe('Approved')
+
+    it('a status no rule claims falls back to the neutral draft pill for both roles', () => {
+        const archived: Partial<StudyState> = { status: 'ARCHIVED', hasAnyJob: false, hasSubmittedCode: false }
+        expect(resolvePillId('researcher', state(archived))).toBe('proposal-draft')
+        expect(resolvePillId('reviewer', state(archived))).toBe('proposal-draft')
     })
-    it('approved then executing still reads Approved for the researcher (falls through to live decision)', () => {
+
+    it('a completed run awaiting a decision reads as awaiting for the researcher, needs review for the reviewer', () => {
+        const complete: Partial<StudyState> = {
+            hasResults: true,
+            codeDecision: 'CODE-APPROVED',
+        }
+        expect(resolvePillId('researcher', state(complete))).toBe('outputs-awaiting')
+        expect(resolvePillId('reviewer', state(complete))).toBe('outputs-need-review')
+    })
+
+    it('code under review and code sent back read differently to each role', () => {
+        const awaiting: Partial<StudyState> = { codeAwaitingDecision: true }
+        expect(resolvePillId('researcher', state(awaiting))).toBe('code-submitted')
+        expect(resolvePillId('reviewer', state(awaiting))).toBe('code-needs-review')
+
+        const changes: Partial<StudyState> = { codeDecision: 'CODE-CHANGES-REQUESTED' }
+        expect(resolvePillId('researcher', state(changes))).toBe('code-needs-revision')
+        expect(resolvePillId('reviewer', state(changes))).toBe('code-revision-requested')
+    })
+
+    it('a job with no submitted code reads as a draft to the researcher and awaited by the reviewer', () => {
+        const noCode: Partial<StudyState> = {
+            hasSubmittedCode: false,
+        }
+        expect(resolvePillId('researcher', state(noCode))).toBe('code-draft')
+        expect(resolvePillId('reviewer', state(noCode))).toBe('code-awaiting')
+    })
+
+    it('proposal statuses read differently to each role', () => {
+        const proposal: Partial<StudyState> = { status: 'PENDING-REVIEW', hasAnyJob: false, hasSubmittedCode: false }
+        expect(resolvePillId('researcher', state(proposal))).toBe('proposal-submitted')
+        expect(resolvePillId('reviewer', state(proposal))).toBe('proposal-needs-review')
+
+        const revision: Partial<StudyState> = { status: 'CHANGE-REQUESTED', hasAnyJob: false, hasSubmittedCode: false }
+        expect(resolvePillId('researcher', state(revision))).toBe('proposal-needs-revision')
+        expect(resolvePillId('reviewer', state(revision))).toBe('proposal-revision-requested')
+    })
+
+    it('a draft study reads as a proposal draft', () => {
+        expect(resolvePillId('researcher', studyState())).toBe('proposal-draft')
+    })
+})
+
+describe('resolvePillStatus', () => {
+    it('interpolates the organization names into the tooltip', () => {
         const label = resolvePillStatus(
             'researcher',
-            state({
-                latestJobStatuses: ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-READY'],
-                codeDecision: 'CODE-APPROVED',
-                isExecuting: true,
-            }),
+            state({ status: 'PENDING-REVIEW', hasAnyJob: false, hasSubmittedCode: false }),
+            NAMES,
         )
-        expect(label.label).toBe('Approved')
+        expect(label.label).toBe('Proposal submitted')
+        expect(label.tooltip).toBe('Waiting for Openstax to review proposal.')
+    })
+
+    it('gives the two roles different tooltips for the same badge', () => {
+        const decided = state({
+            hasResults: true,
+            resultsApproved: true,
+            resultsViewed: true,
+            codeDecision: 'CODE-APPROVED',
+        })
+        expect(resolvePillStatus('researcher', decided, NAMES).tooltip).toBe(
+            'You have reviewed the decision on your outputs. You can resubmit code if needed.',
+        )
+        expect(resolvePillStatus('reviewer', decided, NAMES).tooltip).toBe(
+            'A decision on the outputs has been shared with Openstax Lab.',
+        )
     })
 })
 
@@ -105,7 +217,8 @@ describe('resolveRowHighlight', () => {
     it('reviewer: code awaiting decision highlights', () => {
         expect(resolveRowHighlight('reviewer', state({ codeAwaitingDecision: true }))).toBe(true)
     })
-    it('researcher: results approved highlights', () => {
+    it('researcher: results approved highlights until the lab opens the decision', () => {
         expect(resolveRowHighlight('researcher', state({ resultsApproved: true }))).toBe(true)
+        expect(resolveRowHighlight('researcher', state({ resultsApproved: true, resultsViewed: true }))).toBe(false)
     })
 })

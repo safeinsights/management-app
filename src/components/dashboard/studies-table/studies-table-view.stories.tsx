@@ -1,7 +1,9 @@
 import type { Story } from '@ladle/react'
 import { Anchor } from '@mantine/core'
 import { Routes } from '@/lib/routes'
-import { useStudyStatus } from '@/hooks/use-study-status'
+import { resolvePillStatus, resolveRowHighlight } from '@/lib/study-screen'
+import { rowStudyState } from './dashboard-raw-state'
+import { pillOrgNamesFromRow } from './pill-context'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { StudiesTableView } from './studies-table-view'
 import { StudyRowView } from './study-row-view'
@@ -39,11 +41,9 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
 })
 
 function StoryRow({ study: s, audience, scope }: { study: StudyRowType; audience: Audience; scope: Scope }) {
-    const status = useStudyStatus({ studyStatus: s.status, audience, jobStatusChanges: s.jobStatusChanges })
-    const isHighlighted =
-        audience === 'researcher'
-            ? s.jobStatusChanges.some((c) => c.status === 'FILES-APPROVED')
-            : s.status === 'PENDING-REVIEW'
+    const state = rowStudyState(s)
+    const status = resolvePillStatus(audience, state, pillOrgNamesFromRow(s))
+    const isHighlighted = resolveRowHighlight(audience, state)
     return (
         <StudyRowView
             study={s}

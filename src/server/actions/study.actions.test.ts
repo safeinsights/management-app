@@ -25,6 +25,7 @@ import {
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
     fetchStudiesForCurrentResearcherUserAction,
+    fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getOutputsDecisionFeedbackAction,
@@ -484,6 +485,28 @@ describe('Study Actions', () => {
         await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
+    })
+
+    // The reviewer's personal dashboard builds its status tooltips from the submitting lab's name,
+    // which this query has to carry: the org dashboards get it from their own joins (OTTER-698).
+    it('fetchStudiesForCurrentReviewerAction names the submitting lab on each row', async () => {
+        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const lab = await insertTestOrg({ slug: 'reviewer-dashboard-lab', type: 'lab', name: 'Genius Lab' })
+        const { user: researcher } = await insertTestUser({ org: lab })
+        const { studyId } = await insertTestStudyData({ org: enclave, researcherId: researcher.id })
+        await db.updateTable('study').set({ submittedByOrgId: lab.id }).where('id', '=', studyId).execute()
+
+        const rows = actionResult(await fetchStudiesForCurrentReviewerAction())
+
+        expect(rows).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: studyId,
+                    submittingLabName: 'Genius Lab',
+                    submittedByOrgSlug: lab.slug,
+                }),
+            ]),
+        )
     })
 
     describe('fetchStudiesForOrgAction lab-branch visibility (OTTER-497)', () => {

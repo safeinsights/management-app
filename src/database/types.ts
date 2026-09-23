@@ -78,6 +78,7 @@ export type StudyJobStatus =
     | 'JOB-PROVISIONING'
     | 'JOB-READY'
     | 'JOB-RUNNING'
+    | 'RESULTS-VIEWED'
     | 'RUN-COMPLETE'
 
 export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
