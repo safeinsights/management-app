@@ -36,11 +36,8 @@ export function openLinkInNewTab(url: string) {
 }
 
 /**
- * Moves focus into the card as it opens, in two passes. In an editor, Lexical re-applies the DOM
- * selection right after the click that opened the card, which pulls focus back to the field, so a
- * single pass on mount does not hold. The second pass lands after it; elsewhere it is a no-op.
- * The first pass runs before the popover is positioned, while it still sits at the top of the
- * page, so scrolling to it would jump the page away from the link.
+ * Moves focus into the card without scrolling, since the first pass runs before the popover is positioned.
+ * A second pass on the next frame outlasts Lexical re-applying its selection after the opening click.
  */
 export function useFocusOnOpen(target: RefObject<HTMLElement | null>) {
     useEffect(() => {
