@@ -1491,7 +1491,6 @@ describe('submitCodeReviewDecisionAction', () => {
     const validCriteria = {
         proposalAlignment: 'yes',
         agreementCompliance: 'yes',
-        securityChecks: 'yes',
         privacyProtection: 'yes',
     } as const
 
@@ -1732,7 +1731,6 @@ describe('submitCodeReviewDecisionAction', () => {
             criteria: {
                 proposalAlignment: 'yes',
                 agreementCompliance: 'no',
-                securityChecks: 'not-sure',
                 privacyProtection: 'not-sure',
             },
         })
@@ -1745,7 +1743,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(rows[0].criteria).toEqual({
             proposalAlignment: 'yes',
             agreementCompliance: 'no',
-            securityChecks: 'not-sure',
             privacyProtection: 'not-sure',
         })
     })
@@ -2380,7 +2377,6 @@ describe('getCodeReviewFeedbackAction', () => {
                 criteria: {
                     proposalAlignment: 'yes',
                     agreementCompliance: 'no',
-                    securityChecks: 'no',
                     privacyProtection: 'yes',
                 },
                 createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -2550,7 +2546,6 @@ function validCriteriaFixture() {
     return {
         proposalAlignment: 'yes',
         agreementCompliance: 'yes',
-        securityChecks: 'yes',
         privacyProtection: 'yes',
     } as const
 }

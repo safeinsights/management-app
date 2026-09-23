@@ -3,18 +3,22 @@
 import { type ReactNode } from 'react'
 import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
-import { WarningCircleIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { useWidgetBlur } from '@/components/form-field'
+import { DecisionRadio } from '@/components/study/decision-radio'
+import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
+import { LinkWithIcon } from '@/components/links'
+import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
+    CODE_REVIEW_CRITERIA_KEYS,
     type CodeReviewCriteriaDraft,
     type CodeReviewCriteriaDraftValue,
     type CodeReviewCriteriaKey,
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
-import { InfoTooltip } from '@/components/tooltip'
-import { codeReviewCriteria, type CodeReviewCriterion } from './code-review-criteria'
+import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
+import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -23,59 +27,70 @@ const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = 
     { value: 'not-sure', label: 'Not sure' },
 ]
 
+/** Shared with FIELD_ORDER in code-review-client so focus order cannot drift from the DOM. */
+export const criterionFieldId = (key: CodeReviewCriteriaKey) => `criteria-${key}`
+
+export const CRITERIA_SECTION_ERROR_ID = 'code-evaluation-criteria'
+
+const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore ${legalDocumentCollectionLabels.SLA} do not exist for this study.`
+
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
     enabled: boolean
+    proposalHref: string
     isTestStudy: boolean
-}
-
-// The lo-fi hangs this off the word "agreements"; a trailing icon carries the same note without
-// splitting the label string.
-function CriterionLabel({ id, descriptor }: { id: string; descriptor: CodeReviewCriterion }) {
-    const { note } = descriptor
-
-    return (
-        <Text id={id} fz={14} w={320}>
-            {descriptor.label}
-            {note && (
-                <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
-                    <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
-                </InfoTooltip>
-            )}
-        </Text>
-    )
+    /** False until the first Submit click — untouched rows must not flag themselves. */
+    validateOnBlur: boolean
 }
 
 type CriterionRowProps = {
-    descriptor: CodeReviewCriterion
+    criterionKey: CodeReviewCriteriaKey
     value: CodeReviewCriteriaDraftValue
     error: ReactNode
+    sectionErrorId: string
     onChange: (value: CodeReviewCriteriaDraftValue) => void
-    onBlur: () => void
+    onBlur?: () => void
+    label: ReactNode
 }
 
-function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionRowProps) {
+function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, onBlur, label }: CriterionRowProps) {
     const handleChange = (raw: string) => {
         onChange(raw as CodeReviewCriteriaDraftValue)
     }
-    const radioOptions = OPTIONS.map((option) => <Radio key={option.value} value={option.value} label={option.label} />)
     const widgetBlur = useWidgetBlur(onBlur)
+    const fieldId = criterionFieldId(criterionKey)
+
+    // Boolean `error` restyles the circles without a second message (message is in FieldErrorBox).
+    // aria-* also belongs here: submit-time focus lands on the inputs, and Radio.Group would
+    // forward unknown props onto a roleless wrapper.
+    const radioOptions = OPTIONS.map((option) => (
+        <DecisionRadio
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            error={error}
+            errorId={sectionErrorId}
+        />
+    ))
 
     // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper; the
     // role="radiogroup" element takes its name from labelProps.id instead.
-    const labelId = `criteria-${descriptor.key}-label`
+    const labelId = `${fieldId}-label`
 
     return (
-        <Group gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${descriptor.key}`}>
-            <CriterionLabel id={labelId} descriptor={descriptor} />
-            {/* Guarded blur: the radios are siblings, so an unguarded handler would error while
-                the user is still tabbing across the row (OTTER-647). */}
+        // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
+        // focusFirstInvalid targets this wrapper instead.
+        <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
+            <Text id={labelId} fz={14} w={320}>
+                {label}
+            </Text>
+            {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
+                group; useWidgetBlur waits for the user to leave it. */}
             <Radio.Group
                 value={value ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
-                name={`criteria-${descriptor.key}`}
-                error={error}
+                name={fieldId}
                 labelProps={{ id: labelId }}
             >
                 <Group gap="xl" wrap="nowrap">
@@ -86,27 +101,92 @@ function CriterionRow({ descriptor, value, error, onChange, onBlur }: CriterionR
     )
 }
 
-export function CodeEvaluationSection({ form, enabled, isTestStudy }: CodeEvaluationSectionProps) {
+function ProposalLink({ href, children }: { href: string; children: ReactNode }) {
+    return (
+        <LinkWithIcon
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            underline="always"
+            icon={<ArrowSquareOutIcon size={14} weight="bold" />}
+            data-testid="criteria-proposal-link"
+        >
+            {children}
+        </LinkWithIcon>
+    )
+}
+
+function AgreementNote({ note }: { note: string | undefined }) {
+    if (!note) return null
+    return (
+        <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+            <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
+        </InfoTooltip>
+    )
+}
+
+type CriterionLabelConfig = {
+    build: (proposalHref: string) => ReactNode
+    note?: (isTestStudy: boolean) => string | undefined
+}
+
+const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
+    proposalAlignment: {
+        build: (href) => (
+            <>
+                Does code align with the approved <ProposalLink href={href}>proposal</ProposalLink>?
+            </>
+        ),
+    },
+    agreementCompliance: {
+        build: () => 'Does code align with the Study Agreement?',
+        note: (isTestStudy) => (isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined),
+    },
+    privacyProtection: {
+        build: () => 'Could the outputs expose any PII?',
+    },
+}
+
+export function CodeEvaluationSection({
+    form,
+    enabled,
+    proposalHref,
+    isTestStudy,
+    validateOnBlur,
+}: CodeEvaluationSectionProps) {
     const provider = useCodeReviewFeedbackProvider()
     const { pushCriterion } = useCodeReviewEvaluationMap({ form, provider, enabled })
 
     const criteriaValues = form.getValues().criteria
+    const sectionErrorId = fieldErrorId(CRITERIA_SECTION_ERROR_ID)
+    const hasCriteriaError = CODE_REVIEW_CRITERIA_KEYS.some((key) => form.errors[`criteria.${key}`])
 
     const handleChange = (key: CodeReviewCriteriaKey) => (value: CodeReviewCriteriaDraftValue) => {
         form.setFieldValue(`criteria.${key}`, value)
         pushCriterion(key, value)
     }
 
-    const criterionRows = codeReviewCriteria(isTestStudy).map((descriptor) => (
-        <CriterionRow
-            key={descriptor.key}
-            descriptor={descriptor}
-            value={criteriaValues[descriptor.key]}
-            error={form.errors[`criteria.${descriptor.key}`]}
-            onChange={handleChange(descriptor.key)}
-            onBlur={() => form.validateField(`criteria.${descriptor.key}`)}
-        />
-    ))
+    const criterionRows = CODE_REVIEW_CRITERIA_KEYS.map((key) => {
+        const config = CRITERION_LABELS[key]
+        const note = config.note?.(isTestStudy)
+        return (
+            <CriterionRow
+                key={key}
+                criterionKey={key}
+                value={criteriaValues[key]}
+                error={form.errors[`criteria.${key}`]}
+                sectionErrorId={sectionErrorId}
+                onChange={handleChange(key)}
+                onBlur={validateOnBlur ? () => form.validateField(`criteria.${key}`) : undefined}
+                label={
+                    <>
+                        {config.build(proposalHref)}
+                        <AgreementNote note={note} />
+                    </>
+                }
+            />
+        )
+    })
 
     return (
         <Paper p="xxl" data-testid="code-evaluation-section">
@@ -118,25 +198,26 @@ export function CodeEvaluationSection({ form, enabled, isTestStudy }: CodeEvalua
                     <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
                 <Divider />
-                <Text fz={14} c={semanticColor('text.primary')}>
-                    Use this checklist to guide your review. Consider each criterion based on the submitted code, AI
-                    summary, and security scan results.
-                </Text>
                 <Alert
-                    color="red"
-                    variant="light"
-                    title="Attention"
-                    icon={<WarningCircleIcon size={20} weight="fill" color="var(--si-color-error-text)" />}
-                    styles={{ title: { color: 'var(--si-color-error-text)' } }}
+                    bg={semanticColor('info.bg.light')}
+                    icon={<InfoIcon size={20} weight="fill" color={semanticColor('info.text')} />}
                     data-testid="code-evaluation-attention"
                 >
-                    This checklist is provided as guidance. As the reviewer(s), you are responsible for the final
-                    decision based on your professional judgment and understanding of your data.
+                    This checklist is for guidance only. The final decision is yours, based on your professional
+                    judgment along with your organization&apos;s data and policies.
                 </Alert>
                 <Text fz={16} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     Evaluation criteria
                 </Text>
-                <Stack gap="md">{criterionRows}</Stack>
+                {/* gap only when flagged so the empty live region does not open space above the rows. */}
+                <Stack gap={hasCriteriaError ? 'lg' : 0}>
+                    <FieldErrorBox
+                        fieldId={CRITERIA_SECTION_ERROR_ID}
+                        error={hasCriteriaError ? CODE_EVALUATION_CRITERIA_ERROR : null}
+                        isLive
+                    />
+                    <Stack gap="md">{criterionRows}</Stack>
+                </Stack>
             </Stack>
         </Paper>
     )

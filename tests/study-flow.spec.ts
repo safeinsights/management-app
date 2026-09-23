@@ -323,7 +323,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await page.waitForURL('**/dashboard')
 }
 
-const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'securityChecks', 'privacyProtection']
+const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'privacyProtection']
 
 // Reaches the code-review editor from the reviewer dashboard: View lands on /review, which resolves
 // straight to the editor. OTTER-727 hid the agreements gate (STEP 2A) that used to render first when

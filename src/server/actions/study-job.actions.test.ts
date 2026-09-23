@@ -791,12 +791,27 @@ describe('Study Job Actions', () => {
                 ])
                 .execute()
 
-        test('returns the review and the scan together', async () => {
+        // A scan costs an S3 fetch, and nothing has rendered a verdict since OTTER-694, so the
+        // default must not pay for one.
+        test('returns the review without a scan by default', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await insertReview(job.id, 'Summary of this round')
 
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
+
+            expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
+            expect(analysis.scan).toBeNull()
+        })
+
+        // The panel is parked pending a new scanning tool (OTTER-775), not gone: the pair must
+        // still come back in one round-trip for whoever rebuilds it.
+        test('returns the scan alongside the review when asked', async () => {
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
+            await insertReview(job.id, 'Summary of this round')
+
+            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id, withScan: true }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
             expect(analysis.scan).toEqual({ trivy: null, sonarqube: null, logFile: null })

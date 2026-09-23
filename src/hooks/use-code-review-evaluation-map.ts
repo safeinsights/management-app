@@ -8,7 +8,7 @@ import * as Y from 'yjs'
 export type CodeReviewCriteriaDraftValue = 'yes' | 'no' | 'not-sure' | null
 export type CodeReviewCriteriaValue = Exclude<CodeReviewCriteriaDraftValue, null>
 
-export type CodeReviewCriteriaKey = 'proposalAlignment' | 'agreementCompliance' | 'securityChecks' | 'privacyProtection'
+export type CodeReviewCriteriaKey = 'proposalAlignment' | 'agreementCompliance' | 'privacyProtection'
 
 export type CodeReviewCriteriaDraft = Record<CodeReviewCriteriaKey, CodeReviewCriteriaDraftValue>
 export type CodeReviewCriteria = Record<CodeReviewCriteriaKey, CodeReviewCriteriaValue>
@@ -16,7 +16,6 @@ export type CodeReviewCriteria = Record<CodeReviewCriteriaKey, CodeReviewCriteri
 export const CODE_REVIEW_CRITERIA_KEYS: readonly CodeReviewCriteriaKey[] = [
     'proposalAlignment',
     'agreementCompliance',
-    'securityChecks',
     'privacyProtection',
 ]
 
