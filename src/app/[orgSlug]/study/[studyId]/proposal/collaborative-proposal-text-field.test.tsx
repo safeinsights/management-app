@@ -12,12 +12,20 @@ import {
     vi,
     waitFor,
 } from '@/tests/unit.helpers'
+import { type FC } from 'react'
 import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical'
-import { useForm } from '@/common'
+import { useForm, zodResolver } from '@/common'
+import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { CollaborativeProposalTextField, ProposalTextFieldEntry } from './collaborative-proposal-text-field'
 import { editableTextFields, type EditableTextField } from './field-config'
-import { initialProposalValues, type ProposalFormValues } from './schema'
+import { textFieldInputId } from './field-ids'
+import {
+    DRAFT_REQUIRED_ERRORS,
+    draftProposalFormSchema,
+    initialProposalValues,
+    type ProposalFormValues,
+} from './schema'
 import { lexicalJson } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { SAVED_LABEL } from '@/components/save-status'
@@ -63,6 +71,55 @@ const fieldWhere = (predicate: (field: EditableTextField) => boolean, descriptio
     const field = editableTextFields.find(predicate)
     if (!field) throw new Error(`no ${description} editable text field in the proposal config`)
     return field
+}
+
+const STUDY_ID = faker.string.uuid()
+
+// Edits must go through Lexical's API: happy-dom cannot dispatch the `beforeinput` events the
+// editor listens for.
+const setEditorText = async (surface: HTMLElement, text: string) => {
+    const editor = lexicalEditorFor(surface)
+    // Awaited: Lexical commits on a microtask, so a synchronous act() returns before the change
+    // has reached the form.
+    await act(async () => {
+        editor.update(() => {
+            const paragraph = $createParagraphNode()
+            if (text) paragraph.append($createTextNode(text))
+            $getRoot().clear().append(paragraph)
+        })
+    })
+}
+
+const LEAVE_LABEL = 'Leave the field'
+
+// The entry bound to a real form, which is what owns the error the field displays. One harness for
+// both editor modes: the provider is null in single-user mode, where the Editor ignores it anyway.
+// The resolver is the page's own, so blur stores the message the page would store; without one,
+// onBlur validates against nothing and the stored-error branch never runs.
+const EntryHarness: FC<{
+    field: EditableTextField
+    initialValue?: string
+    initialErrors?: Record<string, string>
+}> = ({ field, initialValue = '', initialErrors }) => {
+    const form = useForm<ProposalFormValues>({
+        validate: zodResolver(draftProposalFormSchema),
+        initialValues: { ...initialProposalValues, [field.id]: initialValue },
+        initialErrors,
+    })
+    const websocketProvider = useYjsWebsocket()
+
+    return (
+        <>
+            <ProposalTextFieldEntry
+                field={field}
+                form={form}
+                studyId={STUDY_ID}
+                websocketProvider={websocketProvider}
+            />
+            {/* Blur needs somewhere for focus to land; on the real page that is Submit. */}
+            <button type="button">{LEAVE_LABEL}</button>
+        </>
+    )
 }
 
 // OTTER-647: ariaRequired was passed bare while the asterisk followed field.required, so the one
@@ -150,29 +207,18 @@ describe('CollaborativeProposalTextField save status', () => {
 // The tests above start at their end state, pinning the rule against the seeded count. This pins it
 // against the count following real edits, which is what decides the outcome mid-session.
 describe('CollaborativeProposalTextField save status through an edit', () => {
-    const setEditorText = (surface: HTMLElement, text: string) => {
-        const editor = lexicalEditorFor(surface)
-        act(() => {
-            editor.update(() => {
-                const paragraph = $createParagraphNode()
-                if (text) paragraph.append($createTextNode(text))
-                $getRoot().clear().append(paragraph)
-            })
-        })
-    }
-
     it('reports the save while an optional field holds text, then drops the label once it is emptied', async () => {
         const field = fieldWhere((f) => !f.required, 'optional')
         renderCollaborativeField(field)
 
         const surface = await screen.findByLabelText(field.label)
 
-        setEditorText(surface, 'a note for the data partner')
+        await setEditorText(surface, 'a note for the data partner')
         await simulateEditorSave()
         expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
 
         // A save lands while the box is empty, so the label is suppressed rather than merely stale.
-        setEditorText(surface, '')
+        await setEditorText(surface, '')
         await simulateEditorSave()
         expect(screen.queryByTestId('autosave-status')).toBeNull()
     })
@@ -185,15 +231,7 @@ describe('ProposalTextFieldEntry focus on an empty field', () => {
     const field = fieldWhere((f) => !!f.required, 'required')
     const REQUIRED_ERROR = 'Enter your research questions before continuing.'
 
-    const Harness = () => {
-        const form = useForm<ProposalFormValues>({
-            initialValues: initialProposalValues,
-            initialErrors: { [field.id]: REQUIRED_ERROR },
-        })
-        return (
-            <ProposalTextFieldEntry field={field} form={form} studyId={faker.string.uuid()} websocketProvider={null} />
-        )
-    }
+    const Harness = () => <EntryHarness field={field} initialErrors={{ [field.id]: REQUIRED_ERROR }} />
 
     it('keeps a required error when focus lands on the still-empty editor', async () => {
         const user = userEvent.setup()
@@ -212,5 +250,189 @@ describe('ProposalTextFieldEntry focus on an empty field', () => {
         await user.paste('A question?')
 
         await waitFor(() => expect(screen.queryByText(REQUIRED_ERROR)).not.toBeInTheDocument())
+    })
+})
+
+// OTTER-777: the message used to be stored with setFieldError right after setFieldValue had queued
+// a clear of the same field, so Mantine's dedupe dropped it on every other change, and on the
+// no-op change a focus reports. Every test here drives more than one change for that reason.
+describe('ProposalTextFieldEntry over-limit error', () => {
+    const field = fieldWhere((f) => !!f.required, 'required')
+    const OVER_LIMIT_ERROR = overCharacterLimitError(field.label, field.maxCharacters)
+    const inputId = textFieldInputId(field.id)
+    const overLimitText = (by: number) => 'x'.repeat(field.maxCharacters + by)
+
+    const renderEntry = (initialValue: string) =>
+        renderWithProviders(<EntryHarness field={field} initialValue={initialValue} />, { singleUserEditing: true })
+
+    it('keeps the message through consecutive edits past the limit', async () => {
+        renderEntry(lexicalJson('x'.repeat(field.maxCharacters)))
+
+        const surface = await screen.findByLabelText(field.label)
+
+        for (const by of [1, 2, 3]) {
+            await setEditorText(surface, overLimitText(by))
+
+            expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+            expect(surface).toHaveAttribute('aria-invalid', 'true')
+        }
+    })
+
+    // What Submit does after it flags the field: focusing a Lexical surface changes the selection,
+    // which the editor reports as an update even though the text is untouched.
+    it('keeps the message when only the selection changes, as focus does', async () => {
+        renderEntry(lexicalJson('x'.repeat(field.maxCharacters)))
+
+        const surface = await screen.findByLabelText(field.label)
+        await setEditorText(surface, overLimitText(1))
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        const editor = lexicalEditorFor(surface)
+        await act(async () => {
+            editor.update(() => {
+                $getRoot().selectEnd()
+            })
+        })
+
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+        expect(surface).toHaveAttribute('aria-invalid', 'true')
+        expect(surface.getAttribute('aria-describedby')).toContain(fieldErrorId(inputId))
+    })
+
+    it('drops the message once the text is back within the limit', async () => {
+        renderEntry(lexicalJson('x'.repeat(field.maxCharacters)))
+
+        const surface = await screen.findByLabelText(field.label)
+        await setEditorText(surface, overLimitText(1))
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await setEditorText(surface, 'x'.repeat(field.maxCharacters))
+
+        await waitFor(() => expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument())
+        expect(surface).not.toHaveAttribute('aria-invalid')
+    })
+
+    // The pair the card reports: the error and the save label alternated, one per keystroke.
+    it('never shows the save label while the field is over the limit', async () => {
+        renderWithProviders(<EntryHarness field={field} initialValue={lexicalJson('a question')} />)
+
+        const surface = await screen.findByLabelText(field.label)
+        await simulateEditorSave()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+
+        for (const by of [1, 2]) {
+            await setEditorText(surface, overLimitText(by))
+            await simulateEditorSave()
+
+            expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+            expect(screen.queryByTestId('autosave-status')).toBeNull()
+        }
+
+        await setEditorText(surface, 'x'.repeat(field.maxCharacters))
+        await simulateEditorSave()
+
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent(SAVED_LABEL)
+    })
+})
+
+// The derived message covers the over-limit half only. The required half is still stored, by blur
+// and by Submit, and the entry falls back to it; the tests above reach that branch through an
+// injected error, these through the resolver the page itself runs.
+describe('ProposalTextFieldEntry error stored on blur', () => {
+    const field = fieldWhere((f) => f.id === 'researchQuestions', 'research questions')
+
+    const leaveField = async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(await screen.findByLabelText(field.label))
+        await user.click(screen.getByRole('button', { name: LEAVE_LABEL }))
+        return screen.getByLabelText(field.label)
+    }
+
+    it('shows the required message once focus leaves an empty required field', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<EntryHarness field={field} />, { singleUserEditing: true })
+
+        await leaveField(user)
+
+        expect(await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).toBeInTheDocument()
+    })
+
+    it('drops that message on the next edit, which is the only thing that takes a stored one off', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<EntryHarness field={field} />, { singleUserEditing: true })
+
+        const surface = await leaveField(user)
+        await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)
+
+        await setEditorText(surface, 'A question?')
+
+        await waitFor(() => expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).not.toBeInTheDocument())
+    })
+})
+
+// OTTER-777: the counter and the error moved inside the Editor, which stands the field down to a
+// skeleton until the collaboration socket arrives, and to an alert when it never does. Submit stays
+// enabled to surface errors, so neither state may swallow the field's own.
+describe('CollaborativeProposalTextField before the editor mounts', () => {
+    it('keeps the error and the counter on screen while the editor is a skeleton', async () => {
+        const field = fieldWhere((f) => !!f.required, 'required')
+        const message = overCharacterLimitError(field.label, field.maxCharacters)
+
+        renderWithProviders(
+            <CollaborativeProposalTextField
+                studyId={STUDY_ID}
+                field={field as EditableTextField & { id: ProposalTextFieldKey }}
+                initialValue={lexicalJson('hi')}
+                error={message}
+                onChange={vi.fn()}
+                onBlur={vi.fn()}
+                websocketProvider={null}
+            />,
+        )
+
+        expect(await screen.findByText(message)).toBeInTheDocument()
+        expect(screen.getByText(`2/${field.maxCharacters}`)).toBeInTheDocument()
+        // The editor really is still standing down, so the two above are not the mounted ones.
+        expect(screen.queryByLabelText(field.label)).toBeNull()
+    })
+})
+
+// OTTER-777: the error used to render in a second row under the editor's own footer, so the counter
+// sat one row lower whenever the save label replaced the error. Asserted on what the error's row
+// holds, because merely sharing an ancestor with the counter also passes while they are apart.
+describe('CollaborativeProposalTextField footer row', () => {
+    const field = fieldWhere((f) => !!f.required, 'required')
+    const OVER_LIMIT_ERROR = overCharacterLimitError(field.label, field.maxCharacters)
+    const inputId = textFieldInputId(field.id)
+
+    const counter = () => document.getElementById(fieldCounterId(inputId))
+
+    it('puts the error beside the counter, below the editor', async () => {
+        renderField(field, { initialValue: lexicalJson('hi'), error: OVER_LIMIT_ERROR })
+
+        const surface = await screen.findByLabelText(field.label)
+        const errorBox = document.getElementById(fieldErrorId(inputId))!
+
+        expect(errorBox).toHaveTextContent(OVER_LIMIT_ERROR)
+        expect(errorBox.parentElement).toContainElement(counter())
+        expect(errorBox.parentElement).not.toContainElement(surface)
+    })
+
+    it('puts the save label in that same row', async () => {
+        renderCollaborativeField(field, { initialValue: lexicalJson('hi') })
+
+        await screen.findByLabelText(field.label)
+        await simulateEditorSave()
+
+        const region = screen.getByTestId('autosave-live-region')
+        expect(region).toContainElement(screen.getByTestId('autosave-status'))
+        expect(region.parentElement).toContainElement(counter())
+    })
+
+    it('renders the message once, not in two rows', async () => {
+        renderField(field, { initialValue: lexicalJson('hi'), error: OVER_LIMIT_ERROR })
+
+        await screen.findByLabelText(field.label)
+
+        expect(screen.getAllByText(OVER_LIMIT_ERROR)).toHaveLength(1)
     })
 })

@@ -1,71 +1,59 @@
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
-import { REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS } from '@/lib/status-labels'
-import type { AllStatus } from '@/lib/types'
+import { resolvePillPresentation, type PillContext, type PillId } from '@/lib/status-labels'
+
+const NAMES = { dataPartner: 'Openstax', researchLab: 'Openstax Lab' }
+const label = (id: PillId, role: PillContext['role'] = 'researcher') => resolvePillPresentation(id, { role, ...NAMES })
 
 describe('DisplayStudyStatus', () => {
-    describe('reviewer audience', () => {
-        const cases: Array<[AllStatus, string]> = [
-            ['PENDING-REVIEW', 'Proposal needs review'],
-            ['APPROVED', 'Proposal approved'],
-            ['REJECTED', 'Proposal rejected'],
-            ['CHANGE-REQUESTED', 'Proposal change requested'],
-            ['CODE-SUBMITTED', 'Code needs review'],
-            ['CODE-APPROVED', 'Code approved'],
-            ['CODE-REJECTED', 'Code rejected'],
-            ['JOB-RUNNING', 'Code processing'],
-            ['JOB-ERRORED', 'Code errored'],
-            ['RUN-COMPLETE', 'Result needs review'],
-            ['FILES-APPROVED', 'Result ready'],
-            ['FILES-REJECTED', 'Result rejected'],
-        ]
+    const cases: Array<[PillId, string]> = [
+        ['proposal-draft', 'Proposal draft'],
+        ['proposal-submitted', 'Proposal submitted'],
+        ['proposal-needs-review', 'Proposal needs review'],
+        ['proposal-needs-revision', 'Proposal needs revision'],
+        ['proposal-revision-requested', 'Proposal revision requested'],
+        ['proposal-approved', 'Proposal approved'],
+        ['proposal-declined', 'Proposal declined'],
+        ['code-draft', 'Code draft'],
+        ['code-awaiting', 'Awaiting code'],
+        ['code-submitted', 'Code submitted'],
+        ['code-needs-review', 'Code needs review'],
+        ['code-needs-revision', 'Code needs revision'],
+        ['code-revision-requested', 'Code revision requested'],
+        ['code-approved', 'Code approved'],
+        ['code-declined', 'Code declined'],
+        ['code-processing', 'Code processing'],
+        ['code-preparing', 'Preparing code'],
+        ['code-queued', 'Code queued'],
+        ['code-running', 'Code running'],
+        ['code-errored', 'Code errored'],
+        ['outputs-awaiting', 'Awaiting outputs'],
+        ['outputs-need-review', 'Outputs need review'],
+        ['outputs-reviewed', 'Outputs reviewed'],
+    ]
 
-        it.each(cases)('renders %s as "%s"', (statusKey, expectedText) => {
-            const status = REVIEWER_STATUS_LABELS[statusKey]!
-            renderWithProviders(<DisplayStudyStatus status={status} />)
-            const textEl = screen.getByText(expectedText)
-            expect(textEl).toBeDefined()
-            expect(textEl.parentElement?.textContent?.trim()).toBe(expectedText)
-        })
-
-        it('shows the escalation tooltip when hovering the JOB-RUNNING pill', async () => {
-            const user = userEvent.setup()
-            renderWithProviders(<DisplayStudyStatus status={REVIEWER_STATUS_LABELS['JOB-RUNNING']!} />)
-
-            await user.hover(screen.getByText('Code processing'))
-
-            expect(
-                await screen.findByText(
-                    'The code is now running against the enclave. If it stays in this status for over 1h, contact your Org Admin.',
-                ),
-            ).toBeVisible()
-        })
+    it.each(cases)('renders %s as "%s"', (id, expectedText) => {
+        renderWithProviders(<DisplayStudyStatus status={label(id)} />)
+        const textEl = screen.getByText(expectedText)
+        expect(textEl.textContent?.trim()).toBe(expectedText)
     })
 
-    describe('researcher audience', () => {
-        const cases: Array<[AllStatus, string]> = [
-            ['DRAFT', 'Proposal draft'],
-            ['PENDING-REVIEW', 'Proposal under review'],
-            ['APPROVED', 'Proposal approved'],
-            ['REJECTED', 'Proposal rejected'],
-            ['CHANGE-REQUESTED', 'Proposal change requested'],
-            ['INITIATED', 'Code draft'],
-            ['CODE-SUBMITTED', 'Code under review'],
-            ['CODE-APPROVED', 'Code approved'],
-            ['CODE-REJECTED', 'Code rejected'],
-            ['JOB-ERRORED', 'Code errored'],
-            ['RUN-COMPLETE', 'Result under review'],
-            ['FILES-APPROVED', 'Result ready'],
-            ['FILES-REJECTED', 'Result rejected'],
-        ]
+    it('shows the tooltip on hover, with the organization name filled in', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<DisplayStudyStatus status={label('code-submitted')} />)
 
-        it.each(cases)('renders %s as "%s"', (statusKey, expectedText) => {
-            const status = RESEARCHER_STATUS_LABELS[statusKey]!
-            renderWithProviders(<DisplayStudyStatus status={status} />)
-            const textEl = screen.getByText(expectedText)
-            expect(textEl).toBeDefined()
-            expect(textEl.parentElement?.textContent?.trim()).toBe(expectedText)
-        })
+        await user.hover(screen.getByText('Code submitted'))
+
+        expect(await screen.findByText('Waiting for Openstax to review code.')).toBeVisible()
+    })
+
+    it('addresses each role differently on a badge they share', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<DisplayStudyStatus status={label('code-errored', 'reviewer')} />)
+
+        await user.hover(screen.getByText('Code errored'))
+
+        expect(await screen.findByText('Code run failed. Review the logs and share feedback.')).toBeVisible()
     })
 })

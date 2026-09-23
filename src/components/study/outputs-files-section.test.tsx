@@ -53,6 +53,15 @@ describe('OutputsFilesSection', () => {
         expect(within(body).getAllByRole('row')).toHaveLength(2)
     })
 
+    // A growing "Last activity" cell must not re-apportion the other columns (OTTER-758).
+    describe('column widths', () => {
+        it('lays the table out from the declared widths rather than from its content', () => {
+            renderSection([buildRow('run.log')])
+
+            expect(screen.getByRole('table').getAttribute('style')).toContain('--table-layout: fixed')
+        })
+    })
+
     describe('Download all', () => {
         it('renders once two or more files are present', () => {
             renderSection([buildRow('run.log'), buildRow('results.csv')])

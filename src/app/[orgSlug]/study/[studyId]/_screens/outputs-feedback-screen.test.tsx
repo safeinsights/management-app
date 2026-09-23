@@ -13,6 +13,7 @@ import {
     screen,
     userEvent,
     vi,
+    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
@@ -48,13 +49,14 @@ const givenDataPartner = async (studyId: string) => {
 const copyFor = (runErrored: boolean, dataPartner = 'Any Data Partner') =>
     researcherOutputsFeedbackBanner({ runErrored }, { dataPartner })
 
+// The screen records the lab's view on mount; that write has to land before the teardown check.
 const renderScreen = async (
     study: ScreenComponentProps['study'],
     raw: RawStudyState,
     orgSlug: string,
     returnTo?: 'org',
-) =>
-    renderWithProviders(
+) => {
+    const rendered = renderWithProviders(
         await OutputsFeedbackScreen({
             study,
             raw,
@@ -66,6 +68,9 @@ const renderScreen = async (
             }),
         }),
     )
+    await waitForPendingMutations()
+    return rendered
+}
 
 const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })

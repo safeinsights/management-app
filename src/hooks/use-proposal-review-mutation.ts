@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
-import type { Decision } from '@/lib/review-decision'
+import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
@@ -45,15 +45,11 @@ export function useProposalReviewMutation({
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
         onError: (err) => {
             captureException(err)
-            notifications.show({
-                color: 'red',
-                title: 'Decision could not be submitted',
-                message: 'Your work is saved. Try again.',
-            })
+            notifications.show(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            notifications.show({ color: 'green', title: 'Decision submitted', message: '' })
+            notifications.show(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (editorProvider && submittedByClerkId) {

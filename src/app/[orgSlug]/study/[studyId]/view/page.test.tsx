@@ -7,6 +7,7 @@ import {
     renderWithProviders,
     screen,
     setTestStudyStatus,
+    waitForPendingMutations,
     faker,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -670,6 +671,7 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
+            await waitForPendingMutations()
             expect(screen.getByText(/Decrypt to view your outputs/)).toBeInTheDocument()
             expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             // Not the errored sibling, which shares this panel and differs only in copy.
@@ -693,6 +695,7 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
+            await waitForPendingMutations()
             expect(screen.getByText(/Feedback on outputs available/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
             expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
@@ -722,6 +725,7 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
+            await waitForPendingMutations()
             expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
             expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
@@ -752,6 +756,7 @@ describe('StudyViewPage', () => {
             })
 
             renderWithProviders(page!)
+            await waitForPendingMutations()
             expect(screen.getByText(/Decrypt outputs to view code error/)).toBeInTheDocument()
             expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()

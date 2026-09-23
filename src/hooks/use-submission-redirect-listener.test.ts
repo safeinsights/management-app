@@ -120,7 +120,7 @@ describe('useSubmissionRedirectListener', () => {
         expect(notifications.show).toHaveBeenCalledTimes(1)
         const arg = (notifications.show as Mock).mock.calls[0][0]
         expect(arg.message).toBe(
-            'Carol has proceeded to submit a decision on this study code. No further edits are allowed at this point.',
+            'Carol has proceeded to submit a decision on this output. No further edits are allowed at this point.',
         )
         // The reviewer state machine resolves bare /review to the post-feedback screen once a
         // decision exists.

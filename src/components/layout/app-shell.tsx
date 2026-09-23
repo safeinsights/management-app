@@ -26,6 +26,7 @@ import { ActivityContext } from '../activity-context'
 import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
 import { Routes } from '@/lib/routes'
+import { semanticColor } from '@/theme/tokens'
 
 type Props = { children: ReactNode }
 
@@ -60,7 +61,13 @@ export function AppShell({ children }: Props) {
 
             <AppShellHeader bg={APP_SHELL.headerBg} w="100%">
                 <Group h="100%" px="md">
-                    <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" />
+                    <Burger
+                        opened={opened}
+                        onClick={toggle}
+                        hiddenFrom="sm"
+                        size="sm"
+                        color={semanticColor('text.white')}
+                    />
                     <Link href={Routes.home}>
                         <SafeInsightsLogo />
                     </Link>

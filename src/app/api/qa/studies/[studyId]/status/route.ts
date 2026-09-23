@@ -23,6 +23,7 @@ const JOB_STATUSES = [
     'JOB-PROVISIONING',
     'JOB-READY',
     'JOB-RUNNING',
+    'RESULTS-VIEWED',
     'RUN-COMPLETE',
 ] as const
 

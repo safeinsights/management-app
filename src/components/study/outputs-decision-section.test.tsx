@@ -115,6 +115,14 @@ describe('OutputsDecisionSection feedback field', () => {
         expect(screen.getByText(`12/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
     })
 
+    it('renders a vertical resize handle on the editor', async () => {
+        renderSection()
+
+        await screen.findByLabelText('Decision feedback')
+        const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
+        expect(surface.style.resize).toBe('vertical')
+    })
+
     it('associates the counter with the editor via aria-describedby', async () => {
         renderSection({ characterCount: 12 })
 

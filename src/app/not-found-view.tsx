@@ -2,7 +2,7 @@
 
 import { AppFooter } from '@/components/layout/app-footer'
 import { SafeInsightsLogo } from '@/components/layout/svg/si-logo'
-import { MAIN_CONTENT_PROPS } from '@/lib/constants'
+import { MAIN_CONTENT_PROPS, SIDENAV_BG } from '@/lib/constants'
 import { Routes } from '@/lib/routes'
 import { AppShell, AppShellHeader, AppShellMain, Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
@@ -21,7 +21,7 @@ export function NotFoundView() {
 
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
-            <AppShellHeader bg="purple.8" withBorder={false}>
+            <AppShellHeader bg={SIDENAV_BG} withBorder={false}>
                 <Group h="100%" p="md">
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>
@@ -29,7 +29,7 @@ export function NotFoundView() {
 
             <AppShellMain
                 {...MAIN_CONTENT_PROPS}
-                bg="purple.8"
+                bg={SIDENAV_BG}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 px="md"
             >

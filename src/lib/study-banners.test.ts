@@ -229,7 +229,7 @@ describe('reviewerCodeNeedsReviewBanner', () => {
     it('names the lab in the first-review title', () => {
         const copy = reviewerCodeNeedsReviewBanner({ researchLab: RESEARCH_LAB })
         expect(copy).toMatchObject({ variant: 'action', title: `New code submitted by ${RESEARCH_LAB}` })
-        expect(copy.body).toContain('Review the code files, security log, and AI summary')
+        expect(copy.body).toBe('Review the code files and AI summary to inform your code evaluation and decision.')
     })
 
     it('switches to the revised title from the second round onwards', () => {

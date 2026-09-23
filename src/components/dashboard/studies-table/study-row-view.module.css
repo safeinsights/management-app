@@ -1,0 +1,5 @@
+/* brand/accentalpha is the token the library describes as "BG for tables rows". */
+.row[data-highlighted] {
+    background-color: var(--si-color-brand-accentalpha);
+    font-weight: var(--si-font-weight-semibold);
+}
