@@ -41,6 +41,19 @@ describe('LinkWithHoverCard', () => {
         expect(open).not.toHaveBeenCalled()
     })
 
+    it('moves focus into the card without scrolling the page to the unpositioned card', async () => {
+        await mockSessionWithTestData()
+        const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+        const link = renderLink(Routes.legal)
+
+        fireEvent.click(link)
+        const copy = await within(await findCard()).findByRole('button', { name: LINK_CARD_LABELS.copy })
+
+        await waitFor(() => expect(document.activeElement).toBe(copy))
+        expect(focus.mock.contexts).toContain(copy)
+        expect(focus.mock.calls.every(([options]) => options?.preventScroll === true)).toBe(true)
+    })
+
     it('offers copy alone and opens the destination from the title in a new tab', async () => {
         await mockSessionWithTestData()
         const link = renderLink(Routes.legal)
