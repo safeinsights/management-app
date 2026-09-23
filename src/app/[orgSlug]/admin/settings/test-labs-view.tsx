@@ -1,22 +1,61 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Text } from '@mantine/core'
+import { Stack, Table, Text, Title } from '@mantine/core'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
-import { SettingsCard, SettingsCardRow } from './settings-card'
+import { fontWeight } from '@/theme/tokens'
+import { SettingsCard } from './settings-card'
 
 // Presentational only, so the section renders without a QueryClient (e.g. Ladle).
 
-const DESCRIPTION = `For all studies in Research Labs that are marked as Test Labs, ${legalDocumentCollectionLabels.SLA} will not be created.`
-
 // No actions column: a test lab cannot be removed yet. designateTestLabs states what removal needs.
-export function TestLabRowView({ name }: { name: string }) {
+export function TestLabRowView({ name, addedOn }: { name: string; addedOn: string }) {
     return (
-        <SettingsCardRow>
-            <Text fw={500} p="sm">
-                {name}
+        <Table.Tr>
+            <Table.Td>
+                <Text fw={fontWeight.semibold}>{name}</Text>
+            </Table.Td>
+            <Table.Td>{addedOn}</Table.Td>
+        </Table.Tr>
+    )
+}
+
+export function TestLabsTableView({ children }: { children: ReactNode }) {
+    return (
+        <Stack gap="sm">
+            <Title order={4} size="md">
+                Existing Test Labs
+            </Title>
+            <Table>
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th>Organization</Table.Th>
+                        <Table.Th>Added on</Table.Th>
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>{children}</Table.Tbody>
+            </Table>
+        </Stack>
+    )
+}
+
+export function TestLabsEmptyView() {
+    return (
+        <Stack gap="xxs" align="center" p="md">
+            <Text fw={fontWeight.semibold}>No Test Labs added yet</Text>
+            <Text fz="sm" c="dimmed">
+                Added labs will appear here.
             </Text>
-        </SettingsCardRow>
+        </Stack>
+    )
+}
+
+function TestLabsDescription() {
+    return (
+        <>
+            Add Research Labs as Test Labs to test your enclave and system functionality. Studies submitted to you from
+            your Test Labs do not require {legalDocumentCollectionLabels.SLA}.
+        </>
     )
 }
 
@@ -27,7 +66,7 @@ export type TestLabsViewProps = {
 
 export function TestLabsView({ onAdd, children }: TestLabsViewProps) {
     return (
-        <SettingsCard title="Test Labs" addLabel="Add" onAdd={onAdd} description={DESCRIPTION}>
+        <SettingsCard title="Test Labs" addLabel="Add Test Lab" onAdd={onAdd} description={<TestLabsDescription />}>
             {children}
         </SettingsCard>
     )

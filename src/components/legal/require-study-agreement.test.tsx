@@ -93,12 +93,13 @@ describe('RequireStudyAgreement', () => {
 })
 
 describe('StudyAgreementPreparingNotice', () => {
-    const renderNotice = (studyId: string, { isVisible = true } = {}) =>
+    const renderNotice = (studyId: string, { isVisible = true, tone = 'action' as 'informative' | 'action' } = {}) =>
         renderWithProviders(
             <StudyAgreementPreparingNotice
                 studyId={studyId}
                 consequence="You cannot submit code"
                 isVisible={isVisible}
+                tone={tone}
             />,
         )
 
@@ -118,6 +119,24 @@ describe('StudyAgreementPreparingNotice', () => {
         expect(
             await screen.findByText(/You cannot submit code until the required Curious Lab and Partner Enclave/),
         ).toBeInTheDocument()
+    })
+
+    it('tells a party they will be notified when theirs is ready', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+
+        renderNotice(study.id)
+
+        expect(await screen.findByText(/you will be notified when your agreement is ready/)).toBeInTheDocument()
+    })
+
+    it('drops the notify note in the informative tone', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+
+        renderNotice(study.id, { tone: 'informative' })
+
+        expect(await screen.findByTestId('status-alert')).toHaveAttribute('data-variant', 'informative')
+        expect(screen.getByText(/have signed the study agreements\.$/)).toBeInTheDocument()
+        expect(screen.queryByText(/you will be notified/)).toBeNull()
     })
 
     it('goes quiet once an agreement exists, so it cannot contradict the modal', async () => {
