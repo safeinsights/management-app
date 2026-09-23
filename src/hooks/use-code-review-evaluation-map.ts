@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
+import type * as Y from 'yjs'
+import { useYjsMapSync } from '@/hooks/use-yjs-map-sync'
 
 export type CodeReviewCriteriaDraftValue = 'yes' | 'no' | 'not-sure' | null
 export type CodeReviewCriteriaValue = Exclude<CodeReviewCriteriaDraftValue, null>
@@ -20,9 +21,6 @@ export const CODE_REVIEW_CRITERIA_KEYS: readonly CodeReviewCriteriaKey[] = [
 ]
 
 const FIELDS_MAP_NAME = 'evaluationCriteria'
-
-// Module-local; never share across hooks. Marks updates that must not be re-applied to the form.
-const LOCAL_ORIGIN = Symbol('use-code-review-evaluation-map.local')
 
 const VALID_VALUES: ReadonlySet<CodeReviewCriteriaValue> = new Set(['yes', 'no', 'not-sure'])
 
@@ -43,93 +41,25 @@ type Return = {
 }
 
 export function useCodeReviewEvaluationMap({ form, provider, enabled }: Args): Return {
-    const [fieldsMap, setFieldsMap] = useState<Y.Map<unknown> | null>(null)
-    const [isSynced, setIsSynced] = useState(false)
-    const isApplyingRemoteRef = useRef(false)
-
+    // The form object is rebuilt each render but reads through to one store, so holding the first
+    // one and calling getValues() still sees the latest.
+    const formRef = useRef(form)
     useEffect(() => {
-        if (!enabled || !provider) return undefined
+        formRef.current = form
+    }, [form])
 
-        const doc = provider.document
-        const map = doc.getMap<unknown>(FIELDS_MAP_NAME)
-
-        let cancelled = false
-
-        const onSynced = () => {
-            if (cancelled) return
-
-            // Pre-sync radio clicks updated the form while pushCriterion no-op'd on a null
-            // fieldsMap, so without seeding them the applyRemoteToForm below wipes the selections.
-            const localCriteria = form.getValues().criteria
-            doc.transact(() => {
-                for (const key of CODE_REVIEW_CRITERIA_KEYS) {
-                    const local = localCriteria[key]
-                    if (map.get(key) === undefined && local !== null) {
-                        map.set(key, local)
-                    }
-                }
-            }, LOCAL_ORIGIN)
-
-            applyRemoteToForm(map, form, isApplyingRemoteRef)
-            setFieldsMap(map)
-            setIsSynced(true)
+    const seed = useCallback((map: Y.Map<unknown>) => {
+        // Pre-sync radio clicks updated the form while pushCriterion had no map to write to, so
+        // without seeding them the applyRemote that follows wipes the selections.
+        const localCriteria = formRef.current.getValues().criteria
+        for (const key of CODE_REVIEW_CRITERIA_KEYS) {
+            const local = localCriteria[key]
+            if (map.get(key) === undefined && local !== null) map.set(key, local)
         }
+    }, [])
 
-        if (provider.isSynced) {
-            onSynced()
-        } else {
-            provider.on('synced', onSynced)
-        }
-
-        return () => {
-            cancelled = true
-            provider.off('synced', onSynced)
-            setFieldsMap(null)
-            setIsSynced(false)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [enabled, provider])
-
-    useEffect(() => {
-        if (!fieldsMap) return undefined
-
-        const onChange = (_event: Y.YMapEvent<unknown>, transaction: Y.Transaction) => {
-            if (transaction.origin === LOCAL_ORIGIN) return
-            applyRemoteToForm(fieldsMap, form, isApplyingRemoteRef)
-        }
-        fieldsMap.observe(onChange)
-        return () => fieldsMap.unobserve(onChange)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fieldsMap])
-
-    return useMemo<Return>(
-        () => ({
-            isSynced,
-            pushCriterion(key, value) {
-                if (!fieldsMap) return
-                if (isApplyingRemoteRef.current) return
-                fieldsMap.doc?.transact(() => {
-                    // Delete rather than set(key, null) so Y.Map LWW ordering resolves a concurrent
-                    // set/unset as unselected (delete-after-set beats set-after-delete).
-                    if (value === null) {
-                        fieldsMap.delete(key)
-                    } else {
-                        fieldsMap.set(key, value)
-                    }
-                }, LOCAL_ORIGIN)
-            },
-        }),
-        [fieldsMap, isSynced],
-    )
-}
-
-function applyRemoteToForm(
-    map: Y.Map<unknown>,
-    form: UseFormReturnType<FormShape>,
-    isApplyingRemoteRef: React.MutableRefObject<boolean>,
-) {
-    isApplyingRemoteRef.current = true
-    try {
+    const applyRemote = useCallback((map: Y.Map<unknown>) => {
+        const form = formRef.current
         const current = form.getValues().criteria
         for (const key of CODE_REVIEW_CRITERIA_KEYS) {
             const raw = map.get(key)
@@ -137,8 +67,32 @@ function applyRemoteToForm(
             if (current[key] === remote) continue
             form.setFieldValue(`criteria.${key}`, remote)
         }
+        // Mantine's setFieldValue marks the form dirty even for programmatic writes.
         form.resetDirty()
-    } finally {
-        isApplyingRemoteRef.current = false
-    }
+    }, [])
+
+    const { isSynced, transactLocal } = useYjsMapSync({
+        provider,
+        mapName: FIELDS_MAP_NAME,
+        enabled,
+        seed,
+        applyRemote,
+    })
+
+    const pushCriterion = useCallback(
+        (key: CodeReviewCriteriaKey, value: CodeReviewCriteriaDraftValue) => {
+            transactLocal((map) => {
+                // Delete rather than set(key, null) so Y.Map LWW ordering resolves a concurrent
+                // set/unset as unselected (delete-after-set beats set-after-delete).
+                if (value === null) {
+                    map.delete(key)
+                } else {
+                    map.set(key, value)
+                }
+            })
+        },
+        [transactLocal],
+    )
+
+    return useMemo<Return>(() => ({ isSynced, pushCriterion }), [isSynced, pushCriterion])
 }
