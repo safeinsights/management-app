@@ -7,7 +7,6 @@ Formatting (indentation, semicolons, line length) is enforced by `.editorconfig`
 - Use `@/` import alias for all `src/` imports
 - Import React Query from `@/common` only
 - Never use hardcoded route strings; use `Routes.*` from `src/lib/routes`
-- No single-use constants: a value used once is written inline where it is used, including copy strings and static config props like `events={{ hover: true }}`. Extract only when it is shared, or when a stable reference is required (e.g. a `?? []` fallback passed as a prop)
 
 ## Unit Testing
 
