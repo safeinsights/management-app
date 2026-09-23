@@ -147,7 +147,11 @@ export function PostFeedbackView({
                     heading={heading}
                     banner={banner}
                 />
-                <StudyAgreementPreparingNotice studyId={study.id} isVisible={showsAgreementNotice} />
+                <StudyAgreementPreparingNotice
+                    studyId={study.id}
+                    consequence="Researchers cannot submit code"
+                    isVisible={showsAgreementNotice}
+                />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <StepNavigation nav={nav} />
             </Stack>

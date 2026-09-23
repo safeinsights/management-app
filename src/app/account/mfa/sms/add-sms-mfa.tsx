@@ -75,7 +75,7 @@ export function AddSMSMFA() {
         if (lastSentTime && Date.now() - lastSentTime < 30000) {
             notifications.show({
                 message: 'You have recently requested a code. Please wait 30 seconds before trying again.',
-                color: 'orange',
+                color: 'yellow',
             })
             return
         }

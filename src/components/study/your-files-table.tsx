@@ -188,7 +188,7 @@ const FileActions: FC<FileActionsProps> = ({
         <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline w={240}>
             <ActionIcon
                 variant="subtle"
-                color="gray"
+                color="grey"
                 disabled={!isEditable || !canEditInIde}
                 aria-label={`Edit ${fileName} in IDE`}
                 onClick={() => onEdit(fileName)}
@@ -199,7 +199,7 @@ const FileActions: FC<FileActionsProps> = ({
         <Tooltip label={TOOLTIPS.download} withArrow>
             <ActionIcon
                 variant="subtle"
-                color="gray"
+                color="grey"
                 aria-label={`Download ${fileName}`}
                 onClick={() => onDownload(fileName)}
             >
@@ -211,7 +211,7 @@ const FileActions: FC<FileActionsProps> = ({
         <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline w={240}>
             <ActionIcon
                 variant="subtle"
-                color="gray"
+                color="grey"
                 disabled={isMain || !isEditable}
                 aria-label={`Delete ${fileName}`}
                 onClick={() => onDelete(fileName)}
