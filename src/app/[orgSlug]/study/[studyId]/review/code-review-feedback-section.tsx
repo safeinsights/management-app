@@ -65,6 +65,7 @@ function FeedbackEditor({
             ariaLabel="Code review feedback"
             contentStyle={contentStyle}
             skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            isResizable
             onProviderReady={publishProvider}
         />
     )

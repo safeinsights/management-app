@@ -93,6 +93,13 @@
     cursor: pointer;
 }
 
+/* A disabled field must not offer a handle (OTTER-787). Browsers keep a disabled textarea
+   resizable unless a rule says otherwise. Read-only is deliberately not covered: the only
+   read-only textarea is the Launch progress log viewer, which is a display, not an input. */
+textarea:disabled {
+    resize: none;
+}
+
 /* Collaborative editor focus border */
 .collaborative-editor-container {
     border: 1px solid var(--mantine-color-gray-4);

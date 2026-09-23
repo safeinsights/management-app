@@ -35,6 +35,15 @@ describe('palette', () => {
     })
 })
 
+// A blanket resize default is deliberately absent: Mantine floors a multiline input at one row,
+// not at its own height, so a handle without a matching minHeight could be dragged under the
+// height the field loads at (OTTER-787). Each resizable field sets both for itself.
+describe('textarea', () => {
+    it('turns no resize handle on by default', () => {
+        expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
+    })
+})
+
 describe('buttons', () => {
     // light resolves its hover from the same alpha as outline and subtle, so it needs the override
     // too — missing it was the gap review caught.

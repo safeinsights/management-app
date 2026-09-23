@@ -86,6 +86,14 @@ describe('CodeReviewFeedbackSection', () => {
         })
         expect(errorBox?.parentElement).toContainElement(screen.getByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`))
     })
+
+    it('renders a vertical resize handle on the editor', async () => {
+        renderWithProviders(<CodeFeedbackTestWrapper />)
+
+        await screen.findByLabelText('Code review feedback')
+        const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
+        expect(surface.style.resize).toBe('vertical')
+    })
 })
 
 // OTTER-737: a separate instance of the same rule, so it gets its own boundary coverage.

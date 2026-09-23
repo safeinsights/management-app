@@ -129,6 +129,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                             />
                         }
                         skeletonHeight={EDITOR_MIN_HEIGHT}
+                        isResizable
                     />
                 </Box>
             </Stack>

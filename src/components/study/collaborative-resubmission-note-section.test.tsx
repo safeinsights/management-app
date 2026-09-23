@@ -81,6 +81,12 @@ describe('CollaborativeResubmissionNoteSection', () => {
         expect(screen.getByText(/feedback from Rice University/)).toBeInTheDocument()
     })
 
+    it('renders a vertical resize handle on the editor', () => {
+        renderSingleUserSection()
+        const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
+        expect(surface.style.resize).toBe('vertical')
+    })
+
     it('does not render the section-level autosave indicator in collaborative mode', () => {
         renderSection()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
