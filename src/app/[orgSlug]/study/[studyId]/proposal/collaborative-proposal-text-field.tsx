@@ -10,10 +10,10 @@ import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
-import { overCharacterLimitError } from '@/lib/field-limits'
+import { liveLimitError, overCharacterLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
-import { type ProposalFormValues } from './schema'
+import { isLexicalOverLimit, type ProposalFormValues } from './schema'
 
 const contentStyle = {
     padding: '8px 16px',
@@ -117,17 +117,13 @@ export const ProposalTextFieldEntry: FC<{
 }> = ({ field, form, studyId, websocketProvider }) => {
     const value = form.values[field.id] as string
 
-    // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
-    // setFieldError that would put it back, so a stored message survived only every other
-    // keystroke (OTTER-777). The required half of the rule stays with blur and Submit.
     // Memoized: a keystroke in any field re-renders all four, and this walks the whole tree.
-    const isOverLimit = useMemo(
-        () => countCharactersFromLexical(value) > field.maxCharacters,
-        [value, field.maxCharacters],
+    const isOverLimit = useMemo(() => isLexicalOverLimit(value, field.maxCharacters), [value, field.maxCharacters])
+    const error = liveLimitError(
+        isOverLimit,
+        overCharacterLimitError(field.label, field.maxCharacters),
+        form.errors[field.id],
     )
-    const error = isOverLimit
-        ? overCharacterLimitError(field.label, field.maxCharacters)
-        : (form.errors[field.id] as string | undefined)
 
     const onChange = (val: string) => {
         // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.

@@ -11,6 +11,7 @@ import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { Editor } from '@/components/editable-text/editor'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
+import { liveLimitError } from '@/lib/field-limits'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
 import {
     NOTE_MAX_ERROR,
@@ -69,12 +70,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
 }) => {
     const singleUserEditing = useSingleUserEditing()
     const value = noteForm.values.resubmissionNote
-    // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
-    // setFieldError that would put it back, so a stored message survived only every other
-    // keystroke (OTTER-777). The required half of the rule stays with blur and Resubmit.
-    const error = resubmissionNoteIsOverLimit(value)
-        ? NOTE_MAX_ERROR
-        : (noteForm.errors.resubmissionNote as string | undefined)
+    const error = liveLimitError(resubmissionNoteIsOverLimit(value), NOTE_MAX_ERROR, noteForm.errors.resubmissionNote)
     const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
