@@ -135,6 +135,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 onTitleBlur={onTitleBlur}
                 lockedOrgName={draftData?.orgName}
                 lockedLanguageLabel={lockedLanguageLabel}
+                // The intro asks for choices a submitted proposal no longer offers (OTTER-796).
+                isIntroVisible={navMode !== 'submitted'}
                 {...locks}
             />
 

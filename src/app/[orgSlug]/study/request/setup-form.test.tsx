@@ -1050,6 +1050,15 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     })
 
+    it('keeps the intro copy while the draft is still editable', async () => {
+        const fixtures = await setupFixtures()
+        const { draftData } = await insertRevisitableDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
+        expect(screen.getByText(INTRO)).toBeInTheDocument()
+    })
+
     it('titles the CTA Save and continue, and offers no left action', async () => {
         const fixtures = await setupFixtures()
         const { draftData } = await insertRevisitableDraft(fixtures)
@@ -1181,6 +1190,30 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
         expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    })
+
+    it('omits the intro copy once the proposal is submitted', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
+        expect(screen.queryByText(INTRO)).not.toBeInTheDocument()
+        // Guards against the assertion above passing because the whole card is gone.
+        expect(screen.getByRole('heading', { name: 'Set up study', level: 2 })).toBeInTheDocument()
+    })
+
+    it('omits the intro copy for a decided proposal too', async () => {
+        const fixtures = await setupFixtures()
+
+        for (const status of ['CHANGE-REQUESTED', 'APPROVED'] as const) {
+            const draftData = submittedDraft(fixtures, { status })
+            const { unmount } = renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+            await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
+            expect(screen.queryByText(INTRO)).not.toBeInTheDocument()
+            unmount()
+        }
     })
 
     it('titles the CTA Next step, and offers no left action', async () => {
