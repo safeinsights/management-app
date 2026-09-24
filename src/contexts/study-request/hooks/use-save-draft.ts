@@ -28,6 +28,8 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
             const draftInfo = {
                 piName: formValues.piName || undefined,
                 language: formValues.language || undefined,
+                // `undefined` rather than `[]`, so a save never clears stored datasets.
+                datasets: formValues.datasets.length > 0 ? formValues.datasets : undefined,
             }
 
             let result

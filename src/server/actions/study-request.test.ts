@@ -433,6 +433,7 @@ describe('Request Study Actions', () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-openstax-flow' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const step1Datasets = ['openstax-calculus', 'openstax-physics']
 
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
@@ -440,6 +441,7 @@ describe('Request Study Actions', () => {
                     studyInfo: {
                         title: 'Set on Step 1',
                         language: 'PYTHON' as const,
+                        datasets: step1Datasets,
                     },
                     submittingOrgSlug: lab.slug,
                 }),
@@ -455,11 +457,11 @@ describe('Request Study Actions', () => {
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
             expect(study?.title).toEqual('Set on Step 1')
+            expect(study?.datasets).toEqual(step1Datasets)
 
             const proposalFields = {
                 title: 'Impact of Highlighting on Learning',
                 piName: 'Dr. Research Lead',
-                datasets: ['openstax-calculus', 'openstax-physics'],
                 researchQuestions: lexicalJson('How does highlighting affect retention?'),
                 projectSummary: lexicalJson('This study examines highlighting patterns.'),
                 impact: lexicalJson('Findings will inform textbook design.'),
@@ -480,7 +482,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.title).toEqual(proposalFields.title)
             expect(study?.piName).toEqual(proposalFields.piName)
-            expect(study?.datasets).toEqual(proposalFields.datasets)
+            expect(study?.datasets).toEqual(step1Datasets)
             expect(study?.researchQuestions).toEqual(JSON.parse(proposalFields.researchQuestions))
             expect(study?.projectSummary).toEqual(JSON.parse(proposalFields.projectSummary))
             expect(study?.impact).toEqual(JSON.parse(proposalFields.impact))

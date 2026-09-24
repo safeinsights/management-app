@@ -42,6 +42,12 @@ export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
     return false
 }
 
+// Falls back to the id for a data source the org no longer lists, which is still worth showing.
+export function datasetDisplayNames(datasetIds: string[], orgDataSources: Array<{ id: string; name: string }>) {
+    const nameById = new Map(orgDataSources.map((ds) => [ds.id, ds.name]))
+    return datasetIds.map((id) => nameById.get(id) || id)
+}
+
 export function decisionTimestampForProposalHeader(study: SelectedStudy, entries: ProposalFeedbackEntry[]): Date {
     const status = effectiveProposalStatus(study)
     if (status === 'APPROVED' && study.approvedAt) {

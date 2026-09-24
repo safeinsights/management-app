@@ -194,6 +194,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 piName: studyInfo.piName || '',
                 piUserId: studyInfo.piUserId || null,
                 language: studyInfo.language,
+                datasets: studyInfo.datasets ?? null,
                 descriptionDocPath: studyInfo.descriptionDocPath || null,
                 irbDocPath: studyInfo.irbDocPath || null,
                 agreementDocPath: studyInfo.agreementDocPath || null,
