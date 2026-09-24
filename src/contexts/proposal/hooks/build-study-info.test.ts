@@ -33,7 +33,6 @@ describe('buildStudyInfo', () => {
             title: 'Test Study Title',
             piName: 'Dr. Jane Smith',
             piUserId: BLANK_UUID,
-            datasets: ['dataset-1', 'dataset-2'],
             researchQuestions: '{"root":{"type":"text","text":"Research question content"}}',
             projectSummary: '{"root":{"type":"text","text":"Project summary content"}}',
             impact: '{"root":{"type":"text","text":"Impact content"}}',
@@ -54,10 +53,9 @@ describe('buildStudyInfo', () => {
     })
 
     it('handles partial form values', () => {
-        const result = buildStudyInfo({ ...blankFormValues, title: 'Only Title', datasets: ['ds-1'] }, 'send')
+        const result = buildStudyInfo({ ...blankFormValues, title: 'Only Title' }, 'send')
 
         expect(result.title).toBe('Only Title')
-        expect(result.datasets).toEqual(['ds-1'])
         expect(result.researchQuestions).toBeUndefined()
         expect(result.piName).toBeUndefined()
     })
@@ -69,12 +67,17 @@ describe('buildStudyInfo', () => {
             const result = buildStudyInfo(validFormValues, 'omit')
 
             expect('title' in result).toBe(false)
-            expect(result.datasets).toEqual(['dataset-1', 'dataset-2'])
         })
 
         it('leaves the title key out when the form title is blank', () => {
             expect('title' in buildStudyInfo(blankFormValues, 'omit')).toBe(false)
         })
+    })
+
+    // Step 1 owns the datasets (OTTER-803), so no proposal page write may carry them.
+    it('never sends the datasets the form was seeded with', () => {
+        expect('datasets' in buildStudyInfo(validFormValues, 'send')).toBe(false)
+        expect('datasets' in buildStudyInfo(validFormValues, 'omit')).toBe(false)
     })
 
     describe("titleMode 'omitIfBlank'", () => {

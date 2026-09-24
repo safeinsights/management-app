@@ -5,9 +5,11 @@ export const ORG_SELECT_ID = 'studyOrg'
 // A wrapper, not the group itself: Mantine consumes Radio.Group's id internally and never
 // renders it, so getElementById would find nothing.
 export const LANGUAGE_FIELD_ID = 'programming-language-field'
+export const DATASETS_FIELD_ID = 'datasets'
 
 export const FIELD_ID_TO_FORM_PATH = {
     [TITLE_INPUT_ID]: 'title',
     [ORG_SELECT_ID]: 'orgSlug',
     [LANGUAGE_FIELD_ID]: 'language',
+    [DATASETS_FIELD_ID]: 'datasets',
 } as const

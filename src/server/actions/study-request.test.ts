@@ -40,7 +40,11 @@ import {
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
-import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import {
+    DATASETS_REQUIRED_ERROR,
+    STUDY_TITLE_BLANK_ERROR,
+    STUDY_TITLE_OVER_LIMIT_ERROR,
+} from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -149,6 +153,7 @@ describe('Request Study Actions', () => {
                     title: 'Test Study',
                     piName: 'Test PI',
                     language: 'R' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
@@ -190,7 +195,12 @@ describe('Request Study Actions', () => {
         const draft = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Queued after commit', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Queued after commit',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -231,6 +241,7 @@ describe('Request Study Actions', () => {
                     title: 'Python Study',
                     piName: 'Test PI',
                     language: 'PYTHON' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
@@ -307,7 +318,12 @@ describe('Request Study Actions', () => {
         const draft = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Agreement Email Test', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Agreement Email Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -373,7 +389,12 @@ describe('Request Study Actions', () => {
         const draftResult = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Draft Event Test', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Draft Event Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -428,11 +449,45 @@ describe('Request Study Actions', () => {
         expect(unchanged.status).toBe('DRAFT')
     })
 
+    // A draft saved before datasets moved to Step 1 has none, and Step 2 cannot add them (OTTER-803).
+    it('finalizeStudySubmissionAction rejects a DRAFT with no datasets', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-no-datasets' })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { datasets: DATASETS_REQUIRED_ERROR } })
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
+    })
+
+    it('finalizeStudySubmissionAction keeps the datasets Step 1 stored', async () => {
+        const { studyId } = await createTestProposalDraft({
+            enclaveSlug: 'finalize-keeps-datasets',
+            studyInfo: { datasets: ['ds-step-1'] },
+        })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: { piName: 'PI' } }))
+
+        const row = await db
+            .selectFrom('study')
+            .select(['status', 'datasets'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(row.status).toBe('PENDING-REVIEW')
+        expect(row.datasets).toEqual(['ds-step-1'])
+    })
+
     describe('OpenStax Proposal Flow (Step 2)', () => {
         it('creates draft with step 1 fields, updates with proposal fields, and submits', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-openstax-flow' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const step1Datasets = ['openstax-calculus', 'openstax-physics']
 
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
@@ -440,6 +495,7 @@ describe('Request Study Actions', () => {
                     studyInfo: {
                         title: 'Set on Step 1',
                         language: 'PYTHON' as const,
+                        datasets: step1Datasets,
                     },
                     submittingOrgSlug: lab.slug,
                 }),
@@ -455,11 +511,11 @@ describe('Request Study Actions', () => {
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
             expect(study?.title).toEqual('Set on Step 1')
+            expect(study?.datasets).toEqual(step1Datasets)
 
             const proposalFields = {
                 title: 'Impact of Highlighting on Learning',
                 piName: 'Dr. Research Lead',
-                datasets: ['openstax-calculus', 'openstax-physics'],
                 researchQuestions: lexicalJson('How does highlighting affect retention?'),
                 projectSummary: lexicalJson('This study examines highlighting patterns.'),
                 impact: lexicalJson('Findings will inform textbook design.'),
@@ -480,7 +536,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.title).toEqual(proposalFields.title)
             expect(study?.piName).toEqual(proposalFields.piName)
-            expect(study?.datasets).toEqual(proposalFields.datasets)
+            expect(study?.datasets).toEqual(step1Datasets)
             expect(study?.researchQuestions).toEqual(JSON.parse(proposalFields.researchQuestions))
             expect(study?.projectSummary).toEqual(JSON.parse(proposalFields.projectSummary))
             expect(study?.impact).toEqual(JSON.parse(proposalFields.impact))
@@ -542,7 +598,7 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction transitions CHANGE-REQUESTED → PENDING-REVIEW', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org })
+            const { study } = await insertTestStudyOnly({ org, datasets: ['test-dataset'] })
 
             await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
 
@@ -585,7 +641,7 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id, datasets: ['test-dataset'] })
             await setTestStudyStatus(study.id, 'DRAFT')
 
             await db
@@ -1860,7 +1916,12 @@ describe('Request Study Actions', () => {
             const draft = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
-                    studyInfo: { title: 'Status round trip', piName: 'PI', language: 'R' as const },
+                    studyInfo: {
+                        title: 'Status round trip',
+                        piName: 'PI',
+                        language: 'R' as const,
+                        datasets: ['test-dataset'],
+                    },
                     submittingOrgSlug: lab.slug,
                 }),
             )

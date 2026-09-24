@@ -6,6 +6,7 @@ import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
 import {
     db,
+    insertTestDataSource,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
@@ -266,7 +267,7 @@ describe('StudyEditPage', () => {
         const { user: piUser } = await insertTestUser({ org })
         await db
             .updateTable('study')
-            .set({ piUserId: piUser.id, datasets: ['students'], researchQuestions: JSON.parse(LEXICAL_BODY) })
+            .set({ piUserId: piUser.id, researchQuestions: JSON.parse(LEXICAL_BODY) })
             .where('id', '=', study.id)
             .execute()
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -275,5 +276,22 @@ describe('StudyEditPage', () => {
 
         expect(mockRedirect).not.toHaveBeenCalled()
         expect(screen.getByRole('button', { name: 'Save and continue' })).toBeInTheDocument()
+    })
+
+    it('shows the saved datasets by name, locked', async () => {
+        const { org, study } = await setupDraft()
+        const dataSource = await insertTestDataSource({ orgId: org.id, name: 'Student Activity Logs' })
+        await db
+            .updateTable('study')
+            .set({ datasets: [dataSource.id] })
+            .where('id', '=', study.id)
+            .execute()
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderPage(org.slug, study.id)
+
+        const datasets = await screen.findByRole('group', { name: 'Dataset(s) of interest' })
+        expect(datasets).toHaveTextContent('Student Activity Logs')
+        expect(document.getElementById('datasets')).toBeNull()
     })
 })

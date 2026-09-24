@@ -201,7 +201,7 @@ describe('projectStudyState', () => {
     it('hasStep2Progress: false for a fresh draft, true once any Step 2 field is set', () => {
         expect(projectStudyState(raw({ status: 'DRAFT' })).hasStep2Progress).toBe(false)
         expect(projectStudyState(raw({ status: 'DRAFT', piUserId: 'pi-1' })).hasStep2Progress).toBe(true)
-        expect(projectStudyState(raw({ status: 'DRAFT', datasets: ['ds-1'] })).hasStep2Progress).toBe(true)
+        expect(projectStudyState(raw({ status: 'DRAFT', datasets: ['ds-1'] })).hasStep2Progress).toBe(false)
         expect(projectStudyState(raw({ status: 'DRAFT', researchQuestions: { q: 1 } })).hasStep2Progress).toBe(true)
         expect(projectStudyState(raw({ status: 'DRAFT', datasets: [] })).hasStep2Progress).toBe(false)
     })

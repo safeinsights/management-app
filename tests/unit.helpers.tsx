@@ -501,6 +501,7 @@ export const insertTestStudyOnly = async ({
     isTestStudy = false,
     // False for a test about agreements themselves — those files publish and acknowledge their own.
     withStudyAgreement = true,
+    datasets = null,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
@@ -509,6 +510,7 @@ export const insertTestStudyOnly = async ({
     status?: StudyStatus
     isTestStudy?: boolean
     withStudyAgreement?: boolean
+    datasets?: string[] | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -532,6 +534,7 @@ export const insertTestStudyOnly = async ({
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
+            datasets,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -877,6 +880,7 @@ type CreateTestProposalDraftOptions = {
         title?: string
         piName?: string
         language?: Language
+        datasets?: string[]
     }
 }
 
@@ -890,7 +894,8 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
     const draft = actionResult(
         await onSaveDraftStudyAction({
             orgSlug: enclave.slug,
-            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
+            // Step 1 always saves datasets now (OTTER-803), and a draft without any cannot be submitted.
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', datasets: ['test-dataset'], ...studyInfo },
             submittingOrgSlug: lab.slug,
         }),
     )

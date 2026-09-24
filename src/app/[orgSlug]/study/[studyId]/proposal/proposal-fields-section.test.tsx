@@ -133,16 +133,13 @@ const reportSaveCycle = (provider: FakeProvider) => {
     })
 }
 
-const editField: Record<'datasets' | 'piName', () => void> = {
-    datasets: () => act(() => page.current!.yjsForm.pushField('datasets', ['dataset-1', 'dataset-2'])),
-    piName: () => act(() => page.current!.yjsForm.pushPI(OTHER_PI.value, OTHER_PI.label)),
-}
+const editPI = () => act(() => page.current!.yjsForm.pushPI(OTHER_PI.value, OTHER_PI.label))
 
 // Empties the field and runs the blur-time rule, the way leaving the emptied control would.
-const emptyDatasetsAndBlur = () =>
+const emptyPIAndBlur = () =>
     act(() => {
-        page.current!.form.setFieldValue('datasets', [])
-        page.current!.form.validateField('datasets')
+        page.current!.form.setFieldValue('piName', '')
+        page.current!.form.validateField('piName')
     })
 
 beforeEach(() => {
@@ -182,14 +179,14 @@ describe('ProposalFieldsSection section header and body copy (OTTER-762)', () =>
     })
 })
 
-describe('ProposalFieldsSection datasets field (OTTER-762)', () => {
-    it('renders the new description with the Data Partner interpolated', async () => {
+// Step 1 owns the datasets now, so neither Step 2 nor Edit proposal can change them (OTTER-803).
+describe('ProposalFieldsSection datasets removal (OTTER-803)', () => {
+    it('renders no datasets field', async () => {
         await renderSection()
 
-        expect(
-            screen.getByText(`Select the datasets available through ${ORG_NAME} for this study.`),
-        ).toBeInTheDocument()
-        expect(screen.queryByText(/You’ll find options based on the selected Data Partner/)).not.toBeInTheDocument()
+        expect(screen.queryByText('Dataset(s) of interest')).not.toBeInTheDocument()
+        expect(document.getElementById('datasets')).toBeNull()
+        expect(screen.queryByText(/Select the datasets available through/)).not.toBeInTheDocument()
     })
 })
 
@@ -238,35 +235,26 @@ describe('ProposalFieldsSection field hints (OTTER-769)', () => {
     })
 })
 
-// OTTER-748: these two share the proposal-fields Yjs document, so unlike the rich-text editors on
-// this page they cannot report a save from inside the control. The page has to render one
-// indicator each, keyed to the right field.
-//
-// Each case edits one field and asserts both halves: exactly one indicator exists on the page, and
-// it sits under the field that was edited. The count alone is not enough. It catches a missing
-// indicator and a call site pointing at another field's status, but two call sites with their keys
-// exchanged still render one indicator per case, so the placement assertion is what separates
-// correct wiring from a swap. The field key doubles as the `inputId` of its control.
+// OTTER-748: the PI writes into the proposal-fields Yjs document, so unlike the rich-text editors on
+// this page it cannot report a save from inside the control. The page renders its indicator, keyed
+// to that field. The field key doubles as the `inputId` of its control.
 describe('ProposalFieldsSection autosave indicators (OTTER-748)', () => {
-    it.each([['datasets'], ['piName']] as const)(
-        'renders the saved indicator under %s, and only there',
-        async (key) => {
-            const provider = await renderSection()
+    it('renders the saved indicator under the PI field, and only there', async () => {
+        const provider = await renderSection()
 
-            editField[key]()
-            reportSaveCycle(provider)
+        editPI()
+        reportSaveCycle(provider)
 
-            const indicators = screen.getAllByTestId('autosave-status')
-            expect(indicators).toHaveLength(1)
-            expect(indicators[0]).toHaveTextContent('All changes saved')
-            expect(screen.getByTestId(fieldTestId(key))).toContainElement(indicators[0])
-        },
-    )
+        const indicators = screen.getAllByTestId('autosave-status')
+        expect(indicators).toHaveLength(1)
+        expect(indicators[0]).toHaveTextContent('All changes saved')
+        expect(screen.getByTestId(fieldTestId('piName'))).toContainElement(indicators[0])
+    })
 
     it('reports an in-flight save as well', async () => {
         const provider = await renderSection()
 
-        editField.datasets()
+        editPI()
         act(() => {
             provider.unsyncedChanges = 1
             provider.__emit('unsyncedChanges')
@@ -288,51 +276,49 @@ describe('ProposalFieldsSection autosave indicators (OTTER-748)', () => {
     // OTTER-674: the error takes the slot the indicator would occupy. Raised through the field's
     // own blur rule so the assertion covers the call site handing its own field error to the hook,
     // not a value the test invented.
-    it('drops the datasets indicator once the field carries a validation error', async () => {
+    it('drops the PI indicator once the field carries a validation error', async () => {
         const provider = await renderSection()
 
-        editField.datasets()
+        editPI()
         reportSaveCycle(provider)
         expect(screen.getByTestId('autosave-status')).toBeInTheDocument()
 
-        emptyDatasetsAndBlur()
+        emptyPIAndBlur()
 
-        expect(screen.getByText(DRAFT_REQUIRED_ERRORS.datasets)).toBeInTheDocument()
+        expect(screen.getByText(DRAFT_REQUIRED_ERRORS.piName)).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
 
     // This page suppresses the indicator by gating the status rather than by hiding a mounted
     // indicator with `isVisible`, and the two are not interchangeable here: one announcer speaks
-    // for both fields, so a status of 'saved' behind an error would have it read "All changes
+    // for the fields doc, so a status of 'saved' behind an error would have it read "All changes
     // saved" while the error is on screen. Nothing is discarded either way, which is what this
     // asserts: the label and the announcement both come back once the field is valid again.
-    it('takes the datasets indicator and the announcement back once the error clears', async () => {
+    it('takes the PI indicator and the announcement back once the error clears', async () => {
         const provider = await renderSection()
 
-        editField.datasets()
+        editPI()
         reportSaveCycle(provider)
-        emptyDatasetsAndBlur()
+        emptyPIAndBlur()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
         expect(screen.getByTestId('autosave-announcer')).toBeEmptyDOMElement()
 
         // Editing clears the error until the next blur or Submit (OTTER-691).
-        act(() => page.current!.form.setFieldValue('datasets', ['dataset-1']))
+        act(() => page.current!.form.setFieldValue('piName', OTHER_PI.label))
 
-        expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.datasets)).not.toBeInTheDocument()
+        expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.piName)).not.toBeInTheDocument()
         expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
         expect(screen.getByTestId('autosave-announcer')).toHaveTextContent('All changes saved')
     })
 })
 
 describe('ProposalFieldsSection autosave announcements (OTTER-675)', () => {
-    // One provider behind both fields, so two live regions would read "All changes saved" twice
-    // for one save. The editors below own separate providers and keep their own regions, which is
-    // why this counts the announcer's testid rather than every region on screen.
+    // The editors below own separate providers and keep their own regions, which is why this counts
+    // the announcer's testid rather than every region on screen.
     it('announces a save once for the whole section', async () => {
         const provider = await renderSection()
 
-        editField.datasets()
-        editField.piName()
+        editPI()
         reportSaveCycle(provider)
 
         const announcers = screen.getAllByTestId('autosave-announcer')

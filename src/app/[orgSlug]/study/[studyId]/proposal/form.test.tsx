@@ -41,14 +41,23 @@ describe('ProposalForm study title removal (OTTER-690)', () => {
     it('still renders the fields this step does own', () => {
         renderForm()
 
-        expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
         expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
     })
 })
 
+describe('ProposalForm datasets removal (OTTER-803)', () => {
+    it('does not render a datasets field, which Step 1 owns now', () => {
+        renderForm()
+
+        expect(screen.queryByText('Dataset(s) of interest')).not.toBeInTheDocument()
+        expect(document.getElementById('datasets')).toBeNull()
+        expect(screen.queryByText(/Select the datasets available through/)).not.toBeInTheDocument()
+    })
+})
+
 describe('ProposalForm autosave announcements', () => {
-    // Title, datasets and PI mirror one Yjs provider, so a live region on each would announce
-    // "All changes saved" three times per save cycle.
+    // The fields doc and the editors share one provider, so a live region on each would announce
+    // "All changes saved" more than once per save cycle.
     it('announces a save once for the whole fields form (OTTER-675)', () => {
         renderForm()
         expect(screen.getAllByTestId('autosave-announcer')).toHaveLength(1)
@@ -90,28 +99,6 @@ describe('ProposalForm section header and body copy (OTTER-691)', () => {
         renderForm()
 
         expect(screen.queryByText(/Use this form to submit your study proposal/)).not.toBeInTheDocument()
-    })
-})
-
-describe('ProposalForm datasets field (OTTER-691)', () => {
-    it('renders the new description with the Data Partner interpolated', () => {
-        renderForm()
-
-        expect(
-            screen.getByText('Select the datasets available through Rice University for this study.'),
-        ).toBeInTheDocument()
-    })
-
-    it('does not render the old description', () => {
-        renderForm()
-
-        expect(screen.queryByText(/You’ll find options based on the selected Data Partner/)).not.toBeInTheDocument()
-    })
-
-    it('renders no placeholder text', () => {
-        renderForm()
-
-        expect(screen.queryByPlaceholderText(/Select dataset/i)).not.toBeInTheDocument()
     })
 })
 
@@ -195,25 +182,16 @@ describe('ProposalForm submit-click validation (OTTER-691)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
 
-        expect(await screen.findByText('Select a dataset of interest before continuing.')).toBeInTheDocument()
-        expect(screen.getByText('Enter your research questions before continuing.')).toBeInTheDocument()
+        expect(await screen.findByText('Enter your research questions before continuing.')).toBeInTheDocument()
         expect(screen.getByText('Enter your project summary before continuing.')).toBeInTheDocument()
         expect(screen.getByText('Enter your proposal impact before continuing.')).toBeInTheDocument()
         expect(screen.getByText('Select a Principal Investigator before continuing.')).toBeInTheDocument()
     })
 
-    it('moves focus to the first flagged field in page order', async () => {
+    // Datasets are Step 1's to require (OTTER-803); an empty list here has no field to show it on.
+    it('never flags the datasets, even when the draft has none', async () => {
         const user = userEvent.setup()
         renderForm(emptyDraft)
-
-        await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
-
-        expect(document.activeElement?.closest('#datasets')).not.toBeNull()
-    })
-
-    it('flags only the fields that are actually empty', async () => {
-        const user = userEvent.setup()
-        renderForm({ ...emptyDraft, datasets: ['dataset-1'] })
 
         await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
 
@@ -238,16 +216,15 @@ describe('ProposalForm submit-click validation (OTTER-691)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Submit proposal' }))
 
-        expect(await screen.findByText('Select a dataset of interest before continuing.')).toBeInTheDocument()
-        expect(screen.getByText('Enter your research questions before continuing.')).toBeInTheDocument()
+        expect(await screen.findByText('Enter your research questions before continuing.')).toBeInTheDocument()
         expect(screen.getByText('Enter your project summary before continuing.')).toBeInTheDocument()
         expect(screen.getByText('Enter your proposal impact before continuing.')).toBeInTheDocument()
         expect(screen.getByText('Select a Principal Investigator before continuing.')).toBeInTheDocument()
     })
 })
 
-// Behind a null websocket the editors render as skeletons, so every jump stops at the dataset
-// field; single-user mode renders the real surfaces the focus rule needs.
+// Behind a null websocket the editors render as skeletons with nothing to focus; single-user mode
+// renders the real surfaces the focus rule needs.
 describe('ProposalForm first-invalid focus (OTTER-691)', () => {
     const filled = {
         researchQuestions: JSON.stringify({ root: { type: 'text', text: 'A question?' } }),

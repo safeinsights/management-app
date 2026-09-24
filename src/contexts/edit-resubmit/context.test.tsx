@@ -176,15 +176,21 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         })
 
         it('still requires the fields the page does render, with the card wording', () => {
+            renderValidityProbe({ piName: '' })
+            expect(screen.getByTestId('piName-valid')).toHaveTextContent('false')
+        })
+
+        // Step 1 owns the datasets and this page renders none (OTTER-803).
+        it('does not require datasets', () => {
             renderValidityProbe({ datasets: [] })
-            expect(screen.getByTestId('datasets-valid')).toHaveTextContent('false')
+            expect(screen.getByTestId('datasets-valid')).toHaveTextContent('true')
         })
 
         // A persisted NULL reaches the provider as `undefined`, which wins in an object spread and
         // would blank the matching initial value.
         it('falls back to the initial values when the draft carries undefined fields', () => {
             renderValidityProbe({ datasets: undefined, piName: undefined })
-            expect(screen.getByTestId('datasets-valid')).toHaveTextContent('false')
+            expect(screen.getByTestId('piName-valid')).toHaveTextContent('false')
             expect(screen.getByTestId('datasets-value')).toHaveTextContent('[]')
         })
     })
@@ -199,6 +205,7 @@ function ValidityProbe() {
         <>
             <span data-testid="title-valid">{String(form.isValid('title'))}</span>
             <span data-testid="datasets-valid">{String(form.isValid('datasets'))}</span>
+            <span data-testid="piName-valid">{String(form.isValid('piName'))}</span>
             <span data-testid="datasets-value">{JSON.stringify(form.values.datasets)}</span>
         </>
     )
