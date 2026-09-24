@@ -22,14 +22,44 @@ const renderForDataPartner = async () => {
     return org
 }
 
+const labPicker = () => screen.getByRole('textbox', { name: 'Research Labs' })
+const continueButton = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Add as Test Lab' })
+
+const openPicker = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Add Test Lab' }))
+    // Disabled while the eligible labs load; a click before then silently does nothing.
+    await waitFor(() => expect(labPicker()).toBeEnabled())
+}
+
+// By text, not by role: this environment renders Mantine's dropdown outside the accessibility tree.
+const pickLab = async (name: string) => {
+    await userEvent.click(labPicker())
+    await userEvent.click(await screen.findByText(name))
+}
+
+const designateThroughModal = async (name: string) => {
+    await openPicker()
+    await pickLab(name)
+    await userEvent.click(continueButton())
+    await waitFor(() =>
+        expect(screen.getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument(),
+    )
+    await userEvent.click(continueButton())
+    // Waits for onSuccess to close the modal rather than polling the row it wrote.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+}
+
+const uniqueLabName = (prefix: string) => `${prefix} ${faker.string.alpha(8)}`
+
 describe('TestLabs', () => {
-    it('renders the section with its empty state', async () => {
+    it('renders the section with its empty state and no table', async () => {
         await renderForDataPartner()
 
         await waitFor(() => {
-            expect(screen.getByRole('heading', { name: /Test Labs/i })).toBeInTheDocument()
-            expect(screen.getByText(/No test labs have been added/i)).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Test Labs' })).toBeInTheDocument()
+            expect(screen.getByText('No Test Labs added yet')).toBeInTheDocument()
         })
+        expect(screen.queryByRole('table')).toBeNull()
     })
 
     it('renders nothing for a research lab', async () => {
@@ -41,37 +71,28 @@ describe('TestLabs', () => {
         expect(screen.queryByRole('heading', { name: /Test Labs/i })).toBeNull()
     })
 
-    it('lists a designated lab', async () => {
+    it('lists a designated lab with the date it was added', async () => {
         const org = await renderForDataPartner()
         const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        await db.insertInto('orgTestLab').values({ dataPartnerId: org.id, researchLabId: lab.id }).execute()
+        await db
+            .insertInto('orgTestLab')
+            .values({ dataPartnerId: org.id, researchLabId: lab.id, createdAt: new Date('2026-09-14T15:00:00Z') })
+            .execute()
 
         renderWithProviders(<TestLabs isVisible />)
 
-        await waitFor(() => expect(screen.getAllByText(lab.name).length).toBeGreaterThan(0))
+        const row = await screen.findByRole('row', { name: new RegExp(lab.name) })
+        expect(within(row).getByText('Sep 14, 2026')).toBeInTheDocument()
+        expect(screen.getByRole('columnheader', { name: 'Added on' })).toBeInTheDocument()
     })
 
     it('designates a lab through the picker, which confirms first', async () => {
         const org = await renderForDataPartner()
-        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: uniqueLabName('Picked') })
 
-        await userEvent.click(screen.getByRole('button', { name: 'Add' }))
-        await waitFor(() => expect(screen.getByRole('checkbox', { name: lab.name })).toBeInTheDocument())
-        await userEvent.click(screen.getByRole('checkbox', { name: lab.name }))
+        await designateThroughModal(lab.name)
 
-        const dialog = screen.getByRole('dialog')
-        await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-
-        await waitFor(() =>
-            expect(within(dialog).getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument(),
-        )
-        await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-
-        // The modal closes in the mutation's onSuccess, so this waits for it to settle rather than
-        // polling the row it wrote.
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-        await waitFor(() => expect(screen.getByText(lab.name)).toBeInTheDocument())
-
+        await screen.findByRole('row', { name: new RegExp(lab.name) })
         const rows = await db
             .selectFrom('orgTestLab')
             .select('researchLabId')
@@ -80,44 +101,68 @@ describe('TestLabs', () => {
         expect(rows.map((row) => row.researchLabId)).toEqual([lab.id])
     })
 
-    // A successful add closes from the mutation rather than through Cancel, so the step and
-    // selection used to survive into the next open.
-    it('reopens on the picker, not the confirmation, after a successful add', async () => {
+    it('explains, and refuses, continuing with nothing selected', async () => {
         await renderForDataPartner()
-        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await openPicker()
 
-        await userEvent.click(screen.getByRole('button', { name: 'Add' }))
-        await waitFor(() => expect(screen.getByRole('checkbox', { name: lab.name })).toBeInTheDocument())
-        await userEvent.click(screen.getByRole('checkbox', { name: lab.name }))
+        const button = continueButton()
+        expect(button).toHaveAttribute('aria-disabled', 'true')
+        expect(button).toHaveAccessibleDescription('Select at least one Research Lab to continue')
 
-        const dialog = screen.getByRole('dialog')
-        await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-        await waitFor(() =>
-            expect(within(dialog).getByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeInTheDocument(),
-        )
-        await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        await userEvent.click(button)
 
-        await userEvent.click(screen.getByRole('button', { name: 'Add' }))
-
-        await waitFor(() => expect(screen.getByLabelText('Search research labs')).toHaveValue(''))
-        expect(screen.getByRole('checkbox', { name: other.name })).not.toBeChecked()
+        expect(screen.queryByRole('heading', { name: /Add these labs as Test Labs\?/i })).toBeNull()
     })
 
-    it('filters the picker by the search box', async () => {
+    it('shows the disabled reason as a tooltip on focus', async () => {
         await renderForDataPartner()
-        const wanted = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: 'Cosmology Lab' })
-        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: 'Botany Lab' })
+        await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await openPicker()
 
-        await userEvent.click(screen.getByRole('button', { name: 'Add' }))
-        await waitFor(() => expect(screen.getByRole('checkbox', { name: wanted.name })).toBeInTheDocument())
+        continueButton().focus()
 
-        await userEvent.type(screen.getByLabelText('Search research labs'), 'cosmo')
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Select at least one Research Lab to continue')
+    })
+
+    // A close from the mutation, not Cancel, used to carry the step and selection into the next open.
+    it('reopens on an empty picker, not the confirmation, after a successful add', async () => {
+        await renderForDataPartner()
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: uniqueLabName('First') })
+        await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+
+        await designateThroughModal(lab.name)
+        await openPicker()
+
+        expect(continueButton()).toHaveAttribute('aria-disabled', 'true')
+        expect(labPicker()).toHaveAttribute('placeholder', 'Select one or more Research Labs')
+    })
+
+    it('filters the picker by typing into it', async () => {
+        await renderForDataPartner()
+        const wanted = await insertTestOrg({
+            slug: faker.string.alpha(10),
+            type: 'lab',
+            name: uniqueLabName('Cosmology'),
+        })
+        const other = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: uniqueLabName('Botany') })
+        await openPicker()
+
+        await userEvent.type(labPicker(), wanted.name)
 
         await waitFor(() => {
-            expect(screen.getByRole('checkbox', { name: wanted.name })).toBeInTheDocument()
-            expect(screen.queryByRole('checkbox', { name: other.name })).toBeNull()
+            expect(screen.getByText(wanted.name)).toBeInTheDocument()
+            expect(screen.queryByText(other.name)).toBeNull()
         })
+    })
+
+    it('says nothing was found when the search matches no lab', async () => {
+        await renderForDataPartner()
+        await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await openPicker()
+
+        await userEvent.type(labPicker(), faker.string.alpha(24))
+
+        expect(await screen.findByText('Nothing found')).toBeInTheDocument()
     })
 })

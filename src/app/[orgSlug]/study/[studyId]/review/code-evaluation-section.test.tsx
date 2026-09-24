@@ -4,20 +4,29 @@ import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/
 import { useForm, type UseFormReturnType } from '@mantine/form'
 
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
-import { type CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
+import { type CodeReviewCriteriaDraft, type CodeReviewCriteriaKey } from '@/hooks/use-code-review-evaluation-map'
 import { CodeEvaluationSection } from './code-evaluation-section'
-import { codeReviewCriteria } from './code-review-criteria'
+
+const EXPECTED_LABELS: Record<CodeReviewCriteriaKey, string> = {
+    proposalAlignment: 'Does code align with the approved proposal?',
+    agreementCompliance: 'Does code align with the Study Agreement?',
+    privacyProtection: 'Could the outputs expose any PII?',
+}
 
 type FormShape = { criteria: CodeReviewCriteriaDraft }
 
 const initialDraft: CodeReviewCriteriaDraft = {
     proposalAlignment: null,
     agreementCompliance: null,
-    securityChecks: null,
     privacyProtection: null,
 }
 
-const renderSection = ({ isTestStudy = false }: { isTestStudy?: boolean } = {}) => {
+const PROPOSAL_HREF = '/test-org/study/test-study/review/proposal'
+
+const renderSection = ({
+    validateOnBlur = false,
+    isTestStudy = false,
+}: { validateOnBlur?: boolean; isTestStudy?: boolean } = {}) => {
     const handle: { form: UseFormReturnType<FormShape> | null } = { form: null }
     const Harness = () => {
         const form = useForm<FormShape>({ initialValues: { criteria: initialDraft } })
@@ -26,7 +35,13 @@ const renderSection = ({ isTestStudy = false }: { isTestStudy?: boolean } = {}) 
         }, [form])
         return (
             <CodeReviewFeedbackProviderShare>
-                <CodeEvaluationSection form={form} enabled isTestStudy={isTestStudy} />
+                <CodeEvaluationSection
+                    form={form}
+                    enabled
+                    proposalHref={PROPOSAL_HREF}
+                    isTestStudy={isTestStudy}
+                    validateOnBlur={validateOnBlur}
+                />
             </CodeReviewFeedbackProviderShare>
         )
     }
@@ -40,22 +55,29 @@ const renderSection = ({ isTestStudy = false }: { isTestStudy?: boolean } = {}) 
 }
 
 describe('CodeEvaluationSection', () => {
-    it('renders the heading, intro, attention alert, and the four criteria rows', () => {
+    it('renders the heading, attention alert, and the three criteria rows', () => {
         renderSection()
 
         expect(screen.getByText('Code evaluation')).toBeInTheDocument()
-        expect(screen.getByText(/Use this checklist to guide your review/)).toBeInTheDocument()
-        expect(screen.getByTestId('code-evaluation-attention')).toHaveTextContent(
-            /This checklist is provided as guidance/,
-        )
+        expect(screen.getByTestId('code-evaluation-attention')).toHaveTextContent(/This checklist is for guidance only/)
         expect(screen.getByText('Evaluation criteria')).toBeInTheDocument()
 
-        for (const descriptor of codeReviewCriteria(false)) {
-            expect(screen.getByTestId(`criteria-row-${descriptor.key}`)).toHaveTextContent(descriptor.label)
+        for (const [key, label] of Object.entries(EXPECTED_LABELS)) {
+            expect(screen.getByTestId(`criteria-row-${key}`)).toHaveTextContent(label)
         }
     })
 
-    it('explains the agreements criterion only when the study is a test study', async () => {
+    it('links proposal to the review proposal page in a new tab', () => {
+        renderSection()
+        const link = screen.getByTestId('criteria-proposal-link')
+        expect(link).toHaveAttribute('href', PROPOSAL_HREF)
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link).toHaveAttribute('data-underline', 'always')
+        expect(link).toHaveTextContent('proposal')
+        expect(link.querySelector('svg')).toBeInTheDocument()
+    })
+
+    it('explains the agreements criterion only when the study is a test study', () => {
         renderSection({ isTestStudy: true })
 
         const row = screen.getByTestId('criteria-row-agreementCompliance')
@@ -82,13 +104,15 @@ describe('CodeEvaluationSection', () => {
         expect(refs.form.getValues().criteria.agreementCompliance).toBe('no')
     })
 
-    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper, so assert the
-    // accessible name rather than the attribute.
-    it('names every criterion radiogroup after its visible criterion text', () => {
+    it('wires every criterion radiogroup to its visible label', () => {
         renderSection()
 
-        for (const descriptor of codeReviewCriteria(false)) {
-            expect(screen.getByRole('radiogroup', { name: descriptor.label })).toBeInTheDocument()
+        for (const key of Object.keys(EXPECTED_LABELS)) {
+            const labelId = `criteria-${key}-label`
+            const radioGroup = screen.getByRole('radiogroup', {
+                name: (_name, el) => el.getAttribute('aria-labelledby') === labelId,
+            })
+            expect(radioGroup).toBeInTheDocument()
         }
     })
 })

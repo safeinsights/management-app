@@ -106,7 +106,7 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             href={url}
             target="_blank"
             variant="light"
-            color="gray"
+            color="grey"
             rightSection={<ArrowSquareOutIcon size={14} />}
             bg="gray.1"
             c="gray.7"

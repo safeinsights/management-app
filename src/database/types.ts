@@ -78,6 +78,7 @@ export type StudyJobStatus =
     | 'JOB-PROVISIONING'
     | 'JOB-READY'
     | 'JOB-RUNNING'
+    | 'RESULTS-VIEWED'
     | 'RUN-COMPLETE'
 
 export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
@@ -351,6 +352,7 @@ export interface StudyReview {
     round: Generated<number>
     studyJobId: string
     summaryFailedAt: Timestamp | null
+    summaryStartedAt: Timestamp | null
 }
 
 export interface StudyReviewComment {

@@ -5,6 +5,7 @@ import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } 
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
+import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
 import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -78,8 +79,6 @@ const buildDecisionOptions = (labName: string, canShareOutputs: boolean): Decisi
     },
 ]
 
-const RADIO_STYLES = { label: { fontWeight: 600, fontSize: 16 }, description: { fontSize: 14 } }
-
 type DecisionRadioGroupProps = {
     value: OutputsDecision | null
     onChange: (next: OutputsDecision) => void
@@ -88,23 +87,17 @@ type DecisionRadioGroupProps = {
     canShareOutputs: boolean
 }
 
-const descriptionId = (value: OutputsDecision) => `outputs-decision-${value}-description`
-
 const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, error, labName, canShareOutputs }) => {
-    // Mantine renders `description` for sighted users but never puts it in `aria-describedby`,
-    // and passes nothing through to the radiogroup element, leaving the inputs the only
-    // reachable target for `aria-invalid` (OTTER-675).
     const options = buildDecisionOptions(labName, canShareOutputs).map((option) => (
-        <Radio
+        <DecisionRadio
             key={option.value}
             value={option.value}
             label={option.title}
-            description={<span id={descriptionId(option.value)}>{option.description}</span>}
-            aria-describedby={descriptionId(option.value)}
-            aria-invalid={error ? true : undefined}
+            description={option.description}
+            error={error}
             disabled={option.disabled}
-            styles={RADIO_STYLES}
-            data-testid={`outputs-decision-${option.value}`}
+            styles={DECISION_RADIO_STYLES}
+            testId={`outputs-decision-${option.value}`}
         />
     ))
 
@@ -201,6 +194,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasCounter: true,
                     })}
                     skeletonHeight={EDITOR_SKELETON_HEIGHT}
+                    isResizable
                     // Takes the slot the save indicator vacates, not a row below the counter.
                     footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}
                     footerRight={<FeedbackCounter characterCount={characterCount} />}

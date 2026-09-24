@@ -10,6 +10,7 @@ import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/ty
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 import { codeRoundForJob } from './code-round'
+import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
@@ -318,6 +319,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'lab.slug as labSlug',
             'lab.name as labName',
             'study.createdAt',
+            'study.submittedAt',
         ])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))
@@ -619,10 +621,14 @@ export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
 }
 
 export type StudyReviewWithMeta = {
-    // null on a failure row (summaryFailedAt set) — generation produced no report.
+    // null on a failure row (summaryFailedAt set), and on a pending row, where generation has
+    // claimed the round but has not finished.
     report: AnalysisReport | null
     createdAt: Date
     summaryFailedAt: Date | null
+    summaryStartedAt: Date | null
+    // Judged here rather than in the browser, so a reviewer's clock cannot call a live run dead.
+    isStale: boolean
     files: { name: string; fileType: FileType }[]
 }
 
@@ -713,6 +719,7 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
             eb.ref('report').$castTo<AnalysisReport | null>().as('report'),
             'createdAt',
             'summaryFailedAt',
+            'summaryStartedAt',
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
@@ -727,29 +734,19 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
         .where('round', '=', round)
         .executeTakeFirst()
 
-    return row ?? null
+    return row ? { ...row, isStale: isStudyReviewStale(row) } : null
 }
 
-export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult | null }
 
-// The summary and the scan always travel together — both server renders of the code section and the
-// poll that keeps it current need the pair — so they are fetched as one thing.
-export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
-    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
-    return { review, scan }
-}
-
-// The poll's variant. A scan that has already reported is immutable for the round, so once the
-// client holds one it only needs the summary — and re-reading the scan meant fetching and parsing
-// the same S3 object every 5s for the length of a generation (OTTER-775 review). `scan` comes back
-// null to mean "unchanged, keep yours", never the client's own copy echoed back as confirmed.
-export async function jobAnalysisUpdateForJob(
-    job: JobForRound,
-    { scanSettled }: { scanSettled: boolean },
-): Promise<{ review: StudyReviewWithMeta | null; scan: JobScanResult | null }> {
+// `withScan` because a scan costs an S3 fetch and two parses, while the summary is one row: a
+// caller that does not render a verdict should not pay for one. No surface renders one today —
+// OTTER-694 took the panel off the review page and the feature is parked until the replacement
+// scanning tool is chosen (OTTER-775) — so every current caller leaves it off and `scan` is null.
+export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
     const [review, scan] = await Promise.all([
         getStudyReviewForJob(job),
-        scanSettled ? Promise.resolve(null) : jobScanResultForJob(jobRowId(job)),
+        withScan ? jobScanResultForJob(jobRowId(job)) : Promise.resolve(null),
     ])
     return { review, scan }
 }

@@ -38,6 +38,18 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         'const Row = ({ gap }) => <Stack gap={gap} />',
         // Both ternary branches are tokens.
         '<Text c={isActive ? semanticColor("text.white") : semanticColor("text.secondary")} />',
+        // Mantine's `color` prop takes a ramp name; the theme maps the SI ramps' variants to tokens.
+        '<Alert color="red" />',
+        '<Badge color="grey" variant="light" />',
+        '<Burger color={semanticColor("text.white")} />',
+        '<Icon color="currentColor" />',
+        '<Text color="inherit" />',
+        'const Row = ({ color }) => <Badge color={color} />',
+        'const Row = ({ c = "dimmed" }) => <Text c={c} />',
+        // Object literals feed the same props, so the same names pass.
+        `notifications.show({ color: 'green', message: 'Saved' })`,
+        `const CONFIG = { done: { color: 'green', label: 'Done' } }`,
+        `const MUTED = { c: 'dimmed' }`,
     ],
     invalid: [
         {
@@ -118,6 +130,51 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         {
             code: 'const gap = "12px"',
             errors: [{ messageId: 'pxLiteral' }],
+        },
+        // Stock Mantine ramps the theme never defines: the badge contrast failures QA measured were
+        // `color: 'teal'` and `color="orange"`, invisible to a check that only knew `c` and `bg`.
+        {
+            code: '<Badge color="teal" />',
+            errors: [{ messageId: 'stockRamp' }],
+        },
+        {
+            code: `const CONFIG = { done: { color: 'teal', label: 'Done' } }`,
+            errors: [{ messageId: 'stockRamp' }],
+        },
+        {
+            code: `notifications.show({ color: 'orange', message: 'Wait' })`,
+            errors: [{ messageId: 'stockRamp' }],
+        },
+        {
+            code: `<ActionIcon color={isBusy ? 'gray' : 'grey'} />`,
+            errors: [{ messageId: 'stockRamp' }],
+        },
+        // A shade or hex on `color` is reported once, by the literal visitor.
+        {
+            code: '<Badge color="teal.5" />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Chip color="#D4D1F3" />',
+            errors: [{ messageId: 'hexLiteral' }],
+        },
+        // `white` has a token (text.white); a bare keyword bypasses it like it does on `c`.
+        {
+            code: '<Burger color="white" />',
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: `const PILL = { bg: 'white', c: 'black' }`,
+            errors: [{ messageId: 'rawColor' }, { messageId: 'rawColor' }],
+        },
+        // Inside `style`/`styles` the prop itself is the report; its keys are not reported again.
+        {
+            code: `<Box style={{ display: 'flex', color: 'gray' }} />`,
+            errors: [{ messageId: 'inlineStyle' }],
+        },
+        {
+            code: `<Alert styles={{ icon: { color: 'teal' } }} />`,
+            errors: [{ messageId: 'oneOffStyles' }],
         },
     ],
 })

@@ -4,13 +4,14 @@ import { useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
+import { notifications } from '@mantine/notifications'
+import { captureException } from '@sentry/nextjs'
+import { DECISION_NOTICES } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
-import { actionResult } from '@/lib/utils'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
@@ -40,11 +41,14 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         isSuccess,
         variables: pendingReview,
     } = useMutation({
-        mutationFn: async (args: SubmitCodeReviewArgs) =>
-            actionResult(await submitCodeReviewDecisionAction({ orgSlug, studyId, ...args })),
-        onError: reportMutationError('Failed to submit code review'),
+        mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
+        onError: (err) => {
+            captureException(err)
+            notifications.show(DECISION_NOTICES.failed)
+        },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            notifications.show(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (broadcastProvider && submittedByClerkId) {

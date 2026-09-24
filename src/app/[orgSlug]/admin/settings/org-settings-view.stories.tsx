@@ -8,7 +8,7 @@ import { OrganizationSettingsDisplay } from './organization-settings-display'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { CodeEnvRowView, CodeEnvsView } from './code-envs-view'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
-import { TestLabRowView, TestLabsView } from './test-labs-view'
+import { TestLabRowView, TestLabsEmptyView, TestLabsTableView, TestLabsView } from './test-labs-view'
 
 // The same layout settings/page.tsx renders, with inline fixtures and stand-in action controls.
 const meta = { title: 'Pages / Org settings', argTypes: pageBackgroundArgTypes }
@@ -28,8 +28,7 @@ const org: Org = {
 
 const noop = () => {}
 
-// The About card in display state; the edit toggle is a container concern, so onStartEdit is a
-// no-op.
+// The edit toggle is a container concern, so onStartEdit is a no-op.
 const orgCard = (o: Org) => (
     <Paper shadow="xs" p="xl" mb="xl">
         <OrganizationSettingsDisplay org={o} onStartEdit={noop} />
@@ -111,10 +110,10 @@ const DataSourcesCard = (
 
 const TestLabsCard = (
     <TestLabsView onAdd={noop}>
-        <Stack gap={0}>
-            <TestLabRowView name="Mars Undergraduate Lab" />
-            <TestLabRowView name="Phobos Analytics" />
-        </Stack>
+        <TestLabsTableView>
+            <TestLabRowView name="Mars Undergraduate Lab" addedOn="Sep 14, 2026" />
+            <TestLabRowView name="Phobos Analytics" addedOn="Sep 21, 2026" />
+        </TestLabsTableView>
     </TestLabsView>
 )
 
@@ -153,9 +152,7 @@ export const EmptyCards: Story = () => (
             }
             testLabs={
                 <TestLabsView onAdd={noop}>
-                    <Text fz="sm" c="dimmed" ta="center" p="md">
-                        No test labs have been added.
-                    </Text>
+                    <TestLabsEmptyView />
                 </TestLabsView>
             }
         />

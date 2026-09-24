@@ -31,11 +31,11 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     resultsErrored: false,
     runErrored: false,
     resultsDisplayStatus: null,
+    resultsViewed: false,
+    executionStage: null,
     submissionRound: 0,
     hasSavedEdits: false,
     hasSavedCodeEdits: false,
-    displayStatus: 'DRAFT',
-    latestJobStatuses: [],
     ...overrides,
 })
 

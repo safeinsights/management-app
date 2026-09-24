@@ -18,7 +18,7 @@ import { useConnectionPhase } from '@/lib/realtime/yjs-websocket-context'
 import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
-import { EditorFooter } from './editor-footer'
+import { EditorFooter, EditorFooterArea } from './editor-footer'
 import { EditorSurface, resolveContentHeight } from './editor-surface'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
@@ -320,46 +320,61 @@ export function CollaborativeEditor({
     // the navigation completes.
     if (authFailureCode === 'STUDY_NOT_EDITABLE') return null
 
-    if (authFailureCode && TERMINAL_AUTH_CODES.has(authFailureCode)) return <EditorUnavailable />
+    // Neither state recovers without a page reload.
+    const isUnavailable = phase === 'failed' || (!!authFailureCode && TERMINAL_AUTH_CODES.has(authFailureCode))
 
-    if (phase === 'failed') return <EditorUnavailable />
+    // Both fallbacks carry the footer: Submit stays enabled to surface errors, so a field whose
+    // editor never mounted still owes the researcher its own error and count (OTTER-777).
+    if (isUnavailable)
+        return (
+            <Stack gap="xxs">
+                <EditorUnavailable />
+                <EditorFooterArea left={footerLeft} right={footerRight} />
+            </Stack>
+        )
 
     // Same resolution the surface uses, so the skeleton matches the mounted height and the
     // page does not jump.
-    if (phase === 'initial') return <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
+    if (phase === 'initial')
+        return (
+            <Stack gap="xxs">
+                <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
+                <EditorFooterArea left={footerLeft} right={footerRight} />
+            </Stack>
+        )
 
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <LexicalCollaboration>
                 {(phase === 'reconnecting' || authFailureCode === 'INFRA_UNAVAILABLE') && <ReconnectingBanner />}
-                <EditorSurface
-                    inputId={inputId}
-                    contentClassName={contentClassName}
-                    contentStyle={contentStyle}
-                    placeholder={placeholder}
-                    ariaLabel={ariaLabel}
-                    ariaDescribedBy={ariaDescribedBy}
-                    ariaRequired={ariaRequired}
-                    error={error}
-                    widgetBlur={widgetBlur}
-                    contentHeight={contentHeight}
-                    isResizable={isResizable}
-                >
-                    <CollaborationPlugin
-                        id={id}
-                        providerFactory={providerFactory}
-                        shouldBootstrap={false}
-                        username={username}
-                        cursorColor={cursorColor}
-                        awarenessData={awarenessData}
-                    />
-                    {onChange && <EditorChangePlugin onChange={onChange} />}
-                    <ListPlugin />
-                    {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
-                    <EscapeFocusPlugin />
-                    <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
-                </EditorSurface>
-                <Stack gap="xxs" mt="xxs">
+                <Stack gap="xxs">
+                    <EditorSurface
+                        inputId={inputId}
+                        contentClassName={contentClassName}
+                        contentStyle={contentStyle}
+                        placeholder={placeholder}
+                        ariaLabel={ariaLabel}
+                        ariaDescribedBy={ariaDescribedBy}
+                        ariaRequired={ariaRequired}
+                        error={error}
+                        widgetBlur={widgetBlur}
+                        contentHeight={contentHeight}
+                        isResizable={isResizable}
+                    >
+                        <CollaborationPlugin
+                            id={id}
+                            providerFactory={providerFactory}
+                            shouldBootstrap={false}
+                            username={username}
+                            cursorColor={cursorColor}
+                            awarenessData={awarenessData}
+                        />
+                        {onChange && <EditorChangePlugin onChange={onChange} />}
+                        <ListPlugin />
+                        {/* No TabIndentationPlugin: banned in eslint.config.mjs, which carries the why. */}
+                        <EscapeFocusPlugin />
+                        <LinkPlugin validateUrl={isValidUrl} attributes={linkAttributes} />
+                    </EditorSurface>
                     <EditorFooter left={footerLeft} right={footerRight}>
                         <SaveStatus provider={activeProvider} isVisible={isSaveStatusVisible && !error} />
                     </EditorFooter>

@@ -340,7 +340,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -432,7 +432,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             // against it rather than shown as current (OTTER-779).
             const round = await codeRoundForJob(latestJob.id, db)
             triggerCodeScan(latestJob.id, orgSlug, studyId, round)
-            onStudyReviewRequested({ studyJobId: latestJob.id, round })
+            afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
 
         onStudyCreated({ userId, studyId })
@@ -524,7 +524,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
-    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status }) => {
+    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')
         }
@@ -571,7 +571,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
             onStudyCreated({ userId, studyId })
         }
 
-        onStudyReviewRequested({ studyJobId, round })
+        afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
@@ -790,7 +790,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
-    .handler(async ({ orgSlug, params, session, db }) => {
+    .handler(async ({ orgSlug, params, session, db, afterCommit }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
         const raw = await rawStudyStateForStudy(studyId, db)
@@ -848,7 +848,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .execute()
 
         onStudyCodeSubmitted({ userId, studyId })
-        onStudyReviewRequested({ studyJobId, round })
+        afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)

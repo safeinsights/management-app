@@ -68,7 +68,7 @@ const renderPage = async (orgSlug = 'openstax') => {
     return { study }
 }
 
-const submitCodeButton = () => screen.getByRole('button', { name: /submit code for review/i })
+const submitCodeButton = () => within(screen.getByTestId('submit-row')).getByRole('button', { name: /submit code/i })
 
 /**
  * The study agreement gate is the only thing that disables the button, and it reads as blocked

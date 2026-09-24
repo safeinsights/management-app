@@ -52,7 +52,7 @@ type SubmitCodeFooterProps = {
 // the nav table's "Previous step" instead of laying out a second row.
 const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ studyId, nav, ide, isBlockedByAgreement, onSubmitClick }) => (
     <Stack w="100%">
-        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code yet." />
+        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code" />
         <StepNavigation
             nav={nav}
             formAction={

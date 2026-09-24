@@ -31,6 +31,9 @@ const activityQueryKey = (jobId: string) => ['job-file-activity', jobId, ORG_SLU
 const decryptedFile = (path: string): JobFileInfo =>
     ({ sourceId: faker.string.uuid(), path, contents: new ArrayBuffer(8) }) as JobFileInfo
 
+const typedFile = (path: string, fileType: JobFileInfo['fileType']): JobFileInfo =>
+    ({ sourceId: faker.string.uuid(), path, fileType, contents: new ArrayBuffer(8) }) as JobFileInfo
+
 const activityFor = (file: JobFileInfo): JobFileActivity => ({
     studyJobFileId: file.sourceId,
     filePath: file.path,
@@ -118,5 +121,47 @@ describe('useOutputsFiles activity display', () => {
         expect(client.getQueryCache().find({ queryKey: activityQueryKey(jobId) })?.meta).toEqual({
             errorMessage: 'Failed to load file activity',
         })
+    })
+})
+
+// APPROVED-* fixtures, because useDecryptFiles has already rewritten the ENCRYPTED-* names (OTTER-758).
+describe('useOutputsFiles row order', () => {
+    const shuffled = () => [
+        typedFile('tutor_results.csv', 'APPROVED-RESULT'),
+        typedFile('exercises_results.csv', 'APPROVED-RESULT'),
+        typedFile('a_plot.png', 'APPROVED-RESULT'),
+        typedFile('security-scan-log.txt', 'APPROVED-SECURITY-SCAN-LOG'),
+        typedFile('archive.zip', 'APPROVED-RESULT'),
+    ]
+
+    it('lists the scan log first and the results alphabetically', () => {
+        const { result } = renderFiles(faker.string.uuid(), shuffled(), [])
+
+        expect(result.current.rows.map((row) => row.name)).toEqual([
+            'security-scan-log.txt',
+            'a_plot.png',
+            'archive.zip',
+            'exercises_results.csv',
+            'tutor_results.csv',
+        ])
+    })
+
+    it('leaves the array it was given untouched, because the researcher panels share it', () => {
+        const files = shuffled()
+        const asGiven = files.map((file) => file.path)
+
+        renderFiles(faker.string.uuid(), files, [])
+
+        expect(files.map((file) => file.path)).toEqual(asGiven)
+    })
+
+    it('sorts on the displayed name rather than the full archive path', () => {
+        const files = [
+            typedFile('zzz/a_plot.png', 'APPROVED-RESULT'),
+            typedFile('aaa/tutor_results.csv', 'APPROVED-RESULT'),
+        ]
+        const { result } = renderFiles(faker.string.uuid(), files, [])
+
+        expect(result.current.rows.map((row) => row.name)).toEqual(['a_plot.png', 'tutor_results.csv'])
     })
 })

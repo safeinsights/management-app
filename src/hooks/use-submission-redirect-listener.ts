@@ -22,7 +22,7 @@ const isDecisionEventType = (value: unknown): value is DecisionEventType =>
 // What the peer's decision closed, per round. Together, so a copy change can be read at a glance.
 const DECISION_SUBJECT: Record<DecisionEventType, string> = {
     'proposal-review-submitted': 'this study proposal',
-    'code-review-submitted': 'this study code',
+    'code-review-submitted': 'this output',
     'outputs-review-submitted': 'this output',
 }
 

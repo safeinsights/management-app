@@ -1,6 +1,5 @@
 import type { Json, StudyJobStatus, StudyStatus } from '@/database/types'
-import type { AllStatus } from '@/lib/types'
-import type { CodeDecisionStatus } from '@/lib/study-job-status'
+import type { CodeDecisionStatus, ExecutionStage } from '@/lib/study-job-status'
 
 export type StudyRole = 'researcher' | 'reviewer'
 
@@ -58,12 +57,15 @@ export type StudyState = {
     // by RUN-COMPLETE on the same job, and no round-closing status blocks either one.
     runErrored: boolean
     resultsDisplayStatus: 'RUN-COMPLETE' | 'FILES-APPROVED' | 'FILES-REJECTED' | 'JOB-ERRORED' | null
+    // The research lab has opened the released outputs decision (a RESULTS-VIEWED row on the latest
+    // job). The only pill fact the lifecycle statuses cannot carry (OTTER-698).
+    resultsViewed: boolean
+    // Furthest enclave stage the latest job reached, or null before packaging starts. Set-based like
+    // every other fact: the status log is append-only, so the furthest stage present is the current one.
+    executionStage: ExecutionStage | null
     submissionRound: number
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean
-    displayStatus: AllStatus
-    // Raw status set of the LATEST job. Set, not ordered.
-    latestJobStatuses: StudyJobStatus[]
 }
 
 export type DashboardState = Omit<StudyState, 'submissionRound' | 'hasSavedEdits' | 'hasSavedCodeEdits'>

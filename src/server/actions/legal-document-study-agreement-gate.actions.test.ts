@@ -44,11 +44,16 @@ const insertStudyWithDistinctOrgs = async ({ status = 'APPROVED' as StudyStatus,
 }
 
 describe('fetchStudyAgreementStatusAction', () => {
+    // The notice prints both names, so they travel with the state rather than being fetched again.
     it('reports none when no agreement has been published', async () => {
-        const { study, researchLab } = await insertStudyWithDistinctOrgs()
+        const { study, researchLab, dataPartner } = await insertStudyWithDistinctOrgs()
         await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
 
-        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
+        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({
+            state: 'none',
+            researchLabName: researchLab.name,
+            dataPartnerName: dataPartner.name,
+        })
     })
 
     it('reports exempt for a test study, so the notice does not block a lab that owes nothing', async () => {
@@ -59,11 +64,15 @@ describe('fetchStudyAgreementStatusAction', () => {
     })
 
     it('reports none for a draft, so nobody is blocked by an abandoned upload', async () => {
-        const { study, researchLab } = await insertStudyWithDistinctOrgs()
+        const { study, researchLab, dataPartner } = await insertStudyWithDistinctOrgs()
         await insertTestStudyAgreement({ studyId: study.id, published: false })
         await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
 
-        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({ state: 'none' })
+        expect(actionResult(await fetchStudyAgreementStatusAction({ studyId: study.id }))).toEqual({
+            state: 'none',
+            researchLabName: researchLab.name,
+            dataPartnerName: dataPartner.name,
+        })
     })
 
     // The version id, not a signed URL: the modal links at /dl/legal, which presigns on request.
@@ -188,6 +197,23 @@ describe('requireStudyAgreementAcknowledged', () => {
         ).resolves.toBeUndefined()
     })
 
+    it('clears only the member who acknowledged, not the rest of their lab', async () => {
+        const { study, researchLab } = await insertStudyWithDistinctOrgs()
+        const version = await insertTestStudyAgreement({ studyId: study.id })
+        const { user: colleague } = await insertTestUser({
+            org: { id: researchLab.id, slug: researchLab.slug, type: 'lab' },
+        })
+        const { user } = await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab' })
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
+
+        await expect(
+            requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: user.id }),
+        ).resolves.toBeUndefined()
+        await expect(
+            requireStudyAgreementAcknowledged(db, { studyId: study.id, userId: colleague.id }),
+        ).rejects.toThrow()
+    })
+
     it('allows an SI admin, who owes nothing', async () => {
         const { study } = await insertStudyWithDistinctOrgs()
         await insertTestStudyAgreement({ studyId: study.id })
@@ -281,6 +307,21 @@ describe('every act the gate names runs the middleware', () => {
         })
 
         expect(() => actionResult(result)).toThrow(/must be acknowledged/)
+    })
+
+    // The refusal reaches the user verbatim, so it has to read as a sentence and not as a field key.
+    it('refuses in words the user can read', async () => {
+        const { study } = await arrangeStudy('lab')
+
+        const result = await submitStudyCodeAction({
+            studyId: study.id,
+            mainFileName: 'main.R',
+            fileNames: ['main.R'],
+        })
+
+        expect(() => actionResult(result)).toThrow(
+            'Study Agreement must be acknowledged before you can continue with this study',
+        )
     })
 
     it('refuses resubmitStudyCodeAction', async () => {

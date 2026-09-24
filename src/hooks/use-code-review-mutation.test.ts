@@ -35,7 +35,6 @@ const validFeedback = buildFeedback(60)
 const validCriteria: CodeReviewCriteria = {
     proposalAlignment: 'yes',
     agreementCompliance: 'yes',
-    securityChecks: 'not-sure',
     privacyProtection: 'yes',
 }
 
@@ -155,9 +154,11 @@ describe('useCodeReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit code review',
+            ([arg]) => arg && (arg as { title?: string }).title === 'Decision could not be submitted',
         )
         expect(errorCall).toBeDefined()
+        // A refusal reaches the reviewer verbatim, so it must not arrive wearing an "Error:" prefix.
+        expect((errorCall?.[0] as { message?: string }).message).not.toMatch(/^Error:/)
         expect(handle.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
     })

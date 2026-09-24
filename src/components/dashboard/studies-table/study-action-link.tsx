@@ -5,8 +5,8 @@ import { Routes } from '@/lib/routes'
 import { useSession } from '@/hooks/session'
 import { Audience, Scope, StudyRow } from './types'
 import { DeleteDraftButton } from './delete-draft-button'
-import { projectStudyState, resolveDashboardAction } from '@/lib/study-screen'
-import { dashboardRawStateFromRow } from './dashboard-raw-state'
+import { resolveDashboardAction } from '@/lib/study-screen'
+import { rowStudyState } from './dashboard-raw-state'
 
 type StudyActionLinkProps = {
     study: StudyRow
@@ -29,7 +29,7 @@ function ResearcherLink({
 }) {
     const { session } = useSession()
     const labSlug = study.submittedByOrgSlug || orgSlug
-    const action = resolveDashboardAction('researcher', projectStudyState(dashboardRawStateFromRow(study)), {
+    const action = resolveDashboardAction('researcher', rowStudyState(study), {
         orgSlug: labSlug,
         studyId: study.id,
     })

@@ -9,6 +9,14 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 // With one file the row's own download icon already does the job.
 const DOWNLOAD_ALL_MIN_FILES = 2
 
+const COLUMN_WIDTHS = {
+    lastActivity: 480,
+    actions: 100,
+} as const
+
+// The two pinned columns plus a readable file name, below which the container scrolls instead.
+const TABLE_MIN_WIDTH = COLUMN_WIDTHS.lastActivity + COLUMN_WIDTHS.actions + 240
+
 type DownloadAllButtonProps = {
     isVisible: boolean
     isPreparing: boolean
@@ -68,13 +76,16 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                 <Divider color={semanticColor('border.default')} />
                 {/* File names, actor names and timestamps are all unbounded; without this the
                     Actions column is the first thing pushed off a narrow viewport. */}
-                <Table.ScrollContainer minWidth={520}>
-                    <Table verticalSpacing="md" data-testid="outputs-files-table">
+                <Table.ScrollContainer minWidth={TABLE_MIN_WIDTH}>
+                    {/* Fixed layout, so a "Last activity" cell that fills in cannot resize the columns (OTTER-758). */}
+                    <Table verticalSpacing="md" layout="fixed" w="100%" data-testid="outputs-files-table">
                         <Table.Thead bg={semanticColor('surface.page')}>
                             <Table.Tr>
                                 <Table.Th scope="col">File name</Table.Th>
-                                <Table.Th scope="col">Last activity</Table.Th>
-                                <Table.Th scope="col" ta="right">
+                                <Table.Th scope="col" w={COLUMN_WIDTHS.lastActivity}>
+                                    Last activity
+                                </Table.Th>
+                                <Table.Th scope="col" w={COLUMN_WIDTHS.actions} ta="right">
                                     Actions
                                 </Table.Th>
                             </Table.Tr>

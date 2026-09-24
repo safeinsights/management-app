@@ -109,7 +109,7 @@ describe('currentExecutionStage', () => {
         ).toEqual({ status: 'JOB-PACKAGING', startedAt })
     })
 
-    it('returns the most recently started stage when several are present', () => {
+    it('returns the furthest stage when several are present', () => {
         const running = new Date('2026-07-20T12:00:00Z')
         expect(
             currentExecutionStage([
@@ -130,6 +130,17 @@ describe('currentExecutionStage', () => {
                 { status: 'JOB-READY', createdAt: sameMs },
             ]),
         ).toEqual({ status: 'JOB-RUNNING', startedAt: sameMs })
+    })
+
+    // Same answer as projectStudyState's executionStage, so the pill and the pending screen agree.
+    it('picks the furthest stage even when an earlier stage carries a later timestamp', () => {
+        const running = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-RUNNING', createdAt: running },
+                { status: 'JOB-READY', createdAt: new Date('2026-07-20T11:00:00Z') },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
     })
 
     it('accepts ISO string timestamps', () => {
@@ -182,6 +193,17 @@ describe('latestStatusAt', () => {
                 'RUN-COMPLETE',
             ),
         ).toBe(rerunAt)
+    })
+
+    // Same answer as projectStudyState's executionStage, so the pill and the pending screen agree.
+    it('picks the furthest stage even when an earlier stage carries a later timestamp', () => {
+        const running = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-RUNNING', createdAt: running },
+                { status: 'JOB-READY', createdAt: new Date('2026-07-20T11:00:00Z') },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
     })
 
     it('accepts ISO string timestamps', () => {
