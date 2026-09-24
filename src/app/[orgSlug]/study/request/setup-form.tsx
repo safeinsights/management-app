@@ -20,6 +20,13 @@ interface SetupFormProps extends SetupFormLocks {
     onTitleBlur: () => void
     lockedOrgName?: string
     lockedLanguageLabel?: string
+    isIntroVisible: boolean
+}
+
+const SetupIntro: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return <Text>{INTRO}</Text>
 }
 
 export const SetupForm: FC<SetupFormProps> = ({
@@ -33,10 +40,11 @@ export const SetupForm: FC<SetupFormProps> = ({
     isLanguageLocked,
     lockedOrgName,
     lockedLanguageLabel,
+    isIntroVisible,
 }) => (
     <ProposalStepHeader stepLabel="STEP 1" heading="Set up study">
         <Stack gap="lg">
-            <Text>{INTRO}</Text>
+            <SetupIntro isVisible={isIntroVisible} />
             <Stack gap="xl">
                 <StudyTitleField
                     value={titleValue}
