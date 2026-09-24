@@ -5,7 +5,6 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
-    userEvent,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
@@ -129,7 +128,7 @@ describe('StudyViewCode (/view/code)', () => {
             ['JOB-RUNNING', 'JOB-ERRORED'],
         ],
         ['the run errored before any enclave execution, before a files decision', ['JOB-ERRORED']],
-    ] as const)('shows the submitted-code control when %s', async (_description, statuses) => {
+    ] as const)('shows the Code files section when %s', async (_description, statuses) => {
         const { org, study } = await seedCodeStudy([...statuses])
 
         const page = await StudyViewCode({
@@ -140,10 +139,8 @@ describe('StudyViewCode (/view/code)', () => {
         expect(page?.type).toBe(CodePostDecisionView)
 
         renderWithProviders(page!)
-        const toggle = screen.getByTestId('study-code-toggle')
-        expect(toggle).toHaveTextContent('View submitted study code')
-        await userEvent.setup().click(toggle)
-        expect(await screen.findByTestId('submitted-code-table')).toBeInTheDocument()
+        expect(screen.getByTestId('submitted-code-files-section')).toBeInTheDocument()
+        expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
         expect(screen.getByText('main.R')).toBeInTheDocument()
     })
 
@@ -157,10 +154,8 @@ describe('StudyViewCode (/view/code)', () => {
         })
 
         renderWithProviders(page!)
-        await userEvent.setup().click(screen.getByTestId('study-code-toggle'))
-        expect(await screen.findByText('No code files were uploaded.')).toBeInTheDocument()
+        expect(screen.getByText('No code files were uploaded.')).toBeInTheDocument()
         expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
-        expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide submitted study code')
     })
 
     it('404s for an APPROVED study that has not submitted code (cannot jump ahead)', async () => {

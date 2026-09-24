@@ -5,7 +5,7 @@ import { actionResult } from '@/lib/utils'
 import { CodePostSubmissionView } from '../view/code-post-submission-view'
 import type { ScreenComponentProps } from './types'
 
-export async function CodeUnderReviewScreen({ study, orgSlug, nav }: ScreenComponentProps) {
+export async function CodeUnderReviewScreen({ study, nav }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
 
@@ -17,7 +17,6 @@ export async function CodeUnderReviewScreen({ study, orgSlug, nav }: ScreenCompo
 
     return (
         <CodePostSubmissionView
-            orgSlug={orgSlug}
             study={study}
             job={job}
             reviewingOrgName={reviewingOrgName}

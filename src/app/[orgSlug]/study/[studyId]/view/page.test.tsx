@@ -268,7 +268,7 @@ describe('StudyViewPage', () => {
 
                 expect(page?.type).toBe(CodePostDecisionView)
                 renderWithProviders(page!)
-                expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View submitted study code')
+                expect(screen.getByTestId('submitted-code-files-section')).toBeInTheDocument()
             },
         )
 

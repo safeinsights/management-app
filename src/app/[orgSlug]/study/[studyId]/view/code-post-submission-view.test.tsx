@@ -81,7 +81,6 @@ function renderView(
 ) {
     renderWithProviders(
         <CodePostSubmissionView
-            orgSlug={ORG_SLUG}
             study={study}
             job={job}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
@@ -186,33 +185,39 @@ describe('CodePostSubmissionView', () => {
         })
     })
 
-    describe('submitted code section', () => {
-        it('renders the section collapsed by default', async () => {
+    describe('code files section', () => {
+        it('renders a standalone Code files section with the submitted code table', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
-            expect(screen.getByTestId('study-code-toggle')).toHaveAttribute('aria-expanded', 'false')
+            const section = screen.getByTestId('submitted-code-files-section')
+            expect(within(section).getByRole('heading', { name: 'Code files' })).toBeInTheDocument()
+            expect(within(section).getByTestId('submitted-code-table')).toBeInTheDocument()
         })
 
-        it('expands when "View full study code" is clicked and shows the table + new-tab proposal anchor', async () => {
+        it('shows only the first code file by default and hides the rest behind a toggle', async () => {
+            const { study, job } = await setupSubmittedStudy()
+            renderView(study, job)
+
+            const section = screen.getByTestId('submitted-code-files-section')
+            expect(within(section).getByText('main.R')).toBeInTheDocument()
+            expect(within(section).queryByText('helper.R')).not.toBeInTheDocument()
+
+            const toggle = within(section).getByTestId('view-all-code-files-toggle')
+            expect(toggle).toHaveTextContent('View all code files')
+        })
+
+        it('expands all files when "View all code files" is clicked', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
             const interact = userEvent.setup()
-            await interact.click(screen.getByTestId('study-code-toggle'))
+            await interact.click(screen.getByTestId('view-all-code-files-toggle'))
 
-            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
-            expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
-            expect(
-                screen.getByText('View the code files that you uploaded to run against the dataset.'),
-            ).toBeInTheDocument()
-
-            const proposalAnchor = screen.getByRole('link', { name: 'View approved initial request' })
-            expect(proposalAnchor).toHaveAttribute('target', '_blank')
-            expect(proposalAnchor).toHaveAttribute(
-                'href',
-                expect.stringContaining(`/${ORG_SLUG}/study/${study.id}/submitted`),
-            )
+            const section = screen.getByTestId('submitted-code-files-section')
+            expect(within(section).getByText('main.R')).toBeInTheDocument()
+            expect(within(section).getByText('helper.R')).toBeInTheDocument()
+            expect(screen.getByTestId('view-all-code-files-toggle')).toHaveTextContent('Hide code files')
         })
 
         it('renders read-only star (no button role), no delete control, and eye icon as a preview button', async () => {
@@ -220,7 +225,7 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             const interact = userEvent.setup()
-            await interact.click(screen.getByTestId('study-code-toggle'))
+            await interact.click(screen.getByTestId('view-all-code-files-toggle'))
 
             expect(screen.getByLabelText('Main file')).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /set .* as main file/i })).not.toBeInTheDocument()
@@ -230,20 +235,6 @@ describe('CodePostSubmissionView', () => {
 
             expect(screen.getByRole('button', { name: 'View main.R' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'View helper.R' })).toBeInTheDocument()
-        })
-
-        it('collapses when the in-section "Hide full study code" anchor is clicked', async () => {
-            const { study, job } = await setupSubmittedStudy()
-            renderView(study, job)
-
-            const interact = userEvent.setup()
-            await interact.click(screen.getByTestId('study-code-toggle'))
-
-            expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
-
-            await interact.click(screen.getByText('Hide full study code'))
-
-            expect(screen.getByTestId('study-code-toggle')).toHaveAttribute('aria-expanded', 'false')
         })
 
         it('excludes non-code files (security scan logs, encrypted logs) from the submitted code table', async () => {
@@ -291,7 +282,7 @@ describe('CodePostSubmissionView', () => {
             renderView(study, latestJob)
 
             const interact = userEvent.setup()
-            await interact.click(screen.getByTestId('study-code-toggle'))
+            await interact.click(screen.getByTestId('view-all-code-files-toggle'))
 
             expect(screen.getByText('main.R')).toBeInTheDocument()
             expect(screen.getByText('helper.R')).toBeInTheDocument()
@@ -333,15 +324,14 @@ describe('CodePostSubmissionView', () => {
             expect(banner).not.toHaveTextContent('Code submitted to')
         })
 
-        it('shows the compact "View submitted study code" toggle (no v1 expand row) and renders the feedback section', async () => {
+        it('renders the Code files section (not a toggle in the header) and the feedback section', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, {
                 submissionVersion: 2,
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
-            expect(screen.getByText('View submitted study code')).toBeInTheDocument()
-            expect(screen.queryByText('View full study code')).not.toBeInTheDocument()
+            expect(screen.getByTestId('submitted-code-files-section')).toBeInTheDocument()
             expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
         })
 
@@ -358,7 +348,6 @@ describe('CodePostSubmissionView', () => {
 
             expect(screen.getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
             expect(screen.getByTestId('status-alert')).toHaveTextContent('Code submitted to')
-            expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
     })

@@ -3,6 +3,7 @@ import { ActionIcon, Divider, Group, Table, Text, Tooltip } from '@mantine/core'
 import { DownloadSimpleIcon, EyeIcon, StarIcon } from '@phosphor-icons/react/dist/ssr'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { studyCodeURL } from '@/lib/paths'
+import { CollapseToggleLink } from './collapse-toggle-link'
 
 // Free of data fetching and the preview modal so it can render in isolation.
 
@@ -77,9 +78,20 @@ export interface SubmittedCodeTableViewProps {
     jobId: string
     files: LatestJobForStudy['files']
     onPreview: (file: SubmittedFile) => void
+    /** When set, only this many rows render initially; the rest sit behind "View all code files". */
+    maxVisibleFiles?: number
+    expanded?: boolean
+    onToggleExpand?: () => void
 }
 
-export const SubmittedCodeTableView: FC<SubmittedCodeTableViewProps> = ({ jobId, files, onPreview }) => {
+export const SubmittedCodeTableView: FC<SubmittedCodeTableViewProps> = ({
+    jobId,
+    files,
+    onPreview,
+    maxVisibleFiles,
+    expanded = false,
+    onToggleExpand,
+}) => {
     if (!files?.length) {
         return (
             <Text c="dimmed" size="sm">
@@ -88,7 +100,10 @@ export const SubmittedCodeTableView: FC<SubmittedCodeTableViewProps> = ({ jobId,
         )
     }
 
-    const rowElements = files.map((file) => (
+    const isTruncated = maxVisibleFiles != null && files.length > maxVisibleFiles
+    const visibleFiles = isTruncated && !expanded ? files.slice(0, maxVisibleFiles) : files
+
+    const rowElements = visibleFiles.map((file) => (
         <SubmittedCodeRow key={file.name} file={file} jobId={jobId} onPreview={onPreview} />
     ))
 
@@ -106,6 +121,26 @@ export const SubmittedCodeTableView: FC<SubmittedCodeTableViewProps> = ({ jobId,
                 <Table.Tbody>{rowElements}</Table.Tbody>
             </Table>
             <Divider />
+            <ViewAllToggle isVisible={isTruncated} expanded={expanded} onClick={onToggleExpand} />
         </>
+    )
+}
+
+const ViewAllToggle: FC<{ isVisible: boolean; expanded: boolean; onClick?: () => void }> = ({
+    isVisible,
+    expanded,
+    onClick,
+}) => {
+    if (!onClick) return null
+
+    return (
+        <CollapseToggleLink
+            label={expanded ? 'Hide code files' : 'View all code files'}
+            isExpanded={expanded}
+            onClick={onClick}
+            isVisible={isVisible}
+            mt="xs"
+            testId="view-all-code-files-toggle"
+        />
     )
 }

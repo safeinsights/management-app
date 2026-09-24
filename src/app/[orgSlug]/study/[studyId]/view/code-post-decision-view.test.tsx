@@ -9,13 +9,10 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
-    userEvent,
-    waitFor,
     within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
-import { Routes } from '@/lib/routes'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
@@ -107,7 +104,6 @@ function renderView(
 ) {
     renderWithProviders(
         <CodePostDecisionView
-            orgSlug={ORG_SLUG}
             study={study}
             job={job}
             entries={entries}
@@ -203,33 +199,23 @@ describe('CodePostDecisionView', () => {
         })
     })
 
-    describe('submitted code', () => {
-        it('breaks the submitted code out into its own "Submitted code" card, toggled from the step card', async () => {
+    describe('code files section', () => {
+        it('renders a standalone Code files section with the submitted code table', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            const toggle = screen.getByTestId('study-code-toggle')
-            expect(toggle).toHaveTextContent('View submitted study code')
-            expect(toggle).toHaveAttribute('aria-expanded', 'false')
-
-            const interact = userEvent.setup()
-            await interact.click(toggle)
-
-            await waitFor(() => expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument())
-            const collapseToggle = screen.getByTestId('study-code-toggle-collapse')
-            expect(collapseToggle).toHaveTextContent('Hide submitted study code')
-            expect(screen.getByRole('heading', { name: 'Submitted code' })).toBeInTheDocument()
-            expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
+            const section = screen.getByTestId('submitted-code-files-section')
+            expect(within(section).getByRole('heading', { name: 'Code files' })).toBeInTheDocument()
+            expect(within(section).getByTestId('submitted-code-table')).toBeInTheDocument()
         })
 
-        it('shows the "View approved initial request" link to studySubmitted in the broken-out card', async () => {
-            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-CHANGES-REQUESTED')
-            renderView(study, job, [buildEntry({ decision: 'NEEDS-CLARIFICATION' })], latestJobStatus)
+        it('hides the "View all" toggle when only one code file exists', async () => {
+            const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
+            renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            const link = screen.getByTestId('view-approved-initial-request')
-            expect(link).toHaveTextContent('View approved initial request')
-            expect(link).toHaveAttribute('href', Routes.studySubmitted({ orgSlug: ORG_SLUG, studyId: study.id }))
-            expect(link).toHaveAttribute('target', '_blank')
+            const section = screen.getByTestId('submitted-code-files-section')
+            expect(within(section).getByText('main.R')).toBeInTheDocument()
+            expect(within(section).queryByTestId('view-all-code-files-toggle')).not.toBeInTheDocument()
         })
     })
 
