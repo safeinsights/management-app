@@ -31,10 +31,9 @@ export function deriveStudyVersion(entries: { version: number }[]): number {
 }
 
 // Step 2 is the first time any of these columns is written, so one being non-empty means the
-// researcher reached it.
+// researcher reached it. Datasets are left out: Step 1 writes them (OTTER-803).
 export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
     if (study.piUserId) return true
-    if (study.datasets && study.datasets.length > 0) return true
     if (study.researchQuestions != null) return true
     if (study.projectSummary != null) return true
     if (study.impact != null) return true

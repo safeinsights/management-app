@@ -148,8 +148,9 @@ describe('draftHasStep2Progress', () => {
         expect(draftHasStep2Progress({ ...emptyDraftStep2, piUserId: 'user-123' })).toBe(true)
     })
 
-    it('returns true once a dataset has been picked', () => {
-        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: ['students'] })).toBe(true)
+    // Step 1 saves the datasets, so a draft left right after Step 1 must still reopen there.
+    it('returns false when only the Step 1 datasets are set', () => {
+        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: ['students'] })).toBe(false)
     })
 
     it.each([['researchQuestions'], ['projectSummary'], ['impact'], ['additionalNotes']] as const)(
@@ -167,7 +168,10 @@ describe('datasetDisplayNames', () => {
             { id: 'ds-2', name: 'Course Enrollment Data' },
             { id: 'ds-1', name: 'Student Activity Logs' },
         ]
-        expect(datasetDisplayNames(['ds-1', 'ds-2'], sources)).toEqual(['Student Activity Logs', 'Course Enrollment Data'])
+        expect(datasetDisplayNames(['ds-1', 'ds-2'], sources)).toEqual([
+            'Student Activity Logs',
+            'Course Enrollment Data',
+        ])
     })
 
     it('falls back to the id for a data source the org no longer lists', () => {
