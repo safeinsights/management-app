@@ -342,6 +342,47 @@ export async function seedCodeChangeRequested(title: string): Promise<SeedResult
     return { studyId: study.id }
 }
 
+export const SEEDED_RESUBMISSION_NOTE = 'Updated code per reviewer feedback.'
+
+// One change request answered: the round-1 decision and the round-2 note sit on the same job,
+// the way resubmitStudyCodeAction leaves them (OTTER-802).
+export async function seedCodeResubmitted(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
+
+    // Between the seeded statuses, which insertSubmittedJob spaced a second apart.
+    const now = Date.now()
+    await db
+        .insertInto('studyReviewComment')
+        .values([
+            {
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: await resolveUserId('reviewer'),
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: lexical('Requesting revisions to submitted code — please address criteria.'),
+                criteria: { proposalAlignment: 'no', agreementCompliance: 'no', privacyProtection: 'no' },
+                round: 1,
+                createdAt: new Date(now - 2500),
+            },
+            {
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: await resolveUserId('researcher'),
+                reviewKind: 'CODE',
+                entryType: 'RESUBMISSION-NOTE',
+                body: lexical(SEEDED_RESUBMISSION_NOTE),
+                round: 2,
+                createdAt: new Date(now - 500),
+            },
+        ])
+        .execute()
+
+    return { studyId: study.id, jobId: job.id }
+}
+
 // The history deliberately ends on FILES-APPROVED with CODE-SCANNED earlier: the resubmit save
 // gate must key on the decision, not the topmost status row.
 export async function seedCodeResultsReady(title: string): Promise<SeedResult> {

@@ -2,8 +2,8 @@
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
-import { DB } from '@/database/types'
-import { throwNotFound } from '@/lib/errors'
+import { DB, Json } from '@/database/types'
+import { isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
@@ -148,6 +148,42 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     if (await roundIsAlreadySubmitted(db, studyJobId)) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+}
+
+type CodeResubmissionNote = {
+    studyId: string
+    studyJobId: string
+    userId: string
+    round: number
+    body: Json
+}
+
+// One row per round (OTTER-802), which also makes a co-author's concurrent resubmit of the same
+// round roll back here rather than land a second submission: first-resubmitter-wins, as in
+// resubmitProposalAction.
+async function insertCodeResubmissionNote(
+    db: Kysely<DB>,
+    { studyId, studyJobId, userId, round, body }: CodeResubmissionNote,
+) {
+    try {
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId,
+                studyJobId,
+                authorId: userId,
+                reviewKind: 'CODE',
+                entryType: 'RESUBMISSION-NOTE',
+                body,
+                round,
+            })
+            .execute()
+    } catch (err) {
+        if (isPgUniqueViolation(err)) {
+            throw new ActionFailure({ submission: 'This code has already been resubmitted' })
+        }
+        throw err
+    }
 }
 
 const onSaveDraftStudyActionArgsSchema = z.object({
@@ -835,11 +871,13 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         // written against, so a summary or a scan is never filed under a round the job is not on.
         const round = await codeRoundForJob(studyJobId, db)
 
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)), resubmissionRound })
-            .where('id', '=', studyJobId)
-            .execute()
+        await insertCodeResubmissionNote(db, {
+            studyId,
+            studyJobId,
+            userId,
+            round: resubmissionRound,
+            body: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)),
+        })
 
         await db
             .updateTable('study')

@@ -16,8 +16,10 @@ import {
     seedCodeApprovedJobReady,
     seedCodeResultsReady,
     seedCodeRejected,
+    seedCodeResubmitted,
     seedCodeSubmitted,
     seedProposalPendingReview,
+    SEEDED_RESUBMISSION_NOTE,
 } from './e2e.seed'
 import { execSync } from 'child_process'
 
@@ -1073,6 +1075,44 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
     })
 })
 
+// From the open code review editor: "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable),
+// standard confirm modal.
+async function reviewerRequestsCodeRevision(page: Page, feedback: string) {
+    await fillCodeCriteria(page, 'no')
+    await page.getByTestId('code-review-decision-needs-clarification').click()
+    const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
+    await expect(feedbackEditor).toBeVisible()
+    await typeIntoLexical(feedbackEditor, feedback)
+
+    await page.getByTestId('code-review-submit').click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText('Request revision?')).toBeVisible()
+    await dialog.getByRole('button', { name: /^Request revision$/i }).click()
+    await expect(dialog).toBeHidden()
+
+    await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+}
+
+async function researcherResubmitsCode(page: Page, studyId: string, note: string) {
+    await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
+    await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+
+    await uploadResubmitFilesExpectingInheritedMain(page)
+
+    await page.getByLabel(/Resubmission Note/i).fill(note)
+
+    const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
+    await expect(resubmitButton).toBeEnabled()
+    await resubmitButton.click()
+    await page
+        .getByRole('dialog')
+        .getByRole('button', { name: /^Resubmit code$/i })
+        .click()
+
+    await page.waitForURL('**/view')
+}
+
 // Owns the reviewer request-code-changes surface AND the researcher code resubmit
 // surface. Seeds CODE-SUBMITTED, drives request-changes; then seeds the resulting
 // CODE-CHANGES-REQUESTED state implicitly via the live decision and drives resubmit.
@@ -1092,21 +1132,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.waitForURL(/\/review\/code$/)
         await expect(page.getByTestId('code-review-section')).toBeVisible()
 
-        await fillCodeCriteria(page, 'no')
-        // "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable), standard confirm modal.
-        await page.getByTestId('code-review-decision-needs-clarification').click()
-        const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
-        await expect(feedbackEditor).toBeVisible()
-        await typeIntoLexical(feedbackEditor, 'Requesting revisions to submitted code — please address criteria.')
-
-        await page.getByTestId('code-review-submit').click()
-        const dialog = page.getByRole('dialog')
-        await expect(dialog).toBeVisible()
-        await expect(dialog.getByText('Request revision?')).toBeVisible()
-        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
-        await expect(dialog).toBeHidden()
-
-        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+        await reviewerRequestsCodeRevision(page, 'Requesting revisions to submitted code — please address criteria.')
         await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('**/dashboard')
     })
@@ -1122,22 +1148,28 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
-        await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+        await researcherResubmitsCode(page, studyId, 'Updated code per reviewer feedback.')
+    })
+})
 
-        await uploadResubmitFilesExpectingInheritedMain(page)
+// A change-requested resubmit reuses the job, and the next round used to cost the previous one its
+// note (OTTER-802). Seeds the state after the first resubmit and drives one more round.
+test('Second code resubmission keeps the earlier round note', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('code-resubmit-again')
+    const { studyId } = await seedCodeResubmitted(studyTitle)
 
-        await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
+    await withRole(browser, 'reviewer', async (page) => {
+        await openCodeReviewEditor(page, studyTitle)
+        await reviewerRequestsCodeRevision(page, 'The agreements criterion is still not met.')
+    })
 
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
-        await expect(resubmitButton).toBeEnabled()
-        await resubmitButton.click()
-        await page
-            .getByRole('dialog')
-            .getByRole('button', { name: /^Resubmit code$/i })
-            .click()
+    await withRole(browser, 'researcher', async (page) => {
+        await researcherResubmitsCode(page, studyId, 'Addressed the agreements criterion.')
 
-        await page.waitForURL('**/view')
+        const thread = page.getByTestId('feedback-and-notes-section')
+        await expect(thread.getByText('Resubmission note (v3.0)')).toBeVisible()
+        await expect(thread.getByText('Resubmission note (v2.0)')).toBeVisible()
+        await expect(thread).toContainText(SEEDED_RESUBMISSION_NOTE)
     })
 })
 

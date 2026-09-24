@@ -9,6 +9,7 @@ import {
     expectStudyJobRecords,
     getAuditEntries,
     insertTestOrg,
+    insertTestCodeResubmissionNote,
     insertTestStudyAgreement,
     insertTestStudyData,
     insertTestStudyJobData,
@@ -44,7 +45,7 @@ import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[or
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
-import { lexicalJson } from '@/lib/lexical'
+import { lexicalJson, lexicalToText } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/aws', async () => {
@@ -1208,6 +1209,23 @@ describe('Request Study Actions', () => {
                 .orderBy('round')
                 .execute()
 
+        const resubmissionNotesFor = (studyJobId: string) =>
+            db
+                .selectFrom('studyReviewComment')
+                .select(['round', 'authorId', 'body'])
+                .where('studyJobId', '=', studyJobId)
+                .where('reviewKind', '=', 'CODE')
+                .where('entryType', '=', 'RESUBMISSION-NOTE')
+                .orderBy('round')
+                .execute()
+                .then((rows) =>
+                    rows.map(({ round, authorId, body }) => ({
+                        round,
+                        authorId,
+                        text: lexicalToText(JSON.stringify(body)),
+                    })),
+                )
+
         const submitCode = (studyId: string, root: string, files: Record<string, string>, mainFileName: string) =>
             writeWorkspaceFiles(root, studyId, files).then(() =>
                 actionResult(submitStudyCodeAction({ studyId, mainFileName, fileNames: Object.keys(files) })),
@@ -1362,13 +1380,87 @@ describe('Request Study Actions', () => {
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            const jobAfter = await db
+            expect(await resubmissionNotesFor(round1Job.id)).toEqual([
+                { round: 2, authorId: user.id, text: 'addressed the feedback and updated the code' },
+            ])
+        })
+
+        // The job stays the same across change requests, and the single study_job column it used
+        // to carry lost every note but the latest (OTTER-802).
+        it('keeps the note of every round when the same job is resubmitted again', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-notes')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
                 .selectFrom('studyJob')
-                .select(['resubmissionNote', 'resubmissionRound'])
-                .where('id', '=', round1Job.id)
+                .select('id')
+                .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            expect(jobAfter.resubmissionNote).not.toBeNull()
-            expect(jobAfter.resubmissionRound).toBe(2)
+
+            for (const [round, note] of [
+                [2, 'second round'],
+                [3, 'third round'],
+            ] as const) {
+                await db
+                    .insertInto('jobStatusChange')
+                    .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+                    .execute()
+                await writeWorkspaceFiles(root, study.id, { 'main.R': `round${round}` })
+                actionResult(
+                    await resubmitStudyCodeAction({
+                        studyId: study.id,
+                        mainFileName: 'main.R',
+                        fileNames: ['main.R'],
+                        resubmissionNote: note,
+                    }),
+                )
+                await flushDeferred()
+            }
+
+            expect(await jobCount(study.id)).toBe(1)
+            expect(await resubmissionNotesFor(job.id)).toEqual([
+                { round: 2, authorId: user.id, text: 'second round' },
+                { round: 3, authorId: user.id, text: 'third round' },
+            ])
+        })
+
+        it('rolls back a resubmit whose round already has a note', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-race')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+            // What a co-author's resubmit of this round leaves behind once it commits first.
+            await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'my copy of the fix',
+            })
+
+            expect(result).toEqual({ error: { submission: 'This code has already been resubmitted' } })
+            expect(await submittedStatusCount(study.id)).toBe(1)
+            expect((await resubmissionNotesFor(job.id)).map((n) => n.text)).toEqual(['addressed the feedback'])
         })
 
         it('resubmit succeeds after a file upload reuses the round job (no new job on CR upload)', async () => {
@@ -1639,12 +1731,15 @@ describe('Request Study Actions', () => {
             expect(updatedStudy.submittedAt).toEqual(study.submittedAt)
             expect(updatedStudy.codeResubmissionNoteDraft).toBeNull()
 
-            const newJob = await db
-                .selectFrom('studyJob')
-                .select(['resubmissionNote'])
-                .where('id', '=', result.studyJobId)
+            const note = await db
+                .selectFrom('studyReviewComment')
+                .select(['authorId', 'round', 'body'])
+                .where('studyJobId', '=', result.studyJobId)
+                .where('entryType', '=', 'RESUBMISSION-NOTE')
                 .executeTakeFirstOrThrow()
-            expect(newJob.resubmissionNote).not.toBeNull()
+            expect(note.authorId).toBe(user.id)
+            expect(note.round).toBe(2)
+            expect(lexicalToText(JSON.stringify(note.body))).toBe(wordsString(10))
         })
 
         it('generates a fresh AI review for the resubmitted code and keeps the previous round (OTTER-779)', async () => {
