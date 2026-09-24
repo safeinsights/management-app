@@ -74,13 +74,13 @@ describe('DraftProposalFooter submit button (OTTER-691)', () => {
     })
 
     it('stays enabled when the fields this page owns are empty', () => {
-        renderFooter({ ...fullyValidExceptTitle, datasets: [] })
+        renderFooter({ ...fullyValidExceptTitle, researchQuestions: '' })
         expect(submitButton()).toBeEnabled()
     })
 
     it('does not open the confirmation modal while a required field is empty', async () => {
         const user = userEvent.setup()
-        renderFooter({ ...fullyValidExceptTitle, datasets: [] })
+        renderFooter({ ...fullyValidExceptTitle, researchQuestions: '' })
 
         await user.click(submitButton())
 
@@ -136,6 +136,35 @@ describe('DraftProposalFooter submit button (OTTER-691)', () => {
     })
 })
 
+describe('DraftProposalFooter reviewer preview datasets (OTTER-803)', () => {
+    const noStep2Content: ProposalFormValues = {
+        ...fullyValidExceptTitle,
+        researchQuestions: '',
+        projectSummary: '',
+        impact: '',
+        piName: '',
+        piUserId: '',
+    }
+
+    // Every draft reaches Step 2 with datasets now, so they cannot count as something to preview.
+    it('keeps View as reviewer disabled when only the Step 1 datasets are set', () => {
+        renderFooter(noStep2Content)
+
+        expect(screen.getByRole('button', { name: 'View as reviewer' })).toBeDisabled()
+    })
+
+    it('still lists the Step 1 datasets in the preview', async () => {
+        const user = userEvent.setup()
+        renderFooter()
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+
+        const dialog = await screen.findByRole('dialog')
+        expect(within(dialog).getByText('Dataset(s) of interest')).toBeInTheDocument()
+        expect(within(dialog).getByText('dataset-1')).toBeInTheDocument()
+    })
+})
+
 describe('DraftProposalFooter reviewer preview title (OTTER-690)', () => {
     it('renders the persisted title rather than the form value', async () => {
         const user = userEvent.setup()
@@ -165,7 +194,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
             </ProposalProvider>,
         )
 
-    it('flushes edited fields to the study row and leaves the Step 1 title alone', async () => {
+    it('flushes edited fields to the study row and leaves the Step 1 title and datasets alone', async () => {
         const user = userEvent.setup()
         const { lab, studyId, user: researcher } = await createTestProposalDraft({ enclaveSlug: 'footer-nav-save' })
         memoryRouter.setCurrentUrl('/start')
@@ -186,7 +215,8 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
             .executeTakeFirstOrThrow()
         expect(study.title).toBe('Test draft')
         expect(study.piName).toBe('Jane Smith')
-        expect(study.datasets).toEqual(['dataset-1'])
+        // The form's seeded datasets never reach the row: Step 1 owns them (OTTER-803).
+        expect(study.datasets).toEqual(['test-dataset'])
     })
 
     it('reports the error and stays on Step 2 when the flush fails', async () => {

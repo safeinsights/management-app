@@ -62,7 +62,6 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     orgName={orgName}
                     members={members}
                     researcherName={researcherName}
-                    enclaveOrgSlug={enclaveOrgSlug}
                     isDraftCreator={isDraftCreator}
                 />
 

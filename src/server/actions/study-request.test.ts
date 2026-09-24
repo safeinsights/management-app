@@ -40,7 +40,11 @@ import {
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
-import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import {
+    DATASETS_REQUIRED_ERROR,
+    STUDY_TITLE_BLANK_ERROR,
+    STUDY_TITLE_OVER_LIMIT_ERROR,
+} from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -149,6 +153,7 @@ describe('Request Study Actions', () => {
                     title: 'Test Study',
                     piName: 'Test PI',
                     language: 'R' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
@@ -190,7 +195,12 @@ describe('Request Study Actions', () => {
         const draft = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Queued after commit', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Queued after commit',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -231,6 +241,7 @@ describe('Request Study Actions', () => {
                     title: 'Python Study',
                     piName: 'Test PI',
                     language: 'PYTHON' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
@@ -307,7 +318,12 @@ describe('Request Study Actions', () => {
         const draft = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Agreement Email Test', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Agreement Email Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -373,7 +389,12 @@ describe('Request Study Actions', () => {
         const draftResult = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Draft Event Test', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Draft Event Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -426,6 +447,39 @@ describe('Request Study Actions', () => {
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('DRAFT')
+    })
+
+    // A draft saved before datasets moved to Step 1 has none, and Step 2 cannot add them (OTTER-803).
+    it('finalizeStudySubmissionAction rejects a DRAFT with no datasets', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-no-datasets' })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { datasets: DATASETS_REQUIRED_ERROR } })
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
+    })
+
+    it('finalizeStudySubmissionAction keeps the datasets Step 1 stored', async () => {
+        const { studyId } = await createTestProposalDraft({
+            enclaveSlug: 'finalize-keeps-datasets',
+            studyInfo: { datasets: ['ds-step-1'] },
+        })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: { piName: 'PI' } }))
+
+        const row = await db
+            .selectFrom('study')
+            .select(['status', 'datasets'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(row.status).toBe('PENDING-REVIEW')
+        expect(row.datasets).toEqual(['ds-step-1'])
     })
 
     describe('OpenStax Proposal Flow (Step 2)', () => {
@@ -544,7 +598,7 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction transitions CHANGE-REQUESTED → PENDING-REVIEW', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org })
+            const { study } = await insertTestStudyOnly({ org, datasets: ['test-dataset'] })
 
             await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
 
@@ -587,7 +641,7 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id, datasets: ['test-dataset'] })
             await setTestStudyStatus(study.id, 'DRAFT')
 
             await db
@@ -1862,7 +1916,12 @@ describe('Request Study Actions', () => {
             const draft = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
-                    studyInfo: { title: 'Status round trip', piName: 'PI', language: 'R' as const },
+                    studyInfo: {
+                        title: 'Status round trip',
+                        piName: 'PI',
+                        language: 'R' as const,
+                        datasets: ['test-dataset'],
+                    },
                     submittingOrgSlug: lab.slug,
                 }),
             )

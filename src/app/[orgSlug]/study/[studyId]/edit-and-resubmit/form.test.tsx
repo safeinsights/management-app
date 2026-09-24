@@ -2,7 +2,7 @@ import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEven
 import { EditResubmitProvider, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { lexicalJson } from '@/lib/lexical'
 import { DRAFT_REQUIRED_ERRORS } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { DATASETS_FIELD_ID, PI_SELECT_ID, textFieldInputId } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
+import { PI_SELECT_ID, textFieldInputId } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { PROPOSAL_REQUIRED_NOTE_ERROR, RESUBMISSION_NOTE_FIELD_ID } from './schema'
 import { EditResubmitForm } from './form'
 
@@ -64,6 +64,15 @@ describe('EditResubmitForm proposal card (OTTER-762)', () => {
         expect(screen.queryByLabelText(/study title/i)).not.toBeInTheDocument()
         expect(screen.queryByText('A study title')).not.toBeInTheDocument()
     })
+
+    // Datasets are settled on Step 1 and cannot change afterwards, not even on a revision
+    // (OTTER-803).
+    it('renders no datasets field', () => {
+        renderForm(filledDraft)
+
+        expect(screen.queryByText('Dataset(s) of interest')).not.toBeInTheDocument()
+        expect(document.getElementById('datasets')).toBeNull()
+    })
 })
 
 describe('EditResubmitForm resubmit-click validation (OTTER-762)', () => {
@@ -72,8 +81,7 @@ describe('EditResubmitForm resubmit-click validation (OTTER-762)', () => {
 
         await clickResubmit()
 
-        expect(await screen.findByText(DRAFT_REQUIRED_ERRORS.datasets)).toBeInTheDocument()
-        expect(screen.getByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).toBeInTheDocument()
+        expect(await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).toBeInTheDocument()
         expect(screen.getByText(DRAFT_REQUIRED_ERRORS.projectSummary)).toBeInTheDocument()
         expect(screen.getByText(DRAFT_REQUIRED_ERRORS.impact)).toBeInTheDocument()
         expect(screen.getByText(DRAFT_REQUIRED_ERRORS.piName)).toBeInTheDocument()
@@ -82,22 +90,21 @@ describe('EditResubmitForm resubmit-click validation (OTTER-762)', () => {
     })
 
     it('flags only the fields that are actually empty', async () => {
-        renderForm({ ...emptyDraft, datasets: ['dataset-1'] })
+        renderForm({ ...emptyDraft, researchQuestions: lexicalJson('A question?') })
 
         await clickResubmit()
 
         expect(await screen.findByText(DRAFT_REQUIRED_ERRORS.piName)).toBeInTheDocument()
-        expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.datasets)).not.toBeInTheDocument()
+        expect(screen.queryByText(DRAFT_REQUIRED_ERRORS.researchQuestions)).not.toBeInTheDocument()
     })
 
     it('exposes each flagged field to assistive tech, not only the first', async () => {
         renderForm(emptyDraft)
 
         await clickResubmit()
-        await screen.findByText(DRAFT_REQUIRED_ERRORS.datasets)
+        await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)
 
         const flagged = [
-            DATASETS_FIELD_ID,
             textFieldInputId('researchQuestions'),
             textFieldInputId('projectSummary'),
             textFieldInputId('impact'),
@@ -116,8 +123,8 @@ describe('EditResubmitForm first-invalid focus (OTTER-762)', () => {
 
         await clickResubmit()
 
-        await screen.findByText(DRAFT_REQUIRED_ERRORS.datasets)
-        expect(document.activeElement?.closest(`#${DATASETS_FIELD_ID}`)).not.toBeNull()
+        await screen.findByText(DRAFT_REQUIRED_ERRORS.researchQuestions)
+        expect(document.activeElement?.id).toBe(textFieldInputId('researchQuestions'))
     })
 
     it('skips filled fields and lands on the flagged editor below them', async () => {
