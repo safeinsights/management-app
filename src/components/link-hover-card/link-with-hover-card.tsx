@@ -2,10 +2,10 @@
 
 import {
     useCallback,
-    useEffect,
     useId,
     useRef,
     useState,
+    type FocusEvent,
     type KeyboardEvent as ReactKeyboardEvent,
     type MouseEvent as ReactMouseEvent,
 } from 'react'
@@ -22,41 +22,6 @@ import {
 } from './link-card-interactions'
 import { absoluteHref, currentOrigin } from './link-preview'
 import { ReadOnlyLinkCardBody } from './read-only-link-card'
-import { focusNextTabStopAfter, tabStopsIn } from './tab-stops'
-
-type TabDirection = 'forward' | 'back'
-
-/**
- * The card is portaled to the end of the page, so Tab past its edge would skip the rest of the
- * form. Leaving it closes the card and continues from the link, as if the card sat right after it.
- */
-function useTabOutOfCard(
-    isOpen: boolean,
-    dropdownId: string,
-    onLeave: (direction: TabDirection, card: HTMLElement) => boolean,
-) {
-    useEffect(() => {
-        if (!isOpen) return
-
-        const handleTab = (event: KeyboardEvent) => {
-            if (event.key !== 'Tab') return
-
-            const card = document.getElementById(dropdownId)
-            if (!card || !(event.target instanceof Node) || !card.contains(event.target)) return
-
-            const stops = tabStopsIn(card)
-            const direction: TabDirection = event.shiftKey ? 'back' : 'forward'
-            const edge = direction === 'forward' ? stops.at(-1) : stops[0]
-            if (event.target !== edge) return
-
-            if (onLeave(direction, card)) event.preventDefault()
-        }
-
-        document.addEventListener('keydown', handleTab, true)
-
-        return () => document.removeEventListener('keydown', handleTab, true)
-    }, [isOpen, dropdownId, onLeave])
-}
 
 function useLinkWithHoverCard() {
     const [opened, setOpened] = useState(false)
@@ -71,21 +36,16 @@ function useLinkWithHoverCard() {
         triggerRef.current?.focus()
     }, [close])
 
-    // With nothing after the link, the browser's own Tab from the card, last in the page, is right.
-    const leaveCard = useCallback(
-        (direction: TabDirection, card: HTMLElement) => {
-            const trigger = triggerRef.current
-            close()
-            if (!trigger) return false
-            if (direction === 'forward') return focusNextTabStopAfter(trigger, card)
-            trigger.focus()
-            return true
-        },
-        [close],
-    )
-
     useEscapeOnCard(opened, closeAndReturnFocus)
-    useTabOutOfCard(opened, dropdownId, leaveCard)
+
+    // Focus moving anywhere but the link or its card closes it. With no next target, the press
+    // landed on nothing focusable, which the outside click handles, or on the link in Safari.
+    const onBlur = (event: FocusEvent<HTMLElement>) => {
+        const next = event.relatedTarget
+        if (!(next instanceof Node)) return
+        if (next === triggerRef.current || document.getElementById(dropdownId)?.contains(next)) return
+        close()
+    }
 
     const toggle = (trigger: HTMLAnchorElement) => {
         if (opened) {
@@ -115,7 +75,10 @@ function useLinkWithHoverCard() {
         'aria-controls': opened ? dropdownId : undefined,
     } as const
 
-    return { opened, dropdownId, triggerAria, close, onClick, onKeyDown }
+    // Named only while open, so the fading card adds nothing to a label that contains the link.
+    const dialogAria = opened ? ({ role: 'dialog', 'aria-label': LINK_CARD_DIALOG_LABEL } as const) : {}
+
+    return { opened, dropdownId, triggerAria, dialogAria, close, onBlur, onClick, onKeyDown }
 }
 
 type LinkWithHoverCardProps = LinkWithIconProps & { href: string }
@@ -137,6 +100,10 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
             closeOnEscape={false}
             // Mantine would name the card after the link text; it is "Link details" everywhere.
             withRoles={false}
+            // Rendered right after the link, so Tab moves between the link, the card and the rest of the
+            // page in the browser's own order. Fixed positioning stops an ancestor clipping it.
+            withinPortal={false}
+            floatingStrategy="fixed"
             onDismiss={card.close}
         >
             <Popover.Target>
@@ -148,11 +115,12 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
                     rel="noopener noreferrer"
                     onClick={card.onClick}
                     onKeyDown={card.onKeyDown}
+                    onBlur={card.onBlur}
                 >
                     {children}
                 </LinkWithIcon>
             </Popover.Target>
-            <Popover.Dropdown id={card.dropdownId} role="dialog" aria-label={LINK_CARD_DIALOG_LABEL} p="sm">
+            <Popover.Dropdown id={card.dropdownId} {...card.dialogAria} p="sm" onBlur={card.onBlur}>
                 <LinkCardContent isVisible={card.opened} href={href} />
             </Popover.Dropdown>
         </Popover>

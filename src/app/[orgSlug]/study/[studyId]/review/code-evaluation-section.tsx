@@ -82,7 +82,8 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
-            <Text id={labelId} fz={14} w={320}>
+            {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
+            <Text id={labelId} component="div" fz={14} w={320}>
                 {label}
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty

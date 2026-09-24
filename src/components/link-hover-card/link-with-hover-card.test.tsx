@@ -7,6 +7,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    userEvent,
     vi,
     waitFor,
     within,
@@ -113,10 +114,12 @@ describe('LinkWithHoverCard', () => {
         expect(link).toHaveAttribute('aria-expanded', 'false')
     })
 
-    it('continues the tab order from the link when Tab leaves the card', async () => {
+    it('keeps the card in the tab order right after its link and closes it once focus leaves both', async () => {
         await mockSessionWithTestData()
+        const user = userEvent.setup()
         renderWithProviders(
             <>
+                <button type="button">previous field</button>
                 <LinkWithHoverCard href={Routes.legal} icon={null}>
                     Study Agreement
                 </LinkWithHoverCard>
@@ -125,29 +128,28 @@ describe('LinkWithHoverCard', () => {
         )
         const link = screen.getByRole('link', { name: 'Study Agreement' })
 
-        fireEvent.click(link)
-        const copy = await within(await findCard()).findByRole('button', { name: LINK_CARD_LABELS.copy })
-        fireEvent.keyDown(copy, { key: 'Tab' })
+        await user.click(link)
+        const card = await findCard()
+        const copy = await within(card).findByRole('button', { name: LINK_CARD_LABELS.copy })
+        await waitFor(() => expect(document.activeElement).toBe(copy))
 
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'next field' }))
-
-        fireEvent.click(link)
-        const title = await within(await findCard()).findByRole('link', { name: 'Legal' })
-        fireEvent.keyDown(title, { key: 'Tab', shiftKey: true })
-
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        await user.tab({ shift: true })
+        expect(document.activeElement).toBe(within(card).getByRole('link', { name: 'Legal' }))
+        await user.tab({ shift: true })
         expect(document.activeElement).toBe(link)
-    })
+        expect(screen.getByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })).toBeInTheDocument()
 
-    it('leaves Tab to the browser when nothing follows the link', async () => {
-        await mockSessionWithTestData()
-        const link = renderLink(Routes.legal)
+        await user.tab({ shift: true })
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'previous field' }))
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
-        fireEvent.click(link)
-        const copy = await within(await findCard()).findByRole('button', { name: LINK_CARD_LABELS.copy })
+        await user.click(link)
+        await waitFor(() =>
+            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
+        )
+        await user.tab()
 
-        expect(fireEvent.keyDown(copy, { key: 'Tab' })).toBe(true)
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'next field' }))
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
