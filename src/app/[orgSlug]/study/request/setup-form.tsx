@@ -58,6 +58,7 @@ export const SetupForm: FC<SetupFormProps> = ({
                 <DatasetsOfInterestField
                     form={form}
                     isLocked={isDatasetsLocked}
+                    lockedOrgName={lockedOrgName}
                     lockedDatasetNames={lockedDatasetNames}
                 />
             </Stack>

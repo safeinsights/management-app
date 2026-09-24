@@ -20,7 +20,11 @@ const datasetsDescription = (orgName: string) => `Select the datasets available 
 
 // The form is uncontrolled, so its values are mirrored into state; reading them during render
 // would freeze the pills and the partner name.
-function useDatasetsOfInterest(form: UseFormReturnType<StudyProposalFormValues>, lockedDatasetNames?: string[]) {
+function useDatasetsOfInterest(
+    form: UseFormReturnType<StudyProposalFormValues>,
+    lockedOrgName?: string,
+    lockedDatasetNames?: string[],
+) {
     const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.getValues().orgSlug)
     form.watch('orgSlug', ({ value }) => setSelectedOrgSlug(value))
 
@@ -28,7 +32,8 @@ function useDatasetsOfInterest(form: UseFormReturnType<StudyProposalFormValues>,
     form.watch('datasets', ({ value }) => setDatasets(value))
 
     const { orgs } = useStudyCapableOrgs()
-    const partnerName = orgs.find((org) => org.slug === selectedOrgSlug)?.name ?? ''
+    // A saved partner can be missing from the list while it loads or once it stops being study-capable.
+    const partnerName = orgs.find((org) => org.slug === selectedOrgSlug)?.name ?? lockedOrgName ?? ''
     const description = datasetsDescription(displayOrgName(partnerName))
     const lockedValue = (lockedDatasetNames ?? datasets).join(', ')
 
@@ -42,15 +47,24 @@ interface DatasetsOfInterestFieldProps {
     form: UseFormReturnType<StudyProposalFormValues>
     // True once the draft has persisted datasets: they cannot be changed after Step 1.
     isLocked: boolean
+    lockedOrgName?: string
     lockedDatasetNames?: string[]
 }
 
-export const DatasetsOfInterestField: FC<DatasetsOfInterestFieldProps> = ({ form, isLocked, lockedDatasetNames }) => {
+export const DatasetsOfInterestField: FC<DatasetsOfInterestFieldProps> = ({
+    form,
+    isLocked,
+    lockedOrgName,
+    lockedDatasetNames,
+}) => {
     const { selectedOrgSlug, datasets, description, lockedValue, onChange, onBlur } = useDatasetsOfInterest(
         form,
+        lockedOrgName,
         lockedDatasetNames,
     )
 
+    // A study submitted before datasets moved to Step 1 has none, and an empty locked row says nothing.
+    if (isLocked && !lockedValue) return null
     if (isLocked) return <ReadOnlyField label={LABEL} value={lockedValue} />
     if (!selectedOrgSlug) return null
 

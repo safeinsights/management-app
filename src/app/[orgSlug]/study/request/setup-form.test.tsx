@@ -1100,6 +1100,24 @@ describe('Locked fields', () => {
         })
     })
 
+    it('names a saved Data Partner that is no longer study-capable in the datasets help copy', async () => {
+        const fixtures = await setupFixtures()
+        const { study, draftData } = await insertRevisitableDraft(fixtures, {
+            orgSlug: fixtures.retiredPartner.slug,
+            orgName: fixtures.retiredPartner.name,
+            datasets: null,
+            datasetNames: [],
+        })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', study.id).execute()
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        expect(
+            await screen.findByText(
+                `Select the datasets available through ${fixtures.retiredPartner.name} for this study.`,
+            ),
+        ).toBeInTheDocument()
+    })
+
     it('locks the title too once the proposal has been submitted', async () => {
         const fixtures = await setupFixtures()
         const draftData = draftFor(fixtures, { status: 'PENDING-REVIEW' })
@@ -1342,6 +1360,15 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
         expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    })
+
+    it('leaves out the datasets row for a study submitted without any', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures, { datasets: null, datasetNames: [] })
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
+        expect(screen.queryByText('Dataset(s) of interest')).not.toBeInTheDocument()
     })
 
     it('titles the CTA Next step, and offers no left action', async () => {
