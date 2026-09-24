@@ -14,6 +14,12 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import {
+    KEY_RESET_CONFIRM_COLOR,
+    KEY_RESET_MODAL_BODY,
+    KEY_RESET_MODAL_TITLE,
+    KEY_RESET_WARNING,
+} from '@/app/user-key/copy'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -34,42 +40,6 @@ type GenerateKeysProps = {
     isRegenerating?: boolean
     firstKeyRedirect?: Route
 }
-
-type KeyCopy = {
-    heading: string
-    intro: string
-    emphasis: string
-    modalTitle: string
-    modalBody: string
-    confirmLabel: string
-    confirmColor?: string
-}
-
-const FIRST_KEY_COPY: KeyCopy = {
-    heading: 'Security key',
-    intro: 'This is your security key. You will need it to access your study outputs across every organization you belong to.',
-    emphasis: 'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.',
-    modalTitle: 'Have you stored your security key?',
-    modalBody:
-        'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.',
-    confirmLabel: 'Yes, I have stored my key',
-}
-
-// Same wording as /user-key: a direct visit to this route used to describe a reset as a first-time
-// setup and warn only about losing the new key (OTTER-741).
-const RESET_KEY_COPY: KeyCopy = {
-    heading: 'New security key',
-    intro: 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.',
-    emphasis:
-        'A new key cannot decrypt your current outputs. It works only for outputs encrypted after you generate it.',
-    modalTitle: 'Confirm key reset',
-    modalBody:
-        'A new key cannot decrypt your current outputs. If you no longer have your key and no one in your organization can access them, those outputs will be lost. This action cannot be undone. SafeInsights does not store your new key. If you lose it, you will not be able to access your study outputs.',
-    confirmLabel: 'Yes, replace my key',
-    confirmColor: 'red',
-}
-
-const keyCopyFor = (isRegenerating: boolean): KeyCopy => (isRegenerating ? RESET_KEY_COPY : FIRST_KEY_COPY)
 
 const COPIED_VISIBLE_MS = 2000
 
@@ -146,16 +116,14 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
         setHasAttemptedCopy(true)
     }
 
-    const copyText = keyCopyFor(isRegenerating)
-
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
                 <Title order={3} fz={22}>
-                    {copyText.heading}
+                    {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 
-                <KeyIntro copyText={copyText} />
+                <KeyIntro isRegenerating={isRegenerating} />
 
                 <Stack gap="md">
                     <Text fz={14} fw={fontWeight.semibold}>
@@ -189,17 +157,21 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                 keys={keys}
                 isRegenerating={isRegenerating}
                 firstKeyRedirect={firstKeyRedirect}
-                copyText={copyText}
             />
         </Paper>
     )
 }
 
-const KeyIntro: FC<{ copyText: KeyCopy }> = ({ copyText }) => (
+// A direct visit by a key holder used to read as a first-time setup (OTTER-741).
+const KeyIntro: FC<{ isRegenerating: boolean }> = ({ isRegenerating }) => (
     <Text fz={16}>
-        {copyText.intro}{' '}
+        {isRegenerating
+            ? 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'
+            : 'This is your security key. You will need it to access your study outputs across every organization you belong to.'}{' '}
         <Text component="b" fw={fontWeight.bold} inherit>
-            {copyText.emphasis}
+            {isRegenerating
+                ? KEY_RESET_WARNING
+                : 'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'}
         </Text>
     </Text>
 )
@@ -234,8 +206,7 @@ const ConfirmationModal: FC<{
     keys: Keys
     isRegenerating: boolean
     firstKeyRedirect: Route
-    copyText: KeyCopy
-}> = ({ onClose, isOpen, keys, isRegenerating, firstKeyRedirect, copyText }) => {
+}> = ({ onClose, isOpen, keys, isRegenerating, firstKeyRedirect }) => {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -253,17 +224,27 @@ const ConfirmationModal: FC<{
     })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title={copyText.modalTitle}>
+        <AppModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isRegenerating ? KEY_RESET_MODAL_TITLE : 'Have you stored your security key?'}
+        >
             <Stack>
                 <Text fz={16} mb="md">
-                    {copyText.modalBody}
+                    {isRegenerating
+                        ? KEY_RESET_MODAL_BODY
+                        : 'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.'}
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Back
                     </Button>
-                    <Button color={copyText.confirmColor} onClick={() => saveUserKey()} loading={isSavingKey}>
-                        {copyText.confirmLabel}
+                    <Button
+                        color={isRegenerating ? KEY_RESET_CONFIRM_COLOR : undefined}
+                        onClick={() => saveUserKey()}
+                        loading={isSavingKey}
+                    >
+                        {isRegenerating ? 'Yes, replace my key' : 'Yes, I have stored my key'}
                     </Button>
                 </Group>
             </Stack>
