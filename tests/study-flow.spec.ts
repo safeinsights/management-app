@@ -770,7 +770,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
         // Confirm the post-submission view renders for the researcher.
         await goto(page, RESEARCHER_DASHBOARD)
         await viewStudyDetails(page, studyTitle)
-        await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
         await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
     })
 })

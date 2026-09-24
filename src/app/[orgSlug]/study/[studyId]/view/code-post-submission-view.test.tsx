@@ -10,6 +10,7 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
@@ -138,14 +139,19 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 
 describe('CodePostSubmissionView', () => {
     describe('header', () => {
-        it('renders STEP 4, the page title, and the section title "Study code"', async () => {
+        it('reuses the shared section header with STEP 3 / Submit code and no study title as body text', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
-            expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
-            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            expect(within(header).getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
+
+            const title = study.title ?? ''
+            expect(title).not.toBe('')
+            expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+            expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
+            expect(header).not.toHaveTextContent(title)
         })
 
         it('dates the banner title from the CODE-SUBMITTED status timestamp', async () => {
@@ -312,7 +318,7 @@ describe('CodePostSubmissionView', () => {
     })
 
     describe('resubmission (v2+)', () => {
-        it('renders the v2 heading and a versioned resubmitted banner title', async () => {
+        it('keeps the Submit code heading and a versioned resubmitted banner title', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, {
                 submissionVersion: 2,
@@ -320,7 +326,7 @@ describe('CodePostSubmissionView', () => {
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code v2.0' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
 
             const banner = screen.getByTestId('status-alert')
             expect(banner).toHaveTextContent(`Code v2.0 resubmitted to ${REVIEWING_ORG_NAME}`)
@@ -346,11 +352,11 @@ describe('CodePostSubmissionView', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('keeps v1 layout unchanged: "Study code" heading, first-submission banner, no feedback section', async () => {
+        it('keeps v1 layout unchanged: "Submit code" heading, first-submission banner, no feedback section', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { submissionVersion: 1 })
 
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
             expect(screen.getByTestId('status-alert')).toHaveTextContent('Code submitted to')
             expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()

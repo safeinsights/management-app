@@ -72,7 +72,7 @@ type StepCardProps = {
 
 function StepCard({ banner, expanded, onToggle }: StepCardProps) {
     return (
-        <ProposalStepHeader stepLabel="STEP 4" heading="Study code" banner={banner}>
+        <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner}>
             <StudyCodeToggle isVisible={!expanded} expanded={expanded} onClick={onToggle} />
         </ProposalStepHeader>
     )

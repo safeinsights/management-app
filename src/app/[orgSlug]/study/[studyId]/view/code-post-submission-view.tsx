@@ -1,11 +1,12 @@
 'use client'
 
-import { type FC } from 'react'
+import { type FC, type ReactNode } from 'react'
 import { Anchor, Collapse, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon, CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import { displayOrgName } from '@/lib/string'
 import { LinkWithIcon } from '@/components/links'
+import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import type { StepNav } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
@@ -20,7 +21,7 @@ import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeSubmittedBanner } from '@/lib/study-banners'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { StudyCodeToggle } from './study-code-collapse'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight } from '@/theme/tokens'
 
 type CodeFileList = LatestJobForStudy['files']
 
@@ -161,6 +162,25 @@ const FeedbackSection: FC<{ isVisible: boolean; entries: CodeReviewFeedbackEntry
     return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
+type StepCardProps = {
+    banner: ReactNode
+    isResubmission: boolean
+    expanded: boolean
+    onToggle: () => void
+    jobId: string
+    files: CodeFileList
+}
+
+function StepCard({ banner, isResubmission, expanded, onToggle, jobId, files }: StepCardProps) {
+    return (
+        <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner}>
+            <ExpandToggle isVisible={!isResubmission && !expanded} onClick={onToggle} />
+            <StudyCodeToggle isVisible={isResubmission} expanded={expanded} onClick={onToggle} mt="md" />
+            <InlineCodePanel isVisible={isResubmission} expanded={expanded} jobId={jobId} files={files} />
+        </ProposalStepHeader>
+    )
+}
+
 export function CodePostSubmissionView({
     orgSlug,
     study,
@@ -174,36 +194,33 @@ export function CodePostSubmissionView({
     const { expanded, toggle, collapse } = useExpandable()
 
     const isResubmission = submissionVersion > 1
-    const sectionTitle = isResubmission ? `Study code v${submissionVersion}.0` : 'Study code'
     const submittedAt = latestCodeSubmittedAt(job)
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
 
     const codeFiles = filterAndOrderCodeFiles(job.files)
+    const banner = (
+        <UnderReviewBanner
+            isVisible={isUnderReview}
+            reviewingOrgName={reviewingOrgName}
+            submissionVersion={submissionVersion}
+            submittedAt={submittedAt}
+        />
+    )
 
     return (
         <Stack p="xl" gap="xxl">
             <StudyPageHeader study={study} />
 
             <Stack gap="xxl">
-                <Paper p="xxl">
-                    <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
-                        STEP 4
-                    </Text>
-                    <Title fz={20} order={2} c={semanticColor('text.primary')} pb="xxs">
-                        {sectionTitle}
-                    </Title>
-                    <Divider my="md" />
-                    <UnderReviewBanner
-                        isVisible={isUnderReview}
-                        reviewingOrgName={reviewingOrgName}
-                        submissionVersion={submissionVersion}
-                        submittedAt={submittedAt}
-                    />
-                    <ExpandToggle isVisible={!isResubmission && !expanded} onClick={toggle} />
-                    <StudyCodeToggle isVisible={isResubmission} expanded={expanded} onClick={toggle} mt="md" />
-                    <InlineCodePanel isVisible={isResubmission} expanded={expanded} jobId={job.id} files={codeFiles} />
-                </Paper>
+                <StepCard
+                    banner={banner}
+                    isResubmission={isResubmission}
+                    expanded={expanded}
+                    onToggle={toggle}
+                    jobId={job.id}
+                    files={codeFiles}
+                />
 
                 <ExpandedCodePanel
                     isVisible={!isResubmission}

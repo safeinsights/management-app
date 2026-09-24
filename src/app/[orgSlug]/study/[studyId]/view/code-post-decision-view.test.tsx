@@ -11,6 +11,7 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
@@ -120,14 +121,19 @@ function renderView(
 
 describe('CodePostDecisionView', () => {
     describe('header', () => {
-        it('renders the page title, STEP 4 eyebrow, and "Study code" section', async () => {
+        it('reuses the shared section header with STEP 3 / Submit code and no study title as body text', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-            expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
-            expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            const header = screen.getByTestId('proposal-section-header')
+            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            expect(within(header).getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
+
+            const title = study.title ?? ''
+            expect(title).not.toBe('')
+            expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+            expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
+            expect(header).not.toHaveTextContent(title)
         })
 
         it('dates the approved banner title from the decision row', async () => {
