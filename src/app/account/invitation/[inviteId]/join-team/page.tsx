@@ -6,6 +6,7 @@ import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
+import { inviteLandingUrl } from '@/lib/invite-landing'
 import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
@@ -58,11 +59,11 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
             markOrgJoined(org!.name)
 
-            const orgDashboard = Routes.orgDashboard({ orgSlug: org!.slug })
+            const landing = inviteLandingUrl(inviteId, org!.slug, org!.email, result?.email ?? null)
             if (result?.needsUserKey) {
-                router.push(keyGenerationUrl(orgDashboard))
+                router.push(keyGenerationUrl(landing))
             } else {
-                router.push(orgDashboard)
+                router.push(landing)
             }
         },
         onError: (error) => {
