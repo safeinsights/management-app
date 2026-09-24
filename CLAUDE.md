@@ -1,7 +1,6 @@
 ## Hard Rules
 
 - Keep JSX minimal: no complex logic inside the return statement — no nested ternaries or multi-step calculations. Short expressions (`a || b`, `cond ? x : undefined`), simple ternaries and static config objects (`events={{ hover: true }}`) go inline. A bare `.map()` that delegates each item to an extracted row component is fine; a `.map()` whose callback contains logic is not.
-- No single-use constants or locals: never hoist a value used once into a named `const` just to keep JSX clean. Inline it, or if it's genuinely complex, move it into a named helper function or hook. Extract only when a value is shared, or when a stable reference is required.
 - Move logic out: All state management, event handling, and data processing must be in custom hooks (useFeatureName) or helper functions outside the main component function.
 - Co-locate, don't embed: If a helper is used only by one component, define it in the same file next to that component rather than in a shared module
 - Extract: If a sub-section of a function or JSX is complex, break it into separate, smaller parts.
