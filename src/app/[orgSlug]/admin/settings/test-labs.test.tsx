@@ -8,6 +8,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    SpyMode,
     userEvent,
     waitFor,
 } from '@/tests/unit.helpers'
@@ -164,5 +165,73 @@ describe('TestLabs', () => {
         await userEvent.type(labPicker(), faker.string.alpha(24))
 
         expect(await screen.findByText('Nothing found')).toBeInTheDocument()
+    })
+})
+
+const mockDataPartnerSession = async ({ isSiAdmin }: { isSiAdmin: boolean }) => {
+    const slug = faker.string.alpha(10)
+    const { org } = await mockSessionWithTestData({ orgSlug: slug, orgType: 'enclave', isAdmin: true, isSiAdmin })
+
+    return org
+}
+
+const insertDesignatedLab = async (dataPartnerId: string) => {
+    const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: uniqueLabName('Dropped') })
+    const row = await db
+        .insertInto('orgTestLab')
+        .values({ dataPartnerId, researchLabId: lab.id })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return { lab, testLabId: row.id }
+}
+
+const dropButtonName = (labName: string) => `Drop ${labName}`
+
+describe('dropping a test lab', () => {
+    it('offers no drop button, and no actions column, outside spy mode', async () => {
+        const org = await mockDataPartnerSession({ isSiAdmin: true })
+        const { lab } = await insertDesignatedLab(org.id)
+
+        renderWithProviders(<TestLabs isVisible />)
+
+        await screen.findByRole('row', { name: new RegExp(lab.name) })
+        expect(screen.queryByRole('button', { name: dropButtonName(lab.name) })).toBeNull()
+        expect(screen.getAllByRole('columnheader')).toHaveLength(2)
+    })
+
+    it('drops a lab in spy mode once confirmed', async () => {
+        const org = await mockDataPartnerSession({ isSiAdmin: true })
+        const { lab, testLabId } = await insertDesignatedLab(org.id)
+
+        renderWithProviders(
+            <SpyMode>
+                <TestLabs isVisible />
+            </SpyMode>,
+        )
+
+        await userEvent.click(await screen.findByRole('button', { name: dropButtonName(lab.name) }))
+        // The popover renders in a portal outside the accessibility tree here.
+        await userEvent.click(await screen.findByRole('button', { name: /yes/i, hidden: true }))
+
+        expect(await screen.findByText('No Test Labs added yet')).toBeInTheDocument()
+        const rows = await db.selectFrom('orgTestLab').select('id').where('id', '=', testLabId).execute()
+        expect(rows).toEqual([])
+    })
+
+    // Only SI admins may drop, so the button is withheld rather than shown to fail.
+    it('hides the drop button in spy mode from a data partner admin who is not an SI admin', async () => {
+        const org = await mockDataPartnerSession({ isSiAdmin: false })
+        const { lab } = await insertDesignatedLab(org.id)
+
+        renderWithProviders(
+            <SpyMode>
+                <TestLabs isVisible />
+            </SpyMode>,
+        )
+
+        await screen.findByRole('row', { name: new RegExp(lab.name) })
+        expect(screen.queryByRole('button', { name: dropButtonName(lab.name) })).toBeNull()
+        expect(screen.getAllByRole('columnheader')).toHaveLength(2)
     })
 })
