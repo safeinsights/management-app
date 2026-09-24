@@ -1,9 +1,20 @@
 import { useEffect } from 'react'
 import { within } from '@testing-library/react'
-import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 
+import { LINK_CARD_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
+import { Routes } from '@/lib/routes'
 import { type CodeReviewCriteriaDraft, type CodeReviewCriteriaKey } from '@/hooks/use-code-review-evaluation-map'
 import { CodeEvaluationSection } from './code-evaluation-section'
 
@@ -54,6 +65,9 @@ const renderSection = ({
     }
 }
 
+const waitForCardToClose = () =>
+    waitFor(() => expect(screen.queryByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })).toBeNull())
+
 describe('CodeEvaluationSection', () => {
     it('renders the heading, attention alert, and the three criteria rows', () => {
         renderSection()
@@ -75,6 +89,29 @@ describe('CodeEvaluationSection', () => {
         expect(link).toHaveAttribute('data-underline', 'always')
         expect(link).toHaveTextContent('proposal')
         expect(link.querySelector('svg')).toBeInTheDocument()
+    })
+
+    it('links Study Agreement to the legal page in a new tab', () => {
+        renderSection()
+        const link = screen.getByTestId('criteria-agreement-link')
+        expect(link).toHaveAttribute('href', Routes.legal)
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link).toHaveAttribute('data-underline', 'always')
+        expect(link).toHaveTextContent('Study Agreement')
+        expect(link.querySelector('svg')).toBeInTheDocument()
+    })
+
+    it('shows the link card for both criterion links instead of leaving the page', async () => {
+        await mockSessionWithTestData()
+        const user = userEvent.setup()
+        renderSection()
+
+        for (const testId of ['criteria-proposal-link', 'criteria-agreement-link']) {
+            await user.click(screen.getByTestId(testId))
+            expect(await screen.findByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })).toBeInTheDocument()
+            await user.keyboard('{Escape}')
+            await waitForCardToClose()
+        }
     })
 
     it('explains the agreements criterion only when the study is a test study', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@/tests/unit.helpers'
-import { formatCategoryLine, internalPathname } from './link-preview'
+import { absoluteHref, formatCategoryLine, internalPathname } from './link-preview'
 
 const ORIGIN = 'https://app.qa.safeinsights.org'
 
@@ -30,6 +30,20 @@ describe('internalPathname', () => {
 
     it('returns null when the origin is unknown, as it is during server rendering', () => {
         expect(internalPathname(`${ORIGIN}/dashboard`, '')).toBeNull()
+    })
+})
+
+describe('absoluteHref', () => {
+    it('resolves a route path against the origin', () => {
+        expect(absoluteHref('/legal', ORIGIN)).toBe(`${ORIGIN}/legal`)
+    })
+
+    it('leaves an absolute URL as it is', () => {
+        expect(absoluteHref('https://example.com/page', ORIGIN)).toBe('https://example.com/page')
+    })
+
+    it('returns the href unchanged when the origin is unknown', () => {
+        expect(absoluteHref('/legal', '')).toBe('/legal')
     })
 })
 
