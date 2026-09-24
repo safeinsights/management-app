@@ -8,6 +8,7 @@ import {
     expect,
     faker,
     insertTestCodeEnv,
+    insertTestDataSource,
     insertTestOrg,
     insertTestStudyJobData,
     it,
@@ -33,6 +34,7 @@ const BLANK_TITLE_ERROR = 'Enter a study title before continuing.'
 const OVER_LIMIT_ERROR = 'Study title exceeds the 60 character limit. Shorten it to continue.'
 const PARTNER_ERROR = 'Select a Data Partner before continuing.'
 const LANGUAGE_ERROR = 'Select a programming language before continuing.'
+const DATASETS_ERROR = 'Select a dataset of interest before continuing.'
 
 type Fixtures = Awaited<ReturnType<typeof setupFixtures>>
 
@@ -45,6 +47,10 @@ const setupFixtures = async () => {
         name: `Single Language Partner ${suffix}`,
     })
     await insertTestCodeEnv({ orgId: singleLanguagePartner.id, language: 'R' })
+    const singleLanguageDataset = await insertTestDataSource({
+        orgId: singleLanguagePartner.id,
+        name: `Single Partner Dataset ${suffix}`,
+    })
 
     const multiLanguagePartner = await insertTestOrg({
         type: 'enclave',
@@ -60,6 +66,10 @@ const setupFixtures = async () => {
         name: `Python Only Partner ${suffix}`,
     })
     await insertTestCodeEnv({ orgId: pythonOnlyPartner.id, language: 'PYTHON' })
+    const pythonOnlyDataset = await insertTestDataSource({
+        orgId: pythonOnlyPartner.id,
+        name: `Python Partner Dataset ${suffix}`,
+    })
 
     const retiredPartner = await insertTestOrg({
         type: 'enclave',
@@ -69,7 +79,16 @@ const setupFixtures = async () => {
 
     const { org: lab, user } = await mockSessionWithTestData({ orgSlug: `setup-lab-${suffix}`, orgType: 'lab' })
 
-    return { lab, user, singleLanguagePartner, multiLanguagePartner, pythonOnlyPartner, retiredPartner }
+    return {
+        lab,
+        user,
+        singleLanguagePartner,
+        singleLanguageDataset,
+        multiLanguagePartner,
+        pythonOnlyPartner,
+        pythonOnlyDataset,
+        retiredPartner,
+    }
 }
 
 // A real DRAFT row for the revisit state, so a Save and continue click runs the actual update
@@ -82,6 +101,7 @@ const insertRevisitableDraft = async (fixtures: Fixtures, overrides: Partial<Dra
         studyStatus: 'DRAFT',
         title: 'A previously saved title',
         language: 'R',
+        datasets: [fixtures.singleLanguageDataset.id],
     })
 
     const draftData: DraftStudyData = {
@@ -89,6 +109,8 @@ const insertRevisitableDraft = async (fixtures: Fixtures, overrides: Partial<Dra
         orgSlug: fixtures.singleLanguagePartner.slug,
         orgName: fixtures.singleLanguagePartner.name,
         language: 'R',
+        datasets: [fixtures.singleLanguageDataset.id],
+        datasetNames: [fixtures.singleLanguageDataset.name],
         status: 'DRAFT',
         title: 'A previously saved title',
         ...overrides,
@@ -106,6 +128,8 @@ const submittedDraft = (fixtures: Fixtures, overrides: Partial<DraftStudyData> =
     orgSlug: fixtures.singleLanguagePartner.slug,
     orgName: fixtures.singleLanguagePartner.name,
     language: 'R',
+    datasets: [fixtures.singleLanguageDataset.id],
+    datasetNames: [fixtures.singleLanguageDataset.name],
     status: 'PENDING-REVIEW',
     title: 'A previously saved title',
     ...overrides,
@@ -165,6 +189,14 @@ const selectPartner = async (user: ReturnType<typeof userEvent.setup>, partnerNa
     // tree, so *ByRole('option') matches nothing even with the dropdown open.
     await user.click(await screen.findByText(partnerName))
     await waitFor(() => expect(select).toHaveValue(partnerName))
+}
+
+const datasetsInput = () => document.getElementById('datasets')
+
+const selectDataset = async (user: ReturnType<typeof userEvent.setup>, datasetName: string) => {
+    await waitFor(() => expect(datasetsInput()).not.toBeNull())
+    await user.click(datasetsInput()!)
+    await user.click(await screen.findByText(datasetName))
 }
 
 const typeTitle = async (user: ReturnType<typeof userEvent.setup>, value: string) => {
@@ -683,6 +715,70 @@ describe('Save & continue button', () => {
     })
 })
 
+describe('Datasets of interest field', () => {
+    it('hides the field until a Data Partner is chosen, then shows it below the language', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        expect(screen.queryByText('Dataset(s) of interest')).not.toBeInTheDocument()
+
+        await selectPartner(user, fixtures.singleLanguagePartner.name)
+
+        const datasetsLabel = await screen.findByText('Dataset(s) of interest')
+        const languageLabel = screen.getByText('Programming language')
+        expect(languageLabel.compareDocumentPosition(datasetsLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('keeps the Step 2 help copy and catalog link, naming the chosen Data Partner', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await selectPartner(user, fixtures.singleLanguagePartner.name)
+
+        expect(
+            await screen.findByText(
+                `Select the datasets available through ${fixtures.singleLanguagePartner.name} for this study.`,
+            ),
+        ).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /Explore data catalog/ })).toBeInTheDocument()
+        expect(datasetsInput()).toHaveAttribute('placeholder', ' ')
+    })
+
+    it('starts the datasets over when the Data Partner changes', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'A valid study title')
+        await selectPartner(user, fixtures.singleLanguagePartner.name)
+        await selectDataset(user, fixtures.singleLanguageDataset.name)
+        await user.keyboard('{Escape}')
+
+        await selectPartner(user, fixtures.pythonOnlyPartner.name)
+        await waitFor(() => expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked())
+        await user.click(continueButton())
+
+        expect(await screen.findByText(DATASETS_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(fixtures.singleLanguageDataset.name)).not.toBeInTheDocument()
+    })
+
+    it('raises the missing dataset error when the researcher leaves the field empty', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await selectPartner(user, fixtures.singleLanguagePartner.name)
+        await waitFor(() => expect(datasetsInput()).not.toBeNull())
+        await user.click(datasetsInput()!)
+        await user.keyboard('{Escape}')
+        await user.tab()
+
+        expect(await screen.findByText(DATASETS_ERROR)).toBeInTheDocument()
+    })
+})
+
 describe('Save & continue validation', () => {
     it('flags every visible required field at once and focuses the first', async () => {
         const user = userEvent.setup()
@@ -694,6 +790,7 @@ describe('Save & continue validation', () => {
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
         expect(screen.getByText(PARTNER_ERROR)).toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+        expect(screen.queryByText(DATASETS_ERROR)).not.toBeInTheDocument()
         expect(document.activeElement).toBe(titleInput())
     })
 
@@ -740,6 +837,22 @@ describe('Save & continue validation', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
+    it('flags a missing dataset and moves focus to the datasets field', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'A valid study title')
+        await selectPartner(user, fixtures.singleLanguagePartner.name)
+        await waitFor(() => expect(screen.getByRole('radio', { name: 'R' })).toBeChecked())
+
+        await user.click(continueButton())
+
+        expect(await screen.findByText(DATASETS_ERROR)).toBeInTheDocument()
+        expect(document.activeElement).toBe(datasetsInput())
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
     it('opens the modal once every field is valid', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -748,6 +861,7 @@ describe('Save & continue validation', () => {
         await typeTitle(user, 'A valid study title')
         await selectPartner(user, fixtures.singleLanguagePartner.name)
         await waitFor(() => expect(screen.getByRole('radio', { name: 'R' })).toBeChecked())
+        await selectDataset(user, fixtures.singleLanguageDataset.name)
 
         await user.click(continueButton())
 
@@ -765,6 +879,7 @@ describe('Save & continue validation', () => {
         await typeTitle(user, 'Now it has a title')
         await selectPartner(user, fixtures.singleLanguagePartner.name)
         await waitFor(() => expect(screen.getByRole('radio', { name: 'R' })).toBeChecked())
+        await selectDataset(user, fixtures.singleLanguageDataset.name)
 
         await user.click(continueButton())
 
@@ -777,6 +892,7 @@ describe('Next step confirmation modal', () => {
         await typeTitle(user, title)
         await selectPartner(user, fixtures.singleLanguagePartner.name)
         await waitFor(() => expect(screen.getByRole('radio', { name: 'R' })).toBeChecked())
+        await selectDataset(user, fixtures.singleLanguageDataset.name)
         await user.click(continueButton())
         return await screen.findByRole('dialog')
     }
@@ -791,7 +907,7 @@ describe('Next step confirmation modal', () => {
         expect(within(dialog).getByText('Continue to the next step?')).toBeInTheDocument()
         expect(
             within(dialog).getByText(
-                'Make sure your Data Partner and programming language are correct. They cannot be changed after this step. You can still edit your study title.',
+                'Make sure your Data Partner, Programming language and Datasets of interest selections are correct. They cannot be changed after this step. You can still edit your study title.',
             ),
         ).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
@@ -810,6 +926,7 @@ describe('Next step confirmation modal', () => {
         expect(titleInput()).toHaveValue('A valid study title')
         expect(screen.getByTestId('org-select')).toHaveValue(fixtures.singleLanguagePartner.name)
         expect(screen.getByRole('radio', { name: 'R' })).toBeChecked()
+        expect(screen.getAllByText(fixtures.singleLanguageDataset.name).length).toBeGreaterThan(0)
     })
 
     it('persists the study with its Step 1 title and moves on to Step 2', async () => {
@@ -825,7 +942,7 @@ describe('Next step confirmation modal', () => {
             async () => {
                 const row = await db
                     .selectFrom('study')
-                    .select(['id', 'title', 'language'])
+                    .select(['id', 'title', 'language', 'datasets'])
                     .where('title', '=', 'Titled on Step 1')
                     .executeTakeFirst()
                 expect(row).toBeDefined()
@@ -835,6 +952,7 @@ describe('Next step confirmation modal', () => {
         )
 
         expect(study.language).toBe('R')
+        expect(study.datasets).toEqual([fixtures.singleLanguageDataset.id])
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyProposal({ orgSlug: fixtures.lab.slug, studyId: study.id })),
         )
@@ -867,6 +985,8 @@ describe('Locked fields', () => {
         orgSlug: fixtures.singleLanguagePartner.slug,
         orgName: fixtures.singleLanguagePartner.name,
         language: 'R',
+        datasets: [fixtures.singleLanguageDataset.id],
+        datasetNames: [fixtures.singleLanguageDataset.name],
         status: 'DRAFT',
         title: 'A previously saved title',
         ...overrides,
@@ -910,6 +1030,11 @@ describe('Locked fields', () => {
         expect(language).toHaveAttribute('aria-disabled', 'true')
         expect(language).toHaveAttribute('tabindex', '-1')
 
+        const datasets = screen.getByRole('group', { name: 'Dataset(s) of interest' })
+        expect(within(datasets).getByText(fixtures.singleLanguageDataset.name)).toBeInTheDocument()
+        expect(datasets).toHaveAttribute('aria-disabled', 'true')
+        expect(datasetsInput()).toBeNull()
+
         // The title is still a real control here, so it is not one of the disabled groups.
         expect(screen.queryByRole('group', { name: 'Study title' })).not.toBeInTheDocument()
     })
@@ -923,6 +1048,7 @@ describe('Locked fields', () => {
             ['Study title', 'A previously saved title'],
             ['Data Partner', fixtures.singleLanguagePartner.name],
             ['Programming language', 'R'],
+            ['Dataset(s) of interest', fixtures.singleLanguageDataset.name],
         ] as const
 
         for (const [label, value] of expected) {
@@ -939,6 +1065,39 @@ describe('Locked fields', () => {
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
         expect(await screen.findByRole('radio', { name: 'R' })).toBeInTheDocument()
+    })
+
+    it('lists every locked dataset by name, in the stored order', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = draftFor(fixtures, {
+            datasets: ['ds-a', 'ds-b'],
+            datasetNames: ['First dataset', 'Second dataset'],
+        })
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        const datasets = await screen.findByRole('group', { name: 'Dataset(s) of interest' })
+        expect(within(datasets).getByText('First dataset, Second dataset')).toBeInTheDocument()
+    })
+
+    // A draft saved before datasets moved to Step 1 has none, and a locked empty field would leave
+    // it uncompletable.
+    it('asks for datasets on a draft that never got any, and confirms before moving on', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const { study, draftData } = await insertRevisitableDraft(fixtures, { datasets: null, datasetNames: [] })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', study.id).execute()
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await selectDataset(user, fixtures.singleLanguageDataset.name)
+        await user.click(saveAndContinueButton())
+
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+
+        await waitFor(async () => {
+            const row = await db.selectFrom('study').select(['datasets']).where('id', '=', study.id).executeTakeFirst()
+            expect(row?.datasets).toEqual([fixtures.singleLanguageDataset.id])
+        })
     })
 
     it('locks the title too once the proposal has been submitted', async () => {
@@ -1062,8 +1221,8 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })
 
-    // The modal warns that the Data Partner and the language cannot be changed after this step. By
-    // now they are already fixed, so it has nothing left to say and must not appear.
+    // The modal warns that the Data Partner, the language and the datasets cannot be changed after
+    // this step. By now they are already fixed, so it has nothing left to say and must not appear.
     it('saves an edited title and reaches Step 2 without the confirmation modal', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -1082,13 +1241,14 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         await waitFor(async () => {
             const row = await db
                 .selectFrom('study')
-                .select(['title', 'language', 'orgId'])
+                .select(['title', 'language', 'orgId', 'datasets'])
                 .where('id', '=', study.id)
                 .executeTakeFirst()
             expect(row?.title).toBe('A title changed on the way back')
             // The click must not touch the settled choices, which stay uneditable throughout.
             expect(row?.language).toBe('R')
             expect(row?.orgId).toBe(study.orgId)
+            expect(row?.datasets).toEqual([fixtures.singleLanguageDataset.id])
         })
 
         await waitFor(() =>
@@ -1177,6 +1337,7 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         expect(screen.getByText(fixtures.singleLanguagePartner.name)).toBeInTheDocument()
         expect(screen.getByText('R')).toBeInTheDocument()
+        expect(screen.getByText(fixtures.singleLanguageDataset.name)).toBeInTheDocument()
 
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
         expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
