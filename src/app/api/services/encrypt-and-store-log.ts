@@ -28,7 +28,7 @@ export async function encryptAndStoreLog({
         const recipients = await getOrgPublicKeys(job.orgId)
         if (recipients.length === 0) return null
 
-        const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType))
+        const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType), job.jobId)
         const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', { type: 'application/zip' })
         return await storeStudyEncryptedLogFile(
             { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },

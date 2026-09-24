@@ -115,7 +115,7 @@
         "react-phone-number-input": "^3.4.16",
         "remark-gfm": "^4.0.1",
         "remeda": "^2.33.6",
-        "si-encryption": "github:safeinsights/encryption#3cb802df301d02813f8f67261c34144686b8540a",
+        "si-encryption": "github:safeinsights/encryption#a9b68887be485c1e569cbc71908d67a9426d50b5",
         "uuid": "^14.0.0",
         "yjs": "^13.6.30",
         "zod": "^4.3.6"
