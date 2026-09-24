@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
+import { sql } from 'kysely'
 import { db, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
@@ -72,6 +73,23 @@ const storedReviews = (studyJobId: string) =>
         .orderBy('round')
         .execute()
 
+// Relative to the stored claim, not "now": the runner fences on an exact millisecond match, and "now"
+// can equal the claim it is meant to replace.
+const takeOverClaim = (studyJobId: string) =>
+    db
+        .updateTable('studyReview')
+        .set({ summaryStartedAt: sql<Date>`summary_started_at + interval '1 second'` })
+        .where('studyJobId', '=', studyJobId)
+        .where('round', '=', 1)
+        .execute()
+
+// Pins the case that otherwise only happens by chance: the claim and the takeover in one millisecond.
+const freezeClock = () => {
+    const now = new Date()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(now)
+}
+
 describe('generateAndStoreStudyReview', () => {
     beforeEach(async () => {
         generateAnalysisMock.mockResolvedValue({ report: stubReport, messages: [] })
@@ -83,6 +101,7 @@ describe('generateAndStoreStudyReview', () => {
 
     afterEach(() => {
         vi.resetAllMocks()
+        vi.useRealTimers()
     })
 
     it('assembles proposal, code files, and data docs and persists the report', async () => {
@@ -353,15 +372,11 @@ describe('generateAndStoreStudyReview', () => {
     // row, so it can neither publish its stale report nor fail the run that replaced it (OTTER-799).
     it('does not let a superseded run fail the claim that took over from it', async () => {
         const job = await setupJobWithCode()
+        freezeClock()
 
         generateAnalysisMock.mockImplementationOnce(async () => {
             // Stands in for the retry that gave the round to a fresh run while this one was hung.
-            await db
-                .updateTable('studyReview')
-                .set({ summaryStartedAt: new Date() })
-                .where('studyJobId', '=', job.id)
-                .where('round', '=', 1)
-                .execute()
+            await takeOverClaim(job.id)
             throw new Error('model exploded')
         })
 
@@ -375,14 +390,10 @@ describe('generateAndStoreStudyReview', () => {
 
     it('does not let a superseded run publish its report over the claim that replaced it', async () => {
         const job = await setupJobWithCode()
+        freezeClock()
 
         generateAnalysisMock.mockImplementationOnce(async () => {
-            await db
-                .updateTable('studyReview')
-                .set({ summaryStartedAt: new Date() })
-                .where('studyJobId', '=', job.id)
-                .where('round', '=', 1)
-                .execute()
+            await takeOverClaim(job.id)
             return { report: stubReport, messages: [] }
         })
 
