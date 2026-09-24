@@ -9,7 +9,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { openArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
+import { flipByte, openArchive, packArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import type { JobFileInfo } from '@/lib/types'
 import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
@@ -93,6 +93,13 @@ describe('useDecryptFiles', () => {
         const archive = await tamper(await currentArchive(), { drop: [FILENAME] })
 
         await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    it('reports a tampered file body as tampering rather than a bad key', async () => {
+        const { manifest, bodies } = await openArchive(await currentArchive())
+        const corrupted = await packArchive(manifest, [{ ...bodies[0], blob: await flipByte(bodies[0].blob) }])
+
+        await expect(decrypt(await asJobFile(corrupted))).rejects.toThrow(ArchiveIntegrityError)
     })
 
     it('refuses an archive belonging to a different job', async () => {

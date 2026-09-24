@@ -3,7 +3,8 @@ import { ENCRYPTED_TO_APPROVED } from '@/lib/file-type-helpers'
 import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty } from '@mantine/form'
 import { useForm, useMutation } from '@/common'
-import { ResultsReader, ResultsIntegrityError } from 'si-encryption/job-results/reader'
+import { ResultsReader, ResultsIntegrityError, type DecryptedEntry } from 'si-encryption/job-results/reader'
+import { LEGACY_CIPHER } from 'si-encryption/job-results/crypto'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
@@ -25,6 +26,34 @@ export class ArchiveIntegrityError extends Error {}
 export const ARCHIVE_INTEGRITY_MESSAGE =
     'These results failed verification and may have been altered. Contact your administrator.'
 
+async function readArchive(
+    artifact: EncryptedJobFile,
+    privateKey: ArrayBuffer,
+    fingerprint: string,
+    jobId: string,
+): Promise<DecryptedEntry[]> {
+    const reader = new ResultsReader(
+        new Blob([artifact.encryptedBody]),
+        privateKey,
+        fingerprint,
+        artifact.recipientKeys,
+        { jobId },
+    )
+    try {
+        // Captured so approval can re-wrap each key per researcher.
+        return await reader.extractFilesWithKeys()
+    } catch (err) {
+        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else the unwrap has
+        // already proven the key, so a decrypt rejection is a tampered body, not a wrong key.
+        const authenticated = (reader.manifest.cipher ?? LEGACY_CIPHER) !== LEGACY_CIPHER
+
+        if (err instanceof ResultsIntegrityError || authenticated) {
+            throw new ArchiveIntegrityError(ARCHIVE_INTEGRITY_MESSAGE, { cause: err })
+        }
+        throw err
+    }
+}
+
 async function decryptFiles(
     encryptedFiles: EncryptedJobFile[],
     privateKey: string,
@@ -42,15 +71,7 @@ async function decryptFiles(
     try {
         const files: JobFileInfo[] = []
         for (const artifact of encryptedFiles) {
-            const reader = new ResultsReader(
-                new Blob([artifact.encryptedBody]),
-                privateKeyBuffer,
-                fingerprint,
-                artifact.recipientKeys,
-                { jobId },
-            )
-            // Captured so approval can re-wrap each key per researcher.
-            const entries = await reader.extractFilesWithKeys()
+            const entries = await readArchive(artifact, privateKeyBuffer, fingerprint, jobId)
             for (const entry of entries) {
                 files.push({
                     path: entry.path,
@@ -64,9 +85,8 @@ async function decryptFiles(
         }
         return files
     } catch (err) {
-        if (err instanceof ResultsIntegrityError) {
-            throw new ArchiveIntegrityError(ARCHIVE_INTEGRITY_MESSAGE, { cause: err })
-        }
+        if (err instanceof ArchiveIntegrityError) throw err
+
         throw new DecryptionError('Private key is not valid for these results, check with your administrator', {
             cause: err,
         })
