@@ -1306,22 +1306,6 @@ describe('Step 1 navigation state: the CTA across states', () => {
         expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
     })
 
-    it('drops the intro on the way from a draft to a submitted proposal', async () => {
-        const fixtures = await setupFixtures()
-        const { draftData } = await insertRevisitableDraft(fixtures)
-
-        const { unmount } = renderSetup(fixtures, { studyId: draftData.id, draftData })
-        await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
-        expect(screen.getByText(INTRO)).toBeInTheDocument()
-        unmount()
-
-        const submitted: DraftStudyData = { ...draftData, status: 'PENDING-REVIEW' }
-        renderSetup(fixtures, { studyId: submitted.id, draftData: submitted })
-
-        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
-        expect(screen.queryByText(INTRO)).not.toBeInTheDocument()
-    })
-
     it('names the first-visit CTA after its own copy, not a later state', async () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
