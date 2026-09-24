@@ -10,6 +10,7 @@ import { findOrCreateOrgMembership } from '@/server/mutations'
 import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
+import { lexicalJson } from '@/lib/lexical'
 import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -489,6 +490,39 @@ export const appendCodeResubmission = async (studyJobId: string, after: Date = n
         ])
         .execute()
 }
+
+type InsertTestCodeResubmissionNoteOptions = {
+    studyId: string
+    studyJobId: string
+    authorId: string
+    round: number
+    text?: string
+    createdAt?: Date
+}
+
+// The row resubmitStudyCodeAction writes for a round's note (OTTER-802).
+export const insertTestCodeResubmissionNote = async ({
+    studyId,
+    studyJobId,
+    authorId,
+    round,
+    text = 'addressed the feedback',
+    createdAt,
+}: InsertTestCodeResubmissionNoteOptions) =>
+    db
+        .insertInto('studyReviewComment')
+        .values({
+            studyId,
+            studyJobId,
+            authorId,
+            reviewKind: 'CODE',
+            entryType: 'RESUBMISSION-NOTE',
+            body: JSON.parse(lexicalJson(text)),
+            round,
+            ...(createdAt ? { createdAt } : {}),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
 
 // Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
 // Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.

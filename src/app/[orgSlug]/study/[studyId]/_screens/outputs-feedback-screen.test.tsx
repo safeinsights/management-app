@@ -3,6 +3,7 @@ import {
     describe,
     expect,
     faker,
+    insertTestCodeResubmissionNote,
     insertTestOrg,
     insertTestStudyJobData,
     it,
@@ -110,11 +111,13 @@ const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = 
         })
         .execute()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Adjusted the aggregation query.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Adjusted the aggregation query.',
+        })
     }
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
@@ -167,11 +170,13 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
         .returning('id')
         .executeTakeFirstOrThrow()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Raised the timeout to 60s.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Raised the timeout to 60s.',
+        })
     }
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
@@ -219,13 +224,17 @@ const setupTwoOutputsRounds = async () => {
     // Created second, so its v7 id sorts above the first and latestJob picks it.
     const secondJob = await db
         .insertInto('studyJob')
-        .values({
-            studyId: dbStudy.id,
-            resubmissionNote: JSON.parse(lexicalJson('Aggregated the counts as asked.')),
-            resubmissionRound: 3,
-        })
+        .values({ studyId: dbStudy.id })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await insertTestCodeResubmissionNote({
+        studyId: dbStudy.id,
+        studyJobId: secondJob.id,
+        authorId: user.id,
+        round: 3,
+        text: 'Aggregated the counts as asked.',
+        createdAt: SUBMITTED_AT,
+    })
     await db
         .insertInto('jobStatusChange')
         .values([

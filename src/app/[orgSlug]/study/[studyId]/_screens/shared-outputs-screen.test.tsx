@@ -3,6 +3,7 @@ import {
     describe,
     expect,
     fireEvent,
+    insertTestCodeResubmissionNote,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -179,11 +180,13 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
         })
         .execute()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Adjusted the aggregation query.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Adjusted the aggregation query.',
+        })
     }
 
     // The wrapped-key fetch must answer before the first render: an empty answer latches
