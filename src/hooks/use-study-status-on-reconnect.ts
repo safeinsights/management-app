@@ -40,7 +40,15 @@ const REVIEW_DECIDED_NOTICE: KickOutNotice = {
 const DEFAULT_NOTICE: Record<Args['redirectTarget'], KickOutNotice> = {
     studySubmitted: PROPOSAL_SUBMITTED_NOTICE,
     studyReview: REVIEW_DECIDED_NOTICE,
+    studyReviewCode: REVIEW_DECIDED_NOTICE,
 }
+
+// Only a code round needs its own route (REVIEWER_SCREEN_RULES).
+const REDIRECT_ROUTE = {
+    studySubmitted: Routes.studySubmitted,
+    studyReview: Routes.studyReview,
+    studyReviewCode: Routes.studyReviewCode,
+} satisfies Record<Args['redirectTarget'], unknown>
 
 type Args = {
     studyId: string
@@ -54,7 +62,7 @@ type Args = {
     editableStatuses: readonly string[]
     /** Takes precedence over `editableStatuses`, to gate on latest job status as well. */
     isEditable?: (snapshot: EditableSnapshot) => boolean
-    redirectTarget: 'studySubmitted' | 'studyReview'
+    redirectTarget: 'studySubmitted' | 'studyReview' | 'studyReviewCode'
     /** Overrides the default wording for a round that closed without this tab seeing the live event. */
     notice?: KickOutNotice
     enabled?: boolean
@@ -150,11 +158,7 @@ export function useStudyStatusOnReconnect({
                 ...noticeRef.current,
                 autoClose: NOTIFICATION_DISPLAY_MS,
             })
-            if (redirectTargetRef.current === 'studySubmitted') {
-                router.push(Routes.studySubmitted({ orgSlug: orgSlugRef.current, studyId }))
-            } else {
-                router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
-            }
+            router.push(REDIRECT_ROUTE[redirectTargetRef.current]({ orgSlug: orgSlugRef.current, studyId }))
             // An editable screen and the screen that replaces it can answer the same URL, where push
             // alone is a no-op that leaves the closed form mounted.
             router.refresh()

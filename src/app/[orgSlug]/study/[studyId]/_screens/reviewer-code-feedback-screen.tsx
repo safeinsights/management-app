@@ -17,14 +17,16 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
     const state = projectStudyState(raw)
 
     const job = await latestSubmittedJobForStudy(study.id)
-    // The post-decision page shows the same full "Submitted code" section as active review, so it
-    // needs the review and scan rows too (OTTER-613).
-    const analysis = job ? await jobAnalysisForJob(job) : null
-    const entries = await getCodeReviewFeedbackAction({ studyId: study.id })
+    const [analysis, entries, reviewVersion] = await Promise.all([
+        // The same full "Submitted code" section as active review, so the review and scan rows too
+        // (OTTER-613).
+        job ? jobAnalysisForJob(job) : null,
+        getCodeReviewFeedbackAction({ studyId: study.id }),
+        // Not codeSubmissionVersion: that counts the CODE-CHANGES-REQUESTED just written and would
+        // label this page as the next iteration.
+        job ? codeRoundForJob(job.id) : 1,
+    ])
     const safeEntries = isActionError(entries) ? [] : entries
-    // The round of the code on this job, not codeSubmissionVersion: that counts the
-    // CODE-CHANGES-REQUESTED just written and would label this page as the next iteration.
-    const reviewVersion = job ? await codeRoundForJob(job.id) : 1
     if (safeEntries.length > 0) {
         return (
             <PostFeedbackView
