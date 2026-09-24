@@ -7,6 +7,7 @@ import { getDraftStudyAction } from '@/server/actions/study-request'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
+import { codeSubmissionNav } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
@@ -55,11 +56,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 // against — not the submitting lab. Same source /resubmit reads.
                 dataPartnerName={displayOrgName(result.orgName)}
                 isFirstVisit={isFirstVisit}
-                previousHref={
-                    result.status === 'APPROVED'
-                        ? Routes.studySubmitted({ orgSlug, studyId })
-                        : Routes.studyEdit({ orgSlug, studyId })
-                }
+                nav={codeSubmissionNav(result.status, { orgSlug, studyId })}
             />
         </Stack>
     )

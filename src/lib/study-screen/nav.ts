@@ -1,4 +1,5 @@
 import type { Route } from 'next'
+import type { StudyStatus } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import type { ResearcherScreenId, ReviewerScreenId, ScreenId } from './screens'
 import type { StudyRole, StudyState } from './state.types'
@@ -35,12 +36,17 @@ export type StepNav = {
     forward?: NavAction
 }
 
-export type NavCtx = {
+// Split out so a form route that only needs "Previous step" is not forced to invent a dashboardHref
+// it never reads (see codeSubmissionNav).
+export type NavCtxBase = {
     orgSlug: string
     studyId: string
+    returnTo?: 'org'
+}
+
+export type NavCtx = NavCtxBase & {
     // Resolved upstream (org-scoped vs personal dashboard) so the nav table stays free of that branch.
     dashboardHref: Route
-    returnTo?: 'org'
 }
 
 type NavRule = (state: StudyState, ctx: NavCtx) => StepNav
@@ -89,18 +95,18 @@ const editProposal = (ctx: NavCtx): NavAction => ({
 
 // Proposal phase anchors to Step 1, which serves a submitted study as a read-only record (OTTER-764).
 // returnTo rides along so the round trip lands back on the same entry point, exit included.
-const proposalPreviousStep = (ctx: NavCtx): NavAction =>
+const proposalPreviousStep = (ctx: NavCtxBase): NavAction =>
     previousStep(Routes.studyEdit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
 
 // Code phase anchors to the approved proposal, matching the spec's RL table. This branch originally
 // anchored it to Agreements, the step that used to sit between them; OTTER-727 has since hidden that
 // page and stripped its last researcher-facing links, so anchoring there would make this the only
 // route back into it.
-const codePreviousStep = (ctx: NavCtx): NavAction =>
+const codePreviousStep = (ctx: NavCtxBase): NavAction =>
     previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
 
 // Outputs phase anchors to the approved-code step, which the read-only /view/code route already serves.
-const resultsPreviousStep = (ctx: NavCtx): NavAction =>
+const resultsPreviousStep = (ctx: NavCtxBase): NavAction =>
     previousStep(Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
 
 // --- per-screen rules ----------------------------------------------------------------------------
@@ -130,6 +136,14 @@ const proposalFeedbackNav: NavRule = (state, ctx) => {
     }
     return { back, forward: backToMyStudies(ctx) }
 }
+
+// /code is a form route rather than a dispatcher screen, so it resolves its own nav instead of being
+// handed one. Submitting is form-owned, which leaves "Previous step" as the only navigation. Before
+// approval the proposal is still the step behind; after it the code phase anchors to /submitted, like
+// every other code screen.
+export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtxBase): StepNav => ({
+    back: status === 'APPROVED' ? codePreviousStep(ctx) : proposalPreviousStep(ctx),
+})
 
 const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     back: codePreviousStep(ctx),

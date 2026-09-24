@@ -1,9 +1,9 @@
 'use client'
 
-import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useCallback } from 'react'
 import { StudyCode } from '@/components/study/study-code'
+import type { StepNav } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 
 interface CodeUploadPageProps {
@@ -11,10 +11,10 @@ interface CodeUploadPageProps {
     studyId: string
     dataPartnerName: string
     isFirstVisit: boolean
-    previousHref: Route
+    nav: StepNav
 }
 
-export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, isFirstVisit, previousHref }: CodeUploadPageProps) {
+export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, isFirstVisit, nav }: CodeUploadPageProps) {
     const router = useRouter()
 
     const onSubmitSuccess = useCallback(() => {
@@ -26,7 +26,7 @@ export function CodeUploadPage({ orgSlug, studyId, dataPartnerName, isFirstVisit
             studyId={studyId}
             dataPartnerName={dataPartnerName}
             isFirstVisit={isFirstVisit}
-            previousHref={previousHref}
+            nav={nav}
             onSubmitSuccess={onSubmitSuccess}
         />
     )

@@ -25,6 +25,8 @@ import {
 import { StrictMode } from 'react'
 import { StudyCode } from './study-code'
 import { notifications } from '@mantine/notifications'
+import { codeSubmissionNav, type StepNav } from '@/lib/study-screen'
+import { Routes } from '@/lib/routes'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile, storeS3File } from '@/server/aws'
@@ -106,6 +108,11 @@ const setupStudy = async (orgSlug = 'openstax-lab', { acknowledged = true } = {}
 
 const DATA_PARTNER = 'Test Data Partner'
 
+// For the renders that exercise uploads rather than navigation: any back link will do.
+const backNav = (href: string): StepNav => ({
+    back: { label: 'Previous step', href: href as Route, variant: 'subtle', testId: 'cta-previous-step' },
+})
+
 const renderIDE = async (
     studyOrgSlug = 'openstax-lab',
     files?: Record<string, string>,
@@ -123,15 +130,13 @@ const renderIDE = async (
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, files)
     }
-    const previousHref = `/test-org/study/${study.id}/agreements` as Route
+    // The real rule, so a change to the nav table's label or anchor surfaces here rather than being
+    // shadowed by a hand-written copy of it.
+    const nav = codeSubmissionNav('APPROVED', { orgSlug: studyOrgSlug, studyId: study.id })
+    const previousHref = Routes.studySubmitted({ orgSlug: studyOrgSlug, studyId: study.id })
 
     const page = (
-        <StudyCode
-            studyId={study.id}
-            dataPartnerName={dataPartnerName}
-            isFirstVisit={isFirstVisit}
-            previousHref={previousHref}
-        />
+        <StudyCode studyId={study.id} dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} nav={nav} />
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
@@ -728,7 +733,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -758,7 +763,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -806,7 +811,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
@@ -953,6 +958,16 @@ describe('StudyCode component', () => {
             expect(link).toHaveAttribute('href', previousHref)
         })
 
+        // OTTER-673: this page used to hand-roll its footer, which is how its labels drifted from the
+        // spec. Both controls living in the shared row is what stops that recurring.
+        it('renders both controls inside the shared step navigation', async () => {
+            await renderIDE()
+
+            const row = screen.getByTestId('step-navigation')
+            expect(within(row).getByTestId('cta-previous-step')).toHaveTextContent('Previous step')
+            expect(within(row).getByRole('button', { name: 'Submit code for review' })).toBeInTheDocument()
+        })
+
         it('keeps the submit button enabled with nothing uploaded', async () => {
             await renderIDE()
 
@@ -974,7 +989,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
             await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
@@ -1076,7 +1091,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -1475,7 +1490,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -1502,7 +1517,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -1585,7 +1600,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
             await waitFor(() => expect(screen.getByText('mine.R')).toBeInTheDocument())
@@ -1654,7 +1669,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
             return { study }
@@ -1729,7 +1744,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
 
@@ -1778,7 +1793,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
 
@@ -1793,7 +1808,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
 
