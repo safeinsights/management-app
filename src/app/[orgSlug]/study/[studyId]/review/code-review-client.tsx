@@ -98,7 +98,11 @@ function useCodeReview({
         },
     })
 
-    const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
+    const { submitReview, isPending, isSuccess } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
+
+    // Held through the post-success navigation: isPending clears the moment the action resolves,
+    // which re-enables the modal while the decided page is still loading.
+    const isSubmitting = isPending || isSuccess
 
     const handleSubmit = async () => {
         setHasAttemptedSubmit(true)
@@ -158,7 +162,7 @@ function useCodeReview({
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
-        isPending,
+        isSubmitting,
         hasAttemptedSubmit,
     }
 }
@@ -171,7 +175,7 @@ type EditableBodyProps = {
     job: LatestJobForStudy
     labName: string
     proposalHref: string
-    isPending: boolean
+    isSubmitting: boolean
     nav: StepNav
     isTestStudy: boolean
     onSubmit: () => void
@@ -187,7 +191,7 @@ function EditableBody({
     job,
     labName,
     proposalHref,
-    isPending,
+    isSubmitting,
     nav,
     isTestStudy,
     onSubmit,
@@ -222,7 +226,7 @@ function EditableBody({
                         <Button
                             size="md"
                             variant="filled"
-                            disabled={isPending}
+                            disabled={isSubmitting}
                             onClick={onSubmit}
                             data-testid="code-review-submit"
                         >
@@ -269,7 +273,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
-        isPending,
+        isSubmitting,
         hasAttemptedSubmit,
     } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, labName })
 
@@ -279,7 +283,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
             orgSlug={orgSlug}
             editableStatuses={[]}
             isEditable={isCodeReviewEditable}
-            redirectTarget="studyReview"
+            redirectTarget="studyReviewCode"
             enabled={initiallyEditable}
         >
             <CodeReviewFeedbackProviderShare>
@@ -297,7 +301,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     job={job}
                     labName={labName}
                     proposalHref={proposalHref}
-                    isPending={isPending}
+                    isSubmitting={isSubmitting}
                     nav={nav}
                     isTestStudy={study.isTestStudy}
                     onSubmit={handleSubmit}
@@ -314,7 +318,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
-                isPending={isPending}
+                isPending={isSubmitting}
             />
         </StudyKickOutProvider>
     )

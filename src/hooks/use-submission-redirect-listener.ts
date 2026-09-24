@@ -26,6 +26,13 @@ const DECISION_SUBJECT: Record<DecisionEventType, string> = {
     'outputs-review-submitted': 'this output',
 }
 
+// Where the peer's decision leaves this tab. Only code needs its own route (REVIEWER_SCREEN_RULES).
+const DECISION_ROUTE = {
+    'proposal-review-submitted': Routes.studyReview,
+    'code-review-submitted': Routes.studyReviewCode,
+    'outputs-review-submitted': Routes.studyReview,
+} satisfies Record<DecisionEventType, unknown>
+
 type SubmissionEventBase = {
     studyId: string
     submittedByTabId: string
@@ -124,7 +131,7 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                 message: `${event.submittedByName} has proceeded to submit a decision on ${DECISION_SUBJECT[event.type]}. No further edits are allowed at this point.`,
                 autoClose: NOTIFICATION_DISPLAY_MS,
             })
-            router.push(Routes.studyReview({ orgSlug, studyId }))
+            router.push(DECISION_ROUTE[event.type]({ orgSlug, studyId }))
             // An open review screen and the decided screen that replaces it can answer the same URL,
             // where the push alone is a no-op that leaves the open form mounted.
             router.refresh()

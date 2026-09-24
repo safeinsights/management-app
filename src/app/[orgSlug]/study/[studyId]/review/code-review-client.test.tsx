@@ -302,6 +302,8 @@ describe('CodeReviewClient decision selector', () => {
         expect(dialog).toHaveTextContent('Approve code?')
         expect(dialog).toHaveTextContent('Your approval and feedback will be sent to Rice University')
         expect(within(dialog).getByRole('button', { name: 'Approve code' })).toHaveAttribute('data-variant', 'filled')
+        // Mantine names no close button on its own, leaving the dismiss control unreachable by name.
+        expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
     })
 
     it('calls submitReview with decision=needs-clarification on confirm', async () => {
@@ -329,6 +331,21 @@ describe('CodeReviewClient decision selector', () => {
                 },
             })
         })
+    })
+
+    it('stays locked after the action resolves, while the navigation to the decided page is in flight', async () => {
+        mockUseCodeReviewMutation.mockReturnValue({
+            submitReview,
+            isPending: false,
+            isSuccess: true,
+            pendingReview: undefined,
+        })
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        expect(screen.getByTestId('code-review-submit')).toBeDisabled()
     })
 
     it('renders "Previous step" as a subtle link to the decided proposal and "Submit decision" as the action', async () => {

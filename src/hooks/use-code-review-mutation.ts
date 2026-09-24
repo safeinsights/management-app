@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
@@ -30,6 +30,7 @@ interface UseCodeReviewMutationOptions {
 
 export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
     const router = useRouter()
+    const pathname = usePathname()
     const queryClient = useQueryClient()
     const { user } = useUser()
 
@@ -62,7 +63,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
                 broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
-            router.push(Routes.studyReview({ orgSlug, studyId }))
+            // Not bare /review, which REVIEWER_SCREEN_RULES resolves past this screen.
+            const decided = Routes.studyReviewCode({ orgSlug, studyId })
+            router.push(decided)
+            // push() is a no-op when the editable form was reached at this same URL, leaving it mounted.
+            if (pathname === decided) router.refresh()
         },
     })
 
