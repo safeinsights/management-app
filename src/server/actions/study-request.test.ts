@@ -1429,7 +1429,9 @@ describe('Request Study Actions', () => {
             ])
         })
 
-        it('rolls back a resubmit whose round already has a note', async () => {
+        // A co-author who commits first leaves a CODE-SUBMITTED status; the loser reads it after the
+        // study-row lock and stops before touching the job's files.
+        it('refuses a second resubmit of a round that is already submitted', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-resubmit-race')
@@ -1445,9 +1447,48 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             await db
                 .insertInto('jobStatusChange')
+                .values([
+                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
+                    { studyJobId: job.id, status: 'CODE-SUBMITTED', userId: user.id },
+                ])
+                .execute()
+            await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
+            const filesBefore = await codeFilesFor(study.id)
+            vi.mocked(aws.deleteFolderContents).mockClear()
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2', 'helper.R': 'mine' })
+            const result = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R', 'helper.R'],
+                resubmissionNote: 'my copy of the fix',
+            })
+
+            expect(result).toEqual({ error: { submission: 'This code can no longer be resubmitted' } })
+            expect(aws.deleteFolderContents).not.toHaveBeenCalled()
+            expect(await codeFilesFor(study.id)).toEqual(filesBefore)
+            expect((await resubmissionNotesFor(job.id)).map((n) => n.text)).toEqual(['addressed the feedback'])
+        })
+
+        // The unique key behind the lock: a note already on the round rolls the whole resubmit back.
+        it('rolls back a resubmit whose round already has a note', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-resubmit-note-key')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
                 .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
-            // What a co-author's resubmit of this round leaves behind once it commits first.
             await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })

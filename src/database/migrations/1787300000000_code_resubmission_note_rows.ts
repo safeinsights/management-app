@@ -1,9 +1,8 @@
 import { type Kysely, sql } from 'kysely'
 
-// OTTER-802: a change-requested resubmit reuses the job, so study_job.resubmission_note held one
-// note per job and every round after the first overwrote the one before it. Notes move to
-// study_review_comment as RESUBMISSION-NOTE rows, one per round beside the reviewer's DECISION,
-// the way study_proposal_comment already keeps both sides of the proposal thread.
+// OTTER-802: a change-requested resubmit reuses the job, so the single study_job.resubmission_note
+// lost a note per round. Notes move to study_review_comment as RESUBMISSION-NOTE rows, one per round
+// beside the reviewer's DECISION, as study_proposal_comment already keeps the proposal thread.
 
 export type LegacyCodeResubmissionNote = {
     studyJobId: string
@@ -11,9 +10,9 @@ export type LegacyCodeResubmissionNote = {
     body: unknown
 }
 
-// The author is the researcher who submitted the round; the row's timestamp is that submission's,
-// which is where the old loader placed the note. Jobs whose submission carries no user fall back
-// to the study's researcher, because author_id is NOT NULL.
+// Takes the notes rather than reading study_job, so the test can drive it after the columns are
+// gone. The author is the researcher who submitted the round and the timestamp is that submission's,
+// where the old loader placed the note; a submission with no user falls back to the study researcher.
 export async function insertCodeResubmissionNotes(db: Kysely<unknown>, notes: LegacyCodeResubmissionNote[]) {
     if (notes.length === 0) return
 
@@ -54,6 +53,8 @@ async function rebuildEntryTypeEnum(db: Kysely<unknown>, values: string[]) {
     // Literals: CREATE TYPE takes no bind parameters.
     const list = sql.join(values.map((value) => sql.lit(value)))
 
+    // The CHECK compares entry_type to an enum literal, so it has to go before the retype and
+    // come back after.
     await sql`ALTER TABLE study_review_comment DROP CONSTRAINT study_review_comment_decision_requires_value`.execute(db)
     await sql`ALTER TABLE study_review_comment ALTER COLUMN entry_type TYPE text`.execute(db)
     await sql`DROP TYPE study_review_comment_entry_type`.execute(db)

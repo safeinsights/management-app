@@ -1,15 +1,15 @@
 import type { Kysely } from 'kysely'
-import { db, describe, expect, insertTestStudyJobData, insertTestUser, it } from '@/tests/unit.helpers'
+import {
+    db,
+    describe,
+    expect,
+    insertTestCodeResubmissionNote,
+    insertTestStudyJobData,
+    insertTestUser,
+    it,
+} from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { insertCodeResubmissionNotes } from './migrations/1787300000000_code_resubmission_note_rows'
-
-const EMPTY_BODY = { root: { type: 'root', children: [] } }
-
-const CODE_CRITERIA = {
-    proposalAlignment: 'yes',
-    agreementCompliance: 'yes',
-    privacyProtection: 'yes',
-} as const
 
 type Entry = { studyId: string; studyJobId: string; authorId: string; round: number }
 
@@ -23,22 +23,8 @@ const insertDecision = ({ studyId, studyJobId, authorId, round }: Entry) =>
             reviewKind: 'CODE',
             entryType: 'DECISION',
             decision: 'NEEDS-CLARIFICATION',
-            body: EMPTY_BODY,
-            criteria: CODE_CRITERIA,
-            round,
-        })
-        .execute()
-
-const insertNote = ({ studyId, studyJobId, authorId, round }: Entry) =>
-    db
-        .insertInto('studyReviewComment')
-        .values({
-            studyId,
-            studyJobId,
-            authorId,
-            reviewKind: 'CODE',
-            entryType: 'RESUBMISSION-NOTE',
-            body: EMPTY_BODY,
+            body: { root: { type: 'root', children: [] } },
+            criteria: { proposalAlignment: 'yes', agreementCompliance: 'yes', privacyProtection: 'yes' },
             round,
         })
         .execute()
@@ -59,7 +45,7 @@ describe('code_resubmission_note_rows migration', () => {
             const entry = { studyId: study.id, studyJobId: job.id, authorId: study.researcherId, round: 2 }
 
             await insertDecision(entry)
-            await insertNote(entry)
+            await insertTestCodeResubmissionNote(entry)
 
             expect(await notesOf(job.id)).toHaveLength(1)
         })
@@ -68,9 +54,11 @@ describe('code_resubmission_note_rows migration', () => {
             const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
             const entry = { studyId: study.id, studyJobId: job.id, authorId: study.researcherId, round: 2 }
 
-            await insertNote(entry)
+            await insertTestCodeResubmissionNote(entry)
 
-            await expect(insertNote(entry)).rejects.toThrow(/study_review_comment_one_entry_per_round/)
+            await expect(insertTestCodeResubmissionNote(entry)).rejects.toThrow(
+                /study_review_comment_one_entry_per_round/,
+            )
         })
 
         // The OTTER-471 guard that the widened key must keep.

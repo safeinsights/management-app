@@ -2,7 +2,7 @@
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
-import { DB, Json } from '@/database/types'
+import { DB } from '@/database/types'
 import { isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
@@ -148,42 +148,6 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     if (await roundIsAlreadySubmitted(db, studyJobId)) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
-}
-
-type CodeResubmissionNote = {
-    studyId: string
-    studyJobId: string
-    userId: string
-    round: number
-    body: Json
-}
-
-// One row per round (OTTER-802), which also makes a co-author's concurrent resubmit of the same
-// round roll back here rather than land a second submission: first-resubmitter-wins, as in
-// resubmitProposalAction.
-async function insertCodeResubmissionNote(
-    db: Kysely<DB>,
-    { studyId, studyJobId, userId, round, body }: CodeResubmissionNote,
-) {
-    try {
-        await db
-            .insertInto('studyReviewComment')
-            .values({
-                studyId,
-                studyJobId,
-                authorId: userId,
-                reviewKind: 'CODE',
-                entryType: 'RESUBMISSION-NOTE',
-                body,
-                round,
-            })
-            .execute()
-    } catch (err) {
-        if (isPgUniqueViolation(err)) {
-            throw new ActionFailure({ submission: 'This code has already been resubmitted' })
-        }
-        throw err
-    }
 }
 
 const onSaveDraftStudyActionArgsSchema = z.object({
@@ -829,9 +793,12 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .handler(async ({ orgSlug, params, session, db, afterCommit }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
+        // Serializes co-authors on the study row: the second resubmit waits, then reads the state
+        // the first one committed and stops here, before it replaces the first one's files in S3.
+        await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().executeTakeFirstOrThrow()
         const raw = await rawStudyStateForStudy(studyId, db)
         if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
-            throw new Error('Cannot resubmit study code: study is not in a resubmittable state')
+            throw new ActionFailure({ submission: 'This code can no longer be resubmitted' })
         }
 
         if (fileNames.length === 0) throw new Error('No files provided')
@@ -871,13 +838,27 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         // written against, so a summary or a scan is never filed under a round the job is not on.
         const round = await codeRoundForJob(studyJobId, db)
 
-        await insertCodeResubmissionNote(db, {
-            studyId,
-            studyJobId,
-            userId,
-            round: resubmissionRound,
-            body: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)),
-        })
+        // One row per round (OTTER-802); the key on (job, kind, round, entry type) is the backstop
+        // behind the study-row lock above.
+        try {
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId,
+                    studyJobId,
+                    authorId: userId,
+                    reviewKind: 'CODE',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)),
+                    round: resubmissionRound,
+                })
+                .execute()
+        } catch (err) {
+            if (isPgUniqueViolation(err)) {
+                throw new ActionFailure({ submission: 'This code has already been resubmitted' })
+            }
+            throw err
+        }
 
         await db
             .updateTable('study')
