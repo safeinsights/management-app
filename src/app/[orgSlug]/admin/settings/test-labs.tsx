@@ -1,16 +1,16 @@
 'use client'
 
-import { Stack, Text } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ActionSuccessType } from '@/lib/types'
+import { formatInstant } from '@/lib/dates'
 import { AddTestLabModal, type EligibleLab } from './add-test-lab-modal'
 import { QueryStateBody } from './query-state-body'
 import { designateTestLabsAction, fetchEligibleTestLabsAction, fetchOrgTestLabsAction } from './test-labs.actions'
-import { TestLabRowView, TestLabsView } from './test-labs-view'
+import { TestLabRowView, TestLabsEmptyView, TestLabsTableView, TestLabsView } from './test-labs-view'
 
 type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]
 
@@ -18,21 +18,19 @@ type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]
 const NO_LABS: TestLab[] = []
 const NO_ELIGIBLE: EligibleLab[] = []
 
+const TestLabRow: React.FC<{ lab: TestLab }> = ({ lab }) => (
+    <TestLabRowView name={lab.researchLabName} addedOn={formatInstant(lab.createdAt)} />
+)
+
 const TestLabsTable: React.FC<{ testLabs: TestLab[] }> = ({ testLabs }) => {
-    if (!testLabs.length) {
-        return (
-            <Text fz="sm" c="dimmed" ta="center" p="md">
-                No test labs have been added.
-            </Text>
-        )
-    }
+    if (!testLabs.length) return <TestLabsEmptyView />
 
     return (
-        <Stack gap={0}>
+        <TestLabsTableView>
             {testLabs.map((lab) => (
-                <TestLabRowView key={lab.id} name={lab.researchLabName} />
+                <TestLabRow key={lab.id} lab={lab} />
             ))}
-        </Stack>
+        </TestLabsTableView>
     )
 }
 
@@ -40,8 +38,7 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
     const queryClient = useQueryClient()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
 
-    // A lab org renders nothing, and the action refuses one by design; without this the query
-    // still fires and retries.
+    // The action refuses a lab org by design; without this the query still fires and retries.
     const designated = useQuery({
         queryKey: ['orgTestLabs', orgSlug],
         queryFn: async () => await fetchOrgTestLabsAction({ orgSlug }),

@@ -225,8 +225,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
-    // Scoped to the dialog and exact: the page's own Submit code button is behind it with the same
-    // name, and Playwright matches the accessible name as a substring by default.
+    // Exact and dialog-scoped: Playwright matches names as substrings, and the page's own button is behind it.
     const confirmDialog = page.getByRole('dialog', { name: 'Submit code for review?' })
     const confirmButton = confirmDialog.getByRole('button', { name: 'Submit code', exact: true })
     await expect(confirmButton).toBeVisible()
@@ -321,7 +320,8 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await dialog.getByRole('button', { name: /^Approve proposal$/i }).click()
     await expect(dialog).toBeHidden()
 
-    await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
+    // A live-approved study has no agreement yet, so the preparing notice is a second status alert.
+    await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
     await page.getByTestId('cta-back-to-my-studies').click()
     await page.waitForURL('**/dashboard')
 }

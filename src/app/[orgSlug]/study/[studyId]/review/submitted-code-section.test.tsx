@@ -78,6 +78,14 @@ async function insertStudyReview(studyJobId: string, codeExplanation: string) {
         .executeTakeFirstOrThrow()
 }
 
+async function insertPendingStudyReview(studyJobId: string, summaryStartedAt: Date) {
+    return db
+        .insertInto('studyReview')
+        .values({ studyJobId, report: null, summaryFailedAt: null, summaryStartedAt })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
 async function insertFailedStudyReview(studyJobId: string) {
     return db
         .insertInto('studyReview')
@@ -350,6 +358,86 @@ describe('SubmittedCodeSection — AI summary', () => {
         await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
         const remaining = (await jobAnalysisForJob(failedFixture.job)).review
         expect(remaining?.summaryFailedAt ?? null).toBeNull()
+    })
+
+    // The reported defect: the panel called a generation failed at three minutes while the server
+    // was still working on it, and Retry restarted the same wait (OTTER-799).
+    it('keeps the spinner while the server says a run is still going, past the submission backstop', async () => {
+        const liveFixture = await setupBaseFixture()
+        await insertPendingStudyReview(liveFixture.job.id, new Date())
+        const initialReview = (await jobAnalysisForJob(liveFixture.job)).review
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={liveFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+                summaryTimeoutMs={50}
+            />,
+        )
+
+        await new Promise((resolve) => setTimeout(resolve, 80))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    it('offers the retry once a claimed run is old enough to have died', async () => {
+        const deadFixture = await setupBaseFixture()
+        await insertPendingStudyReview(deadFixture.job.id, new Date(Date.now() - 15 * 60_000))
+        const initialReview = (await jobAnalysisForJob(deadFixture.job)).review
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={deadFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+            />,
+        )
+
+        expect(await screen.findByTestId('ai-summary-error')).toHaveTextContent('The AI summary failed to generate.')
+        expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
+    })
+
+    it('retrying a run that died clears the row and drops back to pending', async () => {
+        const deadFixture = await setupBaseFixture()
+        await insertPendingStudyReview(deadFixture.job.id, new Date(Date.now() - 15 * 60_000))
+        const initialReview = (await jobAnalysisForJob(deadFixture.job)).review
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={deadFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+            />,
+        )
+
+        const user = userEvent.setup()
+        await user.click(await screen.findByTestId('ai-summary-retry'))
+
+        await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
+    })
+
+    // The scan settles first on a large submission, so the summary is the only thing left to wait
+    // for and it is the row, not the clock, that has to keep the poll alive.
+    it('keeps polling while the row reports a run in progress and the scan has settled', async () => {
+        const pollFixture = await setupBaseFixture()
+        await insertPendingStudyReview(pollFixture.job.id, new Date())
+        const pendingReview = (await jobAnalysisForJob(pollFixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(
+            actionResult({ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }),
+        )
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={pollFixture.job.id}
+                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 
     it('flips the spinner to an error once the backstop elapses past submission with no row', async () => {

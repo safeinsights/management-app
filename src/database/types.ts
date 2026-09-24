@@ -352,6 +352,7 @@ export interface StudyReview {
     round: Generated<number>
     studyJobId: string
     summaryFailedAt: Timestamp | null
+    summaryStartedAt: Timestamp | null
 }
 
 export interface StudyReviewComment {

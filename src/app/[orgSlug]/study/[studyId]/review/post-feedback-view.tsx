@@ -119,8 +119,6 @@ export function PostFeedbackView({
     )
     const heading = isCode ? codeReviewHeading(reviewVersion) : proposalReviewHeading(reviewVersion)
     const feedbackBeforeDetails = isCode && reviewVersion > 1
-    // This view is shared with kind: 'CODE', where an agreement notice has no place.
-    const showsAgreementNotice = !isCode && decision === 'APPROVE'
 
     return (
         <Box bg={semanticColor('surface.page')}>
@@ -144,12 +142,17 @@ export function PostFeedbackView({
                     orgSlug={orgSlug}
                     stepLabel={stepLabel}
                     heading={heading}
-                    banner={banner}
-                />
-                <StudyAgreementPreparingNotice
-                    studyId={study.id}
-                    consequence="Researchers cannot submit code"
-                    isVisible={showsAgreementNotice}
+                    banner={
+                        <Stack gap="md">
+                            {banner}
+                            <StudyAgreementPreparingNotice
+                                studyId={study.id}
+                                consequence="Researchers cannot submit code"
+                                tone="informative"
+                                isVisible={decision === 'APPROVE'}
+                            />
+                        </Stack>
+                    }
                 />
                 <FeedbackAndNotesSection
                     isVisible={!feedbackBeforeDetails}

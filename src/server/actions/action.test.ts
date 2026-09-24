@@ -200,4 +200,35 @@ describe('Action Builder', () => {
             expect(result).toEqual({ error: 'hi' })
         })
     })
+
+    describe('afterCommit', () => {
+        it('drops the hooks of a handler that throws, since its writes were rolled back', async () => {
+            const hook = vi.fn().mockResolvedValue(undefined)
+            const action = new Action('after-commit-rollback', { performsMutations: true }).handler(
+                async ({ afterCommit }) => {
+                    afterCommit(hook)
+                    throw new Error('rolled back')
+                },
+            )
+
+            expect(await action()).toEqual({ error: 'rolled back' })
+            expect(hook).not.toHaveBeenCalled()
+        })
+
+        it('does not fail the action when a hook throws, and still runs the hooks after it', async () => {
+            const laterHook = vi.fn().mockResolvedValue(undefined)
+            const action = new Action('after-commit-hook-error', { performsMutations: true }).handler(
+                async ({ afterCommit }) => {
+                    afterCommit(async () => {
+                        throw new Error('queue unreachable')
+                    })
+                    afterCommit(laterHook)
+                    return 'committed'
+                },
+            )
+
+            expect(await action()).toBe('committed')
+            expect(laterHook).toHaveBeenCalledOnce()
+        })
+    })
 })

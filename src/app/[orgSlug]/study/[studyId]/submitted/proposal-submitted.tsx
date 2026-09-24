@@ -3,7 +3,6 @@
 import { Stack } from '@mantine/core'
 import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
-import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
@@ -91,11 +90,6 @@ export function ProposalSubmitted({
                     heading="Submit proposal"
                     banner={banner}
                     initialExpanded={false}
-                />
-                <StudyAgreementPreparingNotice
-                    studyId={study.id}
-                    consequence="You cannot submit code"
-                    isVisible={proposalStatus === 'APPROVED'}
                 />
                 <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />

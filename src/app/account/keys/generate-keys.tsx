@@ -14,6 +14,12 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import {
+    KEY_RESET_CONFIRM_COLOR,
+    KEY_RESET_MODAL_BODY,
+    KEY_RESET_MODAL_TITLE,
+    KEY_RESET_WARNING,
+} from '@/app/user-key/copy'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -114,17 +120,10 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
                 <Title order={3} fz={22}>
-                    Security key
+                    {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 
-                <Text fz={16}>
-                    This is your security key. You will need it to access your study outputs across every organization
-                    you belong to.{' '}
-                    <Text component="b" fw={fontWeight.bold} inherit>
-                        It is shown only once. Copy and store it somewhere safe, like a password manager, before you
-                        continue.
-                    </Text>
-                </Text>
+                <KeyIntro isRegenerating={isRegenerating} />
 
                 <Stack gap="md">
                     <Text fz={14} fw={fontWeight.semibold}>
@@ -162,6 +161,20 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
         </Paper>
     )
 }
+
+// A direct visit by a key holder used to read as a first-time setup (OTTER-741).
+const KeyIntro: FC<{ isRegenerating: boolean }> = ({ isRegenerating }) => (
+    <Text fz={16}>
+        {isRegenerating
+            ? 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'
+            : 'This is your security key. You will need it to access your study outputs across every organization you belong to.'}{' '}
+        <Text component="b" fw={fontWeight.bold} inherit>
+            {isRegenerating
+                ? KEY_RESET_WARNING
+                : 'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'}
+        </Text>
+    </Text>
+)
 
 const NextButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
     if (!isVisible) return null
@@ -211,18 +224,27 @@ const ConfirmationModal: FC<{
     })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your security key?">
+        <AppModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isRegenerating ? KEY_RESET_MODAL_TITLE : 'Have you stored your security key?'}
+        >
             <Stack>
                 <Text fz={16} mb="md">
-                    SafeInsights does not store your key. If you lose it, you will not be able to access your study
-                    outputs.
+                    {isRegenerating
+                        ? KEY_RESET_MODAL_BODY
+                        : 'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.'}
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Back
                     </Button>
-                    <Button onClick={() => saveUserKey()} loading={isSavingKey}>
-                        Yes, I have stored my key
+                    <Button
+                        color={isRegenerating ? KEY_RESET_CONFIRM_COLOR : undefined}
+                        onClick={() => saveUserKey()}
+                        loading={isSavingKey}
+                    >
+                        {isRegenerating ? 'Yes, replace my key' : 'Yes, I have stored my key'}
                     </Button>
                 </Group>
             </Stack>

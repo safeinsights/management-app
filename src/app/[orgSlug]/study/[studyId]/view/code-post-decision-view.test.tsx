@@ -174,6 +174,9 @@ describe('CodePostDecisionView', () => {
             expect(banner).toHaveAttribute('data-variant', 'success')
             expect(banner).toHaveTextContent(REVIEWING_ORG_NAME)
             expect(banner).toHaveTextContent('Code approved')
+            expect(banner).toHaveTextContent(
+                'has reviewed and approved your code to run in their secure enclave. An email notification will be sent when outputs become available.',
+            )
             expect(screen.getAllByTestId('status-alert')).toHaveLength(1)
         })
 

@@ -24,6 +24,8 @@ import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/ed
 import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { mockClient } from 'aws-sdk-client-mock'
 import { deliver } from '@/server/mailgun'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
@@ -177,6 +179,44 @@ describe('Request Study Actions', () => {
 
         study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
         expect(study?.status).toEqual('PENDING-REVIEW')
+    })
+
+    // The worker reads the round from its own connection, so a message sent from inside the
+    // transaction names code that is not visible yet and the round is discarded (OTTER-799).
+    it('finalizeStudySubmissionAction queues the review only once the submission has committed', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-review-after-commit' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+        const draft = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: { title: 'Queued after commit', piName: 'PI', language: 'R' as const },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+        const { studyJobId } = actionResult(
+            await onSubmitDraftStudyAction({ studyId: draft.studyId, mainCodeFileName: 'main.R', codeFileNames: [] }),
+        )
+
+        const visibleWhenSent: boolean[] = []
+        const sqsMock = mockClient(SQSClient)
+        sqsMock.on(SendMessageCommand).callsFake(async () => {
+            const submitted = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', studyJobId)
+                .where('status', '=', 'CODE-SUBMITTED')
+                .executeTakeFirst()
+            visibleWhenSent.push(submitted != null)
+            return {}
+        })
+        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
+
+        vi.unstubAllEnvs()
+        sqsMock.restore()
+        expect(visibleWhenSent).toEqual([true])
     })
 
     it('submission flow works with Python language', async () => {

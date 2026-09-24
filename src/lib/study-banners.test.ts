@@ -72,6 +72,12 @@ describe('researcherCodeDecisionBanner', () => {
         expect(copy.body).toContain(DATA_PARTNER)
     })
 
+    it('tells the lab the approved code will run in the enclave', () => {
+        expect(researcherCodeDecisionBanner('CODE-APPROVED', { dataPartner: DATA_PARTNER }).body).toBe(
+            `${DATA_PARTNER} has reviewed and approved your code to run in their secure enclave. An email notification will be sent when outputs become available.`,
+        )
+    })
+
     it('keeps the terminal details on a declined decision', () => {
         const { body } = researcherCodeDecisionBanner('CODE-REJECTED', { dataPartner: DATA_PARTNER })
         expect(body).toContain('No further code submissions will be accepted for this study')
@@ -118,7 +124,7 @@ describe('researcherOutputsAwaitingReviewBanner', () => {
         expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER })).toEqual({
             variant: 'informative',
             title: `Code run complete, outputs under review by ${DATA_PARTNER}`,
-            body: `${DATA_PARTNER} reviews the outputs before releasing them to you. A notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
+            body: `Outputs have now been made available to ${DATA_PARTNER} for their review. An email notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
         })
     })
 
@@ -183,13 +189,15 @@ describe('reviewerProposalNeedsReviewBanner', () => {
     it('names the lab in the first-review title and body', () => {
         const copy = reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB })
         expect(copy).toMatchObject({ variant: 'action', title: `New proposal submitted by ${RESEARCH_LAB}` })
-        expect(copy.body).toContain('requesting permission to run their code on your data')
+        expect(copy.body).toBe(
+            `${RESEARCH_LAB} is requesting permission to run their code in your secure enclave. Review the proposal below and share your decision and feedback.`,
+        )
     })
 
-    it('switches to the revised title from the second review round onwards', () => {
-        expect(reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB, version: 2 }).title).toBe(
-            `Revised proposal submitted by ${RESEARCH_LAB}`,
-        )
+    it('switches to the revised title from the second review round onwards, keeping the body', () => {
+        const copy = reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB, version: 2 })
+        expect(copy.title).toBe(`Revised proposal submitted by ${RESEARCH_LAB}`)
+        expect(copy.body).toBe(reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB }).body)
     })
 })
 
@@ -257,6 +265,12 @@ describe('reviewerCodeDecisionBanner', () => {
         )
         expect(reviewerCodeDecisionBanner('APPROVE', params).body).not.toContain(RESEARCH_LAB)
         expect(reviewerCodeDecisionBanner('REJECT', params).body).not.toContain(RESEARCH_LAB)
+    })
+
+    it('says the approved code will now run in the enclave', () => {
+        expect(reviewerCodeDecisionBanner('APPROVE', { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }).body).toBe(
+            'The code will now run in your secure enclave. An email notification will be sent when the outputs are ready for review.',
+        )
     })
 })
 

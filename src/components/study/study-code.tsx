@@ -73,7 +73,7 @@ const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({
                     onClick={onSubmitClick}
                     aria-describedby={SUBMIT_CODE_ERROR_ID}
                 >
-                    Submit code
+                    Submit code for review
                 </Button>
             </Group>
         </Group>

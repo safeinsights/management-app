@@ -29,6 +29,7 @@ import {
 } from '@/server/db/queries'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 import { codeRoundForJob } from '@/server/db/code-round'
+import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
@@ -308,16 +309,28 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId }, db }) => {
-        // Only this round's failure is cleared; an earlier round's rows are that round's history.
+    .handler(async ({ params: { studyJobId }, db, afterCommit }) => {
+        // Only this round's row is touched; an earlier round's rows are that round's history.
         const round = await codeRoundForJob(studyJobId, db)
-        await db
-            .deleteFrom('studyReview')
+        const existing = await db
+            .selectFrom('studyReview')
+            .select(['report', 'createdAt', 'summaryFailedAt', 'summaryStartedAt'])
             .where('studyJobId', '=', studyJobId)
             .where('round', '=', round)
-            .where('summaryFailedAt', 'is not', null)
-            .execute()
-        onStudyReviewRequested({ studyJobId, round })
+            .executeTakeFirst()
+
+        if (existing) {
+            const state = studyReviewState(existing)
+            if (state === 'ready') return { status: 'ready' as const }
+            // A run that is still alive owns the round. Starting a second one would pay for the
+            // same report twice and race it for the row (OTTER-799).
+            if (state === 'pending' && !isStudyReviewStale(existing)) return { status: 'in-progress' as const }
+
+            await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).where('round', '=', round).execute()
+        }
+
+        afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
+        return { status: 'restarted' as const }
     })
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
