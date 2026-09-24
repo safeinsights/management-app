@@ -259,6 +259,23 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
     })
 
+    // OTTER-675: an archive holding no files decrypts "successfully" with any syntactically valid
+    // PEM, so accepting it would present an unopened job as reviewed.
+    it('rejects a key that opened nothing rather than reporting an empty review', async () => {
+        const artifact = await seedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: [] })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey(await readTestSupportFile('private_key.pem'))
+        clickView()
+
+        expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+        expect(onDecrypted).not.toHaveBeenCalled()
+    })
+
     it('blames the archive, not the key, when a file has been dropped from it', async () => {
         const artifact = await seedArtifact(job.id, {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
