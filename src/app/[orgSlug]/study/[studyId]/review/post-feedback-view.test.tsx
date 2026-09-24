@@ -448,7 +448,7 @@ describe('PostFeedbackView', () => {
             expect(banner).toHaveAttribute('data-variant', 'informative')
             expect(banner).toHaveTextContent('Code approved')
             expect(banner).toHaveTextContent(
-                'This code has been approved. You will be notified when the study results are available for review.',
+                'The code will now run in your secure enclave. An email notification will be sent when the outputs are ready for review.',
             )
         })
 

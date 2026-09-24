@@ -103,7 +103,7 @@ describe('ProposalSection', () => {
         const banner = screen.getByTestId('status-alert')
         expect(banner).toHaveAttribute('data-variant', 'action')
         expect(banner).toHaveTextContent(`New proposal submitted by ${labName}`)
-        expect(banner).toHaveTextContent('requesting permission to run their code on your data')
+        expect(banner).toHaveTextContent('requesting permission to run their code in your secure enclave')
     })
 
     it('is expanded by default on first submission', () => {
