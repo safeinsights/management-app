@@ -75,7 +75,7 @@ export function researcherCodeDecisionBanner(status: CodeDecisionStatus, { dataP
             return {
                 variant: STATUS_ALERT_VARIANT.success,
                 title: 'Code approved',
-                body: `${dataPartner} has reviewed and approved your code. A notification will be sent when the study results are available.`,
+                body: `${dataPartner} has reviewed and approved your code to run in their secure enclave. An email notification will be sent when outputs become available.`,
             }
         case 'CODE-CHANGES-REQUESTED':
             return {
@@ -175,7 +175,7 @@ export function researcherOutputsAwaitingReviewBanner({ dataPartner }: BannerPar
     return {
         variant: STATUS_ALERT_VARIANT.informative,
         title: `Code run complete, outputs under review by ${dataPartner}`,
-        body: `${dataPartner} reviews the outputs before releasing them to you. A notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
+        body: `Outputs have now been made available to ${dataPartner} for their review. An email notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
     }
 }
 
@@ -193,7 +193,7 @@ export function reviewerProposalNeedsReviewBanner({ researchLab, version = 1 }: 
         variant: STATUS_ALERT_VARIANT.action,
         title:
             version > 1 ? `Revised proposal submitted by ${researchLab}` : `New proposal submitted by ${researchLab}`,
-        body: `${researchLab} is requesting permission to run their code on your data. Review the proposal below and share your decision and feedback.`,
+        body: `${researchLab} is requesting permission to run their code in your secure enclave. Review the proposal below and share your decision and feedback.`,
     }
 }
 
@@ -240,7 +240,7 @@ export function reviewerCodeDecisionBanner(
             return {
                 variant: STATUS_ALERT_VARIANT.informative,
                 title: attributedTo('Code approved', reviewerName),
-                body: 'This code has been approved. You will be notified when the study results are available for review.',
+                body: 'The code will now run in your secure enclave. An email notification will be sent when the outputs are ready for review.',
             }
         case 'NEEDS-CLARIFICATION':
             return {
