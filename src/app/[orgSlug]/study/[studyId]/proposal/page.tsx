@@ -9,8 +9,7 @@ import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { displayOrgName } from '@/lib/string'
-import { countCharacters } from '@/lib/field-limits'
-import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
+import { isTitleOverLimit } from '@/app/[orgSlug]/study/request/form-schemas'
 
 export const metadata: Metadata = { title: 'Study proposal' }
 
@@ -35,11 +34,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
 
     // Step 2 has no title or datasets field, so a blank or over-cap title, or a draft saved before
     // datasets moved to Step 1, can only be fixed there (OTTER-690, OTTER-737, OTTER-803).
-    if (
-        !result.title?.trim() ||
-        countCharacters(result.title) > STUDY_TITLE_MAX_CHARACTERS ||
-        !result.datasets?.length
-    ) {
+    if (!result.title?.trim() || isTitleOverLimit(result.title) || !result.datasets?.length) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
