@@ -1,3 +1,4 @@
+import { E2E_ROLE_COOKIE } from '@/lib/clerk-fake/cookie'
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
 import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
@@ -150,6 +151,11 @@ export const e2eSignOut = async (page: Page, { notifyClient = false } = {}) => {
     if (notifyClient) {
         await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
     }
+}
+
+// The fake's session is only the role cookie, so restoring it is what signing in again does.
+export const e2eRestoreSession = async (page: Page, role: TestingRole) => {
+    await page.context().addCookies([{ name: E2E_ROLE_COOKIE, value: role, url: page.url() }])
 }
 
 type ClerkSignInParams = {
