@@ -17,6 +17,12 @@ const AdminPill: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     return <span className={styles.adminPill}>Admin</span>
 }
 
+const SubnavRow: React.FC<{ item: NavItem; selectedUrl: string | null }> = ({ item, selectedUrl }) => (
+    <li>
+        <NavRow {...item} isSubnav isCurrent={item.url === selectedUrl} />
+    </li>
+)
+
 type SubnavProps = {
     isVisible: boolean
     items: NavItem[]
@@ -28,9 +34,7 @@ const Subnav: React.FC<SubnavProps> = ({ isVisible, items, selectedUrl }) => {
     return (
         <ul className={styles.list}>
             {items.map((item) => (
-                <li key={item.url}>
-                    <NavRow {...item} isSubnav isCurrent={item.url === selectedUrl} />
-                </li>
+                <SubnavRow key={item.url} item={item} selectedUrl={selectedUrl} />
             ))}
         </ul>
     )
@@ -38,13 +42,14 @@ const Subnav: React.FC<SubnavProps> = ({ isVisible, items, selectedUrl }) => {
 
 type OrgGroupProps = {
     org: NavOrg
-    isOpen: boolean
+    focusedOrgSlug: string | null
     pathname: string
 }
 
 // Groups behave as an accordion keyed on the URL: only the org in the path is open, and the group
 // row itself never reads as current — its open subnav already says so.
-export const OrgGroup: React.FC<OrgGroupProps> = ({ org, isOpen, pathname }) => {
+export const OrgGroup: React.FC<OrgGroupProps> = ({ org, focusedOrgSlug, pathname }) => {
+    const isOpen = org.slug === focusedOrgSlug
     const items = orgSubnav(org)
     const selectedUrl = isOpen ? selectedSubnavUrl(pathname, items) : null
 

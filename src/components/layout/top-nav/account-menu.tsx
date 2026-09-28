@@ -19,9 +19,9 @@ import {
 } from '@phosphor-icons/react/dist/ssr'
 import { usePathname } from 'next/navigation'
 import { useRef } from 'react'
+import { navIcon } from '../nav-icon'
 import { AccountMenuView, type AccountMenuItem } from './account-menu-view'
 
-const ICON_SIZE = 16
 const AVATAR_SIZE = 32
 
 type MenuLinks = {
@@ -53,22 +53,22 @@ const buildSections = ({
 
     const account: AccountMenuItem[] = [
         ...(isResearcher
-            ? [link('Professional profile', <UserIcon size={ICON_SIZE} aria-hidden />, Routes.researcherProfile)]
+            ? [link('Professional profile', navIcon(UserIcon), Routes.researcherProfile)]
             : []),
-        { label: 'Settings', icon: <GearSixIcon size={ICON_SIZE} aria-hidden />, onSelect: onOpenSettings },
-        link('Security key', <LockIcon size={ICON_SIZE} aria-hidden />, Routes.userKey),
-        link('Legal', <FileTextIcon size={ICON_SIZE} aria-hidden />, Routes.legal),
+        { label: 'Settings', icon: navIcon(GearSixIcon), onSelect: onOpenSettings },
+        link('Security key', navIcon(LockIcon), Routes.userKey),
+        link('Legal', navIcon(FileTextIcon), Routes.legal),
     ]
 
     const siAdmin: AccountMenuItem[] = isSiAdmin
         ? [
-              link('Orgs & Context', <SlidersIcon size={ICON_SIZE} aria-hidden />, Routes.adminSafeinsights),
-              link('SafeInsights legal', <BooksIcon size={ICON_SIZE} aria-hidden />, Routes.adminSafeinsightsLegal),
+              link('Orgs & Context', navIcon(SlidersIcon), Routes.adminSafeinsights),
+              link('SafeInsights legal', navIcon(BooksIcon), Routes.adminSafeinsightsLegal),
           ]
         : []
 
     const signOut: AccountMenuItem[] = [
-        { label: 'Log out', icon: <SignOutIcon size={ICON_SIZE} aria-hidden />, onSelect: onSignOut },
+        { label: 'Log out', icon: navIcon(SignOutIcon), onSelect: onSignOut },
     ]
 
     return [account, siAdmin, signOut].filter((section) => section.length > 0)

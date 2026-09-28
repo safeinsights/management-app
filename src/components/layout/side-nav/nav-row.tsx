@@ -15,20 +15,21 @@ import clsx from 'clsx'
 import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { navIcon } from '../nav-icon'
 import styles from './side-nav.module.css'
 
-const ICON_SIZE = 16
+// 12px on purpose: the external marker is attached to the label, not a peer of it (SideNav spec).
 const EXTERNAL_ICON_SIZE = 12
 
 const ICONS: Record<NavIcon, ReactNode> = {
-    house: <HouseIcon size={ICON_SIZE} aria-hidden />,
-    dashboard: <SquaresFourIcon size={ICON_SIZE} aria-hidden />,
-    settings: <GearSixIcon size={ICON_SIZE} aria-hidden />,
-    team: <UsersThreeIcon size={ICON_SIZE} aria-hidden />,
-    legal: <FileTextIcon size={ICON_SIZE} aria-hidden />,
-    catalog: <DatabaseIcon size={ICON_SIZE} aria-hidden />,
-    resources: <BookOpenIcon size={ICON_SIZE} aria-hidden />,
-    support: <QuestionIcon size={ICON_SIZE} aria-hidden />,
+    house: navIcon(HouseIcon),
+    dashboard: navIcon(SquaresFourIcon),
+    settings: navIcon(GearSixIcon),
+    team: navIcon(UsersThreeIcon),
+    legal: navIcon(FileTextIcon),
+    catalog: navIcon(DatabaseIcon),
+    resources: navIcon(BookOpenIcon),
+    support: navIcon(QuestionIcon),
 }
 
 type NavRowProps = {
@@ -48,7 +49,7 @@ const ExternalMarker: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
     return (
         <span className={styles.externalIcon}>
-            <ArrowSquareOutIcon size={EXTERNAL_ICON_SIZE} aria-hidden />
+            {navIcon(ArrowSquareOutIcon, EXTERNAL_ICON_SIZE)}
             <VisuallyHidden>(opens in a new tab)</VisuallyHidden>
         </span>
     )

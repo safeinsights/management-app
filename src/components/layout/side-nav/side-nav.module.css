@@ -29,11 +29,7 @@
 }
 
 .list {
-    display: flex;
-    flex-direction: column;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+    composes: plainList from '../shell.module.css';
 }
 
 .group {
@@ -52,6 +48,7 @@
 }
 
 .row {
+    composes: focusRing from '../shell.module.css';
     display: flex;
     align-items: center;
     gap: var(--mantine-spacing-xs);
@@ -76,11 +73,6 @@
 
 .row[aria-current='page'] {
     box-shadow: inset rem(4px) 0 0 var(--si-color-brand-accent);
-}
-
-.row:focus-visible {
-    outline: rem(2px) solid var(--si-color-brand-accent);
-    outline-offset: rem(2px);
 }
 
 .subnav {

@@ -1,0 +1,15 @@
+/* Shared by the side nav and the top nav: the accent focus ring on the navy and light surfaces
+   (the theme has no focus/ring token, see OTTER-692), and a bare list. */
+
+.focusRing:focus-visible {
+    outline: rem(2px) solid var(--si-color-brand-accent);
+    outline-offset: rem(2px);
+}
+
+.plainList {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}

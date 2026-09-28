@@ -3,6 +3,7 @@ import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import Link from 'next/link'
 import type { FocusEvent, ReactNode, RefObject } from 'react'
+import { navIcon } from '../nav-icon'
 import styles from './top-nav.module.css'
 
 const CARET_SIZE = 12
@@ -30,7 +31,7 @@ export type AccountMenuViewProps = {
 
 const Caret: React.FC<{ opened: boolean }> = ({ opened }) => (
     <span className={styles.caret}>
-        {opened ? <CaretUpIcon size={CARET_SIZE} aria-hidden /> : <CaretDownIcon size={CARET_SIZE} aria-hidden />}
+        {navIcon(opened ? CaretUpIcon : CaretDownIcon, CARET_SIZE)}
     </span>
 )
 

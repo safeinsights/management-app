@@ -5,22 +5,21 @@ import { FileTextIcon, GearSixIcon, LockIcon, SignOutIcon, UserIcon } from '@pho
 import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
 import { WithAppShell } from '~ladle/decorators/with-app-shell'
+import { navIcon } from '../nav-icon'
 import { AccountMenuView, type AccountMenuItem } from './account-menu-view'
 import styles from './top-nav.module.css'
 
 const meta = { title: 'Layout / Top Nav' }
 export default meta
 
-const ICON_SIZE = 16
-
 const SECTIONS: AccountMenuItem[][] = [
     [
-        { label: 'Professional profile', icon: <UserIcon size={ICON_SIZE} />, href: Routes.researcherProfile },
-        { label: 'Settings', icon: <GearSixIcon size={ICON_SIZE} /> },
-        { label: 'Security key', icon: <LockIcon size={ICON_SIZE} />, href: Routes.userKey },
-        { label: 'Legal', icon: <FileTextIcon size={ICON_SIZE} />, href: Routes.legal, isCurrent: true },
+        { label: 'Professional profile', icon: navIcon(UserIcon), href: Routes.researcherProfile },
+        { label: 'Settings', icon: navIcon(GearSixIcon) },
+        { label: 'Security key', icon: navIcon(LockIcon), href: Routes.userKey },
+        { label: 'Legal', icon: navIcon(FileTextIcon), href: Routes.legal, isCurrent: true },
     ],
-    [{ label: 'Log out', icon: <SignOutIcon size={ICON_SIZE} /> }],
+    [{ label: 'Log out', icon: navIcon(SignOutIcon) }],
 ]
 
 // Session-free stand-in for AccountMenu.

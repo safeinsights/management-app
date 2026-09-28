@@ -20,6 +20,7 @@
 }
 
 .trigger {
+    composes: focusRing from '../shell.module.css';
     display: flex;
     align-items: center;
     gap: var(--mantine-spacing-xs);
@@ -29,11 +30,6 @@
     font-size: var(--si-font-size-14);
     font-weight: var(--si-font-weight-semibold);
     line-height: var(--si-line-height-normal);
-}
-
-.trigger:focus-visible {
-    outline: rem(2px) solid var(--si-color-brand-accent);
-    outline-offset: rem(2px);
 }
 
 .name {
@@ -59,11 +55,7 @@
 }
 
 .list {
-    display: flex;
-    flex-direction: column;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+    composes: plainList from '../shell.module.css';
 }
 
 .item {
