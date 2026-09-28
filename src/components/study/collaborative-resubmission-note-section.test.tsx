@@ -7,10 +7,10 @@ import { fieldErrorId } from '@/components/form-field'
 import { theme } from '@/theme'
 import { useForm, zodResolver } from '@/common'
 import {
-    PROPOSAL_REQUIRED_NOTE_ERROR,
+    REQUIRED_NOTE_ERROR,
     RESUBMIT_NOTE_MAX_CHARACTERS,
     initialResubmitNoteValue,
-    proposalResubmitNoteSchema,
+    resubmitNoteSchema,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -23,7 +23,7 @@ const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 // over-limit rule (OTTER-762).
 function Harness({ initialNote = '', initialError }: { initialNote?: string; initialError?: string }) {
     const noteForm = useForm<ResubmitNoteValue>({
-        validate: zodResolver(proposalResubmitNoteSchema),
+        validate: zodResolver(resubmitNoteSchema),
         initialValues: {
             ...initialResubmitNoteValue,
             resubmissionNote: resubmissionNoteToLexicalJson(initialNote),
@@ -195,11 +195,11 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
 
         const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
-        expect(screen.queryByText(PROPOSAL_REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
+        expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Elsewhere' }))
 
-        await waitFor(() => expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument())
     })
 
     // Focusing an empty Lexical root appends a paragraph, which the editor reports as a change.
@@ -207,23 +207,23 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
     // would otherwise wipe the error the moment it appears.
     it('keeps a required error when focus lands on the still-empty editor', async () => {
         const user = userEvent.setup()
-        renderSingleUserSection({ initialError: PROPOSAL_REQUIRED_NOTE_ERROR })
+        renderSingleUserSection({ initialError: REQUIRED_NOTE_ERROR })
 
         const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
 
-        expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
     })
 
     it('clears a required error as soon as the researcher types', async () => {
         const user = userEvent.setup()
-        renderSingleUserSection({ initialError: PROPOSAL_REQUIRED_NOTE_ERROR })
-        expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        renderSingleUserSection({ initialError: REQUIRED_NOTE_ERROR })
+        expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
 
         const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
         await user.paste('Addressed the feedback.')
 
-        await waitFor(() => expect(screen.queryByText(PROPOSAL_REQUIRED_NOTE_ERROR)).not.toBeInTheDocument())
+        await waitFor(() => expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument())
     })
 })

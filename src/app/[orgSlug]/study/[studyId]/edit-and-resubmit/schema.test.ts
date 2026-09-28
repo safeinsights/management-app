@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
 import {
-    PROPOSAL_REQUIRED_NOTE_ERROR,
+    REQUIRED_NOTE_ERROR,
     RESUBMIT_NOTE_FIELD_TITLE,
     RESUBMIT_NOTE_MAX_CHARACTERS,
-    proposalResubmitNoteSchema,
     resubmissionNoteCharacterCount,
     resubmissionNoteToLexicalJson,
     resubmitNoteSchema,
@@ -18,37 +17,13 @@ const messagesFor = (value: string, schema = resubmitNoteSchema) => {
     return result.success ? [] : result.error.issues.map((issue) => issue.message)
 }
 
-// The proposal page names the field the way its sibling errors do (OTTER-762); the code page
-// keeps the generic copy, so the two schemas differ in that message only.
-describe('proposalResubmitNoteSchema (OTTER-762)', () => {
-    it('rejects an empty note with the card wording', () => {
-        expect(messagesFor('', proposalResubmitNoteSchema)).toEqual([PROPOSAL_REQUIRED_NOTE_ERROR])
-    })
-
-    it('treats a whitespace-only Lexical note as empty', () => {
-        expect(messagesFor(lexicalJson('   '), proposalResubmitNoteSchema)).toEqual([PROPOSAL_REQUIRED_NOTE_ERROR])
-    })
-
-    it('shares the over-limit rule with the code flow', () => {
-        const over = buildNote(RESUBMIT_NOTE_MAX_CHARACTERS + 1)
-        expect(messagesFor(over, proposalResubmitNoteSchema)).toEqual(messagesFor(over))
-        expect(messagesFor(over, proposalResubmitNoteSchema)).toEqual([
-            overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
-        ])
-    })
-
-    it('accepts a single character', () => {
-        expect(proposalResubmitNoteSchema.safeParse({ resubmissionNote: 'x' }).success).toBe(true)
-    })
-})
-
 describe('resubmitNoteSchema', () => {
     it('rejects an empty note', () => {
-        expect(messagesFor('')).toEqual(['A resubmission note is required.'])
+        expect(messagesFor('')).toEqual([REQUIRED_NOTE_ERROR])
     })
 
     it('rejects a whitespace-only note', () => {
-        expect(messagesFor('   ')).toEqual(['A resubmission note is required.'])
+        expect(messagesFor('   ')).toEqual([REQUIRED_NOTE_ERROR])
     })
 
     it('accepts a single character', () => {

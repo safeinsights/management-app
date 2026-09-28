@@ -70,7 +70,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
 
         const results: boolean[] = []
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={study.id} initialNote="">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={(r) => results.push(r)} />
             </EditCodeResubmitProvider>,
         )
@@ -94,7 +94,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
 
         const results: boolean[] = []
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={study.id} initialNote="">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={(r) => results.push(r)} />
             </EditCodeResubmitProvider>,
         )
@@ -119,7 +119,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
         })
 
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={study.id} initialNote="the reviewer asked for a change">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="the reviewer asked for a change">
                 <ResubmitHarness />
             </EditCodeResubmitProvider>,
         )

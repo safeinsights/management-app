@@ -17,7 +17,7 @@ import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { definedDraftFields } from '@/contexts/proposal'
 import { useResubmitProposal } from './hooks/use-resubmit-proposal'
 import {
-    proposalResubmitNoteSchema,
+    resubmitNoteSchema,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
     initialResubmitNoteValue,
@@ -73,7 +73,7 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
     const normalizedInitialNote = resubmissionNoteToLexicalJson(initialNote)
 
     const noteForm = useForm<ResubmitNoteValue>({
-        validate: zodResolver(proposalResubmitNoteSchema),
+        validate: zodResolver(resubmitNoteSchema),
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: normalizedInitialNote },
     })
 

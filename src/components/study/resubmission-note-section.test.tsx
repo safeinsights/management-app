@@ -67,7 +67,7 @@ describe('ResubmissionNoteSection', () => {
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
         await user.click(textarea)
         await user.tab()
-        expect(screen.getByText(/resubmission note is required/i)).toBeInTheDocument()
+        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
     })
 
     it('accepts a single character without surfacing a range error', async () => {
@@ -76,7 +76,7 @@ describe('ResubmissionNoteSection', () => {
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
         await user.click(textarea)
         await user.paste('x')
-        expect(screen.queryByText(/resubmission note is required/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/character limit/i)).not.toBeInTheDocument()
     })
 
@@ -186,7 +186,7 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
 
         await user.clear(textarea)
-        expect(screen.getByText(/resubmission note is required/i)).toBeInTheDocument()
+        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
 
