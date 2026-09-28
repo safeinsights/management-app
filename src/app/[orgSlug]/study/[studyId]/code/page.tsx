@@ -7,7 +7,8 @@ import { getDraftStudyAction } from '@/server/actions/study-request'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
-import { codeSubmissionNav } from '@/lib/study-screen'
+import { canResearcherSubmitCodeForReview, codeSubmissionNav, projectStudyState } from '@/lib/study-screen'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
@@ -34,11 +35,18 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
+    // OTTER-693: a submitted round is view-only, because the confirmation modal promised it would be.
+    // study.status stays APPROVED through submission, so the answer lives on the job statuses.
+    const raw = await rawStudyStateForStudy(studyId)
+    const isEditable = !!raw && canResearcherSubmitCodeForReview(projectStudyState(raw))
+
     // OTTER-693: the Data Partner's template has to be in the workspace before the table renders.
     // Best-effort: the copy reads from S3, and a study whose starter code is missing should still
-    // get a working page rather than an error.
-    const preload = await ensureStarterCodePreloadAction({ studyId })
-    if ('error' in preload) logger.warn(`starter-code pre-load skipped for study ${studyId}: ${preload.error}`)
+    // get a working page rather than an error. Skipped when view-only, where it would only warn.
+    if (isEditable) {
+        const preload = await ensureStarterCodePreloadAction({ studyId })
+        if ('error' in preload) logger.warn(`starter-code pre-load skipped for study ${studyId}: ${preload.error}`)
+    }
 
     // Read on the server so the FAQ renders in its final state on first paint rather than popping
     // open after hydration. getDraftStudyAction has already authorised the view; this only ever
@@ -56,6 +64,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 // against — not the submitting lab. Same source /resubmit reads.
                 dataPartnerName={displayOrgName(result.orgName)}
                 isFirstVisit={isFirstVisit}
+                isEditable={isEditable}
                 nav={codeSubmissionNav(result.status, { orgSlug, studyId })}
             />
         </Stack>

@@ -52,4 +52,16 @@ describe('StudyCodeEmptyView', () => {
         expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
         expect(screen.getByText(/upload your files/i)).toBeInTheDocument()
     })
+
+    // OTTER-693: the empty view carries its own launch and upload affordances, so view-only has to
+    // reach them here too and not only on the files card.
+    it('drops the IDE section and deadens uploading when isEditable is false', () => {
+        renderWithProviders(<StudyCodeEmptyView {...baseProps} isEditable={false} />)
+        expect(screen.queryByText(/write and test your code in ide/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('OR')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /upload files/i })).toBeDisabled()
+        // Mantine marks a disabled Dropzone on the root; react-dropzone drops the drop handler.
+        expect(screen.getByTestId('file-drop-zone')).toHaveAttribute('data-disabled')
+    })
 })

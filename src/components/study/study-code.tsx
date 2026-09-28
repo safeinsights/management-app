@@ -24,6 +24,8 @@ interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
     isFirstVisit: boolean
+    /** False once the round has been submitted: the whole page goes view-only (OTTER-693). */
+    isEditable?: boolean
     nav: StepNav
     onSubmitSuccess?: () => void
 }
@@ -40,42 +42,79 @@ const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) =
     </Text>
 )
 
-type SubmitCodeFooterProps = {
-    studyId: string
-    nav: StepNav
+type SubmitCodeActionProps = {
+    isVisible: boolean
     ide: StudyCodeIDE
     isBlockedByAgreement: boolean
     onSubmitClick: () => void
 }
 
+// Saving and submitting go together: a view-only page has nothing to save either.
+const SubmitCodeAction: FC<SubmitCodeActionProps> = ({ isVisible, ide, isBlockedByAgreement, onSubmitClick }) => {
+    if (!isVisible) return null
+
+    return (
+        <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
+            <SaveStatusIndicator status={ide.saveStatus} />
+            {/* The legal gate is the one reason that disables: no amount of editing clears it, and
+                the notice above already states it. Every other reason validates on click instead, so
+                it can be named. aria-describedby keeps that reason reachable on tabbing back. */}
+            <Button
+                disabled={isBlockedByAgreement}
+                loading={ide.isDirectSubmitting}
+                onClick={onSubmitClick}
+                aria-describedby={SUBMIT_CODE_ERROR_ID}
+            >
+                Submit code for review
+            </Button>
+        </Group>
+    )
+}
+
+type SubmitCodeFooterProps = {
+    studyId: string
+    nav: StepNav
+    ide: StudyCodeIDE
+    isEditable: boolean
+    isBlockedByAgreement: boolean
+    onSubmitClick: () => void
+}
+
 // Submitting opens a modal rather than navigating, so it rides in as the form-owned action beside
-// the nav table's "Previous step" instead of laying out a second row.
-const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({ studyId, nav, ide, isBlockedByAgreement, onSubmitClick }) => (
+// the nav table's "Previous step" instead of laying out a second row. View-only leaves that slot
+// empty, and "Previous step" keeps the row from being blank.
+const SubmitCodeFooter: FC<SubmitCodeFooterProps> = ({
+    studyId,
+    nav,
+    ide,
+    isEditable,
+    isBlockedByAgreement,
+    onSubmitClick,
+}) => (
     <Stack w="100%">
-        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code" />
+        <StudyAgreementPreparingNotice studyId={studyId} consequence="You cannot submit code" isVisible={isEditable} />
         <StepNavigation
             nav={nav}
             formAction={
-                <Group gap="md" wrap="nowrap" align="center" data-testid="submit-row">
-                    <SaveStatusIndicator status={ide.saveStatus} />
-                    {/* The legal gate is the one reason that disables: no amount of editing clears it, and
-                        the notice above already states it. Every other reason validates on click instead, so
-                        it can be named. aria-describedby keeps that reason reachable on tabbing back. */}
-                    <Button
-                        disabled={isBlockedByAgreement}
-                        loading={ide.isDirectSubmitting}
-                        onClick={onSubmitClick}
-                        aria-describedby={SUBMIT_CODE_ERROR_ID}
-                    >
-                        Submit code for review
-                    </Button>
-                </Group>
+                <SubmitCodeAction
+                    isVisible={isEditable}
+                    ide={ide}
+                    isBlockedByAgreement={isBlockedByAgreement}
+                    onSubmitClick={onSubmitClick}
+                />
             }
         />
     </Stack>
 )
 
-export const StudyCode = ({ studyId, dataPartnerName, isFirstVisit, nav, onSubmitSuccess }: StudyCodeProps) => {
+export const StudyCode = ({
+    studyId,
+    dataPartnerName,
+    isFirstVisit,
+    isEditable = true,
+    nav,
+    onSubmitSuccess,
+}: StudyCodeProps) => {
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [submitAttempted, setSubmitAttempted] = useState(false)
     const footerRef = useRef<HTMLDivElement>(null)
@@ -103,6 +142,7 @@ export const StudyCode = ({ studyId, dataPartnerName, isFirstVisit, nav, onSubmi
 
     // The card's rule: the button always clicks, and a blocked attempt says why.
     const handleSubmitClick = () => {
+        if (!isEditable) return
         setSubmitAttempted(true)
         if (ide.submitDisabledReason) return
 
@@ -130,13 +170,19 @@ export const StudyCode = ({ studyId, dataPartnerName, isFirstVisit, nav, onSubmi
                     </Stack>
                 </ProposalStepHeader>
 
-                <YourFilesSection ide={ide} dataPartnerName={dataPartnerName} submitError={submitError} />
+                <YourFilesSection
+                    ide={ide}
+                    dataPartnerName={dataPartnerName}
+                    submitError={submitError}
+                    isEditable={isEditable}
+                />
 
                 <div ref={footerRef}>
                     <SubmitCodeFooter
                         studyId={studyId}
                         nav={nav}
                         ide={ide}
+                        isEditable={isEditable}
                         isBlockedByAgreement={isBlockedByAgreement}
                         onSubmitClick={handleSubmitClick}
                     />
