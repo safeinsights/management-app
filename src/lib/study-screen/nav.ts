@@ -137,10 +137,9 @@ const proposalFeedbackNav: NavRule = (state, ctx) => {
     return { back, forward: backToMyStudies(ctx) }
 }
 
-// /code is a form route rather than a dispatcher screen, so it resolves its own nav instead of being
-// handed one. Submitting is form-owned, which leaves "Previous step" as the only navigation. Before
-// approval the proposal is still the step behind; after it the code phase anchors to /submitted, like
-// every other code screen.
+// /code is a form route, not a dispatcher screen, so it resolves its own nav; submitting is
+// form-owned, leaving "Previous step" as the only navigation. The org-scoped round trip ends here by
+// design: Routes.studyCode takes no returnTo, so the exit falls back to the personal dashboard.
 export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtxBase): StepNav => ({
     back: status === 'APPROVED' ? codePreviousStep(ctx) : proposalPreviousStep(ctx),
 })

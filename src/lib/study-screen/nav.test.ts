@@ -227,9 +227,13 @@ describe('codeSubmissionNav', () => {
         })
     })
 
-    it('anchors "Previous step" to Step 1 before the proposal is approved', () => {
-        expect(codeSubmissionNav('PENDING-REVIEW', ctx).back?.href).toBe(`${base}/edit`)
-    })
+    // getDraftStudyAction serves only DRAFT, CHANGE-REQUESTED and APPROVED, so no other status reaches /code.
+    it.each(['DRAFT', 'CHANGE-REQUESTED'] as const)(
+        'anchors "Previous step" to Step 1 while the proposal is %s',
+        (status) => {
+            expect(codeSubmissionNav(status, ctx).back?.href).toBe(`${base}/edit`)
+        },
+    )
 
     it('offers no solid action: submitting is form-owned', () => {
         const nav = codeSubmissionNav('APPROVED', ctx)

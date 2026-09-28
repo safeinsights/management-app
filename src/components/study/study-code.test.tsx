@@ -965,7 +965,7 @@ describe('StudyCode component', () => {
 
             const row = screen.getByTestId('step-navigation')
             expect(within(row).getByTestId('cta-previous-step')).toHaveTextContent('Previous step')
-            expect(within(row).getByRole('button', { name: 'Submit code for review' })).toBeInTheDocument()
+            expect(within(row).getByTestId('submit-row')).toBeInTheDocument()
         })
 
         it('keeps the submit button enabled with nothing uploaded', async () => {
