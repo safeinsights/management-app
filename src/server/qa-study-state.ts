@@ -37,7 +37,7 @@ export type QaStudyStateResult = {
 }
 
 // An org with no enrolled keys cannot produce a readable artifact, so that is a 400.
-async function encryptForReviewers(db: Kysely<DB>, orgId: string, file: File, storedName: string) {
+async function encryptForReviewers(db: Kysely<DB>, orgId: string, file: File, storedName: string, jobId: string) {
     const recipients = await getOrgPublicKeys(orgId)
     if (recipients.length === 0) {
         throw new QaInvalidRequestError(
@@ -45,7 +45,7 @@ async function encryptForReviewers(db: Kysely<DB>, orgId: string, file: File, st
         )
     }
 
-    const writer = new ResultsWriter(recipients)
+    const writer = new ResultsWriter(recipients, { jobId })
     await writer.addFile(file.name || storedName, await file.arrayBuffer())
     const zipBlob = await writer.generate()
 
@@ -63,10 +63,10 @@ async function storeArtifact(
     const jobInfo = { orgSlug: info.orgSlug, studyId: info.studyId, studyJobId: info.studyJobId }
 
     if (key === 'result') {
-        const encrypted = await encryptForReviewers(db, info.orgId, file, 'encrypted-results.zip')
+        const encrypted = await encryptForReviewers(db, info.orgId, file, 'encrypted-results.zip', info.studyJobId)
         await storeStudyEncryptedResultsFile(jobInfo, encrypted)
     } else {
-        const encrypted = await encryptForReviewers(db, info.orgId, file, 'encrypted-logs.zip')
+        const encrypted = await encryptForReviewers(db, info.orgId, file, 'encrypted-logs.zip', info.studyJobId)
         await storeStudyEncryptedLogFile(jobInfo, encrypted, fileType)
     }
 
