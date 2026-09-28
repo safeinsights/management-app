@@ -14,6 +14,7 @@ import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { type FileType } from '@/database/types'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
+import { tamper } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { SecurityKeyForm } from './security-key-form'
 
@@ -34,7 +35,7 @@ async function seedArtifact(
 ) {
     const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
+    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId })
     for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
     const zip = await writer.generate()
 
@@ -70,6 +71,7 @@ async function seedArtifact(
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
 const NO_FILES_ERROR = 'No encrypted outputs available to decrypt.'
+const INTEGRITY_ERROR = 'These results failed verification and may have been altered. Contact your administrator.'
 
 const enterKey = (value: string) => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value } })
@@ -255,6 +257,45 @@ describe('SecurityKeyForm', () => {
         expect(files[0].path).toBe('run.log')
         expect(screen.queryByText(INVALID_ERROR)).toBeNull()
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
+    })
+
+    // OTTER-675: an archive holding no files decrypts "successfully" with any syntactically valid
+    // PEM, so accepting it would present an unopened job as reviewed.
+    it('rejects a key that opened nothing rather than reporting an empty review', async () => {
+        const artifact = await seedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: [] })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey(await readTestSupportFile('private_key.pem'))
+        clickView()
+
+        expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+        expect(onDecrypted).not.toHaveBeenCalled()
+    })
+
+    it('blames the archive, not the key, when a file has been dropped from it', async () => {
+        const artifact = await seedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'log output' }],
+        })
+        const altered = await tamper(new Blob([artifact.encryptedBody]), { drop: ['run.log'] })
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
+            { ...artifact, encryptedBody: await altered.arrayBuffer() },
+        ])
+
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey(await readTestSupportFile('private_key.pem'))
+        clickView()
+
+        expect(await screen.findByText(INTEGRITY_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(INVALID_ERROR)).toBeNull()
+        expect(onDecrypted).not.toHaveBeenCalled()
     })
 
     // OTTER-688. On the researcher path the action filters to artifacts wrapped for THIS user's

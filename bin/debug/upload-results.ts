@@ -30,8 +30,8 @@ class FileSender extends DebugRequest {
         return [{ fingerprint: await fingerprintKeyData(publicKey), publicKey }]
     }
 
-    async zipForFile(filePath: string) {
-        const writer = new ResultsWriter(await this.writerArgs())
+    async zipForFile(filePath: string, jobId: string) {
+        const writer = new ResultsWriter(await this.writerArgs(), { jobId })
         const buffer = fs.readFileSync(filePath)
         const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
         await writer.addFile(path.basename(filePath), arrayBuffer as ArrayBuffer)
@@ -52,10 +52,10 @@ class FileSender extends DebugRequest {
         const form = new FormData()
 
         if (resultFile) {
-            form.append('result', await this.zipForFile(resultFile), path.basename(resultFile))
+            form.append('result', await this.zipForFile(resultFile, jobId), path.basename(resultFile))
         }
         if (logFile) {
-            form.append('log', await this.zipForFile(logFile), path.basename(logFile))
+            form.append('log', await this.zipForFile(logFile, jobId), path.basename(logFile))
         }
 
         const response = await fetch(`${this.baseURL}/api/job/${jobId}/results`, {
