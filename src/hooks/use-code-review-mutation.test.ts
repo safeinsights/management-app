@@ -76,14 +76,17 @@ describe('useCodeReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        // Status lands only once the action has resolved. isSubmitting is also true while the
+        // request is in flight, so the lock has to still be on after that write.
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(handle.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(handle.sendStateless.mock.calls[0][0] as string)
@@ -113,14 +116,15 @@ describe('useCodeReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'reject', feedback: validFeedback, criteria: validCriteria })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         const jobRejected = await db
             .selectFrom('jobStatusChange')

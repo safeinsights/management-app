@@ -98,11 +98,7 @@ function useCodeReview({
         },
     })
 
-    const { submitReview, isPending, isSuccess } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
-
-    // Held through the post-success navigation: isPending clears the moment the action resolves,
-    // which re-enables the modal while the decided page is still loading.
-    const isSubmitting = isPending || isSuccess
+    const { submitReview, isSubmitting } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
     const handleSubmit = async () => {
         setHasAttemptedSubmit(true)

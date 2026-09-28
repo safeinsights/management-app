@@ -80,8 +80,7 @@ describe('CodeReviewClient decision selector', () => {
         submitReview.mockReset()
         mockUseCodeReviewMutation.mockReturnValue({
             submitReview,
-            isPending: false,
-            isSuccess: false,
+            isSubmitting: false,
             pendingReview: undefined,
         })
         mockUseReviewFeedback.mockReturnValue({
@@ -336,17 +335,15 @@ describe('CodeReviewClient decision selector', () => {
 
     it('keeps the modal locked after the action resolves, while the navigation to the decided page is in flight', async () => {
         const user = userEvent.setup()
-        // Mirrors the real mutation, which drops isPending the instant the action resolves, so the
-        // lock asserted below can only come from isSuccess.
+        // The hook keeps isSubmitting true after isPending clears, for the whole navigation.
         mockUseCodeReviewMutation.mockImplementation(() => {
-            const [isSuccess, setIsSuccess] = useState(false)
+            const [isSubmitting, setIsSubmitting] = useState(false)
             return {
                 submitReview: (...args: Parameters<typeof submitReview>) => {
                     submitReview(...args)
-                    setIsSuccess(true)
+                    setIsSubmitting(true)
                 },
-                isPending: false,
-                isSuccess,
+                isSubmitting,
                 pendingReview: undefined,
             }
         })

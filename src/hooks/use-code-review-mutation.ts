@@ -69,5 +69,6 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         },
     })
 
-    return { submitReview, isPending, isSuccess, pendingReview }
+    // isPending clears when the action resolves, before the decided page replaces this one.
+    return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
 }
