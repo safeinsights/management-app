@@ -61,11 +61,13 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
 
     if (study.status === 'APPROVED' && (!hasCodeToReview || alreadyReviewed)) return null
 
+    const isSubmitting = isPending || isSuccess
+
     return (
         <Stack>
             <Group justify="flex-end">
                 <Button
-                    disabled={isPending || isSuccess}
+                    disabled={isSubmitting}
                     loading={isPending && pendingStatus == 'REJECTED'}
                     onClick={() => updateStudy('REJECTED')}
                     variant="outline"
@@ -73,7 +75,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; approvedFiles?: JobF
                     Reject
                 </Button>
                 <Button
-                    disabled={isPending || isSuccess}
+                    disabled={isSubmitting}
                     loading={isPending && pendingStatus == 'APPROVED'}
                     onClick={() => updateStudy('APPROVED')}
                 >
