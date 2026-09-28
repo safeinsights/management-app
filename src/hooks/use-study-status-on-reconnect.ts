@@ -1,9 +1,10 @@
 'use client'
 
 import { createContext, createElement, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { WebSocketStatus } from '@hocuspocus/provider'
 
+import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { ActionFailure, isActionError } from '@/lib/errors'
 import { reportError, showOrReplaceNotification } from '@/components/errors'
@@ -99,6 +100,7 @@ export function useStudyStatusOnReconnect({
     enabled = true,
 }: Args) {
     const router = useRouter()
+    const pathname = usePathname()
     const socket = useYjsWebsocket()
     const hasRedirectedRef = useRef(false)
     // A latch, because `connected` can re-emit without a real disconnect in between.
@@ -158,13 +160,14 @@ export function useStudyStatusOnReconnect({
                 ...noticeRef.current,
                 autoClose: NOTIFICATION_DISPLAY_MS,
             })
-            router.push(REDIRECT_ROUTE[redirectTargetRef.current]({ orgSlug: orgSlugRef.current, studyId }))
-            // An editable screen and the screen that replaces it can answer the same URL, where push
-            // alone is a no-op that leaves the closed form mounted.
-            router.refresh()
+            pushDecided(
+                router,
+                pathname,
+                REDIRECT_ROUTE[redirectTargetRef.current]({ orgSlug: orgSlugRef.current, studyId }),
+            )
             return true
         },
-        [studyId, studyJobId, router],
+        [studyId, studyJobId, router, pathname],
     )
 
     // A tab that stayed connected while it was in the background received no event if it had no

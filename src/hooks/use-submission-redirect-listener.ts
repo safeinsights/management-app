@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 
+import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { showOrReplaceNotification } from '@/components/errors'
 import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
@@ -95,6 +96,7 @@ type Args = {
 
 export function useSubmissionRedirectListener({ provider, orgSlug, studyId, currentTabId, enabled = true }: Args) {
     const router = useRouter()
+    const pathname = usePathname()
     const hasFiredRef = useRef(false)
 
     useEffect(() => {
@@ -131,10 +133,7 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                 message: `${event.submittedByName} has proceeded to submit a decision on ${DECISION_SUBJECT[event.type]}. No further edits are allowed at this point.`,
                 autoClose: NOTIFICATION_DISPLAY_MS,
             })
-            router.push(DECISION_ROUTE[event.type]({ orgSlug, studyId }))
-            // An open review screen and the decided screen that replaces it can answer the same URL,
-            // where the push alone is a no-op that leaves the open form mounted.
-            router.refresh()
+            pushDecided(router, pathname, DECISION_ROUTE[event.type]({ orgSlug, studyId }))
         }
 
         const onStateless = (data: { payload: unknown }) => {
@@ -147,5 +146,5 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
         return () => {
             provider.off('stateless', onStateless)
         }
-    }, [provider, orgSlug, studyId, currentTabId, enabled, router])
+    }, [provider, orgSlug, studyId, currentTabId, enabled, router, pathname])
 }

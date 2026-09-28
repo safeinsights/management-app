@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
 import { DECISION_NOTICES } from '@/lib/review-decision'
+import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
@@ -64,10 +65,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
             }
 
             // Not bare /review, which REVIEWER_SCREEN_RULES resolves past this screen.
-            const decided = Routes.studyReviewCode({ orgSlug, studyId })
-            router.push(decided)
-            // push() is a no-op when the editable form was reached at this same URL, leaving it mounted.
-            if (pathname === decided) router.refresh()
+            pushDecided(router, pathname, Routes.studyReviewCode({ orgSlug, studyId }))
         },
     })
 

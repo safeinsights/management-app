@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { vi } from 'vitest'
 import {
     actionResult,
@@ -333,18 +334,39 @@ describe('CodeReviewClient decision selector', () => {
         })
     })
 
-    it('stays locked after the action resolves, while the navigation to the decided page is in flight', async () => {
-        mockUseCodeReviewMutation.mockReturnValue({
-            submitReview,
-            isPending: false,
-            isSuccess: true,
-            pendingReview: undefined,
+    it('keeps the modal locked after the action resolves, while the navigation to the decided page is in flight', async () => {
+        const user = userEvent.setup()
+        // Mirrors the real mutation, which drops isPending the instant the action resolves, so the
+        // lock asserted below can only come from isSuccess.
+        mockUseCodeReviewMutation.mockImplementation(() => {
+            const [isSuccess, setIsSuccess] = useState(false)
+            return {
+                submitReview: (...args: Parameters<typeof submitReview>) => {
+                    submitReview(...args)
+                    setIsSuccess(true)
+                },
+                isPending: false,
+                isSuccess,
+                pendingReview: undefined,
+            }
         })
         const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-decision-approve'))
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Approve code' }))
+
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+        const confirm = within(dialog).getByRole('button', { name: 'Approve code' })
+        expect(confirm).toBeDisabled()
+        expect(confirm).toHaveAttribute('data-loading', 'true')
+        expect(within(dialog).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
         expect(screen.getByTestId('code-review-submit')).toBeDisabled()
     })
 
