@@ -149,7 +149,9 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
             notifications.show({
                 color: 'red',
                 title: 'Code could not be submitted',
-                message: saved ? 'Your work is saved. Try again.' : 'We could not save your work. Keep this tab open and try again.',
+                message: saved
+                    ? 'Your work is saved. Try again.'
+                    : 'We could not save your work. Keep this tab open and try again.',
             })
             document.getElementById(RESUBMIT_CODE_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
         },
@@ -175,7 +177,16 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
             resubmit,
             isSubmitting: submitMutation.isPending,
         }),
-        [studyId, orgName, noteForm, saveDraft, saveMutation.isPending, lastSavedAt, resubmit, submitMutation.isPending],
+        [
+            studyId,
+            orgName,
+            noteForm,
+            saveDraft,
+            saveMutation.isPending,
+            lastSavedAt,
+            resubmit,
+            submitMutation.isPending,
+        ],
     )
 
     return <EditCodeResubmitContext.Provider value={value}>{children}</EditCodeResubmitContext.Provider>
