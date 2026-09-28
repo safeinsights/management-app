@@ -501,7 +501,6 @@ export const insertTestStudyOnly = async ({
     isTestStudy = false,
     // False for a test about agreements themselves — those files publish and acknowledge their own.
     withStudyAgreement = true,
-    datasets = null,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
@@ -510,7 +509,6 @@ export const insertTestStudyOnly = async ({
     status?: StudyStatus
     isTestStudy?: boolean
     withStudyAgreement?: boolean
-    datasets?: string[] | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -534,7 +532,6 @@ export const insertTestStudyOnly = async ({
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
-            datasets,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -880,7 +877,6 @@ type CreateTestProposalDraftOptions = {
         title?: string
         piName?: string
         language?: Language
-        datasets?: string[]
     }
 }
 
@@ -894,8 +890,7 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
     const draft = actionResult(
         await onSaveDraftStudyAction({
             orgSlug: enclave.slug,
-            // Step 1 always saves datasets now (OTTER-803), and a draft without any cannot be submitted.
-            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', datasets: ['test-dataset'], ...studyInfo },
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
             submittingOrgSlug: lab.slug,
         }),
     )
@@ -1195,6 +1190,7 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
     piUserId: null,
+    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
