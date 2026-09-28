@@ -1,14 +1,13 @@
 'use client'
 
 import { type FC } from 'react'
-import { Divider, Paper, Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { SubmittedCodeTable } from '@/components/study/submitted-code-table'
+import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { useExpandable } from '@/hooks/use-expandable'
 import { displayOrgName } from '@/lib/string'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeDecisionBanner, type BannerCopy } from '@/lib/study-banners'
@@ -17,7 +16,6 @@ import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/st
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StepNav } from '@/lib/study-screen'
-import { semanticColor } from '@/theme/tokens'
 
 interface CodePostDecisionViewProps {
     study: Submitted<SelectedStudy>
@@ -59,7 +57,6 @@ export function CodePostDecisionView({
     nav,
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
-    const { expanded, toggle } = useExpandable()
     const { timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
     const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: displayOrgName(reviewingOrgName) })
 
@@ -72,21 +69,7 @@ export function CodePostDecisionView({
             <Stack gap="xxl">
                 <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner} />
 
-                <Paper p="xxl" data-testid="submitted-code-files-section">
-                    <Stack gap="md">
-                        <Title order={3} fz="lg" c={semanticColor('text.primary')}>
-                            Code files
-                        </Title>
-                        <Divider color={semanticColor('border.default')} />
-                        <SubmittedCodeTable
-                            jobId={job.id}
-                            files={codeFiles}
-                            maxVisibleFiles={1}
-                            expanded={expanded}
-                            onToggleExpand={toggle}
-                        />
-                    </Stack>
-                </Paper>
+                <SubmittedCodeFilesSection jobId={job.id} files={codeFiles} />
 
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />

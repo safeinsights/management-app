@@ -78,7 +78,6 @@ export interface SubmittedCodeTableViewProps {
     jobId: string
     files: LatestJobForStudy['files']
     onPreview: (file: SubmittedFile) => void
-    /** When set, only this many rows render initially; the rest sit behind "View all code files". */
     maxVisibleFiles?: number
     expanded?: boolean
     onToggleExpand?: () => void
