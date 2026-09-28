@@ -1,12 +1,27 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
-import { legalDocumentQueryKeys, MAX_LEGAL_DOCUMENT_BYTES, publishLegalDocumentVersionSchema } from './legal-document'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+    legalDocumentQueryKeys,
+    MAX_LEGAL_DOCUMENT_BYTES,
+    publishLegalDocumentVersionSchema,
+    signedAtErrorFor,
+} from './legal-document'
 
 const publishWith = (signedAt: string) =>
     publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version', signedAt })
 
-const dayOffsetFromToday = (days: number) =>
-    new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+// Frozen dates to test schema tolerance: Schema allows +1 future day to go through,
+// but no more than that. Reason: timezone differences.
+const TODAY = '2026-09-28'
+const TOMORROW = '2026-09-29'
+const TOO_FAR = '2026-09-30'
+
+beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+})
+
+afterEach(() => vi.useRealTimers())
 
 // Publishing cannot be undone, and the shape check alone accepted both of these.
 describe('publishLegalDocumentVersionSchema signedAt', () => {
@@ -24,12 +39,33 @@ describe('publishLegalDocumentVersionSchema signedAt', () => {
 
     // One day of slack, because this runs on a UTC clock while the admin's date input is local.
     it('allows the day either side of the UTC clock, but not the one after', () => {
-        expect(publishWith(dayOffsetFromToday(1)).success).toBe(true)
-        expect(publishWith(dayOffsetFromToday(2)).success).toBe(false)
+        expect(publishWith(TODAY).success).toBe(true)
+        expect(publishWith(TOMORROW).success).toBe(true)
+        expect(publishWith(TOO_FAR).success).toBe(false)
     })
 
     it('stays optional', () => {
         expect(publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version' }).success).toBe(true)
+    })
+})
+
+describe('signedAtErrorFor', () => {
+    it('says nothing about a field the admin has not filled in yet', () => {
+        expect(signedAtErrorFor('')).toBeUndefined()
+    })
+
+    it('reports the rule the date breaks', () => {
+        expect(signedAtErrorFor('2028-01-01')).toBe('Signed date cannot be in the future')
+        expect(signedAtErrorFor('2026-02-30')).toBe('Signed date is not a real calendar date')
+    })
+
+    it('says nothing about a day that passes', () => {
+        expect(signedAtErrorFor('2026-07-27')).toBeUndefined()
+    })
+
+    it('agrees with the schema on the day of slack it allows', () => {
+        expect(signedAtErrorFor(TOMORROW)).toBeUndefined()
+        expect(publishWith(TOMORROW).success).toBe(true)
     })
 })
 
