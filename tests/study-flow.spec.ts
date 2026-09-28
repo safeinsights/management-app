@@ -1123,7 +1123,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 
@@ -1153,7 +1153,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 

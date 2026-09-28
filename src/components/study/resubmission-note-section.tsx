@@ -55,7 +55,6 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                     <Textarea
                         id="resubmissionNote"
                         aria-label="Resubmission Note"
-                        placeholder="Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission."
                         ref={noteRef}
                         rows={5}
                         {...resizableTextareaProps(noteFloor)}

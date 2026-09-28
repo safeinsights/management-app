@@ -42,14 +42,6 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getAllByRole('heading', { name: /Resubmission Note/ })).toHaveLength(1)
     })
 
-    it('renders the placeholder guidance copy on the textarea', () => {
-        renderSection()
-        expect(screen.getByRole('textbox', { name: 'Resubmission Note' })).toHaveAttribute(
-            'placeholder',
-            'Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission.',
-        )
-    })
-
     it('renders a 0/1800 character counter when empty', () => {
         renderSection()
         expect(screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()

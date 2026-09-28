@@ -3,6 +3,7 @@
 import type { FC } from 'react'
 import { Button, HoverCard, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
+import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const LABEL = 'Launch IDE'
@@ -98,6 +99,18 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
         </Stack>
     )
 }
+
+/** The header Launch IDE, mapped from the hook in one place so its two callers cannot drift. */
+export const IdeLaunchAction: FC<{ ide: StudyCodeIDE; isVisible: boolean }> = ({ ide, isVisible }) => (
+    <LaunchIdeControl
+        isVisible={isVisible}
+        isClaimed={ide.isIdeClaimed}
+        canLaunch={ide.canEditInIde}
+        ideOwnerName={ide.ideOwnerName}
+        isLaunching={ide.isLaunching}
+        onLaunch={ide.launchWorkspace}
+    />
+)
 
 const LaunchHoverCardBody: FC<{ canLaunch: boolean; ideOwnerName: string | null }> = ({ canLaunch, ideOwnerName }) => {
     if (canLaunch) return <Text size="sm">{ENABLED_HOVER_CARD}</Text>
