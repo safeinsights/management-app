@@ -224,8 +224,8 @@ importers:
         specifier: ^2.33.6
         version: 2.34.1
       si-encryption:
-        specifier: github:safeinsights/encryption#3cb802df301d02813f8f67261c34144686b8540a
-        version: https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a
+        specifier: github:safeinsights/encryption#a9b68887be485c1e569cbc71908d67a9426d50b5
+        version: https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5
       uuid:
         specifier: ^14.0.0
         version: 14.0.0
@@ -2811,6 +2811,10 @@ packages:
 
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
+
+  '@zip.js/zip.js@2.15.0':
+    resolution: {integrity: sha512-hYAuHAaWjt0axbofaDL5XUlmrQPsBDcK3f45ApZuh6N+8UGVk26GoGdtGDvcvzahsHytTQ6DtBVXwG9IcCMjjQ==}
+    engines: {bun: '>=0.7.0', deno: '>=1.0.0', node: '>=18.0.0'}
 
   '@zip.js/zip.js@2.8.26':
     resolution: {integrity: sha512-RQ4h9F6DOiHxpdocUDrOl6xBM+yOtz+LkUol47AVWcfebGBDpZ7w7Xvz9PS24JgXvLGiXXzSAfdCdVy1tPlaFA==}
@@ -5716,8 +5720,8 @@ packages:
     resolution: {integrity: sha512-w1aiOKwKuRgtwAReIIj89puqg+I7GvX4IbLrvmhXbzQsj1+Zwi4VO3+fa6ZF91TWSjIxoEkKnMeHcLEODK5ZXA==}
     engines: {node: '>= 0.4'}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a:
-    resolution: {gitHosted: true, integrity: sha512-0X/z+VaQP+vehyGBrrHUJHVFyjJO2687t3gKHnMZUqzLMBfUykpSRjVZ7CGoFGwtKcm270hhQ8gQyW6ABtMOsw==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a}
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5:
+    resolution: {gitHosted: true, integrity: sha512-FyH9fnrW4VddMAa6xG/ujdck3zhJimRR/0PZ2q9/DEEW+uTnvpJ0/r8nBIptEjbhdrnNqFfhvQ6wttUEbe6Cfg==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5}
     version: 0.0.1
 
   side-channel-list@1.0.1:
@@ -9400,6 +9404,8 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
+  '@zip.js/zip.js@2.15.0': {}
+
   '@zip.js/zip.js@2.8.26': {}
 
   accepts@1.3.8:
@@ -12911,9 +12917,9 @@ snapshots:
 
   shell-quote@1.10.0: {}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/3cb802df301d02813f8f67261c34144686b8540a:
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5:
     dependencies:
-      '@zip.js/zip.js': 2.8.26
+      '@zip.js/zip.js': 2.15.0
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
