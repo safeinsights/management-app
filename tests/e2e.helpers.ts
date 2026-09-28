@@ -1,3 +1,4 @@
+import { E2E_ROLE_COOKIE } from '@/lib/clerk-fake/cookie'
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
 import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
@@ -32,6 +33,11 @@ export async function goto(page: Page, url: string) {
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     // Set by HydrationMarker once the root Suspense boundary's content has hydrated. Segments with
     // their own loading.tsx hydrate in a nested boundary later, so this does not cover them.
+    await page.waitForFunction(() => window.isReactHydrated)
+}
+
+export async function reload(page: Page) {
+    await page.reload()
     await page.waitForFunction(() => window.isReactHydrated)
 }
 
@@ -145,11 +151,16 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 export const e2eSignOut = async (page: Page, { notifyClient = false } = {}) => {
     await page
         .context()
-        .clearCookies({ name: '__e2e_role' })
+        .clearCookies({ name: E2E_ROLE_COOKIE })
         .catch(() => {})
     if (notifyClient) {
         await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
     }
+}
+
+// The fake's session is only the role cookie, so restoring it is what signing in again does.
+export const e2eRestoreSession = async (page: Page, role: TestingRole) => {
+    await page.context().addCookies([{ name: E2E_ROLE_COOKIE, value: role, url: page.url() }])
 }
 
 type ClerkSignInParams = {
