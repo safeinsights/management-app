@@ -70,6 +70,17 @@ describe('StudyProposalRoute status routing', () => {
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyEdit({ orgSlug: lab.slug, studyId }))
     })
 
+    // A draft saved before datasets moved to Step 1 has none, and this page cannot add them
+    // (OTTER-803).
+    it('sends a DRAFT with no datasets back to Step 1', async () => {
+        const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-no-datasets' })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', studyId).execute()
+
+        await expect(renderRoute(lab.slug, studyId)).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyEdit({ orgSlug: lab.slug, studyId }))
+    })
+
     it('renders the Step 2 editor for a title exactly at the cap', async () => {
         const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'proposal-route-cap-title' })
         await db

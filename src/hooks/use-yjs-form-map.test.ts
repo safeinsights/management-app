@@ -14,7 +14,11 @@ import { useForm } from '@mantine/form'
 import * as Y from 'yjs'
 import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
-import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import {
+    initialProposalValues,
+    PROPOSAL_PAGE_COLLAB_KEYS,
+    type ProposalFormValues,
+} from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from './use-yjs-form-map'
 
 // Dynamic import inside the factory: a top-level import leaves the binding in TDZ once vitest
@@ -166,6 +170,32 @@ describe('useYjsFormMap', () => {
 
         await waitFor(() => expect(form.getValues().datasets).toEqual(['ds-2']))
         expect(form.getValues().title).toBe('Owned by Step 1')
+    })
+
+    // A draft edited before datasets moved to Step 1 can still hold a `datasets` key, which would
+    // otherwise overwrite the Step 1 selection and reach the row on submit (OTTER-803).
+    it('ignores a remote datasets value on the proposal pages', async () => {
+        const { studyId } = await createDraftStudy('remote-datasets')
+
+        const { result: formResult } = buildProposalForm({ datasets: ['ds-step-1'], piName: 'PI' })
+        const form = formResult.current
+        const websocketProvider = newWebsocketProvider()
+        const hookResult = renderHook(() =>
+            useYjsFormMap({ studyId, form, websocketProvider, collabKeys: PROPOSAL_PAGE_COLLAB_KEYS }),
+        )
+
+        const handle = constructed[0]
+        handle.triggerSync()
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+
+        const document = handle.document!
+        document.transact(() => {
+            document.getMap('fields').set('datasets', ['stale-ds'])
+            document.getMap('fields').set('piName', 'Remote PI')
+        }, Symbol('remote'))
+
+        await waitFor(() => expect(form.getValues().piName).toBe('Remote PI'))
+        expect(form.getValues().datasets).toEqual(['ds-step-1'])
     })
 
     it('warm load: applies CRDT state pushed before sync to the form when a yjsDocument row exists', async () => {

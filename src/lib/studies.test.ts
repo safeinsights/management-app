@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import { decisionTimestampForProposalHeader, draftHasStep2Progress } from './studies'
+import { datasetDisplayNames, decisionTimestampForProposalHeader, draftHasStep2Progress } from './studies'
 
 const submittedAt = new Date('2025-04-16T10:00:00Z')
 const approvedAt = new Date('2026-04-20T10:00:00Z')
@@ -128,7 +128,6 @@ describe('decisionTimestampForProposalHeader', () => {
 
 const emptyDraftStep2 = {
     piUserId: null,
-    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
@@ -140,16 +139,8 @@ describe('draftHasStep2Progress', () => {
         expect(draftHasStep2Progress(emptyDraftStep2)).toBe(false)
     })
 
-    it('returns false when datasets is an empty array', () => {
-        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: [] })).toBe(false)
-    })
-
     it('returns true once a PI user has been selected', () => {
         expect(draftHasStep2Progress({ ...emptyDraftStep2, piUserId: 'user-123' })).toBe(true)
-    })
-
-    it('returns true once a dataset has been picked', () => {
-        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: ['students'] })).toBe(true)
     })
 
     it.each([['researchQuestions'], ['projectSummary'], ['impact'], ['additionalNotes']] as const)(
@@ -159,4 +150,21 @@ describe('draftHasStep2Progress', () => {
             expect(draftHasStep2Progress({ ...emptyDraftStep2, [field]: lexicalJson })).toBe(true)
         },
     )
+})
+
+describe('datasetDisplayNames', () => {
+    it('maps each id to its data source name, in the stored order', () => {
+        const sources = [
+            { id: 'ds-2', name: 'Course Enrollment Data' },
+            { id: 'ds-1', name: 'Student Activity Logs' },
+        ]
+        expect(datasetDisplayNames(['ds-1', 'ds-2'], sources)).toEqual([
+            'Student Activity Logs',
+            'Course Enrollment Data',
+        ])
+    })
+
+    it('falls back to the id for a data source the org no longer lists', () => {
+        expect(datasetDisplayNames(['gone'], [])).toEqual(['gone'])
+    })
 })

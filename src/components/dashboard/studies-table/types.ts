@@ -20,7 +20,6 @@ export type StudyRow = {
     researcherAgreementsAckedAt: Date | null
     // Used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null
-    datasets: string[] | null
     researchQuestions: Json | null
     projectSummary: Json | null
     impact: Json | null
