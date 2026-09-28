@@ -9,7 +9,10 @@ import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
-import { RESUBMISSION_NOTE_FIELD_ID } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import {
+    RESUBMISSION_NOTE_FIELD_ID,
+    RESUBMIT_CODE_BUTTON_ID,
+} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 
 interface EditStudyCodeFooterProps {
@@ -112,6 +115,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                     onClick={handlePrevious}
                 />
                 <Button
+                    id={RESUBMIT_CODE_BUTTON_ID}
                     size="md"
                     variant="filled"
                     disabled={isBusy}

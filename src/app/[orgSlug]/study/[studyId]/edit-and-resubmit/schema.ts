@@ -5,6 +5,7 @@ import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 export const RESUBMIT_NOTE_FIELD_TITLE = 'Resubmission note'
 export const RESUBMIT_NOTE_MAX_CHARACTERS = 1800
 export const RESUBMISSION_NOTE_FIELD_ID = 'resubmissionNote'
+export const RESUBMIT_CODE_BUTTON_ID = 'resubmit-code'
 export const REQUIRED_NOTE_ERROR = 'Enter your resubmission note before continuing.'
 export const NOTE_MAX_ERROR = overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS)
 

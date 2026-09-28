@@ -10,6 +10,7 @@ import { reportMutationError } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import {
     initialResubmitNoteValue,
+    RESUBMIT_CODE_BUTTON_ID,
     resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -150,6 +151,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
                 title: 'Code could not be submitted',
                 message: saved ? 'Your work is saved. Try again.' : 'We could not save your work. Keep this tab open and try again.',
             })
+            document.getElementById(RESUBMIT_CODE_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
         },
     })
 
