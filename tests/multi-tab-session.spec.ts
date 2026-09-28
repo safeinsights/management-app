@@ -1,4 +1,4 @@
-import { authFileFor, e2eRestoreSession, e2eSignOut, expect, goto, test } from './e2e.helpers'
+import { authFileFor, e2eRestoreSession, e2eSignOut, expect, goto, reload, test } from './e2e.helpers'
 
 // Clerk's signOut ends the session for every tab of the browser, so a sign-in page that signed out on
 // load took the other tab with it (OTTER-388). Both pages share one context, which is what two tabs
@@ -30,8 +30,7 @@ test.describe('two tabs, one session', () => {
         await goto(page, '/dashboard')
         await expect(page).toHaveURL(/\/dashboard/)
 
-        await stale.reload()
-        await stale.waitForFunction(() => window.isReactHydrated)
+        await reload(stale)
         await expect(stale.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
         await goto(page, '/dashboard')

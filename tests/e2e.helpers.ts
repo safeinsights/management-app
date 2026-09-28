@@ -36,6 +36,11 @@ export async function goto(page: Page, url: string) {
     await page.waitForFunction(() => window.isReactHydrated)
 }
 
+export async function reload(page: Page) {
+    await page.reload()
+    await page.waitForFunction(() => window.isReactHydrated)
+}
+
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {
     return browserType.name() === 'chromium'
 }
@@ -146,7 +151,7 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 export const e2eSignOut = async (page: Page, { notifyClient = false } = {}) => {
     await page
         .context()
-        .clearCookies({ name: '__e2e_role' })
+        .clearCookies({ name: E2E_ROLE_COOKIE })
         .catch(() => {})
     if (notifyClient) {
         await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
