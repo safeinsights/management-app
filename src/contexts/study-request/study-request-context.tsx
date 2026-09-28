@@ -76,6 +76,7 @@ export function StudyRequestProvider({
                 piName: draft.piName || '',
                 language: draft.language || null,
                 orgSlug: draft.orgSlug || '',
+                datasets: draft.datasets ?? [],
             })
             form.resetDirty()
 

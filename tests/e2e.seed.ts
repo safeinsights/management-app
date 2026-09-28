@@ -151,7 +151,7 @@ async function insertStudy(overrides: StudyOverrides) {
             status,
             language: overrides.language ?? 'R',
             dataSources: ['all'],
-            // The proposal form requires at least one dataset to stay valid when pre-filled.
+            // Step 2 sends a draft without datasets back to Step 1, and submit rejects it (OTTER-803).
             datasets: overrides.datasets ?? ['Student Activity Logs'],
             outputMimeType: 'application/zip',
             submittedAt: overrides.submittedAt === undefined ? new Date() : overrides.submittedAt,

@@ -38,7 +38,7 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
     const { value, secondsRemaining } = useTimedProgress(LAUNCH_STEPS, { buildLog, agentLog }, isOpen)
 
     return (
-        <AppModal isOpen={isOpen} onClose={onAbandon} title={MODAL_TITLE} closeButtonProps={{ 'aria-label': 'Close' }}>
+        <AppModal isOpen={isOpen} onClose={onAbandon} title={MODAL_TITLE}>
             <Stack gap="lg">
                 <Stack gap="xxs">
                     <Text fw={fontWeight.bold}>{HEADING}</Text>

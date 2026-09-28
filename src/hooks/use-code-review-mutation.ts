@@ -1,12 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
 import { DECISION_NOTICES } from '@/lib/review-decision'
+import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
@@ -30,6 +31,7 @@ interface UseCodeReviewMutationOptions {
 
 export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
     const router = useRouter()
+    const pathname = usePathname()
     const queryClient = useQueryClient()
     const { user } = useUser()
 
@@ -62,9 +64,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
                 broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
-            router.push(Routes.studyReview({ orgSlug, studyId }))
+            // Not bare /review, which REVIEWER_SCREEN_RULES resolves past this screen.
+            pushDecided(router, pathname, Routes.studyReviewCode({ orgSlug, studyId }))
         },
     })
 
-    return { submitReview, isPending, isSuccess, pendingReview }
+    // isPending clears when the action resolves, before the decided page replaces this one.
+    return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
 }

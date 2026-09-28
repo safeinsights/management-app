@@ -101,6 +101,20 @@ describe('TestLabs', () => {
         expect(rows.map((row) => row.researchLabId)).toEqual([lab.id])
     })
 
+    it('pluralizes the add button once two labs are picked', async () => {
+        await renderForDataPartner()
+        const first = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: uniqueLabName('One') })
+        const second = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab', name: uniqueLabName('Two') })
+        await openPicker()
+
+        await pickLab(first.name)
+        await pickLab(second.name)
+
+        const dialog = within(screen.getByRole('dialog'))
+        await userEvent.click(dialog.getByRole('button', { name: 'Add as Test Labs' }))
+        expect(await dialog.findByRole('button', { name: 'Add as Test Labs' })).toBeInTheDocument()
+    })
+
     it('explains, and refuses, continuing with nothing selected', async () => {
         await renderForDataPartner()
         await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
