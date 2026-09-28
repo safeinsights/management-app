@@ -12,9 +12,7 @@ import { SettingsCard } from './settings-card'
 export function TestLabRowView({ name, addedOn }: { name: string; addedOn: string }) {
     return (
         <Table.Tr>
-            <Table.Td>
-                <Text fw={fontWeight.semibold}>{name}</Text>
-            </Table.Td>
+            <Table.Td>{name}</Table.Td>
             <Table.Td>{addedOn}</Table.Td>
         </Table.Tr>
     )

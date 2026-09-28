@@ -9,7 +9,6 @@ import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { fontWeight } from '@/theme/tokens'
 
 const SELECTION_REQUIRED = 'Select at least one Research Lab to continue'
-const SUBMIT_LABEL = 'Add as Test Lab'
 
 export type EligibleLab = { id: string; name: string }
 
@@ -25,6 +24,7 @@ const useTestLabPicker = (labs: EligibleLab[]) => {
     }, [labs, selectedIds])
 
     const hasSelection = selectedIds.length > 0
+    const submitLabel = selectedIds.length > 1 ? 'Add as Test Labs' : 'Add as Test Lab'
 
     // The button is only styled disabled, so it stays focusable for its tooltip; this is the guard.
     const goToConfirm = () => {
@@ -37,6 +37,7 @@ const useTestLabPicker = (labs: EligibleLab[]) => {
         setSelectedIds,
         selectedLabs,
         hasSelection,
+        submitLabel,
         isConfirming,
         goToConfirm,
         goBack: () => setIsConfirming(false),
@@ -103,7 +104,7 @@ function ContinueButton({ picker }: { picker: Picker }) {
                     aria-disabled={isBlocked}
                     aria-describedby={isBlocked ? hintId : undefined}
                 >
-                    {SUBMIT_LABEL}
+                    {picker.submitLabel}
                 </Button>
             </Tooltip>
             <SelectionHint id={hintId} isVisible={isBlocked} />
@@ -123,8 +124,8 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
                 New studies submitted to you from your Test Labs will not require {legalDocumentCollectionLabels.SLA}.
             </Text>
             <IrreversibleWarning />
-            <Group justify="flex-end">
-                <Button variant="subtle" onClick={onCancel}>
+            <Group justify="space-between">
+                <Button variant="outline" onClick={onCancel}>
                     Cancel
                 </Button>
                 <ContinueButton picker={picker} />
@@ -158,12 +159,12 @@ function ConfirmStep({ isVisible, picker, isSubmitting, error, onConfirm }: Conf
             </Stack>
             <IrreversibleWarning />
             <ErrorAlert error={error} title="Failed to add test labs" />
-            <Group justify="flex-end">
-                <Button variant="subtle" onClick={picker.goBack} disabled={isSubmitting}>
+            <Group justify="space-between">
+                <Button variant="outline" onClick={picker.goBack} disabled={isSubmitting}>
                     Back
                 </Button>
                 <Button onClick={() => onConfirm(picker.selectedIds)} loading={isSubmitting}>
-                    {SUBMIT_LABEL}
+                    {picker.submitLabel}
                 </Button>
             </Group>
         </Stack>
