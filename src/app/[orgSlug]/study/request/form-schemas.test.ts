@@ -149,6 +149,7 @@ describe('studyProposalApiSchema', () => {
             piName: 'Test PI',
             piUserId: BLANK_UUID,
             language: 'R',
+            datasets: [],
             descriptionDocPath: '/path/to/description.pdf',
             irbDocPath: '/path/to/irb.pdf',
             agreementDocPath: '/path/to/agreement.pdf',

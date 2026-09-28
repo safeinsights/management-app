@@ -128,7 +128,6 @@ describe('decisionTimestampForProposalHeader', () => {
 
 const emptyDraftStep2 = {
     piUserId: null,
-    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
@@ -140,17 +139,8 @@ describe('draftHasStep2Progress', () => {
         expect(draftHasStep2Progress(emptyDraftStep2)).toBe(false)
     })
 
-    it('returns false when datasets is an empty array', () => {
-        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: [] })).toBe(false)
-    })
-
     it('returns true once a PI user has been selected', () => {
         expect(draftHasStep2Progress({ ...emptyDraftStep2, piUserId: 'user-123' })).toBe(true)
-    })
-
-    // Step 1 saves the datasets, so a draft left right after Step 1 must still reopen there.
-    it('returns false when only the Step 1 datasets are set', () => {
-        expect(draftHasStep2Progress({ ...emptyDraftStep2, datasets: ['students'] })).toBe(false)
     })
 
     it.each([['researchQuestions'], ['projectSummary'], ['impact'], ['additionalNotes']] as const)(

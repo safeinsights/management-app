@@ -1195,7 +1195,6 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
     piUserId: null,
-    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,

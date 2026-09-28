@@ -118,6 +118,7 @@ export const studyProposalApiSchema = z.object({
     piName: z.string().max(100).trim(),
     piUserId: z.string().uuid(),
     language: z.enum(['R', 'PYTHON']),
+    datasets: z.array(z.string()),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),
@@ -126,7 +127,6 @@ export const studyProposalApiSchema = z.object({
 })
 
 export const step2ProposalApiSchema = z.object({
-    datasets: z.array(z.string()),
     researchQuestions: z.string(),
     projectSummary: z.string(),
     impact: z.string(),
