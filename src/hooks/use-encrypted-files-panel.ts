@@ -63,6 +63,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         form,
     } = useDecryptFiles({
         encryptedFiles,
+        jobId: job.id,
         onSuccess: (files) => setDecryptedFiles(files),
     })
 

@@ -71,9 +71,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
 
     const isBusy = isSubmitting || isSaving || isFlushing
     // Lexical fields store JSON even when empty, so extract the text to detect real content.
-    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
-    const hasContent =
-        hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
+    const { researchQuestions, projectSummary, impact, additionalNotes, piName } = form.values
+    const hasContent = hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || !!piName
 
     const handlePrevious = async () => {
         // Yjs autosave is inactive in single-user mode, so this is the only write path.
