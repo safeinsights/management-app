@@ -52,9 +52,7 @@ const buildSections = ({
     })
 
     const account: AccountMenuItem[] = [
-        ...(isResearcher
-            ? [link('Professional profile', navIcon(UserIcon), Routes.researcherProfile)]
-            : []),
+        ...(isResearcher ? [link('Professional profile', navIcon(UserIcon), Routes.researcherProfile)] : []),
         { label: 'Settings', icon: navIcon(GearSixIcon), onSelect: onOpenSettings },
         link('Security key', navIcon(LockIcon), Routes.userKey),
         link('Legal', navIcon(FileTextIcon), Routes.legal),
@@ -67,9 +65,7 @@ const buildSections = ({
           ]
         : []
 
-    const signOut: AccountMenuItem[] = [
-        { label: 'Log out', icon: navIcon(SignOutIcon), onSelect: onSignOut },
-    ]
+    const signOut: AccountMenuItem[] = [{ label: 'Log out', icon: navIcon(SignOutIcon), onSelect: onSignOut }]
 
     return [account, siAdmin, signOut].filter((section) => section.length > 0)
 }

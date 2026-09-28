@@ -18,7 +18,7 @@ test.describe('Personal legal page', () => {
         await visitAsRole(page, '/dashboard')
 
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
-        await page.getByRole('link', { name: 'Legal' }).click()
+        await page.getByRole('link', { name: 'Legal', exact: true }).click()
 
         await expect(page).toHaveURL(/\/legal$/)
         await expect(page.getByRole('heading', { name: 'Legal', exact: true })).toBeVisible()

@@ -30,9 +30,7 @@ export type AccountMenuViewProps = {
 }
 
 const Caret: React.FC<{ opened: boolean }> = ({ opened }) => (
-    <span className={styles.caret}>
-        {navIcon(opened ? CaretUpIcon : CaretDownIcon, CARET_SIZE)}
-    </span>
+    <span className={styles.caret}>{navIcon(opened ? CaretUpIcon : CaretDownIcon, CARET_SIZE)}</span>
 )
 
 const MenuItemRow: React.FC<{ item: AccountMenuItem }> = ({ item }) => {
