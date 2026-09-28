@@ -58,7 +58,6 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={title}
-        closeButtonProps={{ 'aria-label': 'Close' }}
         withCloseButton={!isSubmitting}
         closeOnEscape={!isSubmitting}
         closeOnClickOutside={!isSubmitting}
