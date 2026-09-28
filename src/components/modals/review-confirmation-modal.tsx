@@ -34,7 +34,6 @@ export const ReviewConfirmationModal: FC<ReviewConfirmationModalProps> = ({
             closeOnClickOutside={!isPending}
             closeOnEscape={!isPending}
             withCloseButton={!isPending}
-            closeButtonProps={{ 'aria-label': 'Close' }}
         >
             <Stack>
                 {children}

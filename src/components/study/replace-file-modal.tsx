@@ -19,12 +19,7 @@ type ReplaceFileModalProps = {
  * so Replace carries the red treatment and Cancel sits apart from the two actions.
  */
 export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve }) => (
-    <AppModal
-        isOpen={file !== null}
-        onClose={() => onResolve('cancel')}
-        title={MODAL_TITLE}
-        closeButtonProps={{ 'aria-label': 'Close' }}
-    >
+    <AppModal isOpen={file !== null} onClose={() => onResolve('cancel')} title={MODAL_TITLE}>
         <Stack gap="xl">
             <Text size="md">
                 A file named{' '}

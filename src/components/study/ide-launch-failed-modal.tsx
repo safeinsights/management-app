@@ -32,7 +32,7 @@ export const IdeLaunchFailedModal: FC<IdeLaunchFailedModalProps> = ({
     onRetry,
     supportRef = null,
 }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title={MODAL_TITLE} closeButtonProps={{ 'aria-label': 'Close' }}>
+    <AppModal isOpen={isOpen} onClose={onClose} title={MODAL_TITLE}>
         <Stack gap="lg">
             <Stack gap="xxs">
                 <Text fw={fontWeight.bold} c={semanticColor('error.text')}>
