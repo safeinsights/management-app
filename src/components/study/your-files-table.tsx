@@ -185,7 +185,7 @@ const FileActions: FC<FileActionsProps> = ({
     <Group gap="xs" justify="center" wrap="nowrap">
         {/* Two reasons the pencil goes dead, and they need different tooltips: the page is
             view-only, or another researcher holds the IDE. */}
-        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline w={240}>
+        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline maw={240}>
             <ActionIcon
                 variant="subtle"
                 color="grey"
@@ -208,7 +208,7 @@ const FileActions: FC<FileActionsProps> = ({
         </Tooltip>
         {/* Wrapped so the tooltip still fires while the control is disabled, which is the whole
             point of the main-file case. */}
-        <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline w={240}>
+        <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline maw={240}>
             <ActionIcon
                 variant="subtle"
                 color="grey"
