@@ -477,6 +477,76 @@ describe('createUserAndWorkspace', () => {
         expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' })
     })
 
+    describe('code env environment variables', () => {
+        const createWorkspaceEnvVars = async (codeEnvEnvironment: Array<{ name: string; value: string }> | null) => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockImplementation((url: string) => {
+                if (url.includes('/users?')) {
+                    return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse) })
+                }
+                if (url.includes('/templates')) {
+                    return Promise.resolve({
+                        ok: true,
+                        json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
+                    })
+                }
+                if (url.includes('/members/')) {
+                    return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({ id: 'workspace123' }) })
+                }
+                if (url.includes('/organizations')) {
+                    return Promise.resolve({
+                        ok: true,
+                        json: vi.fn().mockResolvedValue([{ id: 'org1', name: 'coder' }]),
+                    })
+                }
+                return Promise.resolve({ ok: false, status: 404, text: vi.fn().mockResolvedValue('Not found') })
+            })
+            getConfigValueMock.mockImplementation((key: string) => {
+                if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+                return Promise.resolve('https://api.coder.com')
+            })
+            getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+                researcherEmail: 'john@example.com',
+                researcherId: 'user123',
+            })
+            fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+                id: 'env-123',
+                identifier: 'test_env',
+                slug: 'test-org',
+                url: 'test-image:latest',
+                settings: { environment: [{ name: 'API_KEY', value: 'edited-after-creation' }] },
+                starterCodeFileNames: [],
+                language: 'R',
+                codeEnvEnvironment,
+            })
+
+            await createUserAndWorkspace('study123')
+
+            const createWorkspaceCall = mockFetch.mock.calls.find(
+                (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
+            )
+            const requestBody = JSON.parse(createWorkspaceCall![1].body)
+            return JSON.parse(
+                requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
+            )
+        }
+
+        it('uses the study snapshot rather than the live code env', async () => {
+            const envVars = await createWorkspaceEnvVars([{ name: 'API_KEY', value: 'frozen-at-creation' }])
+
+            expect(envVars).toContainEqual({ name: 'API_KEY', value: 'frozen-at-creation' })
+            expect(envVars).not.toContainEqual({ name: 'API_KEY', value: 'edited-after-creation' })
+            expect(envVars).toContainEqual(expect.objectContaining({ name: 'DATA_PATH' }))
+        })
+
+        it('falls back to the live code env for a study without a snapshot', async () => {
+            const envVars = await createWorkspaceEnvVars(null)
+
+            expect(envVars).toContainEqual({ name: 'API_KEY', value: 'edited-after-creation' })
+            expect(envVars).toContainEqual(expect.objectContaining({ name: 'DATA_PATH' }))
+        })
+    })
+
     it('should throw error when user creation fails', async () => {
         const mockFetch = global.fetch as unknown as Mock
         mockFetch.mockResolvedValue({
