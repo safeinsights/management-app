@@ -51,7 +51,7 @@ const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, i
     )
     if (!hasChanges) return button
     return (
-        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow multiline w={320}>
+        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320}>
             {button}
         </InfoTooltip>
     )
