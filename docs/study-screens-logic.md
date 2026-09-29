@@ -275,7 +275,7 @@ error**, not a runtime throw. Both pages dispatch through the shared `renderStud
 
 ```ts
 // view/page.tsx → role: 'researcher'   |   review/page.tsx → role: 'reviewer'
-return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId, dashboardHref, returnTo })
+return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId, dashboardHref })
 ```
 
 The `reviewer-*` components are **thin adapters** over the existing reviewer views
@@ -342,9 +342,9 @@ navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`,
 before that. It takes `NavCtxBase` — the context without `dashboardHref`, which this rule never
 reads.
 
-`Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
-for reviewers, and for researchers the org dashboard only when the study was entered with
-`?returnTo=org`.
+`Back to my studies` goes to `ctx.dashboardHref`, which every page sets to the personal `/dashboard`
+(My studies) for both roles. The spec routes this exit to one fixed destination, never back to the
+entry point, so no route carries an entry marker (OTTER-805).
 
 ## Stage 3 — Dashboard action (`dashboard-rules.ts`)
 
