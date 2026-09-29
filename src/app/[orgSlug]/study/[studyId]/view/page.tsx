@@ -20,14 +20,13 @@ export default async function StudyView(props: {
     if (!rawStudyState) notFound()
 
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
-    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     return renderStudyScreen({
         role: 'researcher',
         raw: rawStudyState,
         study,
         orgSlug,
-        dashboardHref,
+        dashboardHref: Routes.dashboard,
         returnTo,
     })
 }

@@ -21,13 +21,12 @@ export default async function StudyViewCode(props: {
     if (!rawStudyState) notFound()
 
     const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
-    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
 
     return renderResearcherCodeStep({
         raw: rawStudyState,
         study,
         orgSlug,
-        dashboardHref,
+        dashboardHref: Routes.dashboard,
         returnTo,
     })
 }

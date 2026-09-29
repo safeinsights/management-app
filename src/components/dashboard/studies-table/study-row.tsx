@@ -31,13 +31,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
             status={status}
             isHighlighted={isHighlighted}
             actionLink={
-                <StudyActionLink
-                    study={study}
-                    audience={audience}
-                    scope={scope}
-                    orgSlug={orgSlug}
-                    isHighlighted={isHighlighted}
-                />
+                <StudyActionLink study={study} audience={audience} orgSlug={orgSlug} isHighlighted={isHighlighted} />
             }
         />
     )

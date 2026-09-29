@@ -35,10 +35,8 @@ export default async function StudySubmittedRoute(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    const dashboardHref = returnTo ? Routes.orgDashboard({ orgSlug }) : Routes.dashboard
-
     return renderScreenById(
         { screen: 'proposal-feedback' },
-        { role: 'researcher', raw, study: result, orgSlug, dashboardHref, returnTo },
+        { role: 'researcher', raw, study: result, orgSlug, dashboardHref: Routes.dashboard, returnTo },
     )
 }

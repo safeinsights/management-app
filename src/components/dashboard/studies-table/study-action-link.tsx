@@ -3,7 +3,7 @@ import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { useSession } from '@/hooks/session'
-import { Audience, Scope, StudyRow } from './types'
+import { Audience, StudyRow } from './types'
 import { DeleteDraftButton } from './delete-draft-button'
 import { resolveDashboardAction } from '@/lib/study-screen'
 import { rowStudyState } from './dashboard-raw-state'
@@ -11,7 +11,6 @@ import { rowStudyState } from './dashboard-raw-state'
 type StudyActionLinkProps = {
     study: StudyRow
     audience: Audience
-    scope: Scope
     orgSlug: string
     isHighlighted: boolean
 }
@@ -19,12 +18,10 @@ type StudyActionLinkProps = {
 function ResearcherLink({
     study,
     orgSlug,
-    scope,
     isHighlighted,
 }: {
     study: StudyRow
     orgSlug: string
-    scope: Scope
     isHighlighted: boolean
 }) {
     const { session } = useSession()
@@ -33,7 +30,6 @@ function ResearcherLink({
         orgSlug: labSlug,
         studyId: study.id,
     })
-    const href = scope === 'org' ? (`${action.href}?returnTo=org` as typeof action.href) : action.href
 
     if (action.secondaryAction === 'delete-draft') {
         const isAuthor = session?.user.id === study.researcherId
@@ -49,7 +45,7 @@ function ResearcherLink({
 
     return (
         <Link
-            href={href}
+            href={action.href}
             aria-label={`View details for study ${study.title}`}
             fw={isHighlighted ? fontWeight.semibold : undefined}
         >
@@ -69,9 +65,9 @@ function ReviewerLink({ study, orgSlug, isHighlighted }: { study: StudyRow; orgS
     )
 }
 
-export function StudyActionLink({ study, audience, scope, orgSlug, isHighlighted }: StudyActionLinkProps) {
+export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: StudyActionLinkProps) {
     if (audience === 'researcher') {
-        return <ResearcherLink study={study} orgSlug={orgSlug} scope={scope} isHighlighted={isHighlighted} />
+        return <ResearcherLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} />
     }
 
     return <ReviewerLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} />

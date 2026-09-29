@@ -181,7 +181,7 @@ describe('StudyViewPage', () => {
             expect(page?.type).toBe(CodePostSubmissionView)
         })
 
-        it('preserves dashboardHref when ?returnTo=org', async () => {
+        it('exits "Back to my studies" to My studies even when entered with ?returnTo=org', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -196,8 +196,7 @@ describe('StudyViewPage', () => {
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-            // returnTo=org still reaches the view — it now arrives as the nav's exit destination.
-            expect(page?.props.nav.forward.href).toBe(`/${org.slug}/dashboard`)
+            expect(page?.props.nav.forward).toMatchObject({ label: 'Back to my studies', href: Routes.dashboard })
         })
 
         it('renders CodePostSubmissionView when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW gate)', async () => {
