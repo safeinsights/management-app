@@ -42,7 +42,8 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     // OTTER-693: the Data Partner's template has to be in the workspace before the table renders.
     // Best-effort: the copy reads from S3, and a study whose starter code is missing should still
-    // get a working page rather than an error. Skipped when view-only, where it would only warn.
+    // get a working page rather than an error. The action no-ops on a closed round anyway; skipping
+    // it here just saves re-projecting the study state we already hold.
     if (isEditable) {
         const preload = await ensureStarterCodePreloadAction({ studyId })
         if ('error' in preload) logger.warn(`starter-code pre-load skipped for study ${studyId}: ${preload.error}`)

@@ -24,8 +24,11 @@ interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
     isFirstVisit: boolean
-    /** False once the round has been submitted: the whole page goes view-only (OTTER-693). */
-    isEditable?: boolean
+    /**
+     * False once the round has been submitted: the whole page goes view-only (OTTER-693). Required
+     * rather than defaulted, so a new mount has to decide rather than silently reopening the defect.
+     */
+    isEditable: boolean
     nav: StepNav
     onSubmitSuccess?: () => void
 }
