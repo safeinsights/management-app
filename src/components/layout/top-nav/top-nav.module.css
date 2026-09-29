@@ -59,6 +59,8 @@
 }
 
 .item {
+    composes: focusRing from '../shell.module.css';
+    --focus-ring-offset: rem(-2px);
     display: flex;
     align-items: center;
     gap: var(--mantine-spacing-xs);
@@ -84,11 +86,6 @@
 
 .item[aria-current='page'] {
     background-color: var(--si-color-brand-accentalpha);
-}
-
-.item:focus-visible {
-    outline: rem(2px) solid var(--si-color-brand-accent);
-    outline-offset: rem(-2px);
 }
 
 .itemIcon {

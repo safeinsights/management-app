@@ -3,7 +3,7 @@
 
 .focusRing:focus-visible {
     outline: rem(2px) solid var(--si-color-brand-accent);
-    outline-offset: rem(2px);
+    outline-offset: var(--focus-ring-offset, rem(2px));
 }
 
 .plainList {

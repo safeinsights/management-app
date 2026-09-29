@@ -67,14 +67,16 @@ describe('externalNavLinks', () => {
 })
 
 describe('selectedSubnavUrl', () => {
-    const items = orgSubnav(org('Partner', 'enclave', true))
-    const orgSlug = 'partner'
+    const partner = org('Partner', 'enclave', true)
+    const orgSlug = partner.slug
 
     it('marks the admin page being viewed', () => {
-        expect(selectedSubnavUrl(`${Routes.adminTeam({ orgSlug })}/invite`, items)).toBe(Routes.adminTeam({ orgSlug }))
+        expect(selectedSubnavUrl(`${Routes.adminTeam({ orgSlug })}/invite`, partner)).toBe(
+            Routes.adminTeam({ orgSlug }),
+        )
     })
 
     it('falls back to the dashboard anywhere else inside the org, study pages included', () => {
-        expect(selectedSubnavUrl(Routes.studyRequest({ orgSlug }), items)).toBe(Routes.orgDashboard({ orgSlug }))
+        expect(selectedSubnavUrl(Routes.studyRequest({ orgSlug }), partner)).toBe(Routes.orgDashboard({ orgSlug }))
     })
 })

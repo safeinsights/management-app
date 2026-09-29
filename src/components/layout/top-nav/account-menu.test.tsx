@@ -71,4 +71,17 @@ describe('AccountMenu', () => {
 
         expect(screen.getByRole('button', { name: 'Toggle profile menu' })).toHaveAttribute('aria-expanded', 'false')
     })
+
+    it('closes on Escape while the trigger still has focus', async () => {
+        mockPathname(Routes.dashboard)
+        mockClerkSession({ clerkUserId: 'c5', userId: 'u5', orgSlug: 'dp', orgType: 'enclave' })
+        renderWithProviders(<AccountMenu />)
+        await openMenu()
+
+        const trigger = screen.getByRole('button', { name: 'Toggle profile menu' })
+        expect(trigger).toHaveFocus()
+        await userEvent.keyboard('{Escape}')
+
+        expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    })
 })

@@ -51,7 +51,7 @@ type OrgGroupProps = {
 export const OrgGroup: React.FC<OrgGroupProps> = ({ org, focusedOrgSlug, pathname }) => {
     const isOpen = org.slug === focusedOrgSlug
     const items = orgSubnav(org)
-    const selectedUrl = isOpen ? selectedSubnavUrl(pathname, items) : null
+    const selectedUrl = isOpen ? selectedSubnavUrl(pathname, org) : null
 
     return (
         <li className={styles.group}>

@@ -2,7 +2,7 @@ import { Popover, UnstyledButton } from '@mantine/core'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import Link from 'next/link'
-import type { FocusEvent, ReactNode, RefObject } from 'react'
+import type { FocusEvent, KeyboardEvent, ReactNode, RefObject } from 'react'
 import { navIcon } from '../nav-icon'
 import styles from './top-nav.module.css'
 
@@ -93,6 +93,11 @@ export const AccountMenuView: React.FC<AccountMenuViewProps> = ({
         onClose()
     }
 
+    // Mantine only handles Escape inside the dropdown, and focus stays on the trigger after a click.
+    const closeOnEscape = (event: KeyboardEvent<HTMLButtonElement>) => {
+        if (event.key === 'Escape') onClose()
+    }
+
     return (
         <Popover
             opened={opened}
@@ -114,6 +119,7 @@ export const AccountMenuView: React.FC<AccountMenuViewProps> = ({
                     ref={triggerRef}
                     className={styles.trigger}
                     onClick={onToggle}
+                    onKeyDown={closeOnEscape}
                     aria-expanded={opened}
                     aria-haspopup="dialog"
                     aria-label="Toggle profile menu"
