@@ -1,6 +1,6 @@
 'use client'
 
-import { semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
 import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
@@ -15,7 +15,6 @@ import {
     Text,
     TextInput,
     Title,
-    useMantineTheme,
     Stack,
 } from '@mantine/core'
 import {
@@ -96,7 +95,6 @@ type InviteData = {
 
 export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { setActive, signIn } = useSignIn()
-    const theme = useMantineTheme()
     const router = useRouter()
 
     // Public: the form must show these before an account exists.
@@ -316,10 +314,9 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                             disabled={!canSubmit}
                             w="100%"
                             size="lg"
-                            bg={!canSubmit ? 'grey.1' : undefined}
-                            styles={!canSubmit ? { label: { color: theme.colors.grey[7] } } : undefined}
+                            fw={fontWeight.regular}
                         >
-                            Create Account
+                            Create account
                         </Button>
                     </Flex>
                 </Flex>
