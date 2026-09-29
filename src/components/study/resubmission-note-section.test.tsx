@@ -61,13 +61,26 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByText(`13/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
     })
 
-    it('shows a validation error when the note is empty and the field is blurred', async () => {
+    // Only a Resubmit click raises the required error (OTTER-778); blurring an untouched empty
+    // note must leave it clean.
+    it('does not raise the required error when an empty note is blurred', async () => {
         const user = userEvent.setup()
         renderSection()
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
         await user.click(textarea)
         await user.tab()
-        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
+        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
+    })
+
+    it('still raises the over-limit error on blur, which the AC keeps on this trigger', async () => {
+        const user = userEvent.setup()
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        await user.click(textarea)
+        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
+        await user.tab()
+
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
     })
 
     it('accepts a single character without surfacing a range error', async () => {
