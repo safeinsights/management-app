@@ -23,9 +23,8 @@ vi.mock('@/server/mailer', async (importOriginal) => ({
 
 const renderInviteModal = async () => {
     const { org } = await mockSessionWithTestData({ isAdmin: true })
-    ;(clerkClient as unknown as Mock).mockResolvedValue({
-        users: { getUserList: vi.fn().mockResolvedValue({ data: [], totalCount: 0 }) },
-    })
+    const clerk = await clerkClient()
+    ;(clerk.users.getUserList as Mock).mockResolvedValue({ data: [], totalCount: 0 })
 
     renderWithProviders(<InviteButton orgSlug={org.slug} />)
     await userEvent.click(screen.getByRole('button', { name: 'Invite People' }))
